@@ -319,7 +319,7 @@ interface MoveAnalysis {
 | State Management | Zustand | Lightweight |
 | Chess | chess.js | Move validation, FEN, SAN |
 | Visualization | D3.js or React Flow | Interactive GitHub-style tree |
-| Backend | Go | Performant REST API |
+| Backend | Go + Echo | Performant REST API |
 | Database | PostgreSQL | Structured data, native JSONB |
 | DB Driver | pgx | Native PostgreSQL driver for Go |
 | Frontend Build | Vite | Fast dev server |
