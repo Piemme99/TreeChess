@@ -1,0 +1,52 @@
+# .air.toml
+# Configuration file for Air (https://github.com/cosmtrek/air)
+
+[build]
+# Just plain old shell command. $GOFILE and $GOLANG are constants.
+cmd = "go build -o ./server ."
+# Binary file name can be changed with -o flag.
+bin = "./server"
+# Customize binary.
+full_bin = "go run ."
+# Watch these folders.
+include_dir = []
+# Ignore these folders.
+exclude_dir = ["tmp", "vendor"]
+# It's not necessary to trigger build each time file changes if the delay is more than 1 second.
+delay = 1000
+# Stop running old binary when build errors occur.
+stop_on_error = true
+# This log file places in your tmp_dir.
+log = "air.log"
+# Show log time in console.
+time = false
+# Colored log.
+main_only_color = "auto"
+# Detect by file name change.
+include_file = []
+# Ignore these extensions.
+exclude_file = []
+# Ignore changes in these directories.
+exclude_regex = []
+# Exclude changes in files matching this glob.
+exclude_glob = []
+# The directory where to store the log file.
+log_dir = "tmp"
+# Poll every second instead of using filesystem events.
+poll = false
+# Debounce 1000ms by default.
+debounce = 0
+# Remove a directory or a file on clean.
+clean_on_start = true
+# Enable running multiple instances of Air in parallel.
+allow_parallel = false
+```
+
+**Note:** The following are Air's default settings. You can override them in your `.air.toml`:
+
+- `include_dir = ["."]`
+- `include_file = ["*.go", "*.mod", "*.sum"]`
+- `exclude_dir = ["tmp", "vendor"]`
+- `exclude_regex = []`
+- `exclude_glob = []`
+- `exclude_file = []`

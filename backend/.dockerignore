@@ -1,0 +1,27 @@
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+tmp/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Air
+.air/
+air.log
+tmp/
+
+# Git
+.git/
+.gitignore
+
+# Logs
+*.log
