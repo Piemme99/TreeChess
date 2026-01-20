@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Chess } from 'chess.js';
 
 interface ChessBoardProps {
@@ -11,21 +11,6 @@ interface ChessBoardProps {
   lastMove?: { from: string; to: string } | null;
   width?: number;
 }
-
-const PIECE_URLS: Record<string, string> = {
-  'P': 'https://upload.wikimedia.org/wikipedia/commons/c/c7/Chess_plt45.svg',
-  'N': 'https://upload.wikimedia.org/wikipedia/commons/e/ef/Chess_nlt45.svg',
-  'B': 'https://upload.wikimedia.org/wikipedia/commons/9/98/Chess_blt45.svg',
-  'R': 'https://upload.wikimedia.org/wikipedia/commons/f/ff/Chess_rlt45.svg',
-  'Q': 'https://upload.wikimedia.org/wikipedia/commons/1/15/Chess_qlt45.svg',
-  'K': 'https://upload.wikimedia.org/wikipedia/commons/4/42/Chess_klt45.svg',
-  'p': 'https://upload.wikimedia.org/wikipedia/commons/c/c7/Chess_pdt45.svg',
-  'n': 'https://upload.wikimedia.org/wikipedia/commons/e/ef/Chess_ndt45.svg',
-  'b': 'https://upload.wikimedia.org/wikipedia/commons/9/98/Chess_bdt45.svg',
-  'r': 'https://upload.wikimedia.org/wikipedia/commons/f/ff/Chess_rdt45.svg',
-  'q': 'https://upload.wikimedia.org/wikipedia/commons/1/15/Chess_qdt45.svg',
-  'k': 'https://upload.wikimedia.org/wikipedia/commons/4/42/Chess_kdt45.svg'
-};
 
 const SQUARES = [
   'a8', 'b8', 'c8', 'd8', 'e8', 'f8', 'g8', 'h8',
@@ -41,6 +26,25 @@ const SQUARES = [
 const FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
 const RANKS = ['8', '7', '6', '5', '4', '3', '2', '1'];
 
+const PIECE_SVGS: Record<string, string> = {
+  P: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><g fill="none" stroke="#000" stroke-width="2"><path d="M50 15c-10 0-18 8-18 18 0 5 3 10 8 14-5 3-8 8-8 14 0 6 5 11 12 11h4c7 0 12-5 12-11 0-6-3-11-8-14 5-4 8-9 8-14 0-10-8-18-18-18z" fill="#fff"/><circle cx="50" cy="52" r="8"/><path d="M30 65v10M70 65v10M50 70v8"/></g></svg>`,
+  N: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><g fill="none" stroke="#000" stroke-width="2"><path d="M50 15c-15 0-25 10-25 22 0 6 4 11 8 15-6 4-10 10-10 17 0 8 7 13 14 13h30c7 0 14-5 14-13 0-7-4-13-10-17 4-4 8-9 8-15 0-12-10-22-25-22z" fill="#fff"/><path d="M35 50h30M50 50v25" stroke-width="3"/></g></svg>`,
+  B: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><g fill="none" stroke="#000" stroke-width="2"><path d="M50 15c-12 0-20 12-20 22 0 7 5 12 9 15-6 4-10 10-10 18 0 8 6 12 14 12h24c8 0 14-4 14-12 0-8-4-14-10-18 4-3 9-8 9-15 0-10-8-22-20-22z" fill="#fff"/><circle cx="50" cy="45" r="6" fill="#fff"/><ellipse cx="50" cy="60" rx="12" ry="8" fill="#fff"/></g></svg>`,
+  R: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><g fill="none" stroke="#000" stroke-width="2"><rect x="20" y="25" width="60" height="12" fill="#fff"/><rect x="23" y="37" width="54" height="6" fill="#fff"/><rect x="26" y="43" width="48" height="4" fill="#fff"/><path d="M30 47v25c0 8 8 12 20 12s20-4 20-12V47" fill="#fff"/><line x1="30" y1="55" x2="70" y2="55"/><line x1="35" y1="62" x2="65" y2="62"/><line x1="40" y1="69" x2="60" y2="69"/></g></svg>`,
+  Q: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><g fill="none" stroke="#000" stroke-width="2"><path d="M50 15c-10 0-18 10-18 20 0 6 4 11 9 14-5 4-9 10-9 17 0 7 6 11 14 11h20c8 0 14-4 14-11 0-7-4-13-9-17 5-3 9-8 9-14 0-10-8-20-18-20z" fill="#fff"/><circle cx="50" cy="40" r="5" fill="#fff"/><circle cx="35" cy="50" r="5" fill="#fff"/><circle cx="65" cy="50" r="5" fill="#fff"/><circle cx="50" cy="60" r="5" fill="#fff"/><circle cx="35" cy="70" r="5" fill="#fff"/><circle cx="65" cy="70" r="5" fill="#fff"/></g></svg>`,
+  K: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><g fill="none" stroke="#000" stroke-width="2"><path d="M50 15c-10 0-18 10-18 20 0 6 4 11 9 14-5 4-9 10-9 17 0 7 6 11 14 11h20c8 0 14-4 14-11 0-7-4-13-9-17 5-3 9-8 9-14 0-10-8-20-18-20z" fill="#fff"/><path d="M35 50h30M42 50v20M58 50v20M50 50v25" stroke-width="3"/></g></svg>`,
+  p: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><g fill="none" stroke="#000" stroke-width="2"><path d="M50 15c-10 0-18 8-18 18 0 5 3 10 8 14-5 3-8 8-8 14 0 6 5 11 12 11h4c7 0 12-5 12-11 0-6-3-11-8-14 5-4 8-9 8-14 0-10-8-18-18-18z" fill="#000"/><circle cx="50" cy="52" r="8" fill="#000"/><path d="M30 65v10M70 65v10M50 70v8"/></g></svg>`,
+  n: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><g fill="none" stroke="#000" stroke-width="2"><path d="M50 15c-15 0-25 10-25 22 0 6 4 11 8 15-6 4-10 10-10 17 0 8 7 13 14 13h30c7 0 14-5 14-13 0-7-4-13-10-17 4-4 8-9 8-15 0-12-10-22-25-22z" fill="#000"/><path d="M35 50h30M50 50v25" stroke-width="3" stroke="#000"/></g></svg>`,
+  b: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><g fill="none" stroke="#000" stroke-width="2"><path d="M50 15c-12 0-20 12-20 22 0 7 5 12 9 15-6 4-10 10-10 18 0 8 6 12 14 12h24c8 0 14-4 14-12 0-8-4-14-10-18 4-3 9-8 9-15 0-10-8-22-20-22z" fill="#000"/><circle cx="50" cy="45" r="6" fill="#000"/><ellipse cx="50" cy="60" rx="12" ry="8" fill="#000"/></g></svg>`,
+  r: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><g fill="none" stroke="#000" stroke-width="2"><rect x="20" y="25" width="60" height="12" fill="#000"/><rect x="23" y="37" width="54" height="6" fill="#000"/><rect x="26" y="43" width="48" height="4" fill="#000"/><path d="M30 47v25c0 8 8 12 20 12s20-4 20-12V47" fill="#000"/><line x1="30" y1="55" x2="70" y2="55"/><line x1="35" y1="62" x2="65" y2="62"/><line x1="40" y1="69" x2="60" y2="69"/></g></svg>`,
+  q: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><g fill="none" stroke="#000" stroke-width="2"><path d="M50 15c-10 0-18 10-18 20 0 6 4 11 9 14-5 4-9 10-9 17 0 7 6 11 14 11h20c8 0 14-4 14-11 0-7-4-13-9-17 5-3 9-8 9-14 0-10-8-20-18-20z" fill="#000"/><circle cx="50" cy="40" r="5" fill="#000"/><circle cx="35" cy="50" r="5" fill="#000"/><circle cx="65" cy="50" r="5" fill="#000"/><circle cx="50" cy="60" r="5" fill="#000"/><circle cx="35" cy="70" r="5" fill="#000"/><circle cx="65" cy="70" r="5" fill="#000"/></g></svg>`,
+  k: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><g fill="none" stroke="#000" stroke-width="2"><path d="M50 15c-10 0-18 10-18 20 0 6 4 11 9 14-5 4-9 10-9 17 0 7 6 11 14 11h20c8 0 14-4 14-11 0-7-4-13-9-17 5-3 9-8 9-14 0-10-8-20-18-20z" fill="#000"/><path d="M35 50h30M42 50v20M58 50v20M50 50v25" stroke-width="3"/></g></svg>`
+};
+
+function svgToUrl(svg: string): string {
+  return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+}
+
 export function ChessBoard({
   fen,
   onMove,
@@ -54,7 +58,7 @@ export function ChessBoard({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const chessRef = useRef<Chess | null>(null);
   const imagesRef = useRef<Record<string, HTMLImageElement>>({});
-  const loadedRef = useRef<Set<string>>(new Set());
+  const [imagesLoaded, setImagesLoaded] = useState(false);
 
   if (!chessRef.current) {
     chessRef.current = new Chess(fen);
@@ -62,13 +66,18 @@ export function ChessBoard({
 
   useEffect(() => {
     const images: Record<string, HTMLImageElement> = {};
-    Object.entries(PIECE_URLS).forEach(([key, src]) => {
+    let loadedCount = 0;
+    const totalPieces = Object.keys(PIECE_SVGS).length;
+
+    Object.entries(PIECE_SVGS).forEach(([key, svg]) => {
       const img = new Image();
       img.onload = () => {
-        loadedRef.current.add(key);
-        drawBoard();
+        loadedCount++;
+        if (loadedCount === totalPieces) {
+          setImagesLoaded(true);
+        }
       };
-      img.src = src;
+      img.src = svgToUrl(svg);
       images[key] = img;
     });
     imagesRef.current = images;
@@ -84,7 +93,7 @@ export function ChessBoard({
 
   useEffect(() => {
     drawBoard();
-  }, [orientation, selectedSquare, possibleMoves, lastMove]);
+  }, [orientation, selectedSquare, possibleMoves, lastMove, imagesLoaded]);
 
   const getSquareColor = (square: string): string => {
     const file = square.charCodeAt(0) - 97;
@@ -160,8 +169,8 @@ export function ChessBoard({
       if (piece) {
         const pieceKey = piece[1].toLowerCase();
         const img = imagesRef.current[pieceKey];
-        if (img && loadedRef.current.has(pieceKey)) {
-          const padding = squareSize * 0.05;
+        if (img && imagesLoaded) {
+          const padding = squareSize * 0.1;
           ctx.drawImage(img, x + padding, y + padding, squareSize - padding * 2, squareSize - padding * 2);
         }
       }
