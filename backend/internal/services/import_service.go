@@ -172,14 +172,18 @@ func (s *ImportService) findExpectedMove(root models.RepertoireNode, currentFEN 
 	var find func(node models.RepertoireNode) string
 	find = func(node models.RepertoireNode) string {
 		if node.FEN == currentFEN {
-			if len(node.Children) > 0 {
-				return *node.Children[0].Move
+			for _, child := range node.Children {
+				if child != nil && child.Move != nil {
+					return *child.Move
+				}
 			}
 			return ""
 		}
 		for _, child := range node.Children {
-			if result := find(*child); result != "" {
-				return result
+			if child != nil {
+				if result := find(*child); result != "" {
+					return result
+				}
 			}
 		}
 		return ""
@@ -196,8 +200,8 @@ func (s *ImportService) ValidatePGN(pgnData string) error {
 }
 
 func (s *ImportService) ValidateMove(fen, san string) error {
-	fenWithNumbers := fen + " 0 1"
-	fenFn, err := chess.FEN(fenWithNumbers)
+	fullFEN := ensureFullFEN(fen)
+	fenFn, err := chess.FEN(fullFEN)
 	if err != nil {
 		return fmt.Errorf("invalid FEN: %w", err)
 	}
@@ -209,14 +213,28 @@ func (s *ImportService) ValidateMove(fen, san string) error {
 	return nil
 }
 
-func (s *ImportService) GetLegalMoves(fen string) []string {
-	fenWithNumbers := fen + " 0 1"
-	fenFn, _ := chess.FEN(fenWithNumbers)
+func (s *ImportService) GetLegalMoves(fen string) ([]string, error) {
+	fullFEN := ensureFullFEN(fen)
+	fenFn, err := chess.FEN(fullFEN)
+	if err != nil {
+		return nil, fmt.Errorf("invalid FEN: %w", err)
+	}
 	game := chess.NewGame(fenFn)
 	moves := game.ValidMoves()
 	sanMoves := make([]string, len(moves))
 	for i, move := range moves {
 		sanMoves[i] = move.String()
 	}
-	return sanMoves
+	return sanMoves, nil
+}
+
+func ensureFullFEN(fen string) string {
+	parts := strings.Fields(fen)
+	if len(parts) >= 6 {
+		return fen
+	}
+	if len(parts) == 4 {
+		return fen + " 0 1"
+	}
+	return fen + " 0 1"
 }

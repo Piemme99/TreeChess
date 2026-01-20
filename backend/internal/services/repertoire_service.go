@@ -48,8 +48,8 @@ func (s *RepertoireService) GetRepertoire(color models.Color) (*models.Repertoir
 	return rep, nil
 }
 
-func (s *RepertoireService) AddNode(req models.AddNodeRequest) (*models.Repertoire, error) {
-	rep, err := repository.GetRepertoireByColor(req.ColorToMove)
+func (s *RepertoireService) AddNode(color models.Color, req models.AddNodeRequest) (*models.Repertoire, error) {
+	rep, err := repository.GetRepertoireByColor(color)
 	if err != nil {
 		return nil, fmt.Errorf("repertoire not found: %w", err)
 	}
@@ -68,7 +68,7 @@ func (s *RepertoireService) AddNode(req models.AddNodeRequest) (*models.Repertoi
 		FEN:         req.FEN,
 		Move:        &req.Move,
 		MoveNumber:  req.MoveNumber,
-		ColorToMove: oppositeColor(req.ColorToMove),
+		ColorToMove: req.ColorToMove,
 		ParentID:    &req.ParentID,
 		Children:    nil,
 	}
@@ -77,7 +77,7 @@ func (s *RepertoireService) AddNode(req models.AddNodeRequest) (*models.Repertoi
 
 	newMetadata := calculateMetadata(rep.TreeData)
 
-	return repository.SaveRepertoire(req.ColorToMove, rep.TreeData, newMetadata)
+	return repository.SaveRepertoire(color, rep.TreeData, newMetadata)
 }
 
 func (s *RepertoireService) DeleteNode(color models.Color, nodeID string) (*models.Repertoire, error) {

@@ -62,13 +62,7 @@ func AddNodeHandler(svc *services.RepertoireService) echo.HandlerFunc {
 			})
 		}
 
-		if req.ColorToMove != color {
-			return c.JSON(http.StatusBadRequest, map[string]string{
-				"error": "colorToMove must match the repertoire color",
-			})
-		}
-
-		rep, err := svc.AddNode(req)
+		rep, err := svc.AddNode(color, req)
 		if err != nil {
 			if strings.Contains(err.Error(), "parent node not found") {
 				return c.JSON(http.StatusNotFound, map[string]string{

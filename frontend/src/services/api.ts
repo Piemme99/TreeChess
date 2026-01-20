@@ -1,7 +1,14 @@
 import axios from 'axios';
-import { Repertoire, PgnImport, RepertoireNode } from '../types';
+import type {
+  Repertoire,
+  AddNodeRequest,
+  Color,
+  AnalysisSummary,
+  AnalysisDetail,
+  UploadResponse
+} from '../types';
 
-const API_BASE = '/api';
+const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
 const api = axios.create({
   baseURL: API_BASE,
@@ -10,38 +17,54 @@ const api = axios.create({
   }
 });
 
+// Error interceptor
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    console.error('API Error:', error.response?.data || error.message);
+    return Promise.reject(error);
+  }
+);
+
+// Repertoire API
 export const repertoireApi = {
-  get: async (color: 'w' | 'b'): Promise<Repertoire> => {
+  get: async (color: Color): Promise<Repertoire> => {
     const response = await api.get(`/repertoire/${color}`);
     return response.data;
   },
 
-  addNode: async (color: 'w' | 'b', parentId: string, fen: string, san: string): Promise<RepertoireNode> => {
-    const response = await api.post(`/repertoire/${color}/node`, {
-      parentId,
-      fen,
-      san
+  addNode: async (color: Color, data: AddNodeRequest): Promise<Repertoire> => {
+    const response = await api.post(`/repertoire/${color}/node`, data);
+    return response.data;
+  },
+
+  deleteNode: async (color: Color, nodeId: string): Promise<Repertoire> => {
+    const response = await api.delete(`/repertoire/${color}/node/${nodeId}`);
+    return response.data;
+  }
+};
+
+// Import/Analysis API
+export const importApi = {
+  upload: async (file: File, color: Color): Promise<UploadResponse> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('color', color);
+
+    const response = await api.post('/imports', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
     });
     return response.data;
   },
 
-  deleteNode: async (color: 'w' | 'b', nodeId: string): Promise<void> => {
-    await api.delete(`/repertoire/${color}/node/${nodeId}`);
-  }
-};
-
-export const importApi = {
-  upload: async (pgn: string): Promise<PgnImport> => {
-    const response = await api.post('/imports', { pgn });
-    return response.data;
-  },
-
-  list: async (): Promise<PgnImport[]> => {
+  list: async (): Promise<AnalysisSummary[]> => {
     const response = await api.get('/analyses');
     return response.data;
   },
 
-  get: async (id: string): Promise<PgnImport> => {
+  get: async (id: string): Promise<AnalysisDetail> => {
     const response = await api.get(`/analyses/${id}`);
     return response.data;
   },
@@ -51,6 +74,7 @@ export const importApi = {
   }
 };
 
+// Health API
 export const healthApi = {
   check: async (): Promise<{ status: string }> => {
     const response = await api.get('/health');

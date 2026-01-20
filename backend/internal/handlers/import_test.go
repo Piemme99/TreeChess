@@ -403,7 +403,7 @@ func TestImportHandler_ResponseFormat(t *testing.T) {
 	assert.Contains(t, body, "valid")
 }
 
-func TestImportHandler_CastlingMove(t *testing.T) {
+func TestImportHandler_RegularMove(t *testing.T) {
 	e := echo.New()
 	body := `{"fen":"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -","san":"e4"}`
 	req := httptest.NewRequest(http.MethodPost, "/api/validate-move", bytes.NewReader([]byte(body)))
@@ -420,9 +420,27 @@ func TestImportHandler_CastlingMove(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rec.Code)
 }
 
+func TestImportHandler_CastlingMove(t *testing.T) {
+	e := echo.New()
+	body := `{"fen":"r3k2r/pppppppp/8/8/8/8/PPPPPPPP/R3K2R w KQkq -","san":"O-O"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/validate-move", bytes.NewReader([]byte(body)))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	importSvc := services.NewImportService(nil)
+	handler := NewImportHandler(importSvc)
+
+	err := handler.ValidateMoveHandler(c)
+
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, rec.Code)
+}
+
 func TestImportHandler_Promotion(t *testing.T) {
 	e := echo.New()
-	body := `{"fen":"4k3/4P3/8/8/8/8/8/4K3 w - - 0 1","san":"e8=Q"}`
+	// Position with pawn on e7, king on e1, black king on h8 - pawn can promote
+	body := `{"fen":"7k/4P3/8/8/8/8/8/4K3 w - -","san":"e8=Q"}`
 	req := httptest.NewRequest(http.MethodPost, "/api/validate-move", bytes.NewReader([]byte(body)))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()

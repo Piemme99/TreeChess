@@ -52,6 +52,9 @@ func main() {
 	e.GET("/api/analyses", importHandler.ListAnalysesHandler)
 	e.GET("/api/analyses/:id", importHandler.GetAnalysisHandler)
 	e.DELETE("/api/analyses/:id", importHandler.DeleteAnalysisHandler)
+	e.POST("/api/import/validate-pgn", importHandler.ValidatePGNHandler)
+	e.POST("/api/import/validate-move", importHandler.ValidateMoveHandler)
+	e.GET("/api/import/legal-moves", importHandler.GetLegalMovesHandler)
 
 	log.Printf("Starting server on :%d", cfg.Port)
 	if err := e.Start(fmt.Sprintf(":%d", cfg.Port)); err != nil {

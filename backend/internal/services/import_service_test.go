@@ -84,8 +84,9 @@ func TestImportService_GetLegalMoves(t *testing.T) {
 	svc := NewImportService(nil)
 
 	fen := "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -"
-	moves := svc.GetLegalMoves(fen)
+	moves, err := svc.GetLegalMoves(fen)
 
+	require.NoError(t, err)
 	assert.NotEmpty(t, moves)
 }
 

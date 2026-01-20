@@ -4,24 +4,14 @@
 
 ```
 treechess/
-├── backend/          # Go 1.21 + Echo v4 + pgx
+├── backend/          # Go 1.21+ + Echo v4 + pgx
 │   ├── main.go
 │   ├── config/
-│   ├── internal/
-│   │   ├── handlers/
-│   │   ├── middleware/
-│   │   ├── models/
-│   │   ├── repository/
-│   │   └── services/
+│   ├── internal/{handlers,middleware,models,repository,services}/
 │   └── go.mod
 ├── frontend/         # React 18 + TypeScript 5 + Vite 5
-│   ├── src/
-│   │   ├── components/
-│   │   ├── stores/
-│   │   ├── types/
-│   │   └── utils/
-│   ├── package.json
-│   └── vite.config.ts
+│   ├── src/{components,stores,types,utils}/
+│   └── package.json
 └── docker-compose.yml
 ```
 

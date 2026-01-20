@@ -1,37 +1,111 @@
-export type Color = 'w' | 'b';
+// Color types
+export type Color = 'white' | 'black';
+export type ShortColor = 'w' | 'b';
 
-export type GameResult = '*' | '1-0' | '0-1' | '1/2-1/2';
-
+// Repertoire types
 export interface RepertoireNode {
   id: string;
   fen: string;
   move: string | null;
   moveNumber: number;
-  colorToMove: Color;
+  colorToMove: ShortColor;
   parentId: string | null;
   children: RepertoireNode[];
 }
 
-export interface Repertoire {
-  color: Color;
-  root: RepertoireNode;
+export interface RepertoireMetadata {
+  totalNodes: number;
+  totalMoves: number;
+  deepestDepth: number;
 }
+
+export interface Repertoire {
+  id: string;
+  color: Color;
+  treeData: RepertoireNode;
+  metadata: RepertoireMetadata;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Add node request
+export interface AddNodeRequest {
+  parentId: string;
+  move: string;
+  fen: string;
+  moveNumber: number;
+  colorToMove: ShortColor;
+}
+
+// Analysis types
+export interface PGNHeaders {
+  Event?: string;
+  Site?: string;
+  Date?: string;
+  Round?: string;
+  White?: string;
+  Black?: string;
+  Result?: string;
+  ECO?: string;
+}
+
+export type MoveStatus = 'in-repertoire' | 'out-of-repertoire' | 'opponent-new';
 
 export interface MoveAnalysis {
-  move: string;
-  fenBefore: string;
-  fenAfter: string;
-  classification: 'in-repertoire' | 'out-of-repertoire' | 'opponent-new';
+  plyNumber: number;
+  san: string;
+  fen: string;
+  status: MoveStatus;
+  expectedMove?: string;
+  isUserMove: boolean;
 }
 
-export interface PgnImport {
+export interface GameAnalysis {
+  gameIndex: number;
+  headers: PGNHeaders;
+  moves: MoveAnalysis[];
+}
+
+export interface AnalysisSummary {
   id: string;
-  pgn: string;
-  importedAt: string;
-  analyses: MoveAnalysis[];
+  color: Color;
+  filename: string;
+  gameCount: number;
+  uploadedAt: string;
 }
 
+export interface AnalysisDetail extends AnalysisSummary {
+  results: GameAnalysis[];
+}
+
+// API types
 export interface ApiError {
   message: string;
   code?: string;
+}
+
+export interface UploadResponse {
+  id: string;
+  color: Color;
+  filename: string;
+  gameCount: number;
+}
+
+// Toast types
+export type ToastType = 'success' | 'error' | 'warning' | 'info';
+
+export interface Toast {
+  id: string;
+  type: ToastType;
+  message: string;
+  duration?: number;
+}
+
+// Helper functions
+export function colorToShort(color: Color): ShortColor {
+  return color === 'white' ? 'w' : 'b';
+}
+
+export function shortToColor(short: ShortColor): Color {
+  return short === 'w' ? 'white' : 'black';
 }

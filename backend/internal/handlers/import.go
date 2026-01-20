@@ -23,6 +23,8 @@ func NewImportHandler(importSvc *services.ImportService) *ImportHandler {
 	}
 }
 
+const MaxPGNSize = 10 * 1024 * 1024 // 10MB limit
+
 func (h *ImportHandler) UploadHandler(c echo.Context) error {
 	colorStr := c.FormValue("color")
 	color := models.Color(colorStr)
@@ -46,6 +48,12 @@ func (h *ImportHandler) UploadHandler(c echo.Context) error {
 		})
 	}
 
+	if file.Size > MaxPGNSize {
+		return c.JSON(http.StatusRequestEntityTooLarge, map[string]string{
+			"error": "file exceeds maximum allowed size",
+		})
+	}
+
 	src, err := file.Open()
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{
@@ -54,10 +62,17 @@ func (h *ImportHandler) UploadHandler(c echo.Context) error {
 	}
 	defer src.Close()
 
-	pgnData, err := io.ReadAll(src)
+	limitedReader := io.LimitReader(src, MaxPGNSize+1)
+	pgnData, err := io.ReadAll(limitedReader)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{
 			"error": "failed to read file content",
+		})
+	}
+
+	if len(pgnData) > MaxPGNSize {
+		return c.JSON(http.StatusRequestEntityTooLarge, map[string]string{
+			"error": "file exceeds maximum allowed size",
 		})
 	}
 
@@ -140,14 +155,23 @@ func (h *ImportHandler) DeleteAnalysisHandler(c echo.Context) error {
 		})
 	}
 
-	return c.NoContent(http.StatusNoContent)
+	return c.JSON(http.StatusOK, map[string]string{
+		"status": "deleted",
+	})
 }
 
 func (h *ImportHandler) ValidatePGNHandler(c echo.Context) error {
-	pgnData, err := io.ReadAll(c.Request().Body)
+	limitedReader := io.LimitReader(c.Request().Body, MaxPGNSize+1)
+	pgnData, err := io.ReadAll(limitedReader)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{
 			"error": "failed to read request body",
+		})
+	}
+
+	if len(pgnData) > MaxPGNSize {
+		return c.JSON(http.StatusRequestEntityTooLarge, map[string]string{
+			"error": "request body exceeds maximum allowed size",
 		})
 	}
 
@@ -207,7 +231,12 @@ func (h *ImportHandler) GetLegalMovesHandler(c echo.Context) error {
 		})
 	}
 
-	moves := h.importService.GetLegalMoves(fen)
+	moves, err := h.importService.GetLegalMoves(fen)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": err.Error(),
+		})
+	}
 
 	return c.JSON(http.StatusOK, map[string]interface{}{
 		"fen":   fen,

@@ -71,15 +71,15 @@ func TestRepertoireHandler_InvalidColorFormat(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 }
 
-func TestAddNodeHandler_InvalidColor(t *testing.T) {
+func TestAddNodeHandler_InvalidURLColor(t *testing.T) {
 	e := echo.New()
 	body := `{"parentId":"test","move":"e4","fen":"test","moveNumber":1,"colorToMove":"white"}`
-	req := httptest.NewRequest(http.MethodPost, "/api/repertoire/black/node", strings.NewReader(body))
+	req := httptest.NewRequest(http.MethodPost, "/api/repertoire/invalid/node", strings.NewReader(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 	c.SetParamNames("color")
-	c.SetParamValues("black")
+	c.SetParamValues("invalid")
 
 	svc := services.NewRepertoireService()
 	handler := AddNodeHandler(svc)
@@ -88,6 +88,11 @@ func TestAddNodeHandler_InvalidColor(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
+
+	var response map[string]string
+	err = json.Unmarshal(rec.Body.Bytes(), &response)
+	require.NoError(t, err)
+	assert.Contains(t, response["error"], "invalid color")
 }
 
 func TestAddNodeHandler_MissingParentID(t *testing.T) {
@@ -155,30 +160,6 @@ func TestAddNodeHandler_InvalidJSON(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
-}
-
-func TestAddNodeHandler_ColorMismatch(t *testing.T) {
-	e := echo.New()
-	body := `{"parentId":"test","move":"e4","fen":"test","moveNumber":1,"colorToMove":"black"}`
-	req := httptest.NewRequest(http.MethodPost, "/api/repertoire/white/node", strings.NewReader(body))
-	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-	rec := httptest.NewRecorder()
-	c := e.NewContext(req, rec)
-	c.SetParamNames("color")
-	c.SetParamValues("white")
-
-	svc := services.NewRepertoireService()
-	handler := AddNodeHandler(svc)
-
-	err := handler(c)
-
-	require.NoError(t, err)
-	assert.Equal(t, http.StatusBadRequest, rec.Code)
-
-	var response map[string]string
-	err = json.Unmarshal(rec.Body.Bytes(), &response)
-	require.NoError(t, err)
-	assert.Contains(t, response["error"], "colorToMove must match")
 }
 
 func TestDeleteNodeHandler_InvalidColor(t *testing.T) {
