@@ -65,92 +65,74 @@ Centralized ticket registry for TreeChess project.
 ### BACKEND-001: Create config loader
 **Description:** Implement configuration loading from environment variables.
 **Acceptance:**
-- [ ] DATABASE_URL loaded from env or default
-- [ ] PORT loaded from env or default 8080
-- [ ] Config struct exported
-- [ ] MustLoad function panics on error
+- [x] DATABASE_URL loaded from env or default
+- [x] PORT loaded from env or default 8080
+- [x] Config struct exported
+- [x] MustLoad function panics on error
 
 ### BACKEND-002: Create database connection
 **Description:** Implement pgx connection pool initialization.
 **Acceptance:**
-- [ ] Connection pool created from config
-- [ ] Ping succeeds on startup
-- [ ] Pool exposed via GetPool function
-- [ ] CloseDB function properly closes pool
+- [x] Connection pool created from config
+- [x] Ping succeeds on startup
+- [x] Pool exposed via GetPool function
+- [x] CloseDB function properly closes pool
 
 ### BACKEND-003: Define data models
 **Description:** Create Go structs for RepertoireNode, Repertoire, and request types.
 **Acceptance:**
-- [ ] Color type with White/Black constants
-- [ ] RepertoireNode struct with all fields
-- [ ] Repertoire struct with metadata
-- [ ] AddNodeRequest struct
-- [ ] Analysis-related structs (GameAnalysis, MoveAnalysis)
-- [ ] JSON tags on all exported fields
+- [x] Color type with White/Black constants
+- [x] RepertoireNode struct with all fields
+- [x] Repertoire struct with metadata
+- [x] AddNodeRequest struct
+- [x] Analysis-related structs (GameAnalysis, MoveAnalysis)
+- [x] JSON tags on all exported fields
 **Dependencies:** None (run `go get github.com/notnil/chess` first)
 
 ### BACKEND-004: Implement repertoire repository
 **Description:** Create repository methods for CRUD operations.
 **Acceptance:**
-- [ ] GetRepertoireByColor returns full repertoire
-- [ ] CreateRepertoire creates empty tree with root node
-- [ ] SaveRepertoire updates tree_data and metadata
-- [ ] JSON marshaling/unmarshaling works
-
-### BACKEND-004b: Implement import repository
-**Description:** Create repository methods for analyses.
-**Acceptance:**
-- [ ] SaveAnalysis stores filename, color, gameCount, results
-- [ ] GetAnalyses returns list with summary (filtered by color optional)
-- [ ] GetAnalysisByID returns full analysis with results
-- [ ] DeleteAnalysis removes analysis
-- [ ] Results stored as JSONB
+- [x] GetRepertoireByColor returns full repertoire
+- [x] CreateRepertoire creates empty tree with root node
+- [x] SaveRepertoire updates tree_data and metadata
+- [x] JSON marshaling/unmarshaling works
 
 ### BACKEND-005: Implement repertoire service
 **Description:** Create service layer with business logic.
 **Acceptance:**
-- [ ] CreateRepertoire validates color
-- [ ] GetRepertoire validates color
-- [ ] AddNode finds parent and appends child
-- [ ] DeleteNode removes node recursively
-- [ ] Metadata updated on mutations
-- [ ] Errors returned for invalid operations
-- [ ] Auto-create repertoires at startup if needed
-
-### BACKEND-005b: Implement import service
-**Description:** Create service layer for PGN parsing and analysis.
-**Acceptance:**
-- [ ] ParsePGN extracts games and headers
-- [ ] AnalyzeGame classifies each move against repertoire
-- [ ] Results structured as GameAnalysis[]
-- [ ] Color parameter determines which repertoire to analyze against
-- [ ] Errors returned for invalid PGN
+- [x] CreateRepertoire validates color
+- [x] GetRepertoire validates color
+- [x] AddNode finds parent and appends child
+- [x] DeleteNode removes node recursively
+- [x] Metadata updated on mutations
+- [x] Errors returned for invalid operations
+- [x] Auto-create repertoires at startup if needed
 
 ### BACKEND-006: Create health handler
 **Description:** Implement /api/health endpoint.
 **Acceptance:**
-- [ ] GET /api/health returns 200
-- [ ] Response is JSON with status field
+- [x] GET /api/health returns 200
+- [x] Response is JSON with status field
 
 ### BACKEND-007: Create repertoire handler
 **Description:** Implement API endpoints for repertoire operations.
 **Acceptance:**
-- [ ] GET /api/repertoire/:color returns repertoire (auto-created at startup)
-- [ ] POST /api/repertoire/:color/node adds node
-- [ ] DELETE /api/repertoire/:color/node/:id deletes node
-- [ ] Proper error handling with HTTP status codes
+- [x] GET /api/repertoire/:color returns repertoire (auto-created at startup)
+- [x] POST /api/repertoire/:color/node adds node
+- [x] DELETE /api/repertoire/:color/node/:id deletes node
+- [x] Proper error handling with HTTP status codes
 
 ### BACKEND-008: Wire main.go
 **Description:** Connect all backend components in main.go.
 **Acceptance:**
-- [ ] Config loaded at startup
-- [ ] Database initialized
-- [ ] Repertoires auto-created for white and black if not exist
-- [ ] Echo instance created with middleware
-- [ ] CORS configured for localhost:5173
-- [ ] Logger middleware active
-- [ ] Routes registered
-- [ ] Server starts on configured port
+- [x] Config loaded at startup
+- [x] Database initialized
+- [x] Repertoires auto-created for white and black if not exist
+- [x] Echo instance created with middleware
+- [x] CORS configured for localhost:5173
+- [x] Logger middleware active
+- [x] Routes registered
+- [x] Server starts on configured port
 
 ### BACKEND-009: Create import/analysis handler
 **Description:** Implement API endpoints for PGN import and analysis.

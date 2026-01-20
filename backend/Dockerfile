@@ -1,4 +1,4 @@
-FROM golang:1.21-alpine
+FROM golang:1.24-alpine
 
 WORKDIR /app
 
@@ -9,11 +9,14 @@ RUN apk add --no-cache git
 COPY go.mod go.sum ./
 RUN go mod download
 
+# Copy source code
+COPY . .
+
 # Install air (hot reload for Go)
-# Use a version compatible with Go 1.21
 RUN go install github.com/cosmtrek/air@v1.49.0
 
 EXPOSE 8080
 
 # air is already in PATH at /go/bin/air
 CMD ["air"]
+
