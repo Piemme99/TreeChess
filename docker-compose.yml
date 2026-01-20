@@ -35,7 +35,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     volumes:
-      - ./frontend:/app/src
+      - ./frontend:/app
     ports:
       - "5173:5173"
     environment:
