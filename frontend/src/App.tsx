@@ -145,7 +145,7 @@ function App() {
 
       <div style={{ flex: 1 }}>
         <h2>Repertoire Tree ({viewColor === 'w' ? 'White' : 'Black'})</h2>
-        {currentRepertoire ? (
+        {currentRepertoire && currentRepertoire.root ? (
           <RepertoireTreeView
             repertoire={currentRepertoire.root}
             selectedNodeId={selectedNodeId}

@@ -15,6 +15,8 @@ export function RepertoireTree({
   color,
   depth = 0
 }: RepertoireTreeProps) {
+  if (!node) return null;
+
   const isSelected = node.id === selectedNodeId;
   const isOpponentNode = node.colorToMove !== color;
 
