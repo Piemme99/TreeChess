@@ -334,8 +334,7 @@ cmd/server/
 ├── internal/
 │   ├── handlers/
 │   │   ├── repertoire.go            # CRUD repertoires
-│   │   ├── pgn.go                   # PGN import
-│   │   └── analysis.go              # Repertoire analysis
+  │   │   └── import.go                  # Import + Analysis
 │   ├── services/
 │   │   ├── repertoire_service.go    # Business logic
 │   │   ├── pgn_parser.go            # PGN parsing
@@ -354,13 +353,17 @@ cmd/server/
 ### 5.3 REST API (MVP)
 
 ```
-GET    /api/repertoire/:color        # Get repertoire
+GET    /api/health                   # Health check
+GET    /api/repertoire/:color        # Get White/Black repertoire
 POST   /api/repertoire/:color/node   # Add node
 DELETE /api/repertoire/:color/node/:id  # Delete node
-POST   /api/pgn/import               # Import PGN file
-POST   /api/pgn/analyze              # Analyze game vs repertoire
-GET    /api/health                   # Health check
+POST   /api/imports                  # Upload PGN + auto-analyze
+GET    /api/analyses                 # List all analyses
+GET    /api/analyses/:id             # Get analysis details
+DELETE /api/analyses/:id             # Delete analysis
 ```
+
+**Note:** Repertoires are auto-created on startup (REQ-001). No POST endpoint needed for creation.
 
 ### 5.4 Frontend Architecture
 
