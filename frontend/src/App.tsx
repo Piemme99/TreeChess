@@ -119,7 +119,7 @@ function App() {
           fen={currentFEN}
           onMove={handleMove}
           onSquareClick={handleNodeSelect}
-          orientation={viewColor}
+          orientation={viewColor === 'w' ? 'white' : 'black'}
           selectedSquare={selectedNodeId || undefined}
           possibleMoves={possibleMoves}
         />
