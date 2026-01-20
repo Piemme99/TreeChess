@@ -12,19 +12,19 @@ interface ChessBoardProps {
   width?: number;
 }
 
-const PIECE_SVGS: Record<string, string> = {
-  'P': '<svg viewBox="0 0 45 45" xmlns="http://www.w3.org/2000/svg"><path d="M22.5 9c-2.21 0-4 1.79-4 4 0 .89.29 1.71.78 2.38C17.33 16.5 16 18.59 16 21c0 2.03.94 3.84 2.41 5.03-3 1.06-7.41 5.55-7.41 13.47h23c0-8-4.41-12.41-7.41-13.47 1.47-1.19 2.41-3 2.41-5.03 0-2.41-1.33-4.5-3.28-5.62.49-.67.78-1.49.78-2.38 0-2.21-1.79-4-4-4z" fill="white" stroke="black" stroke-width="1.5"/></svg>',
-  'N': '<svg viewBox="0 0 45 45" xmlns="http://www.w3.org/2000/svg"><path d="M22 10c-10.5 0-15 5.5-15 10 0 2.5 1.5 4.5 3 6-1.5 1-2 3-2 5 0 2.5 2 4.5 4.5 4.5h12c2.5 0 4.5-2 4.5-4.5 0-2-1-4-2-5 1.5-1.5 3-3.5 3-6 0-4.5-4.5-10-15-10z" fill="white" stroke="black" stroke-width="1.5"/><path d="M18 23h9" stroke="black" stroke-width="2"/><path d="M18 27h9" stroke="black" stroke-width="2"/></svg>',
-  'B': '<svg viewBox="0 0 45 45" xmlns="http://www.w3.org/2000/svg"><path d="M22 10c-5 0-8 5-8 9 0 2.5 1.5 4.5 3 5.5-1.5 1-2 3-2 4.5 0 3 2 4.5 5 4.5h8c3 0 5-1.5 5-4.5 0-1.5-.5-3.5-2-4.5 1.5-1 3-3 3-5.5 0-4-3-9-8-9z" fill="white" stroke="black" stroke-width="1.5"/><circle cx="22" cy="19" r="3" fill="white" stroke="black"/></svg>',
-  'R': '<svg viewBox="0 0 45 45" xmlns="http://www.w3.org/2000/svg"><rect x="9" y="12" width="27" height="5" fill="white" stroke="black" stroke-width="1.5"/><rect x="10" y="17" width="25" height="3" fill="white" stroke="black" stroke-width="1.5"/><rect x="11" y="20" width="23" height="2" fill="white" stroke="black" stroke-width="1.5"/><rect x="13" y="22" width="19" height="2" fill="white" stroke="black" stroke-width="1.5"/><path d="M11 24v10c0 2.5 2.5 4.5 5 4.5h13c2.5 0 5-2 5-4.5V24" fill="white" stroke="black" stroke-width="1.5"/></svg>',
-  'Q': '<svg viewBox="0 0 45 45" xmlns="http://www.w3.org/2000/svg"><path d="M22 10c-4 0-7 3-7 7 0 2 1 3.5 2.5 4.5-1.5 1-2.5 3-2.5 5 0 2.5 2 4 4.5 4h9c2.5 0 4.5-1.5 4.5-4 0-2-1-4-2.5-5 1.5-1 2.5-2.5 2.5-4.5 0-4-3-7-7-7z" fill="white" stroke="black" stroke-width="1.5"/><circle cx="22" cy="18" r="2.5" fill="white" stroke="black"/><circle cx="22" cy="26" r="2.5" fill="white" stroke="black"/><circle cx="19" cy="22" r="2.5" fill="white" stroke="black"/><circle cx="25" cy="22" r="2.5" fill="white" stroke="black"/></svg>',
-  'K': '<svg viewBox="0 0 45 45" xmlns="http://www.w3.org/2000/svg"><path d="M22 10c-4 0-7 3-7 7 0 2 1 3.5 2.5 4.5-1.5 1-2.5 3-2.5 5 0 2.5 2 4 4.5 4h9c2.5 0 4.5-1.5 4.5-4 0-2-1-4-2.5-5 1.5-1 2.5-2.5 2.5-4.5 0-4-3-7-7-7z" fill="white" stroke="black" stroke-width="1.5"/><path d="M18 24h14M22 24v12" stroke="black" stroke-width="2"/></svg>',
-  'p': '<svg viewBox="0 0 45 45" xmlns="http://www.w3.org/2000/svg"><path d="M22.5 9c-2.21 0-4 1.79-4 4 0 .89.29 1.71.78 2.38C17.33 16.5 16 18.59 16 21c0 2.03.94 3.84 2.41 5.03-3 1.06-7.41 5.55-7.41 13.47h23c0-8-4.41-12.41-7.41-13.47 1.47-1.19 2.41-3 2.41-5.03 0-2.41-1.33-4.5-3.28-5.62.49-.67.78-1.49.78-2.38 0-2.21-1.79-4-4-4z" fill="black" stroke="white" stroke-width="1.5"/></svg>',
-  'n': '<svg viewBox="0 0 45 45" xmlns="http://www.w3.org/2000/svg"><path d="M22 10c-10.5 0-15 5.5-15 10 0 2.5 1.5 4.5 3 6-1.5 1-2 3-2 5 0 2.5 2 4.5 4.5 4.5h12c2.5 0 4.5-2 4.5-4.5 0-2-1-4-2-5 1.5-1.5 3-3.5 3-6 0-4.5-4.5-10-15-10z" fill="black" stroke="white" stroke-width="1.5"/><path d="M18 23h9" stroke="white" stroke-width="2"/><path d="M18 27h9" stroke="white" stroke-width="2"/></svg>',
-  'b': '<svg viewBox="0 0 45 45" xmlns="http://www.w3.org/2000/svg"><path d="M22 10c-5 0-8 5-8 9 0 2.5 1.5 4.5 3 5.5-1.5 1-2 3-2 4.5 0 3 2 4.5 5 4.5h8c3 0 5-1.5 5-4.5 0-1.5-.5-3.5-2-4.5 1.5-1 3-3 3-5.5 0-4-3-9-8-9z" fill="black" stroke="white" stroke-width="1.5"/><circle cx="22" cy="19" r="3" fill="black" stroke="white"/></svg>',
-  'r': '<svg viewBox="0 0 45 45" xmlns="http://www.w3.org/2000/svg"><rect x="9" y="12" width="27" height="5" fill="black" stroke="white" stroke-width="1.5"/><rect x="10" y="17" width="25" height="3" fill="black" stroke="white" stroke-width="1.5"/><rect x="11" y="20" width="23" height="2" fill="black" stroke="white" stroke-width="1.5"/><rect x="13" y="22" width="19" height="2" fill="black" stroke="white" stroke-width="1.5"/><path d="M11 24v10c0 2.5 2.5 4.5 5 4.5h13c2.5 0 5-2 5-4.5V24" fill="black" stroke="white" stroke-width="1.5"/></svg>',
-  'q': '<svg viewBox="0 0 45 45" xmlns="http://www.w3.org/2000/svg"><path d="M22 10c-4 0-7 3-7 7 0 2 1 3.5 2.5 4.5-1.5 1-2.5 3-2.5 5 0 2.5 2 4 4.5 4h9c2.5 0 4.5-1.5 4.5-4 0-2-1-4-2.5-5 1.5-1 2.5-2.5 2.5-4.5 0-4-3-7-7-7z" fill="black" stroke="white" stroke-width="1.5"/><circle cx="22" cy="18" r="2.5" fill="black" stroke="white"/><circle cx="22" cy="26" r="2.5" fill="black" stroke="white"/><circle cx="19" cy="22" r="2.5" fill="black" stroke="white"/><circle cx="25" cy="22" r="2.5" fill="black" stroke="white"/></svg>',
-  'k': '<svg viewBox="0 0 45 45" xmlns="http://www.w3.org/2000/svg"><path d="M22 10c-4 0-7 3-7 7 0 2 1 3.5 2.5 4.5-1.5 1-2.5 3-2.5 5 0 2.5 2 4 4.5 4h9c2.5 0 4.5-1.5 4.5-4 0-2-1-4-2.5-5 1.5-1 2.5-2.5 2.5-4.5 0-4-3-7-7-7z" fill="black" stroke="white" stroke-width="1.5"/><path d="M18 24h14M22 24v12" stroke="white" stroke-width="2"/></svg>'
+const PIECE_URLS: Record<string, string> = {
+  'P': 'https://upload.wikimedia.org/wikipedia/commons/c/c7/Chess_plt45.svg',
+  'N': 'https://upload.wikimedia.org/wikipedia/commons/e/ef/Chess_nlt45.svg',
+  'B': 'https://upload.wikimedia.org/wikipedia/commons/9/98/Chess_blt45.svg',
+  'R': 'https://upload.wikimedia.org/wikipedia/commons/f/ff/Chess_rlt45.svg',
+  'Q': 'https://upload.wikimedia.org/wikipedia/commons/1/15/Chess_qlt45.svg',
+  'K': 'https://upload.wikimedia.org/wikipedia/commons/4/42/Chess_klt45.svg',
+  'p': 'https://upload.wikimedia.org/wikipedia/commons/c/c7/Chess_pdt45.svg',
+  'n': 'https://upload.wikimedia.org/wikipedia/commons/e/ef/Chess_ndt45.svg',
+  'b': 'https://upload.wikimedia.org/wikipedia/commons/9/98/Chess_bdt45.svg',
+  'r': 'https://upload.wikimedia.org/wikipedia/commons/f/ff/Chess_rdt45.svg',
+  'q': 'https://upload.wikimedia.org/wikipedia/commons/1/15/Chess_qdt45.svg',
+  'k': 'https://upload.wikimedia.org/wikipedia/commons/4/42/Chess_kdt45.svg'
 };
 
 const SQUARES = [
@@ -53,21 +53,38 @@ export function ChessBoard({
 }: ChessBoardProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const chessRef = useRef<Chess | null>(null);
+  const imagesRef = useRef<Record<string, HTMLImageElement>>({});
+  const loadedRef = useRef<Set<string>>(new Set());
 
   if (!chessRef.current) {
     chessRef.current = new Chess(fen);
   }
 
   useEffect(() => {
+    const images: Record<string, HTMLImageElement> = {};
+    Object.entries(PIECE_URLS).forEach(([key, src]) => {
+      const img = new Image();
+      img.onload = () => {
+        loadedRef.current.add(key);
+        drawBoard();
+      };
+      img.src = src;
+      images[key] = img;
+    });
+    imagesRef.current = images;
+  }, []);
+
+  useEffect(() => {
     try {
       chessRef.current?.load(fen);
     } catch {
     }
+    drawBoard();
   }, [fen]);
 
   useEffect(() => {
     drawBoard();
-  }, [fen, orientation, selectedSquare, possibleMoves, lastMove]);
+  }, [orientation, selectedSquare, possibleMoves, lastMove]);
 
   const getSquareColor = (square: string): string => {
     const file = square.charCodeAt(0) - 97;
@@ -142,18 +159,10 @@ export function ChessBoard({
       const piece = getPieceAt(square);
       if (piece) {
         const pieceKey = piece[1].toLowerCase();
-        const svg = PIECE_SVGS[pieceKey];
-        if (svg) {
-          const img = new Image();
-          const svgBlob = new Blob([svg], { type: 'image/svg+xml' });
-          const url = URL.createObjectURL(svgBlob);
-          
-          img.onload = () => {
-            const padding = squareSize * 0.1;
-            ctx.drawImage(img, x + padding, y + padding, squareSize - padding * 2, squareSize - padding * 2);
-            URL.revokeObjectURL(url);
-          };
-          img.src = url;
+        const img = imagesRef.current[pieceKey];
+        if (img && loadedRef.current.has(pieceKey)) {
+          const padding = squareSize * 0.05;
+          ctx.drawImage(img, x + padding, y + padding, squareSize - padding * 2, squareSize - padding * 2);
         }
       }
 
