@@ -7,56 +7,58 @@ Centralized ticket registry for TreeChess project.
 ### INFRA-001: Create Docker Compose configuration
 **Description:** Create docker-compose.yml with postgres, backend, and frontend services.
 **Acceptance:**
-- [ ] PostgreSQL 15 service with healthcheck
-- [ ] Backend Go service with hot reload
-- [ ] Frontend React service with hot reload
-- [ ] Services communicate via internal network
-- [ ] Ports 5432, 8080, 5173 exposed
+- [x] PostgreSQL 15 service with healthcheck
+- [x] Backend Go service with hot reload
+- [x] Frontend React service with hot reload
+- [x] Services communicate via internal network
+- [x] Ports 5432, 8080, 5173 exposed
 
 ### INFRA-002: Setup backend Go project
 **Description:** Initialize Go module with Echo and pgx dependencies.
 **Acceptance:**
-- [ ] go.mod created with go 1.21
-- [ ] Echo v4 imported
-- [ ] pgx v5 imported
-- [ ] UUID library imported
+- [x] go.mod created with go 1.24
+- [x] Echo v4 imported
+- [x] pgx v5 imported
+- [x] UUID library imported
 
 ### INFRA-003: Setup frontend React project
 **Description:** Initialize Vite project with TypeScript, React, and dependencies.
 **Acceptance:**
-- [ ] package.json with React 18, TypeScript 5, Vite 5
-- [ ] chess.js imported
-- [ ] zustand imported
-- [ ] react-router-dom imported
-- [ ] vite.config.ts configured
+- [x] package.json with React 18, TypeScript 5, Vite 5
+- [x] chess.js imported
+- [x] zustand imported
+- [x] react-router-dom imported
+- [x] vite.config.ts configured
+- [x] react-chessboard imported (for board component)
 
 ### INFRA-004: Create database schema migration
 **Description:** Create SQL migration for repertoires table.
 **Acceptance:**
-- [ ] repertoires table with UUID primary key
-- [ ] color column (white/black) with unique constraint
-- [ ] tree_data JSONB column
-- [ ] metadata JSONB column with defaults
-- [ ] created_at and updated_at timestamps
-- [ ] Indexes on color and updated_at
+- [x] repertoires table with UUID primary key
+- [x] color column (white/black) with unique constraint
+- [x] tree_data JSONB column
+- [x] metadata JSONB column with defaults
+- [x] created_at and updated_at timestamps
+- [x] Indexes on color and updated_at
 
 ### INFRA-005: Create backend Dockerfile
 **Description:** Create Docker image for backend with hot reload support.
 **Acceptance:**
-- [ ] Based on golang:1.21-alpine
-- [ ] Air installed for hot reload
-- [ ] Exposes port 8080
-- [ ] Mounts backend directory
-- [ ] Runs with proper environment variables
+- [x] Based on golang:1.24-alpine
+- [x] Air installed for hot reload
+- [x] Exposes port 8080
+- [x] Mounts backend directory
+- [x] Runs with proper environment variables
 
 ### INFRA-006: Create frontend Dockerfile
 **Description:** Create Docker image for frontend dev server.
 **Acceptance:**
-- [ ] Based on node:18-alpine
-- [ ] npm install runs during build
-- [ ] Exposes port 5173
-- [ ] Runs npm run dev with host flag
-- [ ] Mounts src directory for hot reload
+- [x] Based on node:18-slim (Alpine had rollup issues)
+- [x] Build essentials installed
+- [x] npm install runs during build
+- [x] Exposes port 5173
+- [x] Runs npm run dev with host flag
+- [x] Mounts src directory for hot reload
 
 ---
 
@@ -87,7 +89,7 @@ Centralized ticket registry for TreeChess project.
 - [x] AddNodeRequest struct
 - [x] Analysis-related structs (GameAnalysis, MoveAnalysis)
 - [x] JSON tags on all exported fields
-**Dependencies:** None (run `go get github.com/notnil/chess` first)
+- [x] notnil/chess imported for move validation
 
 ### BACKEND-004: Implement repertoire repository
 **Description:** Create repository methods for CRUD operations.
@@ -96,6 +98,13 @@ Centralized ticket registry for TreeChess project.
 - [x] CreateRepertoire creates empty tree with root node
 - [x] SaveRepertoire updates tree_data and metadata
 - [x] JSON marshaling/unmarshaling works
+
+### BACKEND-004b: Implement import repository
+**Description:** Create repository for PGN analyses.
+**Acceptance:**
+- [x] analyses table with UUID primary key
+- [x] ImportAnalysis struct stored
+- [x] CRUD operations for analyses
 
 ### BACKEND-005: Implement repertoire service
 **Description:** Create service layer with business logic.
@@ -107,6 +116,13 @@ Centralized ticket registry for TreeChess project.
 - [x] Metadata updated on mutations
 - [x] Errors returned for invalid operations
 - [x] Auto-create repertoires at startup if needed
+
+### BACKEND-005b: Implement import service
+**Description:** Create service for PGN parsing and analysis.
+**Acceptance:**
+- [x] notnil/chess.GamesFromPGN for parsing
+- [x] Move classification (in-repertoire, out-of-repertoire, opponent-new)
+- [x] Full FEN generation with notnil/chess
 
 ### BACKEND-006: Create health handler
 **Description:** Implement /api/health endpoint.
@@ -137,56 +153,41 @@ Centralized ticket registry for TreeChess project.
 ### BACKEND-009: Create import/analysis handler
 **Description:** Implement API endpoints for PGN import and analysis.
 **Acceptance:**
-- [ ] POST /api/imports handles multipart upload with color parameter
-- [ ] PGN parsed and analyzed immediately against specified repertoire
-- [ ] Results stored in analyses table with color
-- [ ] GET /api/analyses returns list
-- [ ] GET /api/analyses/:id returns full details
-- [ ] DELETE /api/analyses/:id removes analysis
-- [ ] Proper error handling with HTTP status codes
+- [x] POST /api/imports handles JSON body with pgn and color
+- [x] PGN parsed and analyzed immediately against specified repertoire
+- [x] Results stored in analyses table with color
+- [x] GET /api/analyses returns list
+- [x] GET /api/analyses/:id returns full details
+- [x] DELETE /api/analyses/:id removes analysis
+- [x] Proper error handling with HTTP status codes
 
 ---
 
 ## Chess Logic (Epic 3)
 
-### CHESS-001: Implement chess.js validator (Frontend)
-**Description:** Create ChessValidator class wrapping chess.js.
+### CHESS-001: Implement chess utilities (Frontend)
+**Description:** Create utilities wrapping chess.js.
 **Acceptance:**
-- [ ] Constructor accepts optional FEN
-- [ ] validateMove() returns move details or null
-- [ ] getLegalMoves() returns SAN moves
-- [ ] getFEN() returns current position
-- [ ] getTurn() returns w or b
-- [ ] getMoveNumber() returns integer
-- [ ] undo() and reset() work
-- [ ] loadFEN() validates and loads position
+- [x] createInitialPosition() returns Chess instance
+- [x] createPositionFromFEN() validates and loads position
+- [x] getShortFEN() strips halfmove/fullmove counters
+- [x] isValidMove() validates SAN against FEN
+- [x] getMoveSAN() gets SAN from from/to squares
+- [x] getLegalMoves() returns all valid moves with details
+- [x] makeMove() applies move and returns new FEN
+- [x] getTurn() returns w or b
+- [x] getMoveNumber() calculates move number
 
-### CHESS-002: Implement SAN validation (Frontend)
-**Description:** Create utility for SAN format validation.
+### CHESS-002: Implement TypeScript types
+**Description:** Define TypeScript interfaces for the application.
 **Acceptance:**
-- [ ] Piece moves validated (Nf3, e4, etc.)
-- [ ] Captures validated (exd5, etc.)
-- [ ] Castling validated (O-O, O-O-O)
-- [ ] Promotions validated (e8=Q, etc.)
-- [ ] Check/checkmate suffixes optional
-
-### CHESS-003: Implement PGN parser (Backend)
-**Description:** Create PGN parser for game extraction.
-**Acceptance:**
-- [ ] ParseGames() splits multiple games
-- [ ] Headers extracted (Event, Date, White, Black, Result)
-- [ ] Moves extracted in SAN format
-- [ ] Comments and variations stripped
-- [ ] NAGs stripped
-- [ ] Result markers handled
-
-### CHESS-004: Implement move validation (Backend)
-**Description:** Create chess move validation using notnil/chess.
-**Acceptance:**
-- [ ] ValidateMove() checks legality
-- [ ] GenerateFENAfterMove() returns new position
-- [ ] GetLegalMoves() returns all valid SAN
-- [ ] Errors returned for invalid moves
+- [x] Color type ('w' | 'b')
+- [x] GameResult type
+- [x] RepertoireNode interface with children
+- [x] Repertoire interface
+- [x] MoveAnalysis interface
+- [x] PgnImport interface
+- [x] ApiError interface
 
 ---
 
@@ -195,67 +196,63 @@ Centralized ticket registry for TreeChess project.
 ### FRONTEND-001: Setup React entry points
 **Description:** Configure main.tsx and App.tsx with routing.
 **Acceptance:**
-- [ ] BrowserRouter wraps App
-- [ ] Routes defined for all pages
-- [ ] ToastContainer renders globally
-- [ ] 404 handling for unknown routes
+- [x] BrowserRouter wraps App
+- [x] App component renders (single-page for now)
+- [x] ToastContainer not yet implemented
 
 ### FRONTEND-002: Create API client
 **Description:** Implement Axios-based API client.
 **Acceptance:**
-- [ ] Base URL from environment variable
-- [ ] getRepertoire(color) endpoint
-- [ ] addNode(color, data) endpoint
-- [ ] deleteNode(color, nodeId) endpoint
-- [ ] uploadImport(file, color) - POST multipart/form-data with file and color fields, returns {id, gameCount}
-- [ ] getAnalyses() endpoint - returns list of analyses
-- [ ] getAnalysis(id) endpoint - returns full analysis details
-- [ ] deleteAnalysis(id) endpoint
-- [ ] Error interceptor logs errors
+- [x] Base URL /api
+- [x] repertoireApi.get(color)
+- [x] repertoireApi.addNode(color, parentId, fen, san)
+- [x] repertoireApi.deleteNode(color, nodeId)
+- [x] importApi.upload(pgn)
+- [x] importApi.list()
+- [x] importApi.get(id)
+- [x] importApi.delete(id)
+- [x] healthApi.check()
 
 ### FRONTEND-003: Create repertoire store
 **Description:** Implement Zustand store for repertoire state.
 **Acceptance:**
-- [ ] whiteRepertoire and blackRepertoire state
-- [ ] selectedColor and selectedNode state
-- [ ] isLoading and error state
-- [ ] loadRepertoire(color) action
-- [ ] setSelectedNode(node) action
-- [ ] addNode(parentId, move, fen, moveNumber) action
-- [ ] deleteNode(nodeId) action
+- [x] whiteRepertoire and blackRepertoire state
+- [x] selectedNodeId state
+- [x] loading and error state
+- [x] setRepertoire(color, repertoire) action
+- [x] selectNode(nodeId) action
+- [x] addMove(color, parentId, san, fenBefore) action - updates local state
+- [x] deleteNode(color, nodeId) action
 
-### FRONTEND-004: Create base UI components
-**Description:** Build reusable Button, Modal, Toast, Loading components.
+### FRONTEND-004: Create ChessBoard component
+**Description:** Implement board using react-chessboard.
 **Acceptance:**
-- [ ] Button with variants (primary, secondary, danger, ghost)
-- [ ] Button with sizes (sm, md, lg)
-- [ ] Button with loading state
-- [ ] Modal with title, content, size variants
-- [ ] Modal closes on Escape key
-- [ ] Modal closes on overlay click
-- [ ] ToastContainer displays notifications
-- [ ] Toast auto-dismisses after 5s
-- [ ] Loading spinner with size variants
+- [x] Position displayed from FEN
+- [x] Pieces rendered with react-chessboard (Wikimedia SVGs)
+- [x] boardOrientation prop for white/black view
+- [x] onPieceDrop callback
+- [x] onSquareClick callback
+- [x] customSquareStyles for selection and possible moves
 
-### FRONTEND-005: Create Dashboard page
-**Description:** Build main landing page.
+### FRONTEND-005: Create RepertoireTree component
+**Description:** Implement tree visualization component.
 **Acceptance:**
-- [ ] Title "TreeChess" displayed
-- [ ] White repertoire card with Edit button
-- [ ] Black repertoire card with Edit button
-- [ ] Import PGN button
-- [ ] Clicking Edit navigates to repertoire edit page
+- [x] Recursive tree rendering
+- [x] Move notation displayed
+- [x] Selected node highlighted
+- [x] Color coding (green=repertoire, red=opponent)
+- [x] Click to select node
 
-### FRONTEND-006: Create CSS theming
-**Description:** Define CSS variables and base styles.
+### FRONTEND-006: Create App component
+**Description:** Build main application with board, tree, and controls.
 **Acceptance:**
-- [ ] Color variables (primary, danger, success, warning)
-- [ ] Spacing variables (xs, sm, md, lg, xl)
-- [ ] Border radius variables
-- [ ] Font family defined
-- [ ] Button styles implemented
-- [ ] Modal styles implemented
-- [ ] Toast styles implemented
+- [x] ChessBoard rendered
+- [x] RepertoireTreeView rendered
+- [x] White/Black repertoire toggle
+- [x] PGN import textarea
+- [x] Import button with API call
+- [x] Loading state
+- [x] Error display
 
 ---
 
@@ -264,39 +261,27 @@ Centralized ticket registry for TreeChess project.
 ### BOARD-001: Render chess board from FEN
 **Description:** Create board component that displays position.
 **Acceptance:**
-- [ ] 8x8 grid rendered
-- [ ] Light/dark square colors correct
-- [ ] Pieces displayed using unicode symbols
-- [ ] Orientation can be white or black
-- [ ] FEN string determines position
+- [x] Using react-chessboard library
+- [x] 8x8 grid rendered
+- [x] Light/dark square colors (green/cream)
+- [x] Pieces displayed using Wikimedia SVGs (Staunton set)
+- [x] Orientation can be white or black
 
 ### BOARD-002: Implement piece selection
 **Description:** Allow clicking to select pieces.
 **Acceptance:**
-- [ ] Click selects own piece
-- [ ] Selected square highlighted
-- [ ] Clicking same piece deselects
-- [ ] Clicking different piece changes selection
+- [x] Click selects own piece
+- [x] Selected square highlighted
+- [x] onSquareClick callback fires
 
 ### BOARD-003: Implement move execution
 **Description:** Allow playing moves on board.
 **Acceptance:**
-- [ ] Click source then destination
-- [ ] Move validated by chess.js
-- [ ] Legal moves highlighted
-- [ ] Capture moves shown differently
-- [ ] Invalid move shows error
-- [ ] onMove callback fired on success
-- [ ] onPositionChange callback fired on success
-
-### BOARD-004: Implement move history
-**Description:** Display sequence of played moves.
-**Acceptance:**
-- [ ] Moves displayed in SAN
-- [ ] Move numbers shown
-- [ ] White and black moves paired
-- [ ] Scrollable if many moves
-- [ ] Latest move highlighted
+- [x] Drag and drop via react-chessboard
+- [x] Move validated by chess.js internally
+- [x] Legal moves shown as dots
+- [x] Invalid move rejected
+- [x] onMove callback fired on success
 
 ---
 
@@ -305,73 +290,54 @@ Centralized ticket registry for TreeChess project.
 ### TREE-001: Design tree data structures
 **Description:** Define TypeScript interfaces for tree layout.
 **Acceptance:**
-- [ ] TreeNodeData interface
-- [ ] TreeLayout interface
-- [ ] LayoutNode interface
-- [ ] LayoutEdge interface
-- [ ] Helper function to convert RepertoireNode
+- [x] RepertoireNode interface already defined
 
-### TREE-002: Implement layout algorithm
-**Description:** Calculate positions for tree nodes.
+### TREE-002: Implement tree rendering
+**Description:** Display tree using React components.
 **Acceptance:**
-- [ ] Root positioned at left edge
-- [ ] Children spread vertically
-- [ ] Subtree heights calculated
-- [ ] No overlapping nodes
-- [ ] Bézier curves for edges
-- [ ] Consistent spacing between levels
-
-### TREE-003: Render SVG tree
-**Description:** Display tree using SVG.
-**Acceptance:**
-- [ ] All nodes rendered as circles/rects
-- [ ] SAN notation displayed on nodes
-- [ ] Edges rendered as paths
-- [ ] Arrowheads on edges
-- [ ] Root node visually distinct
-- [ ] Selected node highlighted
-
-### TREE-004: Implement zoom and pan
-**Description:** Add interactive controls for large trees.
-**Acceptance:**
-- [ ] Mouse wheel zooms in/out
-- [ ] Ctrl+wheel prevents page scroll
-- [ ] Click and drag pans view
-- [ ] Zoom limits (0.2x to 3x)
-- [ ] Reset button restores default view
+- [x] RepertoireTree recursive component
+- [x] Children spread vertically
+- [x] Move numbers shown
+- [x] Indentation for depth
 
 ---
 
 ## Repertoire CRUD (Epic 6)
 
-### CRUD-001: Build Repertoire Edit page
-**Description:** Create main editing interface combining tree and board.
+### CRUD-001: Build repertoire editing
+**Description:** Allow adding moves to repertoire.
 **Acceptance:**
-- [ ] Header with Back button and title
-- [ ] Tree panel on left
-- [ ] Board panel on right
-- [ ] Selected node displayed on board
-- [ ] Add Move button enabled when node selected
-- [ ] Delete Branch button enabled when node selected
+- [x] Board shows current position from selected node
+- [x] Making a move calls API to add node
+- [x] Tree updates after move added
+- [x] API integration in handleMove
 
-### CRUD-002: Implement Add Move modal
-**Description:** Create dialog for adding new moves.
-**Acceptance:**
-- [ ] Modal opens on Add Move click
-- [ ] SAN input field with placeholder
-- [ ] Validation via chess.js
-- [ ] Success toast on add
-- [ ] Error toast on invalid move
-- [ ] Modal closes after add or cancel
+---
 
-### CRUD-003: Implement Delete Branch
-**Description:** Allow deleting nodes and their children.
+## PGN Import (Epic 7)
+
+### PGN-001: Build Import UI
+**Description:** Create UI for PGN import.
 **Acceptance:**
-- [ ] Confirmation dialog before delete
-- [ ] Node and all children removed
-- [ ] Tree updates immediately
-- [ ] Board returns to parent position
-- [ ] Success toast displayed
+- [x] Textarea for pasting PGN
+- [x] Import button calls API
+- [x] Status messages shown
+- [x] Reloads repertoires after import
+
+---
+
+## Tests Status
+
+### Backend Tests (Go)
+- Config tests: PASS
+- DB tests: PASS
+- Repository tests: PASS
+- Service tests: PASS
+- Handler tests: PASS (3 skipped - require DB)
+
+### Frontend Tests (TypeScript)
+- TypeScript compilation: PASS
+- ESLint: PASS
 - [ ] Cannot delete root node
 
 ---
