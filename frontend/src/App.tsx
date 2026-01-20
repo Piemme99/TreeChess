@@ -44,17 +44,21 @@ function App() {
     loadRepertoires();
   }, [loadRepertoires]);
 
-  const handleMove = (san: string) => {
+  const handleMove = async (san: string) => {
     const currentRepertoire = viewColor === 'w' ? whiteRepertoire : blackRepertoire;
     if (!currentRepertoire || !selectedNodeId) return;
 
     const currentNode = findNode(currentRepertoire.root, selectedNodeId);
     if (!currentNode) return;
 
-    const success = addMove(viewColor, selectedNodeId, san, currentNode.fen);
-
-    if (success) {
-      selectNode(crypto.randomUUID());
+    try {
+      await repertoireApi.addNode(viewColor, selectedNodeId, currentNode.fen, san);
+      const success = addMove(viewColor, selectedNodeId, san, currentNode.fen);
+      if (success) {
+        selectNode(crypto.randomUUID());
+      }
+    } catch {
+      console.error('Failed to add move');
     }
   };
 
