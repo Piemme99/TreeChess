@@ -228,6 +228,33 @@ func (s *ImportService) GetLegalMoves(fen string) ([]string, error) {
 	return sanMoves, nil
 }
 
+// GetAnalyses returns all analyses summaries
+func (s *ImportService) GetAnalyses() ([]models.AnalysisSummary, error) {
+	analyses, err := repository.GetAnalyses()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get analyses: %w", err)
+	}
+	return analyses, nil
+}
+
+// GetAnalysisByID returns detailed analysis by ID
+func (s *ImportService) GetAnalysisByID(id string) (*models.AnalysisDetail, error) {
+	detail, err := repository.GetAnalysisByID(id)
+	if err != nil {
+		return nil, err // Error already contains "not found" info
+	}
+	return detail, nil
+}
+
+// DeleteAnalysis deletes an analysis by ID
+func (s *ImportService) DeleteAnalysis(id string) error {
+	err := repository.DeleteAnalysis(id)
+	if err != nil {
+		return err // Error already contains "not found" info
+	}
+	return nil
+}
+
 func ensureFullFEN(fen string) string {
 	parts := strings.Fields(fen)
 	if len(parts) >= 6 {

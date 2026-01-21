@@ -17,7 +17,7 @@ func TestRepertoireNode_JSONMarshaling(t *testing.T) {
 		FEN:         "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3",
 		Move:        &move,
 		MoveNumber:  1,
-		ColorToMove: models.ColorBlack,
+		ColorToMove: models.ChessColorBlack,
 		ParentID:    nil,
 		Children:    []*models.RepertoireNode{},
 	}
@@ -62,7 +62,7 @@ func TestRepertoireNode_WithChildren(t *testing.T) {
 		FEN:         "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3",
 		Move:        &parentMove,
 		MoveNumber:  1,
-		ColorToMove: models.ColorBlack,
+		ColorToMove: models.ChessColorBlack,
 		ParentID:    nil,
 		Children: []*models.RepertoireNode{
 			{
@@ -70,7 +70,7 @@ func TestRepertoireNode_WithChildren(t *testing.T) {
 				FEN:         "rnbqkbnr/pppppppp/8/8/3P4/8/PPPP1PPP/RNBQKBNR b KQkq -",
 				Move:        &childMove,
 				MoveNumber:  2,
-				ColorToMove: models.ColorWhite,
+				ColorToMove: models.ChessColorWhite,
 				ParentID:    strPtr("parent-id"),
 				Children:    nil,
 			},
@@ -94,7 +94,7 @@ func TestRepertoireNode_NilMoveForRoot(t *testing.T) {
 		FEN:         "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -",
 		Move:        nil,
 		MoveNumber:  0,
-		ColorToMove: models.ColorWhite,
+		ColorToMove: models.ChessColorWhite,
 		ParentID:    nil,
 		Children:    nil,
 	}

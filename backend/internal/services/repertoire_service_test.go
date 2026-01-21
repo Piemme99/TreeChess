@@ -74,18 +74,18 @@ func TestFindNode_NotFound(t *testing.T) {
 	assert.Nil(t, found)
 }
 
-func TestIsValidMoveFromNode_Valid(t *testing.T) {
+func TestMoveExistsAsChild_NotExists(t *testing.T) {
 	parent := models.RepertoireNode{
 		ID:       "parent",
 		Children: []*models.RepertoireNode{},
 	}
 
-	result := isValidMoveFromNode(&parent, "Nf3")
+	result := moveExistsAsChild(&parent, "Nf3")
 
-	assert.True(t, result)
+	assert.False(t, result)
 }
 
-func TestIsValidMoveFromNode_DuplicateMove(t *testing.T) {
+func TestMoveExistsAsChild_Exists(t *testing.T) {
 	existingMove := "e4"
 	parent := models.RepertoireNode{
 		ID: "parent",
@@ -94,9 +94,9 @@ func TestIsValidMoveFromNode_DuplicateMove(t *testing.T) {
 		},
 	}
 
-	result := isValidMoveFromNode(&parent, "e4")
+	result := moveExistsAsChild(&parent, "e4")
 
-	assert.False(t, result)
+	assert.True(t, result)
 }
 
 func TestDeleteNodeRecursive_Root(t *testing.T) {
@@ -200,7 +200,27 @@ func TestCalculateMetadata_WithChildren(t *testing.T) {
 	assert.Equal(t, 2, metadata.DeepestDepth)
 }
 
-func TestOppositeColor(t *testing.T) {
-	assert.Equal(t, models.ColorBlack, oppositeColor(models.ColorWhite))
-	assert.Equal(t, models.ColorWhite, oppositeColor(models.ColorBlack))
+func TestValidateAndGetResultingFEN(t *testing.T) {
+	startingFEN := "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -"
+
+	resultFEN, err := validateAndGetResultingFEN(startingFEN, "e4")
+
+	require.NoError(t, err)
+	assert.Contains(t, resultFEN, "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq")
+}
+
+func TestValidateAndGetResultingFEN_InvalidMove(t *testing.T) {
+	startingFEN := "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -"
+
+	_, err := validateAndGetResultingFEN(startingFEN, "e5")
+
+	assert.Error(t, err)
+}
+
+func TestGetColorToMoveFromFEN(t *testing.T) {
+	whiteFEN := "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -"
+	blackFEN := "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3"
+
+	assert.Equal(t, models.ChessColorWhite, getColorToMoveFromFEN(whiteFEN))
+	assert.Equal(t, models.ChessColorBlack, getColorToMoveFromFEN(blackFEN))
 }

@@ -10,6 +10,9 @@ import (
 	"github.com/treechess/backend/config"
 )
 
+// DefaultTimeout for database operations
+const DefaultTimeout = 5 * time.Second
+
 var pool *pgxpool.Pool
 
 func InitDB(cfg config.Config) error {
@@ -19,7 +22,7 @@ func InitDB(cfg config.Config) error {
 		return fmt.Errorf("failed to create connection pool: %w", err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), DefaultTimeout)
 	defer cancel()
 
 	if err := pool.Ping(ctx); err != nil {
@@ -37,4 +40,9 @@ func CloseDB() {
 	if pool != nil {
 		pool.Close()
 	}
+}
+
+// dbContext creates a context with default timeout for database operations
+func dbContext() (context.Context, context.CancelFunc) {
+	return context.WithTimeout(context.Background(), DefaultTimeout)
 }

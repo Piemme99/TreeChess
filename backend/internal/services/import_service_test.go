@@ -141,13 +141,13 @@ func TestMoveExistsInRepertoire_Found(t *testing.T) {
 		ID:          "root",
 		FEN:         "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -",
 		Move:        nil,
-		ColorToMove: models.ColorWhite,
+		ColorToMove: models.ChessColorWhite,
 		Children: []*models.RepertoireNode{
 			{
 				ID:          "e4",
 				FEN:         "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3",
 				Move:        &moveE4,
-				ColorToMove: models.ColorBlack,
+				ColorToMove: models.ChessColorBlack,
 			},
 		},
 	}
@@ -165,7 +165,7 @@ func TestMoveExistsInRepertoire_NotFound(t *testing.T) {
 		ID:          "root",
 		FEN:         "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -",
 		Move:        nil,
-		ColorToMove: models.ColorWhite,
+		ColorToMove: models.ChessColorWhite,
 	}
 
 	fen := "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -"
@@ -183,7 +183,7 @@ func TestFindExpectedMove(t *testing.T) {
 		ID:          "root",
 		FEN:         "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -",
 		Move:        nil,
-		ColorToMove: models.ColorWhite,
+		ColorToMove: models.ChessColorWhite,
 		Children: []*models.RepertoireNode{
 			{ID: "e4", FEN: "...", Move: &moveE4},
 			{ID: "d4", FEN: "...", Move: &moveD4},
@@ -260,7 +260,7 @@ func TestAnalyzeGame_CountMoves(t *testing.T) {
 		ID:          "root",
 		FEN:         "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -",
 		Move:        nil,
-		ColorToMove: models.ColorWhite,
+		ColorToMove: models.ChessColorWhite,
 	}
 
 	analysis := svc.analyzeGame(0, games[0], root, models.ColorWhite)
@@ -288,7 +288,7 @@ func TestAnalyzeGame_WhiteMoveClassification(t *testing.T) {
 		ID:          "root",
 		FEN:         "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -",
 		Move:        nil,
-		ColorToMove: models.ColorWhite,
+		ColorToMove: models.ChessColorWhite,
 	}
 
 	analysis := svc.analyzeGame(0, games[0], root, models.ColorWhite)
@@ -314,7 +314,7 @@ func TestAnalyzeGame_BlackRepertoire(t *testing.T) {
 		ID:          "root",
 		FEN:         "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -",
 		Move:        nil,
-		ColorToMove: models.ColorWhite,
+		ColorToMove: models.ChessColorWhite,
 	}
 
 	analysis := svc.analyzeGame(0, games[0], root, models.ColorBlack)
@@ -341,7 +341,7 @@ func TestAnalyzeGame_NoRepertoire(t *testing.T) {
 		ID:          "root",
 		FEN:         "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -",
 		Move:        nil,
-		ColorToMove: models.ColorWhite,
+		ColorToMove: models.ChessColorWhite,
 	}
 
 	analysis := svc.analyzeGame(0, games[0], root, models.ColorWhite)

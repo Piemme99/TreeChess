@@ -121,7 +121,8 @@ func TestAddNodeHandler_MissingParentID(t *testing.T) {
 
 func TestAddNodeHandler_MissingMove(t *testing.T) {
 	e := echo.New()
-	body := `{"parentId":"test","fen":"test","moveNumber":1,"colorToMove":"white"}`
+	// Use a valid UUID for parentId to test the move validation
+	body := `{"parentId":"123e4567-e89b-12d3-a456-426614174000","moveNumber":1}`
 	req := httptest.NewRequest(http.MethodPost, "/api/repertoire/white/node", strings.NewReader(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
@@ -185,7 +186,7 @@ func TestRepertoireResponseFormat(t *testing.T) {
 		FEN:         "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -",
 		Move:        nil,
 		MoveNumber:  0,
-		ColorToMove: models.ColorWhite,
+		ColorToMove: models.ChessColorWhite,
 		ParentID:    nil,
 		Children:    nil,
 	}

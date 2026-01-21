@@ -14,6 +14,11 @@ func TestColorConstants(t *testing.T) {
 	assert.Equal(t, Color("black"), ColorBlack)
 }
 
+func TestChessColorConstants(t *testing.T) {
+	assert.Equal(t, ChessColor("w"), ChessColorWhite)
+	assert.Equal(t, ChessColor("b"), ChessColorBlack)
+}
+
 func TestRepertoireNode_JSON(t *testing.T) {
 	move := "e4"
 	node := RepertoireNode{
@@ -21,7 +26,7 @@ func TestRepertoireNode_JSON(t *testing.T) {
 		FEN:         "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3",
 		Move:        &move,
 		MoveNumber:  1,
-		ColorToMove: ColorBlack,
+		ColorToMove: ChessColorBlack,
 		ParentID:    nil,
 		Children:    nil,
 	}
@@ -46,7 +51,7 @@ func TestRepertoire_JSON(t *testing.T) {
 		FEN:         "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -",
 		Move:        nil,
 		MoveNumber:  0,
-		ColorToMove: ColorWhite,
+		ColorToMove: ChessColorWhite,
 		ParentID:    nil,
 		Children:    nil,
 	}
@@ -74,11 +79,9 @@ func TestRepertoire_JSON(t *testing.T) {
 
 func TestAddNodeRequest_JSON(t *testing.T) {
 	req := AddNodeRequest{
-		ParentID:    "parent-id",
-		Move:        "Nf3",
-		FEN:         "test-fen",
-		MoveNumber:  2,
-		ColorToMove: ColorBlack,
+		ParentID:   "parent-id",
+		Move:       "Nf3",
+		MoveNumber: 2,
 	}
 
 	data, err := json.Marshal(req)
@@ -90,9 +93,7 @@ func TestAddNodeRequest_JSON(t *testing.T) {
 
 	assert.Equal(t, req.ParentID, decoded.ParentID)
 	assert.Equal(t, req.Move, decoded.Move)
-	assert.Equal(t, req.FEN, decoded.FEN)
 	assert.Equal(t, req.MoveNumber, decoded.MoveNumber)
-	assert.Equal(t, req.ColorToMove, decoded.ColorToMove)
 }
 
 func TestMoveAnalysis_StatusValues(t *testing.T) {

@@ -1,7 +1,6 @@
 package repository
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"time"
@@ -36,7 +35,8 @@ const (
 
 func SaveAnalysis(color models.Color, filename string, gameCount int, results []models.GameAnalysis) (*models.AnalysisSummary, error) {
 	db := GetPool()
-	ctx := context.Background()
+	ctx, cancel := dbContext()
+	defer cancel()
 
 	resultsJSON, err := json.Marshal(results)
 	if err != nil {
@@ -70,7 +70,8 @@ func SaveAnalysis(color models.Color, filename string, gameCount int, results []
 
 func GetAnalyses() ([]models.AnalysisSummary, error) {
 	db := GetPool()
-	ctx := context.Background()
+	ctx, cancel := dbContext()
+	defer cancel()
 
 	rows, err := db.Query(ctx, getAnalysesSQL)
 	if err != nil {
@@ -97,7 +98,8 @@ func GetAnalyses() ([]models.AnalysisSummary, error) {
 
 func GetAnalysisByID(id string) (*models.AnalysisDetail, error) {
 	db := GetPool()
-	ctx := context.Background()
+	ctx, cancel := dbContext()
+	defer cancel()
 
 	var detail models.AnalysisDetail
 	var resultsJSON []byte
@@ -126,7 +128,8 @@ func GetAnalysisByID(id string) (*models.AnalysisDetail, error) {
 
 func DeleteAnalysis(id string) error {
 	db := GetPool()
-	ctx := context.Background()
+	ctx, cancel := dbContext()
+	defer cancel()
 
 	result, err := db.Exec(ctx, deleteAnalysisSQL, id)
 	if err != nil {

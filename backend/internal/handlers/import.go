@@ -6,10 +6,10 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 
 	"github.com/treechess/backend/internal/models"
-	"github.com/treechess/backend/internal/repository"
 	"github.com/treechess/backend/internal/services"
 )
 
@@ -92,7 +92,7 @@ func (h *ImportHandler) UploadHandler(c echo.Context) error {
 }
 
 func (h *ImportHandler) ListAnalysesHandler(c echo.Context) error {
-	analyses, err := repository.GetAnalyses()
+	analyses, err := h.importService.GetAnalyses()
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{
 			"error": "failed to list analyses",
@@ -116,7 +116,14 @@ func (h *ImportHandler) ListAnalysesHandler(c echo.Context) error {
 func (h *ImportHandler) GetAnalysisHandler(c echo.Context) error {
 	id := c.Param("id")
 
-	detail, err := repository.GetAnalysisByID(id)
+	// Validate id is a valid UUID
+	if _, err := uuid.Parse(id); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "id must be a valid UUID",
+		})
+	}
+
+	detail, err := h.importService.GetAnalysisByID(id)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
 			return c.JSON(http.StatusNotFound, map[string]string{
@@ -143,7 +150,14 @@ func (h *ImportHandler) GetAnalysisHandler(c echo.Context) error {
 func (h *ImportHandler) DeleteAnalysisHandler(c echo.Context) error {
 	id := c.Param("id")
 
-	err := repository.DeleteAnalysis(id)
+	// Validate id is a valid UUID
+	if _, err := uuid.Parse(id); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "id must be a valid UUID",
+		})
+	}
+
+	err := h.importService.DeleteAnalysis(id)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
 			return c.JSON(http.StatusNotFound, map[string]string{
@@ -182,8 +196,8 @@ func (h *ImportHandler) ValidatePGNHandler(c echo.Context) error {
 		})
 	}
 
-	return c.JSON(http.StatusOK, map[string]string{
-		"valid": "true",
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"valid": true,
 	})
 }
 
@@ -218,8 +232,8 @@ func (h *ImportHandler) ValidateMoveHandler(c echo.Context) error {
 		})
 	}
 
-	return c.JSON(http.StatusOK, map[string]string{
-		"valid": "true",
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"valid": true,
 	})
 }
 

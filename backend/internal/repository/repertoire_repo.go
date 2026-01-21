@@ -1,7 +1,6 @@
 package repository
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"time"
@@ -35,7 +34,8 @@ const (
 
 func GetRepertoireByColor(color models.Color) (*models.Repertoire, error) {
 	db := GetPool()
-	ctx := context.Background()
+	ctx, cancel := dbContext()
+	defer cancel()
 
 	var rep models.Repertoire
 	var treeDataJSON, metadataJSON []byte
@@ -65,16 +65,17 @@ func GetRepertoireByColor(color models.Color) (*models.Repertoire, error) {
 
 func CreateRepertoire(color models.Color) (*models.Repertoire, error) {
 	db := GetPool()
-	ctx := context.Background()
+	ctx, cancel := dbContext()
+	defer cancel()
 
 	rootNode := models.RepertoireNode{
 		ID:          uuid.New().String(),
 		FEN:         "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -",
 		Move:        nil,
 		MoveNumber:  0,
-		ColorToMove: models.ColorWhite,
+		ColorToMove: models.ChessColorWhite,
 		ParentID:    nil,
-		Children:    nil,
+		Children:    []*models.RepertoireNode{}, // Empty slice, not nil
 	}
 
 	metadata := models.Metadata{
@@ -124,7 +125,8 @@ func CreateRepertoire(color models.Color) (*models.Repertoire, error) {
 
 func SaveRepertoire(color models.Color, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
 	db := GetPool()
-	ctx := context.Background()
+	ctx, cancel := dbContext()
+	defer cancel()
 
 	treeDataJSON, err := json.Marshal(treeData)
 	if err != nil {
@@ -168,7 +170,8 @@ func SaveRepertoire(color models.Color, treeData models.RepertoireNode, metadata
 
 func RepertoireExists(color models.Color) (bool, error) {
 	db := GetPool()
-	ctx := context.Background()
+	ctx, cancel := dbContext()
+	defer cancel()
 
 	var exists bool
 	err := db.QueryRow(ctx, checkRepertoireExistsSQL, string(color)).Scan(&exists)
