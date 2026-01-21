@@ -734,54 +734,81 @@ Legend:
 
 ---
 
-## 10. Roadmap: MVP → V2
+## 10. Interface Contracts
 
-### 10.1 MVP - Version 1.0 (Months 1-2) - Local Development
+### 10.1 Naming Conventions
 
-| Feature | Priority | Estimate |
-|---------|----------|----------|
-| Go + PostgreSQL project setup | High | 1 day |
-| Database migration | High | 0.5 day |
-| React + TypeScript architecture | High | 2 days |
-| Chess board component (chess.js) | High | 3 days |
-| Repertoire CRUD (API + UI) | High | 4 days |
-| PGN parser backend | High | 2 days |
-| Repertoire vs games matching | High | 3 days |
-| GitHub-style Tree visualization | High | 5 days |
-| UI/Polish | Medium | 3 days |
-| **Total** | | **~24 days** |
+#### Database
+| Entity | Convention | Example |
+|--------|------------|---------|
+| Table names | snake_case | repertoires |
+| Column names | snake_case | created_at |
+| UUID primary key | id | id |
 
-**MVP Note:**
-- Backend Go in local development with PostgreSQL
-- No authentication
-- No production deployment
-- Data stored in local PostgreSQL database
+#### API
+| Entity | Convention | Example |
+|--------|------------|---------|
+| URL paths | kebab-case | /api/repertoire/:color |
+| JSON keys | camelCase | treeData |
+| Enum values | lowercase | white, black |
 
-### 10.2 V2 - Version 2.0 (Months 3-6) - Production
+#### Frontend
+| Entity | Convention | Example |
+|--------|------------|---------|
+| Files | camelCase.ts | repertoireStore.ts |
+| Components | PascalCase.tsx | ChessBoard.tsx |
+| Interfaces | PascalCase | RepertoireNode |
+| Variables | camelCase | whiteRepertoire |
 
-| Feature | Description |
-|---------|-------------|
-| **Lichess OAuth Authentication** | Login via Lichess account (free) |
-| **Multi-users** | Data isolation by user_id |
-| **Lichess API** | Direct import from Lichess account |
-| **Production deployment** | Server + cloud PostgreSQL |
-| **Tests and CI/CD** | Deployment pipeline |
-| **Training mode** | Quiz "What's the next move?" with 4 choices |
-| **Spaced repetition** | Anki-like algorithm for review |
+#### Backend
+| Entity | Convention | Example |
+|--------|------------|---------|
+| Files | snake_case.go | repertoire_service.go |
+| Packages | lowercase | repository |
+| Structs | PascalCase | RepertoireNode |
+| Fields | camelCase | moveNumber |
 
-### 10.3 V3+ - Future Enhancements
+### 10.2 CORS Configuration
 
-| Feature | Description |
-|---------|-------------|
-| **Main line vs Sideline** | Different colors in tree |
-| **Multiple repertoires** | "Club", "Competitive", "Fun" |
-| **PGN Export** | Save repertoire |
-| **Automatic ECO** | ECO classification of positions |
-| **Statistics** | Mastery percentage per opening |
-| **Chess.com API** | Import from Chess.com account |
-| **Comments/Videos** | Annotations on positions |
-| **Opening explorer** | Lichess stats on positions |
-| **Shared repertoires** | Community templates |
+**Allowed Origins:** `http://localhost:5173` (development)
+
+**Allowed Methods:** GET, POST, DELETE, OPTIONS
+
+**Allowed Headers:** Content-Type
+
+### 10.3 Session Storage Keys
+
+For cross-page navigation (e.g., PGN import to repertoire edit):
+
+| Key | Purpose | Format |
+|-----|---------|--------|
+| pendingAddNode | Node to add after import | `{"color":"white","parentId":"uuid","fen":"..."}` |
+| analysisNavigate | Navigate context from analysis | `{"color":"white","parentFEN":"...","moveSAN":"..."}` |
+
+Both expire on page unload.
+
+### 10.4 Transposition Policy
+
+**For MVP, transpositions are NOT merged automatically.**
+
+Each path through the tree is kept as-is. If the user adds:
+- 1.e4 e5 2.Nf3 → creates path "e4 → e5 → Nf3"
+- 1.Nf3 e5 2.e4 → creates separate path "Nf3 → e5 → e4"
+
+Both paths lead to the same position but are stored as separate branches.
+
+**Rationale:** Simpler implementation, matches user's actual game experience.
+
+### 10.5 Promotion Handling
+
+**Default Behavior:** When a promotion is encountered without explicit piece, default to Queen promotion (most common).
+
+**Frontend Input:** When user plays a move to the 8th/1st rank:
+- Show promotion dialog
+- Allow user to choose Q, R, B, N
+- Default to Queen if no choice made
+
+**Storage:** Store full SAN with promotion (e8=Q, etc.)
 
 ---
 
@@ -1284,13 +1311,40 @@ MIT
 
 ---
 
-## 16. Change Log
+## 16. Glossary
+
+### Chess Terms
+
+| Term | Definition |
+|------|------------|
+| **FEN** | Forsyth-Edwards Notation - Standard notation describing a chess position in one line. Format: `<piece placement>/<active color>/<castling>/<en passant>/<halfmove>/<fullmove>` |
+| **SAN** | Standard Algebraic Notation - Move notation (e.g., e4, Nf3, O-O, exd5, e8=Q) |
+| **Ply** | A half-move (one player's turn). A full move = 2 plies |
+| **ECO** | Encyclopedia of Chess Openings - Classification system (A00-E99) |
+
+### Project-Specific Terms
+
+| Term | Definition |
+|------|------------|
+| **Repertoire** | A tree of opening lines the player wants to learn |
+| **Node** | A position in the tree after a specific move |
+| **Branch** | A path from root to a specific node (sequence of moves) |
+| **Divergence** | A point where a game deviates from the known repertoire |
+| **In-repertoire** | A move that exists in the user's tree |
+| **Out-of-repertoire** | User's move that doesn't exist in their tree |
+| **New line** | Opponent's move not covered in the tree |
+| **Analysis** | Comparison of imported games against the repertoire |
+
+---
+
+## 17. Change Log
 
 | Version | Date | Author | Description |
 |---------|------|--------|-------------|
 | 1.0 | 2026-01-19 | - | Initial document |
 | 2.0 | 2026-01-19 | - | PostgreSQL, single-user MVP, multi-user V2 |
 | 3.0 | 2026-01-19 | - | Full English translation, added tests, logging, migrations, README sections |
+| 4.0 | 2026-01-21 | - | Consolidated specs/ folder content, removed roadmap, added interface contracts and glossary |
 
 ---
 
