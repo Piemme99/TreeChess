@@ -1,8 +1,8 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { Dashboard } from './components/Dashboard/Dashboard';
 import { RepertoireEdit } from './components/Repertoire/RepertoireEdit';
-import { ImportList } from './components/Import/ImportList';
-import { ImportDetail } from './components/Import/ImportDetail';
+import { ImportList } from './components/PGN/ImportList';
+import { ImportDetail } from './components/PGN/ImportDetail';
 import { ToastContainer } from './components/UI';
 
 function NotFound() {

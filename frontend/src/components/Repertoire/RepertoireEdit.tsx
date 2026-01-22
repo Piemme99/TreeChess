@@ -5,6 +5,7 @@ import { repertoireApi } from '../../services/api';
 import { toast } from '../../stores/toastStore';
 import { Button, Modal, ConfirmModal, Loading } from '../UI';
 import { ChessBoard } from '../Board/ChessBoard';
+import { MoveHistory } from '../Board/MoveHistory';
 import { RepertoireTree } from '../Tree/RepertoireTree';
 import { isValidMove, makeMove, getShortFEN, getLegalMoves } from '../../utils/chess';
 import type { Color, RepertoireNode, AddNodeRequest } from '../../types';
@@ -265,7 +266,7 @@ export function RepertoireEdit() {
           &larr; Back
         </Button>
         <h1 className="repertoire-edit-title">
-          {color === 'white' ? '♔' : '♚'} {color === 'white' ? 'White' : 'Black'} Repertoire
+          {color === 'white' ? '♔' : '♚'} {color === 'white' ? 'White' : 'Black'} - Edit
         </h1>
         <div className="header-spacer" />
       </header>
@@ -299,36 +300,45 @@ export function RepertoireEdit() {
               </span>
             )}
           </div>
-          <ChessBoard
-            fen={currentFEN}
-            orientation={color}
-            onMove={handleBoardMove}
-            onSquareClick={handleSquareClick}
-            highlightSquares={possibleMoves}
-            interactive={true}
-            width={400}
-          />
-
-          <div className="repertoire-edit-actions">
-            <Button
-              variant="primary"
-              onClick={() => {
-                setMoveInput('');
-                setMoveError('');
-                setAddMoveModalOpen(true);
-              }}
-              disabled={actionLoading}
-            >
-              + Add Move
-            </Button>
-            <Button
-              variant="danger"
-              onClick={() => setDeleteConfirmOpen(true)}
-              disabled={isRootNode || actionLoading}
-            >
-              Delete Branch
-            </Button>
+          <div className="chessboard-wrapper">
+            <ChessBoard
+              fen={currentFEN}
+              orientation={color}
+              onMove={handleBoardMove}
+              onSquareClick={handleSquareClick}
+              highlightSquares={possibleMoves}
+              interactive={true}
+              width={400}
+            />
           </div>
+        </div>
+      </div>
+
+      {/* Bottom section: Move History + Actions */}
+      <div className="repertoire-edit-bottom">
+        <MoveHistory
+          rootNode={repertoire.treeData}
+          selectedNodeId={selectedNodeId}
+        />
+        <div className="repertoire-edit-actions">
+          <Button
+            variant="primary"
+            onClick={() => {
+              setMoveInput('');
+              setMoveError('');
+              setAddMoveModalOpen(true);
+            }}
+            disabled={actionLoading}
+          >
+            + Add move
+          </Button>
+          <Button
+            variant="danger"
+            onClick={() => setDeleteConfirmOpen(true)}
+            disabled={isRootNode || actionLoading}
+          >
+            Delete last
+          </Button>
         </div>
       </div>
 

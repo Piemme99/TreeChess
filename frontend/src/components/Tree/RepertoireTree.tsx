@@ -107,7 +107,7 @@ export function RepertoireTree({
   repertoire,
   selectedNodeId,
   onNodeClick,
-  color,
+  // color prop available but unused in MVP (same style for all nodes)
   width = 600,
   height = 400
 }: RepertoireTreeProps) {
@@ -189,12 +189,6 @@ export function RepertoireTree({
     setScale(1);
   }, [width, height]);
 
-  const isUserMove = (node: RepertoireNode) => {
-    const colorToMove = node.colorToMove;
-    return (color === 'white' && colorToMove === 'w') ||
-           (color === 'black' && colorToMove === 'b');
-  };
-
   return (
     <div className="tree-container">
       <div className="tree-controls">
@@ -241,38 +235,39 @@ export function RepertoireTree({
           ))}
         </g>
 
-        {/* Nodes */}
+        {/* Nodes - MVP: same style for all nodes except root */}
         <g className="tree-nodes">
           {layout.nodes.map((layoutNode) => {
             const isRoot = layoutNode.node.move === null;
             const isSelected = layoutNode.id === selectedNodeId;
-            const userMove = isUserMove(layoutNode.node);
 
             return (
               <g
                 key={layoutNode.id}
-                className={`tree-node ${isSelected ? 'selected' : ''} ${userMove ? 'user-move' : 'opponent-move'}`}
+                className={`tree-node ${isSelected ? 'selected' : ''}`}
                 onClick={() => onNodeClick(layoutNode.node)}
                 style={{ cursor: 'pointer' }}
               >
                 {isRoot ? (
+                  // Root node: black square
                   <rect
                     x={layoutNode.x - NODE_RADIUS}
                     y={layoutNode.y - NODE_RADIUS}
                     width={NODE_RADIUS * 2}
                     height={NODE_RADIUS * 2}
                     rx="4"
-                    fill={isSelected ? '#4a90d9' : '#666'}
-                    stroke={isSelected ? '#2563eb' : '#333'}
+                    fill={isSelected ? '#4a90d9' : '#333'}
+                    stroke={isSelected ? '#2563eb' : '#1a1a1a'}
                     strokeWidth="2"
                   />
                 ) : (
+                  // Regular nodes: gray circles (same style for all)
                   <circle
                     cx={layoutNode.x}
                     cy={layoutNode.y}
                     r={NODE_RADIUS}
-                    fill={isSelected ? '#4a90d9' : userMove ? '#dcfce7' : '#fee2e2'}
-                    stroke={isSelected ? '#2563eb' : userMove ? '#22c55e' : '#ef4444'}
+                    fill={isSelected ? '#4a90d9' : '#f3f4f6'}
+                    stroke={isSelected ? '#2563eb' : '#9ca3af'}
                     strokeWidth="2"
                   />
                 )}

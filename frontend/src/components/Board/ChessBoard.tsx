@@ -72,6 +72,7 @@ export function ChessBoard({
           });
         }
       } catch {
+        // Invalid move - silently ignore
       }
       setInternalSelectedSquare(null);
       setLegalMoves([]);

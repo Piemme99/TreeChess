@@ -429,6 +429,100 @@ a:focus-visible {
   text-align: center;
 }
 
+.dashboard-section {
+  margin-bottom: var(--spacing-xl);
+}
+
+.dashboard-section-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  margin-bottom: var(--spacing-md);
+}
+
+.dashboard-empty {
+  text-align: center;
+  color: var(--color-text-muted);
+  padding: var(--spacing-lg);
+  background-color: var(--color-bg-card);
+  border-radius: var(--radius-md);
+}
+
+.dashboard-imports {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.import-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-md);
+  background-color: var(--color-bg-card);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.import-item-info {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+.import-item-icon {
+  font-size: 1.5rem;
+}
+
+.import-item-details {
+  display: flex;
+  flex-direction: column;
+}
+
+.import-item-filename {
+  font-weight: 600;
+}
+
+.import-item-meta {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+}
+
+.import-item-actions {
+  display: flex;
+  gap: var(--spacing-sm);
+}
+
+.import-modal-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-lg);
+}
+
+/* ===== Move History Styles ===== */
+.move-history {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-md);
+  background-color: var(--color-bg-card);
+  border-radius: var(--radius-md);
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  overflow-x: auto;
+}
+
+.move-history-label {
+  font-weight: 600;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.move-history-moves {
+  color: var(--color-text);
+  white-space: nowrap;
+}
+
 /* ===== Repertoire Edit Styles ===== */
 .repertoire-edit {
   min-height: 100vh;
@@ -507,13 +601,21 @@ a:focus-visible {
   box-shadow: var(--shadow-sm);
 }
 
+.repertoire-edit-bottom {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+  padding: 0 var(--spacing-lg) var(--spacing-lg);
+  background-color: var(--color-bg);
+}
+
 .repertoire-edit-actions {
   display: flex;
   gap: var(--spacing-sm);
 }
 
 .repertoire-edit-actions .btn {
-  flex: 1;
+  min-width: 120px;
 }
 
 /* ===== Tree Styles ===== */

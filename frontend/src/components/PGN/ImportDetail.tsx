@@ -174,13 +174,14 @@ export function ImportDetail() {
     if (!analysis) return;
 
     // Store context in sessionStorage for the repertoire edit page
+    // Using spec-defined key: pendingAddNode
     const context = {
       color: analysis.color,
       fen: move.fen,
       moveSAN: move.san,
       gameInfo: `${game.headers.White || '?'} vs ${game.headers.Black || '?'}`
     };
-    sessionStorage.setItem('addMoveContext', JSON.stringify(context));
+    sessionStorage.setItem('pendingAddNode', JSON.stringify(context));
 
     // Navigate to repertoire edit page
     navigate(`/repertoire/${analysis.color}/edit`);
