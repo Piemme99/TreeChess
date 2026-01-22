@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:15-alpine
+    image: postgres:17-alpine
     environment:
       POSTGRES_USER: treechess
       POSTGRES_PASSWORD: treechess
@@ -9,6 +9,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
+    restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U treechess -d treechess"]
       interval: 5s
@@ -29,6 +30,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    restart: unless-stopped
 
   frontend:
     build:
@@ -39,9 +41,10 @@ services:
     ports:
       - "5173:5173"
     environment:
-      VITE_API_URL: http://localhost:8080
+      VITE_API_URL: http://localhost:8080/api
     depends_on:
       - backend
+    restart: unless-stopped
 
 volumes:
   postgres_data:
