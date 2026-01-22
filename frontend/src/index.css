@@ -525,9 +525,10 @@ a:focus-visible {
 
 /* ===== Repertoire Edit Styles ===== */
 .repertoire-edit {
-  min-height: 100vh;
+  height: 100vh;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .repertoire-edit-header {
@@ -552,12 +553,16 @@ a:focus-visible {
 .repertoire-edit-content {
   flex: 1;
   display: flex;
-  padding: var(--spacing-lg);
-  gap: var(--spacing-lg);
+  padding: var(--spacing-md);
+  gap: var(--spacing-md);
+  min-height: 0; /* Allow flex children to shrink */
+  overflow: hidden;
 }
 
 .repertoire-edit-tree {
   flex: 1;
+  min-width: 0;
+  min-height: 0;
   background-color: var(--color-bg-card);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
@@ -567,10 +572,11 @@ a:focus-visible {
 }
 
 .repertoire-edit-board {
-  width: 440px;
+  width: auto;
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-md);
+  gap: var(--spacing-sm);
 }
 
 .panel-header {
@@ -603,10 +609,12 @@ a:focus-visible {
 
 .repertoire-edit-bottom {
   display: flex;
-  flex-direction: column;
+  align-items: center;
   gap: var(--spacing-md);
-  padding: 0 var(--spacing-lg) var(--spacing-lg);
-  background-color: var(--color-bg);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background-color: var(--color-bg-card);
+  border-top: 1px solid var(--color-border);
+  flex-shrink: 0;
 }
 
 .repertoire-edit-actions {
@@ -1114,6 +1122,225 @@ a:focus-visible {
   margin-bottom: var(--spacing-lg);
 }
 
+/* ===== Game Analysis Page ===== */
+.game-analysis {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: var(--spacing-lg);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.game-analysis-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: var(--spacing-lg);
+  padding-bottom: var(--spacing-md);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.game-analysis-title {
+  flex: 1;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.game-title-main {
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.game-title-result {
+  font-family: var(--font-mono);
+  color: var(--color-text-muted);
+}
+
+.game-analysis-content {
+  display: flex;
+  gap: var(--spacing-lg);
+  flex: 1;
+  min-height: 0;
+}
+
+.game-analysis-board-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  flex-shrink: 0;
+}
+
+.flip-board-btn {
+  align-self: center;
+}
+
+.game-analysis-moves-section {
+  flex: 1;
+  min-width: 0;
+  background-color: var(--color-bg-card);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-md);
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.game-analysis-moves-section h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  margin-bottom: var(--spacing-md);
+  padding-bottom: var(--spacing-sm);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.game-analysis-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-lg);
+  padding: var(--spacing-2xl);
+}
+
+.game-analysis-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
+  background-color: var(--color-bg-card);
+  border-radius: var(--radius-md);
+  margin-top: var(--spacing-lg);
+}
+
+.nav-info {
+  font-family: var(--font-mono);
+  color: var(--color-text-muted);
+  min-width: 120px;
+  text-align: center;
+}
+
+/* ===== Game Moves List ===== */
+.game-moves-list {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.moves-list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.move-row {
+  display: flex;
+  align-items: stretch;
+  gap: var(--spacing-xs);
+}
+
+.move-number {
+  font-family: var(--font-mono);
+  color: var(--color-text-muted);
+  min-width: 32px;
+  display: flex;
+  align-items: center;
+  font-size: 0.875rem;
+}
+
+.move-cell {
+  flex: 1;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+}
+
+.move-cell:hover:not(.empty) {
+  filter: brightness(0.95);
+}
+
+.move-cell.empty {
+  cursor: default;
+  background-color: transparent;
+}
+
+.move-cell.selected {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+}
+
+.move-cell .move-san {
+  font-weight: 500;
+}
+
+/* Move status colors */
+.move-in-repertoire {
+  background-color: var(--color-success-light);
+  color: var(--color-success);
+}
+
+.move-out-repertoire {
+  background-color: var(--color-danger-light);
+  color: var(--color-danger);
+}
+
+.move-opponent-new {
+  background-color: var(--color-info-light);
+  color: var(--color-info);
+}
+
+/* Selected move details */
+.selected-move-details {
+  margin-top: var(--spacing-md);
+  padding-top: var(--spacing-md);
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.expected-move-info {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm);
+  background-color: var(--color-danger-light);
+  border-radius: var(--radius-sm);
+}
+
+.expected-label {
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+}
+
+.expected-san {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--color-danger);
+}
+
+/* Game section clickable row */
+.game-section.clickable .game-header {
+  cursor: pointer;
+}
+
+.game-section .game-header .view-analysis-btn {
+  margin-left: auto;
+  margin-right: var(--spacing-sm);
+}
+
 /* ===== Responsive ===== */
 @media (max-width: 768px) {
   .repertoire-edit-content {
@@ -1130,5 +1357,13 @@ a:focus-visible {
 
   .dashboard-repertoires {
     grid-template-columns: 1fr;
+  }
+
+  .game-analysis-content {
+    flex-direction: column;
+  }
+
+  .game-analysis-board-section {
+    align-items: center;
   }
 }

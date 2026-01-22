@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
+import { useState, useCallback, useMemo, useRef, useEffect, useLayoutEffect } from 'react';
 import type { RepertoireNode, Color } from '../../types';
 
 // Layout constants
@@ -99,31 +99,49 @@ interface RepertoireTreeProps {
   selectedNodeId: string | null;
   onNodeClick: (node: RepertoireNode) => void;
   color: Color;
-  width?: number;
-  height?: number;
 }
 
 export function RepertoireTree({
   repertoire,
   selectedNodeId,
-  onNodeClick,
+  onNodeClick
   // color prop available but unused in MVP (same style for all nodes)
-  width = 600,
-  height = 400
 }: RepertoireTreeProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
-  const [viewBox, setViewBox] = useState({ x: 0, y: 0, width, height });
+  const [dimensions, setDimensions] = useState({ width: 600, height: 400 });
+  const [viewBox, setViewBox] = useState({ x: 0, y: 0, width: 600, height: 400 });
+
+  // Measure container size
+  useLayoutEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const updateSize = () => {
+      const { width, height } = container.getBoundingClientRect();
+      if (width > 0 && height > 0) {
+        setDimensions({ width, height });
+        setViewBox((prev) => ({
+          ...prev,
+          width: prev.width === 600 ? width : prev.width,
+          height: prev.height === 400 ? height : prev.height
+        }));
+      }
+    };
+
+    updateSize();
+    const resizeObserver = new ResizeObserver(updateSize);
+    resizeObserver.observe(container);
+    return () => resizeObserver.disconnect();
+  }, []);
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [scale, setScale] = useState(1);
 
   const layout = useMemo(() => calculateLayout(repertoire), [repertoire]);
 
-  // Reset view when repertoire changes
-  useEffect(() => {
-    setViewBox({ x: 0, y: 0, width, height });
-    setScale(1);
-  }, [repertoire, width, height]);
+  // Note: zoom/pan state is preserved when repertoire changes (e.g., adding moves)
+  // User can manually reset via the "Reset" button
 
   // Native wheel event listener
   useEffect(() => {
@@ -132,7 +150,8 @@ export function RepertoireTree({
 
     const handleWheel = (e: WheelEvent) => {
       e.preventDefault();
-      const delta = e.deltaY > 0 ? 1.1 : 0.9;
+      // Scroll up = zoom in, scroll down = zoom out
+      const delta = e.deltaY > 0 ? 0.9 : 1.1;
       const newScale = Math.max(0.2, Math.min(3, scale * delta));
 
       const rect = svg.getBoundingClientRect();
@@ -142,8 +161,8 @@ export function RepertoireTree({
       const svgX = viewBox.x + (mouseX / rect.width) * viewBox.width;
       const svgY = viewBox.y + (mouseY / rect.height) * viewBox.height;
 
-      const newWidth = width / newScale;
-      const newHeight = height / newScale;
+      const newWidth = dimensions.width / newScale;
+      const newHeight = dimensions.height / newScale;
 
       const newX = svgX - (mouseX / rect.width) * newWidth;
       const newY = svgY - (mouseY / rect.height) * newHeight;
@@ -154,7 +173,7 @@ export function RepertoireTree({
 
     svg.addEventListener('wheel', handleWheel, { passive: false });
     return () => svg.removeEventListener('wheel', handleWheel);
-  }, [scale, viewBox, width, height]);
+  }, [scale, viewBox, dimensions]);
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if (e.button === 0) {
@@ -185,12 +204,12 @@ export function RepertoireTree({
   }, []);
 
   const resetView = useCallback(() => {
-    setViewBox({ x: 0, y: 0, width, height });
+    setViewBox({ x: 0, y: 0, width: dimensions.width, height: dimensions.height });
     setScale(1);
-  }, [width, height]);
+  }, [dimensions]);
 
   return (
-    <div className="tree-container">
+    <div className="tree-container" ref={containerRef}>
       <div className="tree-controls">
         <button className="tree-control-btn" onClick={resetView} title="Reset view">
           Reset
@@ -199,8 +218,8 @@ export function RepertoireTree({
       </div>
       <svg
         ref={svgRef}
-        width={width}
-        height={height}
+        width="100%"
+        height="100%"
         viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.width} ${viewBox.height}`}
         className="tree-svg"
         onMouseDown={handleMouseDown}
@@ -235,11 +254,14 @@ export function RepertoireTree({
           ))}
         </g>
 
-        {/* Nodes - MVP: same style for all nodes except root */}
+        {/* Nodes - colored by move: white moves = white nodes, black moves = black nodes */}
         <g className="tree-nodes">
           {layout.nodes.map((layoutNode) => {
             const isRoot = layoutNode.node.move === null;
             const isSelected = layoutNode.id === selectedNodeId;
+            // colorToMove is the color to play AFTER this move
+            // So if colorToMove === 'b', the move that was just played was white's move
+            const isWhiteMove = layoutNode.node.colorToMove === 'b';
 
             return (
               <g
@@ -249,25 +271,25 @@ export function RepertoireTree({
                 style={{ cursor: 'pointer' }}
               >
                 {isRoot ? (
-                  // Root node: black square
+                  // Root node: gray square
                   <rect
                     x={layoutNode.x - NODE_RADIUS}
                     y={layoutNode.y - NODE_RADIUS}
                     width={NODE_RADIUS * 2}
                     height={NODE_RADIUS * 2}
                     rx="4"
-                    fill={isSelected ? '#4a90d9' : '#333'}
-                    stroke={isSelected ? '#2563eb' : '#1a1a1a'}
+                    fill={isSelected ? '#4a90d9' : '#6b7280'}
+                    stroke={isSelected ? '#2563eb' : '#4b5563'}
                     strokeWidth="2"
                   />
                 ) : (
-                  // Regular nodes: gray circles (same style for all)
+                  // Move nodes: white or black based on who played
                   <circle
                     cx={layoutNode.x}
                     cy={layoutNode.y}
                     r={NODE_RADIUS}
-                    fill={isSelected ? '#4a90d9' : '#f3f4f6'}
-                    stroke={isSelected ? '#2563eb' : '#9ca3af'}
+                    fill={isSelected ? '#4a90d9' : isWhiteMove ? '#ffffff' : '#1f2937'}
+                    stroke={isSelected ? '#2563eb' : isWhiteMove ? '#9ca3af' : '#111827'}
                     strokeWidth="2"
                   />
                 )}
@@ -277,7 +299,7 @@ export function RepertoireTree({
                   textAnchor="middle"
                   fontSize="11"
                   fontWeight="bold"
-                  fill={isRoot || isSelected ? '#fff' : '#333'}
+                  fill={isRoot || isSelected ? '#fff' : isWhiteMove ? '#333' : '#fff'}
                 >
                   {isRoot ? 'Start' : layoutNode.node.move}
                 </text>

@@ -66,9 +66,11 @@ func (s *ImportService) analyzeGame(gameIndex int, game *chess.Game, repertoireR
 
 	moves := game.Moves()
 	position := chess.StartingPosition()
+	notation := chess.AlgebraicNotation{}
 
 	for ply, move := range moves {
-		san := move.String()
+		// Use AlgebraicNotation encoder to get proper SAN (e4) instead of UCI (e2e4)
+		san := notation.Encode(position, move)
 		currentFEN := normalizeFEN(position.String())
 		isUserMove := (ply%2 == 0 && userColor == models.ColorWhite) || (ply%2 == 1 && userColor == models.ColorBlack)
 

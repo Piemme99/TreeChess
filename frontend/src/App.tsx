@@ -3,6 +3,7 @@ import { Dashboard } from './components/Dashboard/Dashboard';
 import { RepertoireEdit } from './components/Repertoire/RepertoireEdit';
 import { ImportList } from './components/PGN/ImportList';
 import { ImportDetail } from './components/PGN/ImportDetail';
+import { GameAnalysisPage } from './components/PGN/GameAnalysisPage';
 import { ToastContainer } from './components/UI';
 
 function NotFound() {
@@ -23,6 +24,7 @@ function App() {
         <Route path="/repertoire/:color/edit" element={<RepertoireEdit />} />
         <Route path="/imports" element={<ImportList />} />
         <Route path="/import/:id" element={<ImportDetail />} />
+        <Route path="/import/:id/game/:gameIndex" element={<GameAnalysisPage />} />
         <Route path="/404" element={<NotFound />} />
         <Route path="*" element={<Navigate to="/404" replace />} />
       </Routes>

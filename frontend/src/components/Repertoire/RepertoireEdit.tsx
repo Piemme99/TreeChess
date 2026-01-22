@@ -284,8 +284,6 @@ export function RepertoireEdit() {
             selectedNodeId={selectedNodeId}
             onNodeClick={handleNodeClick}
             color={color!}
-            width={500}
-            height={400}
           />
         </div>
 
@@ -308,7 +306,7 @@ export function RepertoireEdit() {
               onSquareClick={handleSquareClick}
               highlightSquares={possibleMoves}
               interactive={true}
-              width={400}
+              width={350}
             />
           </div>
         </div>

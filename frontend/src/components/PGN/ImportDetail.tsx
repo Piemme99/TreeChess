@@ -38,11 +38,13 @@ function calculateStats(results: GameAnalysis[]): SummaryStats {
 interface GameSectionProps {
   game: GameAnalysis;
   gameNumber: number;
+  importId: string;
   onAddToRepertoire: (move: MoveAnalysis, game: GameAnalysis) => void;
 }
 
-function GameSection({ game, gameNumber, onAddToRepertoire }: GameSectionProps) {
+function GameSection({ game, gameNumber, importId, onAddToRepertoire }: GameSectionProps) {
   const [expanded, setExpanded] = useState(false);
+  const navigate = useNavigate();
 
   const errors = game.moves.filter((m) => m.status === 'out-of-repertoire');
   const newLines = game.moves.filter((m) => m.status === 'opponent-new');
@@ -76,6 +78,17 @@ function GameSection({ game, gameNumber, onAddToRepertoire }: GameSectionProps) 
             <span className="badge badge-ok">All in repertoire</span>
           )}
         </div>
+        <Button
+          variant="primary"
+          size="sm"
+          className="view-analysis-btn"
+          onClick={(e) => {
+            e.stopPropagation();
+            navigate(`/import/${importId}/game/${gameNumber - 1}`);
+          }}
+        >
+          Analyze
+        </Button>
         <span className="expand-icon">{expanded ? '▼' : '▶'}</span>
       </div>
 
@@ -244,6 +257,7 @@ export function ImportDetail() {
             key={i}
             game={game}
             gameNumber={i + 1}
+            importId={id!}
             onAddToRepertoire={handleAddToRepertoire}
           />
         ))}
