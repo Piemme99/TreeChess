@@ -1331,6 +1331,20 @@ a:focus-visible {
   color: var(--color-danger);
 }
 
+/* Show more section */
+.show-more-section {
+  display: flex;
+  justify-content: center;
+  padding: var(--spacing-sm) 0;
+  margin-top: var(--spacing-sm);
+  border-top: 1px dashed var(--color-border);
+}
+
+.show-more-btn {
+  font-size: 0.875rem;
+  color: var(--color-primary);
+}
+
 /* Game section clickable row */
 .game-section.clickable .game-header {
   cursor: pointer;

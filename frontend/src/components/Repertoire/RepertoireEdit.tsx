@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useRepertoireStore } from '../../stores/repertoireStore';
 import { repertoireApi } from '../../services/api';
@@ -9,6 +9,13 @@ import { MoveHistory } from '../Board/MoveHistory';
 import { RepertoireTree } from '../Tree/RepertoireTree';
 import { isValidMove, makeMove, getShortFEN, getLegalMoves } from '../../utils/chess';
 import type { Color, RepertoireNode, AddNodeRequest } from '../../types';
+
+interface PendingAddNode {
+  color: string;
+  parentFEN: string;
+  moveSAN: string;
+  gameInfo: string;
+}
 
 const STARTING_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
@@ -32,6 +39,7 @@ export function RepertoireEdit() {
   const [moveError, setMoveError] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
   const [possibleMoves, setPossibleMoves] = useState<string[]>([]);
+  const pendingAddProcessed = useRef(false);
 
   const repertoire = color === 'white' ? whiteRepertoire : blackRepertoire;
 
@@ -74,6 +82,62 @@ export function RepertoireEdit() {
     }
     return null;
   }, []);
+
+  // Find a node by FEN (comparing position part only)
+  const findNodeByFEN = useCallback((node: RepertoireNode, targetFEN: string): RepertoireNode | null => {
+    // Compare only the board position part (first segment of FEN)
+    const nodePosition = node.fen.split(' ')[0];
+    const targetPosition = targetFEN.split(' ')[0];
+
+    if (nodePosition === targetPosition) return node;
+
+    for (const child of node.children) {
+      const found = findNodeByFEN(child, targetFEN);
+      if (found) return found;
+    }
+    return null;
+  }, []);
+
+  // Handle pending add node from game analysis
+  useEffect(() => {
+    if (!repertoire || pendingAddProcessed.current) return;
+
+    const pendingData = sessionStorage.getItem('pendingAddNode');
+    if (!pendingData) return;
+
+    try {
+      const pending: PendingAddNode = JSON.parse(pendingData);
+
+      // Clear immediately to avoid re-processing
+      sessionStorage.removeItem('pendingAddNode');
+      pendingAddProcessed.current = true;
+
+      // Verify this is for the correct repertoire color
+      if (pending.color !== color) {
+        toast.warning(`This move is for the ${pending.color} repertoire`);
+        return;
+      }
+
+      // Find the node with matching FEN
+      const targetNode = findNodeByFEN(repertoire.treeData, pending.parentFEN);
+
+      if (targetNode) {
+        // Select the node
+        selectNode(targetNode.id);
+
+        // Pre-fill and open the add move modal
+        setMoveInput(pending.moveSAN);
+        setMoveError('');
+        setAddMoveModalOpen(true);
+
+        toast.info(`Add "${pending.moveSAN}" from ${pending.gameInfo}`);
+      } else {
+        toast.warning('Position not found in repertoire. Navigate manually to add the move.');
+      }
+    } catch {
+      sessionStorage.removeItem('pendingAddNode');
+    }
+  }, [repertoire, color, findNodeByFEN, selectNode]);
 
   const selectedNode = repertoire && selectedNodeId
     ? findNode(repertoire.treeData, selectedNodeId)

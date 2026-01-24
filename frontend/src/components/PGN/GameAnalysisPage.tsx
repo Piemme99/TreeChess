@@ -161,16 +161,22 @@ export function GameAnalysisPage() {
   const handleAddToRepertoire = useCallback((move: MoveAnalysis) => {
     if (!analysis || !game) return;
 
+    // Find the index of this move
+    const moveIndex = game.moves.findIndex(m => m === move);
+    if (moveIndex === -1) return;
+
+    // Compute the FEN BEFORE this move (parent position)
+    const parentFEN = moveIndex === 0 ? STARTING_FEN : computeFEN(game.moves, moveIndex - 1);
+
     const context = {
       color: analysis.color,
-      fen: move.fen,
+      parentFEN: parentFEN,
       moveSAN: move.san,
       gameInfo: `${game.headers.White || '?'} vs ${game.headers.Black || '?'}`
     };
     sessionStorage.setItem('pendingAddNode', JSON.stringify(context));
 
     navigate(`/repertoire/${analysis.color}/edit`);
-    toast.info(`Navigate to position and add "${move.san}"`);
   }, [analysis, game, navigate]);
 
   if (loading) {

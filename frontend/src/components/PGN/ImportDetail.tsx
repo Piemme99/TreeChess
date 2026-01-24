@@ -6,33 +6,42 @@ import { Button, Loading } from '../UI';
 import type { AnalysisDetail, GameAnalysis, MoveAnalysis } from '../../types';
 
 interface SummaryStats {
-  inRepertoire: number;
-  errors: number;
-  newLines: number;
+  totalGames: number;
+  gamesWithErrors: number;
+  gamesWithNewLines: number;
+  gamesAllOk: number;
+}
+
+// Find the first actionable move in a game (opponent-new or out-of-repertoire)
+function getFirstActionableMove(game: GameAnalysis): MoveAnalysis | null {
+  return game.moves.find(
+    (m) => m.status === 'opponent-new' || m.status === 'out-of-repertoire'
+  ) || null;
 }
 
 function calculateStats(results: GameAnalysis[]): SummaryStats {
-  let inRepertoire = 0;
-  let errors = 0;
-  let newLines = 0;
+  let gamesWithErrors = 0;
+  let gamesWithNewLines = 0;
+  let gamesAllOk = 0;
 
   for (const game of results) {
-    for (const move of game.moves) {
-      switch (move.status) {
-        case 'in-repertoire':
-          inRepertoire++;
-          break;
-        case 'out-of-repertoire':
-          errors++;
-          break;
-        case 'opponent-new':
-          newLines++;
-          break;
-      }
+    const firstActionable = getFirstActionableMove(game);
+
+    if (!firstActionable) {
+      gamesAllOk++;
+    } else if (firstActionable.status === 'out-of-repertoire') {
+      gamesWithErrors++;
+    } else if (firstActionable.status === 'opponent-new') {
+      gamesWithNewLines++;
     }
   }
 
-  return { inRepertoire, errors, newLines };
+  return {
+    totalGames: results.length,
+    gamesWithErrors,
+    gamesWithNewLines,
+    gamesAllOk
+  };
 }
 
 interface GameSectionProps {
@@ -46,9 +55,12 @@ function GameSection({ game, gameNumber, importId, onAddToRepertoire }: GameSect
   const [expanded, setExpanded] = useState(false);
   const navigate = useNavigate();
 
+  const firstActionable = getFirstActionableMove(game);
+  const hasIssues = firstActionable !== null;
+
+  // For the detailed view, keep all errors and new lines
   const errors = game.moves.filter((m) => m.status === 'out-of-repertoire');
   const newLines = game.moves.filter((m) => m.status === 'opponent-new');
-  const hasIssues = errors.length > 0 || newLines.length > 0;
 
   const opponent = game.headers.White && game.headers.Black
     ? `${game.headers.White} vs ${game.headers.Black}`
@@ -68,11 +80,11 @@ function GameSection({ game, gameNumber, importId, onAddToRepertoire }: GameSect
           <span className="game-result">{result}</span>
         </div>
         <div className="game-badges">
-          {errors.length > 0 && (
-            <span className="badge badge-error">{errors.length} error{errors.length > 1 ? 's' : ''}</span>
+          {firstActionable?.status === 'out-of-repertoire' && (
+            <span className="badge badge-error">Error</span>
           )}
-          {newLines.length > 0 && (
-            <span className="badge badge-new">{newLines.length} new</span>
+          {firstActionable?.status === 'opponent-new' && (
+            <span className="badge badge-new">New line</span>
           )}
           {!hasIssues && (
             <span className="badge badge-ok">All in repertoire</span>
@@ -179,7 +191,7 @@ export function ImportDetail() {
   }, [id, navigate]);
 
   const stats = useMemo(() => {
-    if (!analysis) return { inRepertoire: 0, errors: 0, newLines: 0 };
+    if (!analysis) return { totalGames: 0, gamesWithErrors: 0, gamesWithNewLines: 0, gamesAllOk: 0 };
     return calculateStats(analysis.results);
   }, [analysis]);
 
@@ -236,15 +248,15 @@ export function ImportDetail() {
 
         <div className="stats-cards">
           <div className="stat-card stat-ok">
-            <span className="stat-number">{stats.inRepertoire}</span>
-            <span className="stat-label">In Repertoire</span>
+            <span className="stat-number">{stats.gamesAllOk}</span>
+            <span className="stat-label">Games OK</span>
           </div>
           <div className="stat-card stat-error">
-            <span className="stat-number">{stats.errors}</span>
+            <span className="stat-number">{stats.gamesWithErrors}</span>
             <span className="stat-label">Errors</span>
           </div>
           <div className="stat-card stat-new">
-            <span className="stat-number">{stats.newLines}</span>
+            <span className="stat-number">{stats.gamesWithNewLines}</span>
             <span className="stat-label">New Lines</span>
           </div>
         </div>
