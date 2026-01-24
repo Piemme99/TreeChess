@@ -96,7 +96,7 @@ function GameSection({ game, gameNumber, importId, onAddToRepertoire }: GameSect
           className="view-analysis-btn"
           onClick={(e) => {
             e.stopPropagation();
-            navigate(`/import/${importId}/game/${gameNumber - 1}`);
+            navigate(`/analyse/${importId}/game/${gameNumber - 1}`);
           }}
         >
           Analyze
@@ -172,7 +172,7 @@ export function ImportDetail() {
   useEffect(() => {
     const loadAnalysis = async () => {
       if (!id) {
-        navigate('/imports');
+        navigate('/');
         return;
       }
 
@@ -181,7 +181,7 @@ export function ImportDetail() {
         setAnalysis(data);
       } catch {
         toast.error('Failed to load analysis');
-        navigate('/imports');
+        navigate('/');
       } finally {
         setLoading(false);
       }
@@ -196,12 +196,12 @@ export function ImportDetail() {
   }, [analysis]);
 
   const handleAddToRepertoire = useCallback((move: MoveAnalysis, game: GameAnalysis) => {
-    if (!analysis) return;
+    if (!game.userColor) return;
 
     // Store context in sessionStorage for the repertoire edit page
     // Using spec-defined key: pendingAddNode
     const context = {
-      color: analysis.color,
+      color: game.userColor,
       fen: move.fen,
       moveSAN: move.san,
       gameInfo: `${game.headers.White || '?'} vs ${game.headers.Black || '?'}`
@@ -209,9 +209,9 @@ export function ImportDetail() {
     sessionStorage.setItem('pendingAddNode', JSON.stringify(context));
 
     // Navigate to repertoire edit page
-    navigate(`/repertoire/${analysis.color}/edit`);
+    navigate(`/repertoire/${game.userColor}/edit`);
     toast.info(`Navigate to position and add "${move.san}"`);
-  }, [analysis, navigate]);
+  }, [navigate]);
 
   if (loading) {
     return (
@@ -228,8 +228,8 @@ export function ImportDetail() {
   return (
     <div className="import-detail">
       <header className="import-detail-header">
-        <Button variant="ghost" onClick={() => navigate('/imports')}>
-          &larr; Back to Imports
+        <Button variant="ghost" onClick={() => navigate('/')}>
+          &larr; Back
         </Button>
         <h1>Analysis Results</h1>
         <div className="header-spacer" />
@@ -237,12 +237,10 @@ export function ImportDetail() {
 
       <section className="analysis-overview">
         <div className="analysis-file-info">
-          <span className="analysis-color-icon">
-            {analysis.color === 'white' ? '♔' : '♚'}
-          </span>
+          <span className="analysis-color-icon">♟</span>
           <div>
             <h2>{analysis.filename}</h2>
-            <p>{analysis.gameCount} game{analysis.gameCount !== 1 ? 's' : ''} analyzed against {analysis.color} repertoire</p>
+            <p>{analysis.gameCount} game{analysis.gameCount !== 1 ? 's' : ''} analyzed for {analysis.username}</p>
           </div>
         </div>
 

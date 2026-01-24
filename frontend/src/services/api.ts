@@ -8,6 +8,8 @@ import type {
   UploadResponse
 } from '../types';
 
+const USERNAME_STORAGE_KEY = 'treechess_username';
+
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
 const api = axios.create({
@@ -44,12 +46,18 @@ export const repertoireApi = {
   }
 };
 
+// Username storage helpers
+export const usernameStorage = {
+  get: (): string => localStorage.getItem(USERNAME_STORAGE_KEY) || '',
+  set: (username: string): void => localStorage.setItem(USERNAME_STORAGE_KEY, username),
+};
+
 // Import/Analysis API
 export const importApi = {
-  upload: async (file: File, color: Color): Promise<UploadResponse> => {
+  upload: async (file: File, username: string): Promise<UploadResponse> => {
     const formData = new FormData();
     formData.append('file', file);
-    formData.append('color', color);
+    formData.append('username', username);
 
     const response = await api.post('/imports', formData, {
       headers: {

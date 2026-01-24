@@ -1,18 +1,18 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { importApi } from '../../services/api';
+import { importApi, usernameStorage } from '../../services/api';
 import { toast } from '../../stores/toastStore';
 import { Button, ConfirmModal, Loading } from '../UI';
-import type { AnalysisSummary, Color } from '../../types';
+import type { AnalysisSummary } from '../../types';
 
-export function ImportList() {
+export function AnalyseTab() {
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [analyses, setAnalyses] = useState<AnalysisSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
-  const [selectedColor, setSelectedColor] = useState<Color>('white');
+  const [username, setUsername] = useState(() => usernameStorage.get());
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [dragOver, setDragOver] = useState(false);
@@ -38,24 +38,31 @@ export function ImportList() {
       return;
     }
 
+    if (!username.trim()) {
+      toast.error('Please enter your username first');
+      return;
+    }
+
+    // Save username to localStorage
+    usernameStorage.set(username.trim());
+
     setUploading(true);
     try {
-      const result = await importApi.upload(file, selectedColor);
+      const result = await importApi.upload(file, username.trim());
       toast.success(`Imported ${result.gameCount} game(s)`);
-      navigate(`/import/${result.id}`);
+      navigate(`/analyse/${result.id}`);
     } catch {
       toast.error('Failed to upload PGN file');
     } finally {
       setUploading(false);
     }
-  }, [selectedColor, navigate]);
+  }, [username, navigate]);
 
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       handleFileUpload(file);
     }
-    // Reset input
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -96,42 +103,27 @@ export function ImportList() {
   }, [deleteId]);
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
+    return new Date(dateString).toLocaleDateString('fr-FR', {
       day: 'numeric',
+      month: 'short',
       hour: '2-digit',
       minute: '2-digit'
     });
   };
 
   return (
-    <div className="import-list">
-      <header className="import-list-header">
-        <Button variant="ghost" onClick={() => navigate('/')}>
-          &larr; Back
-        </Button>
-        <h1>Import PGN</h1>
-        <div className="header-spacer" />
-      </header>
-
-      <section className="import-upload-section">
-        <div className="color-selector">
-          <label>Analyze against:</label>
-          <div className="color-buttons">
-            <button
-              className={`color-btn ${selectedColor === 'white' ? 'active' : ''}`}
-              onClick={() => setSelectedColor('white')}
-            >
-              <span className="color-icon">♔</span> White
-            </button>
-            <button
-              className={`color-btn ${selectedColor === 'black' ? 'active' : ''}`}
-              onClick={() => setSelectedColor('black')}
-            >
-              <span className="color-icon">♚</span> Black
-            </button>
-          </div>
+    <div className="analyse-tab">
+      <section className="import-section">
+        <h2>Import games</h2>
+        <div className="username-input">
+          <label htmlFor="username">Your username:</label>
+          <input
+            id="username"
+            type="text"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            placeholder="Enter your Lichess or Chess.com username"
+          />
         </div>
 
         <div
@@ -162,8 +154,8 @@ export function ImportList() {
         />
       </section>
 
-      <section className="import-history-section">
-        <h2>Previous Analyses</h2>
+      <section className="analyses-section">
+        <h2>Recent analyses</h2>
         {loading ? (
           <Loading text="Loading analyses..." />
         ) : analyses.length === 0 ? (
@@ -173,12 +165,10 @@ export function ImportList() {
             {analyses.map((analysis) => (
               <div key={analysis.id} className="analysis-card">
                 <div className="analysis-info">
-                  <span className="analysis-color">
-                    {analysis.color === 'white' ? '♔' : '♚'}
-                  </span>
                   <div className="analysis-details">
                     <h3 className="analysis-filename">{analysis.filename}</h3>
                     <p className="analysis-meta">
+                      {analysis.username} &middot;{' '}
                       {analysis.gameCount} game{analysis.gameCount !== 1 ? 's' : ''} &middot;{' '}
                       {formatDate(analysis.uploadedAt)}
                     </p>
@@ -188,7 +178,7 @@ export function ImportList() {
                   <Button
                     variant="primary"
                     size="sm"
-                    onClick={() => navigate(`/import/${analysis.id}`)}
+                    onClick={() => navigate(`/analyse/${analysis.id}`)}
                   >
                     View
                   </Button>

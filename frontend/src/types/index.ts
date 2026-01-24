@@ -64,11 +64,12 @@ export interface GameAnalysis {
   gameIndex: number;
   headers: PGNHeaders;
   moves: MoveAnalysis[];
+  userColor: Color;
 }
 
 export interface AnalysisSummary {
   id: string;
-  color: Color;
+  username: string;
   filename: string;
   gameCount: number;
   uploadedAt: string;
@@ -86,7 +87,7 @@ export interface ApiError {
 
 export interface UploadResponse {
   id: string;
-  color: Color;
+  username: string;
   filename: string;
   gameCount: number;
 }

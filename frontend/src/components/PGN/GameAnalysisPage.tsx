@@ -61,21 +61,16 @@ export function GameAnalysisPage() {
   useEffect(() => {
     const loadAnalysis = async () => {
       if (!id) {
-        navigate('/imports');
+        navigate('/');
         return;
       }
 
       try {
         const data = await importApi.get(id);
         setAnalysis(data);
-
-        // Auto-flip board if analyzing as black
-        if (data.color === 'black') {
-          setFlipped(true);
-        }
       } catch {
         toast.error('Failed to load analysis');
-        navigate('/imports');
+        navigate('/');
       } finally {
         setLoading(false);
       }
@@ -90,6 +85,13 @@ export function GameAnalysisPage() {
     }
     return analysis.results[gameIdx];
   }, [analysis, gameIdx]);
+
+  // Auto-flip board based on user's color in this game
+  useEffect(() => {
+    if (game?.userColor === 'black') {
+      setFlipped(true);
+    }
+  }, [game?.userColor]);
 
   // Calculate the max move index to display
   const maxDisplayedMoveIndex = useMemo(() => {
@@ -159,7 +161,7 @@ export function GameAnalysisPage() {
   }, [goFirst, goPrev, goNext, goLast]);
 
   const handleAddToRepertoire = useCallback((move: MoveAnalysis) => {
-    if (!analysis || !game) return;
+    if (!game || !game.userColor) return;
 
     // Find the index of this move
     const moveIndex = game.moves.findIndex(m => m === move);
@@ -169,15 +171,15 @@ export function GameAnalysisPage() {
     const parentFEN = moveIndex === 0 ? STARTING_FEN : computeFEN(game.moves, moveIndex - 1);
 
     const context = {
-      color: analysis.color,
+      color: game.userColor,
       parentFEN: parentFEN,
       moveSAN: move.san,
       gameInfo: `${game.headers.White || '?'} vs ${game.headers.Black || '?'}`
     };
     sessionStorage.setItem('pendingAddNode', JSON.stringify(context));
 
-    navigate(`/repertoire/${analysis.color}/edit`);
-  }, [analysis, game, navigate]);
+    navigate(`/repertoire/${game.userColor}/edit`);
+  }, [game, navigate]);
 
   if (loading) {
     return (
@@ -192,8 +194,8 @@ export function GameAnalysisPage() {
       <div className="game-analysis">
         <div className="game-analysis-error">
           <p>Game not found</p>
-          <Button variant="primary" onClick={() => navigate(`/import/${id}`)}>
-            Back to Import
+          <Button variant="primary" onClick={() => navigate(`/analyse/${id}`)}>
+            Back
           </Button>
         </div>
       </div>
@@ -208,7 +210,7 @@ export function GameAnalysisPage() {
   return (
     <div className="game-analysis">
       <header className="game-analysis-header">
-        <Button variant="ghost" onClick={() => navigate(`/import/${id}`)}>
+        <Button variant="ghost" onClick={() => navigate(`/analyse/${id}`)}>
           &larr; Back
         </Button>
         <div className="game-analysis-title">
