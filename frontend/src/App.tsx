@@ -1,8 +1,8 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { MainLayout } from './components/Layout/MainLayout';
-import { RepertoireEdit } from './components/Repertoire/RepertoireEdit';
-import { ImportDetail } from './components/PGN/ImportDetail';
+import { ImportDetail } from './features/analyse-import';
 import { GameAnalysisPage } from './features/game-analysis';
+import { RepertoireEdit } from './components/Repertoire/RepertoireEdit';
 import { ToastContainer } from './components/UI';
 
 function App() {
