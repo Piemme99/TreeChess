@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { AnalyseTab } from '../Analyse/AnalyseTab';
-import { RepertoireTab } from '../Repertoire/RepertoireTab';
+import { AnalyseTab } from '../../features/analyse-tab';
+import { RepertoireTab } from '../../features/repertoire-tab';
 
 type TabId = 'analyse' | 'repertoire';
 
