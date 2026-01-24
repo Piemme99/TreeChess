@@ -69,11 +69,12 @@ type GameAnalysis struct {
 	GameIndex int            `json:"gameIndex"`
 	Headers   PGNHeaders     `json:"headers"`
 	Moves     []MoveAnalysis `json:"moves"`
+	UserColor Color          `json:"userColor"` // Which color the user played as in this game
 }
 
 type AnalysisSummary struct {
 	ID         string    `json:"id"`
-	Color      Color     `json:"color"`
+	Username   string    `json:"username"`
 	Filename   string    `json:"filename"`
 	GameCount  int       `json:"gameCount"`
 	UploadedAt time.Time `json:"uploadedAt"`
@@ -81,7 +82,7 @@ type AnalysisSummary struct {
 
 type AnalysisDetail struct {
 	ID         string         `json:"id"`
-	Color      Color          `json:"color"`
+	Username   string         `json:"username"`
 	Filename   string         `json:"filename"`
 	GameCount  int            `json:"gameCount"`
 	UploadedAt time.Time      `json:"uploadedAt"`

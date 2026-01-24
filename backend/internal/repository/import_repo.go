@@ -13,17 +13,17 @@ import (
 
 const (
 	saveAnalysisSQL = `
-		INSERT INTO analyses (id, color, filename, game_count, results, uploaded_at)
+		INSERT INTO analyses (id, username, filename, game_count, results, uploaded_at)
 		VALUES ($1, $2, $3, $4, $5, $6)
-		RETURNING id, color, filename, game_count, uploaded_at
+		RETURNING id, username, filename, game_count, uploaded_at
 	`
 	getAnalysesSQL = `
-		SELECT id, color, filename, game_count, uploaded_at
+		SELECT id, username, filename, game_count, uploaded_at
 		FROM analyses
 		ORDER BY uploaded_at DESC
 	`
 	getAnalysisByIDSQL = `
-		SELECT id, color, filename, game_count, results, uploaded_at
+		SELECT id, username, filename, game_count, results, uploaded_at
 		FROM analyses
 		WHERE id = $1
 	`
@@ -33,7 +33,7 @@ const (
 	`
 )
 
-func SaveAnalysis(color models.Color, filename string, gameCount int, results []models.GameAnalysis) (*models.AnalysisSummary, error) {
+func SaveAnalysis(username string, filename string, gameCount int, results []models.GameAnalysis) (*models.AnalysisSummary, error) {
 	db := GetPool()
 	ctx, cancel := dbContext()
 	defer cancel()
@@ -49,14 +49,14 @@ func SaveAnalysis(color models.Color, filename string, gameCount int, results []
 	var summary models.AnalysisSummary
 	err = db.QueryRow(ctx, saveAnalysisSQL,
 		id,
-		string(color),
+		username,
 		filename,
 		gameCount,
 		resultsJSON,
 		uploadedAt,
 	).Scan(
 		&summary.ID,
-		&summary.Color,
+		&summary.Username,
 		&summary.Filename,
 		&summary.GameCount,
 		&summary.UploadedAt,
@@ -82,7 +82,7 @@ func GetAnalyses() ([]models.AnalysisSummary, error) {
 	var analyses []models.AnalysisSummary
 	for rows.Next() {
 		var a models.AnalysisSummary
-		err := rows.Scan(&a.ID, &a.Color, &a.Filename, &a.GameCount, &a.UploadedAt)
+		err := rows.Scan(&a.ID, &a.Username, &a.Filename, &a.GameCount, &a.UploadedAt)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan analysis: %w", err)
 		}
@@ -106,7 +106,7 @@ func GetAnalysisByID(id string) (*models.AnalysisDetail, error) {
 
 	err := db.QueryRow(ctx, getAnalysisByIDSQL, id).Scan(
 		&detail.ID,
-		&detail.Color,
+		&detail.Username,
 		&detail.Filename,
 		&detail.GameCount,
 		&resultsJSON,

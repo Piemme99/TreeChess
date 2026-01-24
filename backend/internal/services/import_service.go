@@ -20,7 +20,7 @@ func NewImportService(repertoireSvc *RepertoireService) *ImportService {
 	}
 }
 
-func (s *ImportService) ParseAndAnalyze(filename string, color models.Color, pgnData string) (*models.AnalysisSummary, []models.GameAnalysis, error) {
+func (s *ImportService) ParseAndAnalyze(filename string, username string, pgnData string) (*models.AnalysisSummary, []models.GameAnalysis, error) {
 	games, err := s.parsePGN(pgnData)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to parse PGN: %w", err)
@@ -30,22 +30,63 @@ func (s *ImportService) ParseAndAnalyze(filename string, color models.Color, pgn
 		return nil, nil, fmt.Errorf("no games found in PGN")
 	}
 
-	repertoire, err := s.repertoireService.GetRepertoire(color)
+	// Get both repertoires upfront
+	whiteRepertoire, err := s.repertoireService.GetRepertoire(models.ColorWhite)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get repertoire: %w", err)
+		return nil, nil, fmt.Errorf("failed to get white repertoire: %w", err)
+	}
+	blackRepertoire, err := s.repertoireService.GetRepertoire(models.ColorBlack)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get black repertoire: %w", err)
 	}
 
-	results := make([]models.GameAnalysis, len(games))
+	var results []models.GameAnalysis
 	for i, game := range games {
-		results[i] = s.analyzeGame(i, game, repertoire.TreeData, color)
+		// Determine which color the user played based on username
+		userColor := s.determineUserColor(game, username)
+		if userColor == "" {
+			// User not found in this game, skip it
+			continue
+		}
+
+		var repertoire models.RepertoireNode
+		if userColor == models.ColorWhite {
+			repertoire = whiteRepertoire.TreeData
+		} else {
+			repertoire = blackRepertoire.TreeData
+		}
+
+		analysis := s.analyzeGame(i, game, repertoire, userColor)
+		analysis.UserColor = userColor
+		results = append(results, analysis)
 	}
 
-	summary, err := repository.SaveAnalysis(color, filename, len(games), results)
+	if len(results) == 0 {
+		return nil, nil, fmt.Errorf("no games found where '%s' was a player", username)
+	}
+
+	summary, err := repository.SaveAnalysis(username, filename, len(results), results)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to save analysis: %w", err)
 	}
 
 	return summary, results, nil
+}
+
+func (s *ImportService) determineUserColor(game *chess.Game, username string) models.Color {
+	headers := s.extractHeaders(game)
+	white := headers["White"]
+	black := headers["Black"]
+
+	// Case-insensitive comparison
+	usernameLower := strings.ToLower(username)
+	if strings.ToLower(white) == usernameLower {
+		return models.ColorWhite
+	}
+	if strings.ToLower(black) == usernameLower {
+		return models.ColorBlack
+	}
+	return "" // User not found in this game
 }
 
 func (s *ImportService) parsePGN(pgnData string) ([]*chess.Game, error) {

@@ -354,3 +354,91 @@ func TestAnalyzeGame_NoRepertoire(t *testing.T) {
 func strPtr(s string) *string {
 	return &s
 }
+
+func TestDetermineUserColor_WhitePlayer(t *testing.T) {
+	svc := NewImportService(nil)
+
+	pgnData := `[Event "Test"]
+[White "TestUser"]
+[Black "Opponent"]
+1. e4 e5 1-0`
+
+	games, err := svc.parsePGN(pgnData)
+	require.NoError(t, err)
+	require.Len(t, games, 1)
+
+	color := svc.determineUserColor(games[0], "TestUser")
+
+	assert.Equal(t, models.ColorWhite, color)
+}
+
+func TestDetermineUserColor_BlackPlayer(t *testing.T) {
+	svc := NewImportService(nil)
+
+	pgnData := `[Event "Test"]
+[White "Opponent"]
+[Black "TestUser"]
+1. e4 e5 1-0`
+
+	games, err := svc.parsePGN(pgnData)
+	require.NoError(t, err)
+	require.Len(t, games, 1)
+
+	color := svc.determineUserColor(games[0], "TestUser")
+
+	assert.Equal(t, models.ColorBlack, color)
+}
+
+func TestDetermineUserColor_CaseInsensitive(t *testing.T) {
+	svc := NewImportService(nil)
+
+	pgnData := `[Event "Test"]
+[White "TESTUSER"]
+[Black "Opponent"]
+1. e4 e5 1-0`
+
+	games, err := svc.parsePGN(pgnData)
+	require.NoError(t, err)
+	require.Len(t, games, 1)
+
+	// Username with different case should still match
+	color := svc.determineUserColor(games[0], "testuser")
+
+	assert.Equal(t, models.ColorWhite, color)
+}
+
+func TestDetermineUserColor_NotInGame(t *testing.T) {
+	svc := NewImportService(nil)
+
+	pgnData := `[Event "Test"]
+[White "Player1"]
+[Black "Player2"]
+1. e4 e5 1-0`
+
+	games, err := svc.parsePGN(pgnData)
+	require.NoError(t, err)
+	require.Len(t, games, 1)
+
+	// User not in this game
+	color := svc.determineUserColor(games[0], "TestUser")
+
+	assert.Equal(t, models.Color(""), color)
+}
+
+func TestDetermineUserColor_LichessUsernameFormat(t *testing.T) {
+	svc := NewImportService(nil)
+
+	// Lichess often has usernames like "DrNykterstein" or URLs
+	pgnData := `[Event "Rated Blitz game"]
+[White "Magnus_Carlsen"]
+[Black "DrNykterstein"]
+1. e4 c5 1-0`
+
+	games, err := svc.parsePGN(pgnData)
+	require.NoError(t, err)
+	require.Len(t, games, 1)
+
+	color := svc.determineUserColor(games[0], "drnykterstein")
+
+	assert.Equal(t, models.ColorBlack, color)
+}

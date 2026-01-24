@@ -9,7 +9,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 
-	"github.com/treechess/backend/internal/models"
 	"github.com/treechess/backend/internal/services"
 )
 
@@ -26,12 +25,11 @@ func NewImportHandler(importSvc *services.ImportService) *ImportHandler {
 const MaxPGNSize = 10 * 1024 * 1024 // 10MB limit
 
 func (h *ImportHandler) UploadHandler(c echo.Context) error {
-	colorStr := c.FormValue("color")
-	color := models.Color(colorStr)
+	username := c.FormValue("username")
 
-	if color != models.ColorWhite && color != models.ColorBlack {
+	if username == "" {
 		return c.JSON(http.StatusBadRequest, map[string]string{
-			"error": "invalid color. must be 'white' or 'black'",
+			"error": "username is required",
 		})
 	}
 
@@ -76,7 +74,7 @@ func (h *ImportHandler) UploadHandler(c echo.Context) error {
 		})
 	}
 
-	summary, _, err := h.importService.ParseAndAnalyze(file.Filename, color, string(pgnData))
+	summary, _, err := h.importService.ParseAndAnalyze(file.Filename, username, string(pgnData))
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{
 			"error": fmt.Sprintf("failed to parse and analyze PGN: %v", err),
@@ -85,7 +83,7 @@ func (h *ImportHandler) UploadHandler(c echo.Context) error {
 
 	return c.JSON(http.StatusCreated, map[string]interface{}{
 		"id":        summary.ID,
-		"color":     summary.Color,
+		"username":  summary.Username,
 		"filename":  summary.Filename,
 		"gameCount": summary.GameCount,
 	})
@@ -103,7 +101,7 @@ func (h *ImportHandler) ListAnalysesHandler(c echo.Context) error {
 	for i, a := range analyses {
 		result[i] = map[string]interface{}{
 			"id":         a.ID,
-			"color":      a.Color,
+			"username":   a.Username,
 			"filename":   a.Filename,
 			"gameCount":  a.GameCount,
 			"uploadedAt": a.UploadedAt.Format("2006-01-02T15:04:05Z07:00"),
@@ -137,7 +135,7 @@ func (h *ImportHandler) GetAnalysisHandler(c echo.Context) error {
 
 	result := map[string]interface{}{
 		"id":         detail.ID,
-		"color":      detail.Color,
+		"username":   detail.Username,
 		"filename":   detail.Filename,
 		"gameCount":  detail.GameCount,
 		"uploadedAt": detail.UploadedAt.Format("2006-01-02T15:04:05Z07:00"),

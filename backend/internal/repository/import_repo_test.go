@@ -41,7 +41,7 @@ func TestSaveAnalysis_JSONMarshaling(t *testing.T) {
 func TestAnalysisSummary_JSON(t *testing.T) {
 	summary := models.AnalysisSummary{
 		ID:        "test-id",
-		Color:     models.ColorWhite,
+		Username:  "testuser",
 		Filename:  "test.pgn",
 		GameCount: 5,
 	}
@@ -54,7 +54,7 @@ func TestAnalysisSummary_JSON(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, summary.ID, decoded.ID)
-	assert.Equal(t, summary.Color, decoded.Color)
+	assert.Equal(t, summary.Username, decoded.Username)
 	assert.Equal(t, summary.Filename, decoded.Filename)
 	assert.Equal(t, summary.GameCount, decoded.GameCount)
 }
@@ -62,13 +62,14 @@ func TestAnalysisSummary_JSON(t *testing.T) {
 func TestAnalysisDetail_JSON(t *testing.T) {
 	detail := models.AnalysisDetail{
 		ID:        "test-id",
-		Color:     models.ColorBlack,
+		Username:  "testuser",
 		Filename:  "games.pgn",
 		GameCount: 3,
 		Results: []models.GameAnalysis{
 			{
 				GameIndex: 0,
 				Headers:   models.PGNHeaders{"Event": "Casual"},
+				UserColor: models.ColorBlack,
 				Moves: []models.MoveAnalysis{
 					{PlyNumber: 0, SAN: "d4", Status: "out-of-repertoire", IsUserMove: true},
 				},
@@ -84,7 +85,7 @@ func TestAnalysisDetail_JSON(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, detail.ID, decoded.ID)
-	assert.Equal(t, detail.Color, decoded.Color)
+	assert.Equal(t, detail.Username, decoded.Username)
 	assert.Len(t, decoded.Results, 1)
 	assert.Equal(t, "out-of-repertoire", decoded.Results[0].Moves[0].Status)
 }
@@ -128,7 +129,7 @@ func TestPGNHeaders_JSON(t *testing.T) {
 func TestAnalysisDetail_NilResults(t *testing.T) {
 	detail := models.AnalysisDetail{
 		ID:        "test-id",
-		Color:     models.ColorWhite,
+		Username:  "testuser",
 		Filename:  "empty.pgn",
 		GameCount: 0,
 		Results:   nil,

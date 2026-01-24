@@ -20,7 +20,7 @@ CREATE INDEX IF NOT EXISTS idx_repertoires_updated ON repertoires(updated_at DES
 -- Create analyses table
 CREATE TABLE IF NOT EXISTS analyses (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    color VARCHAR(5) NOT NULL CHECK (color IN ('white', 'black')),
+    username VARCHAR(255) NOT NULL,
     filename VARCHAR(255) NOT NULL,
     game_count INTEGER NOT NULL,
     results JSONB NOT NULL,
@@ -28,5 +28,5 @@ CREATE TABLE IF NOT EXISTS analyses (
 );
 
 -- Performance indexes for analyses
-CREATE INDEX IF NOT EXISTS idx_analyses_color ON analyses(color);
+CREATE INDEX IF NOT EXISTS idx_analyses_username ON analyses(username);
 CREATE INDEX IF NOT EXISTS idx_analyses_uploaded ON analyses(uploaded_at DESC);

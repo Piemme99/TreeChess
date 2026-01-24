@@ -21,7 +21,7 @@ func TestUploadHandler_MissingFile(t *testing.T) {
 
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
-	writer.WriteField("color", "white")
+	writer.WriteField("username", "testuser")
 	writer.Close()
 
 	req := httptest.NewRequest(http.MethodPost, "/api/imports", body)
@@ -43,12 +43,12 @@ func TestUploadHandler_MissingFile(t *testing.T) {
 	assert.Equal(t, "file is required", response["error"])
 }
 
-func TestUploadHandler_InvalidColor(t *testing.T) {
+func TestUploadHandler_EmptyUsername(t *testing.T) {
 	e := echo.New()
 
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
-	writer.WriteField("color", "yellow")
+	writer.WriteField("username", "")
 	part, _ := writer.CreateFormFile("file", "test.pgn")
 	part.Write([]byte("1. e4 e5 1-0"))
 	writer.Close()
@@ -69,7 +69,7 @@ func TestUploadHandler_InvalidColor(t *testing.T) {
 	var response map[string]string
 	err = json.Unmarshal(rec.Body.Bytes(), &response)
 	require.NoError(t, err)
-	assert.Contains(t, response["error"], "invalid color")
+	assert.Contains(t, response["error"], "username is required")
 }
 
 func TestUploadHandler_InvalidFileExtension(t *testing.T) {
@@ -77,7 +77,7 @@ func TestUploadHandler_InvalidFileExtension(t *testing.T) {
 
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
-	writer.WriteField("color", "white")
+	writer.WriteField("username", "testuser")
 	part, _ := writer.CreateFormFile("file", "test.txt")
 	part.Write([]byte("some text"))
 	writer.Close()
@@ -302,7 +302,7 @@ func TestUploadHandler_InvalidBody(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 }
 
-func TestUploadHandler_MissingColor(t *testing.T) {
+func TestUploadHandler_MissingUsername(t *testing.T) {
 	e := echo.New()
 
 	body := &bytes.Buffer{}
@@ -323,6 +323,11 @@ func TestUploadHandler_MissingColor(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
+
+	var response map[string]string
+	err = json.Unmarshal(rec.Body.Bytes(), &response)
+	require.NoError(t, err)
+	assert.Equal(t, "username is required", response["error"])
 }
 
 func TestValidateMoveHandler_MissingSAN(t *testing.T) {
