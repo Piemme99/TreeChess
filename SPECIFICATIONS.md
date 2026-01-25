@@ -232,7 +232,7 @@ The Stockfish service parses UCI protocol responses including:
 - **PV extraction:** Parse principal variation for top 3 moves
 
 Example UCI output to parse:
-```
+```text
 info depth 12 score cp 150 pv e2e4 e7e5 Bf1c4 ...
 bestmove e2e4 ponder e7e5
 ```
@@ -527,7 +527,7 @@ src/
 
 Frontend architecture for Stockfish integration:
 
-```
+```text
 src/
 ├── services/
 │   ├── api.ts                    # REST API calls
@@ -715,7 +715,7 @@ function BoardSection({ currentEvaluation, isAnalyzing }: Props) {
   };
 
   const scoreColor = () => {
-    if (!currentEvaluation || currentEvaluation.score > 0) return '#4caf50';
+    if (!currentEvaluation || currentEvaluation.score > -50) return '#4caf50';
     return '#f44336';
   };
 
