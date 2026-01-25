@@ -91,7 +91,7 @@ export function AddMoveModal({
         <div className="stockfish-suggestion" style={{ marginTop: '12px', padding: '12px', background: '#e3f2fd', borderRadius: '6px', borderLeft: '4px solid #2196f3' }}>
           <div style={{ fontSize: '14px', marginBottom: '4px' }}>
             Stockfish suggests: <strong>{suggestedMove}</strong>
-            {suggestedScore && (
+            {suggestedScore !== null && suggestedScore !== undefined && (
               <span style={{ marginLeft: '8px', color: '#666' }}>
                 ({stockfishService.formatScore(suggestedScore)}, depth {suggestedDepth})
               </span>

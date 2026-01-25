@@ -59,6 +59,11 @@ class StockfishService {
       return;
     }
 
+    if (!this.isReady) {
+      console.warn('[Stockfish] Engine not ready, ignoring analyzePosition request');
+      return;
+    }
+
     this.currentDepth = depth;
     this.currentFEN = fen;
     this.pendingEvaluation = null;

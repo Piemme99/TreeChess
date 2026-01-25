@@ -45,7 +45,7 @@ export function RepertoireEdit() {
     [selectNode, setPossibleMoves]
   );
 
-const goToRoot = useCallback(() => {
+  const goToRoot = useCallback(() => {
     if (repertoire) {
       selectNode(repertoire.treeData.id);
     }

@@ -351,6 +351,13 @@ func (h *ImportHandler) LichessImportHandler(c echo.Context) error {
 		})
 	}
 
+	// Validate size of fetched PGN data
+	if len(pgnData) > MaxPGNSize {
+		return c.JSON(http.StatusRequestEntityTooLarge, map[string]string{
+			"error": "PGN exceeds maximum allowed size",
+		})
+	}
+
 	// Use the username as the filename indicator for Lichess imports
 	filename := fmt.Sprintf("lichess_%s.pgn", req.Username)
 

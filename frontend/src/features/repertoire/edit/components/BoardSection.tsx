@@ -31,7 +31,7 @@ export function BoardSection({
 
   const getScoreDisplay = () => {
     if (isAnalyzing) return 'Analyzing...';
-    if (currentEvaluation?.mate) return `Mate in ${currentEvaluation.mate}`;
+    if (currentEvaluation?.mate !== undefined && currentEvaluation?.mate !== null) return `Mate in ${currentEvaluation.mate}`;
     if (currentEvaluation) return stockfishService.formatScore(currentEvaluation.score);
     return null;
   };
