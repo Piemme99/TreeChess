@@ -1,4 +1,4 @@
-import { Button, Loading } from '../../../components/UI';
+import { Button, Loading } from '../../../shared/components/UI';
 import type { AnalysisSummary } from '../../../types';
 import { formatDate } from '../utils/dateUtils';
 

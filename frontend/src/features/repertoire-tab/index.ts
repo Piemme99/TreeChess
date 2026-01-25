@@ -1,1 +1,0 @@
-export { RepertoireTab } from './RepertoireTab';

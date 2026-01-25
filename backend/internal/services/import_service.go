@@ -298,6 +298,24 @@ func (s *ImportService) DeleteAnalysis(id string) error {
 	return nil
 }
 
+// GetAllGames returns all games from all analyses with pagination
+func (s *ImportService) GetAllGames(limit, offset int) (*models.GamesResponse, error) {
+	response, err := repository.GetAllGames(limit, offset)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get games: %w", err)
+	}
+	return response, nil
+}
+
+// DeleteGame removes a single game from an analysis
+func (s *ImportService) DeleteGame(analysisID string, gameIndex int) error {
+	err := repository.DeleteGame(analysisID, gameIndex)
+	if err != nil {
+		return err // Error already contains context
+	}
+	return nil
+}
+
 func ensureFullFEN(fen string) string {
 	parts := strings.Fields(fen)
 	if len(parts) >= 6 {

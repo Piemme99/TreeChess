@@ -8,7 +8,7 @@ export interface UseFileUploadReturn {
   handleFileUpload: (file: File) => Promise<boolean>;
 }
 
-export function useFileUpload(username: string): UseFileUploadReturn {
+export function useFileUpload(username: string, onSuccess?: () => void): UseFileUploadReturn {
   const navigate = useNavigate();
   const [uploading, setUploading] = useState(false);
 
@@ -29,6 +29,7 @@ export function useFileUpload(username: string): UseFileUploadReturn {
     try {
       const result = await importApi.upload(file, username.trim());
       toast.success(`Imported ${result.gameCount} game(s)`);
+      onSuccess?.();
       navigate(`/analyse/${result.id}`);
       return true;
     } catch {
@@ -37,7 +38,7 @@ export function useFileUpload(username: string): UseFileUploadReturn {
     } finally {
       setUploading(false);
     }
-  }, [username, navigate]);
+  }, [username, navigate, onSuccess]);
 
   return { uploading, handleFileUpload };
 }

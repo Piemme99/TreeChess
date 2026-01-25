@@ -1,24 +1,40 @@
 import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usernameStorage } from '../../services/api';
-import { useAnalyses } from './hooks/useAnalyses';
+import { useGames } from './hooks/useGames';
 import { useFileUpload } from './hooks/useFileUpload';
-import { useDeleteAnalysis } from './hooks/useDeleteAnalysis';
+import { useDeleteGame } from './hooks/useDeleteGame';
 import { ImportSection } from './components/ImportSection';
-import { AnalysesList } from './components/AnalysesList';
-import { ConfirmModal } from '../../components/UI';
+import { GamesList } from './components/GamesList';
+import { ConfirmModal } from '../../shared/components/UI';
 
 export function AnalyseTab() {
   const navigate = useNavigate();
   const [username, setUsername] = useState(() => usernameStorage.get());
 
-  const { analyses, loading, deleteAnalysis } = useAnalyses();
-  const fileUploadState = useFileUpload(username);
-  const { deleteId, setDeleteId, deleting, handleDelete } = useDeleteAnalysis(deleteAnalysis);
+  const {
+    games,
+    loading,
+    deleteGame,
+    nextPage,
+    prevPage,
+    hasNextPage,
+    hasPrevPage,
+    currentPage,
+    totalPages,
+    refresh
+  } = useGames();
 
-  const handleViewClick = useCallback((id: string) => {
-    navigate(`/analyse/${id}`);
+  const fileUploadState = useFileUpload(username, refresh);
+  const { deleteTarget, setDeleteTarget, deleting, handleDelete } = useDeleteGame(deleteGame);
+
+  const handleViewClick = useCallback((analysisId: string, gameIndex: number) => {
+    navigate(`/analyse/${analysisId}/game/${gameIndex}`);
   }, [navigate]);
+
+  const handleDeleteClick = useCallback((analysisId: string, gameIndex: number) => {
+    setDeleteTarget({ analysisId, gameIndex });
+  }, [setDeleteTarget]);
 
   return (
     <div className="analyse-tab">
@@ -29,21 +45,27 @@ export function AnalyseTab() {
       />
 
       <section className="analyses-section">
-        <h2>Recent analyses</h2>
-        <AnalysesList
-          analyses={analyses}
+        <h2>Games</h2>
+        <GamesList
+          games={games}
           loading={loading}
-          onDeleteClick={setDeleteId}
+          onDeleteClick={handleDeleteClick}
           onViewClick={handleViewClick}
+          hasNextPage={hasNextPage}
+          hasPrevPage={hasPrevPage}
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onNextPage={nextPage}
+          onPrevPage={prevPage}
         />
       </section>
 
       <ConfirmModal
-        isOpen={!!deleteId}
-        onClose={() => setDeleteId(null)}
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
         onConfirm={handleDelete}
-        title="Delete Analysis"
-        message="Are you sure you want to delete this analysis? This action cannot be undone."
+        title="Delete Game"
+        message="Are you sure you want to delete this game? This action cannot be undone."
         confirmText="Delete"
         variant="danger"
         loading={deleting}

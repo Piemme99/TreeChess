@@ -88,3 +88,24 @@ type AnalysisDetail struct {
 	UploadedAt time.Time      `json:"uploadedAt"`
 	Results    []GameAnalysis `json:"results"`
 }
+
+// GameSummary represents a single game for the games list
+type GameSummary struct {
+	AnalysisID string    `json:"analysisId"`
+	GameIndex  int       `json:"gameIndex"`
+	White      string    `json:"white"`
+	Black      string    `json:"black"`
+	Result     string    `json:"result"`
+	Date       string    `json:"date"`
+	UserColor  Color     `json:"userColor"`
+	Status     string    `json:"status"` // "ok", "error", "new-line"
+	ImportedAt time.Time `json:"importedAt"`
+}
+
+// GamesResponse represents the paginated response for games list
+type GamesResponse struct {
+	Games  []GameSummary `json:"games"`
+	Total  int           `json:"total"`
+	Limit  int           `json:"limit"`
+	Offset int           `json:"offset"`
+}

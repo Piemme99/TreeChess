@@ -1,4 +1,4 @@
-import { Button } from '../../../components/UI';
+import { Button } from '../../../shared/components/UI';
 
 export interface GameNavigationProps {
   currentMoveIndex: number;

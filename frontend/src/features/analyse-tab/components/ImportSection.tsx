@@ -1,5 +1,5 @@
 import { useRef, useState, useCallback } from 'react';
-import { Loading } from '../../../components/UI';
+import { Loading } from '../../../shared/components/UI';
 import type { UseFileUploadReturn } from '../hooks/useFileUpload';
 
 export interface ImportSectionProps {

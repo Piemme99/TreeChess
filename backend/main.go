@@ -56,6 +56,10 @@ func main() {
 	e.POST("/api/import/validate-move", importHandler.ValidateMoveHandler)
 	e.GET("/api/import/legal-moves", importHandler.GetLegalMovesHandler)
 
+	// Games API
+	e.GET("/api/games", importHandler.GetGamesHandler)
+	e.DELETE("/api/games/:analysisId/:gameIndex", importHandler.DeleteGameHandler)
+
 	log.Printf("Starting server on :%d", cfg.Port)
 	if err := e.Start(fmt.Sprintf(":%d", cfg.Port)); err != nil {
 		log.Fatal(err)

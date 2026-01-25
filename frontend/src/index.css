@@ -1001,6 +1001,111 @@ a:focus-visible {
   gap: var(--spacing-sm);
 }
 
+/* ===== Games List Styles ===== */
+.games-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.games-grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.game-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-md);
+  background-color: var(--color-bg-card);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.game-card .game-info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.game-card .game-players {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.game-card .game-players .vs {
+  color: var(--color-text-muted);
+  font-weight: 400;
+  font-size: 0.875rem;
+}
+
+.game-card .game-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+}
+
+.game-card .game-result {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.game-card .game-import-date {
+  font-size: 0.75rem;
+  color: var(--color-text-light);
+}
+
+.game-card .game-actions {
+  display: flex;
+  gap: var(--spacing-sm);
+}
+
+/* Status badges */
+.status-badge {
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--radius-full);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.status-ok {
+  background-color: var(--color-success-light);
+  color: var(--color-success);
+}
+
+.status-error {
+  background-color: var(--color-danger-light);
+  color: var(--color-danger);
+}
+
+.status-new-line {
+  background-color: var(--color-warning-light);
+  color: var(--color-warning);
+}
+
+/* Pagination */
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-md);
+  padding-top: var(--spacing-md);
+  border-top: 1px solid var(--color-border);
+}
+
+.pagination-info {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+}
+
 /* ===== Import Detail Styles ===== */
 .import-detail {
   max-width: 900px;

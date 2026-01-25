@@ -79,6 +79,28 @@ export interface AnalysisDetail extends AnalysisSummary {
   results: GameAnalysis[];
 }
 
+// Game list types
+export type GameStatus = 'ok' | 'error' | 'new-line';
+
+export interface GameSummary {
+  analysisId: string;
+  gameIndex: number;
+  white: string;
+  black: string;
+  result: string;
+  date: string;
+  userColor: Color;
+  status: GameStatus;
+  importedAt: string;
+}
+
+export interface GamesResponse {
+  games: GameSummary[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
 // API types
 export interface ApiError {
   message: string;

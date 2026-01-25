@@ -5,7 +5,8 @@ import type {
   Color,
   AnalysisSummary,
   AnalysisDetail,
-  UploadResponse
+  UploadResponse,
+  GamesResponse
 } from '../types';
 
 const USERNAME_STORAGE_KEY = 'treechess_username';
@@ -87,5 +88,19 @@ export const healthApi = {
   check: async (): Promise<{ status: string }> => {
     const response = await api.get('/health');
     return response.data;
+  }
+};
+
+// Games API
+export const gamesApi = {
+  list: async (limit = 20, offset = 0): Promise<GamesResponse> => {
+    const response = await api.get('/games', {
+      params: { limit, offset }
+    });
+    return response.data;
+  },
+
+  delete: async (analysisId: string, gameIndex: number): Promise<void> => {
+    await api.delete(`/games/${analysisId}/${gameIndex}`);
   }
 };

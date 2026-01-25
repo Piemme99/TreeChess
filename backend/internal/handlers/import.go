@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/google/uuid"
@@ -253,5 +254,67 @@ func (h *ImportHandler) GetLegalMovesHandler(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]interface{}{
 		"fen":   fen,
 		"moves": moves,
+	})
+}
+
+func (h *ImportHandler) GetGamesHandler(c echo.Context) error {
+	// Parse pagination parameters with defaults
+	limit := 20
+	offset := 0
+
+	if limitStr := c.QueryParam("limit"); limitStr != "" {
+		if l, err := strconv.Atoi(limitStr); err == nil && l > 0 && l <= 100 {
+			limit = l
+		}
+	}
+
+	if offsetStr := c.QueryParam("offset"); offsetStr != "" {
+		if o, err := strconv.Atoi(offsetStr); err == nil && o >= 0 {
+			offset = o
+		}
+	}
+
+	response, err := h.importService.GetAllGames(limit, offset)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"error": "failed to get games",
+		})
+	}
+
+	return c.JSON(http.StatusOK, response)
+}
+
+func (h *ImportHandler) DeleteGameHandler(c echo.Context) error {
+	analysisID := c.Param("analysisId")
+	gameIndexStr := c.Param("gameIndex")
+
+	// Validate analysisId is a valid UUID
+	if _, err := uuid.Parse(analysisID); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "analysisId must be a valid UUID",
+		})
+	}
+
+	gameIndex, err := strconv.Atoi(gameIndexStr)
+	if err != nil || gameIndex < 0 {
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "gameIndex must be a non-negative integer",
+		})
+	}
+
+	err = h.importService.DeleteGame(analysisID, gameIndex)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			return c.JSON(http.StatusNotFound, map[string]string{
+				"error": err.Error(),
+			})
+		}
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"error": "failed to delete game",
+		})
+	}
+
+	return c.JSON(http.StatusOK, map[string]string{
+		"status": "deleted",
 	})
 }

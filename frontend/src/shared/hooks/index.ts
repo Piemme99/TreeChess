@@ -1,0 +1,1 @@
+export { useChess } from './useChess';

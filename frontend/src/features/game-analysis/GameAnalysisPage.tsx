@@ -6,12 +6,12 @@ import { useFENComputed } from './hooks/useFENComputed';
 import { computeFEN, STARTING_FEN } from './utils/fenCalculator';
 import { GameBoardSection } from './components/GameBoardSection';
 import { GameNavigation } from './components/GameNavigation';
-import { Button, Loading } from '../../components/UI';
-import { GameMoveList } from '../../components/PGN/GameMoveList';
+import { Button, Loading } from '../../shared/components/UI';
+import { GameMoveList } from './components/GameMoveList';
 import type { GameAnalysis, MoveAnalysis } from '../../types';
 
 export function GameAnalysisPage() {
-  const { id, gameIndex } = useParams<{ id: string; gameIndex: string }>();
+  const { gameIndex } = useParams<{ id: string; gameIndex: string }>();
   const navigate = useNavigate();
 
   const { analysis, loading } = useGameLoader();
@@ -77,7 +77,7 @@ export function GameAnalysisPage() {
       <div className="game-analysis">
         <div className="game-analysis-error">
           <p>Game not found</p>
-          <Button variant="primary" onClick={() => navigate(`/analyse/${id}`)}>
+          <Button variant="primary" onClick={() => navigate('/')}>
             Back
           </Button>
         </div>
@@ -93,7 +93,7 @@ export function GameAnalysisPage() {
   return (
     <div className="game-analysis">
       <header className="game-analysis-header">
-        <Button variant="ghost" onClick={() => navigate(`/analyse/${id}`)}>
+        <Button variant="ghost" onClick={() => navigate('/')}>
           &larr; Back
         </Button>
         <div className="game-analysis-title">

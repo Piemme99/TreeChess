@@ -4,7 +4,7 @@ import { useAnalysisLoader } from './hooks/useAnalysisLoader';
 import { useAddToRepertoire } from './hooks/useAddToRepertoire';
 import { calculateStats, type GameStats } from './utils/gameAnalysisUtils';
 import { GameSection } from './components/GameSection';
-import { Button, Loading } from '../../components/UI';
+import { Button, Loading } from '../../shared/components/UI';
 
 export function ImportDetail() {
   const { id } = useParams<{ id: string }>();

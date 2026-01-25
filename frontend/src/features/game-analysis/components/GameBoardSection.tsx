@@ -1,5 +1,5 @@
-import { ChessBoard } from '../../../components/Board/ChessBoard';
-import { Button } from '../../../components/UI';
+import { ChessBoard } from '../../../shared/components/Board/ChessBoard';
+import { Button } from '../../../shared/components/UI';
 
 export interface GameBoardSectionProps {
   fen: string;
