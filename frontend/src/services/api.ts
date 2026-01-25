@@ -6,7 +6,8 @@ import type {
   AnalysisSummary,
   AnalysisDetail,
   UploadResponse,
-  GamesResponse
+  GamesResponse,
+  LichessImportOptions
 } from '../types';
 
 const USERNAME_STORAGE_KEY = 'treechess_username';
@@ -65,6 +66,11 @@ export const importApi = {
         'Content-Type': 'multipart/form-data'
       }
     });
+    return response.data;
+  },
+
+  importFromLichess: async (username: string, options?: LichessImportOptions): Promise<UploadResponse> => {
+    const response = await api.post('/imports/lichess', { username, options });
     return response.data;
   },
 

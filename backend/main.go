@@ -25,6 +25,7 @@ func main() {
 
 	repertoireSvc := services.NewRepertoireService()
 	importSvc := services.NewImportService(repertoireSvc)
+	lichessSvc := services.NewLichessService()
 
 	if err := autoCreateRepertoires(repertoireSvc); err != nil {
 		log.Fatalf("Failed to create repertoires: %v", err)
@@ -47,8 +48,9 @@ func main() {
 	e.POST("/api/repertoire/:color/node", handlers.AddNodeHandler(repertoireSvc))
 	e.DELETE("/api/repertoire/:color/node/:id", handlers.DeleteNodeHandler(repertoireSvc))
 
-	importHandler := handlers.NewImportHandler(importSvc)
+	importHandler := handlers.NewImportHandler(importSvc, lichessSvc)
 	e.POST("/api/imports", importHandler.UploadHandler)
+	e.POST("/api/imports/lichess", importHandler.LichessImportHandler)
 	e.GET("/api/analyses", importHandler.ListAnalysesHandler)
 	e.GET("/api/analyses/:id", importHandler.GetAnalysisHandler)
 	e.DELETE("/api/analyses/:id", importHandler.DeleteAnalysisHandler)

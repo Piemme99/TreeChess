@@ -1,7 +1,8 @@
 import { ChessBoard } from '../../../../shared/components/Board/ChessBoard';
 import { useChess } from '../../../../shared/hooks/useChess';
 import { findNode } from '../utils/nodeUtils';
-import type { RepertoireNode, Color, Repertoire } from '../../../../types';
+import type { RepertoireNode, Color, Repertoire, EngineEvaluation } from '../../../../types';
+import { stockfishService } from '../../../../services/stockfish';
 
 interface BoardSectionProps {
   selectedNode: RepertoireNode | null;
@@ -11,6 +12,8 @@ interface BoardSectionProps {
   possibleMoves: string[];
   setPossibleMoves: (moves: string[]) => void;
   onMove: (move: { san: string }) => void;
+  currentEvaluation?: EngineEvaluation | null;
+  isAnalyzing?: boolean;
 }
 
 export function BoardSection({
@@ -20,9 +23,23 @@ export function BoardSection({
   color,
   possibleMoves,
   setPossibleMoves,
-  onMove
+  onMove,
+  currentEvaluation,
+  isAnalyzing
 }: BoardSectionProps) {
   const { getLegalMoves } = useChess();
+
+  const getScoreDisplay = () => {
+    if (isAnalyzing) return 'Analyzing...';
+    if (currentEvaluation?.mate) return `Mate in ${currentEvaluation.mate}`;
+    if (currentEvaluation) return stockfishService.formatScore(currentEvaluation.score);
+    return null;
+  };
+
+  const scoreColor = () => {
+    if (!currentEvaluation || currentEvaluation.score > 0) return '#4caf50';
+    return '#f44336';
+  };
 
   const handleSquareClick = (square: string) => {
     if (!color || !selectedNode) return;
@@ -61,6 +78,8 @@ export function BoardSection({
     }
   };
 
+  const scoreDisplay = getScoreDisplay();
+
   return (
     <div className="repertoire-edit-board">
       <div className="panel-header">
@@ -73,6 +92,11 @@ export function BoardSection({
           </span>
         )}
       </div>
+      {scoreDisplay && (
+        <div className="score-indicator" style={{ color: scoreColor(), fontSize: '18px', padding: '8px', textAlign: 'center', fontWeight: 'bold' }}>
+          {scoreDisplay}
+        </div>
+      )}
       <div className="chessboard-wrapper">
         <ChessBoard
           fen={currentFEN}
@@ -82,6 +106,8 @@ export function BoardSection({
           highlightSquares={possibleMoves}
           interactive={true}
           width={350}
+          bestMoveFrom={currentEvaluation?.bestMoveFrom}
+          bestMoveTo={currentEvaluation?.bestMoveTo}
         />
       </div>
     </div>

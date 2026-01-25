@@ -89,6 +89,21 @@ type AnalysisDetail struct {
 	Results    []GameAnalysis `json:"results"`
 }
 
+// LichessImportOptions represents options for importing games from Lichess
+type LichessImportOptions struct {
+	Max      int    `json:"max,omitempty"`      // Max games to fetch (default: 20, max: 100)
+	Since    int64  `json:"since,omitempty"`    // Timestamp Unix ms (start date)
+	Until    int64  `json:"until,omitempty"`    // Timestamp Unix ms (end date)
+	Rated    *bool  `json:"rated,omitempty"`    // Only rated games
+	PerfType string `json:"perfType,omitempty"` // Game type: bullet, blitz, rapid, classical
+}
+
+// LichessImportRequest represents a request to import games from Lichess
+type LichessImportRequest struct {
+	Username string               `json:"username"`
+	Options  LichessImportOptions `json:"options"`
+}
+
 // GameSummary represents a single game for the games list
 type GameSummary struct {
 	AnalysisID string    `json:"analysisId"`

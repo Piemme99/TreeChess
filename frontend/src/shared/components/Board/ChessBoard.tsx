@@ -11,6 +11,8 @@ interface ChessBoardProps {
   highlightSquares?: string[];
   lastMove?: { from: string; to: string } | null;
   width?: number;
+  bestMoveFrom?: string;
+  bestMoveTo?: string;
 }
 
 export function ChessBoard({
@@ -21,7 +23,9 @@ export function ChessBoard({
   orientation = 'white',
   highlightSquares = [],
   lastMove,
-  width = 400
+  width = 400,
+  bestMoveFrom,
+  bestMoveTo
 }: ChessBoardProps) {
   const [game, setGame] = useState(() => {
     try {
@@ -160,6 +164,18 @@ export function ChessBoard({
       boxShadow: 'inset 0 0 0 3px rgba(66, 133, 244, 0.8)'
     };
   });
+
+  // Highlight best move
+  if (bestMoveFrom && bestMoveTo) {
+    customSquareStyles[bestMoveFrom] = {
+      ...customSquareStyles[bestMoveFrom],
+      boxShadow: 'inset 0 0 0 4px #2196f3'
+    };
+    customSquareStyles[bestMoveTo] = {
+      ...customSquareStyles[bestMoveTo],
+      boxShadow: 'inset 0 0 0 4px #2196f3'
+    };
+  }
 
   return (
     <div className="chessboard-wrapper" style={{ width }}>

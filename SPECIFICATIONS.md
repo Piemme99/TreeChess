@@ -177,11 +177,86 @@ Each node displays:
 
 ---
 
-### 3.6 Review Mode (V2)
+### 3.6 Stockfish Engine Analysis
+
+#### REQ-050: Engine Integration
+The application integrates Stockfish chess engine running in the browser via WebAssembly to provide real-time position analysis and move suggestions during repertoire editing.
+
+#### REQ-051: Score Indicator
+A score indicator is displayed above the chessboard showing the current position evaluation:
+- For positive scores (advantage for White): displayed as "+1.5" (centipawns divided by 100)
+- For negative scores (advantage for Black): displayed as "-1.5"
+- For mate situations: displayed as "Mate in X" where X is the number of half-moves to mate
+- During analysis: displayed as "Analyzing..."
+
+The indicator uses color coding:
+- Green: evaluation is favorable to the active color or score > -50 (good position)
+- Red: score < -50 (poor position for White)
+
+#### REQ-052: Best Move Highlight
+The best move suggested by Stockfish is visually highlighted on the chessboard:
+- Source square highlighted with blue border
+- Target square highlighted with blue border
+- Works via `customSquareStyles` in react-chessboard component
+
+#### REQ-053: Top Moves Panel
+A panel displays the top 3 best moves for the current position along with their evaluations:
+- Move in SAN notation (e.g., "1. e4")
+- Evaluation score formatted as "+0.8" or "-0.5"
+- Analysis depth displayed (e.g., "Top Moves (depth 12)")
+
+#### REQ-054: Analysis Configuration
+Stockfish analysis uses the following default configuration:
+- **Depth:** 12 (balance between speed and accuracy, ~500ms response time)
+- **Architecture:** WebAssembly running in browser Web Worker
+- **No persistence:** Evaluations are calculated on-demand per session
+- **UCI Protocol:** Universal Chess Interface for communication with engine
+
+#### REQ-055: Analysis Trigger
+Stockfish analysis is automatically triggered:
+- **Initial load:** When repertoire edit page is first opened
+- **Position change:** After every move played or node selected
+- **On demand:** Can be started/stopped manually
+
+#### REQ-056: Visual Feedback During Analysis
+While Stockfish is calculating, the UI provides visual feedback:
+- Score indicator shows "Analyzing..." text
+- Optional loading spinner or progress indicator
+- No move highlights until analysis completes
+
+#### REQ-057: UCI Response Parsing
+The Stockfish service parses UCI protocol responses including:
+- **info lines:** Extract depth, score (cp or mate), bestmove, and pv (principal variation)
+- **bestmove lines:** Extract best move (from-to UCI format)
+- **Score parsing:** Convert centipawns (cp = 1/100 pawn) to display format
+- **PV extraction:** Parse principal variation for top 3 moves
+
+Example UCI output to parse:
+```
+info depth 12 score cp 150 pv e2e4 e7e5 Bf1c4 ...
+bestmove e2e4 ponder e7e5
+```
+
+#### REQ-058: Memory Management
+Stockfish runs in a Web Worker to avoid blocking the main thread:
+- Worker initialization on repertoire edit page mount
+- Worker cleanup on unmount
+- Stop command sent when user navigates away or position changes mid-analysis
+- Single worker instance per page
+
+#### REQ-059: Error Handling
+Engine analysis errors are handled gracefully:
+- Worker initialization failure: Display error message, disable analysis features
+- Timeout: Stop analysis after 5 seconds, show timeout indicator
+- Invalid FEN: Skip analysis, continue with repertoire editing
+
+---
+
+### 3.7 Review Mode (V2)
 
 **Note**: This feature is deferred to V2.
 
-#### REQ-050: Branch Visualization
+#### REQ-060: Branch Visualization
 The user selects a node and accesses a dedicated view displaying:
 - A board with the current position
 - The move sequence from root node to selected node
@@ -307,6 +382,49 @@ interface MoveAnalysis {
 }
 ```
 
+### 4.5 Stockfish Engine Types
+
+```typescript
+// Evaluation result from Stockfish engine
+interface EngineEvaluation {
+  score: number;           // centipawns (+150 = +1.5 for White)
+  mate?: number;          // number of half-moves to mate (undefined if no mate)
+  depth: number;          // analysis depth (default: 12)
+  bestMove?: string;       // best move in SAN notation (e.g., "e4")
+  bestMoveFrom?: string;  // source square in UCI format (e.g., "e2")
+  bestMoveTo?: string;    // target square in UCI format (e.g., "e4")
+  pv: string[];           // principal variation (sequence of UCI moves)
+}
+
+// Top move suggestion for the panel
+interface TopMove {
+  san: string;            // SAN notation (e.g., "e4")
+  score: number;          // evaluation in centipawns
+  depth: number;          // analysis depth for this move
+}
+
+// UCI info line parsing result
+interface UCIInfo {
+  depth: number;
+  score?: number;         // centipawns (positive = advantage for White)
+  scoreMate?: number;     // mate in X moves (if found)
+  bestMove?: string;      // UCI format "e2e4"
+  ponder?: string;        // expected opponent move
+  pv: string[];          // principal variation in UCI format
+  nps?: number;           // nodes per second
+  time?: number;         // time in milliseconds
+  nodes?: number;        // nodes searched
+}
+
+// Engine state for the UI
+interface EngineState {
+  isAnalyzing: boolean;
+  currentEvaluation: EngineEvaluation | null;
+  currentFEN: string;
+  error: string | null;
+}
+```
+
 ---
 
 ## 5. Technical Architecture
@@ -318,6 +436,8 @@ interface MoveAnalysis {
 | Frontend | React 18 + TypeScript | Components, strict typing |
 | State Management | Zustand | Lightweight |
 | Chess | chess.js | Move validation, FEN, SAN |
+| Chess Engine | Stockfish.js (WebAssembly) | Position analysis, move suggestions |
+| Worker Processing | Web Workers | Non-blocking engine calculations |
 | Visualization | D3.js or React Flow | Interactive GitHub-style tree |
 | Backend | Go + Echo | Performant REST API |
 | Database | PostgreSQL | Structured data, native JSONB |
@@ -401,6 +521,279 @@ src/
 │   └── index.ts
 └── styles/
     └── main.css
+```
+
+### 5.5 Stockfish Integration Architecture
+
+Frontend architecture for Stockfish integration:
+
+```
+src/
+├── services/
+│   ├── api.ts                    # REST API calls
+│   └── stockfish.ts              # Stockfish UCI service
+├── features/repertoire/
+│   ├── edit/
+│   │   ├── components/
+│   │   │   ├── BoardSection.tsx        # Displays board with score indicator
+│   │   │   ├── AddMoveModal.tsx        # Modal with top suggestions
+│   │   │   └── TopMovesPanel.tsx       # Panel showing top 3 moves
+│   │   ├── hooks/
+│   │   │   └── useEngine.ts           # Engine lifecycle management
+│   │   └── RepertoireEdit.tsx          # Main edit page with engine
+│   └── shared/
+│       └── components/
+│           └── RepertoireTree.tsx       # [No engine integration]
+├── shared/components/Board/
+│   └── ChessBoard.tsx                  # Extended for best move highlighting
+├── stores/
+│   ├── repertoireStore.ts
+│   └── engineStore.ts                  # Engine state (Zustand)
+└── types/
+    └── index.ts                        # EngineEvaluation, TopMove, etc.
+```
+
+#### 5.5.1 Stockfish Service (`services/stockfish.ts`)
+
+Singleton service that manages Stockfish Web Worker communication:
+
+```typescript
+class StockfishService {
+  private worker: Worker | null = null;
+  private currentDepth = 12;
+
+  // Initialize Stockfish Web Worker
+  initialize(): void {
+    this.worker = Stockfish();
+    this.worker.onmessage = this.handleMessage.bind(this);
+    this.worker.postMessage('uci');
+    this.worker.postMessage('isready');
+  }
+
+  // Analyze position with FEN string
+  analyzePosition(fen: string, depth: number = 12): void {
+    if (!this.worker) return;
+    this.currentDepth = depth;
+    this.worker.postMessage('ucinewgame');
+    this.worker.postMessage(`position fen ${fen}`);
+    this.worker.postMessage(`go depth ${depth}`);
+  }
+
+  // Stop current analysis
+  stop(): void {
+    this.worker?.postMessage('stop');
+  }
+
+  // Parse UCI info lines
+  private parseInfoLine(line: string): UCIInfo | null {
+    // Extract depth, scorecp/scoremate, bestmove, pv
+    // Returns structured UCIInfo
+  }
+
+  // Handle worker messages
+  private handleMessage(event: MessageEvent): void {
+    const line = event.data;
+    if (line.startsWith('info depth')) {
+      const info = this.parseInfoLine(line);
+      if (info && info.depth >= this.currentDepth) {
+        this.onEvaluation?.(this.buildEvaluation(info, line));
+      }
+    } else if (line.startsWith('bestmove')) {
+      const parts = line.split(' ');
+      if (parts[1]) {
+        const from = parts[1].slice(0, 2);
+        const to = parts[1].slice(2, 4);
+        this.onBestMove?.({ from, to });
+      }
+    }
+  }
+}
+```
+
+#### 5.5.2 Engine Store (`stores/engineStore.ts`)
+
+Zustand store for engine state across components:
+
+```typescript
+import { create } from 'zustand';
+
+interface EngineState {
+  isAnalyzing: boolean;
+  currentEvaluation: EngineEvaluation | null;
+  currentFEN: string;
+  error: string | null;
+
+  analyze: (fen: string) => void;
+  stop: () => void;
+  setEvaluation: (evaluation: EngineEvaluation) => void;
+  setError: (error: string) => void;
+  reset: () => void;
+}
+
+export const useEngineStore = create<EngineState>((set) => ({
+  isAnalyzing: false,
+  currentEvaluation: null,
+  currentFEN: '',
+  error: null,
+
+  analyze: (fen: string) => {
+    set({ isAnalyzing: true, currentFEN: fen, error: null });
+    stockfishService.analyzePosition(fen);
+  },
+
+  stop: () => {
+    stockfishService.stop();
+    set({ isAnalyzing: false });
+  },
+
+  setEvaluation: (evaluation: EngineEvaluation) => {
+    set({ currentEvaluation: evaluation, isAnalyzing: false });
+  },
+
+  setError: (error: string) => {
+    set({ error, isAnalyzing: false });
+  },
+
+  reset: () => {
+    stockfishService.stop();
+    set({
+      isAnalyzing: false,
+      currentEvaluation: null,
+      currentFEN: '',
+      error: null
+    });
+  }
+}));
+```
+
+#### 5.5.3 RepertoireEdit Integration
+
+Engine initialization and position-changed analysis:
+
+```typescript
+useEffect(() => {
+  stockfishService.initialize();
+
+  stockfishService.onEvaluation = (evaluation) => {
+    useEngineStore.getState().setEvaluation(evaluation);
+  };
+
+  stockfishService.onBestMove = (move) => {
+    const { currentEvaluation } = useEngineStore.getState();
+    if (currentEvaluation) {
+      useEngineStore.getState().setEvaluation({
+        ...currentEvaluation,
+        bestMoveFrom: move.from,
+        bestMoveTo: move.to
+      });
+    }
+  };
+
+  return () => {
+    stockfishService.stop();
+    stockfishService.terminate();
+  };
+}, []);
+
+// Analyze after position changes
+useEffect(() => {
+  if (currentFEN && selectedNode) {
+    useEngineStore.getState().analyze(currentFEN);
+  }
+}, [currentFEN]);
+```
+
+#### 5.5.4 BoardSection with Score Indicator
+
+```typescript
+function BoardSection({ currentEvaluation, isAnalyzing }: Props) {
+  const getScoreDisplay = () => {
+    if (isAnalyzing) return 'Analyzing...';
+    if (!currentEvaluation) return null;
+    if (currentEvaluation.mate) return `Mate in ${currentEvaluation.mate}`;
+    return `+${(currentEvaluation.score / 100).toFixed(1)}`;
+  };
+
+  const scoreColor = () => {
+    if (!currentEvaluation || currentEvaluation.score > 0) return '#4caf50';
+    return '#f44336';
+  };
+
+  return (
+    <div className="repertoire-edit-board">
+      <div className="panel-header">
+        <h2>Position</h2>
+      </div>
+
+      {getScoreDisplay() && (
+        <div className="score-indicator" style={{ color: scoreColor() }}>
+          {getScoreDisplay()}
+        </div>
+      )}
+
+      <ChessBoard
+        fen={currentFEN}
+        bestMoveFrom={currentEvaluation?.bestMoveFrom}
+        bestMoveTo={currentEvaluation?.bestMoveTo}
+        // ... other props
+      />
+    </div>
+  );
+}
+```
+
+#### 5.5.5 TopMovesPanel Component
+
+```typescript
+function TopMovesPanel({ evaluation }: Props) {
+  if (!evaluation || evaluation.pv.length === 0) return null;
+
+  const topMoves: TopMove[] = evaluation.pv.slice(0, 3).map((uciMove, index) => ({
+    san: uciToSAN(uciMove, evaluation.currentFEN),
+    score: index === 0 ? evaluation.score : evaluation.score - index * 20,
+    depth: evaluation.depth
+  }));
+
+  return (
+    <div className="top-moves-panel">
+      <h3>Top Moves (depth {evaluation.depth})</h3>
+      <ul className="top-moves-list">
+        {topMoves.map((move, index) => (
+          <li key={index}>
+            <span className="move-san">{index + 1}. {move.san}</span>
+            <span className="move-score">{formatScore(move.score)}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+```
+
+#### 5.5.6 AddMoveModal with Suggestions
+
+```typescript
+function AddMoveModal({ evaluation }: Props) {
+  const suggestedMove = evaluation?.bestMove;
+
+  return (
+    <Modal isOpen={isOpen}>
+      {suggestedMove && (
+        <div className="stockfish-suggestion">
+          Stockfish suggests: <strong>{suggestedMove}</strong>
+          {evaluation.score && (
+            <span className="suggestion-score">
+              ({formatScore(evaluation.score)}, depth {evaluation.depth})
+            </span>
+          )}
+        </div>
+      )}
+      <div className="add-move-form">
+        {/* ... move input ... */}
+      </div>
+    </Modal>
+  );
+}
 ```
 
 ---
