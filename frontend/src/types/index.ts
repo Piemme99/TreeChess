@@ -112,6 +112,16 @@ export interface UploadResponse {
   username: string;
   filename: string;
   gameCount: number;
+  source?: 'lichess' | 'pgn';
+}
+
+// Lichess import types
+export interface LichessImportOptions {
+  max?: number;
+  since?: number;
+  until?: number;
+  rated?: boolean;
+  perfType?: 'bullet' | 'blitz' | 'rapid' | 'classical';
 }
 
 // Toast types
@@ -131,4 +141,40 @@ export function colorToShort(color: Color): ShortColor {
 
 export function shortToColor(short: ShortColor): Color {
   return short === 'w' ? 'white' : 'black';
+}
+
+// Stockfish engine types
+export interface EngineEvaluation {
+  score: number;
+  mate?: number;
+  depth: number;
+  bestMove?: string;
+  bestMoveFrom?: string;
+  bestMoveTo?: string;
+  pv: string[];
+}
+
+export interface EngineState {
+  isAnalyzing: boolean;
+  currentEvaluation: EngineEvaluation | null;
+  currentFEN: string;
+  error: string | null;
+}
+
+export interface TopMove {
+  san: string;
+  score: number;
+  depth: number;
+}
+
+export interface UCIInfo {
+  depth: number;
+  score?: number;
+  scoreMate?: number;
+  bestMove?: string;
+  ponder?: string;
+  pv: string[];
+  nps?: number;
+  time?: number;
+  nodes?: number;
 }

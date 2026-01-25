@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { usernameStorage } from '../../services/api';
 import { useGames } from './hooks/useGames';
 import { useFileUpload } from './hooks/useFileUpload';
+import { useLichessImport } from './hooks/useLichessImport';
 import { useDeleteGame } from './hooks/useDeleteGame';
 import { ImportSection } from './components/ImportSection';
 import { GamesList } from './components/GamesList';
@@ -26,6 +27,7 @@ export function AnalyseTab() {
   } = useGames();
 
   const fileUploadState = useFileUpload(username, refresh);
+  const lichessImportState = useLichessImport(username, refresh);
   const { deleteTarget, setDeleteTarget, deleting, handleDelete } = useDeleteGame(deleteGame);
 
   const handleViewClick = useCallback((analysisId: string, gameIndex: number) => {
@@ -42,6 +44,7 @@ export function AnalyseTab() {
         username={username}
         onUsernameChange={setUsername}
         fileUploadState={fileUploadState}
+        lichessImportState={lichessImportState}
       />
 
       <section className="analyses-section">

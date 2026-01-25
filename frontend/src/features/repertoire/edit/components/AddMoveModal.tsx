@@ -1,5 +1,7 @@
 import { useState, KeyboardEvent } from 'react';
 import { Button, Modal } from '../../../../shared/components/UI';
+import { stockfishService } from '../../../../services/stockfish';
+import type { EngineEvaluation } from '../../../../types';
 
 interface AddMoveModalProps {
   isOpen: boolean;
@@ -7,6 +9,8 @@ interface AddMoveModalProps {
   onSubmit: (move: string, setError: (error: string) => void) => Promise<boolean>;
   actionLoading: boolean;
   prefillMove?: string;
+  evaluation?: EngineEvaluation | null;
+  fen?: string;
 }
 
 export function AddMoveModal({
@@ -14,10 +18,18 @@ export function AddMoveModal({
   onClose,
   onSubmit,
   actionLoading,
-  prefillMove = ''
+  prefillMove = '',
+  evaluation,
+  fen
 }: AddMoveModalProps) {
   const [moveInput, setMoveInput] = useState(prefillMove);
   const [moveError, setMoveError] = useState('');
+
+  // Get the best move from PV or bestMove field, convert to SAN
+  const bestMoveUCI = evaluation?.pv?.[0] || evaluation?.bestMove;
+  const suggestedMove = bestMoveUCI ? stockfishService.uciToSAN(bestMoveUCI, fen) : null;
+  const suggestedScore = evaluation?.score;
+  const suggestedDepth = evaluation?.depth;
 
   const handleSubmit = async () => {
     const success = await onSubmit(moveInput, setMoveError);
@@ -74,6 +86,19 @@ export function AddMoveModal({
         />
         {moveError && <p className="error-message">{moveError}</p>}
       </div>
+
+      {suggestedMove && (
+        <div className="stockfish-suggestion" style={{ marginTop: '12px', padding: '12px', background: '#e3f2fd', borderRadius: '6px', borderLeft: '4px solid #2196f3' }}>
+          <div style={{ fontSize: '14px', marginBottom: '4px' }}>
+            Stockfish suggests: <strong>{suggestedMove}</strong>
+            {suggestedScore !== null && suggestedScore !== undefined && (
+              <span style={{ marginLeft: '8px', color: '#666' }}>
+                ({stockfishService.formatScore(suggestedScore)}, depth {suggestedDepth})
+              </span>
+            )}
+          </div>
+        </div>
+      )}
     </Modal>
   );
 }

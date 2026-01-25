@@ -10,16 +10,19 @@ import (
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 
+	"github.com/treechess/backend/internal/models"
 	"github.com/treechess/backend/internal/services"
 )
 
 type ImportHandler struct {
-	importService *services.ImportService
+	importService  *services.ImportService
+	lichessService *services.LichessService
 }
 
-func NewImportHandler(importSvc *services.ImportService) *ImportHandler {
+func NewImportHandler(importSvc *services.ImportService, lichessSvc *services.LichessService) *ImportHandler {
 	return &ImportHandler{
-		importService: importSvc,
+		importService:  importSvc,
+		lichessService: lichessSvc,
 	}
 }
 
@@ -316,5 +319,61 @@ func (h *ImportHandler) DeleteGameHandler(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, map[string]string{
 		"status": "deleted",
+	})
+}
+
+func (h *ImportHandler) LichessImportHandler(c echo.Context) error {
+	var req models.LichessImportRequest
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "invalid request body",
+		})
+	}
+
+	if req.Username == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "username is required",
+		})
+	}
+
+	// Fetch games from Lichess
+	pgnData, err := h.lichessService.FetchGames(req.Username, req.Options)
+	if err != nil {
+		// Determine appropriate status code based on error
+		statusCode := http.StatusBadRequest
+		if strings.Contains(err.Error(), "not found") {
+			statusCode = http.StatusNotFound
+		} else if strings.Contains(err.Error(), "rate limited") {
+			statusCode = http.StatusTooManyRequests
+		}
+		return c.JSON(statusCode, map[string]string{
+			"error": err.Error(),
+		})
+	}
+
+	// Validate size of fetched PGN data
+	if len(pgnData) > MaxPGNSize {
+		return c.JSON(http.StatusRequestEntityTooLarge, map[string]string{
+			"error": "PGN exceeds maximum allowed size",
+		})
+	}
+
+	// Use the username as the filename indicator for Lichess imports
+	filename := fmt.Sprintf("lichess_%s.pgn", req.Username)
+
+	// Reuse existing ParseAndAnalyze
+	summary, _, err := h.importService.ParseAndAnalyze(filename, req.Username, pgnData)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": fmt.Sprintf("failed to parse and analyze games: %v", err),
+		})
+	}
+
+	return c.JSON(http.StatusCreated, map[string]interface{}{
+		"id":        summary.ID,
+		"username":  summary.Username,
+		"filename":  summary.Filename,
+		"gameCount": summary.GameCount,
+		"source":    "lichess",
 	})
 }

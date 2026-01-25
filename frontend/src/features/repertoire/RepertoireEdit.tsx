@@ -1,11 +1,13 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button, Loading } from '../../shared/components/UI';
 import { MoveHistory } from './shared/components/MoveHistory';
 import { RepertoireTree } from './shared/components/RepertoireTree';
+import { TopMovesPanel } from './edit/components/TopMovesPanel';
 import { useRepertoireLoader } from './edit/hooks/useRepertoireLoader';
 import { usePendingAddNode } from './edit/hooks/usePendingAddNode';
 import { useMoveActions } from './edit/hooks/useMoveActions';
+import { useEngine } from './edit/hooks/useEngine';
 import { findNode } from './edit/utils/nodeUtils';
 import { STARTING_FEN } from './edit/utils/constants';
 import type { RepertoireNode } from '../../types';
@@ -14,16 +16,18 @@ import { AddMoveModal } from './edit/components/AddMoveModal';
 import { DeleteModal } from './edit/components/DeleteModal';
 
 export function RepertoireEdit() {
+  // All hooks must be called first, before any conditions
   const navigate = useNavigate();
   const [addMoveModalOpen, setAddMoveModalOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [prefillMove, setPrefillMove] = useState('');
 
   const { color, repertoire, selectedNodeId, loading, selectNode, setRepertoire } = useRepertoireLoader();
+  const engine = useEngine();
 
   const selectedNode = repertoire && selectedNodeId ? findNode(repertoire.treeData, selectedNodeId) : null;
   const currentFEN = selectedNode?.fen || STARTING_FEN;
-  const isRootNode = selectedNode?.id === repertoire?.treeData.id;
+  const isRootNode = selectedNode?.id === repertoire?.treeData?.id;
 
   usePendingAddNode(repertoire, color, selectNode, (move: string) => {
     setPrefillMove(move);
@@ -46,6 +50,13 @@ export function RepertoireEdit() {
       selectNode(repertoire.treeData.id);
     }
   }, [repertoire, selectNode]);
+
+  useEffect(() => {
+    if (currentFEN) {
+      engine.analyze(currentFEN);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentFEN]);
 
   if (loading || !repertoire) {
     return (
@@ -86,6 +97,8 @@ export function RepertoireEdit() {
           possibleMoves={possibleMoves}
           setPossibleMoves={setPossibleMoves}
           onMove={handleBoardMove}
+          currentEvaluation={engine.currentEvaluation}
+          isAnalyzing={engine.isAnalyzing}
         />
       </div>
 
@@ -99,6 +112,9 @@ export function RepertoireEdit() {
             Delete last
           </Button>
         </div>
+        {engine.currentEvaluation && engine.currentEvaluation.pv && engine.currentEvaluation.pv.length > 0 && (
+          <TopMovesPanel evaluation={engine.currentEvaluation} fen={currentFEN} />
+        )}
       </div>
 
       <AddMoveModal
@@ -107,6 +123,8 @@ export function RepertoireEdit() {
         onSubmit={handleAddMoveSubmit}
         actionLoading={actionLoading}
         prefillMove={prefillMove}
+        evaluation={engine.currentEvaluation}
+        fen={currentFEN}
       />
 
       <DeleteModal
