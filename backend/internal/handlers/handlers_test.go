@@ -210,3 +210,169 @@ func TestRepertoireResponseFormat(t *testing.T) {
 	assert.Nil(t, decoded.TreeData.Move)
 	assert.Equal(t, expected.Metadata.TotalNodes, decoded.Metadata.TotalNodes)
 }
+
+// Additional tests for repertoire handlers
+
+func TestRepertoireHandler_WhiteColor(t *testing.T) {
+	t.Skip("Requires database connection - skip for unit testing")
+}
+
+func TestRepertoireHandler_BlackColor(t *testing.T) {
+	t.Skip("Requires database connection - skip for unit testing")
+}
+
+func TestAddNodeHandler_EmptyBody(t *testing.T) {
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodPost, "/api/repertoire/white/node", strings.NewReader(""))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.SetParamNames("color")
+	c.SetParamValues("white")
+
+	svc := services.NewRepertoireService()
+	handler := AddNodeHandler(svc)
+
+	err := handler(c)
+
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
+func TestAddNodeHandler_WhiteValidRequest(t *testing.T) {
+	t.Skip("Requires database connection - skip for unit testing")
+	// This test would verify a valid add node request for white repertoire
+}
+
+func TestAddNodeHandler_BlackValidRequest(t *testing.T) {
+	t.Skip("Requires database connection - skip for unit testing")
+	// This test would verify a valid add node request for black repertoire
+}
+
+func TestDeleteNodeHandler_WhiteColor(t *testing.T) {
+	t.Skip("Requires database connection - skip for unit testing")
+	// This test would verify deletion from white repertoire
+}
+
+func TestDeleteNodeHandler_BlackColor(t *testing.T) {
+	t.Skip("Requires database connection - skip for unit testing")
+	// This test would verify deletion from black repertoire
+}
+
+func TestDeleteNodeHandler_MissingID(t *testing.T) {
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodDelete, "/api/repertoire/white/node/", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.SetParamNames("color", "id")
+	c.SetParamValues("white", "")
+
+	svc := services.NewRepertoireService()
+	handler := DeleteNodeHandler(svc)
+
+	err := handler(c)
+
+	require.NoError(t, err)
+	// Empty ID should be handled
+}
+
+func TestHealthHandler_ResponseFormat(t *testing.T) {
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "/api/health", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	err := HealthHandler(c)
+
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	// Verify JSON format
+	var response map[string]string
+	err = json.Unmarshal(rec.Body.Bytes(), &response)
+	require.NoError(t, err)
+	assert.Equal(t, "ok", response["status"])
+	assert.Contains(t, rec.Header().Get("Content-Type"), "application/json")
+}
+
+func TestAddNodeHandler_ValidColors(t *testing.T) {
+	tests := []struct {
+		color string
+		valid bool
+	}{
+		{"white", true},
+		{"black", true},
+		{"invalid", false},
+		{"WHITE", false}, // Case-sensitive
+		{"", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.color, func(t *testing.T) {
+			e := echo.New()
+			body := `{"parentId":"test","move":"e4"}`
+			req := httptest.NewRequest(http.MethodPost, "/api/repertoire/"+tt.color+"/node", strings.NewReader(body))
+			req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+			rec := httptest.NewRecorder()
+			c := e.NewContext(req, rec)
+			c.SetParamNames("color")
+			c.SetParamValues(tt.color)
+
+			svc := services.NewRepertoireService()
+			handler := AddNodeHandler(svc)
+
+			err := handler(c)
+
+			require.NoError(t, err)
+			if !tt.valid {
+				assert.Equal(t, http.StatusBadRequest, rec.Code)
+			}
+		})
+	}
+}
+
+func TestRepertoireHandler_ValidColors(t *testing.T) {
+	invalidColors := []string{"invalid", "yellow", "blue", "WHITE", "BLACK", ""}
+
+	for _, color := range invalidColors {
+		t.Run(color, func(t *testing.T) {
+			e := echo.New()
+			req := httptest.NewRequest(http.MethodGet, "/api/repertoire/"+color, nil)
+			rec := httptest.NewRecorder()
+			c := e.NewContext(req, rec)
+			c.SetParamNames("color")
+			c.SetParamValues(color)
+
+			svc := services.NewRepertoireService()
+			handler := RepertoireHandler(svc)
+
+			err := handler(c)
+
+			require.NoError(t, err)
+			assert.Equal(t, http.StatusBadRequest, rec.Code)
+		})
+	}
+}
+
+func TestDeleteNodeHandler_ValidColors(t *testing.T) {
+	invalidColors := []string{"invalid", "yellow", "red", "WHITE"}
+
+	for _, color := range invalidColors {
+		t.Run(color, func(t *testing.T) {
+			e := echo.New()
+			req := httptest.NewRequest(http.MethodDelete, "/api/repertoire/"+color+"/node/test-id", nil)
+			rec := httptest.NewRecorder()
+			c := e.NewContext(req, rec)
+			c.SetParamNames("color", "id")
+			c.SetParamValues(color, "test-id")
+
+			svc := services.NewRepertoireService()
+			handler := DeleteNodeHandler(svc)
+
+			err := handler(c)
+
+			require.NoError(t, err)
+			assert.Equal(t, http.StatusBadRequest, rec.Code)
+		})
+	}
+}

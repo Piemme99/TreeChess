@@ -30,7 +30,7 @@ func TestUploadHandler_MissingFile(t *testing.T) {
 	c := e.NewContext(req, rec)
 
 	importSvc := services.NewImportService(nil)
-	handler := NewImportHandler(importSvc)
+	handler := NewImportHandler(importSvc, nil)
 
 	err := handler.UploadHandler(c)
 
@@ -59,7 +59,7 @@ func TestUploadHandler_EmptyUsername(t *testing.T) {
 	c := e.NewContext(req, rec)
 
 	importSvc := services.NewImportService(nil)
-	handler := NewImportHandler(importSvc)
+	handler := NewImportHandler(importSvc, nil)
 
 	err := handler.UploadHandler(c)
 
@@ -88,7 +88,7 @@ func TestUploadHandler_InvalidFileExtension(t *testing.T) {
 	c := e.NewContext(req, rec)
 
 	importSvc := services.NewImportService(nil)
-	handler := NewImportHandler(importSvc)
+	handler := NewImportHandler(importSvc, nil)
 
 	err := handler.UploadHandler(c)
 
@@ -113,7 +113,7 @@ func TestValidatePGNHandler_Valid(t *testing.T) {
 	c := e.NewContext(req, rec)
 
 	importSvc := services.NewImportService(nil)
-	handler := NewImportHandler(importSvc)
+	handler := NewImportHandler(importSvc, nil)
 
 	err := handler.ValidatePGNHandler(c)
 
@@ -130,7 +130,7 @@ func TestValidateMoveHandler_Valid(t *testing.T) {
 	c := e.NewContext(req, rec)
 
 	importSvc := services.NewImportService(nil)
-	handler := NewImportHandler(importSvc)
+	handler := NewImportHandler(importSvc, nil)
 
 	err := handler.ValidateMoveHandler(c)
 
@@ -147,7 +147,7 @@ func TestValidateMoveHandler_MissingFEN(t *testing.T) {
 	c := e.NewContext(req, rec)
 
 	importSvc := services.NewImportService(nil)
-	handler := NewImportHandler(importSvc)
+	handler := NewImportHandler(importSvc, nil)
 
 	err := handler.ValidateMoveHandler(c)
 
@@ -169,7 +169,7 @@ func TestValidateMoveHandler_InvalidMove(t *testing.T) {
 	c := e.NewContext(req, rec)
 
 	importSvc := services.NewImportService(nil)
-	handler := NewImportHandler(importSvc)
+	handler := NewImportHandler(importSvc, nil)
 
 	err := handler.ValidateMoveHandler(c)
 
@@ -188,7 +188,7 @@ func TestGetLegalMovesHandler(t *testing.T) {
 	c.QueryParams().Set("fen", fen)
 
 	importSvc := services.NewImportService(nil)
-	handler := NewImportHandler(importSvc)
+	handler := NewImportHandler(importSvc, nil)
 
 	err := handler.GetLegalMovesHandler(c)
 
@@ -208,7 +208,7 @@ func TestGetLegalMovesHandler_MissingFEN(t *testing.T) {
 	c := e.NewContext(req, rec)
 
 	importSvc := services.NewImportService(nil)
-	handler := NewImportHandler(importSvc)
+	handler := NewImportHandler(importSvc, nil)
 
 	err := handler.GetLegalMovesHandler(c)
 
@@ -229,7 +229,7 @@ func TestListAnalysesHandler_Empty(t *testing.T) {
 	c := e.NewContext(req, rec)
 
 	importSvc := services.NewImportService(nil)
-	handler := NewImportHandler(importSvc)
+	handler := NewImportHandler(importSvc, nil)
 
 	err := handler.ListAnalysesHandler(c)
 
@@ -252,7 +252,7 @@ func TestGetAnalysisHandler_NotFound(t *testing.T) {
 	c.SetParamValues("nonexistent")
 
 	importSvc := services.NewImportService(nil)
-	handler := NewImportHandler(importSvc)
+	handler := NewImportHandler(importSvc, nil)
 
 	err := handler.GetAnalysisHandler(c)
 
@@ -270,7 +270,7 @@ func TestDeleteAnalysisHandler_NotFound(t *testing.T) {
 	c.SetParamValues("nonexistent")
 
 	importSvc := services.NewImportService(nil)
-	handler := NewImportHandler(importSvc)
+	handler := NewImportHandler(importSvc, nil)
 
 	err := handler.DeleteAnalysisHandler(c)
 
@@ -280,10 +280,21 @@ func TestDeleteAnalysisHandler_NotFound(t *testing.T) {
 
 func TestNewImportHandler(t *testing.T) {
 	importSvc := services.NewImportService(nil)
-	handler := NewImportHandler(importSvc)
+	lichessSvc := services.NewLichessService()
+	handler := NewImportHandler(importSvc, lichessSvc)
 
 	assert.NotNil(t, handler)
 	assert.NotNil(t, handler.importService)
+	assert.NotNil(t, handler.lichessService)
+}
+
+func TestNewImportHandler_NilLichessService(t *testing.T) {
+	importSvc := services.NewImportService(nil)
+	handler := NewImportHandler(importSvc, nil)
+
+	assert.NotNil(t, handler)
+	assert.NotNil(t, handler.importService)
+	assert.Nil(t, handler.lichessService)
 }
 
 func TestUploadHandler_InvalidBody(t *testing.T) {
@@ -294,7 +305,7 @@ func TestUploadHandler_InvalidBody(t *testing.T) {
 	c := e.NewContext(req, rec)
 
 	importSvc := services.NewImportService(nil)
-	handler := NewImportHandler(importSvc)
+	handler := NewImportHandler(importSvc, nil)
 
 	err := handler.UploadHandler(c)
 
@@ -317,7 +328,7 @@ func TestUploadHandler_MissingUsername(t *testing.T) {
 	c := e.NewContext(req, rec)
 
 	importSvc := services.NewImportService(nil)
-	handler := NewImportHandler(importSvc)
+	handler := NewImportHandler(importSvc, nil)
 
 	err := handler.UploadHandler(c)
 
@@ -339,7 +350,7 @@ func TestValidateMoveHandler_MissingSAN(t *testing.T) {
 	c := e.NewContext(req, rec)
 
 	importSvc := services.NewImportService(nil)
-	handler := NewImportHandler(importSvc)
+	handler := NewImportHandler(importSvc, nil)
 
 	err := handler.ValidateMoveHandler(c)
 
@@ -360,7 +371,7 @@ func TestValidateMoveHandler_InvalidJSON(t *testing.T) {
 	c := e.NewContext(req, rec)
 
 	importSvc := services.NewImportService(nil)
-	handler := NewImportHandler(importSvc)
+	handler := NewImportHandler(importSvc, nil)
 
 	err := handler.ValidateMoveHandler(c)
 
@@ -377,7 +388,7 @@ func TestValidateMoveHandler_InvalidFEN(t *testing.T) {
 	c := e.NewContext(req, rec)
 
 	importSvc := services.NewImportService(nil)
-	handler := NewImportHandler(importSvc)
+	handler := NewImportHandler(importSvc, nil)
 
 	err := handler.ValidateMoveHandler(c)
 
@@ -397,7 +408,7 @@ func TestImportHandler_ResponseFormat(t *testing.T) {
 	c := e.NewContext(req, rec)
 
 	importSvc := services.NewImportService(nil)
-	handler := NewImportHandler(importSvc)
+	handler := NewImportHandler(importSvc, nil)
 
 	err := handler.ValidatePGNHandler(c)
 
@@ -417,7 +428,7 @@ func TestImportHandler_RegularMove(t *testing.T) {
 	c := e.NewContext(req, rec)
 
 	importSvc := services.NewImportService(nil)
-	handler := NewImportHandler(importSvc)
+	handler := NewImportHandler(importSvc, nil)
 
 	err := handler.ValidateMoveHandler(c)
 
@@ -434,7 +445,7 @@ func TestImportHandler_CastlingMove(t *testing.T) {
 	c := e.NewContext(req, rec)
 
 	importSvc := services.NewImportService(nil)
-	handler := NewImportHandler(importSvc)
+	handler := NewImportHandler(importSvc, nil)
 
 	err := handler.ValidateMoveHandler(c)
 
@@ -452,7 +463,313 @@ func TestImportHandler_Promotion(t *testing.T) {
 	c := e.NewContext(req, rec)
 
 	importSvc := services.NewImportService(nil)
-	handler := NewImportHandler(importSvc)
+	handler := NewImportHandler(importSvc, nil)
+
+	err := handler.ValidateMoveHandler(c)
+
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, rec.Code)
+}
+
+// Additional handler tests for better coverage
+
+func TestGetAnalysisHandler_InvalidUUID(t *testing.T) {
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "/api/analyses/invalid-uuid", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.SetParamNames("id")
+	c.SetParamValues("invalid-uuid")
+
+	importSvc := services.NewImportService(nil)
+	handler := NewImportHandler(importSvc, nil)
+
+	err := handler.GetAnalysisHandler(c)
+
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+
+	var response map[string]string
+	err = json.Unmarshal(rec.Body.Bytes(), &response)
+	require.NoError(t, err)
+	assert.Equal(t, "id must be a valid UUID", response["error"])
+}
+
+func TestDeleteAnalysisHandler_InvalidUUID(t *testing.T) {
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodDelete, "/api/analyses/invalid-uuid", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.SetParamNames("id")
+	c.SetParamValues("not-a-uuid")
+
+	importSvc := services.NewImportService(nil)
+	handler := NewImportHandler(importSvc, nil)
+
+	err := handler.DeleteAnalysisHandler(c)
+
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+
+	var response map[string]string
+	err = json.Unmarshal(rec.Body.Bytes(), &response)
+	require.NoError(t, err)
+	assert.Equal(t, "id must be a valid UUID", response["error"])
+}
+
+func TestDeleteGameHandler_InvalidAnalysisID(t *testing.T) {
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodDelete, "/api/games/invalid-uuid/0", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.SetParamNames("analysisId", "gameIndex")
+	c.SetParamValues("invalid-uuid", "0")
+
+	importSvc := services.NewImportService(nil)
+	handler := NewImportHandler(importSvc, nil)
+
+	err := handler.DeleteGameHandler(c)
+
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+
+	var response map[string]string
+	err = json.Unmarshal(rec.Body.Bytes(), &response)
+	require.NoError(t, err)
+	assert.Equal(t, "analysisId must be a valid UUID", response["error"])
+}
+
+func TestDeleteGameHandler_InvalidGameIndex(t *testing.T) {
+	e := echo.New()
+	validUUID := "123e4567-e89b-12d3-a456-426614174000"
+	req := httptest.NewRequest(http.MethodDelete, "/api/games/"+validUUID+"/abc", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.SetParamNames("analysisId", "gameIndex")
+	c.SetParamValues(validUUID, "abc")
+
+	importSvc := services.NewImportService(nil)
+	handler := NewImportHandler(importSvc, nil)
+
+	err := handler.DeleteGameHandler(c)
+
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+
+	var response map[string]string
+	err = json.Unmarshal(rec.Body.Bytes(), &response)
+	require.NoError(t, err)
+	assert.Equal(t, "gameIndex must be a non-negative integer", response["error"])
+}
+
+func TestDeleteGameHandler_NegativeGameIndex(t *testing.T) {
+	e := echo.New()
+	validUUID := "123e4567-e89b-12d3-a456-426614174000"
+	req := httptest.NewRequest(http.MethodDelete, "/api/games/"+validUUID+"/-1", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.SetParamNames("analysisId", "gameIndex")
+	c.SetParamValues(validUUID, "-1")
+
+	importSvc := services.NewImportService(nil)
+	handler := NewImportHandler(importSvc, nil)
+
+	err := handler.DeleteGameHandler(c)
+
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+
+	var response map[string]string
+	err = json.Unmarshal(rec.Body.Bytes(), &response)
+	require.NoError(t, err)
+	assert.Equal(t, "gameIndex must be a non-negative integer", response["error"])
+}
+
+func TestLichessImportHandler_MissingUsername(t *testing.T) {
+	e := echo.New()
+	body := `{"options":{}}`
+	req := httptest.NewRequest(http.MethodPost, "/api/lichess/import", bytes.NewReader([]byte(body)))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	importSvc := services.NewImportService(nil)
+	lichessSvc := services.NewLichessService()
+	handler := NewImportHandler(importSvc, lichessSvc)
+
+	err := handler.LichessImportHandler(c)
+
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+
+	var response map[string]string
+	err = json.Unmarshal(rec.Body.Bytes(), &response)
+	require.NoError(t, err)
+	assert.Equal(t, "username is required", response["error"])
+}
+
+func TestLichessImportHandler_InvalidJSON(t *testing.T) {
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodPost, "/api/lichess/import", bytes.NewReader([]byte("not json")))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	importSvc := services.NewImportService(nil)
+	lichessSvc := services.NewLichessService()
+	handler := NewImportHandler(importSvc, lichessSvc)
+
+	err := handler.LichessImportHandler(c)
+
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
+func TestGetGamesHandler_DefaultPagination(t *testing.T) {
+	t.Skip("Requires database connection - skip for unit testing")
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "/api/games", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	importSvc := services.NewImportService(nil)
+	handler := NewImportHandler(importSvc, nil)
+
+	err := handler.GetGamesHandler(c)
+
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, rec.Code)
+}
+
+func TestGetGamesHandler_CustomPagination(t *testing.T) {
+	t.Skip("Requires database connection - skip for unit testing")
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "/api/games?limit=50&offset=10", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.QueryParams().Set("limit", "50")
+	c.QueryParams().Set("offset", "10")
+
+	importSvc := services.NewImportService(nil)
+	handler := NewImportHandler(importSvc, nil)
+
+	err := handler.GetGamesHandler(c)
+
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, rec.Code)
+}
+
+func TestValidatePGNHandler_EmptyBody(t *testing.T) {
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodPost, "/api/pgn/validate", bytes.NewReader([]byte("")))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	importSvc := services.NewImportService(nil)
+	handler := NewImportHandler(importSvc, nil)
+
+	err := handler.ValidatePGNHandler(c)
+
+	require.NoError(t, err)
+	// Empty PGN might be valid (no games) or invalid depending on implementation
+	assert.True(t, rec.Code == http.StatusOK || rec.Code == http.StatusBadRequest)
+}
+
+func TestValidatePGNHandler_InvalidPGN(t *testing.T) {
+	e := echo.New()
+	pgnData := `[Event "Incomplete"`
+	req := httptest.NewRequest(http.MethodPost, "/api/pgn/validate", bytes.NewReader([]byte(pgnData)))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	importSvc := services.NewImportService(nil)
+	handler := NewImportHandler(importSvc, nil)
+
+	err := handler.ValidatePGNHandler(c)
+
+	require.NoError(t, err)
+	// The library is lenient, so check it doesn't crash
+	assert.True(t, rec.Code == http.StatusOK || rec.Code == http.StatusBadRequest)
+}
+
+func TestGetLegalMovesHandler_InvalidFEN(t *testing.T) {
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "/api/legal-moves?fen=invalid", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.QueryParams().Set("fen", "invalid")
+
+	importSvc := services.NewImportService(nil)
+	handler := NewImportHandler(importSvc, nil)
+
+	err := handler.GetLegalMovesHandler(c)
+
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
+func TestGetLegalMovesHandler_CheckmatePosition(t *testing.T) {
+	e := echo.New()
+	// Fool's mate position - white is checkmated
+	fen := "rnb1kbnr/pppp1ppp/8/4p3/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq -"
+	encodedFen := url.QueryEscape(fen)
+	reqURL := "/api/legal-moves?fen=" + encodedFen
+	req := httptest.NewRequest(http.MethodGet, reqURL, nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.QueryParams().Set("fen", fen)
+
+	importSvc := services.NewImportService(nil)
+	handler := NewImportHandler(importSvc, nil)
+
+	err := handler.GetLegalMovesHandler(c)
+
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	var response map[string]interface{}
+	err = json.Unmarshal(rec.Body.Bytes(), &response)
+	require.NoError(t, err)
+	moves := response["moves"].([]interface{})
+	assert.Empty(t, moves) // No legal moves in checkmate
+}
+
+func TestUploadHandler_CaseInsensitivePGNExtension(t *testing.T) {
+	t.Skip("Requires database connection - verifies .PGN (uppercase) is accepted")
+	// This test verifies that the handler accepts .PGN extension (case-insensitive)
+	// Skip because it requires DB for full flow
+}
+
+func TestValidateMoveHandler_EnPassant(t *testing.T) {
+	e := echo.New()
+	// Position where en passant is possible
+	body := `{"fen":"rnbqkbnr/ppp1pppp/8/3pP3/8/8/PPPP1PPP/RNBQKBNR w KQkq d6","san":"exd6"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/validate-move", bytes.NewReader([]byte(body)))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	importSvc := services.NewImportService(nil)
+	handler := NewImportHandler(importSvc, nil)
+
+	err := handler.ValidateMoveHandler(c)
+
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, rec.Code)
+}
+
+func TestValidateMoveHandler_QueensideCastling(t *testing.T) {
+	e := echo.New()
+	body := `{"fen":"r3k2r/pppppppp/8/8/8/8/PPPPPPPP/R3K2R w KQkq -","san":"O-O-O"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/validate-move", bytes.NewReader([]byte(body)))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	importSvc := services.NewImportService(nil)
+	handler := NewImportHandler(importSvc, nil)
 
 	err := handler.ValidateMoveHandler(c)
 
