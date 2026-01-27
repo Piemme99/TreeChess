@@ -7,7 +7,9 @@ import type {
   AnalysisDetail,
   UploadResponse,
   GamesResponse,
-  LichessImportOptions
+  LichessImportOptions,
+  CreateRepertoireRequest,
+  UpdateRepertoireRequest
 } from '../types';
 
 const USERNAME_STORAGE_KEY = 'treechess_username';
@@ -32,18 +34,46 @@ api.interceptors.response.use(
 
 // Repertoire API
 export const repertoireApi = {
-  get: async (color: Color): Promise<Repertoire> => {
-    const response = await api.get(`/repertoire/${color}`);
+  // List all repertoires, optionally filtered by color
+  list: async (color?: Color): Promise<Repertoire[]> => {
+    const params = color ? { color } : {};
+    const response = await api.get('/repertoires', { params });
     return response.data;
   },
 
-  addNode: async (color: Color, data: AddNodeRequest): Promise<Repertoire> => {
-    const response = await api.post(`/repertoire/${color}/node`, data);
+  // Get a single repertoire by ID
+  get: async (id: string): Promise<Repertoire> => {
+    const response = await api.get(`/repertoire/${id}`);
     return response.data;
   },
 
-  deleteNode: async (color: Color, nodeId: string): Promise<Repertoire> => {
-    const response = await api.delete(`/repertoire/${color}/node/${nodeId}`);
+  // Create a new repertoire
+  create: async (data: CreateRepertoireRequest): Promise<Repertoire> => {
+    const response = await api.post('/repertoires', data);
+    return response.data;
+  },
+
+  // Rename a repertoire
+  rename: async (id: string, name: string): Promise<Repertoire> => {
+    const data: UpdateRepertoireRequest = { name };
+    const response = await api.patch(`/repertoire/${id}`, data);
+    return response.data;
+  },
+
+  // Delete a repertoire
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/repertoire/${id}`);
+  },
+
+  // Add a node to a repertoire
+  addNode: async (id: string, data: AddNodeRequest): Promise<Repertoire> => {
+    const response = await api.post(`/repertoire/${id}/node`, data);
+    return response.data;
+  },
+
+  // Delete a node from a repertoire
+  deleteNode: async (id: string, nodeId: string): Promise<Repertoire> => {
+    const response = await api.delete(`/repertoire/${id}/node/${nodeId}`);
     return response.data;
   }
 };

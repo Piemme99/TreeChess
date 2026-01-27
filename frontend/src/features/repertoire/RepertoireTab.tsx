@@ -1,13 +1,11 @@
-import { useNavigate } from 'react-router-dom';
 import { useRepertoires } from './shared/hooks/useRepertoires';
-import { RepertoireCard } from './shared/components/RepertoireCard';
+import { RepertoireSelector } from './shared/components/RepertoireSelector';
 import { Loading } from '../../shared/components/UI';
 
 export function RepertoireTab() {
-  const navigate = useNavigate();
-  const { whiteRepertoire, blackRepertoire, loading } = useRepertoires();
+  const { whiteRepertoires, blackRepertoires, loading, repertoires } = useRepertoires();
 
-  if (loading && !whiteRepertoire && !blackRepertoire) {
+  if (loading && repertoires.length === 0) {
     return (
       <div className="repertoire-tab">
         <Loading size="lg" text="Loading repertoires..." />
@@ -17,21 +15,9 @@ export function RepertoireTab() {
 
   return (
     <div className="repertoire-tab">
-      <div className="repertoire-cards">
-        <RepertoireCard
-          color="white"
-          totalMoves={whiteRepertoire?.metadata.totalMoves || 0}
-          totalNodes={whiteRepertoire?.metadata.totalNodes || 0}
-          deepestDepth={whiteRepertoire?.metadata.deepestDepth || 0}
-          onEdit={() => navigate('/repertoire/white/edit')}
-        />
-        <RepertoireCard
-          color="black"
-          totalMoves={blackRepertoire?.metadata.totalMoves || 0}
-          totalNodes={blackRepertoire?.metadata.totalNodes || 0}
-          deepestDepth={blackRepertoire?.metadata.deepestDepth || 0}
-          onEdit={() => navigate('/repertoire/black/edit')}
-        />
+      <div className="repertoire-selectors">
+        <RepertoireSelector color="white" repertoires={whiteRepertoires} />
+        <RepertoireSelector color="black" repertoires={blackRepertoires} />
       </div>
     </div>
   );

@@ -12,19 +12,61 @@ import (
 func TestRepertoireService_CreateRepertoire_InvalidColor(t *testing.T) {
 	svc := NewRepertoireService()
 
-	_, err := svc.CreateRepertoire(models.Color("invalid"))
+	_, err := svc.CreateRepertoire("Test Repertoire", models.Color("invalid"))
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid color")
 }
 
-func TestRepertoireService_GetRepertoire_InvalidColor(t *testing.T) {
+func TestRepertoireService_CreateRepertoire_EmptyName(t *testing.T) {
 	svc := NewRepertoireService()
 
-	_, err := svc.GetRepertoire(models.Color("invalid"))
+	_, err := svc.CreateRepertoire("", models.ColorWhite)
 
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid color")
+	assert.ErrorIs(t, err, ErrNameRequired)
+}
+
+func TestRepertoireService_CreateRepertoire_NameTooLong(t *testing.T) {
+	svc := NewRepertoireService()
+
+	// Create a name with 101 characters
+	longName := ""
+	for i := 0; i < 101; i++ {
+		longName += "a"
+	}
+
+	_, err := svc.CreateRepertoire(longName, models.ColorWhite)
+
+	assert.Error(t, err)
+	assert.ErrorIs(t, err, ErrNameTooLong)
+}
+
+func TestRepertoireService_GetRepertoire_InvalidID(t *testing.T) {
+	t.Skip("Requires database connection - skip for unit testing")
+}
+
+func TestRepertoireService_RenameRepertoire_EmptyName(t *testing.T) {
+	svc := NewRepertoireService()
+
+	_, err := svc.RenameRepertoire("test-id", "")
+
+	assert.Error(t, err)
+	assert.ErrorIs(t, err, ErrNameRequired)
+}
+
+func TestRepertoireService_RenameRepertoire_NameTooLong(t *testing.T) {
+	svc := NewRepertoireService()
+
+	longName := ""
+	for i := 0; i < 101; i++ {
+		longName += "a"
+	}
+
+	_, err := svc.RenameRepertoire("test-id", longName)
+
+	assert.Error(t, err)
+	assert.ErrorIs(t, err, ErrNameTooLong)
 }
 
 func TestFindNode_Found(t *testing.T) {
@@ -72,6 +114,18 @@ func TestFindNode_NotFound(t *testing.T) {
 	found := findNode(root, "nonexistent")
 
 	assert.Nil(t, found)
+}
+
+func TestFindNode_Exported(t *testing.T) {
+	root := &models.RepertoireNode{
+		ID:         "root",
+		MoveNumber: 0,
+	}
+
+	found := FindNode(root, "root")
+
+	require.NotNil(t, found)
+	assert.Equal(t, "root", found.ID)
 }
 
 func TestMoveExistsAsChild_NotExists(t *testing.T) {
@@ -534,8 +588,27 @@ func TestSentinelErrors(t *testing.T) {
 	assert.NotNil(t, ErrMoveExists)
 	assert.NotNil(t, ErrCannotDeleteRoot)
 	assert.NotNil(t, ErrNodeNotFound)
+	assert.NotNil(t, ErrLimitReached)
+	assert.NotNil(t, ErrNameRequired)
+	assert.NotNil(t, ErrNameTooLong)
 
 	// Verify error messages
 	assert.Contains(t, ErrInvalidColor.Error(), "invalid color")
 	assert.Contains(t, ErrCannotDeleteRoot.Error(), "cannot delete root")
+	assert.Contains(t, ErrLimitReached.Error(), "50")
+	assert.Contains(t, ErrNameRequired.Error(), "required")
+}
+
+func TestListRepertoires_InvalidColor(t *testing.T) {
+	svc := NewRepertoireService()
+	invalidColor := models.Color("invalid")
+
+	_, err := svc.ListRepertoires(&invalidColor)
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid color")
+}
+
+func TestRepertoireService_RenameRepertoire_NotFound(t *testing.T) {
+	t.Skip("Requires database connection - skip for unit testing")
 }

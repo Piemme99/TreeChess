@@ -10,7 +10,6 @@ import (
 
 	"github.com/treechess/backend/config"
 	"github.com/treechess/backend/internal/handlers"
-	"github.com/treechess/backend/internal/models"
 	"github.com/treechess/backend/internal/repository"
 	"github.com/treechess/backend/internal/services"
 )
@@ -27,10 +26,6 @@ func main() {
 	importSvc := services.NewImportService(repertoireSvc)
 	lichessSvc := services.NewLichessService()
 
-	if err := autoCreateRepertoires(repertoireSvc); err != nil {
-		log.Fatalf("Failed to create repertoires: %v", err)
-	}
-
 	e := echo.New()
 	e.HideBanner = true
 
@@ -38,16 +33,22 @@ func main() {
 	e.Use(middleware.Recover())
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: []string{"http://localhost:5173"},
-		AllowMethods: []string{http.MethodGet, http.MethodPost, http.MethodDelete},
+		AllowMethods: []string{http.MethodGet, http.MethodPost, http.MethodPatch, http.MethodDelete},
 		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept},
 	}))
 
 	e.GET("/api/health", handlers.HealthHandler)
 
-	e.GET("/api/repertoire/:color", handlers.RepertoireHandler(repertoireSvc))
-	e.POST("/api/repertoire/:color/node", handlers.AddNodeHandler(repertoireSvc))
-	e.DELETE("/api/repertoire/:color/node/:id", handlers.DeleteNodeHandler(repertoireSvc))
+	// Repertoire API - new endpoints supporting multiple repertoires
+	e.GET("/api/repertoires", handlers.ListRepertoiresHandler(repertoireSvc))
+	e.POST("/api/repertoires", handlers.CreateRepertoireHandler(repertoireSvc))
+	e.GET("/api/repertoire/:id", handlers.GetRepertoireHandler(repertoireSvc))
+	e.PATCH("/api/repertoire/:id", handlers.UpdateRepertoireHandler(repertoireSvc))
+	e.DELETE("/api/repertoire/:id", handlers.DeleteRepertoireHandler(repertoireSvc))
+	e.POST("/api/repertoire/:id/node", handlers.AddNodeHandler(repertoireSvc))
+	e.DELETE("/api/repertoire/:id/node/:nodeId", handlers.DeleteNodeHandler(repertoireSvc))
 
+	// Import/Analysis API
 	importHandler := handlers.NewImportHandler(importSvc, lichessSvc)
 	e.POST("/api/imports", importHandler.UploadHandler)
 	e.POST("/api/imports/lichess", importHandler.LichessImportHandler)
@@ -66,19 +67,4 @@ func main() {
 	if err := e.Start(fmt.Sprintf(":%d", cfg.Port)); err != nil {
 		log.Fatal(err)
 	}
-}
-
-func autoCreateRepertoires(svc *services.RepertoireService) error {
-	colors := []string{"white", "black"}
-	for _, c := range colors {
-		_, err := svc.GetRepertoire(models.Color(c))
-		if err != nil {
-			_, createErr := svc.CreateRepertoire(models.Color(c))
-			if createErr != nil {
-				return createErr
-			}
-			log.Printf("Created %s repertoire", c)
-		}
-	}
-	return nil
 }

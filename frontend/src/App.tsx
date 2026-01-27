@@ -10,7 +10,7 @@ function App() {
       <Routes>
         <Route path="/" element={<MainLayout />} />
         <Route path="/analyse/:id/game/:gameIndex" element={<GameAnalysisPage />} />
-        <Route path="/repertoire/:color/edit" element={<RepertoireEdit />} />
+        <Route path="/repertoire/:id/edit" element={<RepertoireEdit />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <ToastContainer />

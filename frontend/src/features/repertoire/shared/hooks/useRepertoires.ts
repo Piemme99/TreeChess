@@ -1,39 +1,42 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useRepertoireStore } from '../../../../stores/repertoireStore';
-import { repertoireApi } from '../../../../services/api';
 import { toast } from '../../../../stores/toastStore';
 
 export function useRepertoires() {
-  const {
-    whiteRepertoire,
-    blackRepertoire,
-    loading,
-    setRepertoire,
-    setLoading
-  } = useRepertoireStore();
+  const repertoires = useRepertoireStore((state) => state.repertoires);
+  const loading = useRepertoireStore((state) => state.loading);
+  const fetchRepertoires = useRepertoireStore((state) => state.fetchRepertoires);
 
   useEffect(() => {
     const loadRepertoires = async () => {
-      if (whiteRepertoire && blackRepertoire) return;
+      if (repertoires.length > 0) return;
 
-      setLoading(true);
       try {
-        const [white, black] = await Promise.all([
-          repertoireApi.get('white'),
-          repertoireApi.get('black')
-        ]);
-        setRepertoire('white', white);
-        setRepertoire('black', black);
+        await fetchRepertoires();
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to load repertoires';
         toast.error(message);
-      } finally {
-        setLoading(false);
       }
     };
 
     loadRepertoires();
-  }, [whiteRepertoire, blackRepertoire, setRepertoire, setLoading]);
+  }, [repertoires.length, fetchRepertoires]);
 
-  return { whiteRepertoire, blackRepertoire, loading };
+  // Use useMemo to avoid creating new arrays on every render
+  const whiteRepertoires = useMemo(
+    () => repertoires.filter((r) => r.color === 'white'),
+    [repertoires]
+  );
+
+  const blackRepertoires = useMemo(
+    () => repertoires.filter((r) => r.color === 'black'),
+    [repertoires]
+  );
+
+  return {
+    repertoires,
+    whiteRepertoires,
+    blackRepertoires,
+    loading
+  };
 }

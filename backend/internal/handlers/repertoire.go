@@ -11,18 +11,102 @@ import (
 	"github.com/treechess/backend/internal/services"
 )
 
-func RepertoireHandler(svc *services.RepertoireService) echo.HandlerFunc {
+// ListRepertoiresHandler returns all repertoires, optionally filtered by color
+// GET /api/repertoires?color=white|black
+func ListRepertoiresHandler(svc *services.RepertoireService) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		colorParam := c.Param("color")
-		color := models.Color(colorParam)
+		colorParam := c.QueryParam("color")
 
-		if color != models.ColorWhite && color != models.ColorBlack {
+		var colorFilter *models.Color
+		if colorParam != "" {
+			color := models.Color(colorParam)
+			if color != models.ColorWhite && color != models.ColorBlack {
+				return c.JSON(http.StatusBadRequest, map[string]string{
+					"error": "invalid color. must be 'white' or 'black'",
+				})
+			}
+			colorFilter = &color
+		}
+
+		repertoires, err := svc.ListRepertoires(colorFilter)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{
+				"error": "failed to list repertoires",
+			})
+		}
+
+		// Return empty array instead of null
+		if repertoires == nil {
+			repertoires = []models.Repertoire{}
+		}
+
+		return c.JSON(http.StatusOK, repertoires)
+	}
+}
+
+// CreateRepertoireHandler creates a new repertoire
+// POST /api/repertoires
+func CreateRepertoireHandler(svc *services.RepertoireService) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		var req models.CreateRepertoireRequest
+		if err := c.Bind(&req); err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{
+				"error": "invalid request body",
+			})
+		}
+
+		if req.Name == "" {
+			return c.JSON(http.StatusBadRequest, map[string]string{
+				"error": "name is required",
+			})
+		}
+
+		if req.Color != models.ColorWhite && req.Color != models.ColorBlack {
 			return c.JSON(http.StatusBadRequest, map[string]string{
 				"error": "invalid color. must be 'white' or 'black'",
 			})
 		}
 
-		rep, err := svc.GetRepertoire(color)
+		rep, err := svc.CreateRepertoire(req.Name, req.Color)
+		if err != nil {
+			if errors.Is(err, services.ErrLimitReached) {
+				return c.JSON(http.StatusConflict, map[string]string{
+					"error": "maximum repertoire limit reached (50)",
+				})
+			}
+			if errors.Is(err, services.ErrNameRequired) {
+				return c.JSON(http.StatusBadRequest, map[string]string{
+					"error": "name is required",
+				})
+			}
+			if errors.Is(err, services.ErrNameTooLong) {
+				return c.JSON(http.StatusBadRequest, map[string]string{
+					"error": "name must be 100 characters or less",
+				})
+			}
+			return c.JSON(http.StatusInternalServerError, map[string]string{
+				"error": "failed to create repertoire",
+			})
+		}
+
+		return c.JSON(http.StatusCreated, rep)
+	}
+}
+
+// GetRepertoireHandler returns a single repertoire by ID
+// GET /api/repertoire/:id
+func GetRepertoireHandler(svc *services.RepertoireService) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		idParam := c.Param("id")
+
+		// Validate ID is a valid UUID
+		if _, err := uuid.Parse(idParam); err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{
+				"error": "id must be a valid UUID",
+			})
+		}
+
+		rep, err := svc.GetRepertoire(idParam)
 		if err != nil {
 			if errors.Is(err, services.ErrNotFound) {
 				return c.JSON(http.StatusNotFound, map[string]string{
@@ -38,14 +122,91 @@ func RepertoireHandler(svc *services.RepertoireService) echo.HandlerFunc {
 	}
 }
 
+// UpdateRepertoireHandler renames a repertoire
+// PATCH /api/repertoire/:id
+func UpdateRepertoireHandler(svc *services.RepertoireService) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		idParam := c.Param("id")
+
+		// Validate ID is a valid UUID
+		if _, err := uuid.Parse(idParam); err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{
+				"error": "id must be a valid UUID",
+			})
+		}
+
+		var req models.UpdateRepertoireRequest
+		if err := c.Bind(&req); err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{
+				"error": "invalid request body",
+			})
+		}
+
+		rep, err := svc.RenameRepertoire(idParam, req.Name)
+		if err != nil {
+			if errors.Is(err, services.ErrNotFound) {
+				return c.JSON(http.StatusNotFound, map[string]string{
+					"error": "repertoire not found",
+				})
+			}
+			if errors.Is(err, services.ErrNameRequired) {
+				return c.JSON(http.StatusBadRequest, map[string]string{
+					"error": "name is required",
+				})
+			}
+			if errors.Is(err, services.ErrNameTooLong) {
+				return c.JSON(http.StatusBadRequest, map[string]string{
+					"error": "name must be 100 characters or less",
+				})
+			}
+			return c.JSON(http.StatusInternalServerError, map[string]string{
+				"error": "failed to update repertoire",
+			})
+		}
+
+		return c.JSON(http.StatusOK, rep)
+	}
+}
+
+// DeleteRepertoireHandler deletes a repertoire by ID
+// DELETE /api/repertoire/:id
+func DeleteRepertoireHandler(svc *services.RepertoireService) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		idParam := c.Param("id")
+
+		// Validate ID is a valid UUID
+		if _, err := uuid.Parse(idParam); err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{
+				"error": "id must be a valid UUID",
+			})
+		}
+
+		err := svc.DeleteRepertoire(idParam)
+		if err != nil {
+			if errors.Is(err, services.ErrNotFound) {
+				return c.JSON(http.StatusNotFound, map[string]string{
+					"error": "repertoire not found",
+				})
+			}
+			return c.JSON(http.StatusInternalServerError, map[string]string{
+				"error": "failed to delete repertoire",
+			})
+		}
+
+		return c.NoContent(http.StatusNoContent)
+	}
+}
+
+// AddNodeHandler adds a node to a repertoire
+// POST /api/repertoire/:id/node
 func AddNodeHandler(svc *services.RepertoireService) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		colorParam := c.Param("color")
-		color := models.Color(colorParam)
+		idParam := c.Param("id")
 
-		if color != models.ColorWhite && color != models.ColorBlack {
+		// Validate repertoire ID is a valid UUID
+		if _, err := uuid.Parse(idParam); err != nil {
 			return c.JSON(http.StatusBadRequest, map[string]string{
-				"error": "invalid color. must be 'white' or 'black'",
+				"error": "repertoire id must be a valid UUID",
 			})
 		}
 
@@ -75,8 +236,13 @@ func AddNodeHandler(svc *services.RepertoireService) echo.HandlerFunc {
 			})
 		}
 
-		rep, err := svc.AddNode(color, req)
+		rep, err := svc.AddNode(idParam, req)
 		if err != nil {
+			if errors.Is(err, services.ErrNotFound) {
+				return c.JSON(http.StatusNotFound, map[string]string{
+					"error": "repertoire not found",
+				})
+			}
 			if errors.Is(err, services.ErrParentNotFound) {
 				return c.JSON(http.StatusNotFound, map[string]string{
 					"error": "parent node not found",
@@ -101,15 +267,17 @@ func AddNodeHandler(svc *services.RepertoireService) echo.HandlerFunc {
 	}
 }
 
+// DeleteNodeHandler deletes a node from a repertoire
+// DELETE /api/repertoire/:id/node/:nodeId
 func DeleteNodeHandler(svc *services.RepertoireService) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		colorParam := c.Param("color")
-		color := models.Color(colorParam)
-		nodeID := c.Param("id")
+		idParam := c.Param("id")
+		nodeID := c.Param("nodeId")
 
-		if color != models.ColorWhite && color != models.ColorBlack {
+		// Validate repertoire ID is a valid UUID
+		if _, err := uuid.Parse(idParam); err != nil {
 			return c.JSON(http.StatusBadRequest, map[string]string{
-				"error": "invalid color. must be 'white' or 'black'",
+				"error": "repertoire id must be a valid UUID",
 			})
 		}
 
@@ -120,8 +288,13 @@ func DeleteNodeHandler(svc *services.RepertoireService) echo.HandlerFunc {
 			})
 		}
 
-		rep, err := svc.DeleteNode(color, nodeID)
+		rep, err := svc.DeleteNode(idParam, nodeID)
 		if err != nil {
+			if errors.Is(err, services.ErrNotFound) {
+				return c.JSON(http.StatusNotFound, map[string]string{
+					"error": "repertoire not found",
+				})
+			}
 			if errors.Is(err, services.ErrCannotDeleteRoot) {
 				return c.JSON(http.StatusBadRequest, map[string]string{
 					"error": "cannot delete root node",

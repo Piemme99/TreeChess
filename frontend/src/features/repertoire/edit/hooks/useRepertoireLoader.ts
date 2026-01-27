@@ -1,38 +1,55 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useRepertoireStore } from '../../../../stores/repertoireStore';
-import { repertoireApi } from '../../../../services/api';
+import { useRepertoireStore, useRepertoireById } from '../../../../stores/repertoireStore';
 import { toast } from '../../../../stores/toastStore';
-import type { Color } from '../../../../types';
 
 export function useRepertoireLoader() {
-  const { color } = useParams<{ color: Color }>();
+  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const {
-    whiteRepertoire,
-    blackRepertoire,
+    selectedRepertoireId,
     selectedNodeId,
     loading,
-    setRepertoire,
+    fetchRepertoire,
+    selectRepertoire,
     selectNode,
+    updateRepertoire,
     setLoading
   } = useRepertoireStore();
 
-  const repertoire = color === 'white' ? whiteRepertoire : blackRepertoire;
+  const repertoire = useRepertoireById(id || null);
+  const initializedRef = useRef(false);
 
+  // Effect to select the repertoire when ID changes
+  useEffect(() => {
+    if (!id) {
+      navigate('/');
+      return;
+    }
+
+    // Only select repertoire if it's different from current
+    if (selectedRepertoireId !== id) {
+      selectRepertoire(id);
+      initializedRef.current = false;
+    }
+  }, [id, selectedRepertoireId, selectRepertoire, navigate]);
+
+  // Effect to load repertoire data and select initial node
   useEffect(() => {
     const loadRepertoire = async () => {
-      if (!color || (color !== 'white' && color !== 'black')) {
-        navigate('/');
-        return;
-      }
+      if (!id || initializedRef.current) return;
 
       if (!repertoire) {
         setLoading(true);
         try {
-          const data = await repertoireApi.get(color);
-          setRepertoire(color, data);
-          selectNode(data.treeData.id);
+          const data = await fetchRepertoire(id);
+          if (data) {
+            selectNode(data.treeData.id);
+            initializedRef.current = true;
+          } else {
+            toast.error('Repertoire not found');
+            navigate('/');
+          }
         } catch {
           toast.error('Failed to load repertoire');
           navigate('/');
@@ -41,11 +58,23 @@ export function useRepertoireLoader() {
         }
       } else if (!selectedNodeId) {
         selectNode(repertoire.treeData.id);
+        initializedRef.current = true;
+      } else {
+        initializedRef.current = true;
       }
     };
 
     loadRepertoire();
-  }, [color, repertoire, selectedNodeId, setRepertoire, selectNode, setLoading, navigate]);
+  }, [id, repertoire, selectedNodeId, fetchRepertoire, selectNode, setLoading, navigate]);
 
-  return { color, repertoire, selectedNodeId, loading, selectNode, setRepertoire, setLoading };
+  return {
+    id,
+    color: repertoire?.color,
+    repertoire,
+    selectedNodeId,
+    loading,
+    selectNode,
+    setRepertoire: updateRepertoire,
+    setLoading
+  };
 }

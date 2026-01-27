@@ -8,6 +8,7 @@ import { GameBoardSection } from './components/GameBoardSection';
 import { GameNavigation } from './components/GameNavigation';
 import { Button, Loading } from '../../shared/components/UI';
 import { GameMoveList } from './components/GameMoveList';
+import { toast } from '../../stores/toastStore';
 import type { GameAnalysis, MoveAnalysis } from '../../types';
 
 export function GameAnalysisPage() {
@@ -48,20 +49,27 @@ export function GameAnalysisPage() {
   const handleAddToRepertoire = useCallback((move: MoveAnalysis) => {
     if (!game || !game.userColor) return;
 
+    // Check if a repertoire was matched
+    if (!game.matchedRepertoire) {
+      toast.error('No matching repertoire found for this game. Create a repertoire first.');
+      return;
+    }
+
     const moveIndex = game.moves.findIndex(m => m === move);
     if (moveIndex === -1) return;
 
     const parentFEN = moveIndex === 0 ? STARTING_FEN : computeFEN(game.moves, moveIndex - 1);
 
     const context = {
-      color: game.userColor,
+      repertoireId: game.matchedRepertoire.id,
+      repertoireName: game.matchedRepertoire.name,
       parentFEN: parentFEN,
       moveSAN: move.san,
       gameInfo: `${game.headers.White || '?'} vs ${game.headers.Black || '?'}`
     };
     sessionStorage.setItem('pendingAddNode', JSON.stringify(context));
 
-    navigate(`/repertoire/${game.userColor}/edit`);
+    navigate(`/repertoire/${game.matchedRepertoire.id}/edit`);
   }, [game, navigate]);
 
   if (loading) {
@@ -103,6 +111,20 @@ export function GameAnalysisPage() {
         <div className="header-spacer" />
       </header>
 
+      {/* Show matched repertoire info */}
+      {game.matchedRepertoire ? (
+        <div className="game-analysis-repertoire-info">
+          Analyzed against: <strong>{game.matchedRepertoire.name}</strong>
+          {game.matchScore !== undefined && game.matchScore > 0 && (
+            <span className="match-score"> ({game.matchScore} moves matched)</span>
+          )}
+        </div>
+      ) : (
+        <div className="game-analysis-repertoire-info game-analysis-no-repertoire">
+          No matching repertoire found for this game
+        </div>
+      )}
+
       <div className="game-analysis-content">
         <GameBoardSection
           fen={currentFEN}
@@ -119,7 +141,7 @@ export function GameAnalysisPage() {
             currentMoveIndex={currentMoveIndex}
             maxDisplayedIndex={maxDisplayedMoveIndex}
             onMoveClick={goToMove}
-            onAddToRepertoire={handleAddToRepertoire}
+            onAddToRepertoire={game.matchedRepertoire ? handleAddToRepertoire : undefined}
             showFullGame={showFullGame}
             hasMoreMoves={hasMoreMoves}
             onToggleFullGame={toggleFullGame}

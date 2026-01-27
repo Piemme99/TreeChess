@@ -32,16 +32,14 @@ func TestHealthHandler(t *testing.T) {
 	assert.Equal(t, "ok", response["status"])
 }
 
-func TestRepertoireHandler_InvalidColor(t *testing.T) {
+func TestListRepertoiresHandler_InvalidColor(t *testing.T) {
 	e := echo.New()
-	req := httptest.NewRequest(http.MethodGet, "/api/repertoire/invalid", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/repertoires?color=invalid", nil)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	c.SetParamNames("color")
-	c.SetParamValues("invalid")
 
 	svc := services.NewRepertoireService()
-	handler := RepertoireHandler(svc)
+	handler := ListRepertoiresHandler(svc)
 
 	err := handler(c)
 
@@ -54,16 +52,82 @@ func TestRepertoireHandler_InvalidColor(t *testing.T) {
 	assert.Contains(t, response["error"], "invalid color")
 }
 
-func TestRepertoireHandler_InvalidColorFormat(t *testing.T) {
+func TestGetRepertoireHandler_InvalidID(t *testing.T) {
 	e := echo.New()
-	req := httptest.NewRequest(http.MethodGet, "/api/repertoire/yellow", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/repertoire/not-a-uuid", nil)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	c.SetParamNames("color")
-	c.SetParamValues("yellow")
+	c.SetParamNames("id")
+	c.SetParamValues("not-a-uuid")
 
 	svc := services.NewRepertoireService()
-	handler := RepertoireHandler(svc)
+	handler := GetRepertoireHandler(svc)
+
+	err := handler(c)
+
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+
+	var response map[string]string
+	err = json.Unmarshal(rec.Body.Bytes(), &response)
+	require.NoError(t, err)
+	assert.Contains(t, response["error"], "valid UUID")
+}
+
+func TestCreateRepertoireHandler_MissingName(t *testing.T) {
+	e := echo.New()
+	body := `{"color":"white"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/repertoires", strings.NewReader(body))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	svc := services.NewRepertoireService()
+	handler := CreateRepertoireHandler(svc)
+
+	err := handler(c)
+
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+
+	var response map[string]string
+	err = json.Unmarshal(rec.Body.Bytes(), &response)
+	require.NoError(t, err)
+	assert.Contains(t, response["error"], "name is required")
+}
+
+func TestCreateRepertoireHandler_InvalidColor(t *testing.T) {
+	e := echo.New()
+	body := `{"name":"Test","color":"invalid"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/repertoires", strings.NewReader(body))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	svc := services.NewRepertoireService()
+	handler := CreateRepertoireHandler(svc)
+
+	err := handler(c)
+
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+
+	var response map[string]string
+	err = json.Unmarshal(rec.Body.Bytes(), &response)
+	require.NoError(t, err)
+	assert.Contains(t, response["error"], "invalid color")
+}
+
+func TestCreateRepertoireHandler_InvalidJSON(t *testing.T) {
+	e := echo.New()
+	body := `{invalid json}`
+	req := httptest.NewRequest(http.MethodPost, "/api/repertoires", strings.NewReader(body))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	svc := services.NewRepertoireService()
+	handler := CreateRepertoireHandler(svc)
 
 	err := handler(c)
 
@@ -71,15 +135,56 @@ func TestRepertoireHandler_InvalidColorFormat(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 }
 
-func TestAddNodeHandler_InvalidURLColor(t *testing.T) {
+func TestUpdateRepertoireHandler_InvalidID(t *testing.T) {
 	e := echo.New()
-	body := `{"parentId":"test","move":"e4","fen":"test","moveNumber":1,"colorToMove":"white"}`
-	req := httptest.NewRequest(http.MethodPost, "/api/repertoire/invalid/node", strings.NewReader(body))
+	body := `{"name":"New Name"}`
+	req := httptest.NewRequest(http.MethodPatch, "/api/repertoire/not-a-uuid", strings.NewReader(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	c.SetParamNames("color")
-	c.SetParamValues("invalid")
+	c.SetParamNames("id")
+	c.SetParamValues("not-a-uuid")
+
+	svc := services.NewRepertoireService()
+	handler := UpdateRepertoireHandler(svc)
+
+	err := handler(c)
+
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+
+	var response map[string]string
+	err = json.Unmarshal(rec.Body.Bytes(), &response)
+	require.NoError(t, err)
+	assert.Contains(t, response["error"], "valid UUID")
+}
+
+func TestDeleteRepertoireHandler_InvalidID(t *testing.T) {
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodDelete, "/api/repertoire/not-a-uuid", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.SetParamNames("id")
+	c.SetParamValues("not-a-uuid")
+
+	svc := services.NewRepertoireService()
+	handler := DeleteRepertoireHandler(svc)
+
+	err := handler(c)
+
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
+func TestAddNodeHandler_InvalidRepertoireID(t *testing.T) {
+	e := echo.New()
+	body := `{"parentId":"123e4567-e89b-12d3-a456-426614174000","move":"e4"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/repertoire/not-a-uuid/node", strings.NewReader(body))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.SetParamNames("id")
+	c.SetParamValues("not-a-uuid")
 
 	svc := services.NewRepertoireService()
 	handler := AddNodeHandler(svc)
@@ -92,18 +197,18 @@ func TestAddNodeHandler_InvalidURLColor(t *testing.T) {
 	var response map[string]string
 	err = json.Unmarshal(rec.Body.Bytes(), &response)
 	require.NoError(t, err)
-	assert.Contains(t, response["error"], "invalid color")
+	assert.Contains(t, response["error"], "valid UUID")
 }
 
 func TestAddNodeHandler_MissingParentID(t *testing.T) {
 	e := echo.New()
-	body := `{"move":"e4","fen":"test","moveNumber":1,"colorToMove":"white"}`
-	req := httptest.NewRequest(http.MethodPost, "/api/repertoire/white/node", strings.NewReader(body))
+	body := `{"move":"e4"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/repertoire/123e4567-e89b-12d3-a456-426614174000/node", strings.NewReader(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	c.SetParamNames("color")
-	c.SetParamValues("white")
+	c.SetParamNames("id")
+	c.SetParamValues("123e4567-e89b-12d3-a456-426614174000")
 
 	svc := services.NewRepertoireService()
 	handler := AddNodeHandler(svc)
@@ -119,16 +224,39 @@ func TestAddNodeHandler_MissingParentID(t *testing.T) {
 	assert.Equal(t, "parentId is required", response["error"])
 }
 
-func TestAddNodeHandler_MissingMove(t *testing.T) {
+func TestAddNodeHandler_InvalidParentID(t *testing.T) {
 	e := echo.New()
-	// Use a valid UUID for parentId to test the move validation
-	body := `{"parentId":"123e4567-e89b-12d3-a456-426614174000","moveNumber":1}`
-	req := httptest.NewRequest(http.MethodPost, "/api/repertoire/white/node", strings.NewReader(body))
+	body := `{"parentId":"not-a-uuid","move":"e4"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/repertoire/123e4567-e89b-12d3-a456-426614174000/node", strings.NewReader(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	c.SetParamNames("color")
-	c.SetParamValues("white")
+	c.SetParamNames("id")
+	c.SetParamValues("123e4567-e89b-12d3-a456-426614174000")
+
+	svc := services.NewRepertoireService()
+	handler := AddNodeHandler(svc)
+
+	err := handler(c)
+
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+
+	var response map[string]string
+	err = json.Unmarshal(rec.Body.Bytes(), &response)
+	require.NoError(t, err)
+	assert.Contains(t, response["error"], "parentId must be a valid UUID")
+}
+
+func TestAddNodeHandler_MissingMove(t *testing.T) {
+	e := echo.New()
+	body := `{"parentId":"123e4567-e89b-12d3-a456-426614174000","moveNumber":1}`
+	req := httptest.NewRequest(http.MethodPost, "/api/repertoire/123e4567-e89b-12d3-a456-426614174000/node", strings.NewReader(body))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.SetParamNames("id")
+	c.SetParamValues("123e4567-e89b-12d3-a456-426614174000")
 
 	svc := services.NewRepertoireService()
 	handler := AddNodeHandler(svc)
@@ -147,12 +275,12 @@ func TestAddNodeHandler_MissingMove(t *testing.T) {
 func TestAddNodeHandler_InvalidJSON(t *testing.T) {
 	e := echo.New()
 	body := `{invalid json}`
-	req := httptest.NewRequest(http.MethodPost, "/api/repertoire/white/node", strings.NewReader(body))
+	req := httptest.NewRequest(http.MethodPost, "/api/repertoire/123e4567-e89b-12d3-a456-426614174000/node", strings.NewReader(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	c.SetParamNames("color")
-	c.SetParamValues("white")
+	c.SetParamNames("id")
+	c.SetParamValues("123e4567-e89b-12d3-a456-426614174000")
 
 	svc := services.NewRepertoireService()
 	handler := AddNodeHandler(svc)
@@ -163,13 +291,13 @@ func TestAddNodeHandler_InvalidJSON(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 }
 
-func TestDeleteNodeHandler_InvalidColor(t *testing.T) {
+func TestDeleteNodeHandler_InvalidRepertoireID(t *testing.T) {
 	e := echo.New()
-	req := httptest.NewRequest(http.MethodDelete, "/api/repertoire/invalid/node/test-id", nil)
+	req := httptest.NewRequest(http.MethodDelete, "/api/repertoire/not-a-uuid/node/123e4567-e89b-12d3-a456-426614174000", nil)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	c.SetParamNames("color", "id")
-	c.SetParamValues("invalid", "test-id")
+	c.SetParamNames("id", "nodeId")
+	c.SetParamValues("not-a-uuid", "123e4567-e89b-12d3-a456-426614174000")
 
 	svc := services.NewRepertoireService()
 	handler := DeleteNodeHandler(svc)
@@ -178,6 +306,33 @@ func TestDeleteNodeHandler_InvalidColor(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
+
+	var response map[string]string
+	err = json.Unmarshal(rec.Body.Bytes(), &response)
+	require.NoError(t, err)
+	assert.Contains(t, response["error"], "repertoire id must be a valid UUID")
+}
+
+func TestDeleteNodeHandler_InvalidNodeID(t *testing.T) {
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodDelete, "/api/repertoire/123e4567-e89b-12d3-a456-426614174000/node/not-a-uuid", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.SetParamNames("id", "nodeId")
+	c.SetParamValues("123e4567-e89b-12d3-a456-426614174000", "not-a-uuid")
+
+	svc := services.NewRepertoireService()
+	handler := DeleteNodeHandler(svc)
+
+	err := handler(c)
+
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+
+	var response map[string]string
+	err = json.Unmarshal(rec.Body.Bytes(), &response)
+	require.NoError(t, err)
+	assert.Contains(t, response["error"], "node id must be a valid UUID")
 }
 
 func TestRepertoireResponseFormat(t *testing.T) {
@@ -193,6 +348,7 @@ func TestRepertoireResponseFormat(t *testing.T) {
 
 	expected := models.Repertoire{
 		ID:       "test-rep-id",
+		Name:     "Test Repertoire",
 		Color:    models.ColorWhite,
 		TreeData: expectedRoot,
 		Metadata: models.Metadata{TotalNodes: 1, TotalMoves: 0, DeepestDepth: 0},
@@ -206,74 +362,10 @@ func TestRepertoireResponseFormat(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, expected.ID, decoded.ID)
+	assert.Equal(t, expected.Name, decoded.Name)
 	assert.Equal(t, expected.Color, decoded.Color)
 	assert.Nil(t, decoded.TreeData.Move)
 	assert.Equal(t, expected.Metadata.TotalNodes, decoded.Metadata.TotalNodes)
-}
-
-// Additional tests for repertoire handlers
-
-func TestRepertoireHandler_WhiteColor(t *testing.T) {
-	t.Skip("Requires database connection - skip for unit testing")
-}
-
-func TestRepertoireHandler_BlackColor(t *testing.T) {
-	t.Skip("Requires database connection - skip for unit testing")
-}
-
-func TestAddNodeHandler_EmptyBody(t *testing.T) {
-	e := echo.New()
-	req := httptest.NewRequest(http.MethodPost, "/api/repertoire/white/node", strings.NewReader(""))
-	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-	rec := httptest.NewRecorder()
-	c := e.NewContext(req, rec)
-	c.SetParamNames("color")
-	c.SetParamValues("white")
-
-	svc := services.NewRepertoireService()
-	handler := AddNodeHandler(svc)
-
-	err := handler(c)
-
-	require.NoError(t, err)
-	assert.Equal(t, http.StatusBadRequest, rec.Code)
-}
-
-func TestAddNodeHandler_WhiteValidRequest(t *testing.T) {
-	t.Skip("Requires database connection - skip for unit testing")
-	// This test would verify a valid add node request for white repertoire
-}
-
-func TestAddNodeHandler_BlackValidRequest(t *testing.T) {
-	t.Skip("Requires database connection - skip for unit testing")
-	// This test would verify a valid add node request for black repertoire
-}
-
-func TestDeleteNodeHandler_WhiteColor(t *testing.T) {
-	t.Skip("Requires database connection - skip for unit testing")
-	// This test would verify deletion from white repertoire
-}
-
-func TestDeleteNodeHandler_BlackColor(t *testing.T) {
-	t.Skip("Requires database connection - skip for unit testing")
-	// This test would verify deletion from black repertoire
-}
-
-func TestDeleteNodeHandler_MissingID(t *testing.T) {
-	e := echo.New()
-	req := httptest.NewRequest(http.MethodDelete, "/api/repertoire/white/node/", nil)
-	rec := httptest.NewRecorder()
-	c := e.NewContext(req, rec)
-	c.SetParamNames("color", "id")
-	c.SetParamValues("white", "")
-
-	svc := services.NewRepertoireService()
-	handler := DeleteNodeHandler(svc)
-
-	err := handler(c)
-
-	require.NoError(t, err)
-	// Empty ID should be handled
 }
 
 func TestHealthHandler_ResponseFormat(t *testing.T) {
@@ -295,84 +387,31 @@ func TestHealthHandler_ResponseFormat(t *testing.T) {
 	assert.Contains(t, rec.Header().Get("Content-Type"), "application/json")
 }
 
-func TestAddNodeHandler_ValidColors(t *testing.T) {
-	tests := []struct {
-		color string
-		valid bool
-	}{
-		{"white", true},
-		{"black", true},
-		{"invalid", false},
-		{"WHITE", false}, // Case-sensitive
-		{"", false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.color, func(t *testing.T) {
-			e := echo.New()
-			body := `{"parentId":"test","move":"e4"}`
-			req := httptest.NewRequest(http.MethodPost, "/api/repertoire/"+tt.color+"/node", strings.NewReader(body))
-			req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-			rec := httptest.NewRecorder()
-			c := e.NewContext(req, rec)
-			c.SetParamNames("color")
-			c.SetParamValues(tt.color)
-
-			svc := services.NewRepertoireService()
-			handler := AddNodeHandler(svc)
-
-			err := handler(c)
-
-			require.NoError(t, err)
-			if !tt.valid {
-				assert.Equal(t, http.StatusBadRequest, rec.Code)
-			}
-		})
-	}
+// Integration tests that require database - skipped for unit testing
+func TestListRepertoiresHandler_WithColor(t *testing.T) {
+	t.Skip("Requires database connection - skip for unit testing")
 }
 
-func TestRepertoireHandler_ValidColors(t *testing.T) {
-	invalidColors := []string{"invalid", "yellow", "blue", "WHITE", "BLACK", ""}
-
-	for _, color := range invalidColors {
-		t.Run(color, func(t *testing.T) {
-			e := echo.New()
-			req := httptest.NewRequest(http.MethodGet, "/api/repertoire/"+color, nil)
-			rec := httptest.NewRecorder()
-			c := e.NewContext(req, rec)
-			c.SetParamNames("color")
-			c.SetParamValues(color)
-
-			svc := services.NewRepertoireService()
-			handler := RepertoireHandler(svc)
-
-			err := handler(c)
-
-			require.NoError(t, err)
-			assert.Equal(t, http.StatusBadRequest, rec.Code)
-		})
-	}
+func TestCreateRepertoireHandler_ValidRequest(t *testing.T) {
+	t.Skip("Requires database connection - skip for unit testing")
 }
 
-func TestDeleteNodeHandler_ValidColors(t *testing.T) {
-	invalidColors := []string{"invalid", "yellow", "red", "WHITE"}
+func TestGetRepertoireHandler_ValidID(t *testing.T) {
+	t.Skip("Requires database connection - skip for unit testing")
+}
 
-	for _, color := range invalidColors {
-		t.Run(color, func(t *testing.T) {
-			e := echo.New()
-			req := httptest.NewRequest(http.MethodDelete, "/api/repertoire/"+color+"/node/test-id", nil)
-			rec := httptest.NewRecorder()
-			c := e.NewContext(req, rec)
-			c.SetParamNames("color", "id")
-			c.SetParamValues(color, "test-id")
+func TestUpdateRepertoireHandler_ValidRequest(t *testing.T) {
+	t.Skip("Requires database connection - skip for unit testing")
+}
 
-			svc := services.NewRepertoireService()
-			handler := DeleteNodeHandler(svc)
+func TestDeleteRepertoireHandler_ValidID(t *testing.T) {
+	t.Skip("Requires database connection - skip for unit testing")
+}
 
-			err := handler(c)
+func TestAddNodeHandler_ValidRequest(t *testing.T) {
+	t.Skip("Requires database connection - skip for unit testing")
+}
 
-			require.NoError(t, err)
-			assert.Equal(t, http.StatusBadRequest, rec.Code)
-		})
-	}
+func TestDeleteNodeHandler_ValidRequest(t *testing.T) {
+	t.Skip("Requires database connection - skip for unit testing")
 }

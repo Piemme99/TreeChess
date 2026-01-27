@@ -830,6 +830,55 @@ func TestParsePGN_WithVariations(t *testing.T) {
 	assert.GreaterOrEqual(t, len(games), 1)
 }
 
+func TestParsePGN_FiltersEmptyGames(t *testing.T) {
+	svc := NewImportService(nil)
+
+	// PGN with trailing newlines (causes phantom empty games in notnil/chess)
+	pgnData := `[Event "Test"]
+[White "A"]
+[Black "B"]
+1. e4 e5 2. Nf3 1-0
+
+`
+
+	games, err := svc.parsePGN(pgnData)
+
+	require.NoError(t, err)
+	// Should only have 1 valid game, not 2 (phantom game should be filtered)
+	assert.Len(t, games, 1)
+	assert.Len(t, games[0].Moves(), 3)
+}
+
+func TestParsePGN_MultipleGamesWithTrailingNewlines(t *testing.T) {
+	svc := NewImportService(nil)
+
+	// Multiple games from Lichess-style export (ends with trailing newlines)
+	// Note: PGN requires Result header and blank line before moves
+	pgnData := `[Event "Game 1"]
+[White "A"]
+[Black "B"]
+[Result "0-1"]
+
+1. e4 c6 0-1
+
+[Event "Game 2"]
+[White "C"]
+[Black "D"]
+[Result "1-0"]
+
+1. d4 d5 2. c4 1-0
+
+`
+
+	games, err := svc.parsePGN(pgnData)
+
+	require.NoError(t, err)
+	// Should have exactly 2 valid games (phantom empty game should be filtered)
+	assert.Len(t, games, 2)
+	assert.Len(t, games[0].Moves(), 2)
+	assert.Len(t, games[1].Moves(), 3)
+}
+
 func TestExtractHeaders_PartialHeaders(t *testing.T) {
 	svc := NewImportService(nil)
 

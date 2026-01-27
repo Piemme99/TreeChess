@@ -22,20 +22,20 @@ export function RepertoireEdit() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [prefillMove, setPrefillMove] = useState('');
 
-  const { color, repertoire, selectedNodeId, loading, selectNode, setRepertoire } = useRepertoireLoader();
+  const { id, color, repertoire, selectedNodeId, loading, selectNode, setRepertoire } = useRepertoireLoader();
   const engine = useEngine();
 
   const selectedNode = repertoire && selectedNodeId ? findNode(repertoire.treeData, selectedNodeId) : null;
   const currentFEN = selectedNode?.fen || STARTING_FEN;
   const isRootNode = selectedNode?.id === repertoire?.treeData?.id;
 
-  usePendingAddNode(repertoire, color, selectNode, (move: string) => {
+  usePendingAddNode(repertoire, id, selectNode, (move: string) => {
     setPrefillMove(move);
     setAddMoveModalOpen(true);
   });
 
   const { actionLoading, possibleMoves, setPossibleMoves, handleBoardMove, handleAddMoveSubmit, handleDeleteBranch } =
-    useMoveActions(selectedNode, currentFEN, color, setRepertoire, selectNode);
+    useMoveActions(selectedNode, currentFEN, id, setRepertoire, selectNode);
 
   const handleNodeClick = useCallback(
     (node: RepertoireNode) => {
@@ -73,7 +73,7 @@ export function RepertoireEdit() {
           &larr; Back
         </Button>
         <h1 className="repertoire-edit-title">
-          {color === 'white' ? '♔' : '♚'} {color === 'white' ? 'White' : 'Black'} - Edit
+          {color === 'white' ? '♔' : '♚'} {repertoire.name}
         </h1>
         <div className="header-spacer" />
       </header>
@@ -86,7 +86,7 @@ export function RepertoireEdit() {
               Go to Root
             </Button>
           </div>
-          <RepertoireTree repertoire={repertoire.treeData} selectedNodeId={selectedNodeId} onNodeClick={handleNodeClick} color={color!} />
+          <RepertoireTree repertoire={repertoire.treeData} selectedNodeId={selectedNodeId} onNodeClick={handleNodeClick} color={repertoire.color} />
         </div>
 
         <BoardSection

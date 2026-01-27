@@ -30,18 +30,19 @@ func (s *ImportService) ParseAndAnalyze(filename string, username string, pgnDat
 		return nil, nil, fmt.Errorf("no games found in PGN")
 	}
 
-	// Get both repertoires upfront
-	whiteRepertoire, err := s.repertoireService.GetRepertoire(models.ColorWhite)
+	// Get all repertoires upfront
+	whiteRepertoires, err := s.repertoireService.ListRepertoires(&[]models.Color{models.ColorWhite}[0])
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get white repertoire: %w", err)
+		return nil, nil, fmt.Errorf("failed to get white repertoires: %w", err)
 	}
-	blackRepertoire, err := s.repertoireService.GetRepertoire(models.ColorBlack)
+	blackRepertoires, err := s.repertoireService.ListRepertoires(&[]models.Color{models.ColorBlack}[0])
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get black repertoire: %w", err)
+		return nil, nil, fmt.Errorf("failed to get black repertoires: %w", err)
 	}
 
 	var results []models.GameAnalysis
-	for i, game := range games {
+	resultIndex := 0
+	for _, game := range games {
 		// Determine which color the user played based on username
 		userColor := s.determineUserColor(game, username)
 		if userColor == "" {
@@ -49,16 +50,36 @@ func (s *ImportService) ParseAndAnalyze(filename string, username string, pgnDat
 			continue
 		}
 
-		var repertoire models.RepertoireNode
+		// Select repertoires based on user's color
+		var repertoires []models.Repertoire
 		if userColor == models.ColorWhite {
-			repertoire = whiteRepertoire.TreeData
+			repertoires = whiteRepertoires
 		} else {
-			repertoire = blackRepertoire.TreeData
+			repertoires = blackRepertoires
 		}
 
-		analysis := s.analyzeGame(i, game, repertoire, userColor)
+		// Find best matching repertoire
+		bestRepertoire, matchScore := s.findBestMatchingRepertoire(game, repertoires, userColor)
+
+		var analysis models.GameAnalysis
+		if bestRepertoire == nil {
+			// No repertoire available - analyze with empty repertoire tree
+			// All user moves will be marked as "out-of-repertoire"
+			emptyTree := models.RepertoireNode{}
+			analysis = s.analyzeGame(resultIndex, game, emptyTree, userColor)
+			analysis.MatchedRepertoire = nil
+			analysis.MatchScore = 0
+		} else {
+			analysis = s.analyzeGame(resultIndex, game, bestRepertoire.TreeData, userColor)
+			analysis.MatchedRepertoire = &models.RepertoireRef{
+				ID:   bestRepertoire.ID,
+				Name: bestRepertoire.Name,
+			}
+			analysis.MatchScore = matchScore
+		}
 		analysis.UserColor = userColor
 		results = append(results, analysis)
+		resultIndex++
 	}
 
 	if len(results) == 0 {
@@ -71,6 +92,51 @@ func (s *ImportService) ParseAndAnalyze(filename string, username string, pgnDat
 	}
 
 	return summary, results, nil
+}
+
+// findBestMatchingRepertoire finds the repertoire with the most matching moves
+func (s *ImportService) findBestMatchingRepertoire(game *chess.Game, repertoires []models.Repertoire, userColor models.Color) (*models.Repertoire, int) {
+	if len(repertoires) == 0 {
+		return nil, 0
+	}
+
+	var bestRepertoire *models.Repertoire
+	bestScore := -1 // Start at -1 so even 0 matches will be selected
+
+	for i := range repertoires {
+		score := s.countMatchingMoves(game, repertoires[i].TreeData, userColor)
+		if score > bestScore {
+			bestScore = score
+			bestRepertoire = &repertoires[i]
+		}
+	}
+
+	// bestScore will be at least 0 (from first repertoire), so bestRepertoire is guaranteed non-nil
+	return bestRepertoire, bestScore
+}
+
+// countMatchingMoves counts how many of the user's moves are in the repertoire
+func (s *ImportService) countMatchingMoves(game *chess.Game, repertoireRoot models.RepertoireNode, userColor models.Color) int {
+	moves := game.Moves()
+	position := chess.StartingPosition()
+	notation := chess.AlgebraicNotation{}
+	matchCount := 0
+
+	for ply, move := range moves {
+		san := notation.Encode(position, move)
+		currentFEN := normalizeFEN(position.String())
+		isUserMove := (ply%2 == 0 && userColor == models.ColorWhite) || (ply%2 == 1 && userColor == models.ColorBlack)
+
+		if isUserMove {
+			if s.moveExistsInRepertoire(repertoireRoot, currentFEN, san) {
+				matchCount++
+			}
+		}
+
+		position = position.Update(move)
+	}
+
+	return matchCount
 }
 
 func (s *ImportService) determineUserColor(game *chess.Game, username string) models.Color {
@@ -95,7 +161,17 @@ func (s *ImportService) parsePGN(pgnData string) ([]*chess.Game, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse PGN: %w", err)
 	}
-	return games, nil
+
+	// Filter out empty games (the notnil/chess library creates phantom games
+	// when PGN data ends with trailing newlines)
+	var validGames []*chess.Game
+	for _, game := range games {
+		if len(game.Moves()) > 0 {
+			validGames = append(validGames, game)
+		}
+	}
+
+	return validGames, nil
 }
 
 func (s *ImportService) analyzeGame(gameIndex int, game *chess.Game, repertoireRoot models.RepertoireNode, userColor models.Color) models.GameAnalysis {

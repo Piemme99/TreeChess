@@ -1,10 +1,11 @@
 import { useRef, useEffect } from 'react';
 import { toast } from '../../../../stores/toastStore';
 import { findNodeByFEN } from '../utils/nodeUtils';
-import type { Color, Repertoire } from '../../../../types';
+import type { Repertoire } from '../../../../types';
 
 interface PendingAddNode {
-  color: string;
+  repertoireId: string;
+  repertoireName: string;
   parentFEN: string;
   moveSAN: string;
   gameInfo: string;
@@ -12,14 +13,14 @@ interface PendingAddNode {
 
 export function usePendingAddNode(
   repertoire: Repertoire | null,
-  color: Color | undefined,
+  repertoireId: string | undefined,
   selectNode: (id: string) => void,
   onMoveFound: (move: string) => void
 ) {
   const pendingAddProcessed = useRef(false);
 
   useEffect(() => {
-    if (!repertoire || pendingAddProcessed.current) return;
+    if (!repertoire || !repertoireId || pendingAddProcessed.current) return;
 
     const pendingData = sessionStorage.getItem('pendingAddNode');
     if (!pendingData) return;
@@ -30,8 +31,8 @@ export function usePendingAddNode(
       sessionStorage.removeItem('pendingAddNode');
       pendingAddProcessed.current = true;
 
-      if (pending.color !== color) {
-        toast.warning(`This move is for the ${pending.color} repertoire`);
+      if (pending.repertoireId !== repertoireId) {
+        toast.warning(`This move is for "${pending.repertoireName}"`);
         return;
       }
 
@@ -47,5 +48,5 @@ export function usePendingAddNode(
     } catch {
       sessionStorage.removeItem('pendingAddNode');
     }
-  }, [repertoire, color, selectNode, onMoveFound]);
+  }, [repertoire, repertoireId, selectNode, onMoveFound]);
 }

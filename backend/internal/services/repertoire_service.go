@@ -1,6 +1,7 @@
 package services
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -21,6 +22,9 @@ var (
 	ErrMoveExists       = fmt.Errorf("move already exists")
 	ErrCannotDeleteRoot = fmt.Errorf("cannot delete root node")
 	ErrNodeNotFound     = fmt.Errorf("node not found")
+	ErrLimitReached     = fmt.Errorf("maximum repertoire limit reached (50)")
+	ErrNameRequired     = fmt.Errorf("name is required")
+	ErrNameTooLong      = fmt.Errorf("name must be 100 characters or less")
 )
 
 type RepertoireService struct{}
@@ -33,28 +37,35 @@ func NewTestRepertoireService() *RepertoireService {
 	return NewRepertoireService()
 }
 
-func (s *RepertoireService) CreateRepertoire(color models.Color) (*models.Repertoire, error) {
+// CreateRepertoire creates a new repertoire with the given name and color
+func (s *RepertoireService) CreateRepertoire(name string, color models.Color) (*models.Repertoire, error) {
 	if color != models.ColorWhite && color != models.ColorBlack {
 		return nil, fmt.Errorf("%w: %s", ErrInvalidColor, color)
 	}
 
-	exists, err := repository.RepertoireExists(color)
-	if err != nil {
-		return nil, fmt.Errorf("failed to check repertoire existence: %w", err)
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return nil, ErrNameRequired
 	}
-	if exists {
-		return nil, fmt.Errorf("%w: %s", ErrRepertoireExists, color)
+	if len(name) > 100 {
+		return nil, ErrNameTooLong
 	}
 
-	return repository.CreateRepertoire(color)
+	// Check repertoire limit
+	count, err := repository.CountRepertoires()
+	if err != nil {
+		return nil, fmt.Errorf("failed to check repertoire count: %w", err)
+	}
+	if count >= 50 {
+		return nil, ErrLimitReached
+	}
+
+	return repository.CreateRepertoire(name, color)
 }
 
-func (s *RepertoireService) GetRepertoire(color models.Color) (*models.Repertoire, error) {
-	if color != models.ColorWhite && color != models.ColorBlack {
-		return nil, fmt.Errorf("%w: %s", ErrInvalidColor, color)
-	}
-
-	rep, err := repository.GetRepertoireByColor(color)
+// GetRepertoire retrieves a repertoire by its ID
+func (s *RepertoireService) GetRepertoire(id string) (*models.Repertoire, error) {
+	rep, err := repository.GetRepertoireByID(id)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrNotFound, err)
 	}
@@ -62,8 +73,54 @@ func (s *RepertoireService) GetRepertoire(color models.Color) (*models.Repertoir
 	return rep, nil
 }
 
-func (s *RepertoireService) AddNode(color models.Color, req models.AddNodeRequest) (*models.Repertoire, error) {
-	rep, err := repository.GetRepertoireByColor(color)
+// ListRepertoires returns all repertoires, optionally filtered by color
+func (s *RepertoireService) ListRepertoires(color *models.Color) ([]models.Repertoire, error) {
+	if color != nil {
+		if *color != models.ColorWhite && *color != models.ColorBlack {
+			return nil, fmt.Errorf("%w: %s", ErrInvalidColor, *color)
+		}
+		return repository.GetRepertoiresByColor(*color)
+	}
+	return repository.GetAllRepertoires()
+}
+
+// RenameRepertoire updates the name of a repertoire
+func (s *RepertoireService) RenameRepertoire(id string, name string) (*models.Repertoire, error) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return nil, ErrNameRequired
+	}
+	if len(name) > 100 {
+		return nil, ErrNameTooLong
+	}
+
+	// Check if repertoire exists
+	exists, err := repository.RepertoireExistsByID(id)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check repertoire existence: %w", err)
+	}
+	if !exists {
+		return nil, fmt.Errorf("%w: %s", ErrNotFound, id)
+	}
+
+	return repository.UpdateRepertoireName(id, name)
+}
+
+// DeleteRepertoire deletes a repertoire by ID
+func (s *RepertoireService) DeleteRepertoire(id string) error {
+	err := repository.DeleteRepertoire(id)
+	if err != nil {
+		if errors.Is(err, repository.ErrRepertoireNotFound) {
+			return fmt.Errorf("%w: %s", ErrNotFound, id)
+		}
+		return err
+	}
+	return nil
+}
+
+// AddNode adds a new node to a repertoire
+func (s *RepertoireService) AddNode(repertoireID string, req models.AddNodeRequest) (*models.Repertoire, error) {
+	rep, err := repository.GetRepertoireByID(repertoireID)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrNotFound, err)
 	}
@@ -101,7 +158,7 @@ func (s *RepertoireService) AddNode(color models.Color, req models.AddNodeReques
 
 	newMetadata := calculateMetadata(rep.TreeData)
 
-	return repository.SaveRepertoire(color, rep.TreeData, newMetadata)
+	return repository.SaveRepertoire(repertoireID, rep.TreeData, newMetadata)
 }
 
 // validateAndGetResultingFEN validates a move and returns the resulting FEN
@@ -133,12 +190,9 @@ func getColorToMoveFromFEN(fen string) models.ChessColor {
 
 // ensureFullFEN and normalizeFEN are defined in import_service.go
 
-func (s *RepertoireService) DeleteNode(color models.Color, nodeID string) (*models.Repertoire, error) {
-	if color != models.ColorWhite && color != models.ColorBlack {
-		return nil, fmt.Errorf("%w: %s", ErrInvalidColor, color)
-	}
-
-	rep, err := repository.GetRepertoireByColor(color)
+// DeleteNode removes a node and its children from a repertoire
+func (s *RepertoireService) DeleteNode(repertoireID string, nodeID string) (*models.Repertoire, error) {
+	rep, err := repository.GetRepertoireByID(repertoireID)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrNotFound, err)
 	}
@@ -154,7 +208,7 @@ func (s *RepertoireService) DeleteNode(color models.Color, nodeID string) (*mode
 
 	newMetadata := calculateMetadata(*newTreeData)
 
-	return repository.SaveRepertoire(color, *newTreeData, newMetadata)
+	return repository.SaveRepertoire(repertoireID, *newTreeData, newMetadata)
 }
 
 func findNode(root *models.RepertoireNode, id string) *models.RepertoireNode {
@@ -169,6 +223,11 @@ func findNode(root *models.RepertoireNode, id string) *models.RepertoireNode {
 	}
 
 	return nil
+}
+
+// FindNode is an exported version for use by other services
+func FindNode(root *models.RepertoireNode, id string) *models.RepertoireNode {
+	return findNode(root, id)
 }
 
 // moveExistsAsChild checks if a move already exists as a child of the parent node
@@ -220,4 +279,3 @@ func walkTree(node *models.RepertoireNode, currentDepth int, totalNodes, totalMo
 		walkTree(child, currentDepth+1, totalNodes, totalMoves, maxDepth)
 	}
 }
-

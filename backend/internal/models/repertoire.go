@@ -39,11 +39,29 @@ type Metadata struct {
 
 type Repertoire struct {
 	ID        string         `json:"id"`
+	Name      string         `json:"name"`
 	Color     Color          `json:"color"`
 	TreeData  RepertoireNode `json:"treeData"`
 	Metadata  Metadata       `json:"metadata"`
 	CreatedAt time.Time      `json:"createdAt"`
 	UpdatedAt time.Time      `json:"updatedAt"`
+}
+
+// CreateRepertoireRequest represents a request to create a new repertoire
+type CreateRepertoireRequest struct {
+	Name  string `json:"name"`
+	Color Color  `json:"color"`
+}
+
+// UpdateRepertoireRequest represents a request to update a repertoire (rename)
+type UpdateRepertoireRequest struct {
+	Name string `json:"name"`
+}
+
+// RepertoireRef is a lightweight reference to a repertoire
+type RepertoireRef struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
 }
 
 type AddNodeRequest struct {
@@ -66,10 +84,12 @@ type MoveAnalysis struct {
 }
 
 type GameAnalysis struct {
-	GameIndex int            `json:"gameIndex"`
-	Headers   PGNHeaders     `json:"headers"`
-	Moves     []MoveAnalysis `json:"moves"`
-	UserColor Color          `json:"userColor"` // Which color the user played as in this game
+	GameIndex         int            `json:"gameIndex"`
+	Headers           PGNHeaders     `json:"headers"`
+	Moves             []MoveAnalysis `json:"moves"`
+	UserColor         Color          `json:"userColor"`         // Which color the user played as in this game
+	MatchedRepertoire *RepertoireRef `json:"matchedRepertoire"` // Which repertoire was matched (nil if no match)
+	MatchScore        int            `json:"matchScore"`        // Number of moves that matched the repertoire
 }
 
 type AnalysisSummary struct {

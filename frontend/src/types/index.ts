@@ -21,11 +21,28 @@ export interface RepertoireMetadata {
 
 export interface Repertoire {
   id: string;
+  name: string;
   color: Color;
   treeData: RepertoireNode;
   metadata: RepertoireMetadata;
   createdAt: string;
   updatedAt: string;
+}
+
+// Request types for repertoire management
+export interface CreateRepertoireRequest {
+  name: string;
+  color: Color;
+}
+
+export interface UpdateRepertoireRequest {
+  name: string;
+}
+
+// Lightweight reference to a repertoire
+export interface RepertoireRef {
+  id: string;
+  name: string;
 }
 
 // Add node request
@@ -65,6 +82,8 @@ export interface GameAnalysis {
   headers: PGNHeaders;
   moves: MoveAnalysis[];
   userColor: Color;
+  matchedRepertoire?: RepertoireRef | null;
+  matchScore?: number;
 }
 
 export interface AnalysisSummary {

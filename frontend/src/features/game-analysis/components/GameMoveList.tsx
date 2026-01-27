@@ -7,7 +7,7 @@ interface GameMoveListProps {
   currentMoveIndex: number;
   maxDisplayedIndex: number;
   onMoveClick: (index: number) => void;
-  onAddToRepertoire: (move: MoveAnalysis) => void;
+  onAddToRepertoire?: (move: MoveAnalysis) => void;
   showFullGame: boolean;
   hasMoreMoves: boolean;
   onToggleFullGame: () => void;
@@ -91,9 +91,9 @@ export function GameMoveList({
     return index === firstActionableIndex && move.status === 'out-of-repertoire' && move.expectedMove;
   };
 
-  // Only show add button for the first opponent-new move
+  // Only show add button for the first opponent-new move (and only if handler is provided)
   const showAddButton = (index: number) => {
-    return index === firstOpponentNewIndex && firstOpponentNewIndex !== -1;
+    return onAddToRepertoire && index === firstOpponentNewIndex && firstOpponentNewIndex !== -1;
   };
 
   const hiddenMovesCount = moves.length - displayedMoves.length;
@@ -157,7 +157,7 @@ export function GameMoveList({
               <span className="expected-san">{displayedMoves[currentMoveIndex].expectedMove}</span>
             </div>
           )}
-          {showAddButton(currentMoveIndex) && (
+          {showAddButton(currentMoveIndex) && onAddToRepertoire && (
             <Button
               variant="primary"
               size="sm"

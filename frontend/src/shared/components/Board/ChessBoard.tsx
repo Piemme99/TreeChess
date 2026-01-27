@@ -100,15 +100,22 @@ export function ChessBoard({
 
   const handlePieceDrop = useCallback(
     (sourceSquare: string, targetSquare: string): boolean => {
-      if (!interactive) return false;
+      console.log('[ChessBoard] handlePieceDrop called:', { sourceSquare, targetSquare, interactive, fen, turn: game.turn() });
+      if (!interactive) {
+        console.log('[ChessBoard] Not interactive, returning false');
+        return false;
+      }
 
       try {
+        console.log('[ChessBoard] Attempting move...');
         const move = game.move({
           from: sourceSquare as Square,
           to: targetSquare as Square,
           promotion: 'q'
         });
+        console.log('[ChessBoard] Move result:', move);
         if (move && onMove) {
+          console.log('[ChessBoard] Calling onMove with:', move.san);
           onMove({
             from: move.from,
             to: move.to,
@@ -119,11 +126,12 @@ export function ChessBoard({
         setInternalSelectedSquare(null);
         setLegalMoves([]);
         return !!move;
-      } catch {
+      } catch (error) {
+        console.log('[ChessBoard] Move error:', error);
         return false;
       }
     },
-    [game, interactive, onMove]
+    [game, interactive, onMove, fen]
   );
 
   const customSquareStyles: Record<string, React.CSSProperties> = {};
@@ -188,6 +196,7 @@ export function ChessBoard({
         customSquareStyles={customSquareStyles}
         animationDuration={200}
         arePiecesDraggable={interactive}
+        isDraggablePiece={() => interactive}
       />
     </div>
   );

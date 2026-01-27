@@ -3,13 +3,13 @@ import { useChess } from '../../../../shared/hooks/useChess';
 import { repertoireApi } from '../../../../services/api';
 import { toast } from '../../../../stores/toastStore';
 import { findNode } from '../utils/nodeUtils';
-import type { Color, RepertoireNode, Repertoire, AddNodeRequest } from '../../../../types';
+import type { RepertoireNode, Repertoire, AddNodeRequest } from '../../../../types';
 
 export function useMoveActions(
   selectedNode: RepertoireNode | null,
   currentFEN: string,
-  color: Color | undefined,
-  setRepertoire: (color: Color, repertoire: Repertoire) => void,
+  repertoireId: string | undefined,
+  setRepertoire: (repertoire: Repertoire) => void,
   selectNode: (id: string) => void
 ) {
   const [actionLoading, setActionLoading] = useState(false);
@@ -17,7 +17,11 @@ export function useMoveActions(
   const { makeMove, getShortFEN, isValidMove } = useChess();
 
   const handleBoardMove = useCallback(async (move: { san: string }) => {
-    if (!color || !selectedNode) return;
+    console.log('[useMoveActions] handleBoardMove called:', { move, repertoireId, selectedNode: selectedNode?.id, currentFEN });
+    if (!repertoireId || !selectedNode) {
+      console.log('[useMoveActions] Early return - missing:', { repertoireId: !repertoireId, selectedNode: !selectedNode });
+      return;
+    }
 
     const existingMove = selectedNode.children.find((c) => c.move === move.san);
     if (existingMove) {
@@ -41,8 +45,8 @@ export function useMoveActions(
         colorToMove: selectedNode.colorToMove === 'w' ? 'b' : 'w'
       };
 
-      const updatedRepertoire = await repertoireApi.addNode(color, request);
-      setRepertoire(color, updatedRepertoire);
+      const updatedRepertoire = await repertoireApi.addNode(repertoireId, request);
+      setRepertoire(updatedRepertoire);
 
       const newNode = findNode(updatedRepertoire.treeData, selectedNode.id);
       if (newNode) {
@@ -58,11 +62,11 @@ export function useMoveActions(
     } finally {
       setActionLoading(false);
     }
-  }, [color, selectedNode, currentFEN, setRepertoire, selectNode, makeMove, getShortFEN]);
+  }, [repertoireId, selectedNode, currentFEN, setRepertoire, selectNode, makeMove, getShortFEN]);
 
   const handleAddMoveSubmit = useCallback(
     async (moveInput: string, setMoveError: (error: string) => void) => {
-      if (!color || !selectedNode || !moveInput.trim()) return false;
+      if (!repertoireId || !selectedNode || !moveInput.trim()) return false;
 
       if (!isValidMove(currentFEN, moveInput.trim())) {
         setMoveError('Invalid move. Please use SAN notation (e.g., e4, Nf3, O-O)');
@@ -91,8 +95,8 @@ export function useMoveActions(
           colorToMove: selectedNode.colorToMove === 'w' ? 'b' : 'w'
         };
 
-        const updatedRepertoire = await repertoireApi.addNode(color, request);
-        setRepertoire(color, updatedRepertoire);
+        const updatedRepertoire = await repertoireApi.addNode(repertoireId, request);
+        setRepertoire(updatedRepertoire);
 
         const newNode = findNode(updatedRepertoire.treeData, selectedNode.id);
         if (newNode) {
@@ -111,16 +115,16 @@ export function useMoveActions(
         setActionLoading(false);
       }
     },
-    [color, selectedNode, currentFEN, setRepertoire, selectNode, makeMove, getShortFEN, isValidMove]
+    [repertoireId, selectedNode, currentFEN, setRepertoire, selectNode, makeMove, getShortFEN, isValidMove]
   );
 
   const handleDeleteBranch = useCallback(async () => {
-    if (!color || !selectedNode || !selectedNode.parentId) return false;
+    if (!repertoireId || !selectedNode || !selectedNode.parentId) return false;
 
     setActionLoading(true);
     try {
-      const updatedRepertoire = await repertoireApi.deleteNode(color, selectedNode.id);
-      setRepertoire(color, updatedRepertoire);
+      const updatedRepertoire = await repertoireApi.deleteNode(repertoireId, selectedNode.id);
+      setRepertoire(updatedRepertoire);
 
       if (selectedNode.parentId) {
         selectNode(selectedNode.parentId);
@@ -136,7 +140,7 @@ export function useMoveActions(
     } finally {
       setActionLoading(false);
     }
-  }, [color, selectedNode, setRepertoire, selectNode]);
+  }, [repertoireId, selectedNode, setRepertoire, selectNode]);
 
   return {
     actionLoading,
