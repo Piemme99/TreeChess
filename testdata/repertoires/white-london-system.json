@@ -1,0 +1,19 @@
+{
+  "name": "London System",
+  "color": "white",
+  "description": "Systeme de Londres avec 3 plans contre differentes reponses",
+  "lines": [
+    {
+      "name": "Main Line vs ...c5",
+      "moves": ["d4", "d5", "Bf4", "Nf6", "e3", "c5", "c3", "Nc6", "Nd2", "e6", "Ngf3"]
+    },
+    {
+      "name": "vs ...e6 setup",
+      "moves": ["d4", "d5", "Bf4", "Nf6", "e3", "e6", "Bd3", "Bd6", "Bg3", "O-O", "Nf3"]
+    },
+    {
+      "name": "vs ...Bf5 mirror",
+      "moves": ["d4", "d5", "Bf4", "Nf6", "e3", "Bf5", "Bd3", "e6", "Bxf5", "exf5", "Nf3"]
+    }
+  ]
+}

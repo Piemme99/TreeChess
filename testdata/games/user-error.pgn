@@ -1,0 +1,11 @@
+[Event "Test Game - User Error"]
+[Site "TreeChess Test"]
+[Date "2025.01.27"]
+[Round "1"]
+[White "TestUser"]
+[Black "Opponent"]
+[Result "1/2-1/2"]
+[ECO "D00"]
+[Opening "London System"]
+
+1. d4 d5 2. Bf4 Nf6 3. Nf3 e6 4. e3 Bd6 5. Bxd6 Qxd6 6. Bd3 O-O 7. O-O c5 8. c3 Nc6 9. Nbd2 b6 10. Re1 Bb7 11. e4 dxe4 12. Nxe4 Nxe4 13. Bxe4 Rad8 14. Qb3 cxd4 15. Nxd4 Nxd4 16. cxd4 Bxe4 17. Rxe4 Qd5 18. Qxd5 Rxd5 19. Rae1 Rfd8 20. R1e3 Kf8 1/2-1/2
