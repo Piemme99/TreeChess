@@ -241,6 +241,29 @@ func computeGameStatus(game models.GameAnalysis) string {
 	return "ok"
 }
 
+// UpdateAnalysisResults updates the results array of an existing analysis
+func UpdateAnalysisResults(analysisID string, results []models.GameAnalysis) error {
+	db := GetPool()
+	ctx, cancel := dbContext()
+	defer cancel()
+
+	resultsJSON, err := json.Marshal(results)
+	if err != nil {
+		return fmt.Errorf("failed to marshal results: %w", err)
+	}
+
+	result, err := db.Exec(ctx, updateAnalysisResultsSQL, analysisID, resultsJSON, len(results))
+	if err != nil {
+		return fmt.Errorf("failed to update analysis results: %w", err)
+	}
+
+	if result.RowsAffected() == 0 {
+		return fmt.Errorf("analysis not found")
+	}
+
+	return nil
+}
+
 // DeleteGame removes a single game from an analysis
 func DeleteGame(analysisID string, gameIndex int) error {
 	db := GetPool()

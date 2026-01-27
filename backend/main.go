@@ -62,6 +62,7 @@ func main() {
 	// Games API
 	e.GET("/api/games", importHandler.GetGamesHandler)
 	e.DELETE("/api/games/:analysisId/:gameIndex", importHandler.DeleteGameHandler)
+	e.POST("/api/games/:analysisId/:gameIndex/reanalyze", importHandler.ReanalyzeGameHandler)
 
 	log.Printf("Starting server on :%d", cfg.Port)
 	if err := e.Start(fmt.Sprintf(":%d", cfg.Port)); err != nil {

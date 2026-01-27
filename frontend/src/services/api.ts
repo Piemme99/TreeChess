@@ -7,6 +7,7 @@ import type {
   AnalysisDetail,
   UploadResponse,
   GamesResponse,
+  GameAnalysis,
   LichessImportOptions,
   CreateRepertoireRequest,
   UpdateRepertoireRequest
@@ -138,5 +139,10 @@ export const gamesApi = {
 
   delete: async (analysisId: string, gameIndex: number): Promise<void> => {
     await api.delete(`/games/${analysisId}/${gameIndex}`);
+  },
+
+  reanalyze: async (analysisId: string, gameIndex: number, repertoireId: string): Promise<GameAnalysis> => {
+    const response = await api.post(`/games/${analysisId}/${gameIndex}/reanalyze`, { repertoireId });
+    return response.data;
   }
 };

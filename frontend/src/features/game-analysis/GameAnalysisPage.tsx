@@ -6,6 +6,7 @@ import { useFENComputed } from './hooks/useFENComputed';
 import { computeFEN, STARTING_FEN } from './utils/fenCalculator';
 import { GameBoardSection } from './components/GameBoardSection';
 import { GameNavigation } from './components/GameNavigation';
+import { RepertoireSelector } from './components/RepertoireSelector';
 import { Button, Loading } from '../../shared/components/UI';
 import { GameMoveList } from './components/GameMoveList';
 import { toast } from '../../stores/toastStore';
@@ -15,7 +16,7 @@ export function GameAnalysisPage() {
   const { gameIndex } = useParams<{ id: string; gameIndex: string }>();
   const navigate = useNavigate();
 
-  const { analysis, loading } = useGameLoader();
+  const { analysis, loading, reanalyzeGame } = useGameLoader();
   const [flipped, setFlipped] = useState(false);
   const { showFullGame, toggleFullGame } = useToggleFullGame();
 
@@ -111,19 +112,13 @@ export function GameAnalysisPage() {
         <div className="header-spacer" />
       </header>
 
-      {/* Show matched repertoire info */}
-      {game.matchedRepertoire ? (
-        <div className="game-analysis-repertoire-info">
-          Analyzed against: <strong>{game.matchedRepertoire.name}</strong>
-          {game.matchScore !== undefined && game.matchScore > 0 && (
-            <span className="match-score"> ({game.matchScore} moves matched)</span>
-          )}
-        </div>
-      ) : (
-        <div className="game-analysis-repertoire-info game-analysis-no-repertoire">
-          No matching repertoire found for this game
-        </div>
-      )}
+      {/* Repertoire selector with reanalyze option */}
+      <RepertoireSelector
+        userColor={game.userColor}
+        currentRepertoire={game.matchedRepertoire}
+        matchScore={game.matchScore}
+        onReanalyze={(repertoireId) => reanalyzeGame(gameIdx, repertoireId)}
+      />
 
       <div className="game-analysis-content">
         <GameBoardSection

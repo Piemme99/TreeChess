@@ -322,6 +322,66 @@ func (h *ImportHandler) DeleteGameHandler(c echo.Context) error {
 	})
 }
 
+func (h *ImportHandler) ReanalyzeGameHandler(c echo.Context) error {
+	analysisID := c.Param("analysisId")
+	gameIndexStr := c.Param("gameIndex")
+
+	// Validate analysisId is a valid UUID
+	if _, err := uuid.Parse(analysisID); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "analysisId must be a valid UUID",
+		})
+	}
+
+	gameIndex, err := strconv.Atoi(gameIndexStr)
+	if err != nil || gameIndex < 0 {
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "gameIndex must be a non-negative integer",
+		})
+	}
+
+	var req struct {
+		RepertoireID string `json:"repertoireId"`
+	}
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "invalid request body",
+		})
+	}
+
+	if req.RepertoireID == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "repertoireId is required",
+		})
+	}
+
+	// Validate repertoireId is a valid UUID
+	if _, err := uuid.Parse(req.RepertoireID); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "repertoireId must be a valid UUID",
+		})
+	}
+
+	reanalyzed, err := h.importService.ReanalyzeGame(analysisID, gameIndex, req.RepertoireID)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			return c.JSON(http.StatusNotFound, map[string]string{
+				"error": err.Error(),
+			})
+		}
+		if strings.Contains(err.Error(), "does not match") {
+			return c.JSON(http.StatusBadRequest, map[string]string{
+				"error": err.Error(),
+			})
+		}
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"error": "failed to reanalyze game",
+		})
+	}
+
+	return c.JSON(http.StatusOK, reanalyzed)
+}
+
 func (h *ImportHandler) LichessImportHandler(c echo.Context) error {
 	var req models.LichessImportRequest
 	if err := c.Bind(&req); err != nil {

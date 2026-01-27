@@ -392,6 +392,100 @@ func (s *ImportService) DeleteGame(analysisID string, gameIndex int) error {
 	return nil
 }
 
+// ReanalyzeGame re-analyzes a specific game against a different repertoire
+func (s *ImportService) ReanalyzeGame(analysisID string, gameIndex int, repertoireID string) (*models.GameAnalysis, error) {
+	// Get the analysis detail
+	detail, err := repository.GetAnalysisByID(analysisID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Find the game
+	var targetGame *models.GameAnalysis
+	var targetIdx int
+	for i := range detail.Results {
+		if detail.Results[i].GameIndex == gameIndex {
+			targetGame = &detail.Results[i]
+			targetIdx = i
+			break
+		}
+	}
+	if targetGame == nil {
+		return nil, fmt.Errorf("game not found")
+	}
+
+	// Get the specified repertoire
+	repertoire, err := s.repertoireService.GetRepertoire(repertoireID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get repertoire: %w", err)
+	}
+
+	// Verify the repertoire color matches the user's color in the game
+	if repertoire.Color != targetGame.UserColor {
+		return nil, fmt.Errorf("repertoire color (%s) does not match user's color in game (%s)", repertoire.Color, targetGame.UserColor)
+	}
+
+	// Re-analyze the game using the stored moves
+	reanalyzedGame := s.reanalyzeGameFromMoves(targetGame, repertoire)
+
+	// Update the results in the database
+	detail.Results[targetIdx] = reanalyzedGame
+	err = repository.UpdateAnalysisResults(analysisID, detail.Results)
+	if err != nil {
+		return nil, fmt.Errorf("failed to save reanalyzed game: %w", err)
+	}
+
+	return &reanalyzedGame, nil
+}
+
+// reanalyzeGameFromMoves re-analyzes a game using its stored moves against a new repertoire
+func (s *ImportService) reanalyzeGameFromMoves(game *models.GameAnalysis, repertoire *models.Repertoire) models.GameAnalysis {
+	result := models.GameAnalysis{
+		GameIndex: game.GameIndex,
+		Headers:   game.Headers,
+		Moves:     make([]models.MoveAnalysis, len(game.Moves)),
+		UserColor: game.UserColor,
+		MatchedRepertoire: &models.RepertoireRef{
+			ID:   repertoire.ID,
+			Name: repertoire.Name,
+		},
+		MatchScore: 0,
+	}
+
+	// Re-classify each move against the new repertoire
+	for i, move := range game.Moves {
+		var status string
+		var expectedMove string
+
+		if move.IsUserMove {
+			if s.moveExistsInRepertoire(repertoire.TreeData, move.FEN, move.SAN) {
+				status = "in-repertoire"
+				result.MatchScore++
+			} else {
+				status = "out-of-repertoire"
+				expectedMove = s.findExpectedMove(repertoire.TreeData, move.FEN)
+			}
+		} else {
+			if s.moveExistsInRepertoire(repertoire.TreeData, move.FEN, move.SAN) {
+				status = "in-repertoire"
+			} else {
+				status = "opponent-new"
+			}
+		}
+
+		result.Moves[i] = models.MoveAnalysis{
+			PlyNumber:    move.PlyNumber,
+			SAN:          move.SAN,
+			FEN:          move.FEN,
+			Status:       status,
+			ExpectedMove: expectedMove,
+			IsUserMove:   move.IsUserMove,
+		}
+	}
+
+	return result
+}
+
 func ensureFullFEN(fen string) string {
 	parts := strings.Fields(fen)
 	if len(parts) >= 6 {
