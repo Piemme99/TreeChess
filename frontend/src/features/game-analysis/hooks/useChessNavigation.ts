@@ -9,6 +9,11 @@ export function useChessNavigation(
 ) {
   const [currentMoveIndex, setCurrentMoveIndex] = useState(-1);
 
+  // Reset to starting position when game changes
+  useEffect(() => {
+    setCurrentMoveIndex(-1);
+  }, [game?.gameIndex]);
+
   const maxDisplayedMoveIndex = useMemo(() => {
     if (!game) return -1;
     if (showFullGame) return game.moves.length - 1;

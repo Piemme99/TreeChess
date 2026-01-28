@@ -1,1 +1,2 @@
-export const STARTING_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+// Re-export STARTING_FEN from shared utils for backward compatibility
+export { STARTING_FEN } from '../../../../shared/utils/chess';

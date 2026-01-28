@@ -1,5 +1,8 @@
 import { Chess, type Move } from 'chess.js';
 
+/** Standard starting position FEN */
+export const STARTING_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+
 export function createInitialPosition(): Chess {
   return new Chess();
 }
@@ -74,20 +77,26 @@ export function makeMove(fen: string, san: string): string | null {
 }
 
 export function getTurn(fen: string): 'w' | 'b' {
+  if (!fen || typeof fen !== 'string') {
+    return 'w'; // Default to white for invalid input
+  }
   const parts = fen.split(' ');
-  return parts[1] === 'w' ? 'w' : 'b';
+  if (parts.length < 2 || (parts[1] !== 'w' && parts[1] !== 'b')) {
+    return 'w'; // Default to white for malformed FEN
+  }
+  return parts[1];
 }
 
 export function getFullMoveNumber(fen: string): number {
+  if (!fen || typeof fen !== 'string') {
+    return 1; // Default to move 1 for invalid input
+  }
   const parts = fen.split(' ');
   if (parts.length >= 6) {
-    return parseInt(parts[5], 10);
+    const moveNumber = parseInt(parts[5], 10);
+    return isNaN(moveNumber) ? 1 : moveNumber;
   }
   return 1;
 }
 
-export function getMoveNumber(fen: string): number {
-  const fullMoveNumber = getFullMoveNumber(fen);
-  const turn = getTurn(fen);
-  return turn === 'w' ? fullMoveNumber : fullMoveNumber;
-}
+

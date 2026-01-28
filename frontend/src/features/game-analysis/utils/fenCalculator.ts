@@ -1,7 +1,9 @@
 import { Chess } from 'chess.js';
 import type { MoveAnalysis } from '../../../types';
+import { STARTING_FEN } from '../../../shared/utils/chess';
 
-export const STARTING_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+// Re-export for backward compatibility
+export { STARTING_FEN };
 
 export function computeFEN(moves: MoveAnalysis[], upToIndex: number): string {
   if (upToIndex < 0) return STARTING_FEN;

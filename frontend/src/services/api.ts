@@ -17,8 +17,14 @@ const USERNAME_STORAGE_KEY = 'treechess_username';
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
+/** Options for API requests that support cancellation */
+export interface RequestOptions {
+  signal?: AbortSignal;
+}
+
 const api = axios.create({
   baseURL: API_BASE,
+  timeout: 30000, // 30 seconds timeout
   headers: {
     'Content-Type': 'application/json'
   }
@@ -44,7 +50,7 @@ export const repertoireApi = {
 
   // Get a single repertoire by ID
   get: async (id: string): Promise<Repertoire> => {
-    const response = await api.get(`/repertoire/${id}`);
+    const response = await api.get(`/repertoires/${id}`);
     return response.data;
   },
 
@@ -57,24 +63,24 @@ export const repertoireApi = {
   // Rename a repertoire
   rename: async (id: string, name: string): Promise<Repertoire> => {
     const data: UpdateRepertoireRequest = { name };
-    const response = await api.patch(`/repertoire/${id}`, data);
+    const response = await api.patch(`/repertoires/${id}`, data);
     return response.data;
   },
 
   // Delete a repertoire
   delete: async (id: string): Promise<void> => {
-    await api.delete(`/repertoire/${id}`);
+    await api.delete(`/repertoires/${id}`);
   },
 
   // Add a node to a repertoire
   addNode: async (id: string, data: AddNodeRequest): Promise<Repertoire> => {
-    const response = await api.post(`/repertoire/${id}/node`, data);
+    const response = await api.post(`/repertoires/${id}/nodes`, data);
     return response.data;
   },
 
   // Delete a node from a repertoire
   deleteNode: async (id: string, nodeId: string): Promise<Repertoire> => {
-    const response = await api.delete(`/repertoire/${id}/node/${nodeId}`);
+    const response = await api.delete(`/repertoires/${id}/nodes/${nodeId}`);
     return response.data;
   }
 };
@@ -105,13 +111,13 @@ export const importApi = {
     return response.data;
   },
 
-  list: async (): Promise<AnalysisSummary[]> => {
-    const response = await api.get('/analyses');
+  list: async (options?: RequestOptions): Promise<AnalysisSummary[]> => {
+    const response = await api.get('/analyses', { signal: options?.signal });
     return response.data;
   },
 
-  get: async (id: string): Promise<AnalysisDetail> => {
-    const response = await api.get(`/analyses/${id}`);
+  get: async (id: string, options?: RequestOptions): Promise<AnalysisDetail> => {
+    const response = await api.get(`/analyses/${id}`, { signal: options?.signal });
     return response.data;
   },
 
@@ -130,9 +136,10 @@ export const healthApi = {
 
 // Games API
 export const gamesApi = {
-  list: async (limit = 20, offset = 0): Promise<GamesResponse> => {
+  list: async (limit = 20, offset = 0, options?: RequestOptions): Promise<GamesResponse> => {
     const response = await api.get('/games', {
-      params: { limit, offset }
+      params: { limit, offset },
+      signal: options?.signal
     });
     return response.data;
   },

@@ -20,7 +20,6 @@ export function RepertoireEdit() {
   const navigate = useNavigate();
   const [addMoveModalOpen, setAddMoveModalOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [prefillMove, setPrefillMove] = useState('');
 
   const { id, color, repertoire, selectedNodeId, loading, selectNode, setRepertoire } = useRepertoireLoader();
   const engine = useEngine();
@@ -29,10 +28,7 @@ export function RepertoireEdit() {
   const currentFEN = selectedNode?.fen || STARTING_FEN;
   const isRootNode = selectedNode?.id === repertoire?.treeData?.id;
 
-  usePendingAddNode(repertoire, id, selectNode, (move: string) => {
-    setPrefillMove(move);
-    setAddMoveModalOpen(true);
-  });
+  usePendingAddNode(repertoire, id, selectNode, setRepertoire);
 
   const { actionLoading, possibleMoves, setPossibleMoves, handleBoardMove, handleAddMoveSubmit, handleDeleteBranch } =
     useMoveActions(selectedNode, currentFEN, id, setRepertoire, selectNode);
@@ -55,8 +51,7 @@ export function RepertoireEdit() {
     if (currentFEN) {
       engine.analyze(currentFEN);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentFEN]);
+  }, [currentFEN, engine]);
 
   if (loading || !repertoire) {
     return (
@@ -122,7 +117,7 @@ export function RepertoireEdit() {
         onClose={() => setAddMoveModalOpen(false)}
         onSubmit={handleAddMoveSubmit}
         actionLoading={actionLoading}
-        prefillMove={prefillMove}
+        prefillMove=""
         evaluation={engine.currentEvaluation}
         fen={currentFEN}
       />

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { Repertoire, RepertoireNode, Color, ApiError } from '../types';
 import { repertoireApi } from '../services/api';
+import { findNode as findNodeInTree } from '../features/repertoire/edit/utils/nodeUtils';
 
 interface RepertoireState {
   // Dynamic list of all repertoires
@@ -14,7 +15,7 @@ interface RepertoireState {
 
   // Actions - data fetching
   fetchRepertoires: () => Promise<void>;
-  fetchRepertoire: (id: string) => Promise<Repertoire | null>;
+  fetchRepertoire: (id: string) => Promise<Repertoire>;
 
   // Actions - repertoire management
   createRepertoire: (name: string, color: Color) => Promise<Repertoire>;
@@ -34,22 +35,10 @@ interface RepertoireState {
   clearError: () => void;
 
   // Computed helpers
-  getRepertoiresByColor: (color: Color) => Repertoire[];
-  getSelectedRepertoire: () => Repertoire | null;
-  getSelectedNode: () => RepertoireNode | null;
   findNode: (repertoire: Repertoire, nodeId: string) => RepertoireNode | null;
 }
 
-function findNodeInTree(node: RepertoireNode, id: string): RepertoireNode | null {
-  if (node.id === id) return node;
-  for (const child of node.children) {
-    const found = findNodeInTree(child, id);
-    if (found) return found;
-  }
-  return null;
-}
-
-export const useRepertoireStore = create<RepertoireState>((set, get) => ({
+export const useRepertoireStore = create<RepertoireState>((set) => ({
   repertoires: [],
   selectedRepertoireId: null,
   selectedNodeId: null,
@@ -74,7 +63,6 @@ export const useRepertoireStore = create<RepertoireState>((set, get) => ({
     set({ loading: true, error: null });
     try {
       const repertoire = await repertoireApi.get(id);
-      // Update in the list
       set((state) => ({
         repertoires: state.repertoires.map((r) =>
           r.id === id ? repertoire : r
@@ -87,7 +75,7 @@ export const useRepertoireStore = create<RepertoireState>((set, get) => ({
         error: { message: 'Failed to fetch repertoire' },
         loading: false
       });
-      return null;
+      throw err;
     }
   },
 
@@ -169,36 +157,34 @@ export const useRepertoireStore = create<RepertoireState>((set, get) => ({
 
   clearError: () => set({ error: null }),
 
-  getRepertoiresByColor: (color) => {
-    return get().repertoires.filter((r) => r.color === color);
-  },
-
-  getSelectedRepertoire: () => {
-    const { repertoires, selectedRepertoireId } = get();
-    if (!selectedRepertoireId) return null;
-    return repertoires.find((r) => r.id === selectedRepertoireId) || null;
-  },
-
-  getSelectedNode: () => {
-    const repertoire = get().getSelectedRepertoire();
-    const selectedId = get().selectedNodeId;
-    if (!repertoire || !selectedId) return null;
-    return findNodeInTree(repertoire.treeData, selectedId);
-  },
-
   findNode: (repertoire, nodeId) => {
     return findNodeInTree(repertoire.treeData, nodeId);
   }
 }));
 
-// Helper hook to get repertoires by color
+// Selector hooks for optimized re-renders
 export const useRepertoiresByColor = (color: Color) => {
   return useRepertoireStore((state) => state.repertoires.filter((r) => r.color === color));
 };
 
-// Helper hook to get a specific repertoire by ID
 export const useRepertoireById = (id: string | null) => {
   return useRepertoireStore((state) =>
     id ? state.repertoires.find((r) => r.id === id) || null : null
   );
+};
+
+export const useSelectedRepertoire = () => {
+  return useRepertoireStore((state) => {
+    if (!state.selectedRepertoireId) return null;
+    return state.repertoires.find((r) => r.id === state.selectedRepertoireId) || null;
+  });
+};
+
+export const useSelectedNode = () => {
+  return useRepertoireStore((state) => {
+    if (!state.selectedRepertoireId || !state.selectedNodeId) return null;
+    const repertoire = state.repertoires.find((r) => r.id === state.selectedRepertoireId);
+    if (!repertoire) return null;
+    return findNodeInTree(repertoire.treeData, state.selectedNodeId);
+  });
 };

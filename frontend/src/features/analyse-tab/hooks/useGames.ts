@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { type GameSummary } from '../../../types';
 import { gamesApi } from '../../../services/api';
 import { toast } from '../../../stores/toastStore';
+import { useAbortController, isAbortError } from '../../../shared/hooks';
 
 const PAGE_SIZE = 20;
 
@@ -10,20 +11,28 @@ export function useGames() {
   const [total, setTotal] = useState(0);
   const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(true);
+  const { getSignal } = useAbortController();
 
   const loadGames = useCallback(async (newOffset = 0) => {
+    const signal = getSignal();
     setLoading(true);
     try {
-      const data = await gamesApi.list(PAGE_SIZE, newOffset);
-      setGames(data.games || []);
-      setTotal(data.total);
-      setOffset(newOffset);
-    } catch {
-      toast.error('Failed to load games');
+      const data = await gamesApi.list(PAGE_SIZE, newOffset, { signal });
+      if (!signal.aborted) {
+        setGames(data.games || []);
+        setTotal(data.total);
+        setOffset(newOffset);
+      }
+    } catch (error) {
+      if (!isAbortError(error)) {
+        toast.error('Failed to load games');
+      }
     } finally {
-      setLoading(false);
+      if (!signal.aborted) {
+        setLoading(false);
+      }
     }
-  }, []);
+  }, [getSignal]);
 
   useEffect(() => {
     loadGames(0);

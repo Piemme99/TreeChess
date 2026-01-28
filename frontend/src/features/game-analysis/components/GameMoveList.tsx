@@ -65,26 +65,30 @@ export function GameMoveList({
   }
 
   // Group moves by pairs (white, black)
-  const movePairs: { moveNumber: number; white?: MoveAnalysis; black?: MoveAnalysis; whiteIndex?: number; blackIndex?: number }[] = [];
+  const movePairs = useMemo(() => {
+    const pairs: { moveNumber: number; white?: MoveAnalysis; black?: MoveAnalysis; whiteIndex?: number; blackIndex?: number }[] = [];
 
-  displayedMoves.forEach((move, index) => {
-    const moveNumber = Math.floor(move.plyNumber / 2) + 1;
-    const isWhite = move.plyNumber % 2 === 0;
+    displayedMoves.forEach((move, index) => {
+      const moveNumber = Math.floor(move.plyNumber / 2) + 1;
+      const isWhite = move.plyNumber % 2 === 0;
 
-    let pair = movePairs.find((p) => p.moveNumber === moveNumber);
-    if (!pair) {
-      pair = { moveNumber };
-      movePairs.push(pair);
-    }
+      let pair = pairs.find((p) => p.moveNumber === moveNumber);
+      if (!pair) {
+        pair = { moveNumber };
+        pairs.push(pair);
+      }
 
-    if (isWhite) {
-      pair.white = move;
-      pair.whiteIndex = index;
-    } else {
-      pair.black = move;
-      pair.blackIndex = index;
-    }
-  });
+      if (isWhite) {
+        pair.white = move;
+        pair.whiteIndex = index;
+      } else {
+        pair.black = move;
+        pair.blackIndex = index;
+      }
+    });
+
+    return pairs;
+  }, [displayedMoves]);
 
   // Only show expected move info for out-of-repertoire errors
   const showExpectedMoveError = (index: number, move: MoveAnalysis) => {

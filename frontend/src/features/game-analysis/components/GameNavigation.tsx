@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Button } from '../../../shared/components/UI';
 
 export interface GameNavigationProps {
@@ -9,7 +10,7 @@ export interface GameNavigationProps {
   goLast: () => void;
 }
 
-export function GameNavigation({
+export const GameNavigation = memo(function GameNavigation({
   currentMoveIndex,
   maxDisplayedMoveIndex,
   goFirst,
@@ -36,4 +37,4 @@ export function GameNavigation({
       </Button>
     </div>
   );
-}
+});

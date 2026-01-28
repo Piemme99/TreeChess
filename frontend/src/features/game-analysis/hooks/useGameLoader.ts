@@ -1,30 +1,15 @@
-import { useState, useEffect, useCallback } from 'react';
-import { useParams } from 'react-router-dom';
-import { importApi, gamesApi } from '../../../services/api';
+import { useCallback } from 'react';
+import { gamesApi } from '../../../services/api';
 import { toast } from '../../../stores/toastStore';
-import type { AnalysisDetail, GameAnalysis } from '../../../types';
+import { useAnalysisBase } from '../../../shared/hooks';
+import type { GameAnalysis } from '../../../types';
 
+/**
+ * Hook for loading and managing game analysis data.
+ * Extends useAnalysisBase with game-specific functionality (reanalyze).
+ */
 export function useGameLoader() {
-  const { id } = useParams<{ id: string }>();
-  const [analysis, setAnalysis] = useState<AnalysisDetail | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  const loadAnalysis = useCallback(async () => {
-    if (!id) return;
-
-    try {
-      const data = await importApi.get(id);
-      setAnalysis(data);
-    } catch {
-      toast.error('Failed to load analysis');
-    } finally {
-      setLoading(false);
-    }
-  }, [id]);
-
-  useEffect(() => {
-    loadAnalysis();
-  }, [loadAnalysis]);
+  const { id, analysis, setAnalysis, loading } = useAnalysisBase();
 
   // Update a specific game in the analysis (used after reanalysis)
   const updateGame = useCallback((gameIndex: number, updatedGame: GameAnalysis) => {
@@ -37,7 +22,7 @@ export function useGameLoader() {
       }
       return { ...prev, results: newResults };
     });
-  }, []);
+  }, [setAnalysis]);
 
   // Reanalyze a game against a different repertoire
   const reanalyzeGame = useCallback(async (gameIndex: number, repertoireId: string): Promise<boolean> => {

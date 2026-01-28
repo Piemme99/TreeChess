@@ -5,7 +5,6 @@ import {
   makeMove,
   getLegalMoves,
   getTurn,
-  getMoveNumber,
   getShortFEN
 } from '../utils/chess';
 
@@ -23,7 +22,6 @@ export function useChess() {
     makeMove,
     getLegalMoves,
     getTurn,
-    getMoveNumber,
     getShortFEN
   };
 }

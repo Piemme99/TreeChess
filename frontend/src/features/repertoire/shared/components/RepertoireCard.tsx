@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Button } from '../../../../shared/components/UI';
 import type { Color } from '../../../../types';
 
@@ -9,7 +10,7 @@ export interface RepertoireCardProps {
   onEdit: () => void;
 }
 
-export function RepertoireCard({ color, totalMoves, totalNodes, deepestDepth, onEdit }: RepertoireCardProps) {
+export const RepertoireCard = memo(function RepertoireCard({ color, totalMoves, totalNodes, deepestDepth, onEdit }: RepertoireCardProps) {
   const isWhite = color === 'white';
 
   return (
@@ -39,4 +40,4 @@ export function RepertoireCard({ color, totalMoves, totalNodes, deepestDepth, on
       </Button>
     </div>
   );
-}
+});

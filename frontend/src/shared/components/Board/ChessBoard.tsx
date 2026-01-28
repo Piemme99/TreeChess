@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { Chessboard } from 'react-chessboard';
 import { Chess, Square } from 'chess.js';
 
@@ -100,22 +100,15 @@ export function ChessBoard({
 
   const handlePieceDrop = useCallback(
     (sourceSquare: string, targetSquare: string): boolean => {
-      console.log('[ChessBoard] handlePieceDrop called:', { sourceSquare, targetSquare, interactive, fen, turn: game.turn() });
-      if (!interactive) {
-        console.log('[ChessBoard] Not interactive, returning false');
-        return false;
-      }
+      if (!interactive) return false;
 
       try {
-        console.log('[ChessBoard] Attempting move...');
         const move = game.move({
           from: sourceSquare as Square,
           to: targetSquare as Square,
           promotion: 'q'
         });
-        console.log('[ChessBoard] Move result:', move);
         if (move && onMove) {
-          console.log('[ChessBoard] Calling onMove with:', move.san);
           onMove({
             from: move.from,
             to: move.to,
@@ -126,64 +119,64 @@ export function ChessBoard({
         setInternalSelectedSquare(null);
         setLegalMoves([]);
         return !!move;
-      } catch (error) {
-        console.log('[ChessBoard] Move error:', error);
+      } catch {
         return false;
       }
     },
-    [game, interactive, onMove, fen]
+    [game, interactive, onMove]
   );
 
-  const customSquareStyles: Record<string, React.CSSProperties> = {};
+  const customSquareStyles = useMemo(() => {
+    const styles: Record<string, React.CSSProperties> = {};
 
-  if (internalSelectedSquare) {
-    customSquareStyles[internalSelectedSquare] = {
-      backgroundColor: 'rgba(255, 255, 0, 0.5)'
-    };
-  }
+    if (internalSelectedSquare) {
+      styles[internalSelectedSquare] = {
+        backgroundColor: 'rgba(255, 255, 0, 0.5)'
+      };
+    }
 
-  highlightSquares.forEach((square) => {
-    const piece = game.get(square as Square);
-    customSquareStyles[square] = {
-      ...customSquareStyles[square],
-      background: piece
-        ? 'radial-gradient(circle, rgba(255, 0, 0, 0.4) 85%, transparent 85%)'
-        : 'radial-gradient(circle, rgba(0, 0, 0, 0.2) 25%, transparent 25%)',
-      borderRadius: '50%'
-    };
-  });
+    highlightSquares.forEach((square) => {
+      const piece = game.get(square as Square);
+      styles[square] = {
+        ...styles[square],
+        background: piece
+          ? 'radial-gradient(circle, rgba(255, 0, 0, 0.4) 85%, transparent 85%)'
+          : 'radial-gradient(circle, rgba(0, 0, 0, 0.2) 25%, transparent 25%)',
+        borderRadius: '50%'
+      };
+    });
 
-  // Highlight last move
-  if (lastMove) {
-    customSquareStyles[lastMove.from] = {
-      ...customSquareStyles[lastMove.from],
-      backgroundColor: 'rgba(155, 199, 0, 0.4)'
-    };
-    customSquareStyles[lastMove.to] = {
-      ...customSquareStyles[lastMove.to],
-      backgroundColor: 'rgba(155, 199, 0, 0.4)'
-    };
-  }
+    if (lastMove) {
+      styles[lastMove.from] = {
+        ...styles[lastMove.from],
+        backgroundColor: 'rgba(155, 199, 0, 0.4)'
+      };
+      styles[lastMove.to] = {
+        ...styles[lastMove.to],
+        backgroundColor: 'rgba(155, 199, 0, 0.4)'
+      };
+    }
 
-  // Highlight custom squares
-  highlightSquares.forEach((square) => {
-    customSquareStyles[square] = {
-      ...customSquareStyles[square],
-      boxShadow: 'inset 0 0 0 3px rgba(66, 133, 244, 0.8)'
-    };
-  });
+    highlightSquares.forEach((square) => {
+      styles[square] = {
+        ...styles[square],
+        boxShadow: 'inset 0 0 0 3px rgba(66, 133, 244, 0.8)'
+      };
+    });
 
-  // Highlight best move
-  if (bestMoveFrom && bestMoveTo) {
-    customSquareStyles[bestMoveFrom] = {
-      ...customSquareStyles[bestMoveFrom],
-      boxShadow: 'inset 0 0 0 4px #2196f3'
-    };
-    customSquareStyles[bestMoveTo] = {
-      ...customSquareStyles[bestMoveTo],
-      boxShadow: 'inset 0 0 0 4px #2196f3'
-    };
-  }
+    if (bestMoveFrom && bestMoveTo) {
+      styles[bestMoveFrom] = {
+        ...styles[bestMoveFrom],
+        boxShadow: 'inset 0 0 0 4px #2196f3'
+      };
+      styles[bestMoveTo] = {
+        ...styles[bestMoveTo],
+        boxShadow: 'inset 0 0 0 4px #2196f3'
+      };
+    }
+
+    return styles;
+  }, [game, internalSelectedSquare, highlightSquares, lastMove, bestMoveFrom, bestMoveTo]);
 
   return (
     <div className="chessboard-wrapper" style={{ width }}>

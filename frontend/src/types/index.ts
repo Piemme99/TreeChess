@@ -180,12 +180,6 @@ export interface EngineState {
   error: string | null;
 }
 
-export interface TopMove {
-  san: string;
-  score: number;
-  depth: number;
-}
-
 export interface UCIInfo {
   depth: number;
   score?: number;

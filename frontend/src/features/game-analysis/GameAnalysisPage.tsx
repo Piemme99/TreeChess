@@ -125,7 +125,6 @@ export function GameAnalysisPage() {
           fen={currentFEN}
           orientation={flipped ? 'black' : 'white'}
           lastMove={lastMove}
-          flipped={flipped}
           onFlip={() => setFlipped(!flipped)}
         />
 

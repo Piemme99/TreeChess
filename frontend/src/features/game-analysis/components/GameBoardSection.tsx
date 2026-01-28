@@ -5,7 +5,6 @@ export interface GameBoardSectionProps {
   fen: string;
   orientation: 'white' | 'black';
   lastMove?: { from: string; to: string } | null;
-  flipped: boolean;
   onFlip: () => void;
 }
 
