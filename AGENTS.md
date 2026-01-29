@@ -124,11 +124,17 @@ type RepertoireNode struct {
 }
 ```
 
-**Testing:** Use testify for assertions:
+**Testing:** Use testify for assertions with mock-based dependency injection:
 ```go
 func TestExample(t *testing.T) {
-    svc := NewRepertoireService()
-    result, err := svc.GetRepertoire(models.ColorWhite)
+    // Use mocks from internal/repository/mocks/
+    mockRepo := &mocks.MockRepertoireRepo{
+        GetByIDFunc: func(id string) (*models.Repertoire, error) {
+            return &models.Repertoire{ID: id, Color: "white"}, nil
+        },
+    }
+    svc := NewRepertoireService(mockRepo)
+    result, err := svc.GetRepertoire("some-uuid")
     require.NoError(t, err)
     assert.Equal(t, expected, result)
 }
@@ -197,8 +203,10 @@ export function GameAnalysisPage() {
 
 - Use `chess.js` (frontend) and `notnil/chess` (backend) for move validation
 - Store full FEN string for each node in the repertoire tree
-- Repertoires are auto-created at startup for white/black (no POST endpoint)
+- Multiple repertoires per color supported via POST `/api/repertoires`
 - CORS configured for `http://localhost:5173` only
 - All API endpoints return JSON; errors use `{"error": "message"}` format
 - Transpositions are NOT automatically merged in the tree
-- Game analyses require a `color` parameter to determine which repertoire to check
+- Game analyses require a `repertoireId` parameter to specify which repertoire to check
+- Backend uses dependency injection with interfaces (`RepertoireRepository`, `AnalysisRepository`)
+- Sentinel errors: `repository.ErrRepertoireNotFound`, `repository.ErrAnalysisNotFound`

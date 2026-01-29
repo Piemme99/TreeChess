@@ -85,8 +85,8 @@ CREATE TABLE repertoires (
 CREATE INDEX idx_repertoires_color ON repertoires(color);
 ```
 
-#### REQ-004: Single Repertoire per Color
-For MVP, one White and one Black repertoire per installation. Multi-repertoire support deferred to V2.
+#### REQ-004: Multiple Repertoires per Color
+Users can create multiple repertoires per color via `POST /api/repertoires`. Each repertoire has a name and color.
 
 ---
 
@@ -473,17 +473,36 @@ cmd/server/
 ### 5.3 REST API (MVP)
 
 ```
-GET    /api/health                   # Health check
-GET    /api/repertoire/:color        # Get White/Black repertoire
-POST   /api/repertoire/:color/node   # Add node
-DELETE /api/repertoire/:color/node/:id  # Delete node
-POST   /api/imports                  # Upload PGN + auto-analyze
-GET    /api/analyses                 # List all analyses
-GET    /api/analyses/:id             # Get analysis details
-DELETE /api/analyses/:id             # Delete analysis
+GET    /api/health                           # Health check
+
+# Repertoire CRUD
+GET    /api/repertoires                      # List all repertoires
+POST   /api/repertoires                      # Create new repertoire
+GET    /api/repertoires/:id                  # Get repertoire by ID
+PATCH  /api/repertoires/:id                  # Update repertoire (rename)
+DELETE /api/repertoires/:id                  # Delete repertoire
+
+# Repertoire nodes
+POST   /api/repertoires/:id/nodes            # Add node to repertoire
+DELETE /api/repertoires/:id/nodes/:nodeId    # Delete node from repertoire
+
+# Import/Analysis
+POST   /api/imports                          # Upload PGN + auto-analyze
+POST   /api/imports/lichess                  # Import from Lichess
+POST   /api/imports/validate-pgn             # Validate PGN content
+POST   /api/imports/validate-move            # Validate a move
+GET    /api/imports/legal-moves              # Get legal moves for position
+GET    /api/analyses                         # List all analyses
+GET    /api/analyses/:id                     # Get analysis details
+DELETE /api/analyses/:id                     # Delete analysis
+
+# Games
+GET    /api/games                            # List games with pagination
+DELETE /api/games/:analysisId/:gameIndex     # Delete specific game
+POST   /api/games/:analysisId/:gameIndex/reanalyze  # Reanalyze game
 ```
 
-**Note:** Repertoires are auto-created on startup (REQ-001). No POST endpoint needed for creation.
+**Note:** Users can create multiple repertoires per color. The old per-color auto-creation has been replaced with explicit repertoire management.
 
 ### 5.4 Frontend Architecture
 
@@ -1738,6 +1757,7 @@ MIT
 | 2.0 | 2026-01-19 | - | PostgreSQL, single-user MVP, multi-user V2 |
 | 3.0 | 2026-01-19 | - | Full English translation, added tests, logging, migrations, README sections |
 | 4.0 | 2026-01-21 | - | Consolidated specs/ folder content, removed roadmap, added interface contracts and glossary |
+| 5.0 | 2026-01-28 | - | Updated REST API to plural routes, multiple repertoires per color, added Games API |
 
 ---
 

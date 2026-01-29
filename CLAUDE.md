@@ -52,15 +52,20 @@ Services: Frontend (5173), Backend (8080), PostgreSQL (5432)
 
 **Data Flow:**
 1. Repertoires stored as JSONB tree in PostgreSQL
-2. Frontend fetches via GET `/api/repertoire/:color`
-3. Moves added via POST `/api/repertoire/:color/node`
+2. Frontend fetches via GET `/api/repertoires` or `/api/repertoires/:id`
+3. Moves added via POST `/api/repertoires/:id/nodes`
 4. PGN files analyzed against repertoire via `/api/imports`
+
+**Backend Testing:**
+- Uses dependency injection with interfaces for testability
+- Mock implementations in `internal/repository/mocks/`
+- Sentinel errors pattern: `ErrRepertoireNotFound`, `ErrAnalysisNotFound`
 
 ## Key Technical Details
 
 - **Color values:** Backend uses `"white"/"black"` in JSON; frontend uses `'w'/'b'` for chess.js
 - **Chess validation:** `notnil/chess` (Go), `chess.js` (frontend) - never trust raw SAN
-- **Repertoires auto-created:** White and Black repertoires created on first backend startup
+- **Multiple repertoires:** Users can create multiple repertoires per color via POST `/api/repertoires`
 - **Positions:** Stored as full FEN strings
 - **Transpositions:** Not merged automatically
 - **CORS:** Only allows `http://localhost:5173`
