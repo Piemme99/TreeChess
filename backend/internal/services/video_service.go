@@ -1,8 +1,7 @@
 package services
 
 import (
-	"bufio"
-	"encoding/json"
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -10,9 +9,11 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 
 	"github.com/treechess/backend/config"
 	"github.com/treechess/backend/internal/models"
+	"github.com/treechess/backend/internal/recognition"
 	"github.com/treechess/backend/internal/repository"
 )
 
@@ -20,19 +21,78 @@ var youtubeURLPattern = regexp.MustCompile(
 	`^(?:https?://)?(?:www\.)?(?:youtube\.com/watch\?v=|youtu\.be/|youtube\.com/embed/|youtube\.com/shorts/)([a-zA-Z0-9_-]{11})`,
 )
 
+// CommandRunner abstracts external command execution for testability
+type CommandRunner interface {
+	// Run executes a command and returns combined stdout+stderr output
+	Run(name string, args ...string) ([]byte, error)
+	// Output executes a command and returns stdout only
+	Output(name string, args ...string) ([]byte, error)
+	// RunContext executes a command with context and returns combined stdout+stderr output
+	RunContext(ctx context.Context, name string, args ...string) ([]byte, error)
+	// OutputContext executes a command with context and returns stdout only
+	OutputContext(ctx context.Context, name string, args ...string) ([]byte, error)
+}
+
+// Recognizer abstracts chess position recognition for testability
+type Recognizer interface {
+	RecognizeFrames(ctx context.Context, framesDir string, onProgress recognition.ProgressFunc) (*recognition.Result, error)
+}
+
+// gocvRecognizer is the real implementation using the recognition package
+type gocvRecognizer struct{}
+
+func (r *gocvRecognizer) RecognizeFrames(ctx context.Context, framesDir string, onProgress recognition.ProgressFunc) (*recognition.Result, error) {
+	return recognition.RecognizeFrames(ctx, framesDir, onProgress)
+}
+
+// execCommandRunner is the real implementation using os/exec
+type execCommandRunner struct{}
+
+func (r *execCommandRunner) Run(name string, args ...string) ([]byte, error) {
+	return exec.Command(name, args...).CombinedOutput()
+}
+
+func (r *execCommandRunner) Output(name string, args ...string) ([]byte, error) {
+	return exec.Command(name, args...).Output()
+}
+
+func (r *execCommandRunner) RunContext(ctx context.Context, name string, args ...string) ([]byte, error) {
+	return exec.CommandContext(ctx, name, args...).CombinedOutput()
+}
+
+func (r *execCommandRunner) OutputContext(ctx context.Context, name string, args ...string) ([]byte, error) {
+	return exec.CommandContext(ctx, name, args...).Output()
+}
+
 // VideoService handles video import processing
 type VideoService struct {
 	repo       repository.VideoRepository
 	cfg        config.Config
 	treeSvc    *TreeBuilderService
+	runner     CommandRunner
+	recognizer Recognizer
+	cancelFns  sync.Map // map[string]context.CancelFunc
 }
 
 // NewVideoService creates a new video service
 func NewVideoService(repo repository.VideoRepository, cfg config.Config, treeSvc *TreeBuilderService) *VideoService {
 	return &VideoService{
-		repo:    repo,
-		cfg:     cfg,
-		treeSvc: treeSvc,
+		repo:       repo,
+		cfg:        cfg,
+		treeSvc:    treeSvc,
+		runner:     &execCommandRunner{},
+		recognizer: &gocvRecognizer{},
+	}
+}
+
+// NewVideoServiceWithDeps creates a video service with custom dependencies (for testing)
+func NewVideoServiceWithDeps(repo repository.VideoRepository, cfg config.Config, treeSvc *TreeBuilderService, runner CommandRunner, recognizer Recognizer) *VideoService {
+	return &VideoService{
+		repo:       repo,
+		cfg:        cfg,
+		treeSvc:    treeSvc,
+		runner:     runner,
+		recognizer: recognizer,
 	}
 }
 
@@ -46,20 +106,23 @@ func ValidateYouTubeURL(url string) (string, error) {
 }
 
 // SubmitImport validates and creates a new video import, returns the import and a progress channel
-func (s *VideoService) SubmitImport(youtubeURL string) (*models.VideoImport, <-chan models.SSEProgressEvent, error) {
+func (s *VideoService) SubmitImport(userID string, youtubeURL string) (*models.VideoImport, <-chan models.SSEProgressEvent, error) {
 	videoID, err := ValidateYouTubeURL(youtubeURL)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	vi, err := s.repo.CreateImport(youtubeURL, videoID, "")
+	vi, err := s.repo.CreateImport(userID, youtubeURL, videoID, "")
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create video import: %w", err)
 	}
 
 	progressCh := make(chan models.SSEProgressEvent, 100)
 
-	go s.processVideo(vi.ID, youtubeURL, videoID, progressCh)
+	ctx, cancel := context.WithCancel(context.Background())
+	s.cancelFns.Store(vi.ID, cancel)
+
+	go s.processVideo(ctx, vi.ID, youtubeURL, videoID, progressCh)
 
 	return vi, progressCh, nil
 }
@@ -69,9 +132,30 @@ func (s *VideoService) GetImport(id string) (*models.VideoImport, error) {
 	return s.repo.GetImportByID(id)
 }
 
-// GetAllImports retrieves all video imports
-func (s *VideoService) GetAllImports() ([]models.VideoImport, error) {
-	return s.repo.GetAllImports()
+// GetAllImports retrieves all video imports for a user
+func (s *VideoService) GetAllImports(userID string) ([]models.VideoImport, error) {
+	return s.repo.GetAllImports(userID)
+}
+
+// CancelImport cancels a running video import
+func (s *VideoService) CancelImport(id string) error {
+	vi, err := s.repo.GetImportByID(id)
+	if err != nil {
+		return err
+	}
+
+	// Don't cancel if already in a terminal state
+	if vi.Status == models.VideoStatusCompleted || vi.Status == models.VideoStatusFailed || vi.Status == models.VideoStatusCancelled {
+		return fmt.Errorf("import is already in terminal state: %s", vi.Status)
+	}
+
+	cancelFn, ok := s.cancelFns.Load(id)
+	if !ok {
+		return fmt.Errorf("no active processing found for import %s", id)
+	}
+
+	cancelFn.(context.CancelFunc)()
+	return nil
 }
 
 // DeleteImport deletes a video import
@@ -95,16 +179,30 @@ func (s *VideoService) GetTree(importID string) (*models.RepertoireNode, models.
 		return nil, "", fmt.Errorf("no positions found for video import")
 	}
 
-	return s.treeSvc.BuildTreeFromPositions(positions)
+	root, color, _, err := s.treeSvc.BuildTreeFromPositions(positions)
+	return root, color, err
 }
 
-// SearchByFEN searches for video imports containing a specific FEN position
-func (s *VideoService) SearchByFEN(fen string) ([]models.VideoSearchResult, error) {
-	return s.repo.SearchPositionsByFEN(fen)
+// SearchByFEN searches for video imports containing a specific FEN position for a user
+func (s *VideoService) SearchByFEN(userID string, fen string) ([]models.VideoSearchResult, error) {
+	return s.repo.SearchPositionsByFEN(userID, fen)
 }
 
-func (s *VideoService) processVideo(importID, youtubeURL, videoID string, progressCh chan<- models.SSEProgressEvent) {
+// CheckOwnership verifies that a video import belongs to the given user
+func (s *VideoService) CheckOwnership(id string, userID string) error {
+	belongs, err := s.repo.BelongsToUser(id, userID)
+	if err != nil {
+		return fmt.Errorf("failed to check ownership: %w", err)
+	}
+	if !belongs {
+		return ErrNotFound
+	}
+	return nil
+}
+
+func (s *VideoService) processVideo(ctx context.Context, importID, youtubeURL, videoID string, progressCh chan<- models.SSEProgressEvent) {
 	defer close(progressCh)
+	defer s.cancelFns.Delete(importID)
 
 	tmpDir := filepath.Join(os.TempDir(), fmt.Sprintf("treechess-video-%s", importID))
 	defer os.RemoveAll(tmpDir)
@@ -116,8 +214,12 @@ func (s *VideoService) processVideo(importID, youtubeURL, videoID string, progre
 
 	// Step 1: Download video
 	s.sendProgress(importID, progressCh, models.VideoStatusDownloading, 5, "Downloading video...")
-	videoPath, title, err := s.downloadVideo(youtubeURL, tmpDir)
+	videoPath, title, err := s.downloadVideo(ctx, youtubeURL, tmpDir)
 	if err != nil {
+		if ctx.Err() != nil {
+			s.cancelledImport(importID, progressCh)
+			return
+		}
 		s.failImport(importID, progressCh, fmt.Sprintf("failed to download video: %v", err))
 		return
 	}
@@ -125,6 +227,12 @@ func (s *VideoService) processVideo(importID, youtubeURL, videoID string, progre
 	// Update title in DB
 	if title != "" {
 		_ = s.repo.UpdateImportStatus(importID, models.VideoStatusDownloading, 10, nil)
+	}
+
+	// Check cancellation
+	if ctx.Err() != nil {
+		s.cancelledImport(importID, progressCh)
+		return
 	}
 
 	// Step 2: Extract frames
@@ -135,17 +243,37 @@ func (s *VideoService) processVideo(importID, youtubeURL, videoID string, progre
 		return
 	}
 
-	err = s.extractFrames(videoPath, framesDir)
+	err = s.extractFrames(ctx, videoPath, framesDir)
 	if err != nil {
+		if ctx.Err() != nil {
+			s.cancelledImport(importID, progressCh)
+			return
+		}
 		s.failImport(importID, progressCh, fmt.Sprintf("failed to extract frames: %v", err))
+		return
+	}
+
+	// Check cancellation
+	if ctx.Err() != nil {
+		s.cancelledImport(importID, progressCh)
 		return
 	}
 
 	// Step 3: Recognize positions
 	s.sendProgress(importID, progressCh, models.VideoStatusRecognizing, 25, "Recognizing chess positions...")
-	positions, err := s.recognizePositions(importID, framesDir, progressCh)
+	result, err := s.recognizePositions(ctx, importID, framesDir, progressCh)
 	if err != nil {
+		if ctx.Err() != nil {
+			s.cancelledImport(importID, progressCh)
+			return
+		}
 		s.failImport(importID, progressCh, fmt.Sprintf("failed to recognize positions: %v", err))
+		return
+	}
+
+	// Check cancellation
+	if ctx.Err() != nil {
+		s.cancelledImport(importID, progressCh)
 		return
 	}
 
@@ -153,7 +281,7 @@ func (s *VideoService) processVideo(importID, youtubeURL, videoID string, progre
 	s.sendProgress(importID, progressCh, models.VideoStatusBuildingTree, 90, "Saving positions...")
 
 	var dbPositions []models.VideoPosition
-	for _, p := range positions {
+	for _, p := range result.Positions {
 		if !p.BoardDetected {
 			continue
 		}
@@ -183,131 +311,95 @@ func (s *VideoService) processVideo(importID, youtubeURL, videoID string, progre
 		fmt.Sprintf("Completed! Found %d positions with chess boards.", len(dbPositions)))
 }
 
-func (s *VideoService) downloadVideo(youtubeURL, tmpDir string) (string, string, error) {
-	outputTemplate := filepath.Join(tmpDir, "video.%(ext)s")
-
-	cmd := exec.Command(s.cfg.YtdlpPath,
+func (s *VideoService) downloadVideo(ctx context.Context, youtubeURL, tmpDir string) (string, string, error) {
+	// Step 1: Fetch title separately
+	titleOut, _ := s.runner.OutputContext(ctx, s.cfg.YtdlpPath,
 		"--no-playlist",
-		"--format", "worst[ext=mp4]/worst",
-		"--output", outputTemplate,
 		"--print", "%(title)s",
+		"--no-warnings",
+		"--skip-download",
+		"--extractor-args", "youtube:player_client=mediaconnect",
+		youtubeURL,
+	)
+	title := strings.TrimSpace(string(titleOut))
+
+	// Step 2: Download the video
+	outputPath := filepath.Join(tmpDir, "video.mp4")
+	output, err := s.runner.RunContext(ctx, s.cfg.YtdlpPath,
+		"--no-playlist",
+		"--format", "worst[ext=mp4][protocol=https]/worstvideo[ext=mp4][protocol=https]+worstaudio[protocol=https]/worst[protocol=https]",
+		"--merge-output-format", "mp4",
+		"--extractor-args", "youtube:player_client=mediaconnect",
+		"--output", outputPath,
 		"--no-warnings",
 		youtubeURL,
 	)
-
-	output, err := cmd.Output()
 	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
-			return "", "", fmt.Errorf("yt-dlp failed: %s", string(exitErr.Stderr))
-		}
-		return "", "", fmt.Errorf("yt-dlp failed: %w", err)
+		return "", "", fmt.Errorf("yt-dlp failed: %s", string(output))
 	}
 
-	title := strings.TrimSpace(string(output))
-
-	// Find the downloaded video file
-	entries, err := os.ReadDir(tmpDir)
-	if err != nil {
-		return "", "", fmt.Errorf("failed to read temp directory: %w", err)
+	// Verify file exists, with fallback directory scan
+	videoPath, findErr := findDownloadedVideo(tmpDir, outputPath)
+	if findErr != nil {
+		return "", "", findErr
 	}
 
-	for _, entry := range entries {
-		if !entry.IsDir() && strings.HasPrefix(entry.Name(), "video.") {
-			return filepath.Join(tmpDir, entry.Name()), title, nil
-		}
-	}
-
-	return "", "", fmt.Errorf("downloaded video file not found")
+	return videoPath, title, nil
 }
 
-func (s *VideoService) extractFrames(videoPath, framesDir string) error {
-	cmd := exec.Command(s.cfg.FfmpegPath,
+// findDownloadedVideo checks for the expected video file, falling back to scanning
+// the directory for any file yt-dlp may have created with a different name/extension.
+func findDownloadedVideo(tmpDir, expectedPath string) (string, error) {
+	if _, err := os.Stat(expectedPath); err == nil {
+		return expectedPath, nil
+	}
+
+	// Fallback: scan directory for any file
+	entries, err := os.ReadDir(tmpDir)
+	if err != nil {
+		return "", fmt.Errorf("downloaded video file not found and cannot read dir: %w", err)
+	}
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			return filepath.Join(tmpDir, entry.Name()), nil
+		}
+	}
+	return "", fmt.Errorf("downloaded video file not found in %s", tmpDir)
+}
+
+func (s *VideoService) extractFrames(ctx context.Context, videoPath, framesDir string) error {
+	output, err := s.runner.RunContext(ctx, s.cfg.FfmpegPath,
 		"-i", videoPath,
 		"-vf", "fps=1",
 		"-q:v", "2",
 		filepath.Join(framesDir, "frame_%06d.png"),
 	)
-
-	if output, err := cmd.CombinedOutput(); err != nil {
+	if err != nil {
 		return fmt.Errorf("ffmpeg failed: %s", string(output))
 	}
 
 	return nil
 }
 
-// recognitionResult maps the JSON output from the Python script
-type recognitionResult struct {
-	Positions       []recognizedPosition `json:"positions"`
-	TotalFrames     int                  `json:"totalFrames"`
-	FramesWithBoard int                  `json:"framesWithBoard"`
-}
-
-type recognizedPosition struct {
-	FrameIndex       int     `json:"frameIndex"`
-	TimestampSeconds float64 `json:"timestampSeconds"`
-	FEN              string  `json:"fen"`
-	Confidence       float64 `json:"confidence"`
-	BoardDetected    bool    `json:"boardDetected"`
-}
-
-// stderrProgress maps the progress JSON from stderr
-type stderrProgress struct {
-	ProcessedFrames int `json:"processedFrames"`
-	TotalFrames     int `json:"totalFrames"`
-}
-
-func (s *VideoService) recognizePositions(importID, framesDir string, progressCh chan<- models.SSEProgressEvent) ([]recognizedPosition, error) {
-	cmd := exec.Command(s.cfg.PythonPath, s.cfg.ScriptPath, framesDir)
-
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		return nil, fmt.Errorf("failed to create stdout pipe: %w", err)
-	}
-
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		return nil, fmt.Errorf("failed to create stderr pipe: %w", err)
-	}
-
-	if err := cmd.Start(); err != nil {
-		return nil, fmt.Errorf("failed to start recognition script: %w", err)
-	}
-
-	// Read stderr for progress updates in a goroutine
-	go func() {
-		scanner := bufio.NewScanner(stderr)
-		for scanner.Scan() {
-			line := scanner.Text()
-			var progress stderrProgress
-			if err := json.Unmarshal([]byte(line), &progress); err == nil {
-				pct := 25 + int(float64(progress.ProcessedFrames)/float64(progress.TotalFrames)*60)
-				if pct > 85 {
-					pct = 85
-				}
-
-				_ = s.repo.UpdateImportFrames(importID, progress.TotalFrames, progress.ProcessedFrames)
-
-				msg := fmt.Sprintf("Frame %d/%d", progress.ProcessedFrames, progress.TotalFrames)
-				s.sendProgress(importID, progressCh, models.VideoStatusRecognizing, pct, msg)
-			} else {
-				log.Printf("Recognition stderr: %s", line)
-			}
+func (s *VideoService) recognizePositions(ctx context.Context, importID, framesDir string, progressCh chan<- models.SSEProgressEvent) (*recognition.Result, error) {
+	onProgress := func(processedFrames, totalFrames int) {
+		pct := 25 + int(float64(processedFrames)/float64(totalFrames)*60)
+		if pct > 85 {
+			pct = 85
 		}
-	}()
 
-	// Read stdout for final result
-	var result recognitionResult
-	decoder := json.NewDecoder(stdout)
-	if err := decoder.Decode(&result); err != nil {
-		_ = cmd.Wait()
-		return nil, fmt.Errorf("failed to parse recognition output: %w", err)
+		_ = s.repo.UpdateImportFrames(importID, totalFrames, processedFrames)
+
+		msg := fmt.Sprintf("Frame %d/%d", processedFrames, totalFrames)
+		s.sendProgress(importID, progressCh, models.VideoStatusRecognizing, pct, msg)
 	}
 
-	if err := cmd.Wait(); err != nil {
-		return nil, fmt.Errorf("recognition script failed: %w", err)
+	result, err := s.recognizer.RecognizeFrames(ctx, framesDir, onProgress)
+	if err != nil {
+		return nil, fmt.Errorf("recognition failed: %w", err)
 	}
 
-	return result.Positions, nil
+	return result, nil
 }
 
 func (s *VideoService) sendProgress(importID string, progressCh chan<- models.SSEProgressEvent, status models.VideoImportStatus, progress int, message string) {
@@ -323,6 +415,23 @@ func (s *VideoService) sendProgress(importID string, progressCh chan<- models.SS
 	case progressCh <- event:
 	default:
 		// Channel full, skip
+	}
+}
+
+func (s *VideoService) cancelledImport(importID string, progressCh chan<- models.SSEProgressEvent) {
+	log.Printf("Video import %s cancelled", importID)
+
+	_ = s.repo.UpdateImportStatus(importID, models.VideoStatusCancelled, 0, nil)
+
+	event := models.SSEProgressEvent{
+		Status:   models.VideoStatusCancelled,
+		Progress: 0,
+		Message:  "Import cancelled",
+	}
+
+	select {
+	case progressCh <- event:
+	default:
 	}
 }
 

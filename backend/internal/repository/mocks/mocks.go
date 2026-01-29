@@ -4,15 +4,16 @@ import "github.com/treechess/backend/internal/models"
 
 // MockRepertoireRepo is a mock implementation of RepertoireRepository for testing
 type MockRepertoireRepo struct {
-	GetByIDFunc    func(id string) (*models.Repertoire, error)
-	GetByColorFunc func(color models.Color) ([]models.Repertoire, error)
-	GetAllFunc     func() ([]models.Repertoire, error)
-	CreateFunc     func(name string, color models.Color) (*models.Repertoire, error)
-	SaveFunc       func(id string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error)
-	UpdateNameFunc func(id string, name string) (*models.Repertoire, error)
-	DeleteFunc     func(id string) error
-	CountFunc      func() (int, error)
-	ExistsFunc     func(id string) (bool, error)
+	GetByIDFunc       func(id string) (*models.Repertoire, error)
+	GetByColorFunc    func(userID string, color models.Color) ([]models.Repertoire, error)
+	GetAllFunc        func(userID string) ([]models.Repertoire, error)
+	CreateFunc        func(userID string, name string, color models.Color) (*models.Repertoire, error)
+	SaveFunc          func(id string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error)
+	UpdateNameFunc    func(id string, name string) (*models.Repertoire, error)
+	DeleteFunc        func(id string) error
+	CountFunc         func(userID string) (int, error)
+	ExistsFunc        func(id string) (bool, error)
+	BelongsToUserFunc func(id string, userID string) (bool, error)
 }
 
 func (m *MockRepertoireRepo) GetByID(id string) (*models.Repertoire, error) {
@@ -22,23 +23,23 @@ func (m *MockRepertoireRepo) GetByID(id string) (*models.Repertoire, error) {
 	return nil, nil
 }
 
-func (m *MockRepertoireRepo) GetByColor(color models.Color) ([]models.Repertoire, error) {
+func (m *MockRepertoireRepo) GetByColor(userID string, color models.Color) ([]models.Repertoire, error) {
 	if m.GetByColorFunc != nil {
-		return m.GetByColorFunc(color)
+		return m.GetByColorFunc(userID, color)
 	}
 	return nil, nil
 }
 
-func (m *MockRepertoireRepo) GetAll() ([]models.Repertoire, error) {
+func (m *MockRepertoireRepo) GetAll(userID string) ([]models.Repertoire, error) {
 	if m.GetAllFunc != nil {
-		return m.GetAllFunc()
+		return m.GetAllFunc(userID)
 	}
 	return nil, nil
 }
 
-func (m *MockRepertoireRepo) Create(name string, color models.Color) (*models.Repertoire, error) {
+func (m *MockRepertoireRepo) Create(userID string, name string, color models.Color) (*models.Repertoire, error) {
 	if m.CreateFunc != nil {
-		return m.CreateFunc(name, color)
+		return m.CreateFunc(userID, name, color)
 	}
 	return nil, nil
 }
@@ -64,9 +65,9 @@ func (m *MockRepertoireRepo) Delete(id string) error {
 	return nil
 }
 
-func (m *MockRepertoireRepo) Count() (int, error) {
+func (m *MockRepertoireRepo) Count(userID string) (int, error) {
 	if m.CountFunc != nil {
-		return m.CountFunc()
+		return m.CountFunc(userID)
 	}
 	return 0, nil
 }
@@ -78,27 +79,35 @@ func (m *MockRepertoireRepo) Exists(id string) (bool, error) {
 	return false, nil
 }
 
-// MockAnalysisRepo is a mock implementation of AnalysisRepository for testing
-type MockAnalysisRepo struct {
-	SaveFunc          func(username, filename string, gameCount int, results []models.GameAnalysis) (*models.AnalysisSummary, error)
-	GetAllFunc        func() ([]models.AnalysisSummary, error)
-	GetByIDFunc       func(id string) (*models.AnalysisDetail, error)
-	DeleteFunc        func(id string) error
-	GetAllGamesFunc   func(limit, offset int) (*models.GamesResponse, error)
-	DeleteGameFunc    func(analysisID string, gameIndex int) error
-	UpdateResultsFunc func(analysisID string, results []models.GameAnalysis) error
+func (m *MockRepertoireRepo) BelongsToUser(id string, userID string) (bool, error) {
+	if m.BelongsToUserFunc != nil {
+		return m.BelongsToUserFunc(id, userID)
+	}
+	return true, nil
 }
 
-func (m *MockAnalysisRepo) Save(username, filename string, gameCount int, results []models.GameAnalysis) (*models.AnalysisSummary, error) {
+// MockAnalysisRepo is a mock implementation of AnalysisRepository for testing
+type MockAnalysisRepo struct {
+	SaveFunc          func(userID string, username, filename string, gameCount int, results []models.GameAnalysis) (*models.AnalysisSummary, error)
+	GetAllFunc        func(userID string) ([]models.AnalysisSummary, error)
+	GetByIDFunc       func(id string) (*models.AnalysisDetail, error)
+	DeleteFunc        func(id string) error
+	GetAllGamesFunc   func(userID string, limit, offset int) (*models.GamesResponse, error)
+	DeleteGameFunc    func(analysisID string, gameIndex int) error
+	UpdateResultsFunc func(analysisID string, results []models.GameAnalysis) error
+	BelongsToUserFunc func(id string, userID string) (bool, error)
+}
+
+func (m *MockAnalysisRepo) Save(userID string, username, filename string, gameCount int, results []models.GameAnalysis) (*models.AnalysisSummary, error) {
 	if m.SaveFunc != nil {
-		return m.SaveFunc(username, filename, gameCount, results)
+		return m.SaveFunc(userID, username, filename, gameCount, results)
 	}
 	return nil, nil
 }
 
-func (m *MockAnalysisRepo) GetAll() ([]models.AnalysisSummary, error) {
+func (m *MockAnalysisRepo) GetAll(userID string) ([]models.AnalysisSummary, error) {
 	if m.GetAllFunc != nil {
-		return m.GetAllFunc()
+		return m.GetAllFunc(userID)
 	}
 	return nil, nil
 }
@@ -117,9 +126,9 @@ func (m *MockAnalysisRepo) Delete(id string) error {
 	return nil
 }
 
-func (m *MockAnalysisRepo) GetAllGames(limit, offset int) (*models.GamesResponse, error) {
+func (m *MockAnalysisRepo) GetAllGames(userID string, limit, offset int) (*models.GamesResponse, error) {
 	if m.GetAllGamesFunc != nil {
-		return m.GetAllGamesFunc(limit, offset)
+		return m.GetAllGamesFunc(userID, limit, offset)
 	}
 	return nil, nil
 }
@@ -138,23 +147,31 @@ func (m *MockAnalysisRepo) UpdateResults(analysisID string, results []models.Gam
 	return nil
 }
 
-// MockVideoRepo is a mock implementation of VideoRepository for testing
-type MockVideoRepo struct {
-	CreateImportFunc          func(youtubeURL, youtubeID, title string) (*models.VideoImport, error)
-	GetImportByIDFunc         func(id string) (*models.VideoImport, error)
-	GetAllImportsFunc         func() ([]models.VideoImport, error)
-	UpdateImportStatusFunc    func(id string, status models.VideoImportStatus, progress int, errorMsg *string) error
-	UpdateImportFramesFunc    func(id string, totalFrames, processedFrames int) error
-	CompleteImportFunc        func(id string) error
-	DeleteImportFunc          func(id string) error
-	SavePositionsFunc         func(positions []models.VideoPosition) error
-	GetPositionsByImportIDFunc func(importID string) ([]models.VideoPosition, error)
-	SearchPositionsByFENFunc  func(fen string) ([]models.VideoSearchResult, error)
+func (m *MockAnalysisRepo) BelongsToUser(id string, userID string) (bool, error) {
+	if m.BelongsToUserFunc != nil {
+		return m.BelongsToUserFunc(id, userID)
+	}
+	return true, nil
 }
 
-func (m *MockVideoRepo) CreateImport(youtubeURL, youtubeID, title string) (*models.VideoImport, error) {
+// MockVideoRepo is a mock implementation of VideoRepository for testing
+type MockVideoRepo struct {
+	CreateImportFunc           func(userID string, youtubeURL, youtubeID, title string) (*models.VideoImport, error)
+	GetImportByIDFunc          func(id string) (*models.VideoImport, error)
+	GetAllImportsFunc          func(userID string) ([]models.VideoImport, error)
+	UpdateImportStatusFunc     func(id string, status models.VideoImportStatus, progress int, errorMsg *string) error
+	UpdateImportFramesFunc     func(id string, totalFrames, processedFrames int) error
+	CompleteImportFunc         func(id string) error
+	DeleteImportFunc           func(id string) error
+	SavePositionsFunc          func(positions []models.VideoPosition) error
+	GetPositionsByImportIDFunc func(importID string) ([]models.VideoPosition, error)
+	SearchPositionsByFENFunc   func(userID string, fen string) ([]models.VideoSearchResult, error)
+	BelongsToUserFunc          func(id string, userID string) (bool, error)
+}
+
+func (m *MockVideoRepo) CreateImport(userID string, youtubeURL, youtubeID, title string) (*models.VideoImport, error) {
 	if m.CreateImportFunc != nil {
-		return m.CreateImportFunc(youtubeURL, youtubeID, title)
+		return m.CreateImportFunc(userID, youtubeURL, youtubeID, title)
 	}
 	return nil, nil
 }
@@ -166,9 +183,9 @@ func (m *MockVideoRepo) GetImportByID(id string) (*models.VideoImport, error) {
 	return nil, nil
 }
 
-func (m *MockVideoRepo) GetAllImports() ([]models.VideoImport, error) {
+func (m *MockVideoRepo) GetAllImports(userID string) ([]models.VideoImport, error) {
 	if m.GetAllImportsFunc != nil {
-		return m.GetAllImportsFunc()
+		return m.GetAllImportsFunc(userID)
 	}
 	return nil, nil
 }
@@ -215,9 +232,52 @@ func (m *MockVideoRepo) GetPositionsByImportID(importID string) ([]models.VideoP
 	return nil, nil
 }
 
-func (m *MockVideoRepo) SearchPositionsByFEN(fen string) ([]models.VideoSearchResult, error) {
+func (m *MockVideoRepo) SearchPositionsByFEN(userID string, fen string) ([]models.VideoSearchResult, error) {
 	if m.SearchPositionsByFENFunc != nil {
-		return m.SearchPositionsByFENFunc(fen)
+		return m.SearchPositionsByFENFunc(userID, fen)
 	}
 	return nil, nil
+}
+
+func (m *MockVideoRepo) BelongsToUser(id string, userID string) (bool, error) {
+	if m.BelongsToUserFunc != nil {
+		return m.BelongsToUserFunc(id, userID)
+	}
+	return true, nil
+}
+
+// MockUserRepo is a mock implementation of UserRepository for testing
+type MockUserRepo struct {
+	CreateFunc        func(username, passwordHash string) (*models.User, error)
+	GetByUsernameFunc func(username string) (*models.User, error)
+	GetByIDFunc       func(id string) (*models.User, error)
+	ExistsFunc        func(username string) (bool, error)
+}
+
+func (m *MockUserRepo) Create(username, passwordHash string) (*models.User, error) {
+	if m.CreateFunc != nil {
+		return m.CreateFunc(username, passwordHash)
+	}
+	return nil, nil
+}
+
+func (m *MockUserRepo) GetByUsername(username string) (*models.User, error) {
+	if m.GetByUsernameFunc != nil {
+		return m.GetByUsernameFunc(username)
+	}
+	return nil, nil
+}
+
+func (m *MockUserRepo) GetByID(id string) (*models.User, error) {
+	if m.GetByIDFunc != nil {
+		return m.GetByIDFunc(id)
+	}
+	return nil, nil
+}
+
+func (m *MockUserRepo) Exists(username string) (bool, error) {
+	if m.ExistsFunc != nil {
+		return m.ExistsFunc(username)
+	}
+	return false, nil
 }

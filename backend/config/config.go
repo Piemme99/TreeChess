@@ -5,6 +5,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // Config holds application configuration
@@ -12,10 +13,10 @@ type Config struct {
 	DatabaseURL    string
 	Port           int
 	AllowedOrigins []string
-	YtdlpPath     string
-	FfmpegPath    string
-	PythonPath    string
-	ScriptPath    string
+	YtdlpPath      string
+	FfmpegPath     string
+	JWTSecret      string
+	JWTExpiry      time.Duration
 }
 
 // MustLoad loads configuration from environment variables
@@ -56,23 +57,28 @@ func MustLoad() Config {
 		ffmpegPath = "ffmpeg"
 	}
 
-	pythonPath := os.Getenv("PYTHON_PATH")
-	if pythonPath == "" {
-		pythonPath = "python3"
+	jwtSecret := os.Getenv("JWT_SECRET")
+	if jwtSecret == "" {
+		panic("JWT_SECRET environment variable is required")
 	}
 
-	scriptPath := os.Getenv("SCRIPT_PATH")
-	if scriptPath == "" {
-		scriptPath = "scripts/recognize_positions.py"
+	jwtExpiry := 168 * time.Hour // default 7 days
+	jwtExpiryStr := os.Getenv("JWT_EXPIRY_HOURS")
+	if jwtExpiryStr != "" {
+		hours, err := strconv.Atoi(jwtExpiryStr)
+		if err != nil {
+			panic(fmt.Sprintf("Invalid JWT_EXPIRY_HOURS value: %s", jwtExpiryStr))
+		}
+		jwtExpiry = time.Duration(hours) * time.Hour
 	}
 
 	return Config{
 		DatabaseURL:    dbURL,
 		Port:           port,
 		AllowedOrigins: allowedOrigins,
-		YtdlpPath:     ytdlpPath,
-		FfmpegPath:    ffmpegPath,
-		PythonPath:    pythonPath,
-		ScriptPath:    scriptPath,
+		YtdlpPath:      ytdlpPath,
+		FfmpegPath:     ffmpegPath,
+		JWTSecret:      jwtSecret,
+		JWTExpiry:      jwtExpiry,
 	}
 }

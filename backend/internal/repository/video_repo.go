@@ -15,8 +15,8 @@ import (
 
 const (
 	createVideoImportSQL = `
-		INSERT INTO video_imports (id, youtube_url, youtube_id, title, status, progress)
-		VALUES ($1, $2, $3, $4, 'pending', 0)
+		INSERT INTO video_imports (id, user_id, youtube_url, youtube_id, title, status, progress)
+		VALUES ($1, $2, $3, $4, $5, 'pending', 0)
 		RETURNING id, youtube_url, youtube_id, title, status, progress, error_message,
 		          total_frames, processed_frames, created_at, completed_at
 	`
@@ -30,6 +30,7 @@ const (
 		SELECT id, youtube_url, youtube_id, title, status, progress, error_message,
 		       total_frames, processed_frames, created_at, completed_at
 		FROM video_imports
+		WHERE user_id = $1
 		ORDER BY created_at DESC
 	`
 	updateVideoImportStatusSQL = `
@@ -66,8 +67,11 @@ const (
 		       vi.total_frames, vi.processed_frames, vi.created_at, vi.completed_at
 		FROM video_positions vp
 		JOIN video_imports vi ON vp.video_import_id = vi.id
-		WHERE vp.fen = $1 AND vi.status = 'completed'
+		WHERE vi.user_id = $1 AND vp.fen = $2 AND vi.status = 'completed'
 		ORDER BY vi.created_at DESC, vp.timestamp_seconds ASC
+	`
+	belongsToUserVideoSQL = `
+		SELECT EXISTS(SELECT 1 FROM video_imports WHERE id = $1 AND user_id = $2)
 	`
 )
 
@@ -81,15 +85,15 @@ func NewPostgresVideoRepo(pool *pgxpool.Pool) *PostgresVideoRepo {
 	return &PostgresVideoRepo{pool: pool}
 }
 
-// CreateImport creates a new video import record
-func (r *PostgresVideoRepo) CreateImport(youtubeURL, youtubeID, title string) (*models.VideoImport, error) {
+// CreateImport creates a new video import record for a user
+func (r *PostgresVideoRepo) CreateImport(userID string, youtubeURL, youtubeID, title string) (*models.VideoImport, error) {
 	ctx, cancel := dbContext()
 	defer cancel()
 
 	id := uuid.New().String()
 	var vi models.VideoImport
 
-	err := r.pool.QueryRow(ctx, createVideoImportSQL, id, youtubeURL, youtubeID, title).Scan(
+	err := r.pool.QueryRow(ctx, createVideoImportSQL, id, userID, youtubeURL, youtubeID, title).Scan(
 		&vi.ID,
 		&vi.YouTubeURL,
 		&vi.YouTubeID,
@@ -138,12 +142,12 @@ func (r *PostgresVideoRepo) GetImportByID(id string) (*models.VideoImport, error
 	return &vi, nil
 }
 
-// GetAllImports retrieves all video imports
-func (r *PostgresVideoRepo) GetAllImports() ([]models.VideoImport, error) {
+// GetAllImports retrieves all video imports for a user
+func (r *PostgresVideoRepo) GetAllImports(userID string) ([]models.VideoImport, error) {
 	ctx, cancel := dbContext()
 	defer cancel()
 
-	rows, err := r.pool.Query(ctx, getAllVideoImportsSQL)
+	rows, err := r.pool.Query(ctx, getAllVideoImportsSQL, userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query video imports: %w", err)
 	}
@@ -305,12 +309,12 @@ func (r *PostgresVideoRepo) GetPositionsByImportID(importID string) ([]models.Vi
 	return positions, nil
 }
 
-// SearchPositionsByFEN finds all video imports containing a given FEN position
-func (r *PostgresVideoRepo) SearchPositionsByFEN(fen string) ([]models.VideoSearchResult, error) {
+// SearchPositionsByFEN finds all video imports containing a given FEN position for a user
+func (r *PostgresVideoRepo) SearchPositionsByFEN(userID string, fen string) ([]models.VideoSearchResult, error) {
 	ctx, cancel := dbContext()
 	defer cancel()
 
-	rows, err := r.pool.Query(ctx, searchVideoPositionsByFENSQL, fen)
+	rows, err := r.pool.Query(ctx, searchVideoPositionsByFENSQL, userID, fen)
 	if err != nil {
 		return nil, fmt.Errorf("failed to search video positions: %w", err)
 	}
@@ -354,6 +358,19 @@ func (r *PostgresVideoRepo) SearchPositionsByFEN(fen string) ([]models.VideoSear
 	}
 
 	return results, nil
+}
+
+// BelongsToUser checks if a video import belongs to a specific user
+func (r *PostgresVideoRepo) BelongsToUser(id string, userID string) (bool, error) {
+	ctx, cancel := dbContext()
+	defer cancel()
+
+	var belongs bool
+	err := r.pool.QueryRow(ctx, belongsToUserVideoSQL, id, userID).Scan(&belongs)
+	if err != nil {
+		return false, fmt.Errorf("failed to check video import ownership: %w", err)
+	}
+	return belongs, nil
 }
 
 // context60s creates a context with 60s timeout for batch operations

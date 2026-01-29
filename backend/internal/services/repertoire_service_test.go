@@ -14,7 +14,7 @@ func TestRepertoireService_CreateRepertoire_InvalidColor(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{}
 	svc := NewRepertoireService(mockRepo)
 
-	_, err := svc.CreateRepertoire("Test Repertoire", models.Color("invalid"))
+	_, err := svc.CreateRepertoire("user-1", "Test Repertoire", models.Color("invalid"))
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid color")
@@ -24,7 +24,7 @@ func TestRepertoireService_CreateRepertoire_EmptyName(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{}
 	svc := NewRepertoireService(mockRepo)
 
-	_, err := svc.CreateRepertoire("", models.ColorWhite)
+	_, err := svc.CreateRepertoire("user-1", "", models.ColorWhite)
 
 	assert.Error(t, err)
 	assert.ErrorIs(t, err, ErrNameRequired)
@@ -40,7 +40,7 @@ func TestRepertoireService_CreateRepertoire_NameTooLong(t *testing.T) {
 		longName += "a"
 	}
 
-	_, err := svc.CreateRepertoire(longName, models.ColorWhite)
+	_, err := svc.CreateRepertoire("user-1", longName, models.ColorWhite)
 
 	assert.Error(t, err)
 	assert.ErrorIs(t, err, ErrNameTooLong)
@@ -611,7 +611,7 @@ func TestListRepertoires_InvalidColor(t *testing.T) {
 	svc := NewRepertoireService(mockRepo)
 	invalidColor := models.Color("invalid")
 
-	_, err := svc.ListRepertoires(&invalidColor)
+	_, err := svc.ListRepertoires("user-1", &invalidColor)
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid color")

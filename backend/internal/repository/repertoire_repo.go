@@ -22,17 +22,18 @@ const (
 	getRepertoiresByColorSQL = `
 		SELECT id, name, color, tree_data, metadata, created_at, updated_at
 		FROM repertoires
-		WHERE color = $1
+		WHERE user_id = $1 AND color = $2
 		ORDER BY updated_at DESC
 	`
 	getAllRepertoiresSQL = `
 		SELECT id, name, color, tree_data, metadata, created_at, updated_at
 		FROM repertoires
+		WHERE user_id = $1
 		ORDER BY color, updated_at DESC
 	`
 	createRepertoireSQL = `
-		INSERT INTO repertoires (id, name, color, tree_data, metadata)
-		VALUES ($1, $2, $3, $4, $5)
+		INSERT INTO repertoires (id, user_id, name, color, tree_data, metadata)
+		VALUES ($1, $2, $3, $4, $5, $6)
 		RETURNING id, name, color, tree_data, metadata, created_at, updated_at
 	`
 	updateRepertoireByIDSQL = `
@@ -51,7 +52,10 @@ const (
 		DELETE FROM repertoires WHERE id = $1
 	`
 	countRepertoiresSQL = `
-		SELECT COUNT(*) FROM repertoires
+		SELECT COUNT(*) FROM repertoires WHERE user_id = $1
+	`
+	belongsToUserRepertoireSQL = `
+		SELECT EXISTS(SELECT 1 FROM repertoires WHERE id = $1 AND user_id = $2)
 	`
 	checkRepertoireExistsByIDSQL = `
 		SELECT EXISTS(SELECT 1 FROM repertoires WHERE id = $1)
@@ -103,12 +107,12 @@ func (r *PostgresRepertoireRepo) GetByID(id string) (*models.Repertoire, error) 
 	return &rep, nil
 }
 
-// GetByColor retrieves all repertoires of a given color
-func (r *PostgresRepertoireRepo) GetByColor(color models.Color) ([]models.Repertoire, error) {
+// GetByColor retrieves all repertoires of a given color for a user
+func (r *PostgresRepertoireRepo) GetByColor(userID string, color models.Color) ([]models.Repertoire, error) {
 	ctx, cancel := dbContext()
 	defer cancel()
 
-	rows, err := r.pool.Query(ctx, getRepertoiresByColorSQL, string(color))
+	rows, err := r.pool.Query(ctx, getRepertoiresByColorSQL, userID, string(color))
 	if err != nil {
 		return nil, fmt.Errorf("failed to query repertoires: %w", err)
 	}
@@ -117,12 +121,12 @@ func (r *PostgresRepertoireRepo) GetByColor(color models.Color) ([]models.Repert
 	return r.scanRepertoires(rows)
 }
 
-// GetAll retrieves all repertoires
-func (r *PostgresRepertoireRepo) GetAll() ([]models.Repertoire, error) {
+// GetAll retrieves all repertoires for a user
+func (r *PostgresRepertoireRepo) GetAll(userID string) ([]models.Repertoire, error) {
 	ctx, cancel := dbContext()
 	defer cancel()
 
-	rows, err := r.pool.Query(ctx, getAllRepertoiresSQL)
+	rows, err := r.pool.Query(ctx, getAllRepertoiresSQL, userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query repertoires: %w", err)
 	}
@@ -131,8 +135,8 @@ func (r *PostgresRepertoireRepo) GetAll() ([]models.Repertoire, error) {
 	return r.scanRepertoires(rows)
 }
 
-// Create creates a new repertoire with a name and color
-func (r *PostgresRepertoireRepo) Create(name string, color models.Color) (*models.Repertoire, error) {
+// Create creates a new repertoire with a name and color for a user
+func (r *PostgresRepertoireRepo) Create(userID string, name string, color models.Color) (*models.Repertoire, error) {
 	ctx, cancel := dbContext()
 	defer cancel()
 
@@ -174,6 +178,7 @@ func (r *PostgresRepertoireRepo) Create(name string, color models.Color) (*model
 
 	err = r.pool.QueryRow(ctx, createRepertoireSQL,
 		rep.ID,
+		userID,
 		rep.Name,
 		string(rep.Color),
 		treeDataJSON,
@@ -297,13 +302,13 @@ func (r *PostgresRepertoireRepo) Delete(id string) error {
 	return nil
 }
 
-// Count returns the total number of repertoires
-func (r *PostgresRepertoireRepo) Count() (int, error) {
+// Count returns the total number of repertoires for a user
+func (r *PostgresRepertoireRepo) Count(userID string) (int, error) {
 	ctx, cancel := dbContext()
 	defer cancel()
 
 	var count int
-	err := r.pool.QueryRow(ctx, countRepertoiresSQL).Scan(&count)
+	err := r.pool.QueryRow(ctx, countRepertoiresSQL, userID).Scan(&count)
 	if err != nil {
 		return 0, fmt.Errorf("failed to count repertoires: %w", err)
 	}
@@ -322,6 +327,19 @@ func (r *PostgresRepertoireRepo) Exists(id string) (bool, error) {
 		return false, fmt.Errorf("failed to check repertoire existence: %w", err)
 	}
 	return exists, nil
+}
+
+// BelongsToUser checks if a repertoire belongs to a specific user
+func (r *PostgresRepertoireRepo) BelongsToUser(id string, userID string) (bool, error) {
+	ctx, cancel := dbContext()
+	defer cancel()
+
+	var belongs bool
+	err := r.pool.QueryRow(ctx, belongsToUserRepertoireSQL, id, userID).Scan(&belongs)
+	if err != nil {
+		return false, fmt.Errorf("failed to check repertoire ownership: %w", err)
+	}
+	return belongs, nil
 }
 
 // scanRepertoires is a helper to scan multiple repertoire rows

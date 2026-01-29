@@ -1,7 +1,7 @@
 # TreeChess - Technical and Functional Specifications
 
-**Version:** 3.0  
-**Date:** January 19, 2026  
+**Version:** 7.0
+**Date:** January 29, 2026
 **Status:** Draft
 
 ---
@@ -32,6 +32,7 @@ TreeChess is a web application that enables players to create, visualize, and en
 Enable a single user to create and visualize two repertoire trees (White and Black) by importing PGN files, with the ability to manually add new branches during divergences.
 
 **MVP Tech Stack:**
+
 - Frontend: React 18 + TypeScript
 - Backend: Go
 - Database: PostgreSQL (local dev)
@@ -62,14 +63,18 @@ Enable a single user to create and visualize two repertoire trees (White and Bla
 ### 3.1 Repertoire Management
 
 #### REQ-001: Initial Repertoire Creation
+
 On first application startup, the API automatically creates two empty repertoires:
+
 - A "White" repertoire with the initial position (fen: rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -)
 - A "Black" repertoire with the initial position
 
 #### REQ-002: Active Repertoire Selection
+
 The user can switch between White and Black repertoires via a selector. The displayed tree corresponds to the selected repertoire.
 
 #### REQ-003: Data Persistence (PostgreSQL)
+
 Data is stored in a PostgreSQL database. Schema:
 
 ```sql
@@ -86,6 +91,7 @@ CREATE INDEX idx_repertoires_color ON repertoires(color);
 ```
 
 #### REQ-004: Multiple Repertoires per Color
+
 Users can create multiple repertoires per color via `POST /api/repertoires`. Each repertoire has a name and color.
 
 ---
@@ -93,17 +99,22 @@ Users can create multiple repertoires per color via `POST /api/repertoires`. Eac
 ### 3.2 PGN Import
 
 #### REQ-010: PGN File Import
+
 The user can upload a PGN file via a file selector interface. The file can contain one or more games.
 
 #### REQ-011: PGN Parsing
+
 The backend parses the following PGN elements:
+
 - Headers: `[Event]`, `[Site]`, `[Date]`, `[Round]`, `[White]`, `[Black]`, `[Result]`, `[ECO]`, `[Termination]`
 - Moves: Move sequence in Standard Algebraic Notation (SAN)
 
 #### REQ-012: Comments Exclusion
+
 Comments `{}` and variations `()` are ignored during parsing.
 
 #### REQ-013: PGN Format Validation
+
 If the file is not valid PGN, display an explicit error message with the problematic line.
 
 ---
@@ -111,22 +122,27 @@ If the file is not valid PGN, display an explicit error message with the problem
 ### 3.3 Repertoire Comparison
 
 #### REQ-020: Automatic Move Matching
+
 For each imported game, the backend compares each move with the corresponding repertoire (White moves for White repertoire, Black moves for Black repertoire).
 
 #### REQ-021: "Repertoire Followed" Definition
+
 A move is considered "in the repertoire" if a corresponding outgoing edge exists from the current node in the user's tree.
 
 #### REQ-022: Divergence Classification
+
 Three cases during import:
 
-| Case | Condition | Action |
-|------|-----------|--------|
-| A | User's move exists in tree | Mark as "OK" |
-| B | User's move doesn't exist | Mark as "Error - out of repertoire" |
-| C | Opponent's move doesn't exist in tree | Mark as "New line possible" |
+| Case | Condition                             | Action                              |
+| ---- | ------------------------------------- | ----------------------------------- |
+| A    | User's move exists in tree            | Mark as "OK"                        |
+| B    | User's move doesn't exist             | Mark as "Error - out of repertoire" |
+| C    | Opponent's move doesn't exist in tree | Mark as "New line possible"         |
 
 #### REQ-023: Post-Import Summary
+
 After processing a PGN file, display a summary:
+
 - Number of games analyzed
 - Moves in repertoire (green)
 - Moves out of repertoire (orange)
@@ -137,17 +153,22 @@ After processing a PGN file, display a summary:
 ### 3.4 Repertoire Enrichment
 
 #### REQ-030: Manual Move Addition
+
 From a divergence (case B or C), the user can add moves to the repertoire via:
+
 - Manual input on the board (click piece, select target square)
 - SAN notation in a text field
 
 #### REQ-031: Unique Response Constraint
+
 For a given opponent move, the user can record ONLY ONE response. If a response already exists, it is automatically proposed.
 
 #### REQ-032: Sequence Addition
+
 The user can add multiple consecutive moves (1-3 moves typically) to define a new variation.
 
 #### REQ-033: Move Validation
+
 Every added move must be legal according to chess rules. Use `chess.js` for validation before sending to backend.
 
 ---
@@ -155,7 +176,9 @@ Every added move must be legal according to chess rules. Use `chess.js` for vali
 ### 3.5 Tree Visualization
 
 #### REQ-040: GitHub-Style Representation
+
 The tree is displayed as a Git commit diagram:
+
 - Nodes = positions after a move
 - Edges = moves played
 - Horizontal layout left to right (start → end)
@@ -163,15 +186,19 @@ The tree is displayed as a Git commit diagram:
 - As branches move away from root, nodes become closer (densification)
 
 #### REQ-041: Tree Navigation
+
 - Zoom in/out via scroll wheel or controls
 - Pan via drag and drop
 - Click on node to center view and update board
 
 #### REQ-042: Move Display
+
 Each node displays:
+
 - The SAN move (e.g., "e4", "Nf3", "O-O")
 
 #### REQ-043: Node Colors
+
 - Root: Black
 - All nodes: Same style for MVP
 
@@ -180,72 +207,93 @@ Each node displays:
 ### 3.6 Stockfish Engine Analysis
 
 #### REQ-050: Engine Integration
+
 The application integrates Stockfish chess engine running in the browser via WebAssembly to provide real-time position analysis and move suggestions during repertoire editing.
 
 #### REQ-051: Score Indicator
+
 A score indicator is displayed above the chessboard showing the current position evaluation:
+
 - For positive scores (advantage for White): displayed as "+1.5" (centipawns divided by 100)
 - For negative scores (advantage for Black): displayed as "-1.5"
 - For mate situations: displayed as "Mate in X" where X is the number of half-moves to mate
 - During analysis: displayed as "Analyzing..."
 
 The indicator uses color coding:
+
 - Green: evaluation is favorable to the active color or score > -50 (good position)
 - Red: score < -50 (poor position for White)
 
 #### REQ-052: Best Move Highlight
+
 The best move suggested by Stockfish is visually highlighted on the chessboard:
+
 - Source square highlighted with blue border
 - Target square highlighted with blue border
 - Works via `customSquareStyles` in react-chessboard component
 
 #### REQ-053: Top Moves Panel
+
 A panel displays the top 3 best moves for the current position along with their evaluations:
+
 - Move in SAN notation (e.g., "1. e4")
 - Evaluation score formatted as "+0.8" or "-0.5"
 - Analysis depth displayed (e.g., "Top Moves (depth 12)")
 
 #### REQ-054: Analysis Configuration
+
 Stockfish analysis uses the following default configuration:
+
 - **Depth:** 12 (balance between speed and accuracy, ~500ms response time)
 - **Architecture:** WebAssembly running in browser Web Worker
 - **No persistence:** Evaluations are calculated on-demand per session
 - **UCI Protocol:** Universal Chess Interface for communication with engine
 
 #### REQ-055: Analysis Trigger
+
 Stockfish analysis is automatically triggered:
+
 - **Initial load:** When repertoire edit page is first opened
 - **Position change:** After every move played or node selected
 - **On demand:** Can be started/stopped manually
 
 #### REQ-056: Visual Feedback During Analysis
+
 While Stockfish is calculating, the UI provides visual feedback:
+
 - Score indicator shows "Analyzing..." text
 - Optional loading spinner or progress indicator
 - No move highlights until analysis completes
 
 #### REQ-057: UCI Response Parsing
+
 The Stockfish service parses UCI protocol responses including:
+
 - **info lines:** Extract depth, score (cp or mate), bestmove, and pv (principal variation)
 - **bestmove lines:** Extract best move (from-to UCI format)
 - **Score parsing:** Convert centipawns (cp = 1/100 pawn) to display format
 - **PV extraction:** Parse principal variation for top 3 moves
 
 Example UCI output to parse:
+
 ```text
 info depth 12 score cp 150 pv e2e4 e7e5 Bf1c4 ...
 bestmove e2e4 ponder e7e5
 ```
 
 #### REQ-058: Memory Management
+
 Stockfish runs in a Web Worker to avoid blocking the main thread:
+
 - Worker initialization on repertoire edit page mount
 - Worker cleanup on unmount
 - Stop command sent when user navigates away or position changes mid-analysis
 - Single worker instance per page
 
 #### REQ-059: Error Handling
+
 Engine analysis errors are handled gracefully:
+
 - Worker initialization failure: Display error message, disable analysis features
 - Timeout: Stop analysis after 5 seconds, show timeout indicator
 - Invalid FEN: Skip analysis, continue with repertoire editing
@@ -257,21 +305,98 @@ Engine analysis errors are handled gracefully:
 **Note**: This feature is deferred to V2.
 
 #### REQ-060: Branch Visualization
+
 The user selects a node and accesses a dedicated view displaying:
+
 - A board with the current position
 - The move sequence from root node to selected node
 - Previous/Next navigation to browse the sequence
 
 #### REQ-051: Active Review
+
 In review mode, the user can:
+
 - Replay moves by playing them on the board
 - Receive immediate feedback on wrong move
 - Return to branch start
 
 #### REQ-052: Position + Notation Display
+
 ALWAYS display simultaneously:
+
 - Board diagram with pieces
 - SAN move notation in text format
+
+---
+
+### 3.8 YouTube Video Import
+
+#### REQ-070: YouTube Video Import
+
+The user can submit a YouTube URL to extract chess positions from a video. The pipeline:
+
+1. Download video via `yt-dlp`
+2. Extract frames at 1fps via `ffmpeg`
+3. Recognize chess positions in each frame via GoCV (native Go OpenCV)
+4. Build a repertoire tree from the detected positions
+
+#### REQ-071: Video Import Status
+
+Video imports have a status lifecycle: `pending` -> `downloading` -> `extracting` -> `recognizing` -> `building_tree` -> `completed` (or `failed`). Status and progress are streamed in real-time via Server-Sent Events (SSE).
+
+#### REQ-072: SSE Progress Stream
+
+The endpoint `GET /api/video-imports/:id/progress` returns an SSE stream with events:
+
+```
+data: {"status":"recognizing","progress":45,"message":"Frame 135/300"}
+```
+
+#### REQ-073: Position Recognition
+
+Each video frame is analyzed for the presence of a chessboard. Detected positions are stored with:
+
+- FEN string
+- Timestamp (seconds from video start)
+- Frame index
+- Confidence score
+
+#### REQ-074: Tree Builder Algorithm
+
+The tree builder transforms a sequence of FEN positions into a `RepertoireNode` tree:
+
+1. **Deduplication**: Consecutive identical FENs are merged (keep first timestamp)
+2. **Move Detection**: For consecutive FEN pairs, find the legal chess move using `notnil/chess`
+3. **Backtracking**: When a previously-seen FEN reappears, navigate back to that node. The next new position creates a branch
+4. **Gaps**: Positions that cannot be reached by any legal move from the current tree are skipped
+5. **Color Detection**: Heuristic based on root position's side-to-move
+
+#### REQ-075: Video Preview Page
+
+After import completion, the user is navigated to a preview page showing:
+
+- The extracted repertoire tree (reuses `RepertoireTree` component)
+- A chessboard showing the selected node's position
+- An embedded YouTube player synchronized to the position's timestamp
+- Save options: name, color, and save-as-repertoire button
+
+#### REQ-076: Save as Repertoire
+
+The user can save the extracted tree as a new repertoire via `POST /api/video-imports/:id/save`. The request includes name, color, and tree data.
+
+#### REQ-077: Video Position Search
+
+In the repertoire editor, a "Videos" button opens a modal that searches for videos containing the current board position via `GET /api/video-positions/search?fen=...`. Results show video title, embedded player at the matching timestamp, and links to all timestamps where the position appears.
+
+#### REQ-078: External Tool Dependencies
+
+The video import pipeline requires external tools:
+
+- `yt-dlp`: YouTube video download
+- `ffmpeg`: Frame extraction at 1fps
+- `libopencv-dev`: OpenCV library for GoCV-based chess position recognition (native Go, no Python)
+
+Paths are configurable via environment variables: `YTDLP_PATH`, `FFMPEG_PATH`.
 
 ---
 
@@ -280,7 +405,7 @@ ALWAYS display simultaneously:
 ### 4.1 Tree Structure (PostgreSQL JSONB)
 
 ```typescript
-type Color = 'w' | 'b';
+type Color = "w" | "b";
 type MoveSAN = string;
 
 interface RepertoireNode {
@@ -318,6 +443,39 @@ CREATE TABLE repertoires (
 -- Performance indexes
 CREATE INDEX idx_repertoires_color ON repertoires(color);
 CREATE INDEX idx_repertoires_updated ON repertoires(updated_at DESC);
+```
+
+#### Video Import Tables
+
+```sql
+CREATE TABLE video_imports (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    youtube_url VARCHAR(500) NOT NULL,
+    youtube_id VARCHAR(20) NOT NULL,
+    title VARCHAR(500) NOT NULL DEFAULT '',
+    status VARCHAR(20) NOT NULL DEFAULT 'pending'
+        CHECK (status IN ('pending','downloading','extracting','recognizing','building_tree','completed','failed')),
+    progress INTEGER NOT NULL DEFAULT 0,
+    error_message TEXT,
+    total_frames INTEGER,
+    processed_frames INTEGER DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    completed_at TIMESTAMP WITH TIME ZONE
+);
+
+CREATE TABLE video_positions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    video_import_id UUID NOT NULL REFERENCES video_imports(id) ON DELETE CASCADE,
+    fen VARCHAR(100) NOT NULL,
+    timestamp_seconds FLOAT NOT NULL,
+    frame_index INTEGER NOT NULL,
+    confidence FLOAT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX idx_video_positions_fen ON video_positions(fen);
+CREATE INDEX idx_video_positions_video_id ON video_positions(video_import_id);
+CREATE INDEX idx_video_imports_youtube_id ON video_imports(youtube_id);
 ```
 
 ### 4.3 JSONB Stored Structure
@@ -376,7 +534,7 @@ interface MoveAnalysis {
   plyNumber: number;
   san: string;
   fen: string;
-  status: 'in-repertoire' | 'out-of-repertoire' | 'opponent-new';
+  status: "in-repertoire" | "out-of-repertoire" | "opponent-new";
   expectedMove?: string;
   isUserMove: boolean;
 }
@@ -387,33 +545,33 @@ interface MoveAnalysis {
 ```typescript
 // Evaluation result from Stockfish engine
 interface EngineEvaluation {
-  score: number;           // centipawns (+150 = +1.5 for White)
-  mate?: number;          // number of half-moves to mate (undefined if no mate)
-  depth: number;          // analysis depth (default: 12)
-  bestMove?: string;       // best move in SAN notation (e.g., "e4")
-  bestMoveFrom?: string;  // source square in UCI format (e.g., "e2")
-  bestMoveTo?: string;    // target square in UCI format (e.g., "e4")
-  pv: string[];           // principal variation (sequence of UCI moves)
+  score: number; // centipawns (+150 = +1.5 for White)
+  mate?: number; // number of half-moves to mate (undefined if no mate)
+  depth: number; // analysis depth (default: 12)
+  bestMove?: string; // best move in SAN notation (e.g., "e4")
+  bestMoveFrom?: string; // source square in UCI format (e.g., "e2")
+  bestMoveTo?: string; // target square in UCI format (e.g., "e4")
+  pv: string[]; // principal variation (sequence of UCI moves)
 }
 
 // Top move suggestion for the panel
 interface TopMove {
-  san: string;            // SAN notation (e.g., "e4")
-  score: number;          // evaluation in centipawns
-  depth: number;          // analysis depth for this move
+  san: string; // SAN notation (e.g., "e4")
+  score: number; // evaluation in centipawns
+  depth: number; // analysis depth for this move
 }
 
 // UCI info line parsing result
 interface UCIInfo {
   depth: number;
-  score?: number;         // centipawns (positive = advantage for White)
-  scoreMate?: number;     // mate in X moves (if found)
-  bestMove?: string;      // UCI format "e2e4"
-  ponder?: string;        // expected opponent move
-  pv: string[];          // principal variation in UCI format
-  nps?: number;           // nodes per second
-  time?: number;         // time in milliseconds
-  nodes?: number;        // nodes searched
+  score?: number; // centipawns (positive = advantage for White)
+  scoreMate?: number; // mate in X moves (if found)
+  bestMove?: string; // UCI format "e2e4"
+  ponder?: string; // expected opponent move
+  pv: string[]; // principal variation in UCI format
+  nps?: number; // nodes per second
+  time?: number; // time in milliseconds
+  nodes?: number; // nodes searched
 }
 
 // Engine state for the UI
@@ -431,43 +589,66 @@ interface EngineState {
 
 ### 5.1 MVP Tech Stack
 
-| Layer | Technology | Reason |
-|-------|------------|--------|
-| Frontend | React 18 + TypeScript | Components, strict typing |
-| State Management | Zustand | Lightweight |
-| Chess | chess.js | Move validation, FEN, SAN |
-| Chess Engine | Stockfish.js (WebAssembly) | Position analysis, move suggestions |
-| Worker Processing | Web Workers | Non-blocking engine calculations |
-| Visualization | D3.js or React Flow | Interactive GitHub-style tree |
-| Backend | Go + Echo | Performant REST API |
-| Database | PostgreSQL | Structured data, native JSONB |
-| DB Driver | pgx | Native PostgreSQL driver for Go |
-| Frontend Build | Vite | Fast dev server |
+| Layer             | Technology                 | Reason                              |
+| ----------------- | -------------------------- | ----------------------------------- |
+| Frontend          | React 18 + TypeScript      | Components, strict typing           |
+| State Management  | Zustand                    | Lightweight                         |
+| Chess             | chess.js                   | Move validation, FEN, SAN           |
+| Chess Engine      | Stockfish.js (WebAssembly) | Position analysis, move suggestions |
+| Worker Processing | Web Workers                | Non-blocking engine calculations    |
+| Visualization     | D3.js or React Flow        | Interactive GitHub-style tree       |
+| Backend           | Go + Echo                  | Performant REST API                 |
+| Database          | PostgreSQL                 | Structured data, native JSONB       |
+| DB Driver         | pgx                        | Native PostgreSQL driver for Go     |
+| Frontend Build    | Vite                       | Fast dev server                     |
 
 ### 5.2 Backend Architecture (Go)
 
 ```
-cmd/server/
+backend/
 ├── main.go                          # Entry point
 ├── config/
-│   └── config.go                    # Configuration (DB, port)
+│   └── config.go                    # Configuration (DB, port, tool paths)
 ├── internal/
 │   ├── handlers/
 │   │   ├── repertoire.go            # CRUD repertoires
-  │   │   └── import.go                  # Import + Analysis
+│   │   ├── import.go                # Import + Analysis
+│   │   └── video.go                 # Video import endpoints
 │   ├── services/
 │   │   ├── repertoire_service.go    # Business logic
 │   │   ├── pgn_parser.go            # PGN parsing
-│   │   └── tree_service.go          # Tree manipulation
+│   │   ├── tree_service.go          # Tree manipulation
+│   │   ├── video_service.go         # Video import pipeline
+│   │   └── video_tree_builder.go    # FEN → repertoire tree
+│   ├── recognition/
+│   │   ├── recognition.go           # Public API: RecognizeFrames, types
+│   │   ├── board_detect.go          # Multi-scale checkerboard detection
+│   │   ├── template.go              # Template extraction & averaging
+│   │   ├── piece_match.go           # MSE-based piece recognition
+│   │   ├── change_detect.go         # Frame-to-frame diff detection
+│   │   └── fen.go                   # FEN parsing & generation
 │   ├── repository/
 │   │   └── repertoire_repo.go       # PostgreSQL access
 │   ├── models/
-│   │   └── repertoire.go            # TypeScript/Go types
+│   │   └── repertoire.go            # Data structures
 │   └── middleware/
 │       └── logger.go                # Structured logging
 ├── migrations/
 │   └── 001_init.sql                 # PostgreSQL schema
 └── go.mod
+```
+
+#### Recognition Package (`internal/recognition/`)
+
+Native Go package using GoCV (OpenCV bindings) for chess position recognition from video frames. Three-phase pipeline:
+
+1. **Board detection** (`board_detect.go`): Multi-scale scan (0.8–0.3) with checkerboard scoring based on adjacent cell brightness. Refinement step expands partial detections to full 8x8 grid.
+2. **Template extraction** (`template.go`): Crops cells from a known starting position, averages samples per (piece, square-color) pair, synthesizes missing light/dark variants via brightness delta.
+3. **Piece matching** (`piece_match.go`): Normalized inverse MSE scoring (`1 - mean((a-b)²) / 255²`) on grayscale cell images. Change detection (`change_detect.go`) skips unchanged frames.
+
+Public API:
+```go
+func RecognizeFrames(ctx context.Context, framesDir string, onProgress ProgressFunc) (*Result, error)
 ```
 
 ### 5.3 REST API (MVP)
@@ -500,6 +681,18 @@ DELETE /api/analyses/:id                     # Delete analysis
 GET    /api/games                            # List games with pagination
 DELETE /api/games/:analysisId/:gameIndex     # Delete specific game
 POST   /api/games/:analysisId/:gameIndex/reanalyze  # Reanalyze game
+
+# Video Import
+POST   /api/video-imports                    # Submit YouTube URL for import
+GET    /api/video-imports                    # List all video imports
+GET    /api/video-imports/:id                # Get video import details
+GET    /api/video-imports/:id/progress       # SSE stream of import progress
+GET    /api/video-imports/:id/tree           # Get built repertoire tree from import
+POST   /api/video-imports/:id/save           # Save import as repertoire
+DELETE /api/video-imports/:id                # Delete video import
+
+# Video Position Search
+GET    /api/video-positions/search           # Search videos by FEN (?fen=...)
 ```
 
 **Note:** Users can create multiple repertoires per color. The old per-color auto-creation has been replaced with explicit repertoire management.
@@ -585,22 +778,22 @@ class StockfishService {
   initialize(): void {
     this.worker = Stockfish();
     this.worker.onmessage = this.handleMessage.bind(this);
-    this.worker.postMessage('uci');
-    this.worker.postMessage('isready');
+    this.worker.postMessage("uci");
+    this.worker.postMessage("isready");
   }
 
   // Analyze position with FEN string
   analyzePosition(fen: string, depth: number = 12): void {
     if (!this.worker) return;
     this.currentDepth = depth;
-    this.worker.postMessage('ucinewgame');
+    this.worker.postMessage("ucinewgame");
     this.worker.postMessage(`position fen ${fen}`);
     this.worker.postMessage(`go depth ${depth}`);
   }
 
   // Stop current analysis
   stop(): void {
-    this.worker?.postMessage('stop');
+    this.worker?.postMessage("stop");
   }
 
   // Parse UCI info lines
@@ -612,13 +805,13 @@ class StockfishService {
   // Handle worker messages
   private handleMessage(event: MessageEvent): void {
     const line = event.data;
-    if (line.startsWith('info depth')) {
+    if (line.startsWith("info depth")) {
       const info = this.parseInfoLine(line);
       if (info && info.depth >= this.currentDepth) {
         this.onEvaluation?.(this.buildEvaluation(info, line));
       }
-    } else if (line.startsWith('bestmove')) {
-      const parts = line.split(' ');
+    } else if (line.startsWith("bestmove")) {
+      const parts = line.split(" ");
       if (parts[1]) {
         const from = parts[1].slice(0, 2);
         const to = parts[1].slice(2, 4);
@@ -634,7 +827,7 @@ class StockfishService {
 Zustand store for engine state across components:
 
 ```typescript
-import { create } from 'zustand';
+import { create } from "zustand";
 
 interface EngineState {
   isAnalyzing: boolean;
@@ -652,7 +845,7 @@ interface EngineState {
 export const useEngineStore = create<EngineState>((set) => ({
   isAnalyzing: false,
   currentEvaluation: null,
-  currentFEN: '',
+  currentFEN: "",
   error: null,
 
   analyze: (fen: string) => {
@@ -678,10 +871,10 @@ export const useEngineStore = create<EngineState>((set) => ({
     set({
       isAnalyzing: false,
       currentEvaluation: null,
-      currentFEN: '',
-      error: null
+      currentFEN: "",
+      error: null,
     });
-  }
+  },
 }));
 ```
 
@@ -703,7 +896,7 @@ useEffect(() => {
       useEngineStore.getState().setEvaluation({
         ...currentEvaluation,
         bestMoveFrom: move.from,
-        bestMoveTo: move.to
+        bestMoveTo: move.to,
       });
     }
   };
@@ -854,13 +1047,13 @@ function computeTreeLayout(root: RepertoireNode): TreeLayout {
 
 ### 6.3 Interactions
 
-| Interaction | Behavior |
-|-------------|----------|
-| Scroll wheel | Zoom in/out centered on mouse |
-| Click + drag | Pan viewport |
-| Click node | Select node, update board |
-| Double-click node | Open branch review mode |
-| Reset button | Return to root |
+| Interaction       | Behavior                      |
+| ----------------- | ----------------------------- |
+| Scroll wheel      | Zoom in/out centered on mouse |
+| Click + drag      | Pan viewport                  |
+| Click node        | Select node, update board     |
+| Double-click node | Open branch review mode       |
+| Reset button      | Return to root                |
 
 ### 6.4 Graphical Rendering
 
@@ -868,8 +1061,8 @@ function computeTreeLayout(root: RepertoireNode): TreeLayout {
 <svg className="repertoire-tree">
   <g className="viewport" transform={translate(x, y) scale(zoom)}>
     <TreeEdges edges={layout.edges} />
-    <TreeNodes 
-      nodes={layout.nodes} 
+    <TreeNodes
+      nodes={layout.nodes}
       selectedNodeId={selectedId}
       onNodeClick={handleNodeClick}
     />
@@ -1121,28 +1314,28 @@ Legend:
 
 ### 9.1 PGN Parsing Errors
 
-| Error | Message | Action |
-|-------|---------|--------|
-| Empty file | "File is empty" | Invite to choose another file |
-| Invalid format | "Invalid PGN format at line X" | Show format examples |
-| UTF-8 encoding | "Encoding error, use UTF-8" | Auto-correct if possible |
-| No moves found | "File contains no games" | Invite to verify file |
+| Error          | Message                        | Action                        |
+| -------------- | ------------------------------ | ----------------------------- |
+| Empty file     | "File is empty"                | Invite to choose another file |
+| Invalid format | "Invalid PGN format at line X" | Show format examples          |
+| UTF-8 encoding | "Encoding error, use UTF-8"    | Auto-correct if possible      |
+| No moves found | "File contains no games"       | Invite to verify file         |
 
 ### 9.2 Move Validation Errors
 
-| Error | Message | Action |
-|-------|---------|--------|
-| Illegal move | "This move is not legal" | Block addition |
-| SAN ambiguity | "Specify starting square (e.g., Nge2)" | Request complete notation |
-| Invalid position | "Inconsistent position" | Reload from FEN |
+| Error            | Message                                | Action                    |
+| ---------------- | -------------------------------------- | ------------------------- |
+| Illegal move     | "This move is not legal"               | Block addition            |
+| SAN ambiguity    | "Specify starting square (e.g., Nge2)" | Request complete notation |
+| Invalid position | "Inconsistent position"                | Reload from FEN           |
 
 ### 9.3 Backend Errors
 
-| Error | Message | Action |
-|-------|---------|--------|
+| Error         | Message                     | Action                         |
+| ------------- | --------------------------- | ------------------------------ |
 | DB connection | "Database connection error" | Retry with exponential backoff |
-| Timeout | "Operation timed out" | Retry |
-| Invalid JSON | "Data corrupted" | Rollback transaction |
+| Timeout       | "Operation timed out"       | Retry                          |
+| Invalid JSON  | "Data corrupted"            | Rollback transaction           |
 
 ---
 
@@ -1151,34 +1344,38 @@ Legend:
 ### 10.1 Naming Conventions
 
 #### Database
-| Entity | Convention | Example |
-|--------|------------|---------|
-| Table names | snake_case | repertoires |
-| Column names | snake_case | created_at |
-| UUID primary key | id | id |
+
+| Entity           | Convention | Example     |
+| ---------------- | ---------- | ----------- |
+| Table names      | snake_case | repertoires |
+| Column names     | snake_case | created_at  |
+| UUID primary key | id         | id          |
 
 #### API
-| Entity | Convention | Example |
-|--------|------------|---------|
-| URL paths | kebab-case | /api/repertoire/:color |
-| JSON keys | camelCase | treeData |
-| Enum values | lowercase | white, black |
+
+| Entity      | Convention | Example                |
+| ----------- | ---------- | ---------------------- |
+| URL paths   | kebab-case | /api/repertoire/:color |
+| JSON keys   | camelCase  | treeData               |
+| Enum values | lowercase  | white, black           |
 
 #### Frontend
-| Entity | Convention | Example |
-|--------|------------|---------|
-| Files | camelCase.ts | repertoireStore.ts |
-| Components | PascalCase.tsx | ChessBoard.tsx |
-| Interfaces | PascalCase | RepertoireNode |
-| Variables | camelCase | whiteRepertoire |
+
+| Entity     | Convention     | Example            |
+| ---------- | -------------- | ------------------ |
+| Files      | camelCase.ts   | repertoireStore.ts |
+| Components | PascalCase.tsx | ChessBoard.tsx     |
+| Interfaces | PascalCase     | RepertoireNode     |
+| Variables  | camelCase      | whiteRepertoire    |
 
 #### Backend
-| Entity | Convention | Example |
-|--------|------------|---------|
-| Files | snake_case.go | repertoire_service.go |
-| Packages | lowercase | repository |
-| Structs | PascalCase | RepertoireNode |
-| Fields | camelCase | moveNumber |
+
+| Entity   | Convention    | Example               |
+| -------- | ------------- | --------------------- |
+| Files    | snake_case.go | repertoire_service.go |
+| Packages | lowercase     | repository            |
+| Structs  | PascalCase    | RepertoireNode        |
+| Fields   | camelCase     | moveNumber            |
 
 ### 10.2 CORS Configuration
 
@@ -1192,9 +1389,9 @@ Legend:
 
 For cross-page navigation (e.g., PGN import to repertoire edit):
 
-| Key | Purpose | Format |
-|-----|---------|--------|
-| pendingAddNode | Node to add after import | `{"color":"white","parentId":"uuid","fen":"..."}` |
+| Key              | Purpose                        | Format                                                |
+| ---------------- | ------------------------------ | ----------------------------------------------------- |
+| pendingAddNode   | Node to add after import       | `{"color":"white","parentId":"uuid","fen":"..."}`     |
 | analysisNavigate | Navigate context from analysis | `{"color":"white","parentFEN":"...","moveSAN":"..."}` |
 
 Both expire on page unload.
@@ -1204,6 +1401,7 @@ Both expire on page unload.
 **For MVP, transpositions are NOT merged automatically.**
 
 Each path through the tree is kept as-is. If the user adds:
+
 - 1.e4 e5 2.Nf3 → creates path "e4 → e5 → Nf3"
 - 1.Nf3 e5 2.e4 → creates separate path "Nf3 → e5 → e4"
 
@@ -1216,6 +1414,7 @@ Both paths lead to the same position but are stored as separate branches.
 **Default Behavior:** When a promotion is encountered without explicit piece, default to Queen promotion (most common).
 
 **Frontend Input:** When user plays a move to the 8th/1st rank:
+
 - Show promotion dialog
 - Allow user to choose Q, R, B, N
 - Default to Queen if no choice made
@@ -1300,8 +1499,9 @@ treechess/
 #### Configuration Files
 
 **docker-compose.yml:**
+
 ```yaml
-version: '3.8'
+version: "3.8"
 
 services:
   postgres:
@@ -1344,6 +1544,7 @@ volumes:
 ```
 
 **Dockerfile.backend:**
+
 ```dockerfile
 FROM golang:1.21-alpine
 
@@ -1361,6 +1562,7 @@ CMD ["compile-daemon", "--build=go build -o /app/server ./cmd/server", "--run=/a
 ```
 
 **Dockerfile.frontend:**
+
 ```dockerfile
 FROM node:18-alpine
 
@@ -1376,6 +1578,7 @@ CMD ["npm", "run", "dev", "--", "--host"]
 ```
 
 **.dockerignore:**
+
 ```
 node_modules
 .git
@@ -1405,8 +1608,8 @@ docker-compose down -v
 
 #### Access URLs
 
-- Frontend: http://localhost:5173
-- Backend API: http://localhost:8080
+- Frontend: <http://localhost:5173>
+- Backend API: <http://localhost:8080>
 - PostgreSQL: localhost:5432 (treechess/treechess)
 
 ---
@@ -1431,6 +1634,7 @@ npm run test -- --grep "repertoire"
 **Coverage Target**: 50%
 
 **Test Structure:**
+
 ```
 src/
 ├── __tests__/
@@ -1462,9 +1666,10 @@ go test -coverprofile=coverage.out ./...
 go tool cover -html=coverage.out -o coverage.html
 ```
 
- 50%
+50%
 
 **Test Structure**Coverage Target**::**
+
 ```
 internal/
 ├── handlers/
@@ -1504,12 +1709,12 @@ All logs are structured JSON:
 
 ### 13.2 Log Levels
 
-| Level | Usage |
-|-------|-------|
+| Level | Usage                                       |
+| ----- | ------------------------------------------- |
 | DEBUG | Detailed debug information, variable values |
-| INFO | Normal operation events |
-| ERROR | Errors that require attention |
-| WARN | Warnings (non-blocking issues) |
+| INFO  | Normal operation events                     |
+| ERROR | Errors that require attention               |
+| WARN  | Warnings (non-blocking issues)              |
 
 ### 13.3 Output
 
@@ -1541,7 +1746,7 @@ func Log(level, message string, fields map[string]interface{}) {
         Message:   message,
         Service:   "treechess",
     }
-    
+
     // Merge fields into JSON
     entryJSON, _ := json.Marshal(entry)
     log.Println(string(entryJSON))
@@ -1552,7 +1757,7 @@ func Log(level, message string, fields map[string]interface{}) {
 
 ```typescript
 // utils/logger.ts
-type LogLevel = 'debug' | 'info' | 'warn' | 'error';
+type LogLevel = "debug" | "info" | "warn" | "error";
 
 interface LogEntry {
   timestamp: string;
@@ -1572,10 +1777,10 @@ function log(level: LogLevel, message: string, component?: string): void {
 }
 
 export const logger = {
-  debug: (msg: string, comp?: string) => log('debug', msg, comp),
-  info: (msg: string, comp?: string) => log('info', msg, comp),
-  warn: (msg: string, comp?: string) => log('warn', msg, comp),
-  error: (msg: string, comp?: string) => log('error', msg, comp),
+  debug: (msg: string, comp?: string) => log("debug", msg, comp),
+  info: (msg: string, comp?: string) => log("info", msg, comp),
+  warn: (msg: string, comp?: string) => log("warn", msg, comp),
+  error: (msg: string, comp?: string) => log("error", msg, comp),
 };
 ```
 
@@ -1619,11 +1824,13 @@ CREATE INDEX idx_users_email ON users(email);
 ### 14.4 Running Migrations
 
 **Manual:**
+
 ```bash
 psql -d treechess -f migrations/001_init.sql
 ```
 
 **Via Go migration tool (future):**
+
 ```bash
 go-migrate -path migrations -database postgres://... up
 ```
@@ -1636,7 +1843,7 @@ go-migrate -path migrations -database postgres://... up
 
 Create a `README.md` file at project root:
 
-```markdown
+````markdown
 # TreeChess
 
 Interactive chess opening repertoire builder with GitHub-style tree visualization.
@@ -1666,6 +1873,7 @@ cd src && npm install
 # Return to root
 cd ..
 ```
+````
 
 ### Running
 
@@ -1687,8 +1895,8 @@ npm run dev
 docker-compose up --build
 ```
 
-- Frontend: http://localhost:5173
-- Backend: http://localhost:8080
+- Frontend: <http://localhost:5173>
+- Backend: <http://localhost:8080>
 
 ### Project Structure
 
@@ -1719,6 +1927,7 @@ treechess/
 ## License
 
 MIT
+
 ```
 
 ---
@@ -1758,7 +1967,10 @@ MIT
 | 3.0 | 2026-01-19 | - | Full English translation, added tests, logging, migrations, README sections |
 | 4.0 | 2026-01-21 | - | Consolidated specs/ folder content, removed roadmap, added interface contracts and glossary |
 | 5.0 | 2026-01-28 | - | Updated REST API to plural routes, multiple repertoires per color, added Games API |
+| 6.0 | 2026-01-29 | - | Added YouTube video import feature (REQ-070 to REQ-078): video_imports/video_positions tables, SSE progress, tree builder, video search, preview page |
+| 7.0 | 2026-01-29 | - | Migrated video recognition from Python OpenCV to native Go (GoCV). Added `internal/recognition/` package. Removed Python/script dependencies. Updated architecture diagram. |
 
 ---
 
 *Document generated for TreeChess - Chess opening training web app*
+```

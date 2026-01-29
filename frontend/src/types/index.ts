@@ -1,3 +1,25 @@
+// Auth types
+export interface User {
+  id: string;
+  username: string;
+  createdAt: string;
+}
+
+export interface LoginRequest {
+  username: string;
+  password: string;
+}
+
+export interface RegisterRequest {
+  username: string;
+  password: string;
+}
+
+export interface AuthResponse {
+  token: string;
+  user: User;
+}
+
 // Color types
 export type Color = 'white' | 'black';
 export type ShortColor = 'w' | 'b';
@@ -190,4 +212,56 @@ export interface UCIInfo {
   nps?: number;
   time?: number;
   nodes?: number;
+}
+
+// Video import types
+export type VideoImportStatus = 'pending' | 'downloading' | 'extracting' | 'recognizing' | 'building_tree' | 'completed' | 'failed' | 'cancelled';
+
+export interface VideoImport {
+  id: string;
+  youtubeUrl: string;
+  youtubeId: string;
+  title: string;
+  status: VideoImportStatus;
+  progress: number;
+  errorMessage?: string;
+  totalFrames?: number;
+  processedFrames: number;
+  createdAt: string;
+  completedAt?: string;
+}
+
+export interface VideoPosition {
+  id: string;
+  videoImportId: string;
+  fen: string;
+  timestampSeconds: number;
+  frameIndex: number;
+  confidence?: number;
+  createdAt: string;
+}
+
+export interface SSEProgressEvent {
+  status: VideoImportStatus;
+  progress: number;
+  message: string;
+  processedFrames?: number;
+  totalFrames?: number;
+}
+
+export interface VideoTreeResponse {
+  treeData: RepertoireNode;
+  color: Color;
+}
+
+export interface VideoSearchResult {
+  videoImport: VideoImport;
+  positions: VideoPosition[];
+}
+
+export interface VideoImportSaveRequest {
+  name: string;
+  color: Color;
+  repertoireId?: string;
+  treeData: RepertoireNode;
 }

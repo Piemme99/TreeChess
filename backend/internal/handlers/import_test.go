@@ -32,6 +32,7 @@ func TestUploadHandler_MissingFile(t *testing.T) {
 	req.Header.Set(echo.HeaderContentType, writer.FormDataContentType())
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
+	setTestUserID(c)
 
 	importSvc := services.NewImportService(nil, nil)
 	handler := NewImportHandler(importSvc, nil)
@@ -61,6 +62,7 @@ func TestUploadHandler_EmptyUsername(t *testing.T) {
 	req.Header.Set(echo.HeaderContentType, writer.FormDataContentType())
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
+	setTestUserID(c)
 
 	importSvc := services.NewImportService(nil, nil)
 	handler := NewImportHandler(importSvc, nil)
@@ -90,6 +92,7 @@ func TestUploadHandler_InvalidFileExtension(t *testing.T) {
 	req.Header.Set(echo.HeaderContentType, writer.FormDataContentType())
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
+	setTestUserID(c)
 
 	importSvc := services.NewImportService(nil, nil)
 	handler := NewImportHandler(importSvc, nil)
@@ -231,8 +234,10 @@ func TestListAnalysesHandler_Empty(t *testing.T) {
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
+	setTestUserID(c)
+
 	mockAnalysisRepo := &mocks.MockAnalysisRepo{
-		GetAllFunc: func() ([]models.AnalysisSummary, error) {
+		GetAllFunc: func(userID string) ([]models.AnalysisSummary, error) {
 			return []models.AnalysisSummary{}, nil
 		},
 	}
@@ -256,8 +261,10 @@ func TestListAnalysesHandler_WithResults(t *testing.T) {
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
+	setTestUserID(c)
+
 	mockAnalysisRepo := &mocks.MockAnalysisRepo{
-		GetAllFunc: func() ([]models.AnalysisSummary, error) {
+		GetAllFunc: func(userID string) ([]models.AnalysisSummary, error) {
 			return []models.AnalysisSummary{
 				{ID: "uuid-1", Username: "player1", Filename: "game1.pgn", GameCount: 5, UploadedAt: time.Now()},
 				{ID: "uuid-2", Username: "player2", Filename: "game2.pgn", GameCount: 10, UploadedAt: time.Now()},
@@ -287,8 +294,12 @@ func TestGetAnalysisHandler_NotFound(t *testing.T) {
 	c := e.NewContext(req, rec)
 	c.SetParamNames("id")
 	c.SetParamValues(validUUID)
+	setTestUserID(c)
 
 	mockAnalysisRepo := &mocks.MockAnalysisRepo{
+		BelongsToUserFunc: func(id string, userID string) (bool, error) {
+			return true, nil
+		},
 		GetByIDFunc: func(id string) (*models.AnalysisDetail, error) {
 			return nil, repository.ErrAnalysisNotFound
 		},
@@ -310,8 +321,12 @@ func TestGetAnalysisHandler_Found(t *testing.T) {
 	c := e.NewContext(req, rec)
 	c.SetParamNames("id")
 	c.SetParamValues(validUUID)
+	setTestUserID(c)
 
 	mockAnalysisRepo := &mocks.MockAnalysisRepo{
+		BelongsToUserFunc: func(id string, userID string) (bool, error) {
+			return true, nil
+		},
 		GetByIDFunc: func(id string) (*models.AnalysisDetail, error) {
 			return &models.AnalysisDetail{
 				ID:         id,
@@ -346,8 +361,12 @@ func TestDeleteAnalysisHandler_NotFound(t *testing.T) {
 	c := e.NewContext(req, rec)
 	c.SetParamNames("id")
 	c.SetParamValues(validUUID)
+	setTestUserID(c)
 
 	mockAnalysisRepo := &mocks.MockAnalysisRepo{
+		BelongsToUserFunc: func(id string, userID string) (bool, error) {
+			return true, nil
+		},
 		DeleteFunc: func(id string) error {
 			return repository.ErrAnalysisNotFound
 		},
@@ -369,8 +388,12 @@ func TestDeleteAnalysisHandler_Success(t *testing.T) {
 	c := e.NewContext(req, rec)
 	c.SetParamNames("id")
 	c.SetParamValues(validUUID)
+	setTestUserID(c)
 
 	mockAnalysisRepo := &mocks.MockAnalysisRepo{
+		BelongsToUserFunc: func(id string, userID string) (bool, error) {
+			return true, nil
+		},
 		DeleteFunc: func(id string) error {
 			return nil
 		},
@@ -409,6 +432,7 @@ func TestUploadHandler_InvalidBody(t *testing.T) {
 	req.Header.Set(echo.HeaderContentType, "multipart/form-data; boundary=boundary")
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
+	setTestUserID(c)
 
 	importSvc := services.NewImportService(nil, nil)
 	handler := NewImportHandler(importSvc, nil)
@@ -432,6 +456,7 @@ func TestUploadHandler_MissingUsername(t *testing.T) {
 	req.Header.Set(echo.HeaderContentType, writer.FormDataContentType())
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
+	setTestUserID(c)
 
 	importSvc := services.NewImportService(nil, nil)
 	handler := NewImportHandler(importSvc, nil)
@@ -586,6 +611,7 @@ func TestGetAnalysisHandler_InvalidUUID(t *testing.T) {
 	c := e.NewContext(req, rec)
 	c.SetParamNames("id")
 	c.SetParamValues("invalid-uuid")
+	setTestUserID(c)
 
 	importSvc := services.NewImportService(nil, nil)
 	handler := NewImportHandler(importSvc, nil)
@@ -608,6 +634,7 @@ func TestDeleteAnalysisHandler_InvalidUUID(t *testing.T) {
 	c := e.NewContext(req, rec)
 	c.SetParamNames("id")
 	c.SetParamValues("not-a-uuid")
+	setTestUserID(c)
 
 	importSvc := services.NewImportService(nil, nil)
 	handler := NewImportHandler(importSvc, nil)
@@ -630,6 +657,7 @@ func TestDeleteGameHandler_InvalidAnalysisID(t *testing.T) {
 	c := e.NewContext(req, rec)
 	c.SetParamNames("analysisId", "gameIndex")
 	c.SetParamValues("invalid-uuid", "0")
+	setTestUserID(c)
 
 	importSvc := services.NewImportService(nil, nil)
 	handler := NewImportHandler(importSvc, nil)
@@ -653,8 +681,14 @@ func TestDeleteGameHandler_InvalidGameIndex(t *testing.T) {
 	c := e.NewContext(req, rec)
 	c.SetParamNames("analysisId", "gameIndex")
 	c.SetParamValues(validUUID, "abc")
+	setTestUserID(c)
 
-	importSvc := services.NewImportService(nil, nil)
+	mockAnalysisRepo := &mocks.MockAnalysisRepo{
+		BelongsToUserFunc: func(id string, userID string) (bool, error) {
+			return true, nil
+		},
+	}
+	importSvc := services.NewImportService(nil, mockAnalysisRepo)
 	handler := NewImportHandler(importSvc, nil)
 
 	err := handler.DeleteGameHandler(c)
@@ -676,8 +710,14 @@ func TestDeleteGameHandler_NegativeGameIndex(t *testing.T) {
 	c := e.NewContext(req, rec)
 	c.SetParamNames("analysisId", "gameIndex")
 	c.SetParamValues(validUUID, "-1")
+	setTestUserID(c)
 
-	importSvc := services.NewImportService(nil, nil)
+	mockAnalysisRepo := &mocks.MockAnalysisRepo{
+		BelongsToUserFunc: func(id string, userID string) (bool, error) {
+			return true, nil
+		},
+	}
+	importSvc := services.NewImportService(nil, mockAnalysisRepo)
 	handler := NewImportHandler(importSvc, nil)
 
 	err := handler.DeleteGameHandler(c)
@@ -698,6 +738,7 @@ func TestLichessImportHandler_MissingUsername(t *testing.T) {
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
+	setTestUserID(c)
 
 	importSvc := services.NewImportService(nil, nil)
 	lichessSvc := services.NewLichessService()
@@ -720,6 +761,7 @@ func TestLichessImportHandler_InvalidJSON(t *testing.T) {
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
+	setTestUserID(c)
 
 	importSvc := services.NewImportService(nil, nil)
 	lichessSvc := services.NewLichessService()
@@ -736,9 +778,10 @@ func TestGetGamesHandler_DefaultPagination(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/api/games", nil)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
+	setTestUserID(c)
 
 	mockAnalysisRepo := &mocks.MockAnalysisRepo{
-		GetAllGamesFunc: func(limit, offset int) (*models.GamesResponse, error) {
+		GetAllGamesFunc: func(userID string, limit, offset int) (*models.GamesResponse, error) {
 			return &models.GamesResponse{
 				Games:  []models.GameSummary{},
 				Total:  0,
@@ -766,9 +809,10 @@ func TestGetGamesHandler_WithGames(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/api/games", nil)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
+	setTestUserID(c)
 
 	mockAnalysisRepo := &mocks.MockAnalysisRepo{
-		GetAllGamesFunc: func(limit, offset int) (*models.GamesResponse, error) {
+		GetAllGamesFunc: func(userID string, limit, offset int) (*models.GamesResponse, error) {
 			return &models.GamesResponse{
 				Games: []models.GameSummary{
 					{
@@ -809,10 +853,11 @@ func TestGetGamesHandler_CustomPagination(t *testing.T) {
 	c := e.NewContext(req, rec)
 	c.QueryParams().Set("limit", "50")
 	c.QueryParams().Set("offset", "10")
+	setTestUserID(c)
 
 	var capturedLimit, capturedOffset int
 	mockAnalysisRepo := &mocks.MockAnalysisRepo{
-		GetAllGamesFunc: func(limit, offset int) (*models.GamesResponse, error) {
+		GetAllGamesFunc: func(userID string, limit, offset int) (*models.GamesResponse, error) {
 			capturedLimit = limit
 			capturedOffset = offset
 			return &models.GamesResponse{
@@ -931,14 +976,15 @@ func TestUploadHandler_CaseInsensitivePGNExtension(t *testing.T) {
 	req.Header.Set(echo.HeaderContentType, writer.FormDataContentType())
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
+	setTestUserID(c)
 
 	mockRepertoireRepo := &mocks.MockRepertoireRepo{
-		GetByColorFunc: func(color models.Color) ([]models.Repertoire, error) {
+		GetByColorFunc: func(userID string, color models.Color) ([]models.Repertoire, error) {
 			return []models.Repertoire{}, nil
 		},
 	}
 	mockAnalysisRepo := &mocks.MockAnalysisRepo{
-		SaveFunc: func(username, filename string, gameCount int, results []models.GameAnalysis) (*models.AnalysisSummary, error) {
+		SaveFunc: func(userID string, username, filename string, gameCount int, results []models.GameAnalysis) (*models.AnalysisSummary, error) {
 			return &models.AnalysisSummary{
 				ID:        "new-analysis-id",
 				Username:  username,

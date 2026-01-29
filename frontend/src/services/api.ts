@@ -10,10 +10,16 @@ import type {
   GameAnalysis,
   LichessImportOptions,
   CreateRepertoireRequest,
-  UpdateRepertoireRequest
+  UpdateRepertoireRequest,
+  VideoImport,
+  VideoTreeResponse,
+  VideoSearchResult,
+  VideoImportSaveRequest,
+  AuthResponse,
+  User
 } from '../types';
 
-const USERNAME_STORAGE_KEY = 'treechess_username';
+const TOKEN_STORAGE_KEY = 'treechess_token';
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
@@ -24,73 +30,94 @@ export interface RequestOptions {
 
 const api = axios.create({
   baseURL: API_BASE,
-  timeout: 30000, // 30 seconds timeout
+  timeout: 30000,
   headers: {
     'Content-Type': 'application/json'
   }
 });
 
-// Error interceptor
+// Request interceptor - inject auth token
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem(TOKEN_STORAGE_KEY);
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+// Response interceptor - handle 401
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.code !== 'ERR_CANCELED') {
+      if (error.response?.status === 401) {
+        localStorage.removeItem(TOKEN_STORAGE_KEY);
+        // Only redirect if not already on login page
+        if (window.location.pathname !== '/login') {
+          window.location.href = '/login';
+        }
+      }
       console.error('API Error:', error.response?.data || error.message);
     }
     return Promise.reject(error);
   }
 );
 
+// Auth API
+export const authApi = {
+  register: async (username: string, password: string): Promise<AuthResponse> => {
+    const response = await api.post('/auth/register', { username, password });
+    return response.data;
+  },
+
+  login: async (username: string, password: string): Promise<AuthResponse> => {
+    const response = await api.post('/auth/login', { username, password });
+    return response.data;
+  },
+
+  me: async (): Promise<User> => {
+    const response = await api.get('/auth/me');
+    return response.data;
+  },
+};
+
 // Repertoire API
 export const repertoireApi = {
-  // List all repertoires, optionally filtered by color
   list: async (color?: Color): Promise<Repertoire[]> => {
     const params = color ? { color } : {};
     const response = await api.get('/repertoires', { params });
     return response.data;
   },
 
-  // Get a single repertoire by ID
   get: async (id: string): Promise<Repertoire> => {
     const response = await api.get(`/repertoires/${id}`);
     return response.data;
   },
 
-  // Create a new repertoire
   create: async (data: CreateRepertoireRequest): Promise<Repertoire> => {
     const response = await api.post('/repertoires', data);
     return response.data;
   },
 
-  // Rename a repertoire
   rename: async (id: string, name: string): Promise<Repertoire> => {
     const data: UpdateRepertoireRequest = { name };
     const response = await api.patch(`/repertoires/${id}`, data);
     return response.data;
   },
 
-  // Delete a repertoire
   delete: async (id: string): Promise<void> => {
     await api.delete(`/repertoires/${id}`);
   },
 
-  // Add a node to a repertoire
   addNode: async (id: string, data: AddNodeRequest): Promise<Repertoire> => {
     const response = await api.post(`/repertoires/${id}/nodes`, data);
     return response.data;
   },
 
-  // Delete a node from a repertoire
   deleteNode: async (id: string, nodeId: string): Promise<Repertoire> => {
     const response = await api.delete(`/repertoires/${id}/nodes/${nodeId}`);
     return response.data;
   }
-};
-
-// Username storage helpers
-export const usernameStorage = {
-  get: (): string => localStorage.getItem(USERNAME_STORAGE_KEY) || '',
-  set: (username: string): void => localStorage.setItem(USERNAME_STORAGE_KEY, username),
 };
 
 // Import/Analysis API
@@ -134,6 +161,57 @@ export const healthApi = {
     const response = await api.get('/health');
     return response.data;
   }
+};
+
+// Video Import API
+export const videoApi = {
+  submit: async (youtubeUrl: string): Promise<VideoImport> => {
+    const response = await api.post('/video-imports', { youtubeUrl });
+    return response.data;
+  },
+
+  list: async (options?: RequestOptions): Promise<VideoImport[]> => {
+    const response = await api.get('/video-imports', { signal: options?.signal });
+    return response.data;
+  },
+
+  get: async (id: string, options?: RequestOptions): Promise<VideoImport> => {
+    const response = await api.get(`/video-imports/${id}`, { signal: options?.signal });
+    return response.data;
+  },
+
+  getTree: async (id: string, options?: RequestOptions): Promise<VideoTreeResponse> => {
+    const response = await api.get(`/video-imports/${id}/tree`, { signal: options?.signal });
+    return response.data;
+  },
+
+  save: async (id: string, data: VideoImportSaveRequest): Promise<Repertoire> => {
+    const response = await api.post(`/video-imports/${id}/save`, data);
+    return response.data;
+  },
+
+  cancel: async (id: string): Promise<void> => {
+    await api.post(`/video-imports/${id}/cancel`);
+  },
+
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/video-imports/${id}`);
+  },
+
+  searchByFEN: async (fen: string, options?: RequestOptions): Promise<VideoSearchResult[]> => {
+    const response = await api.get('/video-positions/search', {
+      params: { fen },
+      signal: options?.signal,
+    });
+    return response.data;
+  },
+
+  getProgressURL: (id: string): string => {
+    const base = import.meta.env.VITE_API_URL || '/api';
+    const token = localStorage.getItem(TOKEN_STORAGE_KEY);
+    const tokenParam = token ? `?token=${token}` : '';
+    return `${base}/video-imports/${id}/progress${tokenParam}`;
+  },
 };
 
 // Games API

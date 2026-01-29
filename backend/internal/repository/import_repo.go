@@ -14,13 +14,14 @@ import (
 
 const (
 	saveAnalysisSQL = `
-		INSERT INTO analyses (id, username, filename, game_count, results, uploaded_at)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		INSERT INTO analyses (id, user_id, username, filename, game_count, results, uploaded_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		RETURNING id, username, filename, game_count, uploaded_at
 	`
 	getAnalysesSQL = `
 		SELECT id, username, filename, game_count, uploaded_at
 		FROM analyses
+		WHERE user_id = $1
 		ORDER BY uploaded_at DESC
 	`
 	getAnalysisByIDSQL = `
@@ -35,7 +36,11 @@ const (
 	getAllGamesSQL = `
 		SELECT id, results, uploaded_at
 		FROM analyses
+		WHERE user_id = $1
 		ORDER BY uploaded_at DESC
+	`
+	belongsToUserAnalysisSQL = `
+		SELECT EXISTS(SELECT 1 FROM analyses WHERE id = $1 AND user_id = $2)
 	`
 	updateAnalysisResultsSQL = `
 		UPDATE analyses
@@ -55,7 +60,7 @@ func NewPostgresAnalysisRepo(pool *pgxpool.Pool) *PostgresAnalysisRepo {
 }
 
 // Save saves a new analysis
-func (r *PostgresAnalysisRepo) Save(username, filename string, gameCount int, results []models.GameAnalysis) (*models.AnalysisSummary, error) {
+func (r *PostgresAnalysisRepo) Save(userID string, username, filename string, gameCount int, results []models.GameAnalysis) (*models.AnalysisSummary, error) {
 	ctx, cancel := dbContext()
 	defer cancel()
 
@@ -70,6 +75,7 @@ func (r *PostgresAnalysisRepo) Save(username, filename string, gameCount int, re
 	var summary models.AnalysisSummary
 	err = r.pool.QueryRow(ctx, saveAnalysisSQL,
 		id,
+		userID,
 		username,
 		filename,
 		gameCount,
@@ -89,12 +95,12 @@ func (r *PostgresAnalysisRepo) Save(username, filename string, gameCount int, re
 	return &summary, nil
 }
 
-// GetAll returns all analysis summaries
-func (r *PostgresAnalysisRepo) GetAll() ([]models.AnalysisSummary, error) {
+// GetAll returns all analysis summaries for a user
+func (r *PostgresAnalysisRepo) GetAll(userID string) ([]models.AnalysisSummary, error) {
 	ctx, cancel := dbContext()
 	defer cancel()
 
-	rows, err := r.pool.Query(ctx, getAnalysesSQL)
+	rows, err := r.pool.Query(ctx, getAnalysesSQL, userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query analyses: %w", err)
 	}
@@ -164,12 +170,12 @@ func (r *PostgresAnalysisRepo) Delete(id string) error {
 	return nil
 }
 
-// GetAllGames returns all games from all analyses with pagination
-func (r *PostgresAnalysisRepo) GetAllGames(limit, offset int) (*models.GamesResponse, error) {
+// GetAllGames returns all games from all analyses with pagination for a user
+func (r *PostgresAnalysisRepo) GetAllGames(userID string, limit, offset int) (*models.GamesResponse, error) {
 	ctx, cancel := dbContext()
 	defer cancel()
 
-	rows, err := r.pool.Query(ctx, getAllGamesSQL)
+	rows, err := r.pool.Query(ctx, getAllGamesSQL, userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query analyses: %w", err)
 	}
@@ -311,6 +317,19 @@ func (r *PostgresAnalysisRepo) UpdateResults(analysisID string, results []models
 	}
 
 	return nil
+}
+
+// BelongsToUser checks if an analysis belongs to a specific user
+func (r *PostgresAnalysisRepo) BelongsToUser(id string, userID string) (bool, error) {
+	ctx, cancel := dbContext()
+	defer cancel()
+
+	var belongs bool
+	err := r.pool.QueryRow(ctx, belongsToUserAnalysisSQL, id, userID).Scan(&belongs)
+	if err != nil {
+		return false, fmt.Errorf("failed to check analysis ownership: %w", err)
+	}
+	return belongs, nil
 }
 
 // computeGameStatus determines the overall status of a game based on the first actionable move

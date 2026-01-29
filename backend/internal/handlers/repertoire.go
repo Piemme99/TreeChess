@@ -15,6 +15,7 @@ import (
 // GET /api/repertoires?color=white|black
 func ListRepertoiresHandler(svc *services.RepertoireService) echo.HandlerFunc {
 	return func(c echo.Context) error {
+		userID := c.Get("userID").(string)
 		colorParam := c.QueryParam("color")
 
 		var colorFilter *models.Color
@@ -28,7 +29,7 @@ func ListRepertoiresHandler(svc *services.RepertoireService) echo.HandlerFunc {
 			colorFilter = &color
 		}
 
-		repertoires, err := svc.ListRepertoires(colorFilter)
+		repertoires, err := svc.ListRepertoires(userID, colorFilter)
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{
 				"error": "failed to list repertoires",
@@ -48,6 +49,8 @@ func ListRepertoiresHandler(svc *services.RepertoireService) echo.HandlerFunc {
 // POST /api/repertoires
 func CreateRepertoireHandler(svc *services.RepertoireService) echo.HandlerFunc {
 	return func(c echo.Context) error {
+		userID := c.Get("userID").(string)
+
 		var req models.CreateRepertoireRequest
 		if err := c.Bind(&req); err != nil {
 			return c.JSON(http.StatusBadRequest, map[string]string{
@@ -67,7 +70,7 @@ func CreateRepertoireHandler(svc *services.RepertoireService) echo.HandlerFunc {
 			})
 		}
 
-		rep, err := svc.CreateRepertoire(req.Name, req.Color)
+		rep, err := svc.CreateRepertoire(userID, req.Name, req.Color)
 		if err != nil {
 			if errors.Is(err, services.ErrLimitReached) {
 				return c.JSON(http.StatusConflict, map[string]string{
@@ -97,6 +100,7 @@ func CreateRepertoireHandler(svc *services.RepertoireService) echo.HandlerFunc {
 // GET /api/repertoire/:id
 func GetRepertoireHandler(svc *services.RepertoireService) echo.HandlerFunc {
 	return func(c echo.Context) error {
+		userID := c.Get("userID").(string)
 		idParam := c.Param("id")
 
 		// Validate ID is a valid UUID
@@ -104,6 +108,10 @@ func GetRepertoireHandler(svc *services.RepertoireService) echo.HandlerFunc {
 			return c.JSON(http.StatusBadRequest, map[string]string{
 				"error": "id must be a valid UUID",
 			})
+		}
+
+		if err := svc.CheckOwnership(idParam, userID); err != nil {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "repertoire not found"})
 		}
 
 		rep, err := svc.GetRepertoire(idParam)
@@ -126,6 +134,7 @@ func GetRepertoireHandler(svc *services.RepertoireService) echo.HandlerFunc {
 // PATCH /api/repertoire/:id
 func UpdateRepertoireHandler(svc *services.RepertoireService) echo.HandlerFunc {
 	return func(c echo.Context) error {
+		userID := c.Get("userID").(string)
 		idParam := c.Param("id")
 
 		// Validate ID is a valid UUID
@@ -133,6 +142,10 @@ func UpdateRepertoireHandler(svc *services.RepertoireService) echo.HandlerFunc {
 			return c.JSON(http.StatusBadRequest, map[string]string{
 				"error": "id must be a valid UUID",
 			})
+		}
+
+		if err := svc.CheckOwnership(idParam, userID); err != nil {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "repertoire not found"})
 		}
 
 		var req models.UpdateRepertoireRequest
@@ -172,6 +185,7 @@ func UpdateRepertoireHandler(svc *services.RepertoireService) echo.HandlerFunc {
 // DELETE /api/repertoire/:id
 func DeleteRepertoireHandler(svc *services.RepertoireService) echo.HandlerFunc {
 	return func(c echo.Context) error {
+		userID := c.Get("userID").(string)
 		idParam := c.Param("id")
 
 		// Validate ID is a valid UUID
@@ -179,6 +193,10 @@ func DeleteRepertoireHandler(svc *services.RepertoireService) echo.HandlerFunc {
 			return c.JSON(http.StatusBadRequest, map[string]string{
 				"error": "id must be a valid UUID",
 			})
+		}
+
+		if err := svc.CheckOwnership(idParam, userID); err != nil {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "repertoire not found"})
 		}
 
 		err := svc.DeleteRepertoire(idParam)
@@ -201,6 +219,7 @@ func DeleteRepertoireHandler(svc *services.RepertoireService) echo.HandlerFunc {
 // POST /api/repertoire/:id/node
 func AddNodeHandler(svc *services.RepertoireService) echo.HandlerFunc {
 	return func(c echo.Context) error {
+		userID := c.Get("userID").(string)
 		idParam := c.Param("id")
 
 		// Validate repertoire ID is a valid UUID
@@ -208,6 +227,10 @@ func AddNodeHandler(svc *services.RepertoireService) echo.HandlerFunc {
 			return c.JSON(http.StatusBadRequest, map[string]string{
 				"error": "repertoire id must be a valid UUID",
 			})
+		}
+
+		if err := svc.CheckOwnership(idParam, userID); err != nil {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "repertoire not found"})
 		}
 
 		var req models.AddNodeRequest
@@ -271,6 +294,7 @@ func AddNodeHandler(svc *services.RepertoireService) echo.HandlerFunc {
 // DELETE /api/repertoire/:id/node/:nodeId
 func DeleteNodeHandler(svc *services.RepertoireService) echo.HandlerFunc {
 	return func(c echo.Context) error {
+		userID := c.Get("userID").(string)
 		idParam := c.Param("id")
 		nodeID := c.Param("nodeId")
 
@@ -286,6 +310,10 @@ func DeleteNodeHandler(svc *services.RepertoireService) echo.HandlerFunc {
 			return c.JSON(http.StatusBadRequest, map[string]string{
 				"error": "node id must be a valid UUID",
 			})
+		}
+
+		if err := svc.CheckOwnership(idParam, userID); err != nil {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "repertoire not found"})
 		}
 
 		rep, err := svc.DeleteNode(idParam, nodeID)

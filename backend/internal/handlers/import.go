@@ -63,7 +63,8 @@ func (h *ImportHandler) UploadHandler(c echo.Context) error {
 		return ErrorResponse(c, http.StatusRequestEntityTooLarge, "file exceeds maximum allowed size")
 	}
 
-	summary, _, err := h.importService.ParseAndAnalyze(file.Filename, username, string(pgnData))
+	userID := c.Get("userID").(string)
+	summary, _, err := h.importService.ParseAndAnalyze(file.Filename, username, userID, string(pgnData))
 	if err != nil {
 		return BadRequestResponse(c, fmt.Sprintf("failed to parse and analyze PGN: %v", err))
 	}
@@ -77,7 +78,8 @@ func (h *ImportHandler) UploadHandler(c echo.Context) error {
 }
 
 func (h *ImportHandler) ListAnalysesHandler(c echo.Context) error {
-	analyses, err := h.importService.GetAnalyses()
+	userID := c.Get("userID").(string)
+	analyses, err := h.importService.GetAnalyses(userID)
 	if err != nil {
 		return InternalErrorResponse(c, "failed to list analyses")
 	}
@@ -97,9 +99,14 @@ func (h *ImportHandler) ListAnalysesHandler(c echo.Context) error {
 }
 
 func (h *ImportHandler) GetAnalysisHandler(c echo.Context) error {
+	userID := c.Get("userID").(string)
 	id, ok := ValidateUUIDParam(c, "id")
 	if !ok {
 		return nil
+	}
+
+	if err := h.importService.CheckOwnership(id, userID); err != nil {
+		return NotFoundResponse(c, "analysis")
 	}
 
 	detail, err := h.importService.GetAnalysisByID(id)
@@ -121,9 +128,14 @@ func (h *ImportHandler) GetAnalysisHandler(c echo.Context) error {
 }
 
 func (h *ImportHandler) DeleteAnalysisHandler(c echo.Context) error {
+	userID := c.Get("userID").(string)
 	id, ok := ValidateUUIDParam(c, "id")
 	if !ok {
 		return nil
+	}
+
+	if err := h.importService.CheckOwnership(id, userID); err != nil {
+		return NotFoundResponse(c, "analysis")
 	}
 
 	err := h.importService.DeleteAnalysis(id)
@@ -203,10 +215,11 @@ func (h *ImportHandler) GetLegalMovesHandler(c echo.Context) error {
 }
 
 func (h *ImportHandler) GetGamesHandler(c echo.Context) error {
+	userID := c.Get("userID").(string)
 	limit := ParseIntQueryParam(c, "limit", config.DefaultGamesLimit, 1, config.MaxGamesLimit)
 	offset := ParseIntQueryParam(c, "offset", 0, 0, 1000000)
 
-	response, err := h.importService.GetAllGames(limit, offset)
+	response, err := h.importService.GetAllGames(userID, limit, offset)
 	if err != nil {
 		return InternalErrorResponse(c, "failed to get games")
 	}
@@ -215,9 +228,14 @@ func (h *ImportHandler) GetGamesHandler(c echo.Context) error {
 }
 
 func (h *ImportHandler) DeleteGameHandler(c echo.Context) error {
+	userID := c.Get("userID").(string)
 	analysisID, ok := ValidateUUIDParam(c, "analysisId")
 	if !ok {
 		return nil
+	}
+
+	if err := h.importService.CheckOwnership(analysisID, userID); err != nil {
+		return NotFoundResponse(c, "analysis")
 	}
 
 	gameIndexStr := c.Param("gameIndex")
@@ -241,9 +259,14 @@ func (h *ImportHandler) DeleteGameHandler(c echo.Context) error {
 }
 
 func (h *ImportHandler) ReanalyzeGameHandler(c echo.Context) error {
+	userID := c.Get("userID").(string)
 	analysisID, ok := ValidateUUIDParam(c, "analysisId")
 	if !ok {
 		return nil
+	}
+
+	if err := h.importService.CheckOwnership(analysisID, userID); err != nil {
+		return NotFoundResponse(c, "analysis")
 	}
 
 	gameIndexStr := c.Param("gameIndex")
@@ -313,7 +336,8 @@ func (h *ImportHandler) LichessImportHandler(c echo.Context) error {
 
 	filename := fmt.Sprintf("lichess_%s.pgn", req.Username)
 
-	summary, _, err := h.importService.ParseAndAnalyze(filename, req.Username, pgnData)
+	userID := c.Get("userID").(string)
+	summary, _, err := h.importService.ParseAndAnalyze(filename, req.Username, userID, pgnData)
 	if err != nil {
 		return BadRequestResponse(c, fmt.Sprintf("failed to parse and analyze games: %v", err))
 	}

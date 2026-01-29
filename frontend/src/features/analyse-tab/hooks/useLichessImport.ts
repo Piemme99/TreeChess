@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { importApi, usernameStorage } from '../../../services/api';
+import { importApi } from '../../../services/api';
 import { toast } from '../../../stores/toastStore';
 import type { LichessImportOptions } from '../../../types';
 
@@ -19,7 +19,6 @@ export function useLichessImport(username: string, onSuccess?: () => void): UseL
       return false;
     }
 
-    usernameStorage.set(username.trim());
     setImporting(true);
 
     try {

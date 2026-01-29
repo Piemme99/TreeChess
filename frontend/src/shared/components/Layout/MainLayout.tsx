@@ -1,16 +1,18 @@
 import { useState } from 'react';
 import { AnalyseTab } from '../../../features/analyse-tab';
 import { RepertoireTab } from '../../../features/repertoire/RepertoireTab';
+import { useAuthStore } from '../../../stores/authStore';
 
 type TabId = 'analyse' | 'repertoire';
 
 export function MainLayout() {
   const [activeTab, setActiveTab] = useState<TabId>('analyse');
+  const { user, logout } = useAuthStore();
 
   return (
     <div className="main-layout">
       <header className="main-header">
-        <h1 className="main-logo">♔ TreeChess</h1>
+        <h1 className="main-logo">TreeChess</h1>
         <nav className="main-tabs">
           <button
             className={`main-tab ${activeTab === 'analyse' ? 'active' : ''}`}
@@ -25,7 +27,12 @@ export function MainLayout() {
             Repertoire
           </button>
         </nav>
-        <div className="header-spacer" />
+        <div className="header-user">
+          {user && <span className="header-username">{user.username}</span>}
+          <button className="header-logout" onClick={logout}>
+            Logout
+          </button>
+        </div>
       </header>
 
       <main className="main-content">

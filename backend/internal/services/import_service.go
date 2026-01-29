@@ -25,7 +25,7 @@ func NewImportService(repertoireSvc *RepertoireService, analysisRepo repository.
 }
 
 // ParseAndAnalyze parses PGN data and analyzes games against repertoires
-func (s *ImportService) ParseAndAnalyze(filename string, username string, pgnData string) (*models.AnalysisSummary, []models.GameAnalysis, error) {
+func (s *ImportService) ParseAndAnalyze(filename string, username string, userID string, pgnData string) (*models.AnalysisSummary, []models.GameAnalysis, error) {
 	games, err := s.parsePGN(pgnData)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to parse PGN: %w", err)
@@ -38,11 +38,11 @@ func (s *ImportService) ParseAndAnalyze(filename string, username string, pgnDat
 	// Get all repertoires upfront
 	whiteColor := models.ColorWhite
 	blackColor := models.ColorBlack
-	whiteRepertoires, err := s.repertoireService.ListRepertoires(&whiteColor)
+	whiteRepertoires, err := s.repertoireService.ListRepertoires(userID, &whiteColor)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get white repertoires: %w", err)
 	}
-	blackRepertoires, err := s.repertoireService.ListRepertoires(&blackColor)
+	blackRepertoires, err := s.repertoireService.ListRepertoires(userID, &blackColor)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get black repertoires: %w", err)
 	}
@@ -87,7 +87,7 @@ func (s *ImportService) ParseAndAnalyze(filename string, username string, pgnDat
 		return nil, nil, fmt.Errorf("no games found where '%s' was a player", username)
 	}
 
-	summary, err := s.analysisRepo.Save(username, filename, len(results), results)
+	summary, err := s.analysisRepo.Save(userID, username, filename, len(results), results)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to save analysis: %w", err)
 	}
@@ -346,9 +346,9 @@ func (s *ImportService) GetLegalMoves(fen string) ([]string, error) {
 	return sanMoves, nil
 }
 
-// GetAnalyses returns all analyses summaries
-func (s *ImportService) GetAnalyses() ([]models.AnalysisSummary, error) {
-	analyses, err := s.analysisRepo.GetAll()
+// GetAnalyses returns all analyses summaries for a user
+func (s *ImportService) GetAnalyses(userID string) ([]models.AnalysisSummary, error) {
+	analyses, err := s.analysisRepo.GetAll(userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get analyses: %w", err)
 	}
@@ -365,13 +365,25 @@ func (s *ImportService) DeleteAnalysis(id string) error {
 	return s.analysisRepo.Delete(id)
 }
 
-// GetAllGames returns all games from all analyses with pagination
-func (s *ImportService) GetAllGames(limit, offset int) (*models.GamesResponse, error) {
-	response, err := s.analysisRepo.GetAllGames(limit, offset)
+// GetAllGames returns all games from all analyses with pagination for a user
+func (s *ImportService) GetAllGames(userID string, limit, offset int) (*models.GamesResponse, error) {
+	response, err := s.analysisRepo.GetAllGames(userID, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get games: %w", err)
 	}
 	return response, nil
+}
+
+// CheckOwnership verifies that an analysis belongs to the given user
+func (s *ImportService) CheckOwnership(id string, userID string) error {
+	belongs, err := s.analysisRepo.BelongsToUser(id, userID)
+	if err != nil {
+		return fmt.Errorf("failed to check ownership: %w", err)
+	}
+	if !belongs {
+		return ErrNotFound
+	}
+	return nil
 }
 
 // DeleteGame removes a single game from an analysis

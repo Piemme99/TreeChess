@@ -208,5 +208,11 @@ export function GameAnalysisPage() {
 - All API endpoints return JSON; errors use `{"error": "message"}` format
 - Transpositions are NOT automatically merged in the tree
 - Game analyses require a `repertoireId` parameter to specify which repertoire to check
-- Backend uses dependency injection with interfaces (`RepertoireRepository`, `AnalysisRepository`)
-- Sentinel errors: `repository.ErrRepertoireNotFound`, `repository.ErrAnalysisNotFound`
+- Backend uses dependency injection with interfaces (`RepertoireRepository`, `AnalysisRepository`, `VideoRepository`)
+- Sentinel errors: `repository.ErrRepertoireNotFound`, `repository.ErrAnalysisNotFound`, `repository.ErrVideoImportNotFound`
+- YouTube video import: pipeline `yt-dlp` -> `ffmpeg` -> GoCV recognition (`internal/recognition/`) -> Go tree builder
+- Video import uses SSE (`text/event-stream`) for real-time progress
+- `TreeBuilderService` transforms FEN sequences into repertoire trees with backtracking detection
+- Config fields `YtdlpPath`, `FfmpegPath` for external tool paths (env vars)
+- Frontend feature: `features/video-import/` for preview page, `features/analyse-tab/` for YouTube import UI
+- Frontend route: `/video-import/:id/review` for video repertoire preview

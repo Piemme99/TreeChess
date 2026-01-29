@@ -17,10 +17,17 @@ import (
 	"github.com/treechess/backend/internal/services"
 )
 
+const testUserID = "test-user-id"
+
 // Helper function to create a RepertoireService with a mock repo
 func newTestRepertoireService() *services.RepertoireService {
 	mockRepo := &mocks.MockRepertoireRepo{}
 	return services.NewRepertoireService(mockRepo)
+}
+
+// setTestUserID sets the userID in the echo context for testing
+func setTestUserID(c echo.Context) {
+	c.Set("userID", testUserID)
 }
 
 func TestHealthHandler(t *testing.T) {
@@ -45,6 +52,7 @@ func TestListRepertoiresHandler_InvalidColor(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/api/repertoires?color=invalid", nil)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
+	setTestUserID(c)
 
 	svc := newTestRepertoireService()
 	handler := ListRepertoiresHandler(svc)
@@ -67,6 +75,7 @@ func TestGetRepertoireHandler_InvalidID(t *testing.T) {
 	c := e.NewContext(req, rec)
 	c.SetParamNames("id")
 	c.SetParamValues("not-a-uuid")
+	setTestUserID(c)
 
 	svc := newTestRepertoireService()
 	handler := GetRepertoireHandler(svc)
@@ -89,6 +98,7 @@ func TestCreateRepertoireHandler_MissingName(t *testing.T) {
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
+	setTestUserID(c)
 
 	svc := newTestRepertoireService()
 	handler := CreateRepertoireHandler(svc)
@@ -111,6 +121,7 @@ func TestCreateRepertoireHandler_InvalidColor(t *testing.T) {
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
+	setTestUserID(c)
 
 	svc := newTestRepertoireService()
 	handler := CreateRepertoireHandler(svc)
@@ -133,6 +144,7 @@ func TestCreateRepertoireHandler_InvalidJSON(t *testing.T) {
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
+	setTestUserID(c)
 
 	svc := newTestRepertoireService()
 	handler := CreateRepertoireHandler(svc)
@@ -152,6 +164,7 @@ func TestUpdateRepertoireHandler_InvalidID(t *testing.T) {
 	c := e.NewContext(req, rec)
 	c.SetParamNames("id")
 	c.SetParamValues("not-a-uuid")
+	setTestUserID(c)
 
 	svc := newTestRepertoireService()
 	handler := UpdateRepertoireHandler(svc)
@@ -174,6 +187,7 @@ func TestDeleteRepertoireHandler_InvalidID(t *testing.T) {
 	c := e.NewContext(req, rec)
 	c.SetParamNames("id")
 	c.SetParamValues("not-a-uuid")
+	setTestUserID(c)
 
 	svc := newTestRepertoireService()
 	handler := DeleteRepertoireHandler(svc)
@@ -193,6 +207,7 @@ func TestAddNodeHandler_InvalidRepertoireID(t *testing.T) {
 	c := e.NewContext(req, rec)
 	c.SetParamNames("id")
 	c.SetParamValues("not-a-uuid")
+	setTestUserID(c)
 
 	svc := newTestRepertoireService()
 	handler := AddNodeHandler(svc)
@@ -217,8 +232,12 @@ func TestAddNodeHandler_MissingParentID(t *testing.T) {
 	c := e.NewContext(req, rec)
 	c.SetParamNames("id")
 	c.SetParamValues("123e4567-e89b-12d3-a456-426614174000")
+	setTestUserID(c)
 
-	svc := newTestRepertoireService()
+	mockRepo := &mocks.MockRepertoireRepo{
+		BelongsToUserFunc: func(id string, userID string) (bool, error) { return true, nil },
+	}
+	svc := services.NewRepertoireService(mockRepo)
 	handler := AddNodeHandler(svc)
 
 	err := handler(c)
@@ -241,8 +260,12 @@ func TestAddNodeHandler_InvalidParentID(t *testing.T) {
 	c := e.NewContext(req, rec)
 	c.SetParamNames("id")
 	c.SetParamValues("123e4567-e89b-12d3-a456-426614174000")
+	setTestUserID(c)
 
-	svc := newTestRepertoireService()
+	mockRepo := &mocks.MockRepertoireRepo{
+		BelongsToUserFunc: func(id string, userID string) (bool, error) { return true, nil },
+	}
+	svc := services.NewRepertoireService(mockRepo)
 	handler := AddNodeHandler(svc)
 
 	err := handler(c)
@@ -265,8 +288,12 @@ func TestAddNodeHandler_MissingMove(t *testing.T) {
 	c := e.NewContext(req, rec)
 	c.SetParamNames("id")
 	c.SetParamValues("123e4567-e89b-12d3-a456-426614174000")
+	setTestUserID(c)
 
-	svc := newTestRepertoireService()
+	mockRepo := &mocks.MockRepertoireRepo{
+		BelongsToUserFunc: func(id string, userID string) (bool, error) { return true, nil },
+	}
+	svc := services.NewRepertoireService(mockRepo)
 	handler := AddNodeHandler(svc)
 
 	err := handler(c)
@@ -289,8 +316,12 @@ func TestAddNodeHandler_InvalidJSON(t *testing.T) {
 	c := e.NewContext(req, rec)
 	c.SetParamNames("id")
 	c.SetParamValues("123e4567-e89b-12d3-a456-426614174000")
+	setTestUserID(c)
 
-	svc := newTestRepertoireService()
+	mockRepo := &mocks.MockRepertoireRepo{
+		BelongsToUserFunc: func(id string, userID string) (bool, error) { return true, nil },
+	}
+	svc := services.NewRepertoireService(mockRepo)
 	handler := AddNodeHandler(svc)
 
 	err := handler(c)
@@ -306,6 +337,7 @@ func TestDeleteNodeHandler_InvalidRepertoireID(t *testing.T) {
 	c := e.NewContext(req, rec)
 	c.SetParamNames("id", "nodeId")
 	c.SetParamValues("not-a-uuid", "123e4567-e89b-12d3-a456-426614174000")
+	setTestUserID(c)
 
 	svc := newTestRepertoireService()
 	handler := DeleteNodeHandler(svc)
@@ -328,6 +360,7 @@ func TestDeleteNodeHandler_InvalidNodeID(t *testing.T) {
 	c := e.NewContext(req, rec)
 	c.SetParamNames("id", "nodeId")
 	c.SetParamValues("123e4567-e89b-12d3-a456-426614174000", "not-a-uuid")
+	setTestUserID(c)
 
 	svc := newTestRepertoireService()
 	handler := DeleteNodeHandler(svc)
@@ -401,9 +434,10 @@ func TestListRepertoiresHandler_WithColor(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/api/repertoires?color=white", nil)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
+	setTestUserID(c)
 
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByColorFunc: func(color models.Color) ([]models.Repertoire, error) {
+		GetByColorFunc: func(userID string, color models.Color) ([]models.Repertoire, error) {
 			return []models.Repertoire{
 				{ID: "uuid-1", Name: "White Opening", Color: models.ColorWhite},
 				{ID: "uuid-2", Name: "Sicilian Defense", Color: models.ColorWhite},
@@ -430,9 +464,10 @@ func TestListRepertoiresHandler_NoFilter(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/api/repertoires", nil)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
+	setTestUserID(c)
 
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetAllFunc: func() ([]models.Repertoire, error) {
+		GetAllFunc: func(userID string) ([]models.Repertoire, error) {
 			return []models.Repertoire{
 				{ID: "uuid-1", Name: "White Opening", Color: models.ColorWhite},
 				{ID: "uuid-2", Name: "Black Defense", Color: models.ColorBlack},
@@ -460,10 +495,11 @@ func TestCreateRepertoireHandler_ValidRequest(t *testing.T) {
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
+	setTestUserID(c)
 
 	mockRepo := &mocks.MockRepertoireRepo{
-		CountFunc: func() (int, error) { return 0, nil },
-		CreateFunc: func(name string, color models.Color) (*models.Repertoire, error) {
+		CountFunc: func(userID string) (int, error) { return 0, nil },
+		CreateFunc: func(userID string, name string, color models.Color) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID:    "new-uuid",
 				Name:  name,
@@ -499,8 +535,10 @@ func TestGetRepertoireHandler_ValidID(t *testing.T) {
 	c := e.NewContext(req, rec)
 	c.SetParamNames("id")
 	c.SetParamValues(validUUID)
+	setTestUserID(c)
 
 	mockRepo := &mocks.MockRepertoireRepo{
+		BelongsToUserFunc: func(id string, userID string) (bool, error) { return true, nil },
 		GetByIDFunc: func(id string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID:    id,
@@ -536,8 +574,10 @@ func TestGetRepertoireHandler_NotFound(t *testing.T) {
 	c := e.NewContext(req, rec)
 	c.SetParamNames("id")
 	c.SetParamValues(validUUID)
+	setTestUserID(c)
 
 	mockRepo := &mocks.MockRepertoireRepo{
+		BelongsToUserFunc: func(id string, userID string) (bool, error) { return true, nil },
 		GetByIDFunc: func(id string) (*models.Repertoire, error) {
 			return nil, repository.ErrRepertoireNotFound
 		},
@@ -561,9 +601,11 @@ func TestUpdateRepertoireHandler_ValidRequest(t *testing.T) {
 	c := e.NewContext(req, rec)
 	c.SetParamNames("id")
 	c.SetParamValues(validUUID)
+	setTestUserID(c)
 
 	mockRepo := &mocks.MockRepertoireRepo{
-		ExistsFunc: func(id string) (bool, error) { return true, nil },
+		BelongsToUserFunc: func(id string, userID string) (bool, error) { return true, nil },
+		ExistsFunc:        func(id string) (bool, error) { return true, nil },
 		UpdateNameFunc: func(id string, name string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID:    id,
@@ -596,9 +638,10 @@ func TestUpdateRepertoireHandler_NotFound(t *testing.T) {
 	c := e.NewContext(req, rec)
 	c.SetParamNames("id")
 	c.SetParamValues(validUUID)
+	setTestUserID(c)
 
 	mockRepo := &mocks.MockRepertoireRepo{
-		ExistsFunc: func(id string) (bool, error) { return false, nil },
+		BelongsToUserFunc: func(id string, userID string) (bool, error) { return false, nil },
 	}
 	svc := services.NewRepertoireService(mockRepo)
 	handler := UpdateRepertoireHandler(svc)
@@ -617,9 +660,11 @@ func TestDeleteRepertoireHandler_ValidID(t *testing.T) {
 	c := e.NewContext(req, rec)
 	c.SetParamNames("id")
 	c.SetParamValues(validUUID)
+	setTestUserID(c)
 
 	mockRepo := &mocks.MockRepertoireRepo{
-		DeleteFunc: func(id string) error { return nil },
+		BelongsToUserFunc: func(id string, userID string) (bool, error) { return true, nil },
+		DeleteFunc:        func(id string) error { return nil },
 	}
 	svc := services.NewRepertoireService(mockRepo)
 	handler := DeleteRepertoireHandler(svc)
@@ -638,8 +683,10 @@ func TestDeleteRepertoireHandler_NotFound(t *testing.T) {
 	c := e.NewContext(req, rec)
 	c.SetParamNames("id")
 	c.SetParamValues(validUUID)
+	setTestUserID(c)
 
 	mockRepo := &mocks.MockRepertoireRepo{
+		BelongsToUserFunc: func(id string, userID string) (bool, error) { return true, nil },
 		DeleteFunc: func(id string) error {
 			return repository.ErrRepertoireNotFound
 		},
@@ -664,8 +711,10 @@ func TestAddNodeHandler_ValidRequest(t *testing.T) {
 	c := e.NewContext(req, rec)
 	c.SetParamNames("id")
 	c.SetParamValues(validUUID)
+	setTestUserID(c)
 
 	mockRepo := &mocks.MockRepertoireRepo{
+		BelongsToUserFunc: func(id string, userID string) (bool, error) { return true, nil },
 		GetByIDFunc: func(id string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID:    id,
@@ -715,8 +764,10 @@ func TestAddNodeHandler_RepertoireNotFound(t *testing.T) {
 	c := e.NewContext(req, rec)
 	c.SetParamNames("id")
 	c.SetParamValues(validUUID)
+	setTestUserID(c)
 
 	mockRepo := &mocks.MockRepertoireRepo{
+		BelongsToUserFunc: func(id string, userID string) (bool, error) { return true, nil },
 		GetByIDFunc: func(id string) (*models.Repertoire, error) {
 			return nil, repository.ErrRepertoireNotFound
 		},
@@ -742,8 +793,10 @@ func TestDeleteNodeHandler_ValidRequest(t *testing.T) {
 	c := e.NewContext(req, rec)
 	c.SetParamNames("id", "nodeId")
 	c.SetParamValues(validUUID, nodeUUID)
+	setTestUserID(c)
 
 	mockRepo := &mocks.MockRepertoireRepo{
+		BelongsToUserFunc: func(id string, userID string) (bool, error) { return true, nil },
 		GetByIDFunc: func(id string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID:    id,
@@ -792,8 +845,10 @@ func TestDeleteNodeHandler_CannotDeleteRoot(t *testing.T) {
 	c := e.NewContext(req, rec)
 	c.SetParamNames("id", "nodeId")
 	c.SetParamValues(validUUID, rootUUID)
+	setTestUserID(c)
 
 	mockRepo := &mocks.MockRepertoireRepo{
+		BelongsToUserFunc: func(id string, userID string) (bool, error) { return true, nil },
 		GetByIDFunc: func(id string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID:    id,

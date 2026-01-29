@@ -10,36 +10,206 @@ import (
 	"github.com/treechess/backend/internal/models"
 )
 
-// TreeBuilderService builds repertoire trees from sequences of video positions
-type TreeBuilderService struct{}
+// TreeBuilderOptions configures the tree builder behavior
+type TreeBuilderOptions struct {
+	EnableClosestMoveFallback bool // default: true
+	ClosestMoveMaxDiff        int  // default: 4
+	EnableStructuralFilter    bool // default: true
+	EnableContinuityFilter    bool // default: false (tree builder handles this via legal move validation)
+	ContinuityMaxDiff         int  // default: 6
+}
 
-// NewTreeBuilderService creates a new tree builder service
+// DefaultTreeBuilderOptions returns the default options
+func DefaultTreeBuilderOptions() TreeBuilderOptions {
+	return TreeBuilderOptions{
+		EnableClosestMoveFallback: true,
+		ClosestMoveMaxDiff:        4,
+		EnableStructuralFilter:    true,
+		EnableContinuityFilter:    false,
+		ContinuityMaxDiff:         6,
+	}
+}
+
+// SkippedPosition records a position that couldn't be connected to the tree
+type SkippedPosition struct {
+	FrameIndex int
+	FEN        string
+	Reason     string
+}
+
+// FallbackMove records a position where the closest legal move fallback was used
+type FallbackMove struct {
+	FrameIndex int
+	OriginalFEN string
+	UsedMove    string
+	ResultFEN   string
+	Diff        int
+}
+
+// FilteredPosition records a position that was rejected by a pre-filter
+type FilteredPosition struct {
+	FrameIndex int
+	FEN        string
+	Filter     string // "structural" or "continuity"
+	Reason     string
+}
+
+// TreeBuildLog collects diagnostics from the tree building process
+type TreeBuildLog struct {
+	Skipped   []SkippedPosition
+	Fallbacks []FallbackMove
+	Filtered  []FilteredPosition
+}
+
+// TreeBuilderService builds repertoire trees from sequences of video positions
+type TreeBuilderService struct {
+	opts TreeBuilderOptions
+}
+
+// NewTreeBuilderService creates a new tree builder service with default options
 func NewTreeBuilderService() *TreeBuilderService {
-	return &TreeBuilderService{}
+	return &TreeBuilderService{opts: DefaultTreeBuilderOptions()}
+}
+
+// NewTreeBuilderServiceWithOptions creates a tree builder service with custom options
+func NewTreeBuilderServiceWithOptions(opts TreeBuilderOptions) *TreeBuilderService {
+	return &TreeBuilderService{opts: opts}
 }
 
 // BuildTreeFromPositions transforms a sequence of FEN positions into a repertoire tree
-func (s *TreeBuilderService) BuildTreeFromPositions(positions []models.VideoPosition) (*models.RepertoireNode, models.Color, error) {
+func (s *TreeBuilderService) BuildTreeFromPositions(positions []models.VideoPosition) (*models.RepertoireNode, models.Color, *TreeBuildLog, error) {
 	if len(positions) == 0 {
-		return nil, "", fmt.Errorf("no positions provided")
+		return nil, "", nil, fmt.Errorf("no positions provided")
 	}
 
-	// Step 1: Deduplicate consecutive identical FENs
-	deduped := deduplicateConsecutive(positions)
+	buildLog := &TreeBuildLog{}
+
+	// Step 1: Pre-filter positions (best-effort: fall back to unfiltered if all rejected)
+	filtered := filterPositions(positions, s.opts, buildLog)
+	if len(filtered) == 0 {
+		filtered = positions
+	}
+
+	// Step 2: Deduplicate consecutive identical FENs
+	deduped := deduplicateConsecutive(filtered)
 	if len(deduped) == 0 {
-		return nil, "", fmt.Errorf("no valid positions after deduplication")
+		return nil, "", buildLog, fmt.Errorf("no valid positions after deduplication")
 	}
 
-	// Step 2: Build the tree with backtracking detection
-	root, err := buildTree(deduped)
+	// Step 3: Build the tree with backtracking detection
+	root, err := buildTree(deduped, s.opts, buildLog)
 	if err != nil {
-		return nil, "", err
+		return nil, "", buildLog, err
 	}
 
-	// Step 3: Detect color
+	// Step 4: Detect color
 	color := detectColor(root)
 
-	return root, color, nil
+	return root, color, buildLog, nil
+}
+
+// filterPositions applies structural and continuity filters to reject bad FEN positions.
+// Rejected positions are logged and excluded from the returned slice.
+func filterPositions(positions []models.VideoPosition, opts TreeBuilderOptions, buildLog *TreeBuildLog) []models.VideoPosition {
+	var result []models.VideoPosition
+	var lastAcceptedBoard string
+
+	for _, pos := range positions {
+		board := normalizeBoardFEN(pos.FEN)
+
+		if opts.EnableStructuralFilter {
+			if reason, ok := validateStructuralFEN(board); !ok {
+				buildLog.Filtered = append(buildLog.Filtered, FilteredPosition{
+					FrameIndex: pos.FrameIndex,
+					FEN:        pos.FEN,
+					Filter:     "structural",
+					Reason:     reason,
+				})
+				continue
+			}
+		}
+
+		if opts.EnableContinuityFilter && lastAcceptedBoard != "" {
+			diff := countBoardDiffs(lastAcceptedBoard, board)
+			if diff > opts.ContinuityMaxDiff {
+				buildLog.Filtered = append(buildLog.Filtered, FilteredPosition{
+					FrameIndex: pos.FrameIndex,
+					FEN:        pos.FEN,
+					Filter:     "continuity",
+					Reason:     fmt.Sprintf("too many diffs: %d (max %d)", diff, opts.ContinuityMaxDiff),
+				})
+				continue
+			}
+		}
+
+		lastAcceptedBoard = board
+		result = append(result, pos)
+	}
+
+	return result
+}
+
+// validateStructuralFEN checks that a FEN board string is structurally valid.
+// Returns (reason, false) if invalid, ("", true) if valid.
+func validateStructuralFEN(board string) (string, bool) {
+	expanded := expandBoardFEN(board)
+	if len(expanded) != 64 {
+		return fmt.Sprintf("invalid board length: %d", len(expanded)), false
+	}
+
+	var whiteKings, blackKings int
+	var whitePieces, blackPieces int
+	var whitePawns, blackPawns int
+
+	for i, ch := range expanded {
+		if ch == '.' {
+			continue
+		}
+
+		rank := i / 8 // 0 = rank 8, 7 = rank 1
+
+		if ch >= 'A' && ch <= 'Z' {
+			whitePieces++
+			if ch == 'K' {
+				whiteKings++
+			}
+			if ch == 'P' {
+				whitePawns++
+				if rank == 0 || rank == 7 {
+					return fmt.Sprintf("white pawn on rank %d", 8-rank), false
+				}
+			}
+		} else if ch >= 'a' && ch <= 'z' {
+			blackPieces++
+			if ch == 'k' {
+				blackKings++
+			}
+			if ch == 'p' {
+				blackPawns++
+				if rank == 0 || rank == 7 {
+					return fmt.Sprintf("black pawn on rank %d", 8-rank), false
+				}
+			}
+		}
+	}
+
+	if whiteKings != 1 || blackKings != 1 {
+		return fmt.Sprintf("invalid kings: K=%d, k=%d", whiteKings, blackKings), false
+	}
+	if whitePieces > 16 {
+		return fmt.Sprintf("too many white pieces: %d", whitePieces), false
+	}
+	if blackPieces > 16 {
+		return fmt.Sprintf("too many black pieces: %d", blackPieces), false
+	}
+	if whitePawns > 8 {
+		return fmt.Sprintf("too many white pawns: %d", whitePawns), false
+	}
+	if blackPawns > 8 {
+		return fmt.Sprintf("too many black pawns: %d", blackPawns), false
+	}
+
+	return "", true
 }
 
 // deduplicateConsecutive merges consecutive frames with the same FEN, keeping the first timestamp
@@ -76,7 +246,7 @@ func normalizeBoardFEN(fen string) string {
 }
 
 // buildTree constructs a RepertoireNode tree from deduplicated positions
-func buildTree(positions []models.VideoPosition) (*models.RepertoireNode, error) {
+func buildTree(positions []models.VideoPosition, opts TreeBuilderOptions, buildLog *TreeBuildLog) (*models.RepertoireNode, error) {
 	if len(positions) == 0 {
 		return nil, fmt.Errorf("no positions to build tree from")
 	}
@@ -143,8 +313,37 @@ func buildTree(positions []models.VideoPosition) (*models.RepertoireNode, error)
 				}
 			}
 			if !found {
-				// Skip this position - can't connect it to the tree
-				continue
+				// Fallback: try closest legal move from current node
+				if opts.EnableClosestMoveFallback {
+					closestMove, closestFEN, diff, closestErr := findClosestLegalMove(currentNode.FEN, pos.FEN, opts.ClosestMoveMaxDiff)
+					if closestErr == nil {
+						move = closestMove
+						resultingFEN = closestFEN
+						buildLog.Fallbacks = append(buildLog.Fallbacks, FallbackMove{
+							FrameIndex:  pos.FrameIndex,
+							OriginalFEN: pos.FEN,
+							UsedMove:    closestMove,
+							ResultFEN:   closestFEN,
+							Diff:        diff,
+						})
+					} else {
+						// Skip this position - can't connect it even with fallback
+						buildLog.Skipped = append(buildLog.Skipped, SkippedPosition{
+							FrameIndex: pos.FrameIndex,
+							FEN:        pos.FEN,
+							Reason:     "no legal move or close fallback found",
+						})
+						continue
+					}
+				} else {
+					// Fallback disabled - skip
+					buildLog.Skipped = append(buildLog.Skipped, SkippedPosition{
+						FrameIndex: pos.FrameIndex,
+						FEN:        pos.FEN,
+						Reason:     "no legal move found (fallback disabled)",
+					})
+					continue
+				}
 			}
 		}
 
@@ -271,4 +470,83 @@ func ensureFullFEN6(fen string) string {
 		return fen + " w KQkq - 0 1"
 	}
 	return fen + " 0 1"
+}
+
+// expandBoardFEN expands a FEN board string into a 64-character string
+// where each character represents a square (piece letter or '.' for empty)
+func expandBoardFEN(board string) string {
+	var result strings.Builder
+	result.Grow(64)
+	for _, ch := range board {
+		if ch == '/' {
+			continue
+		}
+		if ch >= '1' && ch <= '8' {
+			for i := 0; i < int(ch-'0'); i++ {
+				result.WriteByte('.')
+			}
+		} else {
+			result.WriteRune(ch)
+		}
+	}
+	return result.String()
+}
+
+// countBoardDiffs counts the number of squares that differ between two FEN board strings
+func countBoardDiffs(boardA, boardB string) int {
+	a := expandBoardFEN(boardA)
+	b := expandBoardFEN(boardB)
+	if len(a) != 64 || len(b) != 64 {
+		return 64 // invalid FEN, return max diff
+	}
+	diffs := 0
+	for i := 0; i < 64; i++ {
+		if a[i] != b[i] {
+			diffs++
+		}
+	}
+	return diffs
+}
+
+// findClosestLegalMove finds the legal move from fromFEN whose resulting board
+// is closest to the target toFEN board. Returns the move, resulting FEN, diff count, and error.
+// Only returns a match if the diff is <= maxDiff.
+func findClosestLegalMove(fromFEN, toFEN string, maxDiff int) (string, string, int, error) {
+	fullFromFEN := ensureFullFEN6(fromFEN)
+	targetBoard := normalizeBoardFEN(toFEN)
+
+	fenFn, err := chess.FEN(fullFromFEN)
+	if err != nil {
+		return "", "", 0, fmt.Errorf("invalid source FEN: %w", err)
+	}
+
+	game := chess.NewGame(fenFn)
+	validMoves := game.ValidMoves()
+
+	bestMove := ""
+	bestFEN := ""
+	bestDiff := maxDiff + 1
+
+	for _, move := range validMoves {
+		testGame := chess.NewGame(fenFn)
+		if err := testGame.Move(move); err != nil {
+			continue
+		}
+
+		resultFEN := testGame.Position().String()
+		resultBoard := normalizeBoardFEN(resultFEN)
+
+		diff := countBoardDiffs(resultBoard, targetBoard)
+		if diff < bestDiff {
+			bestDiff = diff
+			bestMove = chess.AlgebraicNotation{}.Encode(game.Position(), move)
+			bestFEN = normalizeFEN4(resultFEN)
+		}
+	}
+
+	if bestMove == "" || bestDiff > maxDiff {
+		return "", "", 0, fmt.Errorf("no legal move within %d diffs from %s to %s", maxDiff, normalizeBoardFEN(fromFEN), targetBoard)
+	}
+
+	return bestMove, bestFEN, bestDiff, nil
 }

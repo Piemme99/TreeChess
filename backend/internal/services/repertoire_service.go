@@ -47,8 +47,8 @@ func NewRepertoireService(repo repository.RepertoireRepository) *RepertoireServi
 	return &RepertoireService{repo: repo}
 }
 
-// CreateRepertoire creates a new repertoire with the given name and color
-func (s *RepertoireService) CreateRepertoire(name string, color models.Color) (*models.Repertoire, error) {
+// CreateRepertoire creates a new repertoire with the given name and color for a user
+func (s *RepertoireService) CreateRepertoire(userID string, name string, color models.Color) (*models.Repertoire, error) {
 	if color != models.ColorWhite && color != models.ColorBlack {
 		return nil, fmt.Errorf("%w: %s", ErrInvalidColor, color)
 	}
@@ -62,7 +62,7 @@ func (s *RepertoireService) CreateRepertoire(name string, color models.Color) (*
 	}
 
 	// Check repertoire limit
-	count, err := s.repo.Count()
+	count, err := s.repo.Count(userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check repertoire count: %w", err)
 	}
@@ -70,7 +70,7 @@ func (s *RepertoireService) CreateRepertoire(name string, color models.Color) (*
 		return nil, ErrLimitReached
 	}
 
-	return s.repo.Create(name, color)
+	return s.repo.Create(userID, name, color)
 }
 
 // GetRepertoire retrieves a repertoire by its ID
@@ -86,15 +86,27 @@ func (s *RepertoireService) GetRepertoire(id string) (*models.Repertoire, error)
 	return rep, nil
 }
 
-// ListRepertoires returns all repertoires, optionally filtered by color
-func (s *RepertoireService) ListRepertoires(color *models.Color) ([]models.Repertoire, error) {
+// ListRepertoires returns all repertoires for a user, optionally filtered by color
+func (s *RepertoireService) ListRepertoires(userID string, color *models.Color) ([]models.Repertoire, error) {
 	if color != nil {
 		if *color != models.ColorWhite && *color != models.ColorBlack {
 			return nil, fmt.Errorf("%w: %s", ErrInvalidColor, *color)
 		}
-		return s.repo.GetByColor(*color)
+		return s.repo.GetByColor(userID, *color)
 	}
-	return s.repo.GetAll()
+	return s.repo.GetAll(userID)
+}
+
+// CheckOwnership verifies that a repertoire belongs to the given user
+func (s *RepertoireService) CheckOwnership(id string, userID string) error {
+	belongs, err := s.repo.BelongsToUser(id, userID)
+	if err != nil {
+		return fmt.Errorf("failed to check ownership: %w", err)
+	}
+	if !belongs {
+		return ErrNotFound
+	}
+	return nil
 }
 
 // RenameRepertoire updates the name of a repertoire
@@ -175,6 +187,20 @@ func (s *RepertoireService) AddNode(repertoireID string, req models.AddNodeReque
 	newMetadata := calculateMetadata(rep.TreeData)
 
 	return s.repo.Save(repertoireID, rep.TreeData, newMetadata)
+}
+
+// SaveTree saves a complete tree to a repertoire, replacing the existing tree data
+func (s *RepertoireService) SaveTree(repertoireID string, treeData models.RepertoireNode) (*models.Repertoire, error) {
+	_, err := s.repo.GetByID(repertoireID)
+	if err != nil {
+		if errors.Is(err, repository.ErrRepertoireNotFound) {
+			return nil, fmt.Errorf("%w: %w", ErrNotFound, err)
+		}
+		return nil, err
+	}
+
+	metadata := calculateMetadata(treeData)
+	return s.repo.Save(repertoireID, treeData, metadata)
 }
 
 // DeleteNode removes a node and its children from a repertoire

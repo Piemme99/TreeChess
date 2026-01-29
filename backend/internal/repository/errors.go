@@ -13,4 +13,8 @@ var (
 
 	// Video import errors
 	ErrVideoImportNotFound = fmt.Errorf("video import not found")
+
+	// User errors
+	ErrUserNotFound   = fmt.Errorf("user not found")
+	ErrUsernameExists = fmt.Errorf("username already exists")
 )

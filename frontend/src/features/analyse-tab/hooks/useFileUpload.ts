@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { importApi, usernameStorage } from '../../../services/api';
+import { importApi } from '../../../services/api';
 import { toast } from '../../../stores/toastStore';
 
 export interface UseFileUploadReturn {
@@ -23,7 +23,6 @@ export function useFileUpload(username: string, onSuccess?: () => void): UseFile
       return false;
     }
 
-    usernameStorage.set(username.trim());
     setUploading(true);
 
     try {

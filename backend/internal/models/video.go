@@ -15,6 +15,7 @@ const (
 	VideoStatusBuildingTree VideoImportStatus = "building_tree"
 	VideoStatusCompleted    VideoImportStatus = "completed"
 	VideoStatusFailed       VideoImportStatus = "failed"
+	VideoStatusCancelled    VideoImportStatus = "cancelled"
 )
 
 // VideoImport represents a YouTube video import

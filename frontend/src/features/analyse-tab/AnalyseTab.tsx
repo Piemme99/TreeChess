@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { usernameStorage } from '../../services/api';
+import { useAuthStore } from '../../stores/authStore';
 import { useGames } from './hooks/useGames';
 import { useFileUpload } from './hooks/useFileUpload';
 import { useLichessImport } from './hooks/useLichessImport';
@@ -11,7 +11,8 @@ import { ConfirmModal } from '../../shared/components/UI';
 
 export function AnalyseTab() {
   const navigate = useNavigate();
-  const [username, setUsername] = useState(() => usernameStorage.get());
+  const authUser = useAuthStore((s) => s.user);
+  const [username, setUsername] = useState(() => authUser?.username || '');
 
   const {
     games,
