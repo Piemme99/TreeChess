@@ -1,17 +1,27 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { useEngineStore } from '../../../../stores/engineStore';
 import { stockfishService } from '../../../../services/stockfish';
+import type { EngineEvaluation } from '../../../../types';
+
+interface EngineAPI {
+  isAnalyzing: boolean;
+  currentEvaluation: EngineEvaluation | null;
+  currentFEN: string;
+  error: string | null;
+  analyze: (fen: string) => void;
+  stop: () => void;
+}
 
 export function useEngine() {
   const isInitializedRef = useRef(false);
-  const { 
-    isAnalyzing, 
-    currentEvaluation, 
-    currentFEN, 
+  const {
+    isAnalyzing,
+    currentEvaluation,
+    currentFEN,
     error,
-    setEvaluation, 
-    setError, 
-    setAnalyzing 
+    setEvaluation,
+    setError,
+    setAnalyzing
   } = useEngineStore();
 
   useEffect(() => {
@@ -50,12 +60,23 @@ export function useEngine() {
     stockfishService.stop();
   }, []);
 
-  return {
+  // Use ref to maintain stable object reference
+  const engineRef = useRef<EngineAPI>({
     isAnalyzing,
     currentEvaluation,
     currentFEN,
     error,
     analyze,
     stop
-  };
+  });
+
+  // Update the ref values without changing the object reference
+  engineRef.current.isAnalyzing = isAnalyzing;
+  engineRef.current.currentEvaluation = currentEvaluation;
+  engineRef.current.currentFEN = currentFEN;
+  engineRef.current.error = error;
+  engineRef.current.analyze = analyze;
+  engineRef.current.stop = stop;
+
+  return engineRef.current;
 }

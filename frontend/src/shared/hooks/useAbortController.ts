@@ -31,8 +31,16 @@ export function useAbortController() {
 }
 
 /**
- * Helper to check if an error is an abort error
+ * Helper to check if an error is an abort error.
+ * Handles both native DOMException and axios CanceledError (ERR_CANCELED).
  */
 export function isAbortError(error: unknown): boolean {
-  return error instanceof DOMException && error.name === 'AbortError';
+  if (error instanceof DOMException && error.name === 'AbortError') {
+    return true;
+  }
+  // Axios wraps abort signals as AxiosError with code ERR_CANCELED
+  if (typeof error === 'object' && error !== null && 'code' in error) {
+    return (error as { code: string }).code === 'ERR_CANCELED';
+  }
+  return false;
 }
