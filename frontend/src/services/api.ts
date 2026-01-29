@@ -9,6 +9,7 @@ import type {
   GamesResponse,
   GameAnalysis,
   LichessImportOptions,
+  ChesscomImportOptions,
   CreateRepertoireRequest,
   UpdateRepertoireRequest,
   VideoImport,
@@ -137,6 +138,11 @@ export const importApi = {
 
   importFromLichess: async (username: string, options?: LichessImportOptions): Promise<UploadResponse> => {
     const response = await api.post('/imports/lichess', { username, options });
+    return response.data;
+  },
+
+  importFromChesscom: async (username: string, options?: ChesscomImportOptions): Promise<UploadResponse> => {
+    const response = await api.post('/imports/chesscom', { username, options });
     return response.data;
   },
 

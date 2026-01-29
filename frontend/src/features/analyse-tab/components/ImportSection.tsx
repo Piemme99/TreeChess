@@ -2,19 +2,22 @@ import { useRef, useState, useCallback } from 'react';
 import { Loading } from '../../../shared/components/UI';
 import type { UseFileUploadReturn } from '../hooks/useFileUpload';
 import type { UseLichessImportReturn } from '../hooks/useLichessImport';
-import type { LichessImportOptions } from '../../../types';
+import type { UseChesscomImportReturn } from '../hooks/useChesscomImport';
+import type { LichessImportOptions, ChesscomImportOptions } from '../../../types';
 
 export interface ImportSectionProps {
   username: string;
   onUsernameChange: (username: string) => void;
   fileUploadState: UseFileUploadReturn;
   lichessImportState: UseLichessImportReturn;
+  chesscomImportState: UseChesscomImportReturn;
 }
 
-export function ImportSection({ username, onUsernameChange, fileUploadState, lichessImportState }: ImportSectionProps) {
+export function ImportSection({ username, onUsernameChange, fileUploadState, lichessImportState, chesscomImportState }: ImportSectionProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { uploading, handleFileUpload } = fileUploadState;
   const { importing, handleLichessImport } = lichessImportState;
+  const { importing: chesscomImporting, handleChesscomImport } = chesscomImportState;
   const [dragOver, setDragOver] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
   const [options, setOptions] = useState<LichessImportOptions>({
@@ -51,6 +54,12 @@ export function ImportSection({ username, onUsernameChange, fileUploadState, lic
     setDragOver(false);
   }, []);
 
+  const [chesscomOptions, setChesscomOptions] = useState<ChesscomImportOptions>({
+    max: 20,
+    timeClass: undefined,
+  });
+  const [showChesscomOptions, setShowChesscomOptions] = useState(false);
+
   const handleQuickImport = useCallback(() => {
     handleLichessImport({ max: 20 });
   }, [handleLichessImport]);
@@ -62,7 +71,17 @@ export function ImportSection({ username, onUsernameChange, fileUploadState, lic
     handleLichessImport(cleanedOptions);
   }, [handleLichessImport, options]);
 
-  const isLoading = uploading || importing;
+  const handleQuickChesscomImport = useCallback(() => {
+    handleChesscomImport({ max: 20 });
+  }, [handleChesscomImport]);
+
+  const handleCustomChesscomImport = useCallback(() => {
+    const cleanedOptions: ChesscomImportOptions = { max: chesscomOptions.max };
+    if (chesscomOptions.timeClass) cleanedOptions.timeClass = chesscomOptions.timeClass;
+    handleChesscomImport(cleanedOptions);
+  }, [handleChesscomImport, chesscomOptions]);
+
+  const isLoading = uploading || importing || chesscomImporting;
 
   return (
     <section className="import-section">
@@ -155,6 +174,73 @@ export function ImportSection({ username, onUsernameChange, fileUploadState, lic
             <button
               className="btn btn-primary btn-md"
               onClick={handleCustomImport}
+              disabled={isLoading}
+            >
+              Import with options
+            </button>
+          </div>
+        )}
+      </div>
+
+      <div className="chesscom-import">
+        <div className="chesscom-import-header">
+          <button
+            className="btn btn-primary btn-md chesscom-import-btn"
+            onClick={handleQuickChesscomImport}
+            disabled={isLoading}
+          >
+            {chesscomImporting ? (
+              <Loading text="Importing..." size="sm" />
+            ) : (
+              'Import from Chess.com (20 games)'
+            )}
+          </button>
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={() => setShowChesscomOptions(!showChesscomOptions)}
+            disabled={isLoading}
+          >
+            {showChesscomOptions ? 'Hide options' : 'Options'}
+          </button>
+        </div>
+
+        {showChesscomOptions && (
+          <div className="lichess-options">
+            <div className="lichess-option">
+              <label htmlFor="chesscom-max-games">Number of games:</label>
+              <input
+                id="chesscom-max-games"
+                type="number"
+                min={1}
+                max={100}
+                value={chesscomOptions.max || 20}
+                onChange={(e) => setChesscomOptions({ ...chesscomOptions, max: parseInt(e.target.value) || 20 })}
+                disabled={isLoading}
+              />
+            </div>
+
+            <div className="lichess-option">
+              <label htmlFor="chesscom-time-class">Time control:</label>
+              <select
+                id="chesscom-time-class"
+                value={chesscomOptions.timeClass || ''}
+                onChange={(e) => setChesscomOptions({
+                  ...chesscomOptions,
+                  timeClass: e.target.value as ChesscomImportOptions['timeClass'] || undefined
+                })}
+                disabled={isLoading}
+              >
+                <option value="">All</option>
+                <option value="bullet">Bullet</option>
+                <option value="blitz">Blitz</option>
+                <option value="rapid">Rapid</option>
+                <option value="daily">Daily</option>
+              </select>
+            </div>
+
+            <button
+              className="btn btn-primary btn-md"
+              onClick={handleCustomChesscomImport}
               disabled={isLoading}
             >
               Import with options

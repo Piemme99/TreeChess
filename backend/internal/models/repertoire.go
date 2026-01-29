@@ -124,6 +124,20 @@ type LichessImportRequest struct {
 	Options  LichessImportOptions `json:"options"`
 }
 
+// ChesscomImportOptions represents options for importing games from Chess.com
+type ChesscomImportOptions struct {
+	Max       int    `json:"max,omitempty"`       // Max games to fetch (default: 20, max: 100)
+	Since     int64  `json:"since,omitempty"`     // Timestamp Unix ms (start date)
+	Until     int64  `json:"until,omitempty"`     // Timestamp Unix ms (end date)
+	TimeClass string `json:"timeClass,omitempty"` // Game type: daily, rapid, blitz, bullet
+}
+
+// ChesscomImportRequest represents a request to import games from Chess.com
+type ChesscomImportRequest struct {
+	Username string               `json:"username"`
+	Options  ChesscomImportOptions `json:"options"`
+}
+
 // GameSummary represents a single game for the games list
 type GameSummary struct {
 	AnalysisID string    `json:"analysisId"`

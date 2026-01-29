@@ -4,6 +4,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { useGames } from './hooks/useGames';
 import { useFileUpload } from './hooks/useFileUpload';
 import { useLichessImport } from './hooks/useLichessImport';
+import { useChesscomImport } from './hooks/useChesscomImport';
 import { useDeleteGame } from './hooks/useDeleteGame';
 import { ImportSection } from './components/ImportSection';
 import { GamesList } from './components/GamesList';
@@ -29,6 +30,7 @@ export function AnalyseTab() {
 
   const fileUploadState = useFileUpload(username, refresh);
   const lichessImportState = useLichessImport(username, refresh);
+  const chesscomImportState = useChesscomImport(username, refresh);
   const { deleteTarget, setDeleteTarget, deleting, handleDelete } = useDeleteGame(deleteGame);
 
   const handleViewClick = useCallback((analysisId: string, gameIndex: number) => {
@@ -46,6 +48,7 @@ export function AnalyseTab() {
         onUsernameChange={setUsername}
         fileUploadState={fileUploadState}
         lichessImportState={lichessImportState}
+        chesscomImportState={chesscomImportState}
       />
 
       <section className="analyses-section">

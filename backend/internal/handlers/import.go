@@ -17,14 +17,16 @@ import (
 )
 
 type ImportHandler struct {
-	importService  *services.ImportService
-	lichessService *services.LichessService
+	importService   *services.ImportService
+	lichessService  *services.LichessService
+	chesscomService *services.ChesscomService
 }
 
-func NewImportHandler(importSvc *services.ImportService, lichessSvc *services.LichessService) *ImportHandler {
+func NewImportHandler(importSvc *services.ImportService, lichessSvc *services.LichessService, chesscomSvc *services.ChesscomService) *ImportHandler {
 	return &ImportHandler{
-		importService:  importSvc,
-		lichessService: lichessSvc,
+		importService:   importSvc,
+		lichessService:  lichessSvc,
+		chesscomService: chesscomSvc,
 	}
 }
 
@@ -348,5 +350,47 @@ func (h *ImportHandler) LichessImportHandler(c echo.Context) error {
 		"filename":  summary.Filename,
 		"gameCount": summary.GameCount,
 		"source":    "lichess",
+	})
+}
+
+func (h *ImportHandler) ChesscomImportHandler(c echo.Context) error {
+	var req models.ChesscomImportRequest
+	if err := c.Bind(&req); err != nil {
+		return BadRequestResponse(c, "invalid request body")
+	}
+
+	if !RequireField(c, "username", req.Username) {
+		return nil
+	}
+
+	pgnData, err := h.chesscomService.FetchGames(req.Username, req.Options)
+	if err != nil {
+		if errors.Is(err, services.ErrChesscomUserNotFound) {
+			return NotFoundResponse(c, "Chess.com user")
+		}
+		if errors.Is(err, services.ErrChesscomRateLimited) {
+			return ErrorResponse(c, http.StatusTooManyRequests, err.Error())
+		}
+		return BadRequestResponse(c, err.Error())
+	}
+
+	if len(pgnData) > config.MaxPGNFileSize {
+		return ErrorResponse(c, http.StatusRequestEntityTooLarge, "PGN exceeds maximum allowed size")
+	}
+
+	filename := fmt.Sprintf("chesscom_%s.pgn", req.Username)
+
+	userID := c.Get("userID").(string)
+	summary, _, err := h.importService.ParseAndAnalyze(filename, req.Username, userID, pgnData)
+	if err != nil {
+		return BadRequestResponse(c, fmt.Sprintf("failed to parse and analyze games: %v", err))
+	}
+
+	return c.JSON(http.StatusCreated, map[string]interface{}{
+		"id":        summary.ID,
+		"username":  summary.Username,
+		"filename":  summary.Filename,
+		"gameCount": summary.GameCount,
+		"source":    "chesscom",
 	})
 }

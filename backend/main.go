@@ -36,6 +36,7 @@ func main() {
 	repertoireSvc := services.NewRepertoireService(repertoireRepo)
 	importSvc := services.NewImportService(repertoireSvc, analysisRepo)
 	lichessSvc := services.NewLichessService()
+	chesscomSvc := services.NewChesscomService()
 	treeSvc := services.NewTreeBuilderService()
 	videoSvc := services.NewVideoService(videoRepo, cfg, treeSvc)
 
@@ -76,9 +77,10 @@ func main() {
 	protected.DELETE("/api/repertoires/:id/nodes/:nodeId", handlers.DeleteNodeHandler(repertoireSvc))
 
 	// Import/Analysis API
-	importHandler := handlers.NewImportHandler(importSvc, lichessSvc)
+	importHandler := handlers.NewImportHandler(importSvc, lichessSvc, chesscomSvc)
 	protected.POST("/api/imports", importHandler.UploadHandler)
 	protected.POST("/api/imports/lichess", importHandler.LichessImportHandler)
+	protected.POST("/api/imports/chesscom", importHandler.ChesscomImportHandler)
 	protected.GET("/api/analyses", importHandler.ListAnalysesHandler)
 	protected.GET("/api/analyses/:id", importHandler.GetAnalysisHandler)
 	protected.DELETE("/api/analyses/:id", importHandler.DeleteAnalysisHandler)

@@ -153,7 +153,7 @@ export interface UploadResponse {
   username: string;
   filename: string;
   gameCount: number;
-  source?: 'lichess' | 'pgn';
+  source?: 'lichess' | 'chesscom' | 'pgn';
 }
 
 // Lichess import types
@@ -163,6 +163,14 @@ export interface LichessImportOptions {
   until?: number;
   rated?: boolean;
   perfType?: 'bullet' | 'blitz' | 'rapid' | 'classical';
+}
+
+// Chess.com import types
+export interface ChesscomImportOptions {
+  max?: number;
+  since?: number;
+  until?: number;
+  timeClass?: 'daily' | 'rapid' | 'blitz' | 'bullet';
 }
 
 // Toast types
