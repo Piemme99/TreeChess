@@ -7,10 +7,12 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/treechess/backend/internal/models"
+	"github.com/treechess/backend/internal/repository/mocks"
 )
 
 func TestRepertoireService_CreateRepertoire_InvalidColor(t *testing.T) {
-	svc := NewRepertoireService()
+	mockRepo := &mocks.MockRepertoireRepo{}
+	svc := NewRepertoireService(mockRepo)
 
 	_, err := svc.CreateRepertoire("Test Repertoire", models.Color("invalid"))
 
@@ -19,7 +21,8 @@ func TestRepertoireService_CreateRepertoire_InvalidColor(t *testing.T) {
 }
 
 func TestRepertoireService_CreateRepertoire_EmptyName(t *testing.T) {
-	svc := NewRepertoireService()
+	mockRepo := &mocks.MockRepertoireRepo{}
+	svc := NewRepertoireService(mockRepo)
 
 	_, err := svc.CreateRepertoire("", models.ColorWhite)
 
@@ -28,7 +31,8 @@ func TestRepertoireService_CreateRepertoire_EmptyName(t *testing.T) {
 }
 
 func TestRepertoireService_CreateRepertoire_NameTooLong(t *testing.T) {
-	svc := NewRepertoireService()
+	mockRepo := &mocks.MockRepertoireRepo{}
+	svc := NewRepertoireService(mockRepo)
 
 	// Create a name with 101 characters
 	longName := ""
@@ -47,7 +51,8 @@ func TestRepertoireService_GetRepertoire_InvalidID(t *testing.T) {
 }
 
 func TestRepertoireService_RenameRepertoire_EmptyName(t *testing.T) {
-	svc := NewRepertoireService()
+	mockRepo := &mocks.MockRepertoireRepo{}
+	svc := NewRepertoireService(mockRepo)
 
 	_, err := svc.RenameRepertoire("test-id", "")
 
@@ -56,7 +61,8 @@ func TestRepertoireService_RenameRepertoire_EmptyName(t *testing.T) {
 }
 
 func TestRepertoireService_RenameRepertoire_NameTooLong(t *testing.T) {
-	svc := NewRepertoireService()
+	mockRepo := &mocks.MockRepertoireRepo{}
+	svc := NewRepertoireService(mockRepo)
 
 	longName := ""
 	for i := 0; i < 101; i++ {
@@ -282,12 +288,13 @@ func TestGetColorToMoveFromFEN(t *testing.T) {
 // Additional tests for edge cases and better coverage
 
 func TestNewRepertoireService(t *testing.T) {
-	svc := NewRepertoireService()
+	mockRepo := &mocks.MockRepertoireRepo{}
+	svc := NewRepertoireService(mockRepo)
 	assert.NotNil(t, svc)
 }
 
-func TestNewTestRepertoireService(t *testing.T) {
-	svc := NewTestRepertoireService()
+func TestNewRepertoireService_WithNilRepo(t *testing.T) {
+	svc := NewRepertoireService(nil)
 	assert.NotNil(t, svc)
 }
 
@@ -600,7 +607,8 @@ func TestSentinelErrors(t *testing.T) {
 }
 
 func TestListRepertoires_InvalidColor(t *testing.T) {
-	svc := NewRepertoireService()
+	mockRepo := &mocks.MockRepertoireRepo{}
+	svc := NewRepertoireService(mockRepo)
 	invalidColor := models.Color("invalid")
 
 	_, err := svc.ListRepertoires(&invalidColor)

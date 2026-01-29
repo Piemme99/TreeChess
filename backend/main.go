@@ -17,36 +17,46 @@ import (
 func main() {
 	cfg := config.MustLoad()
 
-	if err := repository.InitDB(cfg); err != nil {
+	// Initialize database
+	db, err := repository.NewDB(cfg)
+	if err != nil {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
-	defer repository.CloseDB()
+	defer db.Close()
 
-	repertoireSvc := services.NewRepertoireService()
-	importSvc := services.NewImportService(repertoireSvc)
+	// Initialize repositories
+	repertoireRepo := repository.NewPostgresRepertoireRepo(db.Pool)
+	analysisRepo := repository.NewPostgresAnalysisRepo(db.Pool)
+
+	// Initialize services
+	repertoireSvc := services.NewRepertoireService(repertoireRepo)
+	importSvc := services.NewImportService(repertoireSvc, analysisRepo)
 	lichessSvc := services.NewLichessService()
 
+	// Initialize Echo
 	e := echo.New()
 	e.HideBanner = true
 
+	// Middleware
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-		AllowOrigins: []string{"http://localhost:5173"},
+		AllowOrigins: cfg.AllowedOrigins,
 		AllowMethods: []string{http.MethodGet, http.MethodPost, http.MethodPatch, http.MethodDelete},
 		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept},
 	}))
 
+	// Health check
 	e.GET("/api/health", handlers.HealthHandler)
 
-	// Repertoire API - new endpoints supporting multiple repertoires
+	// Repertoire API - plural form for consistency
 	e.GET("/api/repertoires", handlers.ListRepertoiresHandler(repertoireSvc))
 	e.POST("/api/repertoires", handlers.CreateRepertoireHandler(repertoireSvc))
-	e.GET("/api/repertoire/:id", handlers.GetRepertoireHandler(repertoireSvc))
-	e.PATCH("/api/repertoire/:id", handlers.UpdateRepertoireHandler(repertoireSvc))
-	e.DELETE("/api/repertoire/:id", handlers.DeleteRepertoireHandler(repertoireSvc))
-	e.POST("/api/repertoire/:id/node", handlers.AddNodeHandler(repertoireSvc))
-	e.DELETE("/api/repertoire/:id/node/:nodeId", handlers.DeleteNodeHandler(repertoireSvc))
+	e.GET("/api/repertoires/:id", handlers.GetRepertoireHandler(repertoireSvc))
+	e.PATCH("/api/repertoires/:id", handlers.UpdateRepertoireHandler(repertoireSvc))
+	e.DELETE("/api/repertoires/:id", handlers.DeleteRepertoireHandler(repertoireSvc))
+	e.POST("/api/repertoires/:id/nodes", handlers.AddNodeHandler(repertoireSvc))
+	e.DELETE("/api/repertoires/:id/nodes/:nodeId", handlers.DeleteNodeHandler(repertoireSvc))
 
 	// Import/Analysis API
 	importHandler := handlers.NewImportHandler(importSvc, lichessSvc)
@@ -55,9 +65,9 @@ func main() {
 	e.GET("/api/analyses", importHandler.ListAnalysesHandler)
 	e.GET("/api/analyses/:id", importHandler.GetAnalysisHandler)
 	e.DELETE("/api/analyses/:id", importHandler.DeleteAnalysisHandler)
-	e.POST("/api/import/validate-pgn", importHandler.ValidatePGNHandler)
-	e.POST("/api/import/validate-move", importHandler.ValidateMoveHandler)
-	e.GET("/api/import/legal-moves", importHandler.GetLegalMovesHandler)
+	e.POST("/api/imports/validate-pgn", importHandler.ValidatePGNHandler)
+	e.POST("/api/imports/validate-move", importHandler.ValidateMoveHandler)
+	e.GET("/api/imports/legal-moves", importHandler.GetLegalMovesHandler)
 
 	// Games API
 	e.GET("/api/games", importHandler.GetGamesHandler)

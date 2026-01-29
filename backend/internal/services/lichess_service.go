@@ -87,9 +87,9 @@ func (s *LichessService) FetchGames(username string, options models.LichessImpor
 	case http.StatusOK:
 		// Success - continue reading body
 	case http.StatusNotFound:
-		return "", fmt.Errorf("Lichess user '%s' not found", username)
+		return "", ErrLichessUserNotFound
 	case http.StatusTooManyRequests:
-		return "", fmt.Errorf("Lichess API rate limited, try again later")
+		return "", ErrLichessRateLimited
 	default:
 		return "", fmt.Errorf("Lichess API error: %s", resp.Status)
 	}

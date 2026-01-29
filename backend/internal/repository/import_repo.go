@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/treechess/backend/internal/models"
 )
@@ -43,8 +44,18 @@ const (
 	`
 )
 
-func SaveAnalysis(username string, filename string, gameCount int, results []models.GameAnalysis) (*models.AnalysisSummary, error) {
-	db := GetPool()
+// PostgresAnalysisRepo implements AnalysisRepository using PostgreSQL
+type PostgresAnalysisRepo struct {
+	pool *pgxpool.Pool
+}
+
+// NewPostgresAnalysisRepo creates a new PostgreSQL analysis repository
+func NewPostgresAnalysisRepo(pool *pgxpool.Pool) *PostgresAnalysisRepo {
+	return &PostgresAnalysisRepo{pool: pool}
+}
+
+// Save saves a new analysis
+func (r *PostgresAnalysisRepo) Save(username, filename string, gameCount int, results []models.GameAnalysis) (*models.AnalysisSummary, error) {
 	ctx, cancel := dbContext()
 	defer cancel()
 
@@ -57,7 +68,7 @@ func SaveAnalysis(username string, filename string, gameCount int, results []mod
 	uploadedAt := time.Now()
 
 	var summary models.AnalysisSummary
-	err = db.QueryRow(ctx, saveAnalysisSQL,
+	err = r.pool.QueryRow(ctx, saveAnalysisSQL,
 		id,
 		username,
 		filename,
@@ -78,12 +89,12 @@ func SaveAnalysis(username string, filename string, gameCount int, results []mod
 	return &summary, nil
 }
 
-func GetAnalyses() ([]models.AnalysisSummary, error) {
-	db := GetPool()
+// GetAll returns all analysis summaries
+func (r *PostgresAnalysisRepo) GetAll() ([]models.AnalysisSummary, error) {
 	ctx, cancel := dbContext()
 	defer cancel()
 
-	rows, err := db.Query(ctx, getAnalysesSQL)
+	rows, err := r.pool.Query(ctx, getAnalysesSQL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query analyses: %w", err)
 	}
@@ -106,15 +117,15 @@ func GetAnalyses() ([]models.AnalysisSummary, error) {
 	return analyses, nil
 }
 
-func GetAnalysisByID(id string) (*models.AnalysisDetail, error) {
-	db := GetPool()
+// GetByID returns analysis details by ID
+func (r *PostgresAnalysisRepo) GetByID(id string) (*models.AnalysisDetail, error) {
 	ctx, cancel := dbContext()
 	defer cancel()
 
 	var detail models.AnalysisDetail
 	var resultsJSON []byte
 
-	err := db.QueryRow(ctx, getAnalysisByIDSQL, id).Scan(
+	err := r.pool.QueryRow(ctx, getAnalysisByIDSQL, id).Scan(
 		&detail.ID,
 		&detail.Username,
 		&detail.Filename,
@@ -124,7 +135,7 @@ func GetAnalysisByID(id string) (*models.AnalysisDetail, error) {
 	)
 	if err != nil {
 		if err == pgx.ErrNoRows {
-			return nil, fmt.Errorf("analysis not found")
+			return nil, ErrAnalysisNotFound
 		}
 		return nil, fmt.Errorf("failed to get analysis: %w", err)
 	}
@@ -136,30 +147,29 @@ func GetAnalysisByID(id string) (*models.AnalysisDetail, error) {
 	return &detail, nil
 }
 
-func DeleteAnalysis(id string) error {
-	db := GetPool()
+// Delete deletes an analysis by ID
+func (r *PostgresAnalysisRepo) Delete(id string) error {
 	ctx, cancel := dbContext()
 	defer cancel()
 
-	result, err := db.Exec(ctx, deleteAnalysisSQL, id)
+	result, err := r.pool.Exec(ctx, deleteAnalysisSQL, id)
 	if err != nil {
 		return fmt.Errorf("failed to delete analysis: %w", err)
 	}
 
 	if result.RowsAffected() == 0 {
-		return fmt.Errorf("analysis not found")
+		return ErrAnalysisNotFound
 	}
 
 	return nil
 }
 
 // GetAllGames returns all games from all analyses with pagination
-func GetAllGames(limit, offset int) (*models.GamesResponse, error) {
-	db := GetPool()
+func (r *PostgresAnalysisRepo) GetAllGames(limit, offset int) (*models.GamesResponse, error) {
 	ctx, cancel := dbContext()
 	defer cancel()
 
-	rows, err := db.Query(ctx, getAllGamesSQL)
+	rows, err := r.pool.Query(ctx, getAllGamesSQL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query analyses: %w", err)
 	}
@@ -227,55 +237,17 @@ func GetAllGames(limit, offset int) (*models.GamesResponse, error) {
 	}, nil
 }
 
-// computeGameStatus determines the overall status of a game based on the first actionable move
-func computeGameStatus(game models.GameAnalysis) string {
-	// Find the first move that is either out-of-repertoire or opponent-new
-	for _, move := range game.Moves {
-		if move.Status == "out-of-repertoire" {
-			return "error"
-		}
-		if move.Status == "opponent-new" {
-			return "new-line"
-		}
-	}
-	return "ok"
-}
-
-// UpdateAnalysisResults updates the results array of an existing analysis
-func UpdateAnalysisResults(analysisID string, results []models.GameAnalysis) error {
-	db := GetPool()
-	ctx, cancel := dbContext()
-	defer cancel()
-
-	resultsJSON, err := json.Marshal(results)
-	if err != nil {
-		return fmt.Errorf("failed to marshal results: %w", err)
-	}
-
-	result, err := db.Exec(ctx, updateAnalysisResultsSQL, analysisID, resultsJSON, len(results))
-	if err != nil {
-		return fmt.Errorf("failed to update analysis results: %w", err)
-	}
-
-	if result.RowsAffected() == 0 {
-		return fmt.Errorf("analysis not found")
-	}
-
-	return nil
-}
-
 // DeleteGame removes a single game from an analysis
-func DeleteGame(analysisID string, gameIndex int) error {
-	db := GetPool()
+func (r *PostgresAnalysisRepo) DeleteGame(analysisID string, gameIndex int) error {
 	ctx, cancel := dbContext()
 	defer cancel()
 
 	// First, get the current analysis
 	var resultsJSON []byte
-	err := db.QueryRow(ctx, "SELECT results FROM analyses WHERE id = $1", analysisID).Scan(&resultsJSON)
+	err := r.pool.QueryRow(ctx, "SELECT results FROM analyses WHERE id = $1", analysisID).Scan(&resultsJSON)
 	if err != nil {
 		if err == pgx.ErrNoRows {
-			return fmt.Errorf("analysis not found")
+			return ErrAnalysisNotFound
 		}
 		return fmt.Errorf("failed to get analysis: %w", err)
 	}
@@ -297,12 +269,12 @@ func DeleteGame(analysisID string, gameIndex int) error {
 	}
 
 	if !found {
-		return fmt.Errorf("game not found")
+		return ErrGameNotFound
 	}
 
 	// If no games left, delete the entire analysis
 	if len(updatedGames) == 0 {
-		return DeleteAnalysis(analysisID)
+		return r.Delete(analysisID)
 	}
 
 	// Update the analysis with remaining games
@@ -311,10 +283,45 @@ func DeleteGame(analysisID string, gameIndex int) error {
 		return fmt.Errorf("failed to marshal updated results: %w", err)
 	}
 
-	_, err = db.Exec(ctx, updateAnalysisResultsSQL, analysisID, updatedJSON, len(updatedGames))
+	_, err = r.pool.Exec(ctx, updateAnalysisResultsSQL, analysisID, updatedJSON, len(updatedGames))
 	if err != nil {
 		return fmt.Errorf("failed to update analysis: %w", err)
 	}
 
 	return nil
+}
+
+// UpdateResults updates the results array of an existing analysis
+func (r *PostgresAnalysisRepo) UpdateResults(analysisID string, results []models.GameAnalysis) error {
+	ctx, cancel := dbContext()
+	defer cancel()
+
+	resultsJSON, err := json.Marshal(results)
+	if err != nil {
+		return fmt.Errorf("failed to marshal results: %w", err)
+	}
+
+	result, err := r.pool.Exec(ctx, updateAnalysisResultsSQL, analysisID, resultsJSON, len(results))
+	if err != nil {
+		return fmt.Errorf("failed to update analysis results: %w", err)
+	}
+
+	if result.RowsAffected() == 0 {
+		return ErrAnalysisNotFound
+	}
+
+	return nil
+}
+
+// computeGameStatus determines the overall status of a game based on the first actionable move
+func computeGameStatus(game models.GameAnalysis) string {
+	for _, move := range game.Moves {
+		if move.Status == "out-of-repertoire" {
+			return "error"
+		}
+		if move.Status == "opponent-new" {
+			return "new-line"
+		}
+	}
+	return "ok"
 }

@@ -2,10 +2,13 @@ package repository
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/treechess/backend/internal/models"
 )
@@ -55,16 +58,25 @@ const (
 	`
 )
 
-// GetRepertoireByID retrieves a repertoire by its UUID
-func GetRepertoireByID(id string) (*models.Repertoire, error) {
-	db := GetPool()
+// PostgresRepertoireRepo implements RepertoireRepository using PostgreSQL
+type PostgresRepertoireRepo struct {
+	pool *pgxpool.Pool
+}
+
+// NewPostgresRepertoireRepo creates a new PostgreSQL repertoire repository
+func NewPostgresRepertoireRepo(pool *pgxpool.Pool) *PostgresRepertoireRepo {
+	return &PostgresRepertoireRepo{pool: pool}
+}
+
+// GetByID retrieves a repertoire by its UUID
+func (r *PostgresRepertoireRepo) GetByID(id string) (*models.Repertoire, error) {
 	ctx, cancel := dbContext()
 	defer cancel()
 
 	var rep models.Repertoire
 	var treeDataJSON, metadataJSON []byte
 
-	err := db.QueryRow(ctx, getRepertoireByIDSQL, id).Scan(
+	err := r.pool.QueryRow(ctx, getRepertoireByIDSQL, id).Scan(
 		&rep.ID,
 		&rep.Name,
 		&rep.Color,
@@ -74,7 +86,10 @@ func GetRepertoireByID(id string) (*models.Repertoire, error) {
 		&rep.UpdatedAt,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("repertoire not found: %w", err)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrRepertoireNotFound
+		}
+		return nil, fmt.Errorf("failed to get repertoire: %w", err)
 	}
 
 	if err := json.Unmarshal(treeDataJSON, &rep.TreeData); err != nil {
@@ -88,105 +103,36 @@ func GetRepertoireByID(id string) (*models.Repertoire, error) {
 	return &rep, nil
 }
 
-// GetRepertoiresByColor retrieves all repertoires of a given color
-func GetRepertoiresByColor(color models.Color) ([]models.Repertoire, error) {
-	db := GetPool()
+// GetByColor retrieves all repertoires of a given color
+func (r *PostgresRepertoireRepo) GetByColor(color models.Color) ([]models.Repertoire, error) {
 	ctx, cancel := dbContext()
 	defer cancel()
 
-	rows, err := db.Query(ctx, getRepertoiresByColorSQL, string(color))
+	rows, err := r.pool.Query(ctx, getRepertoiresByColorSQL, string(color))
 	if err != nil {
 		return nil, fmt.Errorf("failed to query repertoires: %w", err)
 	}
 	defer rows.Close()
 
-	var repertoires []models.Repertoire
-	for rows.Next() {
-		var rep models.Repertoire
-		var treeDataJSON, metadataJSON []byte
-
-		err := rows.Scan(
-			&rep.ID,
-			&rep.Name,
-			&rep.Color,
-			&treeDataJSON,
-			&metadataJSON,
-			&rep.CreatedAt,
-			&rep.UpdatedAt,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to scan repertoire: %w", err)
-		}
-
-		if err := json.Unmarshal(treeDataJSON, &rep.TreeData); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal tree_data: %w", err)
-		}
-
-		if err := json.Unmarshal(metadataJSON, &rep.Metadata); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal metadata: %w", err)
-		}
-
-		repertoires = append(repertoires, rep)
-	}
-
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("error iterating repertoires: %w", err)
-	}
-
-	return repertoires, nil
+	return r.scanRepertoires(rows)
 }
 
-// GetAllRepertoires retrieves all repertoires
-func GetAllRepertoires() ([]models.Repertoire, error) {
-	db := GetPool()
+// GetAll retrieves all repertoires
+func (r *PostgresRepertoireRepo) GetAll() ([]models.Repertoire, error) {
 	ctx, cancel := dbContext()
 	defer cancel()
 
-	rows, err := db.Query(ctx, getAllRepertoiresSQL)
+	rows, err := r.pool.Query(ctx, getAllRepertoiresSQL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query repertoires: %w", err)
 	}
 	defer rows.Close()
 
-	var repertoires []models.Repertoire
-	for rows.Next() {
-		var rep models.Repertoire
-		var treeDataJSON, metadataJSON []byte
-
-		err := rows.Scan(
-			&rep.ID,
-			&rep.Name,
-			&rep.Color,
-			&treeDataJSON,
-			&metadataJSON,
-			&rep.CreatedAt,
-			&rep.UpdatedAt,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to scan repertoire: %w", err)
-		}
-
-		if err := json.Unmarshal(treeDataJSON, &rep.TreeData); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal tree_data: %w", err)
-		}
-
-		if err := json.Unmarshal(metadataJSON, &rep.Metadata); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal metadata: %w", err)
-		}
-
-		repertoires = append(repertoires, rep)
-	}
-
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("error iterating repertoires: %w", err)
-	}
-
-	return repertoires, nil
+	return r.scanRepertoires(rows)
 }
 
-// CreateRepertoire creates a new repertoire with a name and color
-func CreateRepertoire(name string, color models.Color) (*models.Repertoire, error) {
-	db := GetPool()
+// Create creates a new repertoire with a name and color
+func (r *PostgresRepertoireRepo) Create(name string, color models.Color) (*models.Repertoire, error) {
 	ctx, cancel := dbContext()
 	defer cancel()
 
@@ -197,7 +143,7 @@ func CreateRepertoire(name string, color models.Color) (*models.Repertoire, erro
 		MoveNumber:  0,
 		ColorToMove: models.ChessColorWhite,
 		ParentID:    nil,
-		Children:    []*models.RepertoireNode{}, // Empty slice, not nil
+		Children:    []*models.RepertoireNode{},
 	}
 
 	metadata := models.Metadata{
@@ -226,7 +172,7 @@ func CreateRepertoire(name string, color models.Color) (*models.Repertoire, erro
 		UpdatedAt: time.Now(),
 	}
 
-	err = db.QueryRow(ctx, createRepertoireSQL,
+	err = r.pool.QueryRow(ctx, createRepertoireSQL,
 		rep.ID,
 		rep.Name,
 		string(rep.Color),
@@ -245,12 +191,19 @@ func CreateRepertoire(name string, color models.Color) (*models.Repertoire, erro
 		return nil, fmt.Errorf("failed to create repertoire: %w", err)
 	}
 
+	if err := json.Unmarshal(treeDataJSON, &rep.TreeData); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal tree_data: %w", err)
+	}
+
+	if err := json.Unmarshal(metadataJSON, &rep.Metadata); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal metadata: %w", err)
+	}
+
 	return &rep, nil
 }
 
-// SaveRepertoire saves tree data and metadata for a repertoire by ID
-func SaveRepertoire(id string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
-	db := GetPool()
+// Save saves tree data and metadata for a repertoire by ID
+func (r *PostgresRepertoireRepo) Save(id string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
 	ctx, cancel := dbContext()
 	defer cancel()
 
@@ -267,7 +220,7 @@ func SaveRepertoire(id string, treeData models.RepertoireNode, metadata models.M
 	var rep models.Repertoire
 	var newTreeDataJSON, newMetadataJSON []byte
 
-	err = db.QueryRow(ctx, updateRepertoireByIDSQL,
+	err = r.pool.QueryRow(ctx, updateRepertoireByIDSQL,
 		id,
 		treeDataJSON,
 		metadataJSON,
@@ -295,16 +248,15 @@ func SaveRepertoire(id string, treeData models.RepertoireNode, metadata models.M
 	return &rep, nil
 }
 
-// UpdateRepertoireName updates the name of a repertoire
-func UpdateRepertoireName(id string, name string) (*models.Repertoire, error) {
-	db := GetPool()
+// UpdateName updates the name of a repertoire
+func (r *PostgresRepertoireRepo) UpdateName(id string, name string) (*models.Repertoire, error) {
 	ctx, cancel := dbContext()
 	defer cancel()
 
 	var rep models.Repertoire
 	var treeDataJSON, metadataJSON []byte
 
-	err := db.QueryRow(ctx, updateRepertoireNameSQL, id, name).Scan(
+	err := r.pool.QueryRow(ctx, updateRepertoireNameSQL, id, name).Scan(
 		&rep.ID,
 		&rep.Name,
 		&rep.Color,
@@ -328,16 +280,12 @@ func UpdateRepertoireName(id string, name string) (*models.Repertoire, error) {
 	return &rep, nil
 }
 
-// ErrRepertoireNotFound is returned when a repertoire is not found
-var ErrRepertoireNotFound = fmt.Errorf("repertoire not found")
-
-// DeleteRepertoire deletes a repertoire by ID
-func DeleteRepertoire(id string) error {
-	db := GetPool()
+// Delete deletes a repertoire by ID
+func (r *PostgresRepertoireRepo) Delete(id string) error {
 	ctx, cancel := dbContext()
 	defer cancel()
 
-	result, err := db.Exec(ctx, deleteRepertoireSQL, id)
+	result, err := r.pool.Exec(ctx, deleteRepertoireSQL, id)
 	if err != nil {
 		return fmt.Errorf("failed to delete repertoire: %w", err)
 	}
@@ -349,14 +297,13 @@ func DeleteRepertoire(id string) error {
 	return nil
 }
 
-// CountRepertoires returns the total number of repertoires
-func CountRepertoires() (int, error) {
-	db := GetPool()
+// Count returns the total number of repertoires
+func (r *PostgresRepertoireRepo) Count() (int, error) {
 	ctx, cancel := dbContext()
 	defer cancel()
 
 	var count int
-	err := db.QueryRow(ctx, countRepertoiresSQL).Scan(&count)
+	err := r.pool.QueryRow(ctx, countRepertoiresSQL).Scan(&count)
 	if err != nil {
 		return 0, fmt.Errorf("failed to count repertoires: %w", err)
 	}
@@ -364,16 +311,58 @@ func CountRepertoires() (int, error) {
 	return count, nil
 }
 
-// RepertoireExistsByID checks if a repertoire exists by ID
-func RepertoireExistsByID(id string) (bool, error) {
-	db := GetPool()
+// Exists checks if a repertoire exists by ID
+func (r *PostgresRepertoireRepo) Exists(id string) (bool, error) {
 	ctx, cancel := dbContext()
 	defer cancel()
 
 	var exists bool
-	err := db.QueryRow(ctx, checkRepertoireExistsByIDSQL, id).Scan(&exists)
+	err := r.pool.QueryRow(ctx, checkRepertoireExistsByIDSQL, id).Scan(&exists)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("failed to check repertoire existence: %w", err)
 	}
 	return exists, nil
+}
+
+// scanRepertoires is a helper to scan multiple repertoire rows
+func (r *PostgresRepertoireRepo) scanRepertoires(rows interface {
+	Next() bool
+	Scan(...interface{}) error
+	Err() error
+}) ([]models.Repertoire, error) {
+	var repertoires []models.Repertoire
+
+	for rows.Next() {
+		var rep models.Repertoire
+		var treeDataJSON, metadataJSON []byte
+
+		err := rows.Scan(
+			&rep.ID,
+			&rep.Name,
+			&rep.Color,
+			&treeDataJSON,
+			&metadataJSON,
+			&rep.CreatedAt,
+			&rep.UpdatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan repertoire: %w", err)
+		}
+
+		if err := json.Unmarshal(treeDataJSON, &rep.TreeData); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal tree_data: %w", err)
+		}
+
+		if err := json.Unmarshal(metadataJSON, &rep.Metadata); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal metadata: %w", err)
+		}
+
+		repertoires = append(repertoires, rep)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating repertoires: %w", err)
+	}
+
+	return repertoires, nil
 }

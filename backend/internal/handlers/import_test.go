@@ -8,11 +8,15 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"testing"
+	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/treechess/backend/internal/models"
+	"github.com/treechess/backend/internal/repository"
+	"github.com/treechess/backend/internal/repository/mocks"
 	"github.com/treechess/backend/internal/services"
 )
 
@@ -29,7 +33,7 @@ func TestUploadHandler_MissingFile(t *testing.T) {
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
-	importSvc := services.NewImportService(nil)
+	importSvc := services.NewImportService(nil, nil)
 	handler := NewImportHandler(importSvc, nil)
 
 	err := handler.UploadHandler(c)
@@ -58,7 +62,7 @@ func TestUploadHandler_EmptyUsername(t *testing.T) {
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
-	importSvc := services.NewImportService(nil)
+	importSvc := services.NewImportService(nil, nil)
 	handler := NewImportHandler(importSvc, nil)
 
 	err := handler.UploadHandler(c)
@@ -87,7 +91,7 @@ func TestUploadHandler_InvalidFileExtension(t *testing.T) {
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
-	importSvc := services.NewImportService(nil)
+	importSvc := services.NewImportService(nil, nil)
 	handler := NewImportHandler(importSvc, nil)
 
 	err := handler.UploadHandler(c)
@@ -112,7 +116,7 @@ func TestValidatePGNHandler_Valid(t *testing.T) {
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
-	importSvc := services.NewImportService(nil)
+	importSvc := services.NewImportService(nil, nil)
 	handler := NewImportHandler(importSvc, nil)
 
 	err := handler.ValidatePGNHandler(c)
@@ -129,7 +133,7 @@ func TestValidateMoveHandler_Valid(t *testing.T) {
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
-	importSvc := services.NewImportService(nil)
+	importSvc := services.NewImportService(nil, nil)
 	handler := NewImportHandler(importSvc, nil)
 
 	err := handler.ValidateMoveHandler(c)
@@ -146,7 +150,7 @@ func TestValidateMoveHandler_MissingFEN(t *testing.T) {
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
-	importSvc := services.NewImportService(nil)
+	importSvc := services.NewImportService(nil, nil)
 	handler := NewImportHandler(importSvc, nil)
 
 	err := handler.ValidateMoveHandler(c)
@@ -168,7 +172,7 @@ func TestValidateMoveHandler_InvalidMove(t *testing.T) {
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
-	importSvc := services.NewImportService(nil)
+	importSvc := services.NewImportService(nil, nil)
 	handler := NewImportHandler(importSvc, nil)
 
 	err := handler.ValidateMoveHandler(c)
@@ -187,7 +191,7 @@ func TestGetLegalMovesHandler(t *testing.T) {
 	c := e.NewContext(req, rec)
 	c.QueryParams().Set("fen", fen)
 
-	importSvc := services.NewImportService(nil)
+	importSvc := services.NewImportService(nil, nil)
 	handler := NewImportHandler(importSvc, nil)
 
 	err := handler.GetLegalMovesHandler(c)
@@ -207,7 +211,7 @@ func TestGetLegalMovesHandler_MissingFEN(t *testing.T) {
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
-	importSvc := services.NewImportService(nil)
+	importSvc := services.NewImportService(nil, nil)
 	handler := NewImportHandler(importSvc, nil)
 
 	err := handler.GetLegalMovesHandler(c)
@@ -222,13 +226,17 @@ func TestGetLegalMovesHandler_MissingFEN(t *testing.T) {
 }
 
 func TestListAnalysesHandler_Empty(t *testing.T) {
-	t.Skip("Requires database connection - skip for unit testing")
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodGet, "/api/analyses", nil)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
-	importSvc := services.NewImportService(nil)
+	mockAnalysisRepo := &mocks.MockAnalysisRepo{
+		GetAllFunc: func() ([]models.AnalysisSummary, error) {
+			return []models.AnalysisSummary{}, nil
+		},
+	}
+	importSvc := services.NewImportService(nil, mockAnalysisRepo)
 	handler := NewImportHandler(importSvc, nil)
 
 	err := handler.ListAnalysesHandler(c)
@@ -242,16 +250,50 @@ func TestListAnalysesHandler_Empty(t *testing.T) {
 	assert.Empty(t, response)
 }
 
-func TestGetAnalysisHandler_NotFound(t *testing.T) {
-	t.Skip("Requires database connection - skip for unit testing")
+func TestListAnalysesHandler_WithResults(t *testing.T) {
 	e := echo.New()
-	req := httptest.NewRequest(http.MethodGet, "/api/analyses/nonexistent", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/analyses", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	mockAnalysisRepo := &mocks.MockAnalysisRepo{
+		GetAllFunc: func() ([]models.AnalysisSummary, error) {
+			return []models.AnalysisSummary{
+				{ID: "uuid-1", Username: "player1", Filename: "game1.pgn", GameCount: 5, UploadedAt: time.Now()},
+				{ID: "uuid-2", Username: "player2", Filename: "game2.pgn", GameCount: 10, UploadedAt: time.Now()},
+			}, nil
+		},
+	}
+	importSvc := services.NewImportService(nil, mockAnalysisRepo)
+	handler := NewImportHandler(importSvc, nil)
+
+	err := handler.ListAnalysesHandler(c)
+
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	var response []map[string]interface{}
+	err = json.Unmarshal(rec.Body.Bytes(), &response)
+	require.NoError(t, err)
+	assert.Len(t, response, 2)
+	assert.Equal(t, "player1", response[0]["username"])
+}
+
+func TestGetAnalysisHandler_NotFound(t *testing.T) {
+	e := echo.New()
+	validUUID := "123e4567-e89b-12d3-a456-426614174000"
+	req := httptest.NewRequest(http.MethodGet, "/api/analyses/"+validUUID, nil)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 	c.SetParamNames("id")
-	c.SetParamValues("nonexistent")
+	c.SetParamValues(validUUID)
 
-	importSvc := services.NewImportService(nil)
+	mockAnalysisRepo := &mocks.MockAnalysisRepo{
+		GetByIDFunc: func(id string) (*models.AnalysisDetail, error) {
+			return nil, repository.ErrAnalysisNotFound
+		},
+	}
+	importSvc := services.NewImportService(nil, mockAnalysisRepo)
 	handler := NewImportHandler(importSvc, nil)
 
 	err := handler.GetAnalysisHandler(c)
@@ -260,16 +302,57 @@ func TestGetAnalysisHandler_NotFound(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, rec.Code)
 }
 
-func TestDeleteAnalysisHandler_NotFound(t *testing.T) {
-	t.Skip("Requires database connection - skip for unit testing")
+func TestGetAnalysisHandler_Found(t *testing.T) {
 	e := echo.New()
-	req := httptest.NewRequest(http.MethodDelete, "/api/analyses/nonexistent", nil)
+	validUUID := "123e4567-e89b-12d3-a456-426614174000"
+	req := httptest.NewRequest(http.MethodGet, "/api/analyses/"+validUUID, nil)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 	c.SetParamNames("id")
-	c.SetParamValues("nonexistent")
+	c.SetParamValues(validUUID)
 
-	importSvc := services.NewImportService(nil)
+	mockAnalysisRepo := &mocks.MockAnalysisRepo{
+		GetByIDFunc: func(id string) (*models.AnalysisDetail, error) {
+			return &models.AnalysisDetail{
+				ID:         id,
+				Username:   "testuser",
+				Filename:   "test.pgn",
+				GameCount:  3,
+				UploadedAt: time.Now(),
+				Results:    []models.GameAnalysis{},
+			}, nil
+		},
+	}
+	importSvc := services.NewImportService(nil, mockAnalysisRepo)
+	handler := NewImportHandler(importSvc, nil)
+
+	err := handler.GetAnalysisHandler(c)
+
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	var response map[string]interface{}
+	err = json.Unmarshal(rec.Body.Bytes(), &response)
+	require.NoError(t, err)
+	assert.Equal(t, validUUID, response["id"])
+	assert.Equal(t, "testuser", response["username"])
+}
+
+func TestDeleteAnalysisHandler_NotFound(t *testing.T) {
+	e := echo.New()
+	validUUID := "123e4567-e89b-12d3-a456-426614174000"
+	req := httptest.NewRequest(http.MethodDelete, "/api/analyses/"+validUUID, nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.SetParamNames("id")
+	c.SetParamValues(validUUID)
+
+	mockAnalysisRepo := &mocks.MockAnalysisRepo{
+		DeleteFunc: func(id string) error {
+			return repository.ErrAnalysisNotFound
+		},
+	}
+	importSvc := services.NewImportService(nil, mockAnalysisRepo)
 	handler := NewImportHandler(importSvc, nil)
 
 	err := handler.DeleteAnalysisHandler(c)
@@ -278,8 +361,31 @@ func TestDeleteAnalysisHandler_NotFound(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, rec.Code)
 }
 
+func TestDeleteAnalysisHandler_Success(t *testing.T) {
+	e := echo.New()
+	validUUID := "123e4567-e89b-12d3-a456-426614174000"
+	req := httptest.NewRequest(http.MethodDelete, "/api/analyses/"+validUUID, nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.SetParamNames("id")
+	c.SetParamValues(validUUID)
+
+	mockAnalysisRepo := &mocks.MockAnalysisRepo{
+		DeleteFunc: func(id string) error {
+			return nil
+		},
+	}
+	importSvc := services.NewImportService(nil, mockAnalysisRepo)
+	handler := NewImportHandler(importSvc, nil)
+
+	err := handler.DeleteAnalysisHandler(c)
+
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusNoContent, rec.Code)
+}
+
 func TestNewImportHandler(t *testing.T) {
-	importSvc := services.NewImportService(nil)
+	importSvc := services.NewImportService(nil, nil)
 	lichessSvc := services.NewLichessService()
 	handler := NewImportHandler(importSvc, lichessSvc)
 
@@ -289,7 +395,7 @@ func TestNewImportHandler(t *testing.T) {
 }
 
 func TestNewImportHandler_NilLichessService(t *testing.T) {
-	importSvc := services.NewImportService(nil)
+	importSvc := services.NewImportService(nil, nil)
 	handler := NewImportHandler(importSvc, nil)
 
 	assert.NotNil(t, handler)
@@ -304,7 +410,7 @@ func TestUploadHandler_InvalidBody(t *testing.T) {
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
-	importSvc := services.NewImportService(nil)
+	importSvc := services.NewImportService(nil, nil)
 	handler := NewImportHandler(importSvc, nil)
 
 	err := handler.UploadHandler(c)
@@ -327,7 +433,7 @@ func TestUploadHandler_MissingUsername(t *testing.T) {
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
-	importSvc := services.NewImportService(nil)
+	importSvc := services.NewImportService(nil, nil)
 	handler := NewImportHandler(importSvc, nil)
 
 	err := handler.UploadHandler(c)
@@ -349,7 +455,7 @@ func TestValidateMoveHandler_MissingSAN(t *testing.T) {
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
-	importSvc := services.NewImportService(nil)
+	importSvc := services.NewImportService(nil, nil)
 	handler := NewImportHandler(importSvc, nil)
 
 	err := handler.ValidateMoveHandler(c)
@@ -370,7 +476,7 @@ func TestValidateMoveHandler_InvalidJSON(t *testing.T) {
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
-	importSvc := services.NewImportService(nil)
+	importSvc := services.NewImportService(nil, nil)
 	handler := NewImportHandler(importSvc, nil)
 
 	err := handler.ValidateMoveHandler(c)
@@ -387,7 +493,7 @@ func TestValidateMoveHandler_InvalidFEN(t *testing.T) {
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
-	importSvc := services.NewImportService(nil)
+	importSvc := services.NewImportService(nil, nil)
 	handler := NewImportHandler(importSvc, nil)
 
 	err := handler.ValidateMoveHandler(c)
@@ -407,7 +513,7 @@ func TestImportHandler_ResponseFormat(t *testing.T) {
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
-	importSvc := services.NewImportService(nil)
+	importSvc := services.NewImportService(nil, nil)
 	handler := NewImportHandler(importSvc, nil)
 
 	err := handler.ValidatePGNHandler(c)
@@ -427,7 +533,7 @@ func TestImportHandler_RegularMove(t *testing.T) {
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
-	importSvc := services.NewImportService(nil)
+	importSvc := services.NewImportService(nil, nil)
 	handler := NewImportHandler(importSvc, nil)
 
 	err := handler.ValidateMoveHandler(c)
@@ -444,7 +550,7 @@ func TestImportHandler_CastlingMove(t *testing.T) {
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
-	importSvc := services.NewImportService(nil)
+	importSvc := services.NewImportService(nil, nil)
 	handler := NewImportHandler(importSvc, nil)
 
 	err := handler.ValidateMoveHandler(c)
@@ -462,7 +568,7 @@ func TestImportHandler_Promotion(t *testing.T) {
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
-	importSvc := services.NewImportService(nil)
+	importSvc := services.NewImportService(nil, nil)
 	handler := NewImportHandler(importSvc, nil)
 
 	err := handler.ValidateMoveHandler(c)
@@ -481,7 +587,7 @@ func TestGetAnalysisHandler_InvalidUUID(t *testing.T) {
 	c.SetParamNames("id")
 	c.SetParamValues("invalid-uuid")
 
-	importSvc := services.NewImportService(nil)
+	importSvc := services.NewImportService(nil, nil)
 	handler := NewImportHandler(importSvc, nil)
 
 	err := handler.GetAnalysisHandler(c)
@@ -503,7 +609,7 @@ func TestDeleteAnalysisHandler_InvalidUUID(t *testing.T) {
 	c.SetParamNames("id")
 	c.SetParamValues("not-a-uuid")
 
-	importSvc := services.NewImportService(nil)
+	importSvc := services.NewImportService(nil, nil)
 	handler := NewImportHandler(importSvc, nil)
 
 	err := handler.DeleteAnalysisHandler(c)
@@ -525,7 +631,7 @@ func TestDeleteGameHandler_InvalidAnalysisID(t *testing.T) {
 	c.SetParamNames("analysisId", "gameIndex")
 	c.SetParamValues("invalid-uuid", "0")
 
-	importSvc := services.NewImportService(nil)
+	importSvc := services.NewImportService(nil, nil)
 	handler := NewImportHandler(importSvc, nil)
 
 	err := handler.DeleteGameHandler(c)
@@ -548,7 +654,7 @@ func TestDeleteGameHandler_InvalidGameIndex(t *testing.T) {
 	c.SetParamNames("analysisId", "gameIndex")
 	c.SetParamValues(validUUID, "abc")
 
-	importSvc := services.NewImportService(nil)
+	importSvc := services.NewImportService(nil, nil)
 	handler := NewImportHandler(importSvc, nil)
 
 	err := handler.DeleteGameHandler(c)
@@ -571,7 +677,7 @@ func TestDeleteGameHandler_NegativeGameIndex(t *testing.T) {
 	c.SetParamNames("analysisId", "gameIndex")
 	c.SetParamValues(validUUID, "-1")
 
-	importSvc := services.NewImportService(nil)
+	importSvc := services.NewImportService(nil, nil)
 	handler := NewImportHandler(importSvc, nil)
 
 	err := handler.DeleteGameHandler(c)
@@ -593,7 +699,7 @@ func TestLichessImportHandler_MissingUsername(t *testing.T) {
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
-	importSvc := services.NewImportService(nil)
+	importSvc := services.NewImportService(nil, nil)
 	lichessSvc := services.NewLichessService()
 	handler := NewImportHandler(importSvc, lichessSvc)
 
@@ -615,7 +721,7 @@ func TestLichessImportHandler_InvalidJSON(t *testing.T) {
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
-	importSvc := services.NewImportService(nil)
+	importSvc := services.NewImportService(nil, nil)
 	lichessSvc := services.NewLichessService()
 	handler := NewImportHandler(importSvc, lichessSvc)
 
@@ -626,23 +732,77 @@ func TestLichessImportHandler_InvalidJSON(t *testing.T) {
 }
 
 func TestGetGamesHandler_DefaultPagination(t *testing.T) {
-	t.Skip("Requires database connection - skip for unit testing")
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodGet, "/api/games", nil)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
-	importSvc := services.NewImportService(nil)
+	mockAnalysisRepo := &mocks.MockAnalysisRepo{
+		GetAllGamesFunc: func(limit, offset int) (*models.GamesResponse, error) {
+			return &models.GamesResponse{
+				Games:  []models.GameSummary{},
+				Total:  0,
+				Limit:  limit,
+				Offset: offset,
+			}, nil
+		},
+	}
+	importSvc := services.NewImportService(nil, mockAnalysisRepo)
 	handler := NewImportHandler(importSvc, nil)
 
 	err := handler.GetGamesHandler(c)
 
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, rec.Code)
+
+	var response models.GamesResponse
+	err = json.Unmarshal(rec.Body.Bytes(), &response)
+	require.NoError(t, err)
+	assert.Equal(t, 0, response.Total)
+}
+
+func TestGetGamesHandler_WithGames(t *testing.T) {
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "/api/games", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	mockAnalysisRepo := &mocks.MockAnalysisRepo{
+		GetAllGamesFunc: func(limit, offset int) (*models.GamesResponse, error) {
+			return &models.GamesResponse{
+				Games: []models.GameSummary{
+					{
+						AnalysisID: "analysis-1",
+						GameIndex:  0,
+						White:      "Player1",
+						Black:      "Player2",
+						Result:     "1-0",
+						UserColor:  models.ColorWhite,
+						Status:     "ok",
+					},
+				},
+				Total:  1,
+				Limit:  limit,
+				Offset: offset,
+			}, nil
+		},
+	}
+	importSvc := services.NewImportService(nil, mockAnalysisRepo)
+	handler := NewImportHandler(importSvc, nil)
+
+	err := handler.GetGamesHandler(c)
+
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	var response models.GamesResponse
+	err = json.Unmarshal(rec.Body.Bytes(), &response)
+	require.NoError(t, err)
+	assert.Equal(t, 1, response.Total)
+	assert.Len(t, response.Games, 1)
 }
 
 func TestGetGamesHandler_CustomPagination(t *testing.T) {
-	t.Skip("Requires database connection - skip for unit testing")
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodGet, "/api/games?limit=50&offset=10", nil)
 	rec := httptest.NewRecorder()
@@ -650,13 +810,28 @@ func TestGetGamesHandler_CustomPagination(t *testing.T) {
 	c.QueryParams().Set("limit", "50")
 	c.QueryParams().Set("offset", "10")
 
-	importSvc := services.NewImportService(nil)
+	var capturedLimit, capturedOffset int
+	mockAnalysisRepo := &mocks.MockAnalysisRepo{
+		GetAllGamesFunc: func(limit, offset int) (*models.GamesResponse, error) {
+			capturedLimit = limit
+			capturedOffset = offset
+			return &models.GamesResponse{
+				Games:  []models.GameSummary{},
+				Total:  100,
+				Limit:  limit,
+				Offset: offset,
+			}, nil
+		},
+	}
+	importSvc := services.NewImportService(nil, mockAnalysisRepo)
 	handler := NewImportHandler(importSvc, nil)
 
 	err := handler.GetGamesHandler(c)
 
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Equal(t, 50, capturedLimit)
+	assert.Equal(t, 10, capturedOffset)
 }
 
 func TestValidatePGNHandler_EmptyBody(t *testing.T) {
@@ -666,7 +841,7 @@ func TestValidatePGNHandler_EmptyBody(t *testing.T) {
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
-	importSvc := services.NewImportService(nil)
+	importSvc := services.NewImportService(nil, nil)
 	handler := NewImportHandler(importSvc, nil)
 
 	err := handler.ValidatePGNHandler(c)
@@ -684,7 +859,7 @@ func TestValidatePGNHandler_InvalidPGN(t *testing.T) {
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
-	importSvc := services.NewImportService(nil)
+	importSvc := services.NewImportService(nil, nil)
 	handler := NewImportHandler(importSvc, nil)
 
 	err := handler.ValidatePGNHandler(c)
@@ -701,7 +876,7 @@ func TestGetLegalMovesHandler_InvalidFEN(t *testing.T) {
 	c := e.NewContext(req, rec)
 	c.QueryParams().Set("fen", "invalid")
 
-	importSvc := services.NewImportService(nil)
+	importSvc := services.NewImportService(nil, nil)
 	handler := NewImportHandler(importSvc, nil)
 
 	err := handler.GetLegalMovesHandler(c)
@@ -721,7 +896,7 @@ func TestGetLegalMovesHandler_CheckmatePosition(t *testing.T) {
 	c := e.NewContext(req, rec)
 	c.QueryParams().Set("fen", fen)
 
-	importSvc := services.NewImportService(nil)
+	importSvc := services.NewImportService(nil, nil)
 	handler := NewImportHandler(importSvc, nil)
 
 	err := handler.GetLegalMovesHandler(c)
@@ -737,9 +912,50 @@ func TestGetLegalMovesHandler_CheckmatePosition(t *testing.T) {
 }
 
 func TestUploadHandler_CaseInsensitivePGNExtension(t *testing.T) {
-	t.Skip("Requires database connection - verifies .PGN (uppercase) is accepted")
 	// This test verifies that the handler accepts .PGN extension (case-insensitive)
-	// Skip because it requires DB for full flow
+	e := echo.New()
+
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+	writer.WriteField("username", "testuser")
+	part, _ := writer.CreateFormFile("file", "test.PGN") // uppercase extension
+	part.Write([]byte(`[Event "Test"]
+[White "A"]
+[Black "testuser"]
+[Result "1-0"]
+
+1. e4 e5 1-0`))
+	writer.Close()
+
+	req := httptest.NewRequest(http.MethodPost, "/api/imports", body)
+	req.Header.Set(echo.HeaderContentType, writer.FormDataContentType())
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	mockRepertoireRepo := &mocks.MockRepertoireRepo{
+		GetByColorFunc: func(color models.Color) ([]models.Repertoire, error) {
+			return []models.Repertoire{}, nil
+		},
+	}
+	mockAnalysisRepo := &mocks.MockAnalysisRepo{
+		SaveFunc: func(username, filename string, gameCount int, results []models.GameAnalysis) (*models.AnalysisSummary, error) {
+			return &models.AnalysisSummary{
+				ID:        "new-analysis-id",
+				Username:  username,
+				Filename:  filename,
+				GameCount: gameCount,
+			}, nil
+		},
+	}
+	repertoireSvc := services.NewRepertoireService(mockRepertoireRepo)
+	importSvc := services.NewImportService(repertoireSvc, mockAnalysisRepo)
+	handler := NewImportHandler(importSvc, nil)
+
+	err := handler.UploadHandler(c)
+
+	require.NoError(t, err)
+	// Should accept .PGN (uppercase) and process successfully
+	assert.Equal(t, http.StatusCreated, rec.Code)
 }
 
 func TestValidateMoveHandler_EnPassant(t *testing.T) {
@@ -751,7 +967,7 @@ func TestValidateMoveHandler_EnPassant(t *testing.T) {
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
-	importSvc := services.NewImportService(nil)
+	importSvc := services.NewImportService(nil, nil)
 	handler := NewImportHandler(importSvc, nil)
 
 	err := handler.ValidateMoveHandler(c)
@@ -768,7 +984,7 @@ func TestValidateMoveHandler_QueensideCastling(t *testing.T) {
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
-	importSvc := services.NewImportService(nil)
+	importSvc := services.NewImportService(nil, nil)
 	handler := NewImportHandler(importSvc, nil)
 
 	err := handler.ValidateMoveHandler(c)

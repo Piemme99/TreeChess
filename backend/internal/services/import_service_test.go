@@ -11,7 +11,7 @@ import (
 )
 
 func TestImportService_ParsePGN(t *testing.T) {
-	svc := NewImportService(nil)
+	svc := NewImportService(nil, nil)
 
 	pgnData := `[Event "Test"]
 [White "Player1"]
@@ -27,7 +27,7 @@ func TestImportService_ParsePGN(t *testing.T) {
 }
 
 func TestImportService_ParseMultiplePGN(t *testing.T) {
-	svc := NewImportService(nil)
+	svc := NewImportService(nil, nil)
 
 	pgnData := `[Event "Game 1"]
 [White "A"]
@@ -46,7 +46,7 @@ func TestImportService_ParseMultiplePGN(t *testing.T) {
 }
 
 func TestImportService_ValidatePGN_Valid(t *testing.T) {
-	svc := NewImportService(nil)
+	svc := NewImportService(nil, nil)
 
 	pgnData := `[Event "Test"]
 [White "A"]
@@ -59,7 +59,7 @@ func TestImportService_ValidatePGN_Valid(t *testing.T) {
 }
 
 func TestImportService_ValidateMove_Valid(t *testing.T) {
-	svc := NewImportService(nil)
+	svc := NewImportService(nil, nil)
 
 	fen := "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -"
 	san := "e4"
@@ -70,7 +70,7 @@ func TestImportService_ValidateMove_Valid(t *testing.T) {
 }
 
 func TestImportService_ValidateMove_Invalid(t *testing.T) {
-	svc := NewImportService(nil)
+	svc := NewImportService(nil, nil)
 
 	fen := "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -"
 	san := "e5"
@@ -81,7 +81,7 @@ func TestImportService_ValidateMove_Invalid(t *testing.T) {
 }
 
 func TestImportService_GetLegalMoves(t *testing.T) {
-	svc := NewImportService(nil)
+	svc := NewImportService(nil, nil)
 
 	fen := "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -"
 	moves, err := svc.GetLegalMoves(fen)
@@ -91,7 +91,7 @@ func TestImportService_GetLegalMoves(t *testing.T) {
 }
 
 func TestExtractHeaders(t *testing.T) {
-	svc := NewImportService(nil)
+	svc := NewImportService(nil, nil)
 
 	pgnData := `[Event "World Championship"]
 [Site "London"]
@@ -117,7 +117,7 @@ func TestExtractHeaders(t *testing.T) {
 }
 
 func TestExtractHeaders_Defaults(t *testing.T) {
-	svc := NewImportService(nil)
+	svc := NewImportService(nil, nil)
 
 	pgnData := `1. e4 e5 1-0`
 
@@ -134,7 +134,7 @@ func TestExtractHeaders_Defaults(t *testing.T) {
 }
 
 func TestMoveExistsInRepertoire_Found(t *testing.T) {
-	svc := NewImportService(nil)
+	svc := NewImportService(nil, nil)
 
 	moveE4 := "e4"
 	root := models.RepertoireNode{
@@ -159,7 +159,7 @@ func TestMoveExistsInRepertoire_Found(t *testing.T) {
 }
 
 func TestMoveExistsInRepertoire_NotFound(t *testing.T) {
-	svc := NewImportService(nil)
+	svc := NewImportService(nil, nil)
 
 	root := models.RepertoireNode{
 		ID:          "root",
@@ -175,7 +175,7 @@ func TestMoveExistsInRepertoire_NotFound(t *testing.T) {
 }
 
 func TestFindExpectedMove(t *testing.T) {
-	svc := NewImportService(nil)
+	svc := NewImportService(nil, nil)
 
 	moveE4 := "e4"
 	moveD4 := "d4"
@@ -197,7 +197,7 @@ func TestFindExpectedMove(t *testing.T) {
 }
 
 func TestPGNWithNewlines(t *testing.T) {
-	svc := NewImportService(nil)
+	svc := NewImportService(nil, nil)
 
 	pgnData := `[Event "Test"]
 [White "A"]
@@ -222,7 +222,7 @@ func TestPosition_StringMethod(t *testing.T) {
 }
 
 func TestGameStringContainsHeaders(t *testing.T) {
-	svc := NewImportService(nil)
+	svc := NewImportService(nil, nil)
 
 	pgnData := `[Event "Test Game"]
 [White "Test White"]
@@ -245,7 +245,7 @@ func TestNormalizeFEN(t *testing.T) {
 }
 
 func TestAnalyzeGame_CountMoves(t *testing.T) {
-	svc := NewImportService(nil)
+	svc := NewImportService(nil, nil)
 
 	pgnData := `[Event "Test"]
 [White "A"]
@@ -273,7 +273,7 @@ func TestAnalyzeGame_CountMoves(t *testing.T) {
 }
 
 func TestAnalyzeGame_WhiteMoveClassification(t *testing.T) {
-	svc := NewImportService(nil)
+	svc := NewImportService(nil, nil)
 
 	pgnData := `[Event "Test"]
 [White "A"]
@@ -299,7 +299,7 @@ func TestAnalyzeGame_WhiteMoveClassification(t *testing.T) {
 }
 
 func TestAnalyzeGame_BlackRepertoire(t *testing.T) {
-	svc := NewImportService(nil)
+	svc := NewImportService(nil, nil)
 
 	pgnData := `[Event "Test"]
 [White "A"]
@@ -326,7 +326,7 @@ func TestAnalyzeGame_BlackRepertoire(t *testing.T) {
 }
 
 func TestAnalyzeGame_NoRepertoire(t *testing.T) {
-	svc := NewImportService(nil)
+	svc := NewImportService(nil, nil)
 
 	pgnData := `[Event "Test"]
 [White "A"]
@@ -356,7 +356,7 @@ func strPtr(s string) *string {
 }
 
 func TestDetermineUserColor_WhitePlayer(t *testing.T) {
-	svc := NewImportService(nil)
+	svc := NewImportService(nil, nil)
 
 	pgnData := `[Event "Test"]
 [White "TestUser"]
@@ -373,7 +373,7 @@ func TestDetermineUserColor_WhitePlayer(t *testing.T) {
 }
 
 func TestDetermineUserColor_BlackPlayer(t *testing.T) {
-	svc := NewImportService(nil)
+	svc := NewImportService(nil, nil)
 
 	pgnData := `[Event "Test"]
 [White "Opponent"]
@@ -390,7 +390,7 @@ func TestDetermineUserColor_BlackPlayer(t *testing.T) {
 }
 
 func TestDetermineUserColor_CaseInsensitive(t *testing.T) {
-	svc := NewImportService(nil)
+	svc := NewImportService(nil, nil)
 
 	pgnData := `[Event "Test"]
 [White "TESTUSER"]
@@ -408,7 +408,7 @@ func TestDetermineUserColor_CaseInsensitive(t *testing.T) {
 }
 
 func TestDetermineUserColor_NotInGame(t *testing.T) {
-	svc := NewImportService(nil)
+	svc := NewImportService(nil, nil)
 
 	pgnData := `[Event "Test"]
 [White "Player1"]
@@ -426,7 +426,7 @@ func TestDetermineUserColor_NotInGame(t *testing.T) {
 }
 
 func TestDetermineUserColor_LichessUsernameFormat(t *testing.T) {
-	svc := NewImportService(nil)
+	svc := NewImportService(nil, nil)
 
 	// Lichess often has usernames like "DrNykterstein" or URLs
 	pgnData := `[Event "Rated Blitz game"]
@@ -446,22 +446,22 @@ func TestDetermineUserColor_LichessUsernameFormat(t *testing.T) {
 // Additional tests for edge cases and better coverage
 
 func TestNewImportService(t *testing.T) {
-	repSvc := NewRepertoireService()
-	svc := NewImportService(repSvc)
+	repSvc := NewRepertoireService(nil)
+	svc := NewImportService(repSvc, nil)
 
 	assert.NotNil(t, svc)
 	assert.NotNil(t, svc.repertoireService)
 }
 
 func TestNewImportService_NilRepertoire(t *testing.T) {
-	svc := NewImportService(nil)
+	svc := NewImportService(nil, nil)
 
 	assert.NotNil(t, svc)
 	assert.Nil(t, svc.repertoireService)
 }
 
 func TestValidatePGN_InvalidMoves(t *testing.T) {
-	svc := NewImportService(nil)
+	svc := NewImportService(nil, nil)
 
 	// PGN with illegal moves - the library may or may not error
 	// It's lenient, so test that validation doesn't panic
@@ -475,7 +475,7 @@ func TestValidatePGN_InvalidMoves(t *testing.T) {
 }
 
 func TestValidatePGN_Empty(t *testing.T) {
-	svc := NewImportService(nil)
+	svc := NewImportService(nil, nil)
 
 	err := svc.ValidatePGN("")
 
@@ -484,7 +484,7 @@ func TestValidatePGN_Empty(t *testing.T) {
 }
 
 func TestValidateMove_InvalidFEN(t *testing.T) {
-	svc := NewImportService(nil)
+	svc := NewImportService(nil, nil)
 
 	err := svc.ValidateMove("invalid fen string", "e4")
 
@@ -493,7 +493,7 @@ func TestValidateMove_InvalidFEN(t *testing.T) {
 }
 
 func TestValidateMove_EmptyFEN(t *testing.T) {
-	svc := NewImportService(nil)
+	svc := NewImportService(nil, nil)
 
 	err := svc.ValidateMove("", "e4")
 
@@ -501,7 +501,7 @@ func TestValidateMove_EmptyFEN(t *testing.T) {
 }
 
 func TestGetLegalMoves_InvalidFEN(t *testing.T) {
-	svc := NewImportService(nil)
+	svc := NewImportService(nil, nil)
 
 	_, err := svc.GetLegalMoves("invalid fen")
 
@@ -510,7 +510,7 @@ func TestGetLegalMoves_InvalidFEN(t *testing.T) {
 }
 
 func TestGetLegalMoves_Checkmate(t *testing.T) {
-	svc := NewImportService(nil)
+	svc := NewImportService(nil, nil)
 
 	// Fool's mate position - black is checkmated
 	fen := "rnb1kbnr/pppp1ppp/8/4p3/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq -"
@@ -522,7 +522,7 @@ func TestGetLegalMoves_Checkmate(t *testing.T) {
 }
 
 func TestGetLegalMoves_MidgamePosition(t *testing.T) {
-	svc := NewImportService(nil)
+	svc := NewImportService(nil, nil)
 
 	// A typical midgame position
 	fen := "r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq -"
@@ -579,7 +579,7 @@ func TestEnsureFullFEN_ShortFEN(t *testing.T) {
 }
 
 func TestMoveExistsInRepertoire_DeepSearch(t *testing.T) {
-	svc := NewImportService(nil)
+	svc := NewImportService(nil, nil)
 
 	moveE4 := "e4"
 	moveE5 := "e5"
@@ -624,7 +624,7 @@ func TestMoveExistsInRepertoire_DeepSearch(t *testing.T) {
 }
 
 func TestMoveExistsInRepertoire_WrongFEN(t *testing.T) {
-	svc := NewImportService(nil)
+	svc := NewImportService(nil, nil)
 
 	moveE4 := "e4"
 	root := models.RepertoireNode{
@@ -650,7 +650,7 @@ func TestMoveExistsInRepertoire_WrongFEN(t *testing.T) {
 }
 
 func TestFindExpectedMove_NotFound(t *testing.T) {
-	svc := NewImportService(nil)
+	svc := NewImportService(nil, nil)
 
 	root := models.RepertoireNode{
 		ID:          "root",
@@ -668,7 +668,7 @@ func TestFindExpectedMove_NotFound(t *testing.T) {
 }
 
 func TestFindExpectedMove_NoChildren(t *testing.T) {
-	svc := NewImportService(nil)
+	svc := NewImportService(nil, nil)
 
 	root := models.RepertoireNode{
 		ID:          "root",
@@ -685,7 +685,7 @@ func TestFindExpectedMove_NoChildren(t *testing.T) {
 }
 
 func TestFindExpectedMove_DeepSearch(t *testing.T) {
-	svc := NewImportService(nil)
+	svc := NewImportService(nil, nil)
 
 	moveE4 := "e4"
 	moveE5 := "e5"
@@ -729,7 +729,7 @@ func TestFindExpectedMove_DeepSearch(t *testing.T) {
 }
 
 func TestAnalyzeGame_InRepertoire(t *testing.T) {
-	svc := NewImportService(nil)
+	svc := NewImportService(nil, nil)
 
 	pgnData := `[Event "Test"]
 [White "A"]
@@ -764,7 +764,7 @@ func TestAnalyzeGame_InRepertoire(t *testing.T) {
 }
 
 func TestAnalyzeGame_WithExpectedMove(t *testing.T) {
-	svc := NewImportService(nil)
+	svc := NewImportService(nil, nil)
 
 	// Game where user plays d4 but repertoire expects e4
 	pgnData := `[Event "Test"]
@@ -800,7 +800,7 @@ func TestAnalyzeGame_WithExpectedMove(t *testing.T) {
 }
 
 func TestParsePGN_WithComments(t *testing.T) {
-	svc := NewImportService(nil)
+	svc := NewImportService(nil, nil)
 
 	pgnData := `[Event "Test"]
 [White "A"]
@@ -815,7 +815,7 @@ func TestParsePGN_WithComments(t *testing.T) {
 }
 
 func TestParsePGN_WithVariations(t *testing.T) {
-	svc := NewImportService(nil)
+	svc := NewImportService(nil, nil)
 
 	// PGN with alternative lines (variations)
 	pgnData := `[Event "Test"]
@@ -831,7 +831,7 @@ func TestParsePGN_WithVariations(t *testing.T) {
 }
 
 func TestParsePGN_FiltersEmptyGames(t *testing.T) {
-	svc := NewImportService(nil)
+	svc := NewImportService(nil, nil)
 
 	// PGN with trailing newlines (causes phantom empty games in notnil/chess)
 	pgnData := `[Event "Test"]
@@ -850,7 +850,7 @@ func TestParsePGN_FiltersEmptyGames(t *testing.T) {
 }
 
 func TestParsePGN_MultipleGamesWithTrailingNewlines(t *testing.T) {
-	svc := NewImportService(nil)
+	svc := NewImportService(nil, nil)
 
 	// Multiple games from Lichess-style export (ends with trailing newlines)
 	// Note: PGN requires Result header and blank line before moves
@@ -880,7 +880,7 @@ func TestParsePGN_MultipleGamesWithTrailingNewlines(t *testing.T) {
 }
 
 func TestExtractHeaders_PartialHeaders(t *testing.T) {
-	svc := NewImportService(nil)
+	svc := NewImportService(nil, nil)
 
 	pgnData := `[Event "Test Game"]
 [White "Player"]

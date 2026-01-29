@@ -4,44 +4,58 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/treechess/backend/config"
 )
 
-// DefaultTimeout for database operations
-const DefaultTimeout = 5 * time.Second
+// DB wraps the database connection pool
+type DB struct {
+	Pool *pgxpool.Pool
+}
 
-var pool *pgxpool.Pool
-
-func InitDB(cfg config.Config) error {
-	var err error
-	pool, err = pgxpool.New(context.Background(), cfg.DatabaseURL)
+// NewDB creates a new database connection and runs migrations
+func NewDB(cfg config.Config) (*DB, error) {
+	pool, err := pgxpool.New(context.Background(), cfg.DatabaseURL)
 	if err != nil {
-		return fmt.Errorf("failed to create connection pool: %w", err)
+		return nil, fmt.Errorf("failed to create connection pool: %w", err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), DefaultTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), config.DefaultDBTimeout)
 	defer cancel()
 
 	if err := pool.Ping(ctx); err != nil {
-		return fmt.Errorf("failed to ping database: %w", err)
+		pool.Close()
+		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
 
-	if err := runMigrations(); err != nil {
-		return fmt.Errorf("failed to run migrations: %w", err)
+	db := &DB{Pool: pool}
+
+	if err := db.runMigrations(); err != nil {
+		pool.Close()
+		return nil, fmt.Errorf("failed to run migrations: %w", err)
 	}
 
-	return nil
+	return db, nil
 }
 
-func runMigrations() error {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+// Close closes the database connection pool
+func (db *DB) Close() {
+	if db.Pool != nil {
+		db.Pool.Close()
+	}
+}
+
+// dbContext creates a context with default timeout for database operations
+func dbContext() (context.Context, context.CancelFunc) {
+	return context.WithTimeout(context.Background(), config.DefaultDBTimeout)
+}
+
+func (db *DB) runMigrations() error {
+	ctx, cancel := context.WithTimeout(context.Background(), config.MigrationDBTimeout)
 	defer cancel()
 
-	// Create tables if they don't exist
 	schema := `
 		-- Create repertoires table
 		CREATE TABLE IF NOT EXISTS repertoires (
@@ -89,28 +103,44 @@ func runMigrations() error {
 		CREATE TRIGGER repertoire_limit_trigger
 			BEFORE INSERT ON repertoires
 			FOR EACH ROW EXECUTE FUNCTION check_repertoire_limit();
+
+		-- Create video_imports table
+		CREATE TABLE IF NOT EXISTS video_imports (
+			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+			youtube_url VARCHAR(500) NOT NULL,
+			youtube_id VARCHAR(20) NOT NULL,
+			title VARCHAR(500) NOT NULL DEFAULT '',
+			status VARCHAR(20) NOT NULL DEFAULT 'pending'
+				CHECK (status IN ('pending','downloading','extracting','recognizing','building_tree','completed','failed')),
+			progress INTEGER NOT NULL DEFAULT 0,
+			error_message TEXT,
+			total_frames INTEGER,
+			processed_frames INTEGER DEFAULT 0,
+			created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+			completed_at TIMESTAMP WITH TIME ZONE
+		);
+
+		-- Create video_positions table
+		CREATE TABLE IF NOT EXISTS video_positions (
+			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+			video_import_id UUID NOT NULL REFERENCES video_imports(id) ON DELETE CASCADE,
+			fen VARCHAR(100) NOT NULL,
+			timestamp_seconds FLOAT NOT NULL,
+			frame_index INTEGER NOT NULL,
+			confidence FLOAT,
+			created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+		);
+
+		CREATE INDEX IF NOT EXISTS idx_video_positions_fen ON video_positions(fen);
+		CREATE INDEX IF NOT EXISTS idx_video_positions_video_id ON video_positions(video_import_id);
+		CREATE INDEX IF NOT EXISTS idx_video_imports_youtube_id ON video_imports(youtube_id);
 	`
 
-	_, err := pool.Exec(ctx, schema)
+	_, err := db.Pool.Exec(ctx, schema)
 	if err != nil {
 		return fmt.Errorf("failed to execute schema: %w", err)
 	}
 
 	log.Println("Database migrations completed successfully")
 	return nil
-}
-
-func GetPool() *pgxpool.Pool {
-	return pool
-}
-
-func CloseDB() {
-	if pool != nil {
-		pool.Close()
-	}
-}
-
-// dbContext creates a context with default timeout for database operations
-func dbContext() (context.Context, context.CancelFunc) {
-	return context.WithTimeout(context.Background(), DefaultTimeout)
 }

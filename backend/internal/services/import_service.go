@@ -10,16 +10,21 @@ import (
 	"github.com/treechess/backend/internal/repository"
 )
 
+// ImportService handles game import and analysis business logic
 type ImportService struct {
 	repertoireService *RepertoireService
+	analysisRepo      repository.AnalysisRepository
 }
 
-func NewImportService(repertoireSvc *RepertoireService) *ImportService {
+// NewImportService creates a new import service with the given dependencies
+func NewImportService(repertoireSvc *RepertoireService, analysisRepo repository.AnalysisRepository) *ImportService {
 	return &ImportService{
 		repertoireService: repertoireSvc,
+		analysisRepo:      analysisRepo,
 	}
 }
 
+// ParseAndAnalyze parses PGN data and analyzes games against repertoires
 func (s *ImportService) ParseAndAnalyze(filename string, username string, pgnData string) (*models.AnalysisSummary, []models.GameAnalysis, error) {
 	games, err := s.parsePGN(pgnData)
 	if err != nil {
@@ -31,11 +36,13 @@ func (s *ImportService) ParseAndAnalyze(filename string, username string, pgnDat
 	}
 
 	// Get all repertoires upfront
-	whiteRepertoires, err := s.repertoireService.ListRepertoires(&[]models.Color{models.ColorWhite}[0])
+	whiteColor := models.ColorWhite
+	blackColor := models.ColorBlack
+	whiteRepertoires, err := s.repertoireService.ListRepertoires(&whiteColor)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get white repertoires: %w", err)
 	}
-	blackRepertoires, err := s.repertoireService.ListRepertoires(&[]models.Color{models.ColorBlack}[0])
+	blackRepertoires, err := s.repertoireService.ListRepertoires(&blackColor)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get black repertoires: %w", err)
 	}
@@ -43,14 +50,11 @@ func (s *ImportService) ParseAndAnalyze(filename string, username string, pgnDat
 	var results []models.GameAnalysis
 	resultIndex := 0
 	for _, game := range games {
-		// Determine which color the user played based on username
 		userColor := s.determineUserColor(game, username)
 		if userColor == "" {
-			// User not found in this game, skip it
 			continue
 		}
 
-		// Select repertoires based on user's color
 		var repertoires []models.Repertoire
 		if userColor == models.ColorWhite {
 			repertoires = whiteRepertoires
@@ -58,13 +62,10 @@ func (s *ImportService) ParseAndAnalyze(filename string, username string, pgnDat
 			repertoires = blackRepertoires
 		}
 
-		// Find best matching repertoire
 		bestRepertoire, matchScore := s.findBestMatchingRepertoire(game, repertoires, userColor)
 
 		var analysis models.GameAnalysis
 		if bestRepertoire == nil {
-			// No repertoire available - analyze with empty repertoire tree
-			// All user moves will be marked as "out-of-repertoire"
 			emptyTree := models.RepertoireNode{}
 			analysis = s.analyzeGame(resultIndex, game, emptyTree, userColor)
 			analysis.MatchedRepertoire = nil
@@ -86,7 +87,7 @@ func (s *ImportService) ParseAndAnalyze(filename string, username string, pgnDat
 		return nil, nil, fmt.Errorf("no games found where '%s' was a player", username)
 	}
 
-	summary, err := repository.SaveAnalysis(username, filename, len(results), results)
+	summary, err := s.analysisRepo.Save(username, filename, len(results), results)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to save analysis: %w", err)
 	}
@@ -101,7 +102,7 @@ func (s *ImportService) findBestMatchingRepertoire(game *chess.Game, repertoires
 	}
 
 	var bestRepertoire *models.Repertoire
-	bestScore := -1 // Start at -1 so even 0 matches will be selected
+	bestScore := -1
 
 	for i := range repertoires {
 		score := s.countMatchingMoves(game, repertoires[i].TreeData, userColor)
@@ -111,7 +112,6 @@ func (s *ImportService) findBestMatchingRepertoire(game *chess.Game, repertoires
 		}
 	}
 
-	// bestScore will be at least 0 (from first repertoire), so bestRepertoire is guaranteed non-nil
 	return bestRepertoire, bestScore
 }
 
@@ -144,7 +144,6 @@ func (s *ImportService) determineUserColor(game *chess.Game, username string) mo
 	white := headers["White"]
 	black := headers["Black"]
 
-	// Case-insensitive comparison
 	usernameLower := strings.ToLower(username)
 	if strings.ToLower(white) == usernameLower {
 		return models.ColorWhite
@@ -152,7 +151,7 @@ func (s *ImportService) determineUserColor(game *chess.Game, username string) mo
 	if strings.ToLower(black) == usernameLower {
 		return models.ColorBlack
 	}
-	return "" // User not found in this game
+	return ""
 }
 
 func (s *ImportService) parsePGN(pgnData string) ([]*chess.Game, error) {
@@ -162,8 +161,6 @@ func (s *ImportService) parsePGN(pgnData string) ([]*chess.Game, error) {
 		return nil, fmt.Errorf("failed to parse PGN: %w", err)
 	}
 
-	// Filter out empty games (the notnil/chess library creates phantom games
-	// when PGN data ends with trailing newlines)
 	var validGames []*chess.Game
 	for _, game := range games {
 		if len(game.Moves()) > 0 {
@@ -186,7 +183,6 @@ func (s *ImportService) analyzeGame(gameIndex int, game *chess.Game, repertoireR
 	notation := chess.AlgebraicNotation{}
 
 	for ply, move := range moves {
-		// Use AlgebraicNotation encoder to get proper SAN (e4) instead of UCI (e2e4)
 		san := notation.Encode(position, move)
 		currentFEN := normalizeFEN(position.String())
 		isUserMove := (ply%2 == 0 && userColor == models.ColorWhite) || (ply%2 == 1 && userColor == models.ColorBlack)
@@ -310,6 +306,7 @@ func (s *ImportService) findExpectedMove(root models.RepertoireNode, currentFEN 
 	return find(root)
 }
 
+// ValidatePGN validates PGN format
 func (s *ImportService) ValidatePGN(pgnData string) error {
 	_, err := s.parsePGN(pgnData)
 	if err != nil {
@@ -318,6 +315,7 @@ func (s *ImportService) ValidatePGN(pgnData string) error {
 	return nil
 }
 
+// ValidateMove validates a chess move
 func (s *ImportService) ValidateMove(fen, san string) error {
 	fullFEN := ensureFullFEN(fen)
 	fenFn, err := chess.FEN(fullFEN)
@@ -332,6 +330,7 @@ func (s *ImportService) ValidateMove(fen, san string) error {
 	return nil
 }
 
+// GetLegalMoves returns legal moves for a position
 func (s *ImportService) GetLegalMoves(fen string) ([]string, error) {
 	fullFEN := ensureFullFEN(fen)
 	fenFn, err := chess.FEN(fullFEN)
@@ -349,7 +348,7 @@ func (s *ImportService) GetLegalMoves(fen string) ([]string, error) {
 
 // GetAnalyses returns all analyses summaries
 func (s *ImportService) GetAnalyses() ([]models.AnalysisSummary, error) {
-	analyses, err := repository.GetAnalyses()
+	analyses, err := s.analysisRepo.GetAll()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get analyses: %w", err)
 	}
@@ -358,25 +357,17 @@ func (s *ImportService) GetAnalyses() ([]models.AnalysisSummary, error) {
 
 // GetAnalysisByID returns detailed analysis by ID
 func (s *ImportService) GetAnalysisByID(id string) (*models.AnalysisDetail, error) {
-	detail, err := repository.GetAnalysisByID(id)
-	if err != nil {
-		return nil, err // Error already contains "not found" info
-	}
-	return detail, nil
+	return s.analysisRepo.GetByID(id)
 }
 
 // DeleteAnalysis deletes an analysis by ID
 func (s *ImportService) DeleteAnalysis(id string) error {
-	err := repository.DeleteAnalysis(id)
-	if err != nil {
-		return err // Error already contains "not found" info
-	}
-	return nil
+	return s.analysisRepo.Delete(id)
 }
 
 // GetAllGames returns all games from all analyses with pagination
 func (s *ImportService) GetAllGames(limit, offset int) (*models.GamesResponse, error) {
-	response, err := repository.GetAllGames(limit, offset)
+	response, err := s.analysisRepo.GetAllGames(limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get games: %w", err)
 	}
@@ -385,22 +376,16 @@ func (s *ImportService) GetAllGames(limit, offset int) (*models.GamesResponse, e
 
 // DeleteGame removes a single game from an analysis
 func (s *ImportService) DeleteGame(analysisID string, gameIndex int) error {
-	err := repository.DeleteGame(analysisID, gameIndex)
-	if err != nil {
-		return err // Error already contains context
-	}
-	return nil
+	return s.analysisRepo.DeleteGame(analysisID, gameIndex)
 }
 
 // ReanalyzeGame re-analyzes a specific game against a different repertoire
 func (s *ImportService) ReanalyzeGame(analysisID string, gameIndex int, repertoireID string) (*models.GameAnalysis, error) {
-	// Get the analysis detail
-	detail, err := repository.GetAnalysisByID(analysisID)
+	detail, err := s.analysisRepo.GetByID(analysisID)
 	if err != nil {
 		return nil, err
 	}
 
-	// Find the game
 	var targetGame *models.GameAnalysis
 	var targetIdx int
 	for i := range detail.Results {
@@ -411,26 +396,22 @@ func (s *ImportService) ReanalyzeGame(analysisID string, gameIndex int, repertoi
 		}
 	}
 	if targetGame == nil {
-		return nil, fmt.Errorf("game not found")
+		return nil, repository.ErrGameNotFound
 	}
 
-	// Get the specified repertoire
 	repertoire, err := s.repertoireService.GetRepertoire(repertoireID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get repertoire: %w", err)
+		return nil, fmt.Errorf("%w: %w", ErrRepertoireNotFound, err)
 	}
 
-	// Verify the repertoire color matches the user's color in the game
 	if repertoire.Color != targetGame.UserColor {
-		return nil, fmt.Errorf("repertoire color (%s) does not match user's color in game (%s)", repertoire.Color, targetGame.UserColor)
+		return nil, ErrColorMismatch
 	}
 
-	// Re-analyze the game using the stored moves
 	reanalyzedGame := s.reanalyzeGameFromMoves(targetGame, repertoire)
 
-	// Update the results in the database
 	detail.Results[targetIdx] = reanalyzedGame
-	err = repository.UpdateAnalysisResults(analysisID, detail.Results)
+	err = s.analysisRepo.UpdateResults(analysisID, detail.Results)
 	if err != nil {
 		return nil, fmt.Errorf("failed to save reanalyzed game: %w", err)
 	}
@@ -452,7 +433,6 @@ func (s *ImportService) reanalyzeGameFromMoves(game *models.GameAnalysis, repert
 		MatchScore: 0,
 	}
 
-	// Re-classify each move against the new repertoire
 	for i, move := range game.Moves {
 		var status string
 		var expectedMove string

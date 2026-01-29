@@ -8,33 +8,43 @@ import (
 	"github.com/google/uuid"
 	"github.com/notnil/chess"
 
+	"github.com/treechess/backend/config"
 	"github.com/treechess/backend/internal/models"
 	"github.com/treechess/backend/internal/repository"
 )
 
 // Custom errors for better error handling
 var (
-	ErrInvalidColor     = fmt.Errorf("invalid color")
-	ErrRepertoireExists = fmt.Errorf("repertoire already exists")
-	ErrNotFound         = fmt.Errorf("not found")
-	ErrParentNotFound   = fmt.Errorf("parent node not found")
-	ErrInvalidMove      = fmt.Errorf("invalid move")
-	ErrMoveExists       = fmt.Errorf("move already exists")
-	ErrCannotDeleteRoot = fmt.Errorf("cannot delete root node")
-	ErrNodeNotFound     = fmt.Errorf("node not found")
-	ErrLimitReached     = fmt.Errorf("maximum repertoire limit reached (50)")
-	ErrNameRequired     = fmt.Errorf("name is required")
-	ErrNameTooLong      = fmt.Errorf("name must be 100 characters or less")
+	// Repertoire errors
+	ErrInvalidColor       = fmt.Errorf("invalid color")
+	ErrRepertoireExists   = fmt.Errorf("repertoire already exists")
+	ErrRepertoireNotFound = fmt.Errorf("repertoire not found")
+	ErrNotFound           = fmt.Errorf("not found")
+	ErrParentNotFound     = fmt.Errorf("parent node not found")
+	ErrInvalidMove        = fmt.Errorf("invalid move")
+	ErrMoveExists         = fmt.Errorf("move already exists")
+	ErrCannotDeleteRoot   = fmt.Errorf("cannot delete root node")
+	ErrNodeNotFound       = fmt.Errorf("node not found")
+	ErrLimitReached       = fmt.Errorf("maximum repertoire limit reached (50)")
+	ErrNameRequired       = fmt.Errorf("name is required")
+	ErrNameTooLong        = fmt.Errorf("name must be 100 characters or less")
+
+	// Game analysis errors
+	ErrColorMismatch = fmt.Errorf("repertoire color does not match user color in game")
+
+	// Lichess errors
+	ErrLichessUserNotFound = fmt.Errorf("Lichess user not found")
+	ErrLichessRateLimited  = fmt.Errorf("Lichess API rate limited, try again later")
 )
 
-type RepertoireService struct{}
-
-func NewRepertoireService() *RepertoireService {
-	return &RepertoireService{}
+// RepertoireService handles repertoire business logic
+type RepertoireService struct {
+	repo repository.RepertoireRepository
 }
 
-func NewTestRepertoireService() *RepertoireService {
-	return NewRepertoireService()
+// NewRepertoireService creates a new repertoire service with the given repository
+func NewRepertoireService(repo repository.RepertoireRepository) *RepertoireService {
+	return &RepertoireService{repo: repo}
 }
 
 // CreateRepertoire creates a new repertoire with the given name and color
@@ -47,27 +57,30 @@ func (s *RepertoireService) CreateRepertoire(name string, color models.Color) (*
 	if name == "" {
 		return nil, ErrNameRequired
 	}
-	if len(name) > 100 {
+	if len(name) > config.MaxRepertoireNameLen {
 		return nil, ErrNameTooLong
 	}
 
 	// Check repertoire limit
-	count, err := repository.CountRepertoires()
+	count, err := s.repo.Count()
 	if err != nil {
 		return nil, fmt.Errorf("failed to check repertoire count: %w", err)
 	}
-	if count >= 50 {
+	if count >= config.MaxRepertoires {
 		return nil, ErrLimitReached
 	}
 
-	return repository.CreateRepertoire(name, color)
+	return s.repo.Create(name, color)
 }
 
 // GetRepertoire retrieves a repertoire by its ID
 func (s *RepertoireService) GetRepertoire(id string) (*models.Repertoire, error) {
-	rep, err := repository.GetRepertoireByID(id)
+	rep, err := s.repo.GetByID(id)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrNotFound, err)
+		if errors.Is(err, repository.ErrRepertoireNotFound) {
+			return nil, fmt.Errorf("%w: %w", ErrNotFound, err)
+		}
+		return nil, err
 	}
 
 	return rep, nil
@@ -79,9 +92,9 @@ func (s *RepertoireService) ListRepertoires(color *models.Color) ([]models.Reper
 		if *color != models.ColorWhite && *color != models.ColorBlack {
 			return nil, fmt.Errorf("%w: %s", ErrInvalidColor, *color)
 		}
-		return repository.GetRepertoiresByColor(*color)
+		return s.repo.GetByColor(*color)
 	}
-	return repository.GetAllRepertoires()
+	return s.repo.GetAll()
 }
 
 // RenameRepertoire updates the name of a repertoire
@@ -90,12 +103,12 @@ func (s *RepertoireService) RenameRepertoire(id string, name string) (*models.Re
 	if name == "" {
 		return nil, ErrNameRequired
 	}
-	if len(name) > 100 {
+	if len(name) > config.MaxRepertoireNameLen {
 		return nil, ErrNameTooLong
 	}
 
 	// Check if repertoire exists
-	exists, err := repository.RepertoireExistsByID(id)
+	exists, err := s.repo.Exists(id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check repertoire existence: %w", err)
 	}
@@ -103,12 +116,12 @@ func (s *RepertoireService) RenameRepertoire(id string, name string) (*models.Re
 		return nil, fmt.Errorf("%w: %s", ErrNotFound, id)
 	}
 
-	return repository.UpdateRepertoireName(id, name)
+	return s.repo.UpdateName(id, name)
 }
 
 // DeleteRepertoire deletes a repertoire by ID
 func (s *RepertoireService) DeleteRepertoire(id string) error {
-	err := repository.DeleteRepertoire(id)
+	err := s.repo.Delete(id)
 	if err != nil {
 		if errors.Is(err, repository.ErrRepertoireNotFound) {
 			return fmt.Errorf("%w: %s", ErrNotFound, id)
@@ -120,9 +133,12 @@ func (s *RepertoireService) DeleteRepertoire(id string) error {
 
 // AddNode adds a new node to a repertoire
 func (s *RepertoireService) AddNode(repertoireID string, req models.AddNodeRequest) (*models.Repertoire, error) {
-	rep, err := repository.GetRepertoireByID(repertoireID)
+	rep, err := s.repo.GetByID(repertoireID)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrNotFound, err)
+		if errors.Is(err, repository.ErrRepertoireNotFound) {
+			return nil, fmt.Errorf("%w: %w", ErrNotFound, err)
+		}
+		return nil, err
 	}
 
 	parentNode := findNode(&rep.TreeData, req.ParentID)
@@ -151,14 +167,38 @@ func (s *RepertoireService) AddNode(repertoireID string, req models.AddNodeReque
 		MoveNumber:  req.MoveNumber,
 		ColorToMove: colorToMove,
 		ParentID:    &req.ParentID,
-		Children:    []*models.RepertoireNode{}, // Empty slice, not nil
+		Children:    []*models.RepertoireNode{},
 	}
 
 	parentNode.Children = append(parentNode.Children, newNode)
 
 	newMetadata := calculateMetadata(rep.TreeData)
 
-	return repository.SaveRepertoire(repertoireID, rep.TreeData, newMetadata)
+	return s.repo.Save(repertoireID, rep.TreeData, newMetadata)
+}
+
+// DeleteNode removes a node and its children from a repertoire
+func (s *RepertoireService) DeleteNode(repertoireID string, nodeID string) (*models.Repertoire, error) {
+	rep, err := s.repo.GetByID(repertoireID)
+	if err != nil {
+		if errors.Is(err, repository.ErrRepertoireNotFound) {
+			return nil, fmt.Errorf("%w: %w", ErrNotFound, err)
+		}
+		return nil, err
+	}
+
+	if rep.TreeData.ID == nodeID {
+		return nil, ErrCannotDeleteRoot
+	}
+
+	newTreeData := deleteNodeRecursive(rep.TreeData, nodeID)
+	if newTreeData == nil {
+		return nil, fmt.Errorf("%w: %s", ErrNodeNotFound, nodeID)
+	}
+
+	newMetadata := calculateMetadata(*newTreeData)
+
+	return s.repo.Save(repertoireID, *newTreeData, newMetadata)
 }
 
 // validateAndGetResultingFEN validates a move and returns the resulting FEN
@@ -175,7 +215,6 @@ func validateAndGetResultingFEN(fen, san string) (string, error) {
 		return "", fmt.Errorf("illegal move: %w", err)
 	}
 
-	// Return normalized FEN (4 components)
 	return normalizeFEN(game.Position().String()), nil
 }
 
@@ -186,29 +225,6 @@ func getColorToMoveFromFEN(fen string) models.ChessColor {
 		return models.ChessColorBlack
 	}
 	return models.ChessColorWhite
-}
-
-// ensureFullFEN and normalizeFEN are defined in import_service.go
-
-// DeleteNode removes a node and its children from a repertoire
-func (s *RepertoireService) DeleteNode(repertoireID string, nodeID string) (*models.Repertoire, error) {
-	rep, err := repository.GetRepertoireByID(repertoireID)
-	if err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrNotFound, err)
-	}
-
-	if rep.TreeData.ID == nodeID {
-		return nil, ErrCannotDeleteRoot
-	}
-
-	newTreeData := deleteNodeRecursive(rep.TreeData, nodeID)
-	if newTreeData == nil {
-		return nil, fmt.Errorf("%w: %s", ErrNodeNotFound, nodeID)
-	}
-
-	newMetadata := calculateMetadata(*newTreeData)
-
-	return repository.SaveRepertoire(repertoireID, *newTreeData, newMetadata)
 }
 
 func findNode(root *models.RepertoireNode, id string) *models.RepertoireNode {
