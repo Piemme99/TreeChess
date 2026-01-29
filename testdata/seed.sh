@@ -81,7 +81,7 @@ clean_data() {
     # Delete all repertoires
     REPERTOIRES=$(curl -s "${API_URL}/repertoires" | jq -r '.[].id // empty' 2>/dev/null || echo "")
     for id in $REPERTOIRES; do
-        curl -s -X DELETE "${API_URL}/repertoire/${id}" > /dev/null
+        curl -s -X DELETE "${API_URL}/repertoires/${id}" > /dev/null
         log_info "  Deleted repertoire: ${id}"
     done
     
@@ -115,7 +115,7 @@ add_node() {
     local parent_id="$2"
     local move="$3"
     
-    local response=$(curl -s -X POST "${API_URL}/repertoire/${rep_id}/node" \
+    local response=$(curl -s -X POST "${API_URL}/repertoires/${rep_id}/nodes" \
         -H "Content-Type: application/json" \
         -d "{\"parentId\": \"${parent_id}\", \"move\": \"${move}\"}")
     
@@ -133,8 +133,8 @@ find_node_id() {
     local current_node=$(echo "$repertoire_json" | jq '.treeData')
     
     for move in "${moves[@]}"; do
-        current_node=$(echo "$current_node" | jq --arg m "$move" '.children[] | select(.move == $m)')
-        if [ -z "$current_node" ]; then
+        current_node=$(echo "$current_node" | jq --arg m "$move" '.children[]? | select(.move == $m)')
+        if [ -z "$current_node" ] || [ "$current_node" == "null" ]; then
             echo ""
             return
         fi
@@ -153,7 +153,7 @@ build_repertoire_line() {
     log_info "  Building line: $line_name"
     
     # Get current repertoire state
-    local rep_json=$(curl -s "${API_URL}/repertoire/${rep_id}")
+    local rep_json=$(curl -s "${API_URL}/repertoires/${rep_id}")
     local root_id=$(echo "$rep_json" | jq -r '.treeData.id')
     
     local parent_id="$root_id"
