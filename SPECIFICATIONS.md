@@ -1969,6 +1969,72 @@ MIT
 | 5.0 | 2026-01-28 | - | Updated REST API to plural routes, multiple repertoires per color, added Games API |
 | 6.0 | 2026-01-29 | - | Added YouTube video import feature (REQ-070 to REQ-078): video_imports/video_positions tables, SSE progress, tree builder, video search, preview page |
 | 7.0 | 2026-01-29 | - | Migrated video recognition from Python OpenCV to native Go (GoCV). Added `internal/recognition/` package. Removed Python/script dependencies. Updated architecture diagram. |
+| 8.0 | 2026-01-30 | - | Added security hardening section (18). Rate limiting, security headers, input validation, generic errors, multi-stage Dockerfiles, configurable OAuth callback. |
+
+---
+
+## 18. Production Security Checklist
+
+This section lists security items that **must be addressed before production deployment**. Items marked with `[DEV]` have already been implemented for development. Items marked with `[PROD]` require production infrastructure.
+
+### 18.1 Already Implemented [DEV]
+
+| Item | Description | Files |
+|------|-------------|-------|
+| Rate limiting (global) | 100 req/min per IP, burst 20 | `main.go` |
+| Rate limiting (auth) | 10 req/min per IP on login/register | `main.go` |
+| Security headers | X-Content-Type-Options, X-Frame-Options, Referrer-Policy, X-XSS-Protection | `main.go` |
+| Body size limit | Global 10MB limit on request bodies | `main.go` |
+| Username validation | Regex validation on Lichess/Chess.com usernames | `internal/handlers/import.go` |
+| Generic error messages | Internal errors logged server-side, generic messages to clients | `internal/handlers/import.go` |
+| Configurable OAuth callback | `OAUTH_CALLBACK_URL` env var replaces hardcoded localhost | `config/config.go`, `main.go` |
+| Secure cookie flag | `SECURE_COOKIES` env var controls Secure flag on OAuth cookies | `config/config.go`, `internal/handlers/oauth.go` |
+| `.env` excluded from git | `.gitignore` prevents secret leaks, `.env.example` provided | `.gitignore`, `.env.example` |
+| Multi-stage Dockerfiles | Dev and prod stages separated; prod runs as non-root user | `backend/Dockerfile`, `frontend/Dockerfile` |
+
+### 18.2 Required for Production [PROD]
+
+#### Authentication & Token Security
+
+- [ ] **Migrate JWT from localStorage to httpOnly cookies**: The frontend stores JWT tokens in `localStorage` which is vulnerable to XSS. Move to `httpOnly` + `Secure` cookies set by the backend on login/OAuth callback. This impacts `authStore.ts`, `api.ts`, and all backend auth endpoints.
+- [ ] **Remove token from OAuth redirect query parameter**: Currently `oauth.go:111` passes the token via `?token=`. Use a short-lived authorization code or set the token as a cookie in the callback response instead.
+- [ ] **Implement refresh token rotation**: Current JWT has a fixed 7-day expiry with no refresh. Add a refresh token endpoint to allow shorter-lived access tokens (e.g., 15 min) with automatic refresh.
+- [ ] **Add CSRF protection**: Add CSRF token middleware on state-changing endpoints (POST/PUT/PATCH/DELETE). Required once authentication moves to cookies.
+
+#### Transport Security
+
+- [ ] **Deploy behind HTTPS reverse proxy**: Use Caddy (automatic HTTPS) or nginx + Let's Encrypt. All traffic must be encrypted.
+- [ ] **Enable HSTS header**: Add `Strict-Transport-Security: max-age=31536000; includeSubDomains` once HTTPS is confirmed working.
+- [ ] **Set `SECURE_COOKIES=true`**: Enable the Secure flag on all cookies in production.
+- [ ] **Enable database SSL**: Change `sslmode=disable` to `sslmode=require` (or `verify-full` with certificates) in `DATABASE_URL`.
+
+#### Infrastructure
+
+- [ ] **Rotate all secrets**: Generate new `JWT_SECRET` and `POSTGRES_PASSWORD` for production. The development values in `.env` must never be reused.
+- [ ] **Use external secrets management**: Move secrets out of `.env` files into a secrets manager (HashiCorp Vault, AWS Secrets Manager, or equivalent).
+- [ ] **Configure database connection pool**: Set explicit `MaxConns`, `MinConns`, `MaxConnLifetime` in `repository/db.go` via `pgxpool.ParseConfig`.
+- [ ] **Add Content-Security-Policy header**: Define a strict CSP to prevent XSS: `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'`.
+- [ ] **Use production Docker target**: Build with `docker build --target prod` and ensure `docker-compose.prod.yml` targets the `prod` stage.
+- [ ] **Set up health check monitoring**: Add external health check on `/api/health` with alerting.
+- [ ] **Add structured logging**: Replace `log.Printf` with structured JSON logging for log aggregation (ELK, Datadog).
+
+#### OAuth Key Derivation
+
+- [ ] **Improve AES key derivation for OAuth cookies**: Replace `copy(key, []byte(jwtSecret))` in `oauth.go` with HKDF (RFC 5869) to properly derive a 32-byte encryption key from the JWT secret. Use `golang.org/x/crypto/hkdf` with a dedicated salt.
+
+### 18.3 Environment Variables Reference
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `DATABASE_URL` | Yes | - | PostgreSQL connection string |
+| `JWT_SECRET` | Yes | - | Secret key for JWT signing |
+| `JWT_EXPIRY_HOURS` | No | `168` | JWT token expiry in hours |
+| `PORT` | No | `8080` | Backend server port |
+| `FRONTEND_URL` | No | `http://localhost:5173` | Frontend URL for redirects |
+| `CORS_ALLOWED_ORIGINS` | No | `http://localhost:5173` | Comma-separated allowed origins |
+| `LICHESS_CLIENT_ID` | No | - | Lichess OAuth client ID |
+| `OAUTH_CALLBACK_URL` | No | `http://localhost:{PORT}/api/auth/lichess/callback` | OAuth callback URL |
+| `SECURE_COOKIES` | No | `false` | Set `true` in production (HTTPS) |
 
 ---
 

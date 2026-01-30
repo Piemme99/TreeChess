@@ -22,6 +22,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+      target: dev
     volumes:
       - ./backend:/app
     ports:
@@ -41,6 +42,7 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      target: dev
     volumes:
       - ./frontend:/app
     ports:
