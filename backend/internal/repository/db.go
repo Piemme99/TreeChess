@@ -91,34 +91,6 @@ func (db *DB) runMigrations() error {
 			uploaded_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 		);
 
-		-- Create video_imports table
-		CREATE TABLE IF NOT EXISTS video_imports (
-			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-			user_id UUID NOT NULL REFERENCES users(id),
-			youtube_url VARCHAR(500) NOT NULL,
-			youtube_id VARCHAR(20) NOT NULL,
-			title VARCHAR(500) NOT NULL DEFAULT '',
-			status VARCHAR(20) NOT NULL DEFAULT 'pending'
-				CHECK (status IN ('pending','downloading','extracting','recognizing','building_tree','completed','failed')),
-			progress INTEGER NOT NULL DEFAULT 0,
-			error_message TEXT,
-			total_frames INTEGER,
-			processed_frames INTEGER DEFAULT 0,
-			created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-			completed_at TIMESTAMP WITH TIME ZONE
-		);
-
-		-- Create video_positions table
-		CREATE TABLE IF NOT EXISTS video_positions (
-			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-			video_import_id UUID NOT NULL REFERENCES video_imports(id) ON DELETE CASCADE,
-			fen VARCHAR(100) NOT NULL,
-			timestamp_seconds FLOAT NOT NULL,
-			frame_index INTEGER NOT NULL,
-			confidence FLOAT,
-			created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-		);
-
 		-- Create indexes
 		CREATE INDEX IF NOT EXISTS idx_repertoires_user_id ON repertoires(user_id);
 		CREATE INDEX IF NOT EXISTS idx_repertoires_color ON repertoires(color);
@@ -127,11 +99,6 @@ func (db *DB) runMigrations() error {
 		CREATE INDEX IF NOT EXISTS idx_analyses_user_id ON analyses(user_id);
 		CREATE INDEX IF NOT EXISTS idx_analyses_username ON analyses(username);
 		CREATE INDEX IF NOT EXISTS idx_analyses_uploaded ON analyses(uploaded_at DESC);
-		CREATE INDEX IF NOT EXISTS idx_video_imports_user_id ON video_imports(user_id);
-		CREATE INDEX IF NOT EXISTS idx_video_positions_fen ON video_positions(fen);
-		CREATE INDEX IF NOT EXISTS idx_video_positions_video_id ON video_positions(video_import_id);
-		CREATE INDEX IF NOT EXISTS idx_video_imports_youtube_id ON video_imports(youtube_id);
-
 		-- Create function to enforce max 50 repertoires per user
 		CREATE OR REPLACE FUNCTION check_repertoire_limit()
 		RETURNS TRIGGER AS $$
@@ -155,6 +122,18 @@ func (db *DB) runMigrations() error {
 	_, err := db.Pool.Exec(ctx, schema)
 	if err != nil {
 		return fmt.Errorf("failed to execute schema: %w", err)
+	}
+
+	migrations := []string{
+		`ALTER TABLE users ADD COLUMN IF NOT EXISTS lichess_username VARCHAR(50)`,
+		`ALTER TABLE users ADD COLUMN IF NOT EXISTS chesscom_username VARCHAR(50)`,
+		`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_lichess_sync_at TIMESTAMP WITH TIME ZONE`,
+		`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_chesscom_sync_at TIMESTAMP WITH TIME ZONE`,
+	}
+	for _, m := range migrations {
+		if _, err := db.Pool.Exec(ctx, m); err != nil {
+			return fmt.Errorf("failed to run migration: %w", err)
+		}
 	}
 
 	log.Println("Database migrations completed successfully")

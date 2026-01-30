@@ -22,19 +22,21 @@ const (
 )
 
 type OAuthHandler struct {
-	oauthService *services.OAuthService
-	frontendURL  string
-	encryptKey   []byte // 32 bytes for AES-256
+	oauthService  *services.OAuthService
+	frontendURL   string
+	encryptKey    []byte // 32 bytes for AES-256
+	secureCookies bool
 }
 
-func NewOAuthHandler(oauthSvc *services.OAuthService, frontendURL, jwtSecret string) *OAuthHandler {
+func NewOAuthHandler(oauthSvc *services.OAuthService, frontendURL, jwtSecret string, secureCookies bool) *OAuthHandler {
 	// Derive a 32-byte key from the JWT secret for cookie encryption
 	key := make([]byte, 32)
 	copy(key, []byte(jwtSecret))
 	return &OAuthHandler{
-		oauthService: oauthSvc,
-		frontendURL:  frontendURL,
-		encryptKey:   key,
+		oauthService:  oauthSvc,
+		frontendURL:   frontendURL,
+		encryptKey:    key,
+		secureCookies: secureCookies,
 	}
 }
 
@@ -61,6 +63,7 @@ func (h *OAuthHandler) LoginRedirect(c echo.Context) error {
 		Path:     "/api/auth/lichess",
 		MaxAge:   oauthCookieMaxAge,
 		HttpOnly: true,
+		Secure:   h.secureCookies,
 		SameSite: http.SameSiteLaxMode,
 	})
 
@@ -96,6 +99,7 @@ func (h *OAuthHandler) Callback(c echo.Context) error {
 		Path:     "/api/auth/lichess",
 		MaxAge:   -1,
 		HttpOnly: true,
+		Secure:   h.secureCookies,
 	})
 
 	username, lichessID, err := h.oauthService.HandleCallback(c.Request().Context(), code, cookieData.CodeVerifier)
@@ -103,12 +107,15 @@ func (h *OAuthHandler) Callback(c echo.Context) error {
 		return h.redirectWithError(c, "failed to authenticate with Lichess")
 	}
 
-	resp, err := h.oauthService.FindOrCreateUser("lichess", lichessID, username)
+	resp, isNew, err := h.oauthService.FindOrCreateUser("lichess", lichessID, username)
 	if err != nil {
 		return h.redirectWithError(c, "failed to create account")
 	}
 
 	redirectURL := fmt.Sprintf("%s/login?token=%s", h.frontendURL, url.QueryEscape(resp.Token))
+	if isNew {
+		redirectURL += "&new=1"
+	}
 	return c.Redirect(http.StatusTemporaryRedirect, redirectURL)
 }
 

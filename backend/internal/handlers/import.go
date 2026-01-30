@@ -4,7 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -15,6 +17,9 @@ import (
 	"github.com/treechess/backend/internal/repository"
 	"github.com/treechess/backend/internal/services"
 )
+
+// validChessUsername matches alphanumeric usernames with hyphens and underscores (1-50 chars).
+var validChessUsername = regexp.MustCompile(`^[a-zA-Z0-9_-]{1,50}$`)
 
 type ImportHandler struct {
 	importService   *services.ImportService
@@ -68,7 +73,8 @@ func (h *ImportHandler) UploadHandler(c echo.Context) error {
 	userID := c.Get("userID").(string)
 	summary, _, err := h.importService.ParseAndAnalyze(file.Filename, username, userID, string(pgnData))
 	if err != nil {
-		return BadRequestResponse(c, fmt.Sprintf("failed to parse and analyze PGN: %v", err))
+		log.Printf("PGN parse error for user %s: %v", userID, err)
+		return BadRequestResponse(c, "failed to parse PGN file")
 	}
 
 	return c.JSON(http.StatusCreated, map[string]interface{}{
@@ -164,7 +170,8 @@ func (h *ImportHandler) ValidatePGNHandler(c echo.Context) error {
 
 	err = h.importService.ValidatePGN(string(pgnData))
 	if err != nil {
-		return BadRequestResponse(c, fmt.Sprintf("invalid PGN: %v", err))
+		log.Printf("PGN validation error: %v", err)
+		return BadRequestResponse(c, "invalid PGN format")
 	}
 
 	return c.JSON(http.StatusOK, map[string]interface{}{
@@ -220,8 +227,10 @@ func (h *ImportHandler) GetGamesHandler(c echo.Context) error {
 	userID := c.Get("userID").(string)
 	limit := ParseIntQueryParam(c, "limit", config.DefaultGamesLimit, 1, config.MaxGamesLimit)
 	offset := ParseIntQueryParam(c, "offset", 0, 0, 1000000)
+	timeClass := c.QueryParam("timeClass")
+	opening := c.QueryParam("opening")
 
-	response, err := h.importService.GetAllGames(userID, limit, offset)
+	response, err := h.importService.GetAllGames(userID, limit, offset, timeClass, opening)
 	if err != nil {
 		return InternalErrorResponse(c, "failed to get games")
 	}
@@ -258,6 +267,42 @@ func (h *ImportHandler) DeleteGameHandler(c echo.Context) error {
 	}
 
 	return c.NoContent(http.StatusNoContent)
+}
+
+func (h *ImportHandler) BulkDeleteGamesHandler(c echo.Context) error {
+	userID := c.Get("userID").(string)
+
+	var req struct {
+		Games []struct {
+			AnalysisID string `json:"analysisId"`
+			GameIndex  int    `json:"gameIndex"`
+		} `json:"games"`
+	}
+	if err := c.Bind(&req); err != nil {
+		return BadRequestResponse(c, "invalid request body")
+	}
+
+	if len(req.Games) == 0 {
+		return BadRequestResponse(c, "games list is required")
+	}
+	if len(req.Games) > 100 {
+		return BadRequestResponse(c, "cannot delete more than 100 games at once")
+	}
+
+	deleted := 0
+	for _, g := range req.Games {
+		if err := h.importService.CheckOwnership(g.AnalysisID, userID); err != nil {
+			continue
+		}
+		if err := h.importService.DeleteGame(g.AnalysisID, g.GameIndex); err != nil {
+			continue
+		}
+		deleted++
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"deleted": deleted,
+	})
 }
 
 func (h *ImportHandler) ReanalyzeGameHandler(c echo.Context) error {
@@ -320,6 +365,9 @@ func (h *ImportHandler) LichessImportHandler(c echo.Context) error {
 	if !RequireField(c, "username", req.Username) {
 		return nil
 	}
+	if !validChessUsername.MatchString(req.Username) {
+		return BadRequestResponse(c, "invalid username format")
+	}
 
 	pgnData, err := h.lichessService.FetchGames(req.Username, req.Options)
 	if err != nil {
@@ -327,9 +375,10 @@ func (h *ImportHandler) LichessImportHandler(c echo.Context) error {
 			return NotFoundResponse(c, "Lichess user")
 		}
 		if errors.Is(err, services.ErrLichessRateLimited) {
-			return ErrorResponse(c, http.StatusTooManyRequests, err.Error())
+			return ErrorResponse(c, http.StatusTooManyRequests, "Lichess rate limit exceeded, try again later")
 		}
-		return BadRequestResponse(c, err.Error())
+		log.Printf("Lichess fetch error for %s: %v", req.Username, err)
+		return BadRequestResponse(c, "failed to fetch games from Lichess")
 	}
 
 	if len(pgnData) > config.MaxPGNFileSize {
@@ -341,7 +390,8 @@ func (h *ImportHandler) LichessImportHandler(c echo.Context) error {
 	userID := c.Get("userID").(string)
 	summary, _, err := h.importService.ParseAndAnalyze(filename, req.Username, userID, pgnData)
 	if err != nil {
-		return BadRequestResponse(c, fmt.Sprintf("failed to parse and analyze games: %v", err))
+		log.Printf("Lichess import parse error for user %s: %v", userID, err)
+		return BadRequestResponse(c, "failed to parse imported games")
 	}
 
 	return c.JSON(http.StatusCreated, map[string]interface{}{
@@ -362,6 +412,9 @@ func (h *ImportHandler) ChesscomImportHandler(c echo.Context) error {
 	if !RequireField(c, "username", req.Username) {
 		return nil
 	}
+	if !validChessUsername.MatchString(req.Username) {
+		return BadRequestResponse(c, "invalid username format")
+	}
 
 	pgnData, err := h.chesscomService.FetchGames(req.Username, req.Options)
 	if err != nil {
@@ -369,9 +422,10 @@ func (h *ImportHandler) ChesscomImportHandler(c echo.Context) error {
 			return NotFoundResponse(c, "Chess.com user")
 		}
 		if errors.Is(err, services.ErrChesscomRateLimited) {
-			return ErrorResponse(c, http.StatusTooManyRequests, err.Error())
+			return ErrorResponse(c, http.StatusTooManyRequests, "Chess.com rate limit exceeded, try again later")
 		}
-		return BadRequestResponse(c, err.Error())
+		log.Printf("Chess.com fetch error for %s: %v", req.Username, err)
+		return BadRequestResponse(c, "failed to fetch games from Chess.com")
 	}
 
 	if len(pgnData) > config.MaxPGNFileSize {
@@ -383,7 +437,8 @@ func (h *ImportHandler) ChesscomImportHandler(c echo.Context) error {
 	userID := c.Get("userID").(string)
 	summary, _, err := h.importService.ParseAndAnalyze(filename, req.Username, userID, pgnData)
 	if err != nil {
-		return BadRequestResponse(c, fmt.Sprintf("failed to parse and analyze games: %v", err))
+		log.Printf("Chess.com import parse error for user %s: %v", userID, err)
+		return BadRequestResponse(c, "failed to parse imported games")
 	}
 
 	return c.JSON(http.StatusCreated, map[string]interface{}{

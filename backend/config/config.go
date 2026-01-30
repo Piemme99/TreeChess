@@ -13,12 +13,12 @@ type Config struct {
 	DatabaseURL      string
 	Port             int
 	AllowedOrigins   []string
-	YtdlpPath        string
-	FfmpegPath       string
 	JWTSecret        string
 	JWTExpiry        time.Duration
 	LichessClientID  string
 	FrontendURL      string
+	OAuthCallbackURL string
+	SecureCookies    bool
 }
 
 // MustLoad loads configuration from environment variables
@@ -49,16 +49,6 @@ func MustLoad() Config {
 		}
 	}
 
-	ytdlpPath := os.Getenv("YTDLP_PATH")
-	if ytdlpPath == "" {
-		ytdlpPath = "yt-dlp"
-	}
-
-	ffmpegPath := os.Getenv("FFMPEG_PATH")
-	if ffmpegPath == "" {
-		ffmpegPath = "ffmpeg"
-	}
-
 	jwtSecret := os.Getenv("JWT_SECRET")
 	if jwtSecret == "" {
 		panic("JWT_SECRET environment variable is required")
@@ -81,15 +71,22 @@ func MustLoad() Config {
 		frontendURL = "http://localhost:5173"
 	}
 
+	oauthCallbackURL := os.Getenv("OAUTH_CALLBACK_URL")
+	if oauthCallbackURL == "" {
+		oauthCallbackURL = fmt.Sprintf("http://localhost:%d/api/auth/lichess/callback", port)
+	}
+
+	secureCookies := os.Getenv("SECURE_COOKIES") == "true"
+
 	return Config{
-		DatabaseURL:     dbURL,
-		Port:            port,
-		AllowedOrigins:  allowedOrigins,
-		YtdlpPath:       ytdlpPath,
-		FfmpegPath:      ffmpegPath,
-		JWTSecret:       jwtSecret,
-		JWTExpiry:       jwtExpiry,
-		LichessClientID: lichessClientID,
-		FrontendURL:     frontendURL,
+		DatabaseURL:      dbURL,
+		Port:             port,
+		AllowedOrigins:   allowedOrigins,
+		JWTSecret:        jwtSecret,
+		JWTExpiry:        jwtExpiry,
+		LichessClientID:  lichessClientID,
+		FrontendURL:      frontendURL,
+		OAuthCallbackURL: oauthCallbackURL,
+		SecureCookies:    secureCookies,
 	}
 }

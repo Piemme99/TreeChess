@@ -3,12 +3,28 @@ package models
 import "time"
 
 type User struct {
-	ID            string    `json:"id"`
-	Username      string    `json:"username"`
-	PasswordHash  string    `json:"-"`
-	OAuthProvider *string   `json:"oauthProvider,omitempty"`
-	OAuthID       *string   `json:"-"`
-	CreatedAt     time.Time `json:"createdAt"`
+	ID                string     `json:"id"`
+	Username          string     `json:"username"`
+	PasswordHash      string     `json:"-"`
+	OAuthProvider     *string    `json:"oauthProvider,omitempty"`
+	OAuthID           *string    `json:"-"`
+	LichessUsername   *string    `json:"lichessUsername,omitempty"`
+	ChesscomUsername  *string    `json:"chesscomUsername,omitempty"`
+	LastLichessSyncAt *time.Time `json:"lastLichessSyncAt,omitempty"`
+	LastChesscomSyncAt *time.Time `json:"lastChesscomSyncAt,omitempty"`
+	CreatedAt         time.Time  `json:"createdAt"`
+}
+
+type SyncResult struct {
+	LichessGamesImported  int    `json:"lichessGamesImported"`
+	ChesscomGamesImported int    `json:"chesscomGamesImported"`
+	LichessError          string `json:"lichessError,omitempty"`
+	ChesscomError         string `json:"chesscomError,omitempty"`
+}
+
+type UpdateProfileRequest struct {
+	LichessUsername  *string `json:"lichessUsername"`
+	ChesscomUsername *string `json:"chesscomUsername"`
 }
 
 type RegisterRequest struct {

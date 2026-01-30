@@ -89,3 +89,22 @@ func (h *AuthHandler) MeHandler(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, user)
 }
+
+func (h *AuthHandler) UpdateProfileHandler(c echo.Context) error {
+	userID := c.Get("userID").(string)
+
+	var req models.UpdateProfileRequest
+	if err := c.Bind(&req); err != nil {
+		return BadRequestResponse(c, "invalid request body")
+	}
+
+	user, err := h.authService.UpdateProfile(userID, req)
+	if err != nil {
+		if errors.Is(err, repository.ErrUserNotFound) {
+			return ErrorResponse(c, http.StatusUnauthorized, "user not found")
+		}
+		return InternalErrorResponse(c, "failed to update profile")
+	}
+
+	return c.JSON(http.StatusOK, user)
+}

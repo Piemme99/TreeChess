@@ -114,19 +114,21 @@ func (s *OAuthService) HandleCallback(ctx context.Context, code, codeVerifier st
 }
 
 // FindOrCreateUser looks up an existing OAuth user or creates a new one, then returns a JWT.
-func (s *OAuthService) FindOrCreateUser(provider, oauthID, username string) (*models.AuthResponse, error) {
+// The isNew return value indicates whether a new user was created.
+func (s *OAuthService) FindOrCreateUser(provider, oauthID, username string) (resp *models.AuthResponse, isNew bool, err error) {
 	user, err := s.userRepo.FindByOAuth(provider, oauthID)
 	if err != nil && err != repository.ErrUserNotFound {
-		return nil, fmt.Errorf("failed to find OAuth user: %w", err)
+		return nil, false, fmt.Errorf("failed to find OAuth user: %w", err)
 	}
 
 	if user == nil {
+		isNew = true
 		// Check if username already exists and append suffix if needed
 		finalUsername := username
 		for i := 1; ; i++ {
 			exists, err := s.userRepo.Exists(finalUsername)
 			if err != nil {
-				return nil, fmt.Errorf("failed to check username: %w", err)
+				return nil, false, fmt.Errorf("failed to check username: %w", err)
 			}
 			if !exists {
 				break
@@ -136,14 +138,14 @@ func (s *OAuthService) FindOrCreateUser(provider, oauthID, username string) (*mo
 
 		user, err = s.userRepo.CreateOAuth(provider, oauthID, finalUsername)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create OAuth user: %w", err)
+			return nil, false, fmt.Errorf("failed to create OAuth user: %w", err)
 		}
 	}
 
 	token, err := s.authService.generateToken(user)
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate token: %w", err)
+		return nil, false, fmt.Errorf("failed to generate token: %w", err)
 	}
 
-	return &models.AuthResponse{Token: token, User: *user}, nil
+	return &models.AuthResponse{Token: token, User: *user}, isNew, nil
 }

@@ -3,6 +3,7 @@ package repository
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -34,7 +35,7 @@ const (
 		WHERE id = $1
 	`
 	getAllGamesSQL = `
-		SELECT id, results, uploaded_at
+		SELECT id, filename, results, uploaded_at
 		FROM analyses
 		WHERE user_id = $1
 		ORDER BY uploaded_at DESC
@@ -171,7 +172,7 @@ func (r *PostgresAnalysisRepo) Delete(id string) error {
 }
 
 // GetAllGames returns all games from all analyses with pagination for a user
-func (r *PostgresAnalysisRepo) GetAllGames(userID string, limit, offset int) (*models.GamesResponse, error) {
+func (r *PostgresAnalysisRepo) GetAllGames(userID string, limit, offset int, timeClass, opening string) (*models.GamesResponse, error) {
 	ctx, cancel := dbContext()
 	defer cancel()
 
@@ -185,12 +186,15 @@ func (r *PostgresAnalysisRepo) GetAllGames(userID string, limit, offset int) (*m
 
 	for rows.Next() {
 		var analysisID string
+		var filename string
 		var resultsJSON []byte
 		var uploadedAt time.Time
 
-		if err := rows.Scan(&analysisID, &resultsJSON, &uploadedAt); err != nil {
+		if err := rows.Scan(&analysisID, &filename, &resultsJSON, &uploadedAt); err != nil {
 			return nil, fmt.Errorf("failed to scan analysis: %w", err)
 		}
+
+		source := classifySource(filename)
 
 		var games []models.GameAnalysis
 		if err := json.Unmarshal(resultsJSON, &games); err != nil {
@@ -199,6 +203,18 @@ func (r *PostgresAnalysisRepo) GetAllGames(userID string, limit, offset int) (*m
 
 		for _, game := range games {
 			status := computeGameStatus(game)
+			tc := models.ClassifyTimeControl(game.Headers["TimeControl"])
+			if timeClass != "" && tc != timeClass {
+				continue
+			}
+			gameOpening := game.Headers["Opening"]
+			searchableOpening := gameOpening
+			if searchableOpening == "" {
+				searchableOpening = game.Headers["ECO"]
+			}
+			if opening != "" && !strings.Contains(strings.ToLower(searchableOpening), strings.ToLower(opening)) {
+				continue
+			}
 			summary := models.GameSummary{
 				AnalysisID: analysisID,
 				GameIndex:  game.GameIndex,
@@ -208,7 +224,13 @@ func (r *PostgresAnalysisRepo) GetAllGames(userID string, limit, offset int) (*m
 				Date:       game.Headers["Date"],
 				UserColor:  game.UserColor,
 				Status:     status,
+				TimeClass:  tc,
+				Opening:    gameOpening,
 				ImportedAt: uploadedAt,
+				Source:     source,
+			}
+			if game.MatchedRepertoire != nil {
+				summary.RepertoireName = game.MatchedRepertoire.Name
 			}
 			allGames = append(allGames, summary)
 		}
@@ -330,6 +352,20 @@ func (r *PostgresAnalysisRepo) BelongsToUser(id string, userID string) (bool, er
 		return false, fmt.Errorf("failed to check analysis ownership: %w", err)
 	}
 	return belongs, nil
+}
+
+// classifySource derives the import source from the analysis filename
+func classifySource(filename string) string {
+	if strings.HasPrefix(filename, "sync_") {
+		return "sync"
+	}
+	if strings.HasPrefix(filename, "lichess_") {
+		return "lichess"
+	}
+	if strings.HasPrefix(filename, "chesscom_") {
+		return "chesscom"
+	}
+	return "pgn"
 }
 
 // computeGameStatus determines the overall status of a game based on the first actionable move

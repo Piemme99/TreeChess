@@ -115,6 +115,10 @@ func (s *AuthService) GetUserByID(id string) (*models.User, error) {
 	return s.userRepo.GetByID(id)
 }
 
+func (s *AuthService) UpdateProfile(userID string, req models.UpdateProfileRequest) (*models.User, error) {
+	return s.userRepo.UpdateProfile(userID, req.LichessUsername, req.ChesscomUsername)
+}
+
 func (s *AuthService) generateToken(user *models.User) (string, error) {
 	claims := jwt.MapClaims{
 		"sub":      user.ID,

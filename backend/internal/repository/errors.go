@@ -11,9 +11,6 @@ var (
 	ErrAnalysisNotFound = fmt.Errorf("analysis not found")
 	ErrGameNotFound     = fmt.Errorf("game not found")
 
-	// Video import errors
-	ErrVideoImportNotFound = fmt.Errorf("video import not found")
-
 	// User errors
 	ErrUserNotFound   = fmt.Errorf("user not found")
 	ErrUsernameExists = fmt.Errorf("username already exists")

@@ -1,6 +1,8 @@
 package models
 
 import (
+	"fmt"
+	"strings"
 	"time"
 )
 
@@ -140,15 +142,54 @@ type ChesscomImportRequest struct {
 
 // GameSummary represents a single game for the games list
 type GameSummary struct {
-	AnalysisID string    `json:"analysisId"`
-	GameIndex  int       `json:"gameIndex"`
-	White      string    `json:"white"`
-	Black      string    `json:"black"`
-	Result     string    `json:"result"`
-	Date       string    `json:"date"`
-	UserColor  Color     `json:"userColor"`
-	Status     string    `json:"status"` // "ok", "error", "new-line"
-	ImportedAt time.Time `json:"importedAt"`
+	AnalysisID     string    `json:"analysisId"`
+	GameIndex      int       `json:"gameIndex"`
+	White          string    `json:"white"`
+	Black          string    `json:"black"`
+	Result         string    `json:"result"`
+	Date           string    `json:"date"`
+	UserColor      Color     `json:"userColor"`
+	Status         string    `json:"status"` // "ok", "error", "new-line"
+	TimeClass      string    `json:"timeClass,omitempty"`
+	Opening        string    `json:"opening,omitempty"`
+	ImportedAt     time.Time `json:"importedAt"`
+	RepertoireName string    `json:"repertoireName,omitempty"`
+	Source         string    `json:"source"` // "sync", "lichess", "chesscom", "pgn"
+}
+
+// ClassifyTimeControl maps a TimeControl PGN header value to a time class.
+// Format: "seconds" or "seconds+increment"
+func ClassifyTimeControl(tc string) string {
+	if tc == "-" || tc == "" {
+		return "daily"
+	}
+
+	parts := strings.Split(tc, "+")
+	var baseSeconds int
+	if _, err := fmt.Sscanf(parts[0], "%d", &baseSeconds); err != nil {
+		return ""
+	}
+
+	if baseSeconds >= 86400 {
+		return "daily"
+	}
+
+	var increment int
+	if len(parts) > 1 {
+		fmt.Sscanf(parts[1], "%d", &increment)
+	}
+	totalEstimate := baseSeconds + increment*40
+
+	switch {
+	case totalEstimate < 180:
+		return "bullet"
+	case totalEstimate < 600:
+		return "blitz"
+	case totalEstimate < 1800:
+		return "rapid"
+	default:
+		return "daily"
+	}
 }
 
 // GamesResponse represents the paginated response for games list

@@ -1,6 +1,10 @@
 package mocks
 
-import "github.com/treechess/backend/internal/models"
+import (
+	"time"
+
+	"github.com/treechess/backend/internal/models"
+)
 
 // MockRepertoireRepo is a mock implementation of RepertoireRepository for testing
 type MockRepertoireRepo struct {
@@ -92,7 +96,7 @@ type MockAnalysisRepo struct {
 	GetAllFunc        func(userID string) ([]models.AnalysisSummary, error)
 	GetByIDFunc       func(id string) (*models.AnalysisDetail, error)
 	DeleteFunc        func(id string) error
-	GetAllGamesFunc   func(userID string, limit, offset int) (*models.GamesResponse, error)
+	GetAllGamesFunc   func(userID string, limit, offset int, timeClass, opening string) (*models.GamesResponse, error)
 	DeleteGameFunc    func(analysisID string, gameIndex int) error
 	UpdateResultsFunc func(analysisID string, results []models.GameAnalysis) error
 	BelongsToUserFunc func(id string, userID string) (bool, error)
@@ -126,9 +130,9 @@ func (m *MockAnalysisRepo) Delete(id string) error {
 	return nil
 }
 
-func (m *MockAnalysisRepo) GetAllGames(userID string, limit, offset int) (*models.GamesResponse, error) {
+func (m *MockAnalysisRepo) GetAllGames(userID string, limit, offset int, timeClass, opening string) (*models.GamesResponse, error) {
 	if m.GetAllGamesFunc != nil {
-		return m.GetAllGamesFunc(userID, limit, offset)
+		return m.GetAllGamesFunc(userID, limit, offset, timeClass, opening)
 	}
 	return nil, nil
 }
@@ -154,106 +158,16 @@ func (m *MockAnalysisRepo) BelongsToUser(id string, userID string) (bool, error)
 	return true, nil
 }
 
-// MockVideoRepo is a mock implementation of VideoRepository for testing
-type MockVideoRepo struct {
-	CreateImportFunc           func(userID string, youtubeURL, youtubeID, title string) (*models.VideoImport, error)
-	GetImportByIDFunc          func(id string) (*models.VideoImport, error)
-	GetAllImportsFunc          func(userID string) ([]models.VideoImport, error)
-	UpdateImportStatusFunc     func(id string, status models.VideoImportStatus, progress int, errorMsg *string) error
-	UpdateImportFramesFunc     func(id string, totalFrames, processedFrames int) error
-	CompleteImportFunc         func(id string) error
-	DeleteImportFunc           func(id string) error
-	SavePositionsFunc          func(positions []models.VideoPosition) error
-	GetPositionsByImportIDFunc func(importID string) ([]models.VideoPosition, error)
-	SearchPositionsByFENFunc   func(userID string, fen string) ([]models.VideoSearchResult, error)
-	BelongsToUserFunc          func(id string, userID string) (bool, error)
-}
-
-func (m *MockVideoRepo) CreateImport(userID string, youtubeURL, youtubeID, title string) (*models.VideoImport, error) {
-	if m.CreateImportFunc != nil {
-		return m.CreateImportFunc(userID, youtubeURL, youtubeID, title)
-	}
-	return nil, nil
-}
-
-func (m *MockVideoRepo) GetImportByID(id string) (*models.VideoImport, error) {
-	if m.GetImportByIDFunc != nil {
-		return m.GetImportByIDFunc(id)
-	}
-	return nil, nil
-}
-
-func (m *MockVideoRepo) GetAllImports(userID string) ([]models.VideoImport, error) {
-	if m.GetAllImportsFunc != nil {
-		return m.GetAllImportsFunc(userID)
-	}
-	return nil, nil
-}
-
-func (m *MockVideoRepo) UpdateImportStatus(id string, status models.VideoImportStatus, progress int, errorMsg *string) error {
-	if m.UpdateImportStatusFunc != nil {
-		return m.UpdateImportStatusFunc(id, status, progress, errorMsg)
-	}
-	return nil
-}
-
-func (m *MockVideoRepo) UpdateImportFrames(id string, totalFrames, processedFrames int) error {
-	if m.UpdateImportFramesFunc != nil {
-		return m.UpdateImportFramesFunc(id, totalFrames, processedFrames)
-	}
-	return nil
-}
-
-func (m *MockVideoRepo) CompleteImport(id string) error {
-	if m.CompleteImportFunc != nil {
-		return m.CompleteImportFunc(id)
-	}
-	return nil
-}
-
-func (m *MockVideoRepo) DeleteImport(id string) error {
-	if m.DeleteImportFunc != nil {
-		return m.DeleteImportFunc(id)
-	}
-	return nil
-}
-
-func (m *MockVideoRepo) SavePositions(positions []models.VideoPosition) error {
-	if m.SavePositionsFunc != nil {
-		return m.SavePositionsFunc(positions)
-	}
-	return nil
-}
-
-func (m *MockVideoRepo) GetPositionsByImportID(importID string) ([]models.VideoPosition, error) {
-	if m.GetPositionsByImportIDFunc != nil {
-		return m.GetPositionsByImportIDFunc(importID)
-	}
-	return nil, nil
-}
-
-func (m *MockVideoRepo) SearchPositionsByFEN(userID string, fen string) ([]models.VideoSearchResult, error) {
-	if m.SearchPositionsByFENFunc != nil {
-		return m.SearchPositionsByFENFunc(userID, fen)
-	}
-	return nil, nil
-}
-
-func (m *MockVideoRepo) BelongsToUser(id string, userID string) (bool, error) {
-	if m.BelongsToUserFunc != nil {
-		return m.BelongsToUserFunc(id, userID)
-	}
-	return true, nil
-}
-
 // MockUserRepo is a mock implementation of UserRepository for testing
 type MockUserRepo struct {
-	CreateFunc        func(username, passwordHash string) (*models.User, error)
-	GetByUsernameFunc func(username string) (*models.User, error)
-	GetByIDFunc       func(id string) (*models.User, error)
-	ExistsFunc        func(username string) (bool, error)
-	FindByOAuthFunc   func(provider, oauthID string) (*models.User, error)
-	CreateOAuthFunc   func(provider, oauthID, username string) (*models.User, error)
+	CreateFunc              func(username, passwordHash string) (*models.User, error)
+	GetByUsernameFunc       func(username string) (*models.User, error)
+	GetByIDFunc             func(id string) (*models.User, error)
+	ExistsFunc              func(username string) (bool, error)
+	FindByOAuthFunc         func(provider, oauthID string) (*models.User, error)
+	CreateOAuthFunc         func(provider, oauthID, username string) (*models.User, error)
+	UpdateProfileFunc       func(userID string, lichess, chesscom *string) (*models.User, error)
+	UpdateSyncTimestampsFunc func(userID string, lichessSyncAt, chesscomSyncAt *time.Time) error
 }
 
 func (m *MockUserRepo) Create(username, passwordHash string) (*models.User, error) {
@@ -296,4 +210,18 @@ func (m *MockUserRepo) CreateOAuth(provider, oauthID, username string) (*models.
 		return m.CreateOAuthFunc(provider, oauthID, username)
 	}
 	return nil, nil
+}
+
+func (m *MockUserRepo) UpdateProfile(userID string, lichess, chesscom *string) (*models.User, error) {
+	if m.UpdateProfileFunc != nil {
+		return m.UpdateProfileFunc(userID, lichess, chesscom)
+	}
+	return nil, nil
+}
+
+func (m *MockUserRepo) UpdateSyncTimestamps(userID string, lichessSyncAt, chesscomSyncAt *time.Time) error {
+	if m.UpdateSyncTimestampsFunc != nil {
+		return m.UpdateSyncTimestampsFunc(userID, lichessSyncAt, chesscomSyncAt)
+	}
+	return nil
 }

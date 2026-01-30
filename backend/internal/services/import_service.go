@@ -155,20 +155,70 @@ func (s *ImportService) determineUserColor(game *chess.Game, username string) mo
 }
 
 func (s *ImportService) parsePGN(pgnData string) ([]*chess.Game, error) {
-	reader := strings.NewReader(pgnData)
-	games, err := chess.GamesFromPGN(reader)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse PGN: %w", err)
-	}
+	// Split multi-game PGN into individual games first, then parse each one
+	// separately to work around notnil/chess GamesFromPGN splitting games
+	// incorrectly when there are blank lines between headers and moves.
+	rawGames := splitRawPGNGames(pgnData)
 
 	var validGames []*chess.Game
-	for _, game := range games {
-		if len(game.Moves()) > 0 {
-			validGames = append(validGames, game)
+	for _, rawGame := range rawGames {
+		rawGame = strings.TrimSpace(rawGame)
+		if rawGame == "" {
+			continue
+		}
+		reader := strings.NewReader(rawGame)
+		parsed, err := chess.GamesFromPGN(reader)
+		if err != nil {
+			// Skip individual games that fail to parse
+			continue
+		}
+		for _, game := range parsed {
+			if len(game.Moves()) > 0 {
+				validGames = append(validGames, game)
+			}
 		}
 	}
 
 	return validGames, nil
+}
+
+// splitRawPGNGames splits a multi-game PGN string into individual game strings.
+// A new game starts when a tag line (starting with '[') appears after a result
+// line or blank line following move text.
+func splitRawPGNGames(pgn string) []string {
+	var games []string
+	var current strings.Builder
+	seenMoves := false
+
+	lines := strings.Split(pgn, "\n")
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+
+		if strings.HasPrefix(trimmed, "[") && seenMoves {
+			// Start of a new game: save current and reset
+			game := strings.TrimSpace(current.String())
+			if game != "" {
+				games = append(games, game)
+			}
+			current.Reset()
+			seenMoves = false
+		}
+
+		if trimmed != "" && !strings.HasPrefix(trimmed, "[") {
+			seenMoves = true
+		}
+
+		current.WriteString(line)
+		current.WriteString("\n")
+	}
+
+	// Don't forget the last game
+	game := strings.TrimSpace(current.String())
+	if game != "" {
+		games = append(games, game)
+	}
+
+	return games
 }
 
 func (s *ImportService) analyzeGame(gameIndex int, game *chess.Game, repertoireRoot models.RepertoireNode, userColor models.Color) models.GameAnalysis {
@@ -366,8 +416,8 @@ func (s *ImportService) DeleteAnalysis(id string) error {
 }
 
 // GetAllGames returns all games from all analyses with pagination for a user
-func (s *ImportService) GetAllGames(userID string, limit, offset int) (*models.GamesResponse, error) {
-	response, err := s.analysisRepo.GetAllGames(userID, limit, offset)
+func (s *ImportService) GetAllGames(userID string, limit, offset int, timeClass, opening string) (*models.GamesResponse, error) {
+	response, err := s.analysisRepo.GetAllGames(userID, limit, offset, timeClass, opening)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get games: %w", err)
 	}

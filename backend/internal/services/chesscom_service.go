@@ -287,51 +287,10 @@ func matchesTimeClass(game string, timeClass string) bool {
 		if strings.HasPrefix(trimmed, "[TimeControl ") {
 			tc := strings.TrimPrefix(trimmed, "[TimeControl \"")
 			tc = strings.TrimSuffix(tc, "\"]")
-			return classifyTimeControl(tc) == timeClass
+			return models.ClassifyTimeControl(tc) == timeClass
 		}
 	}
 	// If no TimeControl header, include the game (don't filter out)
 	return true
 }
 
-// classifyTimeControl maps a Chess.com TimeControl value to a time class.
-// Format: "seconds" or "seconds+increment"
-func classifyTimeControl(tc string) string {
-	if tc == "-" || tc == "" {
-		return "daily"
-	}
-
-	// Parse base time
-	parts := strings.Split(tc, "+")
-	var baseSeconds int
-	if _, err := fmt.Sscanf(parts[0], "%d", &baseSeconds); err != nil {
-		return ""
-	}
-
-	// Daily games typically have very high time controls (like 86400 = 1 day)
-	if baseSeconds >= 86400 {
-		return "daily"
-	}
-
-	// Standard chess.com classification:
-	// Bullet: < 3 min (180s)
-	// Blitz: 3-9 min (180-599s)
-	// Rapid: 10-29 min (600-1799s)
-	// Classical is not commonly used on chess.com but we support it
-	var increment int
-	if len(parts) > 1 {
-		fmt.Sscanf(parts[1], "%d", &increment)
-	}
-	totalEstimate := baseSeconds + increment*40 // estimate total game time
-
-	switch {
-	case totalEstimate < 180:
-		return "bullet"
-	case totalEstimate < 600:
-		return "blitz"
-	case totalEstimate < 1800:
-		return "rapid"
-	default:
-		return "daily"
-	}
-}

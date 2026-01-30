@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -13,30 +14,41 @@ import (
 )
 
 const (
+	userColumns = `id, username, password_hash, oauth_provider, oauth_id, lichess_username, chesscom_username, last_lichess_sync_at, last_chesscom_sync_at, created_at`
+
 	createUserSQL = `
 		INSERT INTO users (id, username, password_hash)
 		VALUES ($1, $2, $3)
-		RETURNING id, username, password_hash, oauth_provider, oauth_id, created_at
+		RETURNING ` + userColumns + `
 	`
 	getUserByUsernameSQL = `
-		SELECT id, username, password_hash, oauth_provider, oauth_id, created_at
+		SELECT ` + userColumns + `
 		FROM users WHERE username = $1
 	`
 	getUserByIDSQL = `
-		SELECT id, username, password_hash, oauth_provider, oauth_id, created_at
+		SELECT ` + userColumns + `
 		FROM users WHERE id = $1
 	`
 	checkUserExistsSQL = `
 		SELECT EXISTS(SELECT 1 FROM users WHERE username = $1)
 	`
 	findByOAuthSQL = `
-		SELECT id, username, password_hash, oauth_provider, oauth_id, created_at
+		SELECT ` + userColumns + `
 		FROM users WHERE oauth_provider = $1 AND oauth_id = $2
 	`
 	createOAuthUserSQL = `
-		INSERT INTO users (id, username, oauth_provider, oauth_id)
-		VALUES ($1, $2, $3, $4)
-		RETURNING id, username, password_hash, oauth_provider, oauth_id, created_at
+		INSERT INTO users (id, username, oauth_provider, oauth_id, lichess_username)
+		VALUES ($1, $2, $3, $4, $5)
+		RETURNING ` + userColumns + `
+	`
+	updateProfileSQL = `
+		UPDATE users SET lichess_username = $2, chesscom_username = $3
+		WHERE id = $1
+		RETURNING ` + userColumns + `
+	`
+	updateSyncTimestampsSQL = `
+		UPDATE users SET last_lichess_sync_at = COALESCE($2, last_lichess_sync_at), last_chesscom_sync_at = COALESCE($3, last_chesscom_sync_at)
+		WHERE id = $1
 	`
 )
 
@@ -52,7 +64,8 @@ func scanUser(scan func(dest ...any) error) (*models.User, error) {
 	var user models.User
 	var passwordHash *string
 	err := scan(
-		&user.ID, &user.Username, &passwordHash, &user.OAuthProvider, &user.OAuthID, &user.CreatedAt,
+		&user.ID, &user.Username, &passwordHash, &user.OAuthProvider, &user.OAuthID,
+		&user.LichessUsername, &user.ChesscomUsername, &user.LastLichessSyncAt, &user.LastChesscomSyncAt, &user.CreatedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -124,8 +137,14 @@ func (r *PostgresUserRepo) CreateOAuth(provider, oauthID, username string) (*mod
 	ctx, cancel := dbContext()
 	defer cancel()
 
+	// For Lichess OAuth, auto-populate lichess_username
+	var lichessUsername *string
+	if provider == "lichess" {
+		lichessUsername = &username
+	}
+
 	id := uuid.New().String()
-	user, err := scanUser(r.pool.QueryRow(ctx, createOAuthUserSQL, id, username, provider, oauthID).Scan)
+	user, err := scanUser(r.pool.QueryRow(ctx, createOAuthUserSQL, id, username, provider, oauthID, lichessUsername).Scan)
 	if err != nil {
 		if isDuplicateKeyError(err) {
 			return nil, ErrUsernameExists
@@ -133,6 +152,28 @@ func (r *PostgresUserRepo) CreateOAuth(provider, oauthID, username string) (*mod
 		return nil, fmt.Errorf("failed to create OAuth user: %w", err)
 	}
 	return user, nil
+}
+
+func (r *PostgresUserRepo) UpdateProfile(userID string, lichess, chesscom *string) (*models.User, error) {
+	ctx, cancel := dbContext()
+	defer cancel()
+
+	user, err := scanUser(r.pool.QueryRow(ctx, updateProfileSQL, userID, lichess, chesscom).Scan)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update profile: %w", err)
+	}
+	return user, nil
+}
+
+func (r *PostgresUserRepo) UpdateSyncTimestamps(userID string, lichessSyncAt, chesscomSyncAt *time.Time) error {
+	ctx, cancel := dbContext()
+	defer cancel()
+
+	_, err := r.pool.Exec(ctx, updateSyncTimestampsSQL, userID, lichessSyncAt, chesscomSyncAt)
+	if err != nil {
+		return fmt.Errorf("failed to update sync timestamps: %w", err)
+	}
+	return nil
 }
 
 func (r *PostgresUserRepo) Exists(username string) (bool, error) {
