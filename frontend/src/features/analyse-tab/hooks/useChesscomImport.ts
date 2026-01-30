@@ -1,5 +1,4 @@
 import { useState, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { importApi } from '../../../services/api';
 import { toast } from '../../../stores/toastStore';
 import type { ChesscomImportOptions } from '../../../types';
@@ -10,7 +9,6 @@ export interface UseChesscomImportReturn {
 }
 
 export function useChesscomImport(username: string, onSuccess?: () => void): UseChesscomImportReturn {
-  const navigate = useNavigate();
   const [importing, setImporting] = useState(false);
 
   const handleChesscomImport = useCallback(async (options?: ChesscomImportOptions) => {
@@ -25,7 +23,6 @@ export function useChesscomImport(username: string, onSuccess?: () => void): Use
       const result = await importApi.importFromChesscom(username.trim(), options);
       toast.success(`Imported ${result.gameCount} game(s) from Chess.com`);
       onSuccess?.();
-      navigate(`/analyse/${result.id}`);
       return true;
     } catch (error) {
       const axiosError = error as { response?: { data?: { error?: string }; status?: number } };
@@ -35,7 +32,7 @@ export function useChesscomImport(username: string, onSuccess?: () => void): Use
     } finally {
       setImporting(false);
     }
-  }, [username, navigate, onSuccess]);
+  }, [username, onSuccess]);
 
   return { importing, handleChesscomImport };
 }

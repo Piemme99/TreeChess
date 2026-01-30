@@ -2,7 +2,24 @@
 export interface User {
   id: string;
   username: string;
+  oauthProvider?: string;
+  lichessUsername?: string;
+  chesscomUsername?: string;
+  lastLichessSyncAt?: string;
+  lastChesscomSyncAt?: string;
   createdAt: string;
+}
+
+export interface SyncResult {
+  lichessGamesImported: number;
+  chesscomGamesImported: number;
+  lichessError?: string;
+  chesscomError?: string;
+}
+
+export interface UpdateProfileRequest {
+  lichessUsername?: string;
+  chesscomUsername?: string;
 }
 
 export interface LoginRequest {
@@ -123,6 +140,10 @@ export interface AnalysisDetail extends AnalysisSummary {
 // Game list types
 export type GameStatus = 'ok' | 'error' | 'new-line';
 
+export type TimeClass = 'bullet' | 'blitz' | 'rapid' | 'daily';
+
+export type GameSource = 'sync' | 'lichess' | 'chesscom' | 'pgn';
+
 export interface GameSummary {
   analysisId: string;
   gameIndex: number;
@@ -132,7 +153,11 @@ export interface GameSummary {
   date: string;
   userColor: Color;
   status: GameStatus;
+  timeClass?: TimeClass;
+  opening?: string;
   importedAt: string;
+  repertoireName?: string;
+  source: GameSource;
 }
 
 export interface GamesResponse {
@@ -220,56 +245,4 @@ export interface UCIInfo {
   nps?: number;
   time?: number;
   nodes?: number;
-}
-
-// Video import types
-export type VideoImportStatus = 'pending' | 'downloading' | 'extracting' | 'recognizing' | 'building_tree' | 'completed' | 'failed' | 'cancelled';
-
-export interface VideoImport {
-  id: string;
-  youtubeUrl: string;
-  youtubeId: string;
-  title: string;
-  status: VideoImportStatus;
-  progress: number;
-  errorMessage?: string;
-  totalFrames?: number;
-  processedFrames: number;
-  createdAt: string;
-  completedAt?: string;
-}
-
-export interface VideoPosition {
-  id: string;
-  videoImportId: string;
-  fen: string;
-  timestampSeconds: number;
-  frameIndex: number;
-  confidence?: number;
-  createdAt: string;
-}
-
-export interface SSEProgressEvent {
-  status: VideoImportStatus;
-  progress: number;
-  message: string;
-  processedFrames?: number;
-  totalFrames?: number;
-}
-
-export interface VideoTreeResponse {
-  treeData: RepertoireNode;
-  color: Color;
-}
-
-export interface VideoSearchResult {
-  videoImport: VideoImport;
-  positions: VideoPosition[];
-}
-
-export interface VideoImportSaveRequest {
-  name: string;
-  color: Color;
-  repertoireId?: string;
-  treeData: RepertoireNode;
 }

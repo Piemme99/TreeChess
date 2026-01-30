@@ -1,5 +1,4 @@
 import { useState, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { importApi } from '../../../services/api';
 import { toast } from '../../../stores/toastStore';
 
@@ -9,7 +8,6 @@ export interface UseFileUploadReturn {
 }
 
 export function useFileUpload(username: string, onSuccess?: () => void): UseFileUploadReturn {
-  const navigate = useNavigate();
   const [uploading, setUploading] = useState(false);
 
   const handleFileUpload = useCallback(async (file: File) => {
@@ -29,7 +27,6 @@ export function useFileUpload(username: string, onSuccess?: () => void): UseFile
       const result = await importApi.upload(file, username.trim());
       toast.success(`Imported ${result.gameCount} game(s)`);
       onSuccess?.();
-      navigate(`/analyse/${result.id}`);
       return true;
     } catch {
       toast.error('Failed to upload PGN file');
@@ -37,7 +34,7 @@ export function useFileUpload(username: string, onSuccess?: () => void): UseFile
     } finally {
       setUploading(false);
     }
-  }, [username, navigate, onSuccess]);
+  }, [username, onSuccess]);
 
   return { uploading, handleFileUpload };
 }

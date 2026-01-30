@@ -1,11 +1,26 @@
+import { useMemo, useState, useCallback } from 'react';
 import { Button, Loading } from '../../../shared/components/UI';
-import type { GameSummary, GameStatus } from '../../../types';
+import type { GameSummary, GameStatus, Color } from '../../../types';
 import { formatDate } from '../utils/dateUtils';
+
+function gameOutcome(result: string, userColor: Color): 'win' | 'loss' | 'draw' {
+  if (result === '1/2-1/2') return 'draw';
+  const whiteWins = result === '1-0';
+  const isWhite = userColor === 'white';
+  return whiteWins === isWhite ? 'win' : 'loss';
+}
+
+type GameKey = `${string}-${number}`;
+
+function toKey(analysisId: string, gameIndex: number): GameKey {
+  return `${analysisId}-${gameIndex}`;
+}
 
 export interface GamesListProps {
   games: GameSummary[];
   loading: boolean;
   onDeleteClick: (analysisId: string, gameIndex: number) => void;
+  onBulkDelete: (games: { analysisId: string; gameIndex: number }[]) => void;
   onViewClick: (analysisId: string, gameIndex: number) => void;
   hasNextPage: boolean;
   hasPrevPage: boolean;
@@ -13,6 +28,8 @@ export interface GamesListProps {
   totalPages: number;
   onNextPage: () => void;
   onPrevPage: () => void;
+  selectionMode: boolean;
+  onToggleSelectionMode: () => void;
 }
 
 function StatusBadge({ status }: { status: GameStatus }) {
@@ -26,18 +43,133 @@ function StatusBadge({ status }: { status: GameStatus }) {
   return <span className={className}>{label}</span>;
 }
 
+function GameCard({ game, onViewClick, onDeleteClick, showNewBadge, selectionMode, selected, onToggleSelect }: {
+  game: GameSummary;
+  onViewClick: (analysisId: string, gameIndex: number) => void;
+  onDeleteClick: (analysisId: string, gameIndex: number) => void;
+  showNewBadge?: boolean;
+  selectionMode: boolean;
+  selected: boolean;
+  onToggleSelect: () => void;
+}) {
+  return (
+    <div
+      className={`game-card game-${gameOutcome(game.result, game.userColor)}${selected ? ' game-card--selected' : ''}`}
+      onClick={selectionMode ? onToggleSelect : undefined}
+    >
+      {selectionMode && (
+        <div className="game-checkbox">
+          <input
+            type="checkbox"
+            checked={selected}
+            onChange={onToggleSelect}
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
+      <div className="game-info">
+        <div className="game-players">
+          <span className="player-white">{game.white}</span>
+          <span className="vs">vs</span>
+          <span className="player-black">{game.black}</span>
+          {showNewBadge && <span className="badge-new">New</span>}
+        </div>
+        <div className="game-meta">
+          <span className="game-result">{game.result}</span>
+          {game.date && <span className="game-date">{game.date}</span>}
+          <StatusBadge status={game.status} />
+          {game.opening && <span className="game-opening">{game.opening}</span>}
+          {game.repertoireName && <span className="game-repertoire">{game.repertoireName}</span>}
+        </div>
+        <div className="game-import-date">
+          Imported {formatDate(game.importedAt)}
+        </div>
+      </div>
+      {!selectionMode && (
+        <div className="game-actions">
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => onViewClick(game.analysisId, game.gameIndex)}
+          >
+            View
+          </Button>
+          <Button
+            variant="danger"
+            size="sm"
+            onClick={() => onDeleteClick(game.analysisId, game.gameIndex)}
+          >
+            Delete
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function GamesList({
   games,
   loading,
   onDeleteClick,
+  onBulkDelete,
   onViewClick,
   hasNextPage,
   hasPrevPage,
   currentPage,
   totalPages,
   onNextPage,
-  onPrevPage
+  onPrevPage,
+  selectionMode,
+  onToggleSelectionMode
 }: GamesListProps) {
+  const [selected, setSelected] = useState<Set<GameKey>>(new Set());
+
+  const toggleSelect = useCallback((analysisId: string, gameIndex: number) => {
+    const key = toKey(analysisId, gameIndex);
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  }, []);
+
+  const selectAll = useCallback(() => {
+    setSelected(new Set(games.map((g) => toKey(g.analysisId, g.gameIndex))));
+  }, [games]);
+
+  const clearSelection = useCallback(() => {
+    setSelected(new Set());
+  }, []);
+
+  const handleBulkDelete = useCallback(() => {
+    const items = Array.from(selected).map((key) => {
+      const lastDash = key.lastIndexOf('-');
+      return {
+        analysisId: key.slice(0, lastDash),
+        gameIndex: parseInt(key.slice(lastDash + 1), 10),
+      };
+    });
+    onBulkDelete(items);
+    setSelected(new Set());
+  }, [selected, onBulkDelete]);
+
+  const { newGames, analyzedGames } = useMemo(() => {
+    const newG: GameSummary[] = [];
+    const analyzedG: GameSummary[] = [];
+    for (const game of games) {
+      if (game.source === 'sync') {
+        newG.push(game);
+      } else {
+        analyzedG.push(game);
+      }
+    }
+    return { newGames: newG, analyzedGames: analyzedG };
+  }, [games]);
+
   if (loading) {
     return <Loading text="Loading games..." />;
   }
@@ -46,45 +178,76 @@ export function GamesList({
     return <p className="no-analyses">No games yet. Upload a PGN file to get started.</p>;
   }
 
+  const renderGrid = (list: GameSummary[], showNew: boolean) => (
+    <div className="games-grid">
+      {list.map((game) => {
+        const key = toKey(game.analysisId, game.gameIndex);
+        return (
+          <GameCard
+            key={key}
+            game={game}
+            onViewClick={onViewClick}
+            onDeleteClick={onDeleteClick}
+            showNewBadge={showNew}
+            selectionMode={selectionMode}
+            selected={selected.has(key)}
+            onToggleSelect={() => toggleSelect(game.analysisId, game.gameIndex)}
+          />
+        );
+      })}
+    </div>
+  );
+
   return (
     <div className="games-list">
-      <div className="games-grid">
-        {games.map((game) => (
-          <div key={`${game.analysisId}-${game.gameIndex}`} className="game-card">
-            <div className="game-info">
-              <div className="game-players">
-                <span className="player-white">{game.white}</span>
-                <span className="vs">vs</span>
-                <span className="player-black">{game.black}</span>
-              </div>
-              <div className="game-meta">
-                <span className="game-result">{game.result}</span>
-                {game.date && <span className="game-date">{game.date}</span>}
-                <StatusBadge status={game.status} />
-              </div>
-              <div className="game-import-date">
-                Imported {formatDate(game.importedAt)}
-              </div>
-            </div>
-            <div className="game-actions">
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={() => onViewClick(game.analysisId, game.gameIndex)}
-              >
-                View
-              </Button>
-              <Button
-                variant="danger"
-                size="sm"
-                onClick={() => onDeleteClick(game.analysisId, game.gameIndex)}
-              >
-                Delete
-              </Button>
-            </div>
-          </div>
-        ))}
+      <div className="games-list-toolbar">
+        <Button
+          variant={selectionMode ? 'primary' : 'ghost'}
+          size="sm"
+          onClick={() => {
+            if (selectionMode) {
+              clearSelection();
+            }
+            onToggleSelectionMode();
+          }}
+        >
+          {selectionMode ? 'Cancel' : 'Select'}
+        </Button>
+        {selectionMode && (
+          <>
+            <Button variant="ghost" size="sm" onClick={selectAll}>
+              Select all
+            </Button>
+            <Button
+              variant="danger"
+              size="sm"
+              onClick={handleBulkDelete}
+              disabled={selected.size === 0}
+            >
+              Delete {selected.size > 0 ? `(${selected.size})` : ''}
+            </Button>
+          </>
+        )}
       </div>
+
+      {newGames.length > 0 && (
+        <>
+          <h3 className="games-section-title">
+            New games
+            <span className="games-section-count">{newGames.length}</span>
+          </h3>
+          {renderGrid(newGames, true)}
+        </>
+      )}
+
+      {analyzedGames.length > 0 && (
+        <>
+          {newGames.length > 0 && (
+            <h3 className="games-section-title">Previously analyzed</h3>
+          )}
+          {renderGrid(analyzedGames, false)}
+        </>
+      )}
 
       {totalPages > 1 && (
         <div className="pagination">

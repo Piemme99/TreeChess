@@ -37,6 +37,8 @@ export function AnalyseTab() {
     navigate(`/analyse/${analysisId}/game/${gameIndex}`);
   }, [navigate]);
 
+  const [selectionMode, setSelectionMode] = useState(false);
+
   const handleDeleteClick = useCallback((analysisId: string, gameIndex: number) => {
     setDeleteTarget({ analysisId, gameIndex });
   }, [setDeleteTarget]);
@@ -57,6 +59,7 @@ export function AnalyseTab() {
           games={games}
           loading={loading}
           onDeleteClick={handleDeleteClick}
+          onBulkDelete={() => {}}
           onViewClick={handleViewClick}
           hasNextPage={hasNextPage}
           hasPrevPage={hasPrevPage}
@@ -64,6 +67,8 @@ export function AnalyseTab() {
           totalPages={totalPages}
           onNextPage={nextPage}
           onPrevPage={prevPage}
+          selectionMode={selectionMode}
+          onToggleSelectionMode={() => setSelectionMode((prev) => !prev)}
         />
       </section>
 

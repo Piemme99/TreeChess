@@ -1,5 +1,4 @@
 import { useState, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { importApi } from '../../../services/api';
 import { toast } from '../../../stores/toastStore';
 import type { LichessImportOptions } from '../../../types';
@@ -10,7 +9,6 @@ export interface UseLichessImportReturn {
 }
 
 export function useLichessImport(username: string, onSuccess?: () => void): UseLichessImportReturn {
-  const navigate = useNavigate();
   const [importing, setImporting] = useState(false);
 
   const handleLichessImport = useCallback(async (options?: LichessImportOptions) => {
@@ -25,7 +23,6 @@ export function useLichessImport(username: string, onSuccess?: () => void): UseL
       const result = await importApi.importFromLichess(username.trim(), options);
       toast.success(`Imported ${result.gameCount} game(s) from Lichess`);
       onSuccess?.();
-      navigate(`/analyse/${result.id}`);
       return true;
     } catch (error) {
       // Extract error message from axios error
@@ -36,7 +33,7 @@ export function useLichessImport(username: string, onSuccess?: () => void): UseL
     } finally {
       setImporting(false);
     }
-  }, [username, navigate, onSuccess]);
+  }, [username, onSuccess]);
 
   return { importing, handleLichessImport };
 }

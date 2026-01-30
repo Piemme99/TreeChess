@@ -9,17 +9,33 @@ import { useDeleteGame } from '../analyse-tab/hooks/useDeleteGame';
 import { GamesList } from '../analyse-tab/components/GamesList';
 import { ImportPanel } from './components/ImportPanel';
 import { ConfirmModal, Button, EmptyState } from '../../shared/components/UI';
+import { gamesApi } from '../../services/api';
+import { toast } from '../../stores/toastStore';
+
+const TIME_CLASS_FILTERS = [
+  { value: '', label: 'All' },
+  { value: 'bullet', label: 'Bullet' },
+  { value: 'blitz', label: 'Blitz' },
+  { value: 'rapid', label: 'Rapid' },
+  { value: 'daily', label: 'Daily' },
+] as const;
 
 export function GamesPage() {
   const navigate = useNavigate();
   const authUser = useAuthStore((s) => s.user);
-  const [username, setUsername] = useState(() => authUser?.username || '');
+  const [username, setUsername] = useState(() => authUser?.lichessUsername || authUser?.chesscomUsername || authUser?.username || '');
   const [showImport, setShowImport] = useState(false);
+  const [timeClassFilter, setTimeClassFilter] = useState('');
+  const [openingFilter, setOpeningFilter] = useState('');
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [bulkDeleteTargets, setBulkDeleteTargets] = useState<{ analysisId: string; gameIndex: number }[] | null>(null);
 
   const {
     games,
     loading,
     deleteGame,
+    deleteGames,
     nextPage,
     prevPage,
     hasNextPage,
@@ -27,11 +43,16 @@ export function GamesPage() {
     currentPage,
     totalPages,
     refresh
-  } = useGames();
+  } = useGames(timeClassFilter || undefined, openingFilter || undefined);
 
-  const fileUploadState = useFileUpload(username, refresh);
-  const lichessImportState = useLichessImport(username, refresh);
-  const chesscomImportState = useChesscomImport(username, refresh);
+  const handleImportSuccess = useCallback(() => {
+    refresh();
+    setShowImport(false);
+  }, [refresh]);
+
+  const fileUploadState = useFileUpload(username, handleImportSuccess);
+  const lichessImportState = useLichessImport(username, handleImportSuccess);
+  const chesscomImportState = useChesscomImport(username, handleImportSuccess);
   const { deleteTarget, setDeleteTarget, deleting, handleDelete } = useDeleteGame(deleteGame);
 
   const handleViewClick = useCallback((analysisId: string, gameIndex: number) => {
@@ -41,6 +62,26 @@ export function GamesPage() {
   const handleDeleteClick = useCallback((analysisId: string, gameIndex: number) => {
     setDeleteTarget({ analysisId, gameIndex });
   }, [setDeleteTarget]);
+
+  const handleBulkDelete = useCallback((items: { analysisId: string; gameIndex: number }[]) => {
+    setBulkDeleteTargets(items);
+  }, []);
+
+  const confirmBulkDelete = useCallback(async () => {
+    if (!bulkDeleteTargets) return;
+    setBulkDeleting(true);
+    try {
+      const result = await gamesApi.bulkDelete(bulkDeleteTargets);
+      deleteGames(bulkDeleteTargets);
+      toast.success(`${result.deleted} game${result.deleted > 1 ? 's' : ''} deleted`);
+      setBulkDeleteTargets(null);
+      setSelectionMode(false);
+    } catch {
+      toast.error('Failed to delete games');
+    } finally {
+      setBulkDeleting(false);
+    }
+  }, [bulkDeleteTargets, deleteGames]);
 
   const hasGames = games.length > 0 || loading;
 
@@ -66,12 +107,44 @@ export function GamesPage() {
         />
       )}
 
+      <div className="games-filters">
+        <div className="time-class-filters">
+          {TIME_CLASS_FILTERS.map((filter) => (
+            <button
+              key={filter.value}
+              className={`filter-chip${timeClassFilter === filter.value ? ' active' : ''}`}
+              onClick={() => setTimeClassFilter(filter.value)}
+            >
+              {filter.label}
+            </button>
+          ))}
+        </div>
+        <div className="opening-filter">
+          <input
+            type="text"
+            className="opening-filter-input"
+            placeholder="Filter by opening..."
+            value={openingFilter}
+            onChange={(e) => setOpeningFilter(e.target.value)}
+          />
+          {openingFilter && (
+            <button
+              className="opening-filter-clear"
+              onClick={() => setOpeningFilter('')}
+            >
+              &times;
+            </button>
+          )}
+        </div>
+      </div>
+
       {hasGames ? (
         <section className="analyses-section">
           <GamesList
             games={games}
             loading={loading}
             onDeleteClick={handleDeleteClick}
+            onBulkDelete={handleBulkDelete}
             onViewClick={handleViewClick}
             hasNextPage={hasNextPage}
             hasPrevPage={hasPrevPage}
@@ -79,6 +152,8 @@ export function GamesPage() {
             totalPages={totalPages}
             onNextPage={nextPage}
             onPrevPage={prevPage}
+            selectionMode={selectionMode}
+            onToggleSelectionMode={() => setSelectionMode((prev) => !prev)}
           />
         </section>
       ) : (
@@ -108,6 +183,17 @@ export function GamesPage() {
         confirmText="Delete"
         variant="danger"
         loading={deleting}
+      />
+
+      <ConfirmModal
+        isOpen={!!bulkDeleteTargets}
+        onClose={() => setBulkDeleteTargets(null)}
+        onConfirm={confirmBulkDelete}
+        title="Delete Games"
+        message={`Are you sure you want to delete ${bulkDeleteTargets?.length ?? 0} game${(bulkDeleteTargets?.length ?? 0) > 1 ? 's' : ''}? This action cannot be undone.`}
+        confirmText="Delete all"
+        variant="danger"
+        loading={bulkDeleting}
       />
     </div>
   );

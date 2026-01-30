@@ -6,7 +6,7 @@ import { useAbortController, isAbortError } from '../../../shared/hooks';
 
 const PAGE_SIZE = 20;
 
-export function useGames() {
+export function useGames(timeClass?: string, opening?: string) {
   const [games, setGames] = useState<GameSummary[]>([]);
   const [total, setTotal] = useState(0);
   const [offset, setOffset] = useState(0);
@@ -17,7 +17,7 @@ export function useGames() {
     const signal = getSignal();
     setLoading(true);
     try {
-      const data = await gamesApi.list(PAGE_SIZE, newOffset, { signal });
+      const data = await gamesApi.list(PAGE_SIZE, newOffset, timeClass, opening, { signal });
       if (!signal.aborted) {
         setGames(data.games || []);
         setTotal(data.total);
@@ -32,7 +32,7 @@ export function useGames() {
         setLoading(false);
       }
     }
-  }, [getSignal]);
+  }, [getSignal, timeClass, opening]);
 
   useEffect(() => {
     loadGames(0);
@@ -43,6 +43,12 @@ export function useGames() {
       (g) => !(g.analysisId === analysisId && g.gameIndex === gameIndex)
     ));
     setTotal((prev) => prev - 1);
+  }, []);
+
+  const deleteGames = useCallback((items: { analysisId: string; gameIndex: number }[]) => {
+    const keys = new Set(items.map((g) => `${g.analysisId}-${g.gameIndex}`));
+    setGames((prev) => prev.filter((g) => !keys.has(`${g.analysisId}-${g.gameIndex}`)));
+    setTotal((prev) => prev - items.length);
   }, []);
 
   const nextPage = useCallback(() => {
@@ -69,6 +75,7 @@ export function useGames() {
     loading,
     total,
     deleteGame,
+    deleteGames,
     nextPage,
     prevPage,
     hasNextPage,

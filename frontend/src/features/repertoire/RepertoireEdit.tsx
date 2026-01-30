@@ -14,14 +14,12 @@ import type { RepertoireNode } from '../../types';
 import { BoardSection } from './edit/components/BoardSection';
 import { AddMoveModal } from './edit/components/AddMoveModal';
 import { DeleteModal } from './edit/components/DeleteModal';
-import { VideoSearchModal } from './edit/components/VideoSearchModal';
 
 export function RepertoireEdit() {
   // All hooks must be called first, before any conditions
   const navigate = useNavigate();
   const [addMoveModalOpen, setAddMoveModalOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [videoSearchOpen, setVideoSearchOpen] = useState(false);
 
   const { id, color, repertoire, selectedNodeId, loading, selectNode, setRepertoire } = useRepertoireLoader();
   const engine = useEngine();
@@ -108,9 +106,6 @@ export function RepertoireEdit() {
           <Button variant="danger" onClick={() => setDeleteConfirmOpen(true)} disabled={isRootNode || actionLoading}>
             Delete last
           </Button>
-          <Button variant="secondary" onClick={() => setVideoSearchOpen(true)}>
-            Videos
-          </Button>
         </div>
         {engine.currentEvaluation && engine.currentEvaluation.pv && engine.currentEvaluation.pv.length > 0 && (
           <TopMovesPanel evaluation={engine.currentEvaluation} fen={currentFEN} />
@@ -135,11 +130,6 @@ export function RepertoireEdit() {
         actionLoading={actionLoading}
       />
 
-      <VideoSearchModal
-        isOpen={videoSearchOpen}
-        onClose={() => setVideoSearchOpen(false)}
-        fen={currentFEN}
-      />
     </div>
   );
 }

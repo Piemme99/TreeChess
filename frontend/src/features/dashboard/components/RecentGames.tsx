@@ -1,6 +1,13 @@
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../../../shared/components/UI';
-import type { GameSummary } from '../../../types';
+import type { GameSummary, Color } from '../../../types';
+
+function gameOutcome(result: string, userColor: Color): 'win' | 'loss' | 'draw' {
+  if (result === '1/2-1/2') return 'draw';
+  const whiteWins = result === '1-0';
+  const isWhite = userColor === 'white';
+  return whiteWins === isWhite ? 'win' : 'loss';
+}
 
 interface RecentGamesProps {
   games: GameSummary[];
@@ -42,7 +49,7 @@ export function RecentGames({ games, loading }: RecentGamesProps) {
           {games.slice(0, 5).map((game) => (
             <div
               key={`${game.analysisId}-${game.gameIndex}`}
-              className="recent-game-item"
+              className={`recent-game-item game-${gameOutcome(game.result, game.userColor)}`}
               onClick={() => navigate(`/analyse/${game.analysisId}/game/${game.gameIndex}`)}
             >
               <div className="recent-game-players">
@@ -50,11 +57,9 @@ export function RecentGames({ games, loading }: RecentGamesProps) {
                 <span className="vs">vs</span>
                 <span>{game.black}</span>
               </div>
-              <div className="recent-game-meta">
-                <span className="game-result">{game.result}</span>
-                <StatusBadge status={game.status} />
-                {game.date && <span className="game-date">{game.date}</span>}
-              </div>
+              <span className="recent-game-result">{game.result}</span>
+              <span className="recent-game-status"><StatusBadge status={game.status} /></span>
+              {game.date && <span className="recent-game-date">{game.date}</span>}
             </div>
           ))}
         </div>

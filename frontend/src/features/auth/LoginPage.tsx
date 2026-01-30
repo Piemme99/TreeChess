@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
+import { OnboardingModal } from './OnboardingModal';
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
@@ -12,18 +13,23 @@ export function LoginPage() {
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  const { login, register, handleOAuthToken } = useAuthStore();
+  const { login, register, handleOAuthToken, needsOnboarding, clearOnboarding } = useAuthStore();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
   useEffect(() => {
     const token = searchParams.get('token');
     const oauthError = searchParams.get('error');
+    const isNew = searchParams.get('new') === '1';
 
     if (token) {
       setSearchParams({}, { replace: true });
-      handleOAuthToken(token)
-        .then(() => navigate('/', { replace: true }))
+      handleOAuthToken(token, isNew)
+        .then(() => {
+          if (!isNew) {
+            navigate('/', { replace: true });
+          }
+        })
         .catch((err) => {
           if (err instanceof Error) {
             setError(err.message);
@@ -48,10 +54,11 @@ export function LoginPage() {
     try {
       if (isRegister) {
         await register(username, password);
+        // Don't navigate yet — onboarding modal will show
       } else {
         await login(username, password);
+        navigate('/', { replace: true });
       }
-      navigate('/', { replace: true });
     } catch (err) {
       if (err instanceof Error) {
         setError(err.message);
@@ -144,6 +151,14 @@ export function LoginPage() {
           </button>
         </div>
       </div>
+
+      <OnboardingModal
+        isOpen={needsOnboarding}
+        onClose={() => {
+          clearOnboarding();
+          navigate('/', { replace: true });
+        }}
+      />
     </div>
   );
 }

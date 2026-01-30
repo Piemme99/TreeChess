@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import { authApi } from '../services/api';
-import type { User } from '../types';
+import { authApi, syncApi } from '../services/api';
+import type { User, UpdateProfileRequest, SyncResult } from '../types';
 
 const TOKEN_STORAGE_KEY = 'treechess_token';
 
@@ -10,12 +10,18 @@ interface AuthState {
   isAuthenticated: boolean;
   loading: boolean;
   error: string | null;
+  needsOnboarding: boolean;
+  syncing: boolean;
+  lastSyncResult: SyncResult | null;
   login: (username: string, password: string) => Promise<void>;
   register: (username: string, password: string) => Promise<void>;
-  handleOAuthToken: (token: string) => Promise<void>;
+  handleOAuthToken: (token: string, isNew?: boolean) => Promise<void>;
   logout: () => void;
   checkAuth: () => Promise<void>;
   clearError: () => void;
+  updateProfile: (data: UpdateProfileRequest) => Promise<void>;
+  clearOnboarding: () => void;
+  triggerSync: () => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -24,6 +30,9 @@ export const useAuthStore = create<AuthState>((set) => ({
   isAuthenticated: false,
   loading: true,
   error: null,
+  needsOnboarding: false,
+  syncing: false,
+  lastSyncResult: null,
 
   login: async (username: string, password: string) => {
     set({ error: null });
@@ -52,6 +61,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         user: response.user,
         token: response.token,
         isAuthenticated: true,
+        needsOnboarding: true,
         error: null,
       });
     } catch (err: unknown) {
@@ -61,7 +71,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
   },
 
-  handleOAuthToken: async (token: string) => {
+  handleOAuthToken: async (token: string, isNew = false) => {
     localStorage.setItem(TOKEN_STORAGE_KEY, token);
     set({ token, error: null });
     try {
@@ -70,6 +80,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         user,
         token,
         isAuthenticated: true,
+        needsOnboarding: isNew,
         loading: false,
       });
     } catch {
@@ -110,6 +121,10 @@ export const useAuthStore = create<AuthState>((set) => ({
         isAuthenticated: true,
         loading: false,
       });
+      // Fire-and-forget sync if user has a platform username configured
+      if (user.lichessUsername || user.chesscomUsername) {
+        useAuthStore.getState().triggerSync();
+      }
     } catch {
       localStorage.removeItem(TOKEN_STORAGE_KEY);
       set({
@@ -122,6 +137,23 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   clearError: () => set({ error: null }),
+
+  updateProfile: async (data: UpdateProfileRequest) => {
+    const user = await authApi.updateProfile(data);
+    set({ user });
+  },
+
+  clearOnboarding: () => set({ needsOnboarding: false }),
+
+  triggerSync: async () => {
+    set({ syncing: true, lastSyncResult: null });
+    try {
+      const result = await syncApi.sync();
+      set({ syncing: false, lastSyncResult: result });
+    } catch {
+      set({ syncing: false });
+    }
+  },
 }));
 
 function getErrorMessage(err: unknown, fallback: string): string {

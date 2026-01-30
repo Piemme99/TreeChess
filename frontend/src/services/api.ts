@@ -12,12 +12,10 @@ import type {
   ChesscomImportOptions,
   CreateRepertoireRequest,
   UpdateRepertoireRequest,
-  VideoImport,
-  VideoTreeResponse,
-  VideoSearchResult,
-  VideoImportSaveRequest,
   AuthResponse,
-  User
+  User,
+  UpdateProfileRequest,
+  SyncResult
 } from '../types';
 
 const TOKEN_STORAGE_KEY = 'treechess_token';
@@ -78,6 +76,11 @@ export const authApi = {
 
   me: async (): Promise<User> => {
     const response = await api.get('/auth/me');
+    return response.data;
+  },
+
+  updateProfile: async (data: UpdateProfileRequest): Promise<User> => {
+    const response = await api.put('/auth/profile', data);
     return response.data;
   },
 };
@@ -171,6 +174,14 @@ export const importApi = {
   }
 };
 
+// Sync API
+export const syncApi = {
+  sync: async (): Promise<SyncResult> => {
+    const response = await api.post('/sync');
+    return response.data;
+  },
+};
+
 // Health API
 export const healthApi = {
   check: async (): Promise<{ status: string }> => {
@@ -179,62 +190,18 @@ export const healthApi = {
   }
 };
 
-// Video Import API
-export const videoApi = {
-  submit: async (youtubeUrl: string): Promise<VideoImport> => {
-    const response = await api.post('/video-imports', { youtubeUrl });
-    return response.data;
-  },
-
-  list: async (options?: RequestOptions): Promise<VideoImport[]> => {
-    const response = await api.get('/video-imports', { signal: options?.signal });
-    return response.data;
-  },
-
-  get: async (id: string, options?: RequestOptions): Promise<VideoImport> => {
-    const response = await api.get(`/video-imports/${id}`, { signal: options?.signal });
-    return response.data;
-  },
-
-  getTree: async (id: string, options?: RequestOptions): Promise<VideoTreeResponse> => {
-    const response = await api.get(`/video-imports/${id}/tree`, { signal: options?.signal });
-    return response.data;
-  },
-
-  save: async (id: string, data: VideoImportSaveRequest): Promise<Repertoire> => {
-    const response = await api.post(`/video-imports/${id}/save`, data);
-    return response.data;
-  },
-
-  cancel: async (id: string): Promise<void> => {
-    await api.post(`/video-imports/${id}/cancel`);
-  },
-
-  delete: async (id: string): Promise<void> => {
-    await api.delete(`/video-imports/${id}`);
-  },
-
-  searchByFEN: async (fen: string, options?: RequestOptions): Promise<VideoSearchResult[]> => {
-    const response = await api.get('/video-positions/search', {
-      params: { fen },
-      signal: options?.signal,
-    });
-    return response.data;
-  },
-
-  getProgressURL: (id: string): string => {
-    const base = import.meta.env.VITE_API_URL || '/api';
-    const token = localStorage.getItem(TOKEN_STORAGE_KEY);
-    const tokenParam = token ? `?token=${token}` : '';
-    return `${base}/video-imports/${id}/progress${tokenParam}`;
-  },
-};
-
 // Games API
 export const gamesApi = {
-  list: async (limit = 20, offset = 0, options?: RequestOptions): Promise<GamesResponse> => {
+  list: async (limit = 20, offset = 0, timeClass?: string, opening?: string, options?: RequestOptions): Promise<GamesResponse> => {
+    const params: Record<string, string | number> = { limit, offset };
+    if (timeClass) {
+      params.timeClass = timeClass;
+    }
+    if (opening) {
+      params.opening = opening;
+    }
     const response = await api.get('/games', {
-      params: { limit, offset },
+      params,
       signal: options?.signal
     });
     return response.data;
@@ -242,6 +209,11 @@ export const gamesApi = {
 
   delete: async (analysisId: string, gameIndex: number): Promise<void> => {
     await api.delete(`/games/${analysisId}/${gameIndex}`);
+  },
+
+  bulkDelete: async (games: { analysisId: string; gameIndex: number }[]): Promise<{ deleted: number }> => {
+    const response = await api.post('/games/bulk-delete', { games });
+    return response.data;
   },
 
   reanalyze: async (analysisId: string, gameIndex: number, repertoireId: string): Promise<GameAnalysis> => {

@@ -6,7 +6,6 @@ import { RepertoireTab } from './features/repertoire/RepertoireTab';
 import { GamesPage } from './features/games';
 import { GameAnalysisPage } from './features/game-analysis';
 import { RepertoireEdit } from './features/repertoire/RepertoireEdit';
-import { VideoRepertoirePreview } from './features/video-import/VideoRepertoirePreview';
 import { ToastContainer } from './shared/components/UI';
 import { LoginPage } from './features/auth/LoginPage';
 import { ProtectedRoute } from './shared/components/ProtectedRoute';
@@ -47,14 +46,6 @@ function App() {
           element={
             <ProtectedRoute>
               <RepertoireEdit />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/video-import/:id/review"
-          element={
-            <ProtectedRoute>
-              <VideoRepertoirePreview />
             </ProtectedRoute>
           }
         />
