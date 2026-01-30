@@ -4,7 +4,36 @@ import (
 	"time"
 
 	"github.com/treechess/backend/internal/models"
+	"github.com/treechess/backend/internal/repository"
 )
+
+// MockFingerprintRepo is a mock implementation of GameFingerprintRepository for testing
+type MockFingerprintRepo struct {
+	CheckExistingFunc           func(userID string, fingerprints []string) (map[string]bool, error)
+	SaveBatchFunc               func(userID, analysisID string, entries []repository.FingerprintEntry) error
+	DeleteByAnalysisAndIndexFunc func(analysisID string, gameIndex int) error
+}
+
+func (m *MockFingerprintRepo) CheckExisting(userID string, fingerprints []string) (map[string]bool, error) {
+	if m.CheckExistingFunc != nil {
+		return m.CheckExistingFunc(userID, fingerprints)
+	}
+	return map[string]bool{}, nil
+}
+
+func (m *MockFingerprintRepo) SaveBatch(userID, analysisID string, entries []repository.FingerprintEntry) error {
+	if m.SaveBatchFunc != nil {
+		return m.SaveBatchFunc(userID, analysisID, entries)
+	}
+	return nil
+}
+
+func (m *MockFingerprintRepo) DeleteByAnalysisAndIndex(analysisID string, gameIndex int) error {
+	if m.DeleteByAnalysisAndIndexFunc != nil {
+		return m.DeleteByAnalysisAndIndexFunc(analysisID, gameIndex)
+	}
+	return nil
+}
 
 // MockRepertoireRepo is a mock implementation of RepertoireRepository for testing
 type MockRepertoireRepo struct {
@@ -92,14 +121,15 @@ func (m *MockRepertoireRepo) BelongsToUser(id string, userID string) (bool, erro
 
 // MockAnalysisRepo is a mock implementation of AnalysisRepository for testing
 type MockAnalysisRepo struct {
-	SaveFunc          func(userID string, username, filename string, gameCount int, results []models.GameAnalysis) (*models.AnalysisSummary, error)
-	GetAllFunc        func(userID string) ([]models.AnalysisSummary, error)
-	GetByIDFunc       func(id string) (*models.AnalysisDetail, error)
-	DeleteFunc        func(id string) error
-	GetAllGamesFunc   func(userID string, limit, offset int, timeClass, opening string) (*models.GamesResponse, error)
-	DeleteGameFunc    func(analysisID string, gameIndex int) error
-	UpdateResultsFunc func(analysisID string, results []models.GameAnalysis) error
-	BelongsToUserFunc func(id string, userID string) (bool, error)
+	SaveFunc               func(userID string, username, filename string, gameCount int, results []models.GameAnalysis) (*models.AnalysisSummary, error)
+	GetAllFunc             func(userID string) ([]models.AnalysisSummary, error)
+	GetByIDFunc            func(id string) (*models.AnalysisDetail, error)
+	DeleteFunc             func(id string) error
+	GetAllGamesFunc        func(userID string, limit, offset int, timeClass, opening, source string) (*models.GamesResponse, error)
+	DeleteGameFunc         func(analysisID string, gameIndex int) error
+	UpdateResultsFunc      func(analysisID string, results []models.GameAnalysis) error
+	BelongsToUserFunc      func(id string, userID string) (bool, error)
+	GetDistinctRepertoiresFunc func(userID string) ([]string, error)
 }
 
 func (m *MockAnalysisRepo) Save(userID string, username, filename string, gameCount int, results []models.GameAnalysis) (*models.AnalysisSummary, error) {
@@ -130,9 +160,9 @@ func (m *MockAnalysisRepo) Delete(id string) error {
 	return nil
 }
 
-func (m *MockAnalysisRepo) GetAllGames(userID string, limit, offset int, timeClass, opening string) (*models.GamesResponse, error) {
+func (m *MockAnalysisRepo) GetAllGames(userID string, limit, offset int, timeClass, opening, source string) (*models.GamesResponse, error) {
 	if m.GetAllGamesFunc != nil {
-		return m.GetAllGamesFunc(userID, limit, offset, timeClass, opening)
+		return m.GetAllGamesFunc(userID, limit, offset, timeClass, opening, source)
 	}
 	return nil, nil
 }
@@ -158,6 +188,13 @@ func (m *MockAnalysisRepo) BelongsToUser(id string, userID string) (bool, error)
 	return true, nil
 }
 
+func (m *MockAnalysisRepo) GetDistinctRepertoires(userID string) ([]string, error) {
+	if m.GetDistinctRepertoiresFunc != nil {
+		return m.GetDistinctRepertoiresFunc(userID)
+	}
+	return nil, nil
+}
+
 // MockUserRepo is a mock implementation of UserRepository for testing
 type MockUserRepo struct {
 	CreateFunc              func(username, passwordHash string) (*models.User, error)
@@ -167,7 +204,8 @@ type MockUserRepo struct {
 	FindByOAuthFunc         func(provider, oauthID string) (*models.User, error)
 	CreateOAuthFunc         func(provider, oauthID, username string) (*models.User, error)
 	UpdateProfileFunc       func(userID string, lichess, chesscom *string) (*models.User, error)
-	UpdateSyncTimestampsFunc func(userID string, lichessSyncAt, chesscomSyncAt *time.Time) error
+	UpdateSyncTimestampsFunc  func(userID string, lichessSyncAt, chesscomSyncAt *time.Time) error
+	UpdateLichessTokenFunc    func(userID, token string) error
 }
 
 func (m *MockUserRepo) Create(username, passwordHash string) (*models.User, error) {
@@ -222,6 +260,13 @@ func (m *MockUserRepo) UpdateProfile(userID string, lichess, chesscom *string) (
 func (m *MockUserRepo) UpdateSyncTimestamps(userID string, lichessSyncAt, chesscomSyncAt *time.Time) error {
 	if m.UpdateSyncTimestampsFunc != nil {
 		return m.UpdateSyncTimestampsFunc(userID, lichessSyncAt, chesscomSyncAt)
+	}
+	return nil
+}
+
+func (m *MockUserRepo) UpdateLichessToken(userID, token string) error {
+	if m.UpdateLichessTokenFunc != nil {
+		return m.UpdateLichessTokenFunc(userID, token)
 	}
 	return nil
 }

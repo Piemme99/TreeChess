@@ -13,6 +13,7 @@ import (
 
 const (
 	lichessAPIBaseURL = "https://lichess.org/api"
+	lichessBaseURL    = "https://lichess.org"
 	defaultMaxGames   = 20
 	maxAllowedGames   = 100
 )
@@ -27,6 +28,103 @@ func NewLichessService() *LichessService {
 			Timeout: 30 * time.Second,
 		},
 	}
+}
+
+// FetchStudyPGN fetches the full PGN of a Lichess study (all chapters).
+func (s *LichessService) FetchStudyPGN(studyID, authToken string) (string, error) {
+	if studyID == "" {
+		return "", fmt.Errorf("study ID is required")
+	}
+
+	reqURL := fmt.Sprintf("%s/api/study/%s.pgn?clocks=false&comments=true&variations=true&orientation=true",
+		lichessBaseURL, url.PathEscape(studyID))
+
+	req, err := http.NewRequest(http.MethodGet, reqURL, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Accept", "application/x-chess-pgn")
+	if authToken != "" {
+		req.Header.Set("Authorization", "Bearer "+authToken)
+	}
+
+	resp, err := s.httpClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to fetch study from Lichess: %w", err)
+	}
+	defer resp.Body.Close()
+
+	switch resp.StatusCode {
+	case http.StatusOK:
+		// continue
+	case http.StatusNotFound:
+		return "", ErrLichessStudyNotFound
+	case http.StatusForbidden:
+		return "", ErrLichessStudyForbidden
+	case http.StatusTooManyRequests:
+		return "", ErrLichessRateLimited
+	default:
+		return "", fmt.Errorf("Lichess API error: %s", resp.Status)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read response: %w", err)
+	}
+
+	pgnData := string(body)
+	if pgnData == "" {
+		return "", fmt.Errorf("empty study PGN returned for study '%s'", studyID)
+	}
+
+	return pgnData, nil
+}
+
+// FetchStudyChapterPGN fetches the PGN of a single chapter from a Lichess study.
+func (s *LichessService) FetchStudyChapterPGN(studyID, chapterID, authToken string) (string, error) {
+	if studyID == "" || chapterID == "" {
+		return "", fmt.Errorf("study ID and chapter ID are required")
+	}
+
+	reqURL := fmt.Sprintf("%s/api/study/%s/%s.pgn?clocks=false&comments=true&variations=true&orientation=true",
+		lichessBaseURL, url.PathEscape(studyID), url.PathEscape(chapterID))
+
+	req, err := http.NewRequest(http.MethodGet, reqURL, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Accept", "application/x-chess-pgn")
+	if authToken != "" {
+		req.Header.Set("Authorization", "Bearer "+authToken)
+	}
+
+	resp, err := s.httpClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to fetch study chapter from Lichess: %w", err)
+	}
+	defer resp.Body.Close()
+
+	switch resp.StatusCode {
+	case http.StatusOK:
+		// continue
+	case http.StatusNotFound:
+		return "", ErrLichessStudyNotFound
+	case http.StatusForbidden:
+		return "", ErrLichessStudyForbidden
+	case http.StatusTooManyRequests:
+		return "", ErrLichessRateLimited
+	default:
+		return "", fmt.Errorf("Lichess API error: %s", resp.Status)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read response: %w", err)
+	}
+
+	return string(body), nil
 }
 
 // FetchGames fetches games from Lichess for a given username and returns the PGN data

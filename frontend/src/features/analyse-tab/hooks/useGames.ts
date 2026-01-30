@@ -6,7 +6,7 @@ import { useAbortController, isAbortError } from '../../../shared/hooks';
 
 const PAGE_SIZE = 20;
 
-export function useGames(timeClass?: string, opening?: string) {
+export function useGames(timeClass?: string, repertoire?: string, source?: string) {
   const [games, setGames] = useState<GameSummary[]>([]);
   const [total, setTotal] = useState(0);
   const [offset, setOffset] = useState(0);
@@ -17,7 +17,7 @@ export function useGames(timeClass?: string, opening?: string) {
     const signal = getSignal();
     setLoading(true);
     try {
-      const data = await gamesApi.list(PAGE_SIZE, newOffset, timeClass, opening, { signal });
+      const data = await gamesApi.list(PAGE_SIZE, newOffset, timeClass, repertoire, source, { signal });
       if (!signal.aborted) {
         setGames(data.games || []);
         setTotal(data.total);
@@ -32,7 +32,7 @@ export function useGames(timeClass?: string, opening?: string) {
         setLoading(false);
       }
     }
-  }, [getSignal, timeClass, opening]);
+  }, [getSignal, timeClass, repertoire, source]);
 
   useEffect(() => {
     loadGames(0);

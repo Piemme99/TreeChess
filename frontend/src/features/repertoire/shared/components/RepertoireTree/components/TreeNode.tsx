@@ -6,9 +6,11 @@ interface TreeNodeProps {
   layoutNode: LayoutNode;
   selectedNodeId: string | null;
   onClick: (node: RepertoireNode) => void;
+  onMouseEnter?: (layoutNode: LayoutNode) => void;
+  onMouseLeave?: () => void;
 }
 
-export function TreeNode({ layoutNode, selectedNodeId, onClick }: TreeNodeProps) {
+export function TreeNode({ layoutNode, selectedNodeId, onClick, onMouseEnter, onMouseLeave }: TreeNodeProps) {
   const isRoot = layoutNode.node.move === null;
   const isSelected = layoutNode.id === selectedNodeId;
   // colorToMove is the color to play AFTER this move
@@ -19,6 +21,8 @@ export function TreeNode({ layoutNode, selectedNodeId, onClick }: TreeNodeProps)
     <g
       className={`tree-node ${isSelected ? 'selected' : ''}`}
       onClick={() => onClick(layoutNode.node)}
+      onMouseEnter={() => onMouseEnter?.(layoutNode)}
+      onMouseLeave={onMouseLeave}
       style={{ cursor: 'pointer' }}
     >
       {isRoot ? (

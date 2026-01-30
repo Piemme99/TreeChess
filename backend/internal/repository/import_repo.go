@@ -3,6 +3,7 @@ package repository
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -172,7 +173,7 @@ func (r *PostgresAnalysisRepo) Delete(id string) error {
 }
 
 // GetAllGames returns all games from all analyses with pagination for a user
-func (r *PostgresAnalysisRepo) GetAllGames(userID string, limit, offset int, timeClass, opening string) (*models.GamesResponse, error) {
+func (r *PostgresAnalysisRepo) GetAllGames(userID string, limit, offset int, timeClass, repertoire, source string) (*models.GamesResponse, error) {
 	ctx, cancel := dbContext()
 	defer cancel()
 
@@ -194,7 +195,12 @@ func (r *PostgresAnalysisRepo) GetAllGames(userID string, limit, offset int, tim
 			return nil, fmt.Errorf("failed to scan analysis: %w", err)
 		}
 
-		source := classifySource(filename)
+		analysisSource := classifySource(filename)
+		analysisSynced := isSynced(filename)
+
+		if source != "" && analysisSource != source {
+			continue
+		}
 
 		var games []models.GameAnalysis
 		if err := json.Unmarshal(resultsJSON, &games); err != nil {
@@ -208,11 +214,11 @@ func (r *PostgresAnalysisRepo) GetAllGames(userID string, limit, offset int, tim
 				continue
 			}
 			gameOpening := game.Headers["Opening"]
-			searchableOpening := gameOpening
-			if searchableOpening == "" {
-				searchableOpening = game.Headers["ECO"]
+			gameRepertoire := ""
+			if game.MatchedRepertoire != nil {
+				gameRepertoire = game.MatchedRepertoire.Name
 			}
-			if opening != "" && !strings.Contains(strings.ToLower(searchableOpening), strings.ToLower(opening)) {
+			if repertoire != "" && gameRepertoire != repertoire {
 				continue
 			}
 			summary := models.GameSummary{
@@ -227,10 +233,12 @@ func (r *PostgresAnalysisRepo) GetAllGames(userID string, limit, offset int, tim
 				TimeClass:  tc,
 				Opening:    gameOpening,
 				ImportedAt: uploadedAt,
-				Source:     source,
+				Source:     analysisSource,
+			Synced:     analysisSynced,
 			}
 			if game.MatchedRepertoire != nil {
 				summary.RepertoireName = game.MatchedRepertoire.Name
+				summary.RepertoireID = game.MatchedRepertoire.ID
 			}
 			allGames = append(allGames, summary)
 		}
@@ -354,18 +362,68 @@ func (r *PostgresAnalysisRepo) BelongsToUser(id string, userID string) (bool, er
 	return belongs, nil
 }
 
+// GetDistinctRepertoires returns a sorted list of distinct repertoire names for a user
+func (r *PostgresAnalysisRepo) GetDistinctRepertoires(userID string) ([]string, error) {
+	ctx, cancel := dbContext()
+	defer cancel()
+
+	rows, err := r.pool.Query(ctx, getAllGamesSQL, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query analyses: %w", err)
+	}
+	defer rows.Close()
+
+	seen := make(map[string]struct{})
+
+	for rows.Next() {
+		var analysisID string
+		var filename string
+		var resultsJSON []byte
+		var uploadedAt time.Time
+
+		if err := rows.Scan(&analysisID, &filename, &resultsJSON, &uploadedAt); err != nil {
+			return nil, fmt.Errorf("failed to scan analysis: %w", err)
+		}
+
+		var games []models.GameAnalysis
+		if err := json.Unmarshal(resultsJSON, &games); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal results: %w", err)
+		}
+
+		for _, game := range games {
+			if game.MatchedRepertoire != nil && game.MatchedRepertoire.Name != "" {
+				seen[game.MatchedRepertoire.Name] = struct{}{}
+			}
+		}
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating analyses: %w", err)
+	}
+
+	repertoires := make([]string, 0, len(seen))
+	for r := range seen {
+		repertoires = append(repertoires, r)
+	}
+	sort.Strings(repertoires)
+
+	return repertoires, nil
+}
+
 // classifySource derives the import source from the analysis filename
 func classifySource(filename string) string {
-	if strings.HasPrefix(filename, "sync_") {
-		return "sync"
-	}
-	if strings.HasPrefix(filename, "lichess_") {
+	if strings.HasPrefix(filename, "sync_lichess_") || strings.HasPrefix(filename, "lichess_") {
 		return "lichess"
 	}
-	if strings.HasPrefix(filename, "chesscom_") {
+	if strings.HasPrefix(filename, "sync_chesscom_") || strings.HasPrefix(filename, "chesscom_") {
 		return "chesscom"
 	}
 	return "pgn"
+}
+
+// isSynced returns true if the analysis was imported via automatic sync
+func isSynced(filename string) bool {
+	return strings.HasPrefix(filename, "sync_")
 }
 
 // computeGameStatus determines the overall status of a game based on the first actionable move

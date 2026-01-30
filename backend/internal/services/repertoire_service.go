@@ -39,6 +39,10 @@ var (
 	// Chess.com errors
 	ErrChesscomUserNotFound = fmt.Errorf("Chess.com user not found")
 	ErrChesscomRateLimited  = fmt.Errorf("Chess.com API rate limited, try again later")
+
+	// Lichess study errors
+	ErrLichessStudyNotFound  = fmt.Errorf("Lichess study not found")
+	ErrLichessStudyForbidden = fmt.Errorf("Lichess study is private, authentication required")
 )
 
 // RepertoireService handles repertoire business logic

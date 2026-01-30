@@ -129,6 +129,18 @@ func (db *DB) runMigrations() error {
 		`ALTER TABLE users ADD COLUMN IF NOT EXISTS chesscom_username VARCHAR(50)`,
 		`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_lichess_sync_at TIMESTAMP WITH TIME ZONE`,
 		`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_chesscom_sync_at TIMESTAMP WITH TIME ZONE`,
+		`ALTER TABLE users ADD COLUMN IF NOT EXISTS lichess_access_token TEXT`,
+		`CREATE TABLE IF NOT EXISTS game_fingerprints (
+			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+			user_id UUID NOT NULL REFERENCES users(id),
+			fingerprint VARCHAR(512) NOT NULL,
+			analysis_id UUID NOT NULL REFERENCES analyses(id) ON DELETE CASCADE,
+			game_index INTEGER NOT NULL,
+			created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+			UNIQUE(user_id, fingerprint)
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_game_fingerprints_user ON game_fingerprints(user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_game_fingerprints_analysis ON game_fingerprints(analysis_id)`,
 	}
 	for _, m := range migrations {
 		if _, err := db.Pool.Exec(ctx, m); err != nil {

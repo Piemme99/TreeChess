@@ -6,6 +6,12 @@ import (
 	"github.com/treechess/backend/internal/models"
 )
 
+// FingerprintEntry represents a single fingerprint to save
+type FingerprintEntry struct {
+	Fingerprint string
+	GameIndex   int
+}
+
 // UserRepository defines the interface for user data operations
 type UserRepository interface {
 	Create(username, passwordHash string) (*models.User, error)
@@ -16,6 +22,7 @@ type UserRepository interface {
 	CreateOAuth(provider, oauthID, username string) (*models.User, error)
 	UpdateProfile(userID string, lichess, chesscom *string) (*models.User, error)
 	UpdateSyncTimestamps(userID string, lichessSyncAt, chesscomSyncAt *time.Time) error
+	UpdateLichessToken(userID, token string) error
 }
 
 // RepertoireRepository defines the interface for repertoire data operations
@@ -32,14 +39,22 @@ type RepertoireRepository interface {
 	BelongsToUser(id string, userID string) (bool, error)
 }
 
+// GameFingerprintRepository defines the interface for game fingerprint operations
+type GameFingerprintRepository interface {
+	CheckExisting(userID string, fingerprints []string) (map[string]bool, error)
+	SaveBatch(userID, analysisID string, entries []FingerprintEntry) error
+	DeleteByAnalysisAndIndex(analysisID string, gameIndex int) error
+}
+
 // AnalysisRepository defines the interface for analysis data operations
 type AnalysisRepository interface {
 	Save(userID string, username, filename string, gameCount int, results []models.GameAnalysis) (*models.AnalysisSummary, error)
 	GetAll(userID string) ([]models.AnalysisSummary, error)
 	GetByID(id string) (*models.AnalysisDetail, error)
 	Delete(id string) error
-	GetAllGames(userID string, limit, offset int, timeClass, opening string) (*models.GamesResponse, error)
+	GetAllGames(userID string, limit, offset int, timeClass, repertoire, source string) (*models.GamesResponse, error)
 	DeleteGame(analysisID string, gameIndex int) error
 	UpdateResults(analysisID string, results []models.GameAnalysis) error
 	BelongsToUser(id string, userID string) (bool, error)
+	GetDistinctRepertoires(userID string) ([]string, error)
 }

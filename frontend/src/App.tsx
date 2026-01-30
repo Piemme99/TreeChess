@@ -32,23 +32,9 @@ function App() {
           <Route index element={<Dashboard />} />
           <Route path="repertoires" element={<RepertoireTab />} />
           <Route path="games" element={<GamesPage />} />
+          <Route path="analyse/:id/game/:gameIndex" element={<GameAnalysisPage />} />
+          <Route path="repertoire/:id/edit" element={<RepertoireEdit />} />
         </Route>
-        <Route
-          path="/analyse/:id/game/:gameIndex"
-          element={
-            <ProtectedRoute>
-              <GameAnalysisPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/repertoire/:id/edit"
-          element={
-            <ProtectedRoute>
-              <RepertoireEdit />
-            </ProtectedRoute>
-          }
-        />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <ToastContainer />

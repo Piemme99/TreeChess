@@ -15,7 +15,9 @@ import type {
   AuthResponse,
   User,
   UpdateProfileRequest,
-  SyncResult
+  SyncResult,
+  StudyInfo,
+  StudyImportResponse
 } from '../types';
 
 const TOKEN_STORAGE_KEY = 'treechess_token';
@@ -190,15 +192,31 @@ export const healthApi = {
   }
 };
 
+// Study Import API
+export const studyApi = {
+  preview: async (url: string): Promise<StudyInfo> => {
+    const response = await api.get('/studies/preview', { params: { url } });
+    return response.data;
+  },
+
+  import: async (studyUrl: string, chapters: number[]): Promise<StudyImportResponse> => {
+    const response = await api.post('/studies/import', { studyUrl, chapters });
+    return response.data;
+  },
+};
+
 // Games API
 export const gamesApi = {
-  list: async (limit = 20, offset = 0, timeClass?: string, opening?: string, options?: RequestOptions): Promise<GamesResponse> => {
+  list: async (limit = 20, offset = 0, timeClass?: string, repertoire?: string, source?: string, options?: RequestOptions): Promise<GamesResponse> => {
     const params: Record<string, string | number> = { limit, offset };
     if (timeClass) {
       params.timeClass = timeClass;
     }
-    if (opening) {
-      params.opening = opening;
+    if (repertoire) {
+      params.repertoire = repertoire;
+    }
+    if (source) {
+      params.source = source;
     }
     const response = await api.get('/games', {
       params,
@@ -214,6 +232,11 @@ export const gamesApi = {
   bulkDelete: async (games: { analysisId: string; gameIndex: number }[]): Promise<{ deleted: number }> => {
     const response = await api.post('/games/bulk-delete', { games });
     return response.data;
+  },
+
+  repertoires: async (options?: RequestOptions): Promise<string[]> => {
+    const response = await api.get('/games/repertoires', { signal: options?.signal });
+    return response.data.repertoires;
   },
 
   reanalyze: async (analysisId: string, gameIndex: number, repertoireId: string): Promise<GameAnalysis> => {

@@ -1,8 +1,9 @@
+import { useRef, useState, useEffect, useMemo } from 'react';
 import { ChessBoard } from '../../../../shared/components/Board/ChessBoard';
 import { useChess } from '../../../../shared/hooks/useChess';
 import { findNode } from '../utils/nodeUtils';
+import { EvalBar } from './EvalBar';
 import type { RepertoireNode, Color, Repertoire, EngineEvaluation } from '../../../../types';
-import { stockfishService } from '../../../../services/stockfish';
 
 interface BoardSectionProps {
   selectedNode: RepertoireNode | null;
@@ -12,8 +13,7 @@ interface BoardSectionProps {
   possibleMoves: string[];
   setPossibleMoves: (moves: string[]) => void;
   onMove: (move: { san: string }) => void;
-  currentEvaluation?: EngineEvaluation | null;
-  isAnalyzing?: boolean;
+  engineEvaluation?: EngineEvaluation | null;
 }
 
 export function BoardSection({
@@ -24,22 +24,29 @@ export function BoardSection({
   possibleMoves,
   setPossibleMoves,
   onMove,
-  currentEvaluation,
-  isAnalyzing
+  engineEvaluation
 }: BoardSectionProps) {
   const { getLegalMoves } = useChess();
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const [boardSize, setBoardSize] = useState(500);
 
-  const getScoreDisplay = () => {
-    if (isAnalyzing) return 'Analyzing...';
-    if (currentEvaluation?.mate !== undefined && currentEvaluation?.mate !== null) return `Mate in ${currentEvaluation.mate}`;
-    if (currentEvaluation) return stockfishService.formatScore(currentEvaluation.score);
-    return null;
-  };
+  useEffect(() => {
+    const el = wrapperRef.current;
+    if (!el) return;
+    const obs = new ResizeObserver((entries) => {
+      const { width, height } = entries[0].contentRect;
+      setBoardSize(Math.floor(Math.min(width, height)));
+    });
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
 
-  const scoreColor = () => {
-    if (!currentEvaluation || currentEvaluation.score > 0) return '#4caf50';
-    return '#f44336';
-  };
+  const bestMoveArrow = useMemo<[string, string, string?][]>(() => {
+    if (engineEvaluation?.bestMoveFrom && engineEvaluation?.bestMoveTo) {
+      return [[engineEvaluation.bestMoveFrom, engineEvaluation.bestMoveTo, 'rgba(0, 120, 255, 0.6)']];
+    }
+    return [];
+  }, [engineEvaluation?.bestMoveFrom, engineEvaluation?.bestMoveTo]);
 
   const handleSquareClick = (square: string) => {
     if (!color || !selectedNode) return;
@@ -78,26 +85,10 @@ export function BoardSection({
     }
   };
 
-  const scoreDisplay = getScoreDisplay();
-
   return (
     <div className="repertoire-edit-board">
-      <div className="panel-header">
-        <h2>Position</h2>
-        {selectedNode && (
-          <span className="position-info">
-            {selectedNode.move
-              ? `${selectedNode.moveNumber}${selectedNode.colorToMove === 'w' ? '.' : '...'} ${selectedNode.move}`
-              : 'Starting Position'}
-          </span>
-        )}
-      </div>
-      {scoreDisplay && (
-        <div className="score-indicator" style={{ color: scoreColor(), fontSize: '18px', padding: '8px', textAlign: 'center', fontWeight: 'bold' }}>
-          {scoreDisplay}
-        </div>
-      )}
-      <div className="chessboard-wrapper">
+      <EvalBar score={engineEvaluation?.score} mate={engineEvaluation?.mate} />
+      <div className="chessboard-wrapper" ref={wrapperRef}>
         <ChessBoard
           fen={currentFEN}
           orientation={color}
@@ -105,9 +96,8 @@ export function BoardSection({
           onSquareClick={handleSquareClick}
           highlightSquares={possibleMoves}
           interactive={true}
-          width={350}
-          bestMoveFrom={currentEvaluation?.bestMoveFrom}
-          bestMoveTo={currentEvaluation?.bestMoveTo}
+          width={boardSize}
+          customArrows={bestMoveArrow}
         />
       </div>
     </div>

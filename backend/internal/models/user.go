@@ -10,9 +10,10 @@ type User struct {
 	OAuthID           *string    `json:"-"`
 	LichessUsername   *string    `json:"lichessUsername,omitempty"`
 	ChesscomUsername  *string    `json:"chesscomUsername,omitempty"`
-	LastLichessSyncAt *time.Time `json:"lastLichessSyncAt,omitempty"`
+	LichessAccessToken *string    `json:"-"`
+	LastLichessSyncAt  *time.Time `json:"lastLichessSyncAt,omitempty"`
 	LastChesscomSyncAt *time.Time `json:"lastChesscomSyncAt,omitempty"`
-	CreatedAt         time.Time  `json:"createdAt"`
+	CreatedAt          time.Time  `json:"createdAt"`
 }
 
 type SyncResult struct {

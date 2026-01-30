@@ -11,8 +11,10 @@ import (
 	"net/http"
 	"net/url"
 
+	"log"
 	"github.com/labstack/echo/v4"
 
+	"github.com/treechess/backend/internal/repository"
 	"github.com/treechess/backend/internal/services"
 )
 
@@ -23,17 +25,19 @@ const (
 
 type OAuthHandler struct {
 	oauthService  *services.OAuthService
+	userRepo      repository.UserRepository
 	frontendURL   string
 	encryptKey    []byte // 32 bytes for AES-256
 	secureCookies bool
 }
 
-func NewOAuthHandler(oauthSvc *services.OAuthService, frontendURL, jwtSecret string, secureCookies bool) *OAuthHandler {
+func NewOAuthHandler(oauthSvc *services.OAuthService, userRepo repository.UserRepository, frontendURL, jwtSecret string, secureCookies bool) *OAuthHandler {
 	// Derive a 32-byte key from the JWT secret for cookie encryption
 	key := make([]byte, 32)
 	copy(key, []byte(jwtSecret))
 	return &OAuthHandler{
 		oauthService:  oauthSvc,
+		userRepo:      userRepo,
 		frontendURL:   frontendURL,
 		encryptKey:    key,
 		secureCookies: secureCookies,
@@ -102,7 +106,7 @@ func (h *OAuthHandler) Callback(c echo.Context) error {
 		Secure:   h.secureCookies,
 	})
 
-	username, lichessID, err := h.oauthService.HandleCallback(c.Request().Context(), code, cookieData.CodeVerifier)
+	username, lichessID, accessToken, err := h.oauthService.HandleCallback(c.Request().Context(), code, cookieData.CodeVerifier)
 	if err != nil {
 		return h.redirectWithError(c, "failed to authenticate with Lichess")
 	}
@@ -110,6 +114,13 @@ func (h *OAuthHandler) Callback(c echo.Context) error {
 	resp, isNew, err := h.oauthService.FindOrCreateUser("lichess", lichessID, username)
 	if err != nil {
 		return h.redirectWithError(c, "failed to create account")
+	}
+
+	// Store the Lichess access token for API access (e.g. private studies)
+	if accessToken != "" {
+		if err := h.userRepo.UpdateLichessToken(resp.User.ID, accessToken); err != nil {
+			log.Printf("Failed to store Lichess token for user %s: %v", resp.User.ID, err)
+		}
 	}
 
 	redirectURL := fmt.Sprintf("%s/login?token=%s", h.frontendURL, url.QueryEscape(resp.Token))

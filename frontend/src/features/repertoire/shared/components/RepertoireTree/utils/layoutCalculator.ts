@@ -9,9 +9,8 @@ import {
 } from '../constants';
 
 /**
- * Calculates the visual layout for a repertoire tree.
- * Uses a recursive algorithm that positions children first,
- * then centers parents between their children.
+ * Calculates the visual layout for a repertoire tree (vertical: top-to-bottom).
+ * Siblings spread horizontally, depth increases vertically (downward).
  */
 export function calculateLayout(root: RepertoireNode): TreeLayout {
   const nodes: LayoutNode[] = [];
@@ -22,49 +21,49 @@ export function calculateLayout(root: RepertoireNode): TreeLayout {
   function layoutNode(
     node: RepertoireNode,
     depth: number,
-    startY: number
-  ): { height: number; centerY: number } {
-    const x = ROOT_OFFSET_X + depth * NODE_SPACING_X;
+    startX: number
+  ): { width: number; centerX: number } {
+    const y = ROOT_OFFSET_Y + depth * NODE_SPACING_Y;
 
     if (node.children.length === 0) {
-      const y = startY + NODE_SPACING_Y / 2;
+      const x = startX + NODE_SPACING_X / 2;
       nodes.push({ id: node.id, x, y, node, depth });
       maxX = Math.max(maxX, x);
       maxY = Math.max(maxY, y);
-      return { height: NODE_SPACING_Y, centerY: y };
+      return { width: NODE_SPACING_X, centerX: x };
     }
 
-    let currentY = startY;
+    let currentX = startX;
     const childCenters: number[] = [];
 
     for (const child of node.children) {
-      const result = layoutNode(child, depth + 1, currentY);
-      childCenters.push(result.centerY);
-      currentY += result.height;
+      const result = layoutNode(child, depth + 1, currentX);
+      childCenters.push(result.centerX);
+      currentX += result.width;
     }
 
-    const totalHeight = currentY - startY;
-    const centerY = (childCenters[0] + childCenters[childCenters.length - 1]) / 2;
+    const totalWidth = currentX - startX;
+    const centerX = (childCenters[0] + childCenters[childCenters.length - 1]) / 2;
 
-    nodes.push({ id: node.id, x, y: centerY, node, depth });
-    maxX = Math.max(maxX, x);
-    maxY = Math.max(maxY, centerY);
+    nodes.push({ id: node.id, x: centerX, y, node, depth });
+    maxX = Math.max(maxX, centerX);
+    maxY = Math.max(maxY, y);
 
     // Create edges to children
     for (let i = 0; i < node.children.length; i++) {
       const childNode = nodes.find((n) => n.id === node.children[i].id);
       if (childNode) {
         edges.push({
-          from: { x, y: centerY },
+          from: { x: centerX, y },
           to: { x: childNode.x, y: childNode.y }
         });
       }
     }
 
-    return { height: totalHeight, centerY };
+    return { width: totalWidth, centerX };
   }
 
-  layoutNode(root, 0, ROOT_OFFSET_Y);
+  layoutNode(root, 0, ROOT_OFFSET_X);
 
   return {
     nodes,
@@ -76,9 +75,9 @@ export function calculateLayout(root: RepertoireNode): TreeLayout {
 
 /**
  * Creates a cubic bezier curve path between two points.
- * The curve has horizontal tangents for a clean tree appearance.
+ * The curve has vertical tangents for a clean top-to-bottom tree appearance.
  */
 export function createBezierPath(from: Point, to: Point): string {
-  const midX = (from.x + to.x) / 2;
-  return `M ${from.x + NODE_RADIUS} ${from.y} C ${midX} ${from.y}, ${midX} ${to.y}, ${to.x - NODE_RADIUS} ${to.y}`;
+  const midY = (from.y + to.y) / 2;
+  return `M ${from.x} ${from.y + NODE_RADIUS} C ${from.x} ${midY}, ${to.x} ${midY}, ${to.x} ${to.y - NODE_RADIUS}`;
 }

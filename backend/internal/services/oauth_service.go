@@ -36,7 +36,7 @@ func NewOAuthService(userRepo repository.UserRepository, authService *AuthServic
 			AuthURL:  "https://lichess.org/oauth",
 			TokenURL: "https://lichess.org/api/token",
 		},
-		Scopes: []string{},
+		Scopes: []string{"study:read"},
 	}
 
 	return &OAuthService{
@@ -79,38 +79,39 @@ type lichessAccount struct {
 }
 
 // HandleCallback exchanges the authorization code for a token and fetches the user profile.
-func (s *OAuthService) HandleCallback(ctx context.Context, code, codeVerifier string) (username, lichessID string, err error) {
+// Also returns the access token so it can be stored for API access (e.g. private studies).
+func (s *OAuthService) HandleCallback(ctx context.Context, code, codeVerifier string) (username, lichessID, accessToken string, err error) {
 	token, err := s.oauthConfig.Exchange(ctx, code,
 		oauth2.SetAuthURLParam("code_verifier", codeVerifier),
 	)
 	if err != nil {
-		return "", "", fmt.Errorf("failed to exchange code: %w", err)
+		return "", "", "", fmt.Errorf("failed to exchange code: %w", err)
 	}
 
 	req, err := http.NewRequestWithContext(ctx, "GET", "https://lichess.org/api/account", nil)
 	if err != nil {
-		return "", "", fmt.Errorf("failed to create account request: %w", err)
+		return "", "", "", fmt.Errorf("failed to create account request: %w", err)
 	}
 	req.Header.Set("Authorization", "Bearer "+token.AccessToken)
 
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		return "", "", fmt.Errorf("failed to fetch Lichess account: %w", err)
+		return "", "", "", fmt.Errorf("failed to fetch Lichess account: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return "", "", fmt.Errorf("Lichess account request failed (%d): %s", resp.StatusCode, string(body))
+		return "", "", "", fmt.Errorf("Lichess account request failed (%d): %s", resp.StatusCode, string(body))
 	}
 
 	var account lichessAccount
 	if err := json.NewDecoder(resp.Body).Decode(&account); err != nil {
-		return "", "", fmt.Errorf("failed to decode Lichess account: %w", err)
+		return "", "", "", fmt.Errorf("failed to decode Lichess account: %w", err)
 	}
 
-	return account.Username, account.ID, nil
+	return account.Username, account.ID, token.AccessToken, nil
 }
 
 // FindOrCreateUser looks up an existing OAuth user or creates a new one, then returns a JWT.

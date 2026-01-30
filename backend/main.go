@@ -30,20 +30,23 @@ func main() {
 	userRepo := repository.NewPostgresUserRepo(db.Pool)
 	repertoireRepo := repository.NewPostgresRepertoireRepo(db.Pool)
 	analysisRepo := repository.NewPostgresAnalysisRepo(db.Pool)
+	fingerprintRepo := repository.NewPostgresFingerprintRepo(db.Pool)
 
 	// Initialize services
 	authSvc := services.NewAuthService(userRepo, cfg.JWTSecret, cfg.JWTExpiry)
 	oauthSvc := services.NewOAuthService(userRepo, authSvc, cfg.LichessClientID, cfg.OAuthCallbackURL)
 	repertoireSvc := services.NewRepertoireService(repertoireRepo)
-	importSvc := services.NewImportService(repertoireSvc, analysisRepo)
+	importSvc := services.NewImportService(repertoireSvc, analysisRepo, services.WithFingerprintRepo(fingerprintRepo))
 	lichessSvc := services.NewLichessService()
 	chesscomSvc := services.NewChesscomService()
 	syncSvc := services.NewSyncService(userRepo, importSvc, lichessSvc, chesscomSvc)
+	studyImportSvc := services.NewStudyImportService(lichessSvc, repertoireSvc, userRepo)
 
 	// Initialize handlers
 	authHandler := handlers.NewAuthHandler(authSvc)
-	oauthHandler := handlers.NewOAuthHandler(oauthSvc, cfg.FrontendURL, cfg.JWTSecret, cfg.SecureCookies)
+	oauthHandler := handlers.NewOAuthHandler(oauthSvc, userRepo, cfg.FrontendURL, cfg.JWTSecret, cfg.SecureCookies)
 	syncHandler := handlers.NewSyncHandler(syncSvc)
+	studyImportHandler := handlers.NewStudyImportHandler(studyImportSvc)
 
 	// Initialize Echo
 	e := echo.New()
@@ -134,10 +137,15 @@ func main() {
 	protected.POST("/api/imports/validate-move", importHandler.ValidateMoveHandler)
 	protected.GET("/api/imports/legal-moves", importHandler.GetLegalMovesHandler)
 
+	// Study Import API
+	protected.GET("/api/studies/preview", studyImportHandler.PreviewStudyHandler)
+	protected.POST("/api/studies/import", studyImportHandler.ImportStudyHandler)
+
 	// Sync API
 	protected.POST("/api/sync", syncHandler.HandleSync)
 
 	// Games API
+	protected.GET("/api/games/repertoires", importHandler.GetDistinctRepertoiresHandler)
 	protected.GET("/api/games", importHandler.GetGamesHandler)
 	protected.DELETE("/api/games/:analysisId/:gameIndex", importHandler.DeleteGameHandler)
 	protected.POST("/api/games/bulk-delete", importHandler.BulkDeleteGamesHandler)

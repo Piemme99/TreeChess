@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../../stores/authStore';
+import { StudyImportModal } from '../../repertoire/shared/components/StudyImportModal';
 
-export function QuickActions() {
+export function QuickActions({ onRepertoireImported }: { onRepertoireImported?: () => void }) {
   const navigate = useNavigate();
   const { syncing, lastSyncResult } = useAuthStore();
   const [showResult, setShowResult] = useState(false);
+  const [showStudyModal, setShowStudyModal] = useState(false);
 
   useEffect(() => {
     if (lastSyncResult) {
@@ -48,7 +50,17 @@ export function QuickActions() {
           <span className="quick-action-label">Create Repertoire</span>
           <span className="quick-action-desc">Build your opening playbook</span>
         </button>
+        <button className="quick-action-card" onClick={() => setShowStudyModal(true)}>
+          <span className="quick-action-icon">&#128218;</span>
+          <span className="quick-action-label">Import Study</span>
+          <span className="quick-action-desc">From a Lichess study</span>
+        </button>
       </div>
+      <StudyImportModal
+        isOpen={showStudyModal}
+        onClose={() => setShowStudyModal(false)}
+        onSuccess={onRepertoireImported}
+      />
     </section>
   );
 }

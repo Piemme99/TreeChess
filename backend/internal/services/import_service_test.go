@@ -896,3 +896,125 @@ func TestExtractHeaders_PartialHeaders(t *testing.T) {
 	assert.Equal(t, "Player", headers["White"])
 	assert.Equal(t, "Unknown", headers["Black"]) // Default value
 }
+
+func TestComputeFingerprint_LichessSite(t *testing.T) {
+	headers := models.PGNHeaders{
+		"Site":   "https://lichess.org/abcdefgh",
+		"White":  "Player1",
+		"Black":  "Player2",
+		"Date":   "2024.01.01",
+		"Result": "1-0",
+		"Event":  "Rated Blitz",
+	}
+	moves := []models.MoveAnalysis{{SAN: "e4"}, {SAN: "e5"}}
+
+	fp := ComputeFingerprint(headers, moves)
+
+	assert.Equal(t, "https://lichess.org/abcdefgh", fp)
+}
+
+func TestComputeFingerprint_ChesscomLink(t *testing.T) {
+	headers := models.PGNHeaders{
+		"Link":   "https://www.chess.com/game/live/12345",
+		"White":  "Player1",
+		"Black":  "Player2",
+		"Date":   "2024.01.01",
+		"Result": "1-0",
+		"Event":  "Live Chess",
+	}
+	moves := []models.MoveAnalysis{{SAN: "d4"}, {SAN: "d5"}}
+
+	fp := ComputeFingerprint(headers, moves)
+
+	assert.Equal(t, "https://www.chess.com/game/live/12345", fp)
+}
+
+func TestComputeFingerprint_FallbackHash(t *testing.T) {
+	headers := models.PGNHeaders{
+		"White":  "Player1",
+		"Black":  "Player2",
+		"Date":   "2024.01.01",
+		"Result": "1-0",
+		"Event":  "Club Game",
+	}
+	moves := []models.MoveAnalysis{{SAN: "e4"}, {SAN: "e5"}, {SAN: "Nf3"}}
+
+	fp := ComputeFingerprint(headers, moves)
+
+	assert.True(t, len(fp) > 0)
+	assert.Contains(t, fp, "sha256:")
+}
+
+func TestComputeFingerprint_DeterministicHash(t *testing.T) {
+	headers := models.PGNHeaders{
+		"White":  "Player1",
+		"Black":  "Player2",
+		"Date":   "2024.01.01",
+		"Result": "1-0",
+		"Event":  "Club Game",
+	}
+	moves := []models.MoveAnalysis{{SAN: "e4"}, {SAN: "e5"}}
+
+	fp1 := ComputeFingerprint(headers, moves)
+	fp2 := ComputeFingerprint(headers, moves)
+
+	assert.Equal(t, fp1, fp2)
+}
+
+func TestComputeFingerprint_DifferentGamesProduceDifferentHashes(t *testing.T) {
+	headers1 := models.PGNHeaders{
+		"White": "Player1", "Black": "Player2",
+		"Date": "2024.01.01", "Result": "1-0", "Event": "Game1",
+	}
+	headers2 := models.PGNHeaders{
+		"White": "Player1", "Black": "Player2",
+		"Date": "2024.01.02", "Result": "0-1", "Event": "Game2",
+	}
+	moves := []models.MoveAnalysis{{SAN: "e4"}, {SAN: "e5"}}
+
+	fp1 := ComputeFingerprint(headers1, moves)
+	fp2 := ComputeFingerprint(headers2, moves)
+
+	assert.NotEqual(t, fp1, fp2)
+}
+
+func TestComputeFingerprint_LimitsMoves(t *testing.T) {
+	headers := models.PGNHeaders{
+		"White": "A", "Black": "B", "Date": "2024.01.01",
+		"Result": "1-0", "Event": "Test",
+	}
+	// Create 20 moves
+	moves := make([]models.MoveAnalysis, 20)
+	for i := range moves {
+		moves[i] = models.MoveAnalysis{SAN: "e4"}
+	}
+
+	// Should not panic with more than 10 moves
+	fp := ComputeFingerprint(headers, moves)
+	assert.Contains(t, fp, "sha256:")
+}
+
+func TestComputeFingerprint_FewMoves(t *testing.T) {
+	headers := models.PGNHeaders{
+		"White": "A", "Black": "B", "Date": "2024.01.01",
+		"Result": "1-0", "Event": "Test",
+	}
+	moves := []models.MoveAnalysis{{SAN: "e4"}}
+
+	fp := ComputeFingerprint(headers, moves)
+	assert.Contains(t, fp, "sha256:")
+}
+
+func TestComputeFingerprint_LichessSitePriority(t *testing.T) {
+	// When both Site (lichess) and Link (chess.com) are present, Site wins
+	headers := models.PGNHeaders{
+		"Site":  "https://lichess.org/abcdefgh",
+		"Link":  "https://www.chess.com/game/live/12345",
+		"White": "A", "Black": "B",
+	}
+	moves := []models.MoveAnalysis{{SAN: "e4"}}
+
+	fp := ComputeFingerprint(headers, moves)
+
+	assert.Equal(t, "https://lichess.org/abcdefgh", fp)
+}

@@ -1,6 +1,7 @@
 package services
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"strings"
 
@@ -10,17 +11,35 @@ import (
 	"github.com/treechess/backend/internal/repository"
 )
 
+// ErrAllGamesDuplicate is returned when all games in an import already exist
+var ErrAllGamesDuplicate = fmt.Errorf("all games have already been imported")
+
 // ImportService handles game import and analysis business logic
 type ImportService struct {
 	repertoireService *RepertoireService
 	analysisRepo      repository.AnalysisRepository
+	fingerprintRepo   repository.GameFingerprintRepository
 }
 
 // NewImportService creates a new import service with the given dependencies
-func NewImportService(repertoireSvc *RepertoireService, analysisRepo repository.AnalysisRepository) *ImportService {
-	return &ImportService{
+func NewImportService(repertoireSvc *RepertoireService, analysisRepo repository.AnalysisRepository, opts ...ImportServiceOption) *ImportService {
+	svc := &ImportService{
 		repertoireService: repertoireSvc,
 		analysisRepo:      analysisRepo,
+	}
+	for _, opt := range opts {
+		opt(svc)
+	}
+	return svc
+}
+
+// ImportServiceOption is a functional option for ImportService
+type ImportServiceOption func(*ImportService)
+
+// WithFingerprintRepo sets the fingerprint repository on the ImportService
+func WithFingerprintRepo(repo repository.GameFingerprintRepository) ImportServiceOption {
+	return func(s *ImportService) {
+		s.fingerprintRepo = repo
 	}
 }
 
@@ -87,9 +106,57 @@ func (s *ImportService) ParseAndAnalyze(filename string, username string, userID
 		return nil, nil, fmt.Errorf("no games found where '%s' was a player", username)
 	}
 
+	// Deduplicate using fingerprints
+	skippedDuplicates := 0
+	if s.fingerprintRepo != nil {
+		fingerprints := make([]string, len(results))
+		for i, r := range results {
+			fingerprints[i] = ComputeFingerprint(r.Headers, r.Moves)
+		}
+
+		existing, err := s.fingerprintRepo.CheckExisting(userID, fingerprints)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to check fingerprints: %w", err)
+		}
+
+		var filtered []models.GameAnalysis
+		for i, r := range results {
+			if !existing[fingerprints[i]] {
+				filtered = append(filtered, r)
+			}
+		}
+		skippedDuplicates = len(results) - len(filtered)
+
+		if len(filtered) == 0 {
+			return nil, nil, ErrAllGamesDuplicate
+		}
+
+		// Re-index filtered games
+		for i := range filtered {
+			filtered[i].GameIndex = i
+		}
+		results = filtered
+	}
+
 	summary, err := s.analysisRepo.Save(userID, username, filename, len(results), results)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to save analysis: %w", err)
+	}
+	summary.SkippedDuplicates = skippedDuplicates
+
+	// Save fingerprints for the newly imported games
+	if s.fingerprintRepo != nil {
+		entries := make([]repository.FingerprintEntry, len(results))
+		for i, r := range results {
+			entries[i] = repository.FingerprintEntry{
+				Fingerprint: ComputeFingerprint(r.Headers, r.Moves),
+				GameIndex:   r.GameIndex,
+			}
+		}
+		if err := s.fingerprintRepo.SaveBatch(userID, summary.ID, entries); err != nil {
+			// Log but don't fail the import
+			fmt.Printf("warning: failed to save fingerprints: %v\n", err)
+		}
 	}
 
 	return summary, results, nil
@@ -416,12 +483,17 @@ func (s *ImportService) DeleteAnalysis(id string) error {
 }
 
 // GetAllGames returns all games from all analyses with pagination for a user
-func (s *ImportService) GetAllGames(userID string, limit, offset int, timeClass, opening string) (*models.GamesResponse, error) {
-	response, err := s.analysisRepo.GetAllGames(userID, limit, offset, timeClass, opening)
+func (s *ImportService) GetAllGames(userID string, limit, offset int, timeClass, repertoire, source string) (*models.GamesResponse, error) {
+	response, err := s.analysisRepo.GetAllGames(userID, limit, offset, timeClass, repertoire, source)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get games: %w", err)
 	}
 	return response, nil
+}
+
+// GetDistinctRepertoires returns a sorted list of distinct repertoire names for a user
+func (s *ImportService) GetDistinctRepertoires(userID string) ([]string, error) {
+	return s.analysisRepo.GetDistinctRepertoires(userID)
 }
 
 // CheckOwnership verifies that an analysis belongs to the given user
@@ -436,8 +508,13 @@ func (s *ImportService) CheckOwnership(id string, userID string) error {
 	return nil
 }
 
-// DeleteGame removes a single game from an analysis
+// DeleteGame removes a single game from an analysis and its fingerprint
 func (s *ImportService) DeleteGame(analysisID string, gameIndex int) error {
+	if s.fingerprintRepo != nil {
+		if err := s.fingerprintRepo.DeleteByAnalysisAndIndex(analysisID, gameIndex); err != nil {
+			fmt.Printf("warning: failed to delete fingerprint: %v\n", err)
+		}
+	}
 	return s.analysisRepo.DeleteGame(analysisID, gameIndex)
 }
 
@@ -526,6 +603,48 @@ func (s *ImportService) reanalyzeGameFromMoves(game *models.GameAnalysis, repert
 	}
 
 	return result
+}
+
+// ComputeFingerprint generates a unique fingerprint for a game.
+// For Lichess games, uses the Site header (game URL).
+// For Chess.com games, uses the Link header (game URL).
+// For other sources, uses a SHA-256 hash of key headers and the first 10 moves.
+func ComputeFingerprint(headers models.PGNHeaders, moves []models.MoveAnalysis) string {
+	// Lichess: Site header contains the game URL
+	if site, ok := headers["Site"]; ok && strings.Contains(site, "lichess.org/") {
+		return site
+	}
+	// Chess.com: Link header contains the game URL
+	if link, ok := headers["Link"]; ok && strings.Contains(link, "chess.com/") {
+		return link
+	}
+
+	// Fallback: SHA-256 hash of key metadata + first 10 moves
+	var b strings.Builder
+	b.WriteString(headers["White"])
+	b.WriteByte('|')
+	b.WriteString(headers["Black"])
+	b.WriteByte('|')
+	b.WriteString(headers["Date"])
+	b.WriteByte('|')
+	b.WriteString(headers["Result"])
+	b.WriteByte('|')
+	b.WriteString(headers["Event"])
+	b.WriteByte('|')
+
+	limit := 10
+	if len(moves) < limit {
+		limit = len(moves)
+	}
+	for i := 0; i < limit; i++ {
+		if i > 0 {
+			b.WriteByte(' ')
+		}
+		b.WriteString(moves[i].SAN)
+	}
+
+	hash := sha256.Sum256([]byte(b.String()))
+	return fmt.Sprintf("sha256:%x", hash)
 }
 
 func ensureFullFEN(fen string) string {

@@ -142,7 +142,7 @@ export type GameStatus = 'ok' | 'error' | 'new-line';
 
 export type TimeClass = 'bullet' | 'blitz' | 'rapid' | 'daily';
 
-export type GameSource = 'sync' | 'lichess' | 'chesscom' | 'pgn';
+export type GameSource = 'lichess' | 'chesscom' | 'pgn';
 
 export interface GameSummary {
   analysisId: string;
@@ -157,7 +157,9 @@ export interface GameSummary {
   opening?: string;
   importedAt: string;
   repertoireName?: string;
+  repertoireId?: string;
   source: GameSource;
+  synced: boolean;
 }
 
 export interface GamesResponse {
@@ -196,6 +198,30 @@ export interface ChesscomImportOptions {
   since?: number;
   until?: number;
   timeClass?: 'daily' | 'rapid' | 'blitz' | 'bullet';
+}
+
+// Lichess Study import types
+export interface StudyChapterInfo {
+  index: number;
+  name: string;
+  orientation: string;
+  moveCount: number;
+}
+
+export interface StudyInfo {
+  studyId: string;
+  studyName: string;
+  chapters: StudyChapterInfo[];
+}
+
+export interface StudyImportRequest {
+  studyUrl: string;
+  chapters: number[];
+}
+
+export interface StudyImportResponse {
+  repertoires: Repertoire[];
+  count: number;
 }
 
 // Toast types

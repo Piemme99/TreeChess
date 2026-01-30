@@ -783,7 +783,7 @@ func TestGetGamesHandler_DefaultPagination(t *testing.T) {
 	setTestUserID(c)
 
 	mockAnalysisRepo := &mocks.MockAnalysisRepo{
-		GetAllGamesFunc: func(userID string, limit, offset int, timeClass, opening string) (*models.GamesResponse, error) {
+		GetAllGamesFunc: func(userID string, limit, offset int, timeClass, opening, source string) (*models.GamesResponse, error) {
 			return &models.GamesResponse{
 				Games:  []models.GameSummary{},
 				Total:  0,
@@ -814,7 +814,7 @@ func TestGetGamesHandler_WithGames(t *testing.T) {
 	setTestUserID(c)
 
 	mockAnalysisRepo := &mocks.MockAnalysisRepo{
-		GetAllGamesFunc: func(userID string, limit, offset int, timeClass, opening string) (*models.GamesResponse, error) {
+		GetAllGamesFunc: func(userID string, limit, offset int, timeClass, opening, source string) (*models.GamesResponse, error) {
 			return &models.GamesResponse{
 				Games: []models.GameSummary{
 					{
@@ -859,7 +859,7 @@ func TestGetGamesHandler_CustomPagination(t *testing.T) {
 
 	var capturedLimit, capturedOffset int
 	mockAnalysisRepo := &mocks.MockAnalysisRepo{
-		GetAllGamesFunc: func(userID string, limit, offset int, timeClass, opening string) (*models.GamesResponse, error) {
+		GetAllGamesFunc: func(userID string, limit, offset int, timeClass, opening, source string) (*models.GamesResponse, error) {
 			capturedLimit = limit
 			capturedOffset = offset
 			return &models.GamesResponse{

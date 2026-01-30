@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { Chessboard } from 'react-chessboard';
+import type { Arrow } from 'react-chessboard/dist/chessboard/types';
 import { Chess, Square } from 'chess.js';
 
 interface ChessBoardProps {
@@ -13,6 +14,7 @@ interface ChessBoardProps {
   width?: number;
   bestMoveFrom?: string;
   bestMoveTo?: string;
+  customArrows?: [string, string, string?][];
 }
 
 export function ChessBoard({
@@ -25,7 +27,8 @@ export function ChessBoard({
   lastMove,
   width = 400,
   bestMoveFrom,
-  bestMoveTo
+  bestMoveTo,
+  customArrows = []
 }: ChessBoardProps) {
   const [game, setGame] = useState(() => {
     try {
@@ -187,6 +190,7 @@ export function ChessBoard({
         boardOrientation={orientation}
         boardWidth={width}
         customSquareStyles={customSquareStyles}
+        customArrows={customArrows as Arrow[]}
         animationDuration={200}
         arePiecesDraggable={interactive}
         isDraggablePiece={() => interactive}

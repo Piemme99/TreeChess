@@ -6,7 +6,7 @@ export function MainLayout() {
 
   return (
     <div className="main-layout">
-      <header className="main-header">
+      <aside className="main-sidebar">
         <h1 className="main-logo">TreeChess</h1>
         <nav className="main-tabs">
           <NavLink
@@ -29,13 +29,14 @@ export function MainLayout() {
             Games
           </NavLink>
         </nav>
+        <div className="sidebar-spacer" />
         <div className="header-user">
           {user && <span className="header-username">{user.username}</span>}
           <button className="header-logout" onClick={logout}>
             Logout
           </button>
         </div>
-      </header>
+      </aside>
 
       <main className="main-content">
         <Outlet />

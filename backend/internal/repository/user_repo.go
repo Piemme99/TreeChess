@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	userColumns = `id, username, password_hash, oauth_provider, oauth_id, lichess_username, chesscom_username, last_lichess_sync_at, last_chesscom_sync_at, created_at`
+	userColumns = `id, username, password_hash, oauth_provider, oauth_id, lichess_username, chesscom_username, lichess_access_token, last_lichess_sync_at, last_chesscom_sync_at, created_at`
 
 	createUserSQL = `
 		INSERT INTO users (id, username, password_hash)
@@ -50,6 +50,10 @@ const (
 		UPDATE users SET last_lichess_sync_at = COALESCE($2, last_lichess_sync_at), last_chesscom_sync_at = COALESCE($3, last_chesscom_sync_at)
 		WHERE id = $1
 	`
+	updateLichessTokenSQL = `
+		UPDATE users SET lichess_access_token = $2
+		WHERE id = $1
+	`
 )
 
 type PostgresUserRepo struct {
@@ -65,7 +69,8 @@ func scanUser(scan func(dest ...any) error) (*models.User, error) {
 	var passwordHash *string
 	err := scan(
 		&user.ID, &user.Username, &passwordHash, &user.OAuthProvider, &user.OAuthID,
-		&user.LichessUsername, &user.ChesscomUsername, &user.LastLichessSyncAt, &user.LastChesscomSyncAt, &user.CreatedAt,
+		&user.LichessUsername, &user.ChesscomUsername, &user.LichessAccessToken,
+		&user.LastLichessSyncAt, &user.LastChesscomSyncAt, &user.CreatedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -172,6 +177,17 @@ func (r *PostgresUserRepo) UpdateSyncTimestamps(userID string, lichessSyncAt, ch
 	_, err := r.pool.Exec(ctx, updateSyncTimestampsSQL, userID, lichessSyncAt, chesscomSyncAt)
 	if err != nil {
 		return fmt.Errorf("failed to update sync timestamps: %w", err)
+	}
+	return nil
+}
+
+func (r *PostgresUserRepo) UpdateLichessToken(userID, token string) error {
+	ctx, cancel := dbContext()
+	defer cancel()
+
+	_, err := r.pool.Exec(ctx, updateLichessTokenSQL, userID, token)
+	if err != nil {
+		return fmt.Errorf("failed to update Lichess token: %w", err)
 	}
 	return nil
 }

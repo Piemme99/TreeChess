@@ -1,7 +1,9 @@
 import { useMemo, useState, useCallback } from 'react';
 import { Button, Loading } from '../../../shared/components/UI';
 import type { GameSummary, GameStatus, Color } from '../../../types';
-import { formatDate } from '../utils/dateUtils';
+import { formatDate, formatSource } from '../utils/dateUtils';
+import { gamesApi } from '../../../services/api';
+import { toast } from '../../../stores/toastStore';
 
 function gameOutcome(result: string, userColor: Color): 'win' | 'loss' | 'draw' {
   if (result === '1/2-1/2') return 'draw';
@@ -30,6 +32,7 @@ export interface GamesListProps {
   onPrevPage: () => void;
   selectionMode: boolean;
   onToggleSelectionMode: () => void;
+  onGameReanalyzed?: () => void;
 }
 
 function StatusBadge({ status }: { status: GameStatus }) {
@@ -43,10 +46,12 @@ function StatusBadge({ status }: { status: GameStatus }) {
   return <span className={className}>{label}</span>;
 }
 
-function GameCard({ game, onViewClick, onDeleteClick, showNewBadge, selectionMode, selected, onToggleSelect }: {
+function GameCard({ game, onViewClick, onDeleteClick, onReanalyze, reanalyzing, showNewBadge, selectionMode, selected, onToggleSelect }: {
   game: GameSummary;
   onViewClick: (analysisId: string, gameIndex: number) => void;
   onDeleteClick: (analysisId: string, gameIndex: number) => void;
+  onReanalyze: (analysisId: string, gameIndex: number, repertoireId: string) => void;
+  reanalyzing: boolean;
   showNewBadge?: boolean;
   selectionMode: boolean;
   selected: boolean;
@@ -82,11 +87,24 @@ function GameCard({ game, onViewClick, onDeleteClick, showNewBadge, selectionMod
           {game.repertoireName && <span className="game-repertoire">{game.repertoireName}</span>}
         </div>
         <div className="game-import-date">
-          Imported {formatDate(game.importedAt)}
+          Imported {formatDate(game.importedAt)} from {formatSource(game.source)}
         </div>
       </div>
       {!selectionMode && (
         <div className="game-actions">
+          {game.repertoireId && (
+            <button
+              className={`reanalyze-btn${reanalyzing ? ' reanalyzing' : ''}`}
+              onClick={() => onReanalyze(game.analysisId, game.gameIndex, game.repertoireId!)}
+              disabled={reanalyzing}
+              title="Re-analyze against current repertoire"
+            >
+              <svg className="reanalyze-icon" viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M13.5 2.5v2h-2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+          )}
           <Button
             variant="primary"
             size="sm"
@@ -120,9 +138,29 @@ export function GamesList({
   onNextPage,
   onPrevPage,
   selectionMode,
-  onToggleSelectionMode
+  onToggleSelectionMode,
+  onGameReanalyzed
 }: GamesListProps) {
   const [selected, setSelected] = useState<Set<GameKey>>(new Set());
+  const [reanalyzingKeys, setReanalyzingKeys] = useState<Set<GameKey>>(new Set());
+
+  const handleReanalyze = useCallback(async (analysisId: string, gameIndex: number, repertoireId: string) => {
+    const key = toKey(analysisId, gameIndex);
+    setReanalyzingKeys((prev) => new Set(prev).add(key));
+    try {
+      await gamesApi.reanalyze(analysisId, gameIndex, repertoireId);
+      toast.success('Game re-analyzed');
+      onGameReanalyzed?.();
+    } catch {
+      toast.error('Failed to re-analyze game');
+    } finally {
+      setReanalyzingKeys((prev) => {
+        const next = new Set(prev);
+        next.delete(key);
+        return next;
+      });
+    }
+  }, [onGameReanalyzed]);
 
   const toggleSelect = useCallback((analysisId: string, gameIndex: number) => {
     const key = toKey(analysisId, gameIndex);
@@ -161,7 +199,7 @@ export function GamesList({
     const newG: GameSummary[] = [];
     const analyzedG: GameSummary[] = [];
     for (const game of games) {
-      if (game.source === 'sync') {
+      if (game.synced) {
         newG.push(game);
       } else {
         analyzedG.push(game);
@@ -188,6 +226,8 @@ export function GamesList({
             game={game}
             onViewClick={onViewClick}
             onDeleteClick={onDeleteClick}
+            onReanalyze={handleReanalyze}
+            reanalyzing={reanalyzingKeys.has(key)}
             showNewBadge={showNew}
             selectionMode={selectionMode}
             selected={selected.has(key)}
@@ -211,7 +251,14 @@ export function GamesList({
             onToggleSelectionMode();
           }}
         >
-          {selectionMode ? 'Cancel' : 'Select'}
+          {selectionMode ? 'Cancel' : (
+            <>
+              <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ verticalAlign: '-2px' }}>
+                <path d="M2 4h12M5.5 4V2.5a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1V4M6.5 7v5M9.5 7v5M3.5 4l.5 9a1.5 1.5 0 0 0 1.5 1.5h5A1.5 1.5 0 0 0 12 13l.5-9" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              {' Delete mode'}
+            </>
+          )}
         </Button>
         {selectionMode && (
           <>

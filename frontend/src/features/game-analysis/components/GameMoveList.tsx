@@ -7,7 +7,7 @@ interface GameMoveListProps {
   currentMoveIndex: number;
   maxDisplayedIndex: number;
   onMoveClick: (index: number) => void;
-  onAddToRepertoire?: (move: MoveAnalysis) => void;
+  onAddToRepertoire?: (move: MoveAnalysis, moveIndex: number) => void;
   showFullGame: boolean;
   hasMoreMoves: boolean;
   onToggleFullGame: () => void;
@@ -39,11 +39,6 @@ export function GameMoveList({
     return displayedMoves.findIndex(
       (m) => m.status === 'opponent-new' || m.status === 'out-of-repertoire'
     );
-  }, [displayedMoves]);
-
-  // Check if the first actionable move is an opponent-new (the one we want to add)
-  const firstOpponentNewIndex = useMemo(() => {
-    return displayedMoves.findIndex((m) => m.status === 'opponent-new');
   }, [displayedMoves]);
 
   // Get the CSS class for a move based on its index and status
@@ -95,9 +90,17 @@ export function GameMoveList({
     return index === firstActionableIndex && move.status === 'out-of-repertoire' && move.expectedMove;
   };
 
-  // Only show add button for the first opponent-new move (and only if handler is provided)
+  // Show add button for any selected move at or after the first actionable index
   const showAddButton = (index: number) => {
-    return onAddToRepertoire && index === firstOpponentNewIndex && firstOpponentNewIndex !== -1;
+    return onAddToRepertoire && firstActionableIndex !== -1 && index >= firstActionableIndex;
+  };
+
+  // Compute button label: single move vs sequence
+  const getAddButtonLabel = (index: number) => {
+    if (firstActionableIndex === -1) return 'Add to Repertoire';
+    const count = index - firstActionableIndex + 1;
+    if (count <= 1) return 'Add to Repertoire';
+    return `Add ${count} moves to Repertoire`;
   };
 
   const hiddenMovesCount = moves.length - displayedMoves.length;
@@ -165,9 +168,9 @@ export function GameMoveList({
             <Button
               variant="primary"
               size="sm"
-              onClick={() => onAddToRepertoire(displayedMoves[currentMoveIndex])}
+              onClick={() => onAddToRepertoire(displayedMoves[currentMoveIndex], currentMoveIndex)}
             >
-              Add to Repertoire
+              {getAddButtonLabel(currentMoveIndex)}
             </Button>
           )}
         </div>

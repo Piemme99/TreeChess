@@ -47,26 +47,42 @@ export function GameAnalysisPage() {
 
   const { currentFEN, lastMove } = useFENComputed(game, currentMoveIndex);
 
-  const handleAddToRepertoire = useCallback((move: MoveAnalysis) => {
+  const handleAddToRepertoire = useCallback((_move: MoveAnalysis, clickedIndex: number) => {
     if (!game || !game.userColor) return;
 
-    // Check if a repertoire was matched
     if (!game.matchedRepertoire) {
       toast.error('No matching repertoire found for this game. Create a repertoire first.');
       return;
     }
 
-    const moveIndex = game.moves.findIndex(m => m === move);
-    if (moveIndex === -1) return;
+    // Find the divergence index: first non-in-repertoire move
+    const divergenceIndex = game.moves.findIndex(
+      m => m.status === 'opponent-new' || m.status === 'out-of-repertoire'
+    );
+    if (divergenceIndex === -1) return;
 
-    const parentFEN = moveIndex === 0 ? STARTING_FEN : computeFEN(game.moves, moveIndex - 1);
+    const startIndex = divergenceIndex;
+    const endIndex = clickedIndex;
+
+    const gameInfo = `${game.headers.White || '?'} vs ${game.headers.Black || '?'}`;
+
+    // Build array of moves from divergence to clicked move
+    const moves: { parentFEN: string; moveSAN: string; resultFEN: string }[] = [];
+    for (let i = startIndex; i <= endIndex; i++) {
+      const parentFEN = i === 0 ? STARTING_FEN : computeFEN(game.moves, i - 1);
+      const resultFEN = computeFEN(game.moves, i);
+      moves.push({
+        parentFEN,
+        moveSAN: game.moves[i].san,
+        resultFEN
+      });
+    }
 
     const context = {
       repertoireId: game.matchedRepertoire.id,
       repertoireName: game.matchedRepertoire.name,
-      parentFEN: parentFEN,
-      moveSAN: move.san,
-      gameInfo: `${game.headers.White || '?'} vs ${game.headers.Black || '?'}`
+      gameInfo,
+      moves
     };
     sessionStorage.setItem('pendingAddNode', JSON.stringify(context));
 
@@ -101,16 +117,13 @@ export function GameAnalysisPage() {
 
   return (
     <div className="game-analysis">
-      <header className="game-analysis-header">
-        <Button variant="ghost" onClick={() => navigate('/')}>
+      <div className="game-analysis-title-bar">
+        <Button variant="ghost" size="sm" onClick={() => navigate('/games')}>
           &larr; Back
         </Button>
-        <div className="game-analysis-title">
-          <span className="game-title-main">Game {gameIdx + 1}: {opponent}</span>
-          <span className="game-title-result">{result}</span>
-        </div>
-        <div className="header-spacer" />
-      </header>
+        <span className="game-title-main">Game {gameIdx + 1}: {opponent}</span>
+        <span className="game-title-result">{result}</span>
+      </div>
 
       {/* Repertoire selector with reanalyze option */}
       <RepertoireSelector

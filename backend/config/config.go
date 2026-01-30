@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/joho/godotenv"
 )
 
 // Config holds application configuration
@@ -24,6 +26,9 @@ type Config struct {
 // MustLoad loads configuration from environment variables
 // Panics if required configuration is missing
 func MustLoad() Config {
+	// Load .env file if present (won't override existing env vars)
+	_ = godotenv.Load("../.env")
+
 	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {
 		panic("DATABASE_URL environment variable is required")

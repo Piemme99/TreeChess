@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { useGames } from '../analyse-tab/hooks/useGames';
@@ -20,14 +20,23 @@ const TIME_CLASS_FILTERS = [
   { value: 'daily', label: 'Daily' },
 ] as const;
 
+const SOURCE_FILTERS = [
+  { value: '', label: 'All' },
+  { value: 'lichess', label: 'Lichess' },
+  { value: 'chesscom', label: 'Chess.com' },
+  { value: 'pgn', label: 'PGN' },
+] as const;
+
 export function GamesPage() {
   const navigate = useNavigate();
   const authUser = useAuthStore((s) => s.user);
   const [username, setUsername] = useState(() => authUser?.lichessUsername || authUser?.chesscomUsername || authUser?.username || '');
   const [showImport, setShowImport] = useState(false);
   const [timeClassFilter, setTimeClassFilter] = useState('');
-  const [openingFilter, setOpeningFilter] = useState('');
+  const [sourceFilter, setSourceFilter] = useState('');
+  const [repertoireFilter, setRepertoireFilter] = useState('');
   const [selectionMode, setSelectionMode] = useState(false);
+  const [repertoiresList, setRepertoiresList] = useState<string[]>([]);
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [bulkDeleteTargets, setBulkDeleteTargets] = useState<{ analysisId: string; gameIndex: number }[] | null>(null);
 
@@ -43,11 +52,20 @@ export function GamesPage() {
     currentPage,
     totalPages,
     refresh
-  } = useGames(timeClassFilter || undefined, openingFilter || undefined);
+  } = useGames(timeClassFilter || undefined, repertoireFilter || undefined, sourceFilter || undefined);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    gamesApi.repertoires({ signal: controller.signal })
+      .then(setRepertoiresList)
+      .catch(() => {});
+    return () => controller.abort();
+  }, []);
 
   const handleImportSuccess = useCallback(() => {
     refresh();
     setShowImport(false);
+    gamesApi.repertoires().then(setRepertoiresList).catch(() => {});
   }, [refresh]);
 
   const fileUploadState = useFileUpload(username, handleImportSuccess);
@@ -119,22 +137,28 @@ export function GamesPage() {
             </button>
           ))}
         </div>
-        <div className="opening-filter">
-          <input
-            type="text"
-            className="opening-filter-input"
-            placeholder="Filter by opening..."
-            value={openingFilter}
-            onChange={(e) => setOpeningFilter(e.target.value)}
-          />
-          {openingFilter && (
+        <div className="time-class-filters">
+          {SOURCE_FILTERS.map((filter) => (
             <button
-              className="opening-filter-clear"
-              onClick={() => setOpeningFilter('')}
+              key={filter.value}
+              className={`filter-chip${sourceFilter === filter.value ? ' active' : ''}`}
+              onClick={() => setSourceFilter(filter.value)}
             >
-              &times;
+              {filter.label}
             </button>
-          )}
+          ))}
+        </div>
+        <div className="opening-filter">
+          <select
+            className="opening-filter-select"
+            value={repertoireFilter}
+            onChange={(e) => setRepertoireFilter(e.target.value)}
+          >
+            <option value="">All repertoires</option>
+            {repertoiresList.map((name) => (
+              <option key={name} value={name}>{name}</option>
+            ))}
+          </select>
         </div>
       </div>
 
@@ -154,6 +178,7 @@ export function GamesPage() {
             onPrevPage={prevPage}
             selectionMode={selectionMode}
             onToggleSelectionMode={() => setSelectionMode((prev) => !prev)}
+            onGameReanalyzed={refresh}
           />
         </section>
       ) : (

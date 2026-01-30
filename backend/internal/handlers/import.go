@@ -73,15 +73,19 @@ func (h *ImportHandler) UploadHandler(c echo.Context) error {
 	userID := c.Get("userID").(string)
 	summary, _, err := h.importService.ParseAndAnalyze(file.Filename, username, userID, string(pgnData))
 	if err != nil {
+		if errors.Is(err, services.ErrAllGamesDuplicate) {
+			return ErrorResponse(c, http.StatusConflict, "all games have already been imported")
+		}
 		log.Printf("PGN parse error for user %s: %v", userID, err)
 		return BadRequestResponse(c, "failed to parse PGN file")
 	}
 
 	return c.JSON(http.StatusCreated, map[string]interface{}{
-		"id":        summary.ID,
-		"username":  summary.Username,
-		"filename":  summary.Filename,
-		"gameCount": summary.GameCount,
+		"id":                summary.ID,
+		"username":          summary.Username,
+		"filename":          summary.Filename,
+		"gameCount":         summary.GameCount,
+		"skippedDuplicates": summary.SkippedDuplicates,
 	})
 }
 
@@ -223,14 +227,32 @@ func (h *ImportHandler) GetLegalMovesHandler(c echo.Context) error {
 	})
 }
 
+func (h *ImportHandler) GetDistinctRepertoiresHandler(c echo.Context) error {
+	userID := c.Get("userID").(string)
+
+	repertoires, err := h.importService.GetDistinctRepertoires(userID)
+	if err != nil {
+		return InternalErrorResponse(c, "failed to get repertoires")
+	}
+
+	if repertoires == nil {
+		repertoires = []string{}
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"repertoires": repertoires,
+	})
+}
+
 func (h *ImportHandler) GetGamesHandler(c echo.Context) error {
 	userID := c.Get("userID").(string)
 	limit := ParseIntQueryParam(c, "limit", config.DefaultGamesLimit, 1, config.MaxGamesLimit)
 	offset := ParseIntQueryParam(c, "offset", 0, 0, 1000000)
 	timeClass := c.QueryParam("timeClass")
-	opening := c.QueryParam("opening")
+	repertoire := c.QueryParam("repertoire")
+	source := c.QueryParam("source")
 
-	response, err := h.importService.GetAllGames(userID, limit, offset, timeClass, opening)
+	response, err := h.importService.GetAllGames(userID, limit, offset, timeClass, repertoire, source)
 	if err != nil {
 		return InternalErrorResponse(c, "failed to get games")
 	}
@@ -390,16 +412,20 @@ func (h *ImportHandler) LichessImportHandler(c echo.Context) error {
 	userID := c.Get("userID").(string)
 	summary, _, err := h.importService.ParseAndAnalyze(filename, req.Username, userID, pgnData)
 	if err != nil {
+		if errors.Is(err, services.ErrAllGamesDuplicate) {
+			return ErrorResponse(c, http.StatusConflict, "all games have already been imported")
+		}
 		log.Printf("Lichess import parse error for user %s: %v", userID, err)
 		return BadRequestResponse(c, "failed to parse imported games")
 	}
 
 	return c.JSON(http.StatusCreated, map[string]interface{}{
-		"id":        summary.ID,
-		"username":  summary.Username,
-		"filename":  summary.Filename,
-		"gameCount": summary.GameCount,
-		"source":    "lichess",
+		"id":                summary.ID,
+		"username":          summary.Username,
+		"filename":          summary.Filename,
+		"gameCount":         summary.GameCount,
+		"skippedDuplicates": summary.SkippedDuplicates,
+		"source":            "lichess",
 	})
 }
 
@@ -437,15 +463,19 @@ func (h *ImportHandler) ChesscomImportHandler(c echo.Context) error {
 	userID := c.Get("userID").(string)
 	summary, _, err := h.importService.ParseAndAnalyze(filename, req.Username, userID, pgnData)
 	if err != nil {
+		if errors.Is(err, services.ErrAllGamesDuplicate) {
+			return ErrorResponse(c, http.StatusConflict, "all games have already been imported")
+		}
 		log.Printf("Chess.com import parse error for user %s: %v", userID, err)
 		return BadRequestResponse(c, "failed to parse imported games")
 	}
 
 	return c.JSON(http.StatusCreated, map[string]interface{}{
-		"id":        summary.ID,
-		"username":  summary.Username,
-		"filename":  summary.Filename,
-		"gameCount": summary.GameCount,
-		"source":    "chesscom",
+		"id":                summary.ID,
+		"username":          summary.Username,
+		"filename":          summary.Filename,
+		"gameCount":         summary.GameCount,
+		"skippedDuplicates": summary.SkippedDuplicates,
+		"source":            "chesscom",
 	})
 }

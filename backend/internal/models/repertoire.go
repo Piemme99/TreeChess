@@ -95,11 +95,12 @@ type GameAnalysis struct {
 }
 
 type AnalysisSummary struct {
-	ID         string    `json:"id"`
-	Username   string    `json:"username"`
-	Filename   string    `json:"filename"`
-	GameCount  int       `json:"gameCount"`
-	UploadedAt time.Time `json:"uploadedAt"`
+	ID                string    `json:"id"`
+	Username          string    `json:"username"`
+	Filename          string    `json:"filename"`
+	GameCount         int       `json:"gameCount"`
+	UploadedAt        time.Time `json:"uploadedAt"`
+	SkippedDuplicates int       `json:"-"` // not persisted, set after save
 }
 
 type AnalysisDetail struct {
@@ -140,6 +141,27 @@ type ChesscomImportRequest struct {
 	Options  ChesscomImportOptions `json:"options"`
 }
 
+// StudyChapterInfo represents metadata about a single Lichess study chapter
+type StudyChapterInfo struct {
+	Index       int    `json:"index"`
+	Name        string `json:"name"`
+	Orientation string `json:"orientation"`
+	MoveCount   int    `json:"moveCount"`
+}
+
+// StudyInfo represents metadata about a Lichess study
+type StudyInfo struct {
+	StudyID   string             `json:"studyId"`
+	StudyName string             `json:"studyName"`
+	Chapters  []StudyChapterInfo `json:"chapters"`
+}
+
+// StudyImportRequest represents a request to import chapters from a Lichess study
+type StudyImportRequest struct {
+	StudyURL       string `json:"studyUrl"`
+	ChapterIndices []int  `json:"chapters"`
+}
+
 // GameSummary represents a single game for the games list
 type GameSummary struct {
 	AnalysisID     string    `json:"analysisId"`
@@ -154,7 +176,9 @@ type GameSummary struct {
 	Opening        string    `json:"opening,omitempty"`
 	ImportedAt     time.Time `json:"importedAt"`
 	RepertoireName string    `json:"repertoireName,omitempty"`
-	Source         string    `json:"source"` // "sync", "lichess", "chesscom", "pgn"
+	RepertoireID   string    `json:"repertoireId,omitempty"`
+	Source         string    `json:"source"` // "lichess", "chesscom", "pgn"
+	Synced         bool      `json:"synced"`
 }
 
 // ClassifyTimeControl maps a TimeControl PGN header value to a time class.
