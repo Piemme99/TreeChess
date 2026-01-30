@@ -1,12 +1,7 @@
-import { useState } from 'react';
-import { AnalyseTab } from '../../../features/analyse-tab';
-import { RepertoireTab } from '../../../features/repertoire/RepertoireTab';
+import { NavLink, Outlet } from 'react-router-dom';
 import { useAuthStore } from '../../../stores/authStore';
 
-type TabId = 'analyse' | 'repertoire';
-
 export function MainLayout() {
-  const [activeTab, setActiveTab] = useState<TabId>('analyse');
   const { user, logout } = useAuthStore();
 
   return (
@@ -14,18 +9,25 @@ export function MainLayout() {
       <header className="main-header">
         <h1 className="main-logo">TreeChess</h1>
         <nav className="main-tabs">
-          <button
-            className={`main-tab ${activeTab === 'analyse' ? 'active' : ''}`}
-            onClick={() => setActiveTab('analyse')}
+          <NavLink
+            to="/"
+            end
+            className={({ isActive }) => `main-tab${isActive ? ' active' : ''}`}
           >
-            Analyse
-          </button>
-          <button
-            className={`main-tab ${activeTab === 'repertoire' ? 'active' : ''}`}
-            onClick={() => setActiveTab('repertoire')}
+            Dashboard
+          </NavLink>
+          <NavLink
+            to="/repertoires"
+            className={({ isActive }) => `main-tab${isActive ? ' active' : ''}`}
           >
-            Repertoire
-          </button>
+            Repertoires
+          </NavLink>
+          <NavLink
+            to="/games"
+            className={({ isActive }) => `main-tab${isActive ? ' active' : ''}`}
+          >
+            Games
+          </NavLink>
         </nav>
         <div className="header-user">
           {user && <span className="header-username">{user.username}</span>}
@@ -36,7 +38,7 @@ export function MainLayout() {
       </header>
 
       <main className="main-content">
-        {activeTab === 'analyse' ? <AnalyseTab /> : <RepertoireTab />}
+        <Outlet />
       </main>
     </div>
   );

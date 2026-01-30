@@ -18,18 +18,21 @@ export function RepertoireTab() {
 
   return (
     <div className="repertoire-tab">
+      <div className="repertoire-tab-actions">
+        <div className="quick-action-card" role="region">
+          <span className="quick-action-icon">&#127909;</span>
+          <span className="quick-action-label">Import from YouTube</span>
+          <span className="quick-action-desc">Extract opening lines from a chess video</span>
+          <div className="quick-action-content">
+            <YouTubeImport youtubeImportState={youtubeImportState} />
+          </div>
+        </div>
+      </div>
+
       <div className="repertoire-selectors">
         <RepertoireSelector color="white" repertoires={whiteRepertoires} />
         <RepertoireSelector color="black" repertoires={blackRepertoires} />
       </div>
-
-      <section className="repertoire-youtube-section">
-        <h3>Import repertoire from YouTube</h3>
-        <p className="repertoire-youtube-hint">
-          Extract opening lines from a chess video to create a new repertoire.
-        </p>
-        <YouTubeImport youtubeImportState={youtubeImportState} />
-      </section>
     </div>
   );
 }

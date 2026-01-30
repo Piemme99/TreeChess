@@ -290,6 +290,52 @@ func AddNodeHandler(svc *services.RepertoireService) echo.HandlerFunc {
 	}
 }
 
+// ListTemplatesHandler returns available starter repertoire templates
+// GET /api/repertoires/templates
+func ListTemplatesHandler() echo.HandlerFunc {
+	return func(c echo.Context) error {
+		templates := services.ListTemplates()
+		return c.JSON(http.StatusOK, templates)
+	}
+}
+
+// SeedHandler creates starter repertoires from templates
+// POST /api/repertoires/seed
+func SeedHandler(svc *services.RepertoireService) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		userID := c.Get("userID").(string)
+
+		var req struct {
+			TemplateIDs []string `json:"templateIds"`
+		}
+		if err := c.Bind(&req); err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{
+				"error": "invalid request body",
+			})
+		}
+
+		if len(req.TemplateIDs) == 0 {
+			return c.JSON(http.StatusBadRequest, map[string]string{
+				"error": "templateIds is required",
+			})
+		}
+
+		repertoires, err := svc.SeedRepertoires(userID, req.TemplateIDs)
+		if err != nil {
+			if errors.Is(err, services.ErrLimitReached) {
+				return c.JSON(http.StatusConflict, map[string]string{
+					"error": "maximum repertoire limit reached (50)",
+				})
+			}
+			return c.JSON(http.StatusBadRequest, map[string]string{
+				"error": err.Error(),
+			})
+		}
+
+		return c.JSON(http.StatusCreated, repertoires)
+	}
+}
+
 // DeleteNodeHandler deletes a node from a repertoire
 // DELETE /api/repertoire/:id/node/:nodeId
 func DeleteNodeHandler(svc *services.RepertoireService) echo.HandlerFunc {

@@ -1,6 +1,9 @@
 import { useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { MainLayout } from './shared/components/Layout/MainLayout';
+import { Dashboard } from './features/dashboard';
+import { RepertoireTab } from './features/repertoire/RepertoireTab';
+import { GamesPage } from './features/games';
 import { GameAnalysisPage } from './features/game-analysis';
 import { RepertoireEdit } from './features/repertoire/RepertoireEdit';
 import { VideoRepertoirePreview } from './features/video-import/VideoRepertoirePreview';
@@ -21,13 +24,16 @@ function App() {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route
-          path="/"
           element={
             <ProtectedRoute>
               <MainLayout />
             </ProtectedRoute>
           }
-        />
+        >
+          <Route index element={<Dashboard />} />
+          <Route path="repertoires" element={<RepertoireTab />} />
+          <Route path="games" element={<GamesPage />} />
+        </Route>
         <Route
           path="/analyse/:id/game/:gameIndex"
           element={

@@ -67,6 +67,9 @@ func (h *AuthHandler) LoginHandler(c echo.Context) error {
 		if errors.Is(err, services.ErrInvalidCredentials) {
 			return ErrorResponse(c, http.StatusUnauthorized, "invalid credentials")
 		}
+		if errors.Is(err, services.ErrOAuthOnly) {
+			return BadRequestResponse(c, err.Error())
+		}
 		return InternalErrorResponse(c, "failed to login")
 	}
 

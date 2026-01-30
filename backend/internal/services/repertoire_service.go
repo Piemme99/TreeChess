@@ -231,6 +231,47 @@ func (s *RepertoireService) DeleteNode(repertoireID string, nodeID string) (*mod
 	return s.repo.Save(repertoireID, *newTreeData, newMetadata)
 }
 
+// SeedRepertoires creates starter repertoires from templates for the given user
+func (s *RepertoireService) SeedRepertoires(userID string, templateIDs []string) ([]models.Repertoire, error) {
+	var created []models.Repertoire
+
+	for _, tmplID := range templateIDs {
+		tmpl := GetTemplate(tmplID)
+		if tmpl == nil {
+			return nil, fmt.Errorf("unknown template: %s", tmplID)
+		}
+
+		tree, err := BuildTemplateTree(tmpl)
+		if err != nil {
+			return nil, fmt.Errorf("failed to build template %s: %w", tmplID, err)
+		}
+
+		// Check repertoire limit before creating
+		count, err := s.repo.Count(userID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to check repertoire count: %w", err)
+		}
+		if count >= config.MaxRepertoires {
+			return nil, ErrLimitReached
+		}
+
+		rep, err := s.repo.Create(userID, tmpl.Name, tmpl.Color)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create repertoire %s: %w", tmplID, err)
+		}
+
+		metadata := calculateMetadata(tree)
+		saved, err := s.repo.Save(rep.ID, tree, metadata)
+		if err != nil {
+			return nil, fmt.Errorf("failed to save template tree %s: %w", tmplID, err)
+		}
+
+		created = append(created, *saved)
+	}
+
+	return created, nil
+}
+
 // validateAndGetResultingFEN validates a move and returns the resulting FEN
 func validateAndGetResultingFEN(fen, san string) (string, error) {
 	fullFEN := ensureFullFEN(fen)

@@ -252,6 +252,8 @@ type MockUserRepo struct {
 	GetByUsernameFunc func(username string) (*models.User, error)
 	GetByIDFunc       func(id string) (*models.User, error)
 	ExistsFunc        func(username string) (bool, error)
+	FindByOAuthFunc   func(provider, oauthID string) (*models.User, error)
+	CreateOAuthFunc   func(provider, oauthID, username string) (*models.User, error)
 }
 
 func (m *MockUserRepo) Create(username, passwordHash string) (*models.User, error) {
@@ -280,4 +282,18 @@ func (m *MockUserRepo) Exists(username string) (bool, error) {
 		return m.ExistsFunc(username)
 	}
 	return false, nil
+}
+
+func (m *MockUserRepo) FindByOAuth(provider, oauthID string) (*models.User, error) {
+	if m.FindByOAuthFunc != nil {
+		return m.FindByOAuthFunc(provider, oauthID)
+	}
+	return nil, nil
+}
+
+func (m *MockUserRepo) CreateOAuth(provider, oauthID, username string) (*models.User, error) {
+	if m.CreateOAuthFunc != nil {
+		return m.CreateOAuthFunc(provider, oauthID, username)
+	}
+	return nil, nil
 }

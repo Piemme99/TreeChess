@@ -118,6 +118,16 @@ export const repertoireApi = {
   deleteNode: async (id: string, nodeId: string): Promise<Repertoire> => {
     const response = await api.delete(`/repertoires/${id}/nodes/${nodeId}`);
     return response.data;
+  },
+
+  listTemplates: async (): Promise<{ id: string; name: string; color: string; description: string }[]> => {
+    const response = await api.get('/repertoires/templates');
+    return response.data;
+  },
+
+  seedFromTemplates: async (templateIds: string[]): Promise<Repertoire[]> => {
+    const response = await api.post('/repertoires/seed', { templateIds });
+    return response.data;
   }
 };
 

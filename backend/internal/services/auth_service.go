@@ -19,6 +19,7 @@ var (
 	ErrPasswordTooShort  = fmt.Errorf("password must be at least 8 characters")
 	ErrInvalidCredentials = fmt.Errorf("invalid credentials")
 	ErrUnauthorized       = fmt.Errorf("unauthorized")
+	ErrOAuthOnly          = fmt.Errorf("this account uses Lichess login")
 )
 
 type AuthService struct {
@@ -68,6 +69,10 @@ func (s *AuthService) Login(username, password string) (*models.AuthResponse, er
 			return nil, ErrInvalidCredentials
 		}
 		return nil, err
+	}
+
+	if user.PasswordHash == "" && user.OAuthProvider != nil {
+		return nil, ErrOAuthOnly
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {

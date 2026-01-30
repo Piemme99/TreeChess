@@ -10,13 +10,15 @@ import (
 
 // Config holds application configuration
 type Config struct {
-	DatabaseURL    string
-	Port           int
-	AllowedOrigins []string
-	YtdlpPath      string
-	FfmpegPath     string
-	JWTSecret      string
-	JWTExpiry      time.Duration
+	DatabaseURL      string
+	Port             int
+	AllowedOrigins   []string
+	YtdlpPath        string
+	FfmpegPath       string
+	JWTSecret        string
+	JWTExpiry        time.Duration
+	LichessClientID  string
+	FrontendURL      string
 }
 
 // MustLoad loads configuration from environment variables
@@ -72,13 +74,22 @@ func MustLoad() Config {
 		jwtExpiry = time.Duration(hours) * time.Hour
 	}
 
+	lichessClientID := os.Getenv("LICHESS_CLIENT_ID")
+
+	frontendURL := os.Getenv("FRONTEND_URL")
+	if frontendURL == "" {
+		frontendURL = "http://localhost:5173"
+	}
+
 	return Config{
-		DatabaseURL:    dbURL,
-		Port:           port,
-		AllowedOrigins: allowedOrigins,
-		YtdlpPath:      ytdlpPath,
-		FfmpegPath:     ffmpegPath,
-		JWTSecret:      jwtSecret,
-		JWTExpiry:      jwtExpiry,
+		DatabaseURL:     dbURL,
+		Port:            port,
+		AllowedOrigins:  allowedOrigins,
+		YtdlpPath:       ytdlpPath,
+		FfmpegPath:      ffmpegPath,
+		JWTSecret:       jwtSecret,
+		JWTExpiry:       jwtExpiry,
+		LichessClientID: lichessClientID,
+		FrontendURL:     frontendURL,
 	}
 }

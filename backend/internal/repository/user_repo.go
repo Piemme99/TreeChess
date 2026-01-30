@@ -16,18 +16,27 @@ const (
 	createUserSQL = `
 		INSERT INTO users (id, username, password_hash)
 		VALUES ($1, $2, $3)
-		RETURNING id, username, password_hash, created_at
+		RETURNING id, username, password_hash, oauth_provider, oauth_id, created_at
 	`
 	getUserByUsernameSQL = `
-		SELECT id, username, password_hash, created_at
+		SELECT id, username, password_hash, oauth_provider, oauth_id, created_at
 		FROM users WHERE username = $1
 	`
 	getUserByIDSQL = `
-		SELECT id, username, password_hash, created_at
+		SELECT id, username, password_hash, oauth_provider, oauth_id, created_at
 		FROM users WHERE id = $1
 	`
 	checkUserExistsSQL = `
 		SELECT EXISTS(SELECT 1 FROM users WHERE username = $1)
+	`
+	findByOAuthSQL = `
+		SELECT id, username, password_hash, oauth_provider, oauth_id, created_at
+		FROM users WHERE oauth_provider = $1 AND oauth_id = $2
+	`
+	createOAuthUserSQL = `
+		INSERT INTO users (id, username, oauth_provider, oauth_id)
+		VALUES ($1, $2, $3, $4)
+		RETURNING id, username, password_hash, oauth_provider, oauth_id, created_at
 	`
 )
 
@@ -39,56 +48,91 @@ func NewPostgresUserRepo(pool *pgxpool.Pool) *PostgresUserRepo {
 	return &PostgresUserRepo{pool: pool}
 }
 
+func scanUser(scan func(dest ...any) error) (*models.User, error) {
+	var user models.User
+	var passwordHash *string
+	err := scan(
+		&user.ID, &user.Username, &passwordHash, &user.OAuthProvider, &user.OAuthID, &user.CreatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	if passwordHash != nil {
+		user.PasswordHash = *passwordHash
+	}
+	return &user, nil
+}
+
 func (r *PostgresUserRepo) Create(username, passwordHash string) (*models.User, error) {
 	ctx, cancel := dbContext()
 	defer cancel()
 
 	id := uuid.New().String()
-	var user models.User
-	err := r.pool.QueryRow(ctx, createUserSQL, id, username, passwordHash).Scan(
-		&user.ID, &user.Username, &user.PasswordHash, &user.CreatedAt,
-	)
+	user, err := scanUser(r.pool.QueryRow(ctx, createUserSQL, id, username, passwordHash).Scan)
 	if err != nil {
 		if isDuplicateKeyError(err) {
 			return nil, ErrUsernameExists
 		}
 		return nil, fmt.Errorf("failed to create user: %w", err)
 	}
-	return &user, nil
+	return user, nil
 }
 
 func (r *PostgresUserRepo) GetByUsername(username string) (*models.User, error) {
 	ctx, cancel := dbContext()
 	defer cancel()
 
-	var user models.User
-	err := r.pool.QueryRow(ctx, getUserByUsernameSQL, username).Scan(
-		&user.ID, &user.Username, &user.PasswordHash, &user.CreatedAt,
-	)
+	user, err := scanUser(r.pool.QueryRow(ctx, getUserByUsernameSQL, username).Scan)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrUserNotFound
 		}
 		return nil, fmt.Errorf("failed to get user by username: %w", err)
 	}
-	return &user, nil
+	return user, nil
 }
 
 func (r *PostgresUserRepo) GetByID(id string) (*models.User, error) {
 	ctx, cancel := dbContext()
 	defer cancel()
 
-	var user models.User
-	err := r.pool.QueryRow(ctx, getUserByIDSQL, id).Scan(
-		&user.ID, &user.Username, &user.PasswordHash, &user.CreatedAt,
-	)
+	user, err := scanUser(r.pool.QueryRow(ctx, getUserByIDSQL, id).Scan)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrUserNotFound
 		}
 		return nil, fmt.Errorf("failed to get user by ID: %w", err)
 	}
-	return &user, nil
+	return user, nil
+}
+
+func (r *PostgresUserRepo) FindByOAuth(provider, oauthID string) (*models.User, error) {
+	ctx, cancel := dbContext()
+	defer cancel()
+
+	user, err := scanUser(r.pool.QueryRow(ctx, findByOAuthSQL, provider, oauthID).Scan)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrUserNotFound
+		}
+		return nil, fmt.Errorf("failed to find user by OAuth: %w", err)
+	}
+	return user, nil
+}
+
+func (r *PostgresUserRepo) CreateOAuth(provider, oauthID, username string) (*models.User, error) {
+	ctx, cancel := dbContext()
+	defer cancel()
+
+	id := uuid.New().String()
+	user, err := scanUser(r.pool.QueryRow(ctx, createOAuthUserSQL, id, username, provider, oauthID).Scan)
+	if err != nil {
+		if isDuplicateKeyError(err) {
+			return nil, ErrUsernameExists
+		}
+		return nil, fmt.Errorf("failed to create OAuth user: %w", err)
+	}
+	return user, nil
 }
 
 func (r *PostgresUserRepo) Exists(username string) (bool, error) {

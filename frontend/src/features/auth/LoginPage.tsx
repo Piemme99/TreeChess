@@ -1,6 +1,8 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
+
+const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
 export function LoginPage() {
   const [isRegister, setIsRegister] = useState(false);
@@ -10,8 +12,28 @@ export function LoginPage() {
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  const { login, register } = useAuthStore();
+  const { login, register, handleOAuthToken } = useAuthStore();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  useEffect(() => {
+    const token = searchParams.get('token');
+    const oauthError = searchParams.get('error');
+
+    if (token) {
+      setSearchParams({}, { replace: true });
+      handleOAuthToken(token)
+        .then(() => navigate('/', { replace: true }))
+        .catch((err) => {
+          if (err instanceof Error) {
+            setError(err.message);
+          }
+        });
+    } else if (oauthError) {
+      setSearchParams({}, { replace: true });
+      setError(oauthError);
+    }
+  }, [searchParams, setSearchParams, handleOAuthToken, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,6 +72,17 @@ export function LoginPage() {
       <div className="login-card">
         <h1 className="login-logo">TreeChess</h1>
         <h2 className="login-title">{isRegister ? 'Create Account' : 'Sign In'}</h2>
+
+        {!isRegister && (
+          <>
+            <a href={`${API_BASE}/auth/lichess/login`} className="login-oauth-btn lichess-btn">
+              Sign in with Lichess
+            </a>
+            <div className="login-divider">
+              <span>or</span>
+            </div>
+          </>
+        )}
 
         <form onSubmit={handleSubmit} className="login-form">
           {error && <div className="login-error">{error}</div>}

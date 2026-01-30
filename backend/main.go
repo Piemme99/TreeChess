@@ -33,6 +33,8 @@ func main() {
 
 	// Initialize services
 	authSvc := services.NewAuthService(userRepo, cfg.JWTSecret, cfg.JWTExpiry)
+	callbackURL := fmt.Sprintf("http://localhost:%d/api/auth/lichess/callback", cfg.Port)
+	oauthSvc := services.NewOAuthService(userRepo, authSvc, cfg.LichessClientID, callbackURL)
 	repertoireSvc := services.NewRepertoireService(repertoireRepo)
 	importSvc := services.NewImportService(repertoireSvc, analysisRepo)
 	lichessSvc := services.NewLichessService()
@@ -42,6 +44,7 @@ func main() {
 
 	// Initialize handlers
 	authHandler := handlers.NewAuthHandler(authSvc)
+	oauthHandler := handlers.NewOAuthHandler(oauthSvc, cfg.FrontendURL, cfg.JWTSecret)
 
 	// Initialize Echo
 	e := echo.New()
@@ -60,6 +63,8 @@ func main() {
 	e.GET("/api/health", handlers.HealthHandler)
 	e.POST("/api/auth/register", authHandler.RegisterHandler)
 	e.POST("/api/auth/login", authHandler.LoginHandler)
+	e.GET("/api/auth/lichess/login", oauthHandler.LoginRedirect)
+	e.GET("/api/auth/lichess/callback", oauthHandler.Callback)
 
 	// Protected routes (auth required)
 	protected := e.Group("", appMiddleware.JWTAuth(authSvc))
@@ -68,6 +73,8 @@ func main() {
 	protected.GET("/api/auth/me", authHandler.MeHandler)
 
 	// Repertoire API
+	protected.GET("/api/repertoires/templates", handlers.ListTemplatesHandler())
+	protected.POST("/api/repertoires/seed", handlers.SeedHandler(repertoireSvc))
 	protected.GET("/api/repertoires", handlers.ListRepertoiresHandler(repertoireSvc))
 	protected.POST("/api/repertoires", handlers.CreateRepertoireHandler(repertoireSvc))
 	protected.GET("/api/repertoires/:id", handlers.GetRepertoireHandler(repertoireSvc))

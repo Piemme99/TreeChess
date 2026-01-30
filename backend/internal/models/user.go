@@ -3,10 +3,12 @@ package models
 import "time"
 
 type User struct {
-	ID           string    `json:"id"`
-	Username     string    `json:"username"`
-	PasswordHash string    `json:"-"`
-	CreatedAt    time.Time `json:"createdAt"`
+	ID            string    `json:"id"`
+	Username      string    `json:"username"`
+	PasswordHash  string    `json:"-"`
+	OAuthProvider *string   `json:"oauthProvider,omitempty"`
+	OAuthID       *string   `json:"-"`
+	CreatedAt     time.Time `json:"createdAt"`
 }
 
 type RegisterRequest struct {

@@ -12,6 +12,7 @@ interface AuthState {
   error: string | null;
   login: (username: string, password: string) => Promise<void>;
   register: (username: string, password: string) => Promise<void>;
+  handleOAuthToken: (token: string) => Promise<void>;
   logout: () => void;
   checkAuth: () => Promise<void>;
   clearError: () => void;
@@ -57,6 +58,30 @@ export const useAuthStore = create<AuthState>((set) => ({
       const message = getErrorMessage(err, 'Registration failed');
       set({ error: message });
       throw new Error(message);
+    }
+  },
+
+  handleOAuthToken: async (token: string) => {
+    localStorage.setItem(TOKEN_STORAGE_KEY, token);
+    set({ token, error: null });
+    try {
+      const user = await authApi.me();
+      set({
+        user,
+        token,
+        isAuthenticated: true,
+        loading: false,
+      });
+    } catch {
+      localStorage.removeItem(TOKEN_STORAGE_KEY);
+      set({
+        user: null,
+        token: null,
+        isAuthenticated: false,
+        loading: false,
+        error: 'Failed to verify OAuth token',
+      });
+      throw new Error('Failed to verify OAuth token');
     }
   },
 

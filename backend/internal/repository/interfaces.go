@@ -8,6 +8,8 @@ type UserRepository interface {
 	GetByUsername(username string) (*models.User, error)
 	GetByID(id string) (*models.User, error)
 	Exists(username string) (bool, error)
+	FindByOAuth(provider, oauthID string) (*models.User, error)
+	CreateOAuth(provider, oauthID, username string) (*models.User, error)
 }
 
 // RepertoireRepository defines the interface for repertoire data operations

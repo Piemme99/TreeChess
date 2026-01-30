@@ -57,18 +57,15 @@ func (db *DB) runMigrations() error {
 	defer cancel()
 
 	schema := `
-		-- Drop all existing tables (destructive migration)
-		DROP TABLE IF EXISTS video_positions, video_imports, analyses, repertoires, users CASCADE;
-
-		-- Drop old functions/triggers
-		DROP FUNCTION IF EXISTS check_repertoire_limit() CASCADE;
-
 		-- Create users table
 		CREATE TABLE IF NOT EXISTS users (
 			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 			username VARCHAR(50) NOT NULL UNIQUE,
-			password_hash VARCHAR(255) NOT NULL,
-			created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+			password_hash VARCHAR(255),
+			oauth_provider VARCHAR(20),
+			oauth_id VARCHAR(255),
+			created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+			UNIQUE(oauth_provider, oauth_id)
 		);
 
 		-- Create repertoires table
