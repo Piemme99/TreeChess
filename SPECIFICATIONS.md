@@ -1,7 +1,7 @@
 # TreeChess - Technical and Functional Specifications
 
-**Version:** 7.0
-**Date:** January 29, 2026
+**Version:** 8.0
+**Date:** January 30, 2026
 **Status:** Draft
 
 ---
@@ -27,34 +27,34 @@ TreeChess is a web application that enables players to create, visualize, and en
 
 ## 2. Project Objectives
 
-### 2.1 MVP Objectives (Version 1.0) - Local Development
+### 2.1 Current State
 
-Enable a single user to create and visualize two repertoire trees (White and Black) by importing PGN files, with the ability to manually add new branches during divergences.
+TreeChess is a multi-user web application allowing players to create, visualize, and enrich their opening repertoires. The following is implemented:
 
-**MVP Tech Stack:**
+- **Authentication**: Local registration + OAuth Lichess
+- **Multiple repertoires**: Up to 50 per user, multiple per color
+- **Import sources**: PGN file upload, Lichess API, Chess.com API
+- **Sync**: Automatic sync of recent games from Lichess/Chess.com
+- **Analysis**: Game-by-game comparison against repertoire trees
+- **Engine**: Stockfish WebAssembly for position evaluation
+- **Repertoire templates**: Pre-built opening trees (Sicilian, Italian, etc.)
 
-- Frontend: React 18 + TypeScript
-- Backend: Go
-- Database: PostgreSQL (local dev)
-- No authentication
-- No production deployment
+**Tech Stack:**
 
-### 2.2 V2 Objectives (Version 2.0) - Production
+- Frontend: React 18 + TypeScript + Vite
+- Backend: Go 1.25 + Echo
+- Database: PostgreSQL 17 + pgx
+- State: Zustand
+- Engine: Stockfish.js (WebAssembly)
 
-- Authentication via OAuth Lichess (users already have Lichess accounts)
-- Direct import from Lichess API
-- Multi-user support
-- Production deployment
-
-### 2.3 Features Deferred to V2
+### 2.2 Features Not Yet Implemented
 
 - Training mode with quiz and spaced repetition
-- Chess.com API import
-- Multiple repertoires per color
 - Main line vs sideline visualization
 - Repertoire PGN export
 - Progress statistics
-- Comments/Videos on positions
+- Comments on positions
+- Production deployment
 
 ---
 
@@ -62,37 +62,23 @@ Enable a single user to create and visualize two repertoire trees (White and Bla
 
 ### 3.1 Repertoire Management
 
-#### REQ-001: Initial Repertoire Creation
+#### REQ-001: Repertoire Creation
 
-On first application startup, the API automatically creates two empty repertoires:
+Users create repertoires explicitly via `POST /api/repertoires` with a name and color. On first login, the onboarding flow offers template-based creation (e.g., Sicilian Defense, Italian Game).
 
-- A "White" repertoire with the initial position (fen: rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -)
-- A "Black" repertoire with the initial position
+Each repertoire tree starts with the initial position (FEN: `rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -`).
 
 #### REQ-002: Active Repertoire Selection
 
-The user can switch between White and Black repertoires via a selector. The displayed tree corresponds to the selected repertoire.
+The user can switch between repertoires via a selector. The displayed tree corresponds to the selected repertoire.
 
 #### REQ-003: Data Persistence (PostgreSQL)
 
-Data is stored in a PostgreSQL database. Schema:
-
-```sql
-CREATE TABLE repertoires (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    color VARCHAR(5) NOT NULL CHECK (color IN ('white', 'black')),
-    tree_data JSONB NOT NULL,
-    metadata JSONB NOT NULL DEFAULT '{"totalNodes": 0, "totalMoves": 0, "deepestDepth": 0}',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
-CREATE INDEX idx_repertoires_color ON repertoires(color);
-```
+Data is stored in a PostgreSQL database. See section 4.2 for the full schema.
 
 #### REQ-004: Multiple Repertoires per Color
 
-Users can create multiple repertoires per color via `POST /api/repertoires`. Each repertoire has a name and color.
+Users can create up to 50 repertoires total, multiple per color. Each repertoire has a name and color. A trigger enforces the 50-repertoire limit per user.
 
 ---
 
@@ -312,7 +298,7 @@ The user selects a node and accesses a dedicated view displaying:
 - The move sequence from root node to selected node
 - Previous/Next navigation to browse the sequence
 
-#### REQ-051: Active Review
+#### REQ-061: Active Review
 
 In review mode, the user can:
 
@@ -320,7 +306,7 @@ In review mode, the user can:
 - Receive immediate feedback on wrong move
 - Return to branch start
 
-#### REQ-052: Position + Notation Display
+#### REQ-062: Position + Notation Display
 
 ALWAYS display simultaneously:
 
@@ -329,74 +315,22 @@ ALWAYS display simultaneously:
 
 ---
 
-### 3.8 YouTube Video Import
+### 3.8 Game Sync
 
-#### REQ-070: YouTube Video Import
+#### REQ-070: Automatic Game Sync
 
-The user can submit a YouTube URL to extract chess positions from a video. The pipeline:
+Users can link their Lichess and/or Chess.com usernames via their profile (`PUT /api/auth/profile`). The sync endpoint (`POST /api/sync`) fetches recent games from both platforms and imports them automatically.
 
-1. Download video via `yt-dlp`
-2. Extract frames at 1fps via `ffmpeg`
-3. Recognize chess positions in each frame via GoCV (native Go OpenCV)
-4. Build a repertoire tree from the detected positions
+#### REQ-071: Sync Behavior
 
-#### REQ-071: Video Import Status
+- Only fetches games played since the last sync (tracked per platform via `last_lichess_sync_at` / `last_chesscom_sync_at`)
+- Imported games are parsed and analyzed against the user's repertoires
+- Errors on one platform do not block the other
+- Returns a `SyncResult` with counts of imported games and any errors
 
-Video imports have a status lifecycle: `pending` -> `downloading` -> `extracting` -> `recognizing` -> `building_tree` -> `completed` (or `failed`). Status and progress are streamed in real-time via Server-Sent Events (SSE).
+#### REQ-072: Platform Usernames
 
-#### REQ-072: SSE Progress Stream
-
-The endpoint `GET /api/video-imports/:id/progress` returns an SSE stream with events:
-
-```
-data: {"status":"recognizing","progress":45,"message":"Frame 135/300"}
-```
-
-#### REQ-073: Position Recognition
-
-Each video frame is analyzed for the presence of a chessboard. Detected positions are stored with:
-
-- FEN string
-- Timestamp (seconds from video start)
-- Frame index
-- Confidence score
-
-#### REQ-074: Tree Builder Algorithm
-
-The tree builder transforms a sequence of FEN positions into a `RepertoireNode` tree:
-
-1. **Deduplication**: Consecutive identical FENs are merged (keep first timestamp)
-2. **Move Detection**: For consecutive FEN pairs, find the legal chess move using `notnil/chess`
-3. **Backtracking**: When a previously-seen FEN reappears, navigate back to that node. The next new position creates a branch
-4. **Gaps**: Positions that cannot be reached by any legal move from the current tree are skipped
-5. **Color Detection**: Heuristic based on root position's side-to-move
-
-#### REQ-075: Video Preview Page
-
-After import completion, the user is navigated to a preview page showing:
-
-- The extracted repertoire tree (reuses `RepertoireTree` component)
-- A chessboard showing the selected node's position
-- An embedded YouTube player synchronized to the position's timestamp
-- Save options: name, color, and save-as-repertoire button
-
-#### REQ-076: Save as Repertoire
-
-The user can save the extracted tree as a new repertoire via `POST /api/video-imports/:id/save`. The request includes name, color, and tree data.
-
-#### REQ-077: Video Position Search
-
-In the repertoire editor, a "Videos" button opens a modal that searches for videos containing the current board position via `GET /api/video-positions/search?fen=...`. Results show video title, embedded player at the matching timestamp, and links to all timestamps where the position appears.
-
-#### REQ-078: External Tool Dependencies
-
-The video import pipeline requires external tools:
-
-- `yt-dlp`: YouTube video download
-- `ffmpeg`: Frame extraction at 1fps
-- `libopencv-dev`: OpenCV library for GoCV-based chess position recognition (native Go, no Python)
-
-Paths are configurable via environment variables: `YTDLP_PATH`, `FFMPEG_PATH`.
+Users set their Lichess and Chess.com usernames in the profile page. These are validated against `^[a-zA-Z0-9_-]{1,50}$` before being accepted.
 
 ---
 
@@ -428,54 +362,60 @@ interface RepertoireMetadata {
 
 ### 4.2 PostgreSQL Schema
 
+The schema is managed via inline migrations in `repository/db.go`. The current state:
+
 ```sql
--- Main repertoires table
+-- Users table
+CREATE TABLE users (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    username VARCHAR(50) NOT NULL UNIQUE,
+    password_hash VARCHAR(255),
+    oauth_provider VARCHAR(20),
+    oauth_id VARCHAR(255),
+    lichess_username VARCHAR(50),
+    chesscom_username VARCHAR(50),
+    last_lichess_sync_at TIMESTAMP WITH TIME ZONE,
+    last_chesscom_sync_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(oauth_provider, oauth_id)
+);
+
+-- Repertoires table (multiple per user, up to 50)
 CREATE TABLE repertoires (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id),
+    name VARCHAR(100) NOT NULL DEFAULT 'Main Repertoire',
     color VARCHAR(5) NOT NULL CHECK (color IN ('white', 'black')),
     tree_data JSONB NOT NULL,
     metadata JSONB NOT NULL DEFAULT '{"totalNodes": 0, "totalMoves": 0, "deepestDepth": 0}',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    CONSTRAINT one_repertoire_per_color UNIQUE (color)
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Trigger: max 50 repertoires per user
+CREATE TRIGGER repertoire_limit_trigger
+    BEFORE INSERT ON repertoires
+    FOR EACH ROW EXECUTE FUNCTION check_repertoire_limit();
+
+-- Analyses table
+CREATE TABLE analyses (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id),
+    username VARCHAR(255) NOT NULL,
+    filename VARCHAR(255) NOT NULL,
+    game_count INTEGER NOT NULL,
+    results JSONB NOT NULL,
+    uploaded_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- Performance indexes
+CREATE INDEX idx_repertoires_user_id ON repertoires(user_id);
 CREATE INDEX idx_repertoires_color ON repertoires(color);
 CREATE INDEX idx_repertoires_updated ON repertoires(updated_at DESC);
-```
-
-#### Video Import Tables
-
-```sql
-CREATE TABLE video_imports (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    youtube_url VARCHAR(500) NOT NULL,
-    youtube_id VARCHAR(20) NOT NULL,
-    title VARCHAR(500) NOT NULL DEFAULT '',
-    status VARCHAR(20) NOT NULL DEFAULT 'pending'
-        CHECK (status IN ('pending','downloading','extracting','recognizing','building_tree','completed','failed')),
-    progress INTEGER NOT NULL DEFAULT 0,
-    error_message TEXT,
-    total_frames INTEGER,
-    processed_frames INTEGER DEFAULT 0,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    completed_at TIMESTAMP WITH TIME ZONE
-);
-
-CREATE TABLE video_positions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    video_import_id UUID NOT NULL REFERENCES video_imports(id) ON DELETE CASCADE,
-    fen VARCHAR(100) NOT NULL,
-    timestamp_seconds FLOAT NOT NULL,
-    frame_index INTEGER NOT NULL,
-    confidence FLOAT,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
-CREATE INDEX idx_video_positions_fen ON video_positions(fen);
-CREATE INDEX idx_video_positions_video_id ON video_positions(video_import_id);
-CREATE INDEX idx_video_imports_youtube_id ON video_imports(youtube_id);
+CREATE INDEX idx_repertoires_name ON repertoires(name);
+CREATE INDEX idx_analyses_user_id ON analyses(user_id);
+CREATE INDEX idx_analyses_username ON analyses(username);
+CREATE INDEX idx_analyses_uploaded ON analyses(uploaded_at DESC);
 ```
 
 ### 4.3 JSONB Stored Structure
@@ -606,70 +546,78 @@ interface EngineState {
 
 ```
 backend/
-├── main.go                          # Entry point
+├── main.go                          # Entry point, DI, routes, middleware
+├── Dockerfile                       # Multi-stage (dev + prod)
 ├── config/
-│   └── config.go                    # Configuration (DB, port, tool paths)
+│   ├── config.go                    # Environment-based configuration
+│   └── limits.go                    # Application limits and constants
 ├── internal/
 │   ├── handlers/
-│   │   ├── repertoire.go            # CRUD repertoires
-│   │   ├── import.go                # Import + Analysis
-│   │   └── video.go                 # Video import endpoints
+│   │   ├── auth.go                  # Register, Login, Me, UpdateProfile
+│   │   ├── oauth.go                 # Lichess OAuth (redirect + callback)
+│   │   ├── health.go                # Health check endpoint
+│   │   ├── helpers.go               # Shared response helpers, validators
+│   │   ├── repertoire.go            # CRUD repertoires, nodes, templates
+│   │   ├── import.go                # PGN upload, Lichess/Chess.com import
+│   │   └── sync.go                  # Game sync handler
 │   ├── services/
-│   │   ├── repertoire_service.go    # Business logic
-│   │   ├── pgn_parser.go            # PGN parsing
-│   │   ├── tree_service.go          # Tree manipulation
-│   │   ├── video_service.go         # Video import pipeline
-│   │   └── video_tree_builder.go    # FEN → repertoire tree
-│   ├── recognition/
-│   │   ├── recognition.go           # Public API: RecognizeFrames, types
-│   │   ├── board_detect.go          # Multi-scale checkerboard detection
-│   │   ├── template.go              # Template extraction & averaging
-│   │   ├── piece_match.go           # MSE-based piece recognition
-│   │   ├── change_detect.go         # Frame-to-frame diff detection
-│   │   └── fen.go                   # FEN parsing & generation
+│   │   ├── auth_service.go          # Registration, login, JWT generation
+│   │   ├── oauth_service.go         # Lichess OAuth flow (PKCE)
+│   │   ├── repertoire_service.go    # Repertoire CRUD + tree operations
+│   │   ├── repertoire_templates.go  # Pre-built opening templates
+│   │   ├── import_service.go        # PGN parsing + repertoire analysis
+│   │   ├── lichess_service.go       # Lichess API client
+│   │   ├── chesscom_service.go      # Chess.com API client
+│   │   └── sync_service.go          # Game sync orchestration
 │   ├── repository/
-│   │   └── repertoire_repo.go       # PostgreSQL access
+│   │   ├── interfaces.go            # Repository interfaces
+│   │   ├── db.go                    # Connection pool + inline migrations
+│   │   ├── errors.go                # Sentinel errors
+│   │   ├── user_repo.go             # User CRUD, OAuth, profile, sync timestamps
+│   │   ├── repertoire_repo.go       # Repertoire CRUD, ownership checks
+│   │   ├── import_repo.go           # Analysis CRUD, games, ownership
+│   │   └── mocks/mocks.go          # Mock implementations for testing
 │   ├── models/
-│   │   └── repertoire.go            # Data structures
+│   │   ├── user.go                  # User, AuthResponse, SyncResult
+│   │   └── repertoire.go            # RepertoireNode, Repertoire, GameAnalysis, etc.
 │   └── middleware/
-│       └── logger.go                # Structured logging
-├── migrations/
-│   └── 001_init.sql                 # PostgreSQL schema
+│       └── auth.go                  # JWT authentication middleware
 └── go.mod
 ```
 
-#### Recognition Package (`internal/recognition/`)
+### 5.3 REST API
 
-Native Go package using GoCV (OpenCV bindings) for chess position recognition from video frames. Three-phase pipeline:
-
-1. **Board detection** (`board_detect.go`): Multi-scale scan (0.8–0.3) with checkerboard scoring based on adjacent cell brightness. Refinement step expands partial detections to full 8x8 grid.
-2. **Template extraction** (`template.go`): Crops cells from a known starting position, averages samples per (piece, square-color) pair, synthesizes missing light/dark variants via brightness delta.
-3. **Piece matching** (`piece_match.go`): Normalized inverse MSE scoring (`1 - mean((a-b)²) / 255²`) on grayscale cell images. Change detection (`change_detect.go`) skips unchanged frames.
-
-Public API:
-```go
-func RecognizeFrames(ctx context.Context, framesDir string, onProgress ProgressFunc) (*Result, error)
-```
-
-### 5.3 REST API (MVP)
+All routes except health and auth are protected by JWT authentication. Auth endpoints have stricter rate limiting (10 req/min vs 100 req/min globally).
 
 ```
+# Public
 GET    /api/health                           # Health check
 
-# Repertoire CRUD
-GET    /api/repertoires                      # List all repertoires
+# Authentication (stricter rate limit)
+POST   /api/auth/register                    # Register new user
+POST   /api/auth/login                       # Login with credentials
+GET    /api/auth/lichess/login               # Lichess OAuth redirect
+GET    /api/auth/lichess/callback            # Lichess OAuth callback
+
+# Protected - User
+GET    /api/auth/me                          # Get current user profile
+PUT    /api/auth/profile                     # Update profile (Lichess/Chess.com usernames)
+
+# Protected - Repertoire CRUD
+GET    /api/repertoires/templates            # List opening templates
+POST   /api/repertoires/seed                 # Create repertoire from template
+GET    /api/repertoires                      # List user's repertoires
 POST   /api/repertoires                      # Create new repertoire
 GET    /api/repertoires/:id                  # Get repertoire by ID
 PATCH  /api/repertoires/:id                  # Update repertoire (rename)
 DELETE /api/repertoires/:id                  # Delete repertoire
-
-# Repertoire nodes
 POST   /api/repertoires/:id/nodes            # Add node to repertoire
 DELETE /api/repertoires/:id/nodes/:nodeId    # Delete node from repertoire
 
-# Import/Analysis
+# Protected - Import/Analysis
 POST   /api/imports                          # Upload PGN + auto-analyze
-POST   /api/imports/lichess                  # Import from Lichess
+POST   /api/imports/lichess                  # Import from Lichess API
+POST   /api/imports/chesscom                 # Import from Chess.com API
 POST   /api/imports/validate-pgn             # Validate PGN content
 POST   /api/imports/validate-move            # Validate a move
 GET    /api/imports/legal-moves              # Get legal moves for position
@@ -677,62 +625,79 @@ GET    /api/analyses                         # List all analyses
 GET    /api/analyses/:id                     # Get analysis details
 DELETE /api/analyses/:id                     # Delete analysis
 
-# Games
-GET    /api/games                            # List games with pagination
+# Protected - Games
+GET    /api/games                            # List games (paginated, filterable)
 DELETE /api/games/:analysisId/:gameIndex     # Delete specific game
+POST   /api/games/bulk-delete                # Delete multiple games
 POST   /api/games/:analysisId/:gameIndex/reanalyze  # Reanalyze game
 
-# Video Import
-POST   /api/video-imports                    # Submit YouTube URL for import
-GET    /api/video-imports                    # List all video imports
-GET    /api/video-imports/:id                # Get video import details
-GET    /api/video-imports/:id/progress       # SSE stream of import progress
-GET    /api/video-imports/:id/tree           # Get built repertoire tree from import
-POST   /api/video-imports/:id/save           # Save import as repertoire
-DELETE /api/video-imports/:id                # Delete video import
-
-# Video Position Search
-GET    /api/video-positions/search           # Search videos by FEN (?fen=...)
+# Protected - Sync
+POST   /api/sync                             # Sync games from Lichess/Chess.com
 ```
-
-**Note:** Users can create multiple repertoires per color. The old per-color auto-creation has been replaced with explicit repertoire management.
 
 ### 5.4 Frontend Architecture
 
+Feature-based structure:
+
 ```
-src/
-├── components/
-│   ├── App.tsx
-│   ├── Board/
-│   │   ├── ChessBoard.tsx
-│   │   └── MoveHistory.tsx
-│   ├── Tree/
-│   │   ├── RepertoireTree.tsx
-│   │   ├── TreeNode.tsx
-│   │   └── TreeEdge.tsx
-│   ├── PGN/
-│   │   ├── FileUploader.tsx
-│   │   └── AnalysisResult.tsx
-│   ├── Repertoire/
-│   │   ├── RepertoireSelector.tsx
-│   │   └── BranchReview.tsx
-│   └── UI/
-│       ├── Button.tsx
-│       ├── Modal.tsx
-│       └── Toast.tsx
-├── hooks/
-│   ├── useRepertoire.ts
-│   ├── useChess.ts
-│   └── useTreeLayout.ts
+frontend/src/
+├── App.tsx                           # React Router
+├── main.tsx                          # Entry point
+├── index.css                         # Global styles
 ├── services/
-│   ├── api.ts
-│   └── pgnParser.ts
+│   ├── api.ts                        # Axios API client
+│   └── stockfish.ts                  # Stockfish WebAssembly service
 ├── stores/
-│   └── repertoireStore.ts
+│   ├── authStore.ts                  # Auth state (JWT, user)
+│   ├── repertoireStore.ts            # Repertoire state
+│   ├── engineStore.ts                # Stockfish engine state
+│   └── toastStore.ts                 # Toast notifications
 ├── types/
-│   └── index.ts
-└── styles/
-    └── main.css
+│   └── index.ts                      # Global type definitions
+├── shared/
+│   ├── components/
+│   │   ├── Board/ChessBoard.tsx      # Chessboard component
+│   │   ├── Layout/MainLayout.tsx     # Layout wrapper
+│   │   ├── ProtectedRoute.tsx        # Auth guard
+│   │   └── UI/                       # Button, Modal, Loading, Toast, EmptyState
+│   ├── hooks/
+│   │   ├── useChess.ts               # chess.js wrapper
+│   │   ├── useAbortController.ts     # Request cancellation
+│   │   └── useAnalysisBase.ts        # Shared analysis logic
+│   └── utils/
+│       └── chess.ts                  # Chess utility functions
+├── features/
+│   ├── auth/
+│   │   ├── LoginPage.tsx             # Login/register + OAuth
+│   │   └── OnboardingModal.tsx       # First-login profile setup
+│   ├── dashboard/
+│   │   ├── Dashboard.tsx             # Home page
+│   │   └── components/               # QuickActions, RecentGames, RepertoireOverview, TemplatePicker
+│   ├── repertoire/
+│   │   ├── RepertoireTab.tsx         # Repertoire list view
+│   │   ├── RepertoireEdit.tsx        # Repertoire editor (main page)
+│   │   ├── edit/
+│   │   │   ├── components/           # BoardSection, AddMoveModal, DeleteModal, TopMovesPanel
+│   │   │   ├── hooks/               # useEngine, useMoveActions, usePendingAddNode, useRepertoireLoader
+│   │   │   └── utils/               # constants, nodeUtils
+│   │   └── shared/
+│   │       ├── components/           # RepertoireCard, RepertoireSelector, MoveHistory, RepertoireTree/
+│   │       └── hooks/               # useRepertoires
+│   ├── game-analysis/
+│   │   ├── GameAnalysisPage.tsx      # Single game analysis
+│   │   ├── components/               # GameBoardSection, GameMoveList, GameNavigation
+│   │   └── hooks/                   # useChessNavigation, useFENComputed, useGameLoader
+│   ├── analyse-tab/
+│   │   ├── AnalyseTab.tsx            # Import/analysis tab
+│   │   ├── components/               # GamesList, AnalysesList, ImportSection, PGN/FileUploader
+│   │   └── hooks/                   # useGames, useAnalyses, useFileUpload, useChesscomImport, useLichessImport
+│   ├── analyse-import/
+│   │   ├── ImportDetail.tsx          # Analysis results detail
+│   │   ├── components/               # GameSection
+│   │   └── hooks/                   # useAnalysisLoader, useAddToRepertoire
+│   └── games/
+│       ├── GamesPage.tsx             # Games management
+│       └── components/               # ImportPanel
 ```
 
 ### 5.5 Stockfish Integration Architecture
@@ -1379,11 +1344,11 @@ Legend:
 
 ### 10.2 CORS Configuration
 
-**Allowed Origins:** `http://localhost:5173` (development)
+**Allowed Origins:** `http://localhost:5173` (development, configurable via `CORS_ALLOWED_ORIGINS`)
 
-**Allowed Methods:** GET, POST, DELETE, OPTIONS
+**Allowed Methods:** GET, POST, PUT, PATCH, DELETE
 
-**Allowed Headers:** Content-Type
+**Allowed Headers:** Origin, Content-Type, Accept, Authorization
 
 ### 10.3 Session Storage Keys
 
@@ -1427,10 +1392,10 @@ Both paths lead to the same position but are stored as separate branches.
 
 ### 11.1 Prerequisites
 
-- Go 1.21+
-- PostgreSQL 15+
-- Node.js 18+
-- npm or yarn
+- Go 1.25+
+- PostgreSQL 17+
+- Node.js 20+
+- npm
 - Docker and Docker Compose (optional)
 
 ### 11.2 Database Setup
@@ -1448,11 +1413,8 @@ psql -d treechess -f migrations/001_init.sql
 **Without Docker (with hot reload):**
 
 ```bash
-# Install air for hot reload
-curl -sSf https://raw.githubusercontent.com/cosmtrek/air/master/install.sh | sh -s -- -b $(go env GOPATH)/bin
-
-# Run with hot reload
-cd cmd/server
+cd backend
+go mod download
 air
 # Backend available at http://localhost:8080
 ```
@@ -1462,6 +1424,7 @@ air
 ### 11.4 Run Frontend
 
 ```bash
+cd frontend
 npm install
 npm run dev
 # Frontend available at http://localhost:5173
@@ -1472,13 +1435,16 @@ npm run dev
 
 ### 11.5 Environment Variables
 
+See `.env.example` for a full template. Required variables:
+
 ```env
-# .env
-DATABASE_URL=postgres://user:password@localhost:5432/treechess?sslmode=disable
-PORT=8080
+DATABASE_URL=postgres://treechess:password@localhost:5432/treechess?sslmode=disable
+JWT_SECRET=your-random-secret
 ```
 
-### 11.6 Dockerization (Local Development)
+See section 18.3 for the complete environment variables reference.
+
+### 11.6 Dockerization
 
 **Prerequisites**: Docker and Docker Compose installed.
 
@@ -1486,104 +1452,20 @@ PORT=8080
 
 ```
 treechess/
-├── docker-compose.yml
-├── Dockerfile.backend
-├── Dockerfile.frontend
-├── .dockerignore
-├── cmd/server/
-│   └── main.go
-└── src/
+├── docker-compose.yml            # Dev orchestration
+├── .env                          # Secrets (not in git)
+├── .env.example                  # Template
+├── backend/
+│   ├── Dockerfile                # Multi-stage (dev + prod)
+│   └── ...
+└── frontend/
+    ├── Dockerfile                # Multi-stage (dev + prod)
     └── ...
 ```
 
-#### Configuration Files
+Both Dockerfiles have `dev` and `prod` stages. The `docker-compose.yml` targets `dev` for local development (hot reload via `air` for backend, Vite HMR for frontend).
 
-**docker-compose.yml:**
-
-```yaml
-version: "3.8"
-
-services:
-  postgres:
-    image: postgres:15-alpine
-    environment:
-      POSTGRES_USER: treechess
-      POSTGRES_PASSWORD: treechess
-      POSTGRES_DB: treechess
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
-
-  backend:
-    build:
-      context: .
-      dockerfile: Dockerfile.backend
-    volumes:
-      - ./cmd/server:/app
-    ports:
-      - "8080:8080"
-    environment:
-      DATABASE_URL: postgres://treechess:treechess@postgres:5432/treechess?sslmode=disable
-    depends_on:
-      - postgres
-
-  frontend:
-    build:
-      context: .
-      dockerfile: Dockerfile.frontend
-    volumes:
-      - ./src:/app/src
-    ports:
-      - "5173:5173"
-    environment:
-      VITE_API_URL: http://localhost:8080
-
-volumes:
-  postgres_data:
-```
-
-**Dockerfile.backend:**
-
-```dockerfile
-FROM golang:1.21-alpine
-
-WORKDIR /app
-
-RUN apk add --no-cache git
-RUN go install github.com/githubnemo/compile-daemon@latest
-
-COPY go.mod go.sum ./
-RUN go mod download
-
-EXPOSE 8080
-
-CMD ["compile-daemon", "--build=go build -o /app/server ./cmd/server", "--run=/app/server", "--watch=/app", "--exclude-dir=.git"]
-```
-
-**Dockerfile.frontend:**
-
-```dockerfile
-FROM node:18-alpine
-
-WORKDIR /app
-
-COPY package*.json ./
-RUN npm install
-
-COPY . .
-EXPOSE 5173
-
-CMD ["npm", "run", "dev", "--", "--host"]
-```
-
-**.dockerignore:**
-
-```
-node_modules
-.git
-*.log
-```
+For production builds: `docker build --target prod -t treechess-backend ./backend`
 
 #### Docker Commands
 
@@ -1601,16 +1483,11 @@ docker-compose down
 docker-compose down -v
 ```
 
-#### Hot Reload
-
-- **Frontend**: Vite HMR automatic (files mounted as volumes)
-- **Backend**: `compile-daemon` detects changes and auto-recompiles
-
 #### Access URLs
 
 - Frontend: <http://localhost:5173>
 - Backend API: <http://localhost:8080>
-- PostgreSQL: localhost:5432 (treechess/treechess)
+- PostgreSQL: localhost:5432
 
 ---
 
@@ -1666,9 +1543,9 @@ go test -coverprofile=coverage.out ./...
 go tool cover -html=coverage.out -o coverage.html
 ```
 
-50%
+**Coverage Target**: 50%
 
-**Test Structure**Coverage Target**::**
+**Test Structure:**
 
 ```
 internal/
@@ -1788,52 +1665,30 @@ export const logger = {
 
 ## 14. Database Migrations
 
-### 14.1 Migration Files
+### 14.1 Migration Strategy
 
-All migrations are stored in `migrations/` directory:
+Migrations are managed inline in `repository/db.go` via the `runMigrations()` function, which runs on application startup. The schema is idempotent (`CREATE TABLE IF NOT EXISTS`, `ADD COLUMN IF NOT EXISTS`).
+
+Legacy SQL migration files exist in the `migrations/` directory for reference:
 
 ```
 migrations/
-├── 001_init.sql
-├── 002_add_user_table.sql
-└── 003_add_repertoire_name.sql
+├── 001_init.sql                 # Initial schema (repertoires + analyses)
+├── 002_username_analysis.sql    # Replace color with username in analyses
+└── 003_multiple_repertoires.sql # Multiple repertoires per color, name column
 ```
 
 ### 14.2 Naming Convention
 
-- Format: `NNN_description.sql` where NNN is a 3-digit序号
+- Format: `NNN_description.sql` where NNN is a 3-digit sequential number
 - All migrations must be forward-only (no down migrations for MVP)
 - Each file contains DDL statements in order
 
-### 14.3 Migration Template
+### 14.3 Running Migrations
 
-```sql
--- Migration: 002_add_user_table
--- Description: Adds user table for multi-user support
--- Date: 2026-01-19
+Migrations run automatically on application startup via `repository.NewDB()`. No manual migration step is needed.
 
-CREATE TABLE users (
-    id SERIAL PRIMARY KEY,
-    email VARCHAR(255) UNIQUE NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
-CREATE INDEX idx_users_email ON users(email);
-```
-
-### 14.4 Running Migrations
-
-**Manual:**
-
-```bash
-psql -d treechess -f migrations/001_init.sql
-```
-
-**Via Go migration tool (future):**
-
-```bash
-go-migrate -path migrations -database postgres://... up
-```
+For schema changes, add idempotent SQL to the `runMigrations()` function in `repository/db.go`.
 
 ---
 
@@ -1841,94 +1696,37 @@ go-migrate -path migrations -database postgres://... up
 
 ### 15.1 README.md Template
 
-Create a `README.md` file at project root:
-
-````markdown
-# TreeChess
-
-Interactive chess opening repertoire builder with GitHub-style tree visualization.
-
-## Quick Start
-
-### Prerequisites
-
-- Go 1.21+
-- PostgreSQL 15+
-- Node.js 18+
-
-### Installation
-
-```bash
-# Clone repository
-git clone https://github.com/yourusername/treechess.git
-cd treechess
-
-# Setup database
-createdb treechess
-psql -d treechess -f migrations/001_init.sql
-
-# Install frontend dependencies
-cd src && npm install
-
-# Return to root
-cd ..
-```
-````
-
-### Running
-
-**Option 1: Local (recommended)**
-
-```bash
-# Terminal 1: Backend with hot reload
-cd cmd/server
-air
-
-# Terminal 2: Frontend
-cd src
-npm run dev
-```
-
-**Option 2: Docker**
-
-```bash
-docker-compose up --build
-```
-
-- Frontend: <http://localhost:5173>
-- Backend: <http://localhost:8080>
-
-### Project Structure
+The README should reflect the actual project structure:
 
 ```
 treechess/
-├── cmd/server/           # Go backend
-├── src/                  # React frontend
-├── migrations/           # PostgreSQL migrations
-├── docker-compose.yml    # Docker configuration
-└── README.md
+├── backend/              # Go backend (Echo + pgx)
+├── frontend/             # React frontend (Vite + TypeScript)
+├── migrations/           # PostgreSQL migrations (legacy, now inline)
+├── docker-compose.yml    # Docker orchestration
+├── .env.example          # Environment variables template
+└── SPECIFICATIONS.md     # This document
 ```
 
-## Features
+Key commands:
 
-- Create and edit opening repertoires
-- Import PGN files from Lichess exports
-- Analyze games against your repertoire
+```bash
+# Docker (full stack)
+docker-compose up --build
+
+# Local development
+cd backend && air          # Backend with hot reload
+cd frontend && npm run dev # Frontend with HMR
+```
+
+Features:
+- Multi-user authentication (local + Lichess OAuth)
+- Create and edit opening repertoires (up to 50 per user)
+- Import games from PGN files, Lichess, or Chess.com
+- Analyze games against repertoire trees
 - GitHub-style tree visualization
-- Add missing lines directly from analysis
-
-## Tech Stack
-
-- React 18 + TypeScript + Vite
-- Go + PostgreSQL + pgx
-- chess.js for move validation
-- D3.js/React Flow for tree visualization
-
-## License
-
-MIT
-
-```
+- Stockfish engine analysis (WebAssembly)
+- Auto-sync from Lichess/Chess.com
 
 ---
 
@@ -2039,4 +1837,3 @@ This section lists security items that **must be addressed before production dep
 ---
 
 *Document generated for TreeChess - Chess opening training web app*
-```
