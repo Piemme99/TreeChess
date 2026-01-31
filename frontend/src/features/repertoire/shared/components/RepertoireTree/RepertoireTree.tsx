@@ -137,6 +137,11 @@ export function RepertoireTree({
             pointerEvents: 'none',
           }}
         >
+          {hoveredNode.node.comment && (
+            <div className="tree-board-preview-comment">
+              {hoveredNode.node.comment}
+            </div>
+          )}
           <ChessBoard
             fen={hoveredNode.node.fen}
             width={150}

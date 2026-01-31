@@ -496,6 +496,11 @@ func (s *ImportService) GetDistinctRepertoires(userID string) ([]string, error) 
 	return s.analysisRepo.GetDistinctRepertoires(userID)
 }
 
+// MarkGameViewed marks a specific game as viewed by the user
+func (s *ImportService) MarkGameViewed(userID, analysisID string, gameIndex int) error {
+	return s.analysisRepo.MarkGameViewed(userID, analysisID, gameIndex)
+}
+
 // CheckOwnership verifies that an analysis belongs to the given user
 func (s *ImportService) CheckOwnership(id string, userID string) error {
 	belongs, err := s.analysisRepo.BelongsToUser(id, userID)

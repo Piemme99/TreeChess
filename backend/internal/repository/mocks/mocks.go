@@ -7,6 +7,74 @@ import (
 	"github.com/treechess/backend/internal/repository"
 )
 
+// --- Service mocks ---
+
+// MockLichessService implements services.LichessGameFetcher for testing
+type MockLichessService struct {
+	FetchGamesFunc    func(username string, options models.LichessImportOptions) (string, error)
+	FetchStudyPGNFunc func(studyID, authToken string) (string, error)
+}
+
+func (m *MockLichessService) FetchGames(username string, options models.LichessImportOptions) (string, error) {
+	if m.FetchGamesFunc != nil {
+		return m.FetchGamesFunc(username, options)
+	}
+	return "", nil
+}
+
+func (m *MockLichessService) FetchStudyPGN(studyID, authToken string) (string, error) {
+	if m.FetchStudyPGNFunc != nil {
+		return m.FetchStudyPGNFunc(studyID, authToken)
+	}
+	return "", nil
+}
+
+// MockChesscomService implements services.ChesscomGameFetcher for testing
+type MockChesscomService struct {
+	FetchGamesFunc func(username string, options models.ChesscomImportOptions) (string, error)
+}
+
+func (m *MockChesscomService) FetchGames(username string, options models.ChesscomImportOptions) (string, error) {
+	if m.FetchGamesFunc != nil {
+		return m.FetchGamesFunc(username, options)
+	}
+	return "", nil
+}
+
+// MockImportService implements services.GameImporter for testing
+type MockImportService struct {
+	ParseAndAnalyzeFunc func(filename, username, userID, pgnData string) (*models.AnalysisSummary, []models.GameAnalysis, error)
+}
+
+func (m *MockImportService) ParseAndAnalyze(filename, username, userID, pgnData string) (*models.AnalysisSummary, []models.GameAnalysis, error) {
+	if m.ParseAndAnalyzeFunc != nil {
+		return m.ParseAndAnalyzeFunc(filename, username, userID, pgnData)
+	}
+	return &models.AnalysisSummary{}, nil, nil
+}
+
+// MockRepertoireService implements services.RepertoireManager for testing
+type MockRepertoireService struct {
+	CreateRepertoireFunc func(userID, name string, color models.Color) (*models.Repertoire, error)
+	SaveTreeFunc         func(repertoireID string, treeData models.RepertoireNode) (*models.Repertoire, error)
+}
+
+func (m *MockRepertoireService) CreateRepertoire(userID, name string, color models.Color) (*models.Repertoire, error) {
+	if m.CreateRepertoireFunc != nil {
+		return m.CreateRepertoireFunc(userID, name, color)
+	}
+	return nil, nil
+}
+
+func (m *MockRepertoireService) SaveTree(repertoireID string, treeData models.RepertoireNode) (*models.Repertoire, error) {
+	if m.SaveTreeFunc != nil {
+		return m.SaveTreeFunc(repertoireID, treeData)
+	}
+	return nil, nil
+}
+
+// --- Repository mocks ---
+
 // MockFingerprintRepo is a mock implementation of GameFingerprintRepository for testing
 type MockFingerprintRepo struct {
 	CheckExistingFunc           func(userID string, fingerprints []string) (map[string]bool, error)
@@ -130,6 +198,8 @@ type MockAnalysisRepo struct {
 	UpdateResultsFunc      func(analysisID string, results []models.GameAnalysis) error
 	BelongsToUserFunc      func(id string, userID string) (bool, error)
 	GetDistinctRepertoiresFunc func(userID string) ([]string, error)
+	MarkGameViewedFunc         func(userID, analysisID string, gameIndex int) error
+	GetViewedGamesFunc         func(userID string) (map[string]bool, error)
 }
 
 func (m *MockAnalysisRepo) Save(userID string, username, filename string, gameCount int, results []models.GameAnalysis) (*models.AnalysisSummary, error) {
@@ -193,6 +263,20 @@ func (m *MockAnalysisRepo) GetDistinctRepertoires(userID string) ([]string, erro
 		return m.GetDistinctRepertoiresFunc(userID)
 	}
 	return nil, nil
+}
+
+func (m *MockAnalysisRepo) MarkGameViewed(userID, analysisID string, gameIndex int) error {
+	if m.MarkGameViewedFunc != nil {
+		return m.MarkGameViewedFunc(userID, analysisID, gameIndex)
+	}
+	return nil
+}
+
+func (m *MockAnalysisRepo) GetViewedGames(userID string) (map[string]bool, error) {
+	if m.GetViewedGamesFunc != nil {
+		return m.GetViewedGamesFunc(userID)
+	}
+	return map[string]bool{}, nil
 }
 
 // MockUserRepo is a mock implementation of UserRepository for testing

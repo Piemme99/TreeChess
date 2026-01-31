@@ -49,6 +49,7 @@ export interface RepertoireNode {
   moveNumber: number;
   colorToMove: ShortColor;
   parentId: string | null;
+  comment?: string | null;
   children: RepertoireNode[];
 }
 

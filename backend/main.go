@@ -124,6 +124,9 @@ func main() {
 	protected.DELETE("/api/repertoires/:id", handlers.DeleteRepertoireHandler(repertoireSvc))
 	protected.POST("/api/repertoires/:id/nodes", handlers.AddNodeHandler(repertoireSvc))
 	protected.DELETE("/api/repertoires/:id/nodes/:nodeId", handlers.DeleteNodeHandler(repertoireSvc))
+	protected.PATCH("/api/repertoires/:id/nodes/:nodeId/comment", handlers.UpdateNodeCommentHandler(repertoireSvc))
+	protected.POST("/api/repertoires/merge", handlers.MergeRepertoiresHandler(repertoireSvc))
+	protected.POST("/api/repertoires/:id/extract", handlers.ExtractSubtreeHandler(repertoireSvc))
 
 	// Import/Analysis API
 	importHandler := handlers.NewImportHandler(importSvc, lichessSvc, chesscomSvc)
@@ -150,6 +153,7 @@ func main() {
 	protected.DELETE("/api/games/:analysisId/:gameIndex", importHandler.DeleteGameHandler)
 	protected.POST("/api/games/bulk-delete", importHandler.BulkDeleteGamesHandler)
 	protected.POST("/api/games/:analysisId/:gameIndex/reanalyze", importHandler.ReanalyzeGameHandler)
+	protected.POST("/api/games/:analysisId/:gameIndex/view", importHandler.MarkGameViewedHandler)
 
 	log.Printf("Starting server on :%d", cfg.Port)
 	if err := e.Start(fmt.Sprintf(":%d", cfg.Port)); err != nil {

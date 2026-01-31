@@ -45,6 +45,7 @@ export function GamesPage() {
     loading,
     deleteGame,
     deleteGames,
+    markGameViewed,
     nextPage,
     prevPage,
     hasNextPage,
@@ -74,8 +75,10 @@ export function GamesPage() {
   const { deleteTarget, setDeleteTarget, deleting, handleDelete } = useDeleteGame(deleteGame);
 
   const handleViewClick = useCallback((analysisId: string, gameIndex: number) => {
+    markGameViewed(analysisId, gameIndex);
+    gamesApi.markViewed(analysisId, gameIndex).catch(() => {});
     navigate(`/analyse/${analysisId}/game/${gameIndex}`);
-  }, [navigate]);
+  }, [navigate, markGameViewed]);
 
   const handleDeleteClick = useCallback((analysisId: string, gameIndex: number) => {
     setDeleteTarget({ analysisId, gameIndex });

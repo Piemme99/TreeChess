@@ -141,6 +141,13 @@ func (db *DB) runMigrations() error {
 		)`,
 		`CREATE INDEX IF NOT EXISTS idx_game_fingerprints_user ON game_fingerprints(user_id)`,
 		`CREATE INDEX IF NOT EXISTS idx_game_fingerprints_analysis ON game_fingerprints(analysis_id)`,
+		`CREATE TABLE IF NOT EXISTS viewed_games (
+			user_id UUID NOT NULL REFERENCES users(id),
+			analysis_id UUID NOT NULL REFERENCES analyses(id) ON DELETE CASCADE,
+			game_index INTEGER NOT NULL,
+			viewed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+			PRIMARY KEY (user_id, analysis_id, game_index)
+		)`,
 	}
 	for _, m := range migrations {
 		if _, err := db.Pool.Exec(ctx, m); err != nil {

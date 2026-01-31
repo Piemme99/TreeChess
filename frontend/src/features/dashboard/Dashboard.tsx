@@ -1,6 +1,5 @@
 import { useRepertoires } from '../repertoire/shared/hooks/useRepertoires';
 import { useGames } from '../analyse-tab/hooks/useGames';
-import { useRepertoireStore } from '../../stores/repertoireStore';
 import { Loading } from '../../shared/components/UI';
 import { EmptyRepertoireState } from './components/EmptyRepertoireState';
 import { RepertoireOverview } from './components/RepertoireOverview';
@@ -10,7 +9,6 @@ import { QuickActions } from './components/QuickActions';
 export function Dashboard() {
   const { repertoires, whiteRepertoires, blackRepertoires, loading: repLoading } = useRepertoires();
   const { games, loading: gamesLoading } = useGames();
-  const fetchRepertoires = useRepertoireStore((state) => state.fetchRepertoires);
 
   if (repLoading && repertoires.length === 0) {
     return <Loading size="lg" text="Loading..." />;
@@ -31,7 +29,7 @@ export function Dashboard() {
         blackRepertoires={blackRepertoires}
       />
       <RecentGames games={games} loading={gamesLoading} />
-      <QuickActions onRepertoireImported={fetchRepertoires} />
+      <QuickActions />
     </div>
   );
 }

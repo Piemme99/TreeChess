@@ -37,6 +37,7 @@ export function useRepertoires() {
     repertoires,
     whiteRepertoires,
     blackRepertoires,
-    loading
+    loading,
+    refresh: fetchRepertoires
   };
 }

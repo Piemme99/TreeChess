@@ -177,6 +177,14 @@ func ParsePGNToTree(pgnText string) (models.RepertoireNode, map[string]string, e
 	headers, movetext := splitPGNHeadersAndMovetext(pgnText)
 	tokens := tokenizePGNMovetext(movetext)
 
+	// Reject custom starting positions — only standard openings are supported
+	if fenHeader, ok := headers["FEN"]; ok && fenHeader != "" {
+		standardFEN := "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+		if ensureFullFEN(fenHeader) != standardFEN {
+			return models.RepertoireNode{}, nil, ErrCustomStartingPosition
+		}
+	}
+
 	game := chess.NewGame()
 	startFEN := normalizeFEN(game.Position().String())
 
@@ -201,8 +209,19 @@ func ParsePGNToTree(pgnText string) (models.RepertoireNode, map[string]string, e
 		tok := tokens[pos]
 
 		switch tok.typ {
-		case tokenMoveNumber, tokenComment, tokenNAG, tokenResult:
+		case tokenMoveNumber, tokenNAG, tokenResult:
 			// Skip these tokens
+			pos++
+
+		case tokenComment:
+			// PGN comments after a move annotate that move's node
+			commentText := strings.TrimSpace(tok.value)
+			if commentText != "" && len(stack) > 0 {
+				top := stack[len(stack)-1]
+				if top.node.Move != nil {
+					top.node.Comment = &commentText
+				}
+			}
 			pos++
 
 		case tokenMove:

@@ -835,6 +835,287 @@ func TestDeleteNodeHandler_ValidRequest(t *testing.T) {
 	assert.Len(t, response.TreeData.Children, 0)
 }
 
+// --- ListTemplatesHandler tests ---
+
+func TestListTemplatesHandler_Success(t *testing.T) {
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "/api/repertoires/templates", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	handler := ListTemplatesHandler()
+	err := handler(c)
+
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, rec.Code)
+}
+
+// --- SeedHandler tests ---
+
+func TestSeedHandler_MissingTemplateIDs(t *testing.T) {
+	e := echo.New()
+	body := `{}`
+	req := httptest.NewRequest(http.MethodPost, "/api/repertoires/seed", strings.NewReader(body))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	setTestUserID(c)
+
+	svc := newTestRepertoireService()
+	handler := SeedHandler(svc)
+	err := handler(c)
+
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
+func TestSeedHandler_InvalidJSON(t *testing.T) {
+	e := echo.New()
+	body := `{invalid}`
+	req := httptest.NewRequest(http.MethodPost, "/api/repertoires/seed", strings.NewReader(body))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	setTestUserID(c)
+
+	svc := newTestRepertoireService()
+	handler := SeedHandler(svc)
+	err := handler(c)
+
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
+// --- ExtractSubtreeHandler tests ---
+
+func TestExtractSubtreeHandler_InvalidRepertoireID(t *testing.T) {
+	e := echo.New()
+	body := `{"nodeId":"123e4567-e89b-12d3-a456-426614174000"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/repertoires/not-a-uuid/extract", strings.NewReader(body))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.SetParamNames("id")
+	c.SetParamValues("not-a-uuid")
+	setTestUserID(c)
+
+	svc := newTestRepertoireService()
+	handler := ExtractSubtreeHandler(svc)
+	err := handler(c)
+
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
+func TestExtractSubtreeHandler_MissingNodeID(t *testing.T) {
+	validUUID := "123e4567-e89b-12d3-a456-426614174000"
+	e := echo.New()
+	body := `{}`
+	req := httptest.NewRequest(http.MethodPost, "/api/repertoires/"+validUUID+"/extract", strings.NewReader(body))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.SetParamNames("id")
+	c.SetParamValues(validUUID)
+	setTestUserID(c)
+
+	mockRepo := &mocks.MockRepertoireRepo{
+		BelongsToUserFunc: func(id, userID string) (bool, error) { return true, nil },
+	}
+	svc := services.NewRepertoireService(mockRepo)
+	handler := ExtractSubtreeHandler(svc)
+	err := handler(c)
+
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
+func TestExtractSubtreeHandler_InvalidNodeID(t *testing.T) {
+	validUUID := "123e4567-e89b-12d3-a456-426614174000"
+	e := echo.New()
+	body := `{"nodeId":"not-a-uuid"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/repertoires/"+validUUID+"/extract", strings.NewReader(body))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.SetParamNames("id")
+	c.SetParamValues(validUUID)
+	setTestUserID(c)
+
+	mockRepo := &mocks.MockRepertoireRepo{
+		BelongsToUserFunc: func(id, userID string) (bool, error) { return true, nil },
+	}
+	svc := services.NewRepertoireService(mockRepo)
+	handler := ExtractSubtreeHandler(svc)
+	err := handler(c)
+
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
+func TestExtractSubtreeHandler_CannotExtractRoot(t *testing.T) {
+	validUUID := "123e4567-e89b-12d3-a456-426614174000"
+	rootUUID := "223e4567-e89b-12d3-a456-426614174000"
+	e := echo.New()
+	body := `{"nodeId":"` + rootUUID + `"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/repertoires/"+validUUID+"/extract", strings.NewReader(body))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.SetParamNames("id")
+	c.SetParamValues(validUUID)
+	setTestUserID(c)
+
+	mockRepo := &mocks.MockRepertoireRepo{
+		BelongsToUserFunc: func(id, userID string) (bool, error) { return true, nil },
+		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+			return &models.Repertoire{
+				ID:       id,
+				TreeData: models.RepertoireNode{ID: rootUUID},
+			}, nil
+		},
+	}
+	svc := services.NewRepertoireService(mockRepo)
+	handler := ExtractSubtreeHandler(svc)
+	err := handler(c)
+
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
+// --- MergeRepertoiresHandler tests ---
+
+func TestMergeRepertoiresHandler_TooFewIDs(t *testing.T) {
+	e := echo.New()
+	body := `{"ids":["123e4567-e89b-12d3-a456-426614174000"],"name":"Test"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/repertoires/merge", strings.NewReader(body))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	setTestUserID(c)
+
+	svc := newTestRepertoireService()
+	handler := MergeRepertoiresHandler(svc)
+	err := handler(c)
+
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
+func TestMergeRepertoiresHandler_MissingName(t *testing.T) {
+	e := echo.New()
+	body := `{"ids":["123e4567-e89b-12d3-a456-426614174000","223e4567-e89b-12d3-a456-426614174000"]}`
+	req := httptest.NewRequest(http.MethodPost, "/api/repertoires/merge", strings.NewReader(body))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	setTestUserID(c)
+
+	svc := newTestRepertoireService()
+	handler := MergeRepertoiresHandler(svc)
+	err := handler(c)
+
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
+func TestMergeRepertoiresHandler_InvalidUUID(t *testing.T) {
+	e := echo.New()
+	body := `{"ids":["not-uuid","123e4567-e89b-12d3-a456-426614174000"],"name":"Test"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/repertoires/merge", strings.NewReader(body))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	setTestUserID(c)
+
+	svc := newTestRepertoireService()
+	handler := MergeRepertoiresHandler(svc)
+	err := handler(c)
+
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
+// --- UpdateNodeCommentHandler tests ---
+
+func TestUpdateNodeCommentHandler_InvalidRepertoireID(t *testing.T) {
+	e := echo.New()
+	body := `{"comment":"test"}`
+	req := httptest.NewRequest(http.MethodPatch, "/api/repertoires/not-uuid/nodes/123e4567-e89b-12d3-a456-426614174000/comment", strings.NewReader(body))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.SetParamNames("id", "nodeId")
+	c.SetParamValues("not-uuid", "123e4567-e89b-12d3-a456-426614174000")
+	setTestUserID(c)
+
+	svc := newTestRepertoireService()
+	handler := UpdateNodeCommentHandler(svc)
+	err := handler(c)
+
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
+func TestUpdateNodeCommentHandler_InvalidNodeID(t *testing.T) {
+	validUUID := "123e4567-e89b-12d3-a456-426614174000"
+	e := echo.New()
+	body := `{"comment":"test"}`
+	req := httptest.NewRequest(http.MethodPatch, "/api/repertoires/"+validUUID+"/nodes/not-uuid/comment", strings.NewReader(body))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.SetParamNames("id", "nodeId")
+	c.SetParamValues(validUUID, "not-uuid")
+	setTestUserID(c)
+
+	svc := newTestRepertoireService()
+	handler := UpdateNodeCommentHandler(svc)
+	err := handler(c)
+
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
+func TestUpdateNodeCommentHandler_Success(t *testing.T) {
+	validUUID := "123e4567-e89b-12d3-a456-426614174000"
+	nodeUUID := "223e4567-e89b-12d3-a456-426614174000"
+	e := echo.New()
+	body := `{"comment":"Great move!"}`
+	req := httptest.NewRequest(http.MethodPatch, "/api/repertoires/"+validUUID+"/nodes/"+nodeUUID+"/comment", strings.NewReader(body))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.SetParamNames("id", "nodeId")
+	c.SetParamValues(validUUID, nodeUUID)
+	setTestUserID(c)
+
+	mockRepo := &mocks.MockRepertoireRepo{
+		BelongsToUserFunc: func(id, userID string) (bool, error) { return true, nil },
+		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+			return &models.Repertoire{
+				ID: id,
+				TreeData: models.RepertoireNode{
+					ID:  "root",
+					FEN: "start",
+					Children: []*models.RepertoireNode{
+						{ID: nodeUUID, FEN: "fen1", Children: []*models.RepertoireNode{}},
+					},
+				},
+			}, nil
+		},
+		SaveFunc: func(id string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
+			return &models.Repertoire{ID: id, TreeData: treeData, Metadata: metadata}, nil
+		},
+	}
+	svc := services.NewRepertoireService(mockRepo)
+	handler := UpdateNodeCommentHandler(svc)
+	err := handler(c)
+
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, rec.Code)
+}
+
 func TestDeleteNodeHandler_CannotDeleteRoot(t *testing.T) {
 	e := echo.New()
 	validUUID := "123e4567-e89b-12d3-a456-426614174000"

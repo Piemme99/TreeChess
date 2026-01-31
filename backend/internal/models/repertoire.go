@@ -30,6 +30,7 @@ type RepertoireNode struct {
 	MoveNumber  int               `json:"moveNumber"`
 	ColorToMove ChessColor        `json:"colorToMove"`
 	ParentID    *string           `json:"parentId,omitempty"`
+	Comment     *string           `json:"comment,omitempty"`
 	Children    []*RepertoireNode `json:"children"`
 }
 
@@ -64,6 +65,29 @@ type UpdateRepertoireRequest struct {
 type RepertoireRef struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
+}
+
+// MergeRepertoiresRequest represents a request to merge multiple repertoires into a new one
+type MergeRepertoiresRequest struct {
+	IDs  []string `json:"ids"`
+	Name string   `json:"name"`
+}
+
+// MergeRepertoiresResponse contains the newly created merged repertoire
+type MergeRepertoiresResponse struct {
+	Merged *Repertoire `json:"merged"`
+}
+
+// ExtractSubtreeRequest represents a request to extract a subtree into a new repertoire
+type ExtractSubtreeRequest struct {
+	NodeID string `json:"nodeId"`
+	Name   string `json:"name"`
+}
+
+// ExtractSubtreeResponse contains both the pruned original and the new extracted repertoire
+type ExtractSubtreeResponse struct {
+	Original  *Repertoire `json:"original"`
+	Extracted *Repertoire `json:"extracted"`
 }
 
 type AddNodeRequest struct {

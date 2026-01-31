@@ -15,13 +15,13 @@ const (
 )
 
 type SyncService struct {
-	userRepo       repository.UserRepository
-	importService  *ImportService
-	lichessService *LichessService
-	chesscomService *ChesscomService
+	userRepo        repository.UserRepository
+	importService   GameImporter
+	lichessService  LichessGameFetcher
+	chesscomService ChesscomGameFetcher
 }
 
-func NewSyncService(userRepo repository.UserRepository, importSvc *ImportService, lichessSvc *LichessService, chesscomSvc *ChesscomService) *SyncService {
+func NewSyncService(userRepo repository.UserRepository, importSvc GameImporter, lichessSvc LichessGameFetcher, chesscomSvc ChesscomGameFetcher) *SyncService {
 	return &SyncService{
 		userRepo:        userRepo,
 		importService:   importSvc,

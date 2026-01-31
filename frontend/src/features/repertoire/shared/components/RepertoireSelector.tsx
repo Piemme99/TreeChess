@@ -12,14 +12,29 @@ interface RepertoireSelectorProps {
 
 export function RepertoireSelector({ color, repertoires }: RepertoireSelectorProps) {
   const navigate = useNavigate();
-  const { createRepertoire, deleteRepertoire, renameRepertoire } = useRepertoireStore();
+  const { createRepertoire, deleteRepertoire, renameRepertoire, mergeRepertoires } = useRepertoireStore();
   const [isCreating, setIsCreating] = useState(false);
   const [newName, setNewName] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [loading, setLoading] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isMerging, setIsMerging] = useState(false);
+  const [mergeName, setMergeName] = useState('');
 
   const isWhite = color === 'white';
+
+  const toggleSelection = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
 
   const handleCreate = async () => {
     if (!newName.trim()) {
@@ -48,6 +63,11 @@ export function RepertoireSelector({ color, repertoires }: RepertoireSelectorPro
     setLoading(true);
     try {
       await deleteRepertoire(id);
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
       toast.success('Repertoire deleted');
     } catch {
       toast.error('Failed to delete repertoire');
@@ -75,6 +95,26 @@ export function RepertoireSelector({ color, repertoires }: RepertoireSelectorPro
     }
   };
 
+  const handleMerge = async () => {
+    if (!mergeName.trim()) {
+      toast.error('Please enter a name for the merged repertoire');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await mergeRepertoires(Array.from(selectedIds), mergeName.trim());
+      setSelectedIds(new Set());
+      setIsMerging(false);
+      setMergeName('');
+      toast.success('Repertoires merged successfully');
+    } catch {
+      toast.error('Failed to merge repertoires');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const startEditing = (id: string, currentName: string) => {
     setEditingId(id);
     setEditName(currentName);
@@ -90,7 +130,43 @@ export function RepertoireSelector({ color, repertoires }: RepertoireSelectorPro
       <div className="repertoire-selector-header">
         <span className="repertoire-selector-icon">{isWhite ? '♔' : '♚'}</span>
         <h3 className="repertoire-selector-title">{isWhite ? 'White' : 'Black'} Repertoires</h3>
+        {selectedIds.size >= 2 && !isMerging && (
+          <Button variant="primary" size="sm" onClick={() => setIsMerging(true)} disabled={loading}>
+            Merge Selected ({selectedIds.size})
+          </Button>
+        )}
       </div>
+
+      {isMerging && (
+        <div className="repertoire-selector-merge-form">
+          <span className="repertoire-selector-merge-label">
+            Merging {selectedIds.size} repertoires into a new one. All originals will be deleted.
+          </span>
+          <input
+            type="text"
+            value={mergeName}
+            onChange={(e) => setMergeName(e.target.value)}
+            placeholder="Name for merged repertoire"
+            className="repertoire-selector-input"
+            autoFocus
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleMerge();
+              if (e.key === 'Escape') {
+                setIsMerging(false);
+                setMergeName('');
+              }
+            }}
+          />
+          <div className="repertoire-selector-merge-actions">
+            <Button variant="primary" onClick={handleMerge} disabled={loading}>
+              Merge
+            </Button>
+            <Button variant="ghost" onClick={() => { setIsMerging(false); setMergeName(''); }} disabled={loading}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      )}
 
       <div className="repertoire-selector-list">
         {repertoires.length === 0 ? (
@@ -99,7 +175,7 @@ export function RepertoireSelector({ color, repertoires }: RepertoireSelectorPro
           </div>
         ) : (
           repertoires.map((rep) => (
-            <div key={rep.id} className="repertoire-selector-item">
+            <div key={rep.id} className={`repertoire-selector-item${selectedIds.has(rep.id) ? ' selected' : ''}`}>
               {editingId === rep.id ? (
                 <div className="repertoire-selector-edit-form">
                   <input
@@ -123,6 +199,13 @@ export function RepertoireSelector({ color, repertoires }: RepertoireSelectorPro
                 </div>
               ) : (
                 <>
+                  <label className="repertoire-selector-checkbox">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(rep.id)}
+                      onChange={() => toggleSelection(rep.id)}
+                    />
+                  </label>
                   <div className="repertoire-selector-item-info">
                     <span className="repertoire-selector-item-name">{rep.name}</span>
                     <span className="repertoire-selector-item-stats">

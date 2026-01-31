@@ -378,6 +378,30 @@ func (h *ImportHandler) ReanalyzeGameHandler(c echo.Context) error {
 	return c.JSON(http.StatusOK, reanalyzed)
 }
 
+func (h *ImportHandler) MarkGameViewedHandler(c echo.Context) error {
+	userID := c.Get("userID").(string)
+	analysisID, ok := ValidateUUIDParam(c, "analysisId")
+	if !ok {
+		return nil
+	}
+
+	if err := h.importService.CheckOwnership(analysisID, userID); err != nil {
+		return NotFoundResponse(c, "analysis")
+	}
+
+	gameIndexStr := c.Param("gameIndex")
+	gameIndex, err := strconv.Atoi(gameIndexStr)
+	if err != nil || gameIndex < 0 {
+		return BadRequestResponse(c, "gameIndex must be a non-negative integer")
+	}
+
+	if err := h.importService.MarkGameViewed(userID, analysisID, gameIndex); err != nil {
+		return InternalErrorResponse(c, "failed to mark game as viewed")
+	}
+
+	return c.NoContent(http.StatusNoContent)
+}
+
 func (h *ImportHandler) LichessImportHandler(c echo.Context) error {
 	var req models.LichessImportRequest
 	if err := c.Bind(&req); err != nil {

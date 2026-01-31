@@ -364,3 +364,46 @@ func TestParsePGNToTree_ColorToMove(t *testing.T) {
 	e5 := e4.Children[0]
 	assert.Equal(t, models.ChessColorWhite, e5.ColorToMove)
 }
+
+func TestParsePGNToTree_CustomFENHeader_Rejected(t *testing.T) {
+	// Lichess study chapter starting from a non-standard position should be rejected
+	pgn := `[Event "My Study: Sicilian Defense"]
+[FEN "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1"]
+[Orientation "Black"]
+
+1... c5 2. Nf3 d6 *`
+
+	_, _, err := ParsePGNToTree(pgn)
+	assert.ErrorIs(t, err, ErrCustomStartingPosition)
+}
+
+func TestParsePGNToTree_StandardFENHeader_Accepted(t *testing.T) {
+	// A FEN header matching the standard starting position should be accepted
+	pgn := `[Event "Test"]
+[FEN "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"]
+
+1. e4 e5 *`
+
+	root, _, err := ParsePGNToTree(pgn)
+	require.NoError(t, err)
+	require.Len(t, root.Children, 1)
+	assert.Equal(t, "e4", *root.Children[0].Move)
+}
+
+func TestParsePGNToTree_CommentsAttached(t *testing.T) {
+	pgn := `1. e4 {Best by test} e5 {Solid reply} 2. Nf3 *`
+
+	root, _, err := ParsePGNToTree(pgn)
+	require.NoError(t, err)
+
+	e4 := root.Children[0]
+	require.NotNil(t, e4.Comment)
+	assert.Equal(t, "Best by test", *e4.Comment)
+
+	e5 := e4.Children[0]
+	require.NotNil(t, e5.Comment)
+	assert.Equal(t, "Solid reply", *e5.Comment)
+
+	nf3 := e5.Children[0]
+	assert.Nil(t, nf3.Comment)
+}

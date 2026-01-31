@@ -57,4 +57,6 @@ type AnalysisRepository interface {
 	UpdateResults(analysisID string, results []models.GameAnalysis) error
 	BelongsToUser(id string, userID string) (bool, error)
 	GetDistinctRepertoires(userID string) ([]string, error)
+	MarkGameViewed(userID, analysisID string, gameIndex int) error
+	GetViewedGames(userID string) (map[string]bool, error)
 }

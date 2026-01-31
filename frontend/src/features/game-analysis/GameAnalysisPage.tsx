@@ -7,8 +7,9 @@ import { computeFEN, STARTING_FEN } from './utils/fenCalculator';
 import { GameBoardSection } from './components/GameBoardSection';
 import { GameNavigation } from './components/GameNavigation';
 import { RepertoireSelector } from './components/RepertoireSelector';
-import { Button, Loading } from '../../shared/components/UI';
+import { Button, Loading, ConfirmModal } from '../../shared/components/UI';
 import { GameMoveList } from './components/GameMoveList';
+import { useDeleteGame } from '../analyse-tab/hooks/useDeleteGame';
 import { toast } from '../../stores/toastStore';
 import type { GameAnalysis, MoveAnalysis } from '../../types';
 
@@ -19,6 +20,9 @@ export function GameAnalysisPage() {
   const { analysis, loading, reanalyzeGame } = useGameLoader();
   const [flipped, setFlipped] = useState(false);
   const { showFullGame, toggleFullGame } = useToggleFullGame();
+  const { deleteTarget, setDeleteTarget, deleting, handleDelete } = useDeleteGame(() => {
+    navigate('/games');
+  });
 
   const gameIdx = parseInt(gameIndex || '0', 10);
   const game: GameAnalysis | null = useMemo(() => {
@@ -123,6 +127,13 @@ export function GameAnalysisPage() {
         </Button>
         <span className="game-title-main">Game {gameIdx + 1}: {opponent}</span>
         <span className="game-title-result">{result}</span>
+        <Button
+          variant="danger"
+          size="sm"
+          onClick={() => setDeleteTarget({ analysisId: analysis.id, gameIndex: gameIdx })}
+        >
+          Delete
+        </Button>
       </div>
 
       {/* Repertoire selector with reanalyze option */}
@@ -163,6 +174,16 @@ export function GameAnalysisPage() {
         goPrev={goPrev}
         goNext={goNext}
         goLast={goLast}
+      />
+      <ConfirmModal
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleDelete}
+        title="Delete Game"
+        message="Are you sure you want to delete this game? This action cannot be undone."
+        confirmText="Delete"
+        variant="danger"
+        loading={deleting}
       />
     </div>
   );

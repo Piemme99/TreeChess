@@ -21,6 +21,7 @@ interface RepertoireState {
   createRepertoire: (name: string, color: Color) => Promise<Repertoire>;
   renameRepertoire: (id: string, name: string) => Promise<void>;
   deleteRepertoire: (id: string) => Promise<void>;
+  mergeRepertoires: (ids: string[], name: string) => Promise<Repertoire>;
 
   // Actions - selection
   selectRepertoire: (id: string | null) => void;
@@ -28,6 +29,8 @@ interface RepertoireState {
 
   // Actions - update repertoire in store (after addNode/deleteNode)
   updateRepertoire: (repertoire: Repertoire) => void;
+  addRepertoire: (repertoire: Repertoire) => void;
+  removeRepertoire: (id: string) => void;
 
   // State management
   setLoading: (loading: boolean) => void;
@@ -135,6 +138,29 @@ export const useRepertoireStore = create<RepertoireState>((set) => ({
     }
   },
 
+  mergeRepertoires: async (ids: string[], name: string) => {
+    set({ loading: true, error: null });
+    try {
+      const result = await repertoireApi.mergeRepertoires(ids, name);
+      set((state) => ({
+        repertoires: [
+          ...state.repertoires.filter((r) => !ids.includes(r.id)),
+          result.merged
+        ],
+        selectedRepertoireId:
+          ids.includes(state.selectedRepertoireId || '') ? null : state.selectedRepertoireId,
+        loading: false
+      }));
+      return result.merged;
+    } catch (err) {
+      set({
+        error: { message: 'Failed to merge repertoires' },
+        loading: false
+      });
+      throw err;
+    }
+  },
+
   selectRepertoire: (id) => set((state) => ({
     selectedRepertoireId: id,
     // Only reset selectedNodeId if we're changing to a different repertoire
@@ -148,6 +174,18 @@ export const useRepertoireStore = create<RepertoireState>((set) => ({
       repertoires: state.repertoires.map((r) =>
         r.id === repertoire.id ? repertoire : r
       )
+    }));
+  },
+
+  addRepertoire: (repertoire) => {
+    set((state) => ({
+      repertoires: [...state.repertoires, repertoire]
+    }));
+  },
+
+  removeRepertoire: (id) => {
+    set((state) => ({
+      repertoires: state.repertoires.filter((r) => r.id !== id)
     }));
   },
 

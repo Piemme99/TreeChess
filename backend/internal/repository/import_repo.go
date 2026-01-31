@@ -183,6 +183,11 @@ func (r *PostgresAnalysisRepo) GetAllGames(userID string, limit, offset int, tim
 	}
 	defer rows.Close()
 
+	viewedGames, err := r.GetViewedGames(userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get viewed games: %w", err)
+	}
+
 	var allGames []models.GameSummary
 
 	for rows.Next() {
@@ -234,7 +239,7 @@ func (r *PostgresAnalysisRepo) GetAllGames(userID string, limit, offset int, tim
 				Opening:    gameOpening,
 				ImportedAt: uploadedAt,
 				Source:     analysisSource,
-			Synced:     analysisSynced,
+			Synced:     analysisSynced && !viewedGames[fmt.Sprintf("%s-%d", analysisID, game.GameIndex)],
 			}
 			if game.MatchedRepertoire != nil {
 				summary.RepertoireName = game.MatchedRepertoire.Name
@@ -408,6 +413,47 @@ func (r *PostgresAnalysisRepo) GetDistinctRepertoires(userID string) ([]string, 
 	sort.Strings(repertoires)
 
 	return repertoires, nil
+}
+
+// MarkGameViewed marks a specific game as viewed by the user
+func (r *PostgresAnalysisRepo) MarkGameViewed(userID, analysisID string, gameIndex int) error {
+	ctx, cancel := dbContext()
+	defer cancel()
+
+	_, err := r.pool.Exec(ctx,
+		`INSERT INTO viewed_games (user_id, analysis_id, game_index) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
+		userID, analysisID, gameIndex,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to mark game as viewed: %w", err)
+	}
+	return nil
+}
+
+// GetViewedGames returns a set of "analysisID-gameIndex" keys for all viewed games of a user
+func (r *PostgresAnalysisRepo) GetViewedGames(userID string) (map[string]bool, error) {
+	ctx, cancel := dbContext()
+	defer cancel()
+
+	rows, err := r.pool.Query(ctx,
+		`SELECT analysis_id, game_index FROM viewed_games WHERE user_id = $1`,
+		userID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query viewed games: %w", err)
+	}
+	defer rows.Close()
+
+	viewed := make(map[string]bool)
+	for rows.Next() {
+		var analysisID string
+		var gameIndex int
+		if err := rows.Scan(&analysisID, &gameIndex); err != nil {
+			return nil, fmt.Errorf("failed to scan viewed game: %w", err)
+		}
+		viewed[fmt.Sprintf("%s-%d", analysisID, gameIndex)] = true
+	}
+	return viewed, rows.Err()
 }
 
 // classifySource derives the import source from the analysis filename

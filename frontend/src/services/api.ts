@@ -133,6 +133,21 @@ export const repertoireApi = {
   seedFromTemplates: async (templateIds: string[]): Promise<Repertoire[]> => {
     const response = await api.post('/repertoires/seed', { templateIds });
     return response.data;
+  },
+
+  extractSubtree: async (id: string, nodeId: string, name: string): Promise<{ original: Repertoire; extracted: Repertoire }> => {
+    const response = await api.post(`/repertoires/${id}/extract`, { nodeId, name });
+    return response.data;
+  },
+
+  mergeRepertoires: async (ids: string[], name: string): Promise<{ merged: Repertoire }> => {
+    const response = await api.post('/repertoires/merge', { ids, name });
+    return response.data;
+  },
+
+  updateNodeComment: async (id: string, nodeId: string, comment: string): Promise<Repertoire> => {
+    const response = await api.patch(`/repertoires/${id}/nodes/${nodeId}/comment`, { comment });
+    return response.data;
   }
 };
 
@@ -242,5 +257,9 @@ export const gamesApi = {
   reanalyze: async (analysisId: string, gameIndex: number, repertoireId: string): Promise<GameAnalysis> => {
     const response = await api.post(`/games/${analysisId}/${gameIndex}/reanalyze`, { repertoireId });
     return response.data;
+  },
+
+  markViewed: async (analysisId: string, gameIndex: number): Promise<void> => {
+    await api.post(`/games/${analysisId}/${gameIndex}/view`);
   }
 };

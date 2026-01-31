@@ -1,7 +1,9 @@
 package services
 
 import (
+	"errors"
 	"fmt"
+	"log"
 	"regexp"
 	"strings"
 
@@ -11,13 +13,13 @@ import (
 
 // StudyImportService handles importing Lichess studies as repertoires.
 type StudyImportService struct {
-	lichessService    *LichessService
-	repertoireService *RepertoireService
+	lichessService    LichessGameFetcher
+	repertoireService RepertoireManager
 	userRepo          repository.UserRepository
 }
 
 // NewStudyImportService creates a new study import service.
-func NewStudyImportService(lichessSvc *LichessService, repertoireSvc *RepertoireService, userRepo repository.UserRepository) *StudyImportService {
+func NewStudyImportService(lichessSvc LichessGameFetcher, repertoireSvc RepertoireManager, userRepo repository.UserRepository) *StudyImportService {
 	return &StudyImportService{
 		lichessService:    lichessSvc,
 		repertoireService: repertoireSvc,
@@ -142,6 +144,10 @@ func (s *StudyImportService) ImportStudyChapters(userID, studyID, authToken stri
 
 		root, headers, err := ParsePGNToTree(chapterPGN)
 		if err != nil {
+			if errors.Is(err, ErrCustomStartingPosition) {
+				log.Printf("Skipping chapter %d: custom starting position", i)
+				continue
+			}
 			return nil, fmt.Errorf("failed to parse chapter %d: %w", i, err)
 		}
 

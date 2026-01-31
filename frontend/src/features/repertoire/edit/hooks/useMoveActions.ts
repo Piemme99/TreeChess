@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { useChess } from '../../../../shared/hooks/useChess';
 import { repertoireApi } from '../../../../services/api';
 import { toast } from '../../../../stores/toastStore';
+import { useRepertoireStore } from '../../../../stores/repertoireStore';
 import { findNode } from '../utils/nodeUtils';
 import type { RepertoireNode, Repertoire, AddNodeRequest } from '../../../../types';
 
@@ -142,12 +143,38 @@ export function useMoveActions(
     }
   }, [repertoireId, selectedNode, setRepertoire, selectNode]);
 
+  const handleExtractBranch = useCallback(async (name: string) => {
+    if (!repertoireId || !selectedNode || !selectedNode.parentId) return false;
+
+    setActionLoading(true);
+    try {
+      const result = await repertoireApi.extractSubtree(repertoireId, selectedNode.id, name);
+      setRepertoire(result.original);
+      useRepertoireStore.getState().addRepertoire(result.extracted);
+
+      if (selectedNode.parentId) {
+        selectNode(selectedNode.parentId);
+      } else {
+        selectNode(result.original.treeData.id);
+      }
+
+      toast.success('Branch extracted to new repertoire');
+      return true;
+    } catch {
+      toast.error('Failed to extract branch');
+      return false;
+    } finally {
+      setActionLoading(false);
+    }
+  }, [repertoireId, selectedNode, setRepertoire, selectNode]);
+
   return {
     actionLoading,
     possibleMoves,
     setPossibleMoves,
     handleBoardMove,
     handleAddMoveSubmit,
-    handleDeleteBranch
+    handleDeleteBranch,
+    handleExtractBranch
   };
 }
