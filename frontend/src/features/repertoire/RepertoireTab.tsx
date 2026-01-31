@@ -10,23 +10,26 @@ export function RepertoireTab() {
 
   if (loading && repertoires.length === 0) {
     return (
-      <div className="repertoire-tab">
+      <div className="flex flex-col items-center py-8 gap-8">
         <Loading size="lg" text="Loading repertoires..." />
       </div>
     );
   }
 
   return (
-    <div className="repertoire-tab">
-      <div className="repertoire-selectors">
+    <div className="flex flex-col items-center py-8 gap-8">
+      <div className="flex gap-8 p-6 max-md:flex-col">
         <RepertoireSelector color="white" repertoires={whiteRepertoires} />
         <RepertoireSelector color="black" repertoires={blackRepertoires} />
       </div>
-      <button className="import-study-btn" onClick={() => setShowStudyModal(true)}>
-        <span className="import-study-btn-icon">&#128218;</span>
-        <div className="import-study-btn-text">
-          <span className="import-study-btn-label">Import a Lichess Study</span>
-          <span className="import-study-btn-desc">Import chapters from a Lichess study as repertoires</span>
+      <button
+        className="flex items-center gap-4 w-full max-w-[600px] py-6 px-8 border border-dashed border-border rounded-lg cursor-pointer transition-all duration-150 font-sans text-left hover:border-primary hover:border-solid hover:bg-bg-card hover:shadow-md"
+        onClick={() => setShowStudyModal(true)}
+      >
+        <span className="text-[1.75rem] leading-none shrink-0">&#128218;</span>
+        <div className="flex flex-col gap-0.5">
+          <span className="font-semibold text-[0.9375rem]">Import a Lichess Study</span>
+          <span className="text-[0.8125rem] text-text-muted">Import chapters from a Lichess study as repertoires</span>
         </div>
       </button>
       <StudyImportModal

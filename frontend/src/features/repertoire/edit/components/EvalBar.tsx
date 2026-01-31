@@ -38,15 +38,15 @@ export function EvalBar({ score, mate }: EvalBarProps) {
   const whiteAdvantage = whitePercent >= 50;
 
   return (
-    <div className="eval-bar">
-      <div className="eval-bar-fill eval-bar-black" style={{ height: `${blackPercent}%` }} />
-      <div className="eval-bar-fill eval-bar-white" style={{ height: `${clampedPercent}%` }} />
+    <div className="group w-7 self-stretch rounded-sm shrink-0 relative shadow-sm border border-border">
+      <div className="absolute left-0 right-0 top-0 bg-[#333] rounded-t-sm transition-[height] duration-300 ease-in-out" style={{ height: `${blackPercent}%` }} />
+      <div className="absolute left-0 right-0 bottom-0 bg-[#f5f5f5] rounded-b-sm transition-[height] duration-300 ease-in-out" style={{ height: `${clampedPercent}%` }} />
       {whiteAdvantage ? (
-        <span className="eval-bar-label eval-bar-label--bottom">{scoreText}</span>
+        <span className="absolute left-0 right-0 text-center font-mono text-[0.625rem] font-bold leading-none select-none pointer-events-none z-[1] transition-opacity duration-150 text-[#333] bottom-1 group-hover:opacity-0">{scoreText}</span>
       ) : (
-        <span className="eval-bar-label eval-bar-label--top">{scoreText}</span>
+        <span className="absolute left-0 right-0 text-center font-mono text-[0.625rem] font-bold leading-none select-none pointer-events-none z-[1] transition-opacity duration-150 text-[#f5f5f5] top-1 group-hover:opacity-0">{scoreText}</span>
       )}
-      <span className={`eval-bar-label-hover ${whiteAdvantage ? 'eval-bar-label-hover--white' : 'eval-bar-label-hover--black'}`}>
+      <span className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 font-mono text-[0.6875rem] font-bold py-0.5 px-1 rounded-sm whitespace-nowrap select-none pointer-events-none opacity-0 z-[2] transition-opacity duration-150 group-hover:opacity-100 ${whiteAdvantage ? 'text-[#333] bg-[rgba(245,245,245,0.9)]' : 'text-[#f5f5f5] bg-[rgba(51,51,51,0.9)]'}`}>
         {hoverText}
       </span>
     </div>

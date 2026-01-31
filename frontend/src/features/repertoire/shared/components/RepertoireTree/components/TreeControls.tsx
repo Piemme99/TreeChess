@@ -7,16 +7,24 @@ interface TreeControlsProps {
 
 export function TreeControls({ scale, onReset, isExpanded, onToggleExpand }: TreeControlsProps) {
   return (
-    <div className="tree-controls">
+    <div className="absolute top-2 right-2 flex gap-2 items-center z-10">
       {onToggleExpand && (
-        <button className="tree-control-btn" onClick={onToggleExpand} title={isExpanded ? 'Collapse' : 'Expand fullscreen'}>
-          {isExpanded ? '✕' : '⛶'}
+        <button
+          className="py-1 px-2 bg-bg border border-border rounded-sm text-xs cursor-pointer hover:bg-border focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2"
+          onClick={onToggleExpand}
+          title={isExpanded ? 'Collapse' : 'Expand fullscreen'}
+        >
+          {isExpanded ? '\u2715' : '\u26F6'}
         </button>
       )}
-      <button className="tree-control-btn" onClick={onReset} title="Reset view">
+      <button
+        className="py-1 px-2 bg-bg border border-border rounded-sm text-xs cursor-pointer hover:bg-border focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2"
+        onClick={onReset}
+        title="Reset view"
+      >
         Reset
       </button>
-      <span className="tree-zoom-level">{Math.round(scale * 100)}%</span>
+      <span className="text-xs text-text-muted">{Math.round(scale * 100)}%</span>
     </div>
   );
 }

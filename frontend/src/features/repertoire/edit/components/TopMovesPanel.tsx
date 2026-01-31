@@ -45,17 +45,17 @@ export function TopMovesPanel({ evaluation, fen }: TopMovesPanelProps) {
   const bestMoveSAN = pvSanMoves[0] || stockfishService.uciToSAN(evaluation.pv[0], fen);
 
   return (
-    <div className="top-moves-panel" style={{ padding: '16px', background: '#f5f5f5', borderRadius: '8px', marginTop: '16px' }}>
-      <h3 style={{ margin: '0 0 12px 0', fontSize: '16px', fontWeight: 'bold' }}>
+    <div className="p-4 bg-bg rounded-md mt-4">
+      <h3 className="m-0 mb-3 text-base font-bold">
         Engine Analysis (depth {evaluation.depth})
       </h3>
-      
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0' }}>
+
+      <div className="flex justify-between items-center py-2">
         <div>
-          <span style={{ fontSize: '16px', fontWeight: 'bold' }}>
+          <span className="text-base font-bold">
             Best: {bestMoveSAN}
           </span>
-          <span style={{ marginLeft: '12px', fontSize: '14px', color: '#666' }}>
+          <span className="ml-3 text-sm text-text-muted">
             {stockfishService.formatScore(evaluation.score)}
             {evaluation.mate && ` (Mate in ${Math.abs(evaluation.mate)})`}
           </span>
@@ -63,10 +63,10 @@ export function TopMovesPanel({ evaluation, fen }: TopMovesPanelProps) {
       </div>
 
       {pvSanMoves.length > 1 && (
-        <div style={{ marginTop: '8px', fontSize: '13px', color: '#666' }}>
-          <span style={{ fontWeight: 'bold' }}>Line: </span>
+        <div className="mt-2 text-[13px] text-text-muted">
+          <span className="font-bold">Line: </span>
           {pvSanMoves.map((san, i) => (
-            <span key={i} style={{ marginRight: '4px' }}>
+            <span key={i} className="mr-1">
               {san}
             </span>
           ))}

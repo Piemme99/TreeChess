@@ -126,10 +126,10 @@ export function RepertoireSelector({ color, repertoires }: RepertoireSelectorPro
   };
 
   return (
-    <div className={`repertoire-selector ${isWhite ? 'repertoire-selector-white' : 'repertoire-selector-black'}`}>
-      <div className="repertoire-selector-header">
-        <span className="repertoire-selector-icon">{isWhite ? '♔' : '♚'}</span>
-        <h3 className="repertoire-selector-title">{isWhite ? 'White' : 'Black'} Repertoires</h3>
+    <div className={`flex-1 bg-bg-card rounded-lg p-6 shadow-md ${isWhite ? 'border-t-4 border-t-[#f5f5f5]' : 'border-t-4 border-t-[#333]'}`}>
+      <div className="flex items-center gap-4 mb-6">
+        <span className="text-[2rem]">{isWhite ? '\u2654' : '\u265A'}</span>
+        <h3 className="text-xl font-semibold">{isWhite ? 'White' : 'Black'} Repertoires</h3>
         {selectedIds.size >= 2 && !isMerging && (
           <Button variant="primary" size="sm" onClick={() => setIsMerging(true)} disabled={loading}>
             Merge Selected ({selectedIds.size})
@@ -138,8 +138,8 @@ export function RepertoireSelector({ color, repertoires }: RepertoireSelectorPro
       </div>
 
       {isMerging && (
-        <div className="repertoire-selector-merge-form">
-          <span className="repertoire-selector-merge-label">
+        <div className="flex flex-col gap-2 p-4 bg-primary-light rounded-md mb-2">
+          <span className="text-[0.85rem] text-text-muted">
             Merging {selectedIds.size} repertoires into a new one. All originals will be deleted.
           </span>
           <input
@@ -147,7 +147,7 @@ export function RepertoireSelector({ color, repertoires }: RepertoireSelectorPro
             value={mergeName}
             onChange={(e) => setMergeName(e.target.value)}
             placeholder="Name for merged repertoire"
-            className="repertoire-selector-input"
+            className="flex-1 py-2 px-4 border border-border rounded-md text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary-light"
             autoFocus
             onKeyDown={(e) => {
               if (e.key === 'Enter') handleMerge();
@@ -157,7 +157,7 @@ export function RepertoireSelector({ color, repertoires }: RepertoireSelectorPro
               }
             }}
           />
-          <div className="repertoire-selector-merge-actions">
+          <div className="flex gap-2">
             <Button variant="primary" onClick={handleMerge} disabled={loading}>
               Merge
             </Button>
@@ -168,22 +168,22 @@ export function RepertoireSelector({ color, repertoires }: RepertoireSelectorPro
         </div>
       )}
 
-      <div className="repertoire-selector-list">
+      <div className="flex flex-col gap-2 mb-6">
         {repertoires.length === 0 ? (
-          <div className="repertoire-selector-empty">
+          <div className="text-text-muted italic p-4 text-center">
             No repertoires yet. Create one to get started.
           </div>
         ) : (
           repertoires.map((rep) => (
-            <div key={rep.id} className={`repertoire-selector-item${selectedIds.has(rep.id) ? ' selected' : ''}`}>
+            <div key={rep.id} className={`flex items-center justify-between p-4 bg-bg rounded-md gap-4${selectedIds.has(rep.id) ? ' outline-2 outline-primary outline-offset-[-2px]' : ''}`}>
               {editingId === rep.id ? (
-                <div className="repertoire-selector-edit-form">
+                <div className="flex gap-2 flex-1 items-center">
                   <input
                     type="text"
                     value={editName}
                     onChange={(e) => setEditName(e.target.value)}
                     placeholder="Repertoire name"
-                    className="repertoire-selector-input"
+                    className="flex-1 py-2 px-4 border border-border rounded-md text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary-light"
                     autoFocus
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') handleRename(rep.id);
@@ -199,20 +199,21 @@ export function RepertoireSelector({ color, repertoires }: RepertoireSelectorPro
                 </div>
               ) : (
                 <>
-                  <label className="repertoire-selector-checkbox">
+                  <label className="flex items-center shrink-0 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={selectedIds.has(rep.id)}
                       onChange={() => toggleSelection(rep.id)}
+                      className="w-4 h-4 cursor-pointer accent-primary"
                     />
                   </label>
-                  <div className="repertoire-selector-item-info">
-                    <span className="repertoire-selector-item-name">{rep.name}</span>
-                    <span className="repertoire-selector-item-stats">
+                  <div className="flex flex-col gap-1 flex-1 min-w-0">
+                    <span className="font-medium whitespace-nowrap overflow-hidden text-ellipsis">{rep.name}</span>
+                    <span className="text-xs text-text-muted">
                       {rep.metadata.totalMoves} moves, depth {rep.metadata.deepestDepth}
                     </span>
                   </div>
-                  <div className="repertoire-selector-item-actions">
+                  <div className="flex gap-1 shrink-0">
                     <Button
                       variant="primary"
                       size="sm"
@@ -245,13 +246,13 @@ export function RepertoireSelector({ color, repertoires }: RepertoireSelectorPro
       </div>
 
       {isCreating ? (
-        <div className="repertoire-selector-create-form">
+        <div className="flex gap-2 items-center">
           <input
             type="text"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             placeholder="Repertoire name"
-            className="repertoire-selector-input"
+            className="flex-1 py-2 px-4 border border-border rounded-md text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary-light"
             autoFocus
             onKeyDown={(e) => {
               if (e.key === 'Enter') handleCreate();
@@ -273,7 +274,7 @@ export function RepertoireSelector({ color, repertoires }: RepertoireSelectorPro
           variant="secondary"
           onClick={() => setIsCreating(true)}
           disabled={loading}
-          className="repertoire-selector-add-btn"
+          className="w-full text-center"
         >
           + Add {isWhite ? 'White' : 'Black'} Repertoire
         </Button>

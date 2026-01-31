@@ -10,7 +10,7 @@ export interface GameBoardSectionProps {
 
 export function GameBoardSection({ fen, orientation, lastMove, onFlip }: GameBoardSectionProps) {
   return (
-    <div className="game-analysis-board-section">
+    <div className="flex flex-col gap-2 shrink-0 max-md:items-center">
       <ChessBoard
         fen={fen}
         orientation={orientation}
@@ -22,7 +22,7 @@ export function GameBoardSection({ fen, orientation, lastMove, onFlip }: GameBoa
         variant="secondary"
         size="sm"
         onClick={onFlip}
-        className="flip-board-btn"
+        className="self-center"
       >
         Flip Board
       </Button>

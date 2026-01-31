@@ -14,25 +14,25 @@ export const RepertoireCard = memo(function RepertoireCard({ color, totalMoves, 
   const isWhite = color === 'white';
 
   return (
-    <div className={`repertoire-card ${isWhite ? 'repertoire-card-white' : 'repertoire-card-black'}`}>
-      <div className="repertoire-card-icon">
-        {isWhite ? '♔' : '♚'}
+    <div className={`bg-bg-card rounded-lg p-8 shadow-md text-center transition-transform duration-200 hover:-translate-y-1 hover:shadow-lg ${isWhite ? 'border-t-4 border-t-[#f5f5f5]' : 'border-t-4 border-t-[#333]'}`}>
+      <div className="text-5xl mb-4">
+        {isWhite ? '\u2654' : '\u265A'}
       </div>
-      <h3 className="repertoire-card-title">
+      <h3 className="text-2xl font-semibold mb-4">
         {isWhite ? 'White' : 'Black'} Repertoire
       </h3>
-      <div className="repertoire-card-stats">
-        <div className="stat">
-          <span className="stat-value">{totalNodes}</span>
-          <span className="stat-label">positions</span>
+      <div className="flex justify-center gap-8 mb-6">
+        <div className="flex flex-col">
+          <span className="text-2xl font-bold text-primary">{totalNodes}</span>
+          <span className="text-sm text-text-muted">positions</span>
         </div>
-        <div className="stat">
-          <span className="stat-value">{totalMoves}</span>
-          <span className="stat-label">moves</span>
+        <div className="flex flex-col">
+          <span className="text-2xl font-bold text-primary">{totalMoves}</span>
+          <span className="text-sm text-text-muted">moves</span>
         </div>
-        <div className="stat">
-          <span className="stat-value">{deepestDepth}</span>
-          <span className="stat-label">depth</span>
+        <div className="flex flex-col">
+          <span className="text-2xl font-bold text-primary">{deepestDepth}</span>
+          <span className="text-sm text-text-muted">depth</span>
         </div>
       </div>
       <Button variant="primary" onClick={onEdit}>

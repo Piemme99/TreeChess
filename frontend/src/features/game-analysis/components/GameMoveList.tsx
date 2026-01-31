@@ -41,18 +41,18 @@ export function GameMoveList({
     );
   }, [displayedMoves]);
 
-  // Get the CSS class for a move based on its index and status
+  // Get the Tailwind classes for a move based on its index and status
   // Only color moves up to and including the first actionable move, rest are neutral
-  function getMoveClass(index: number, status: MoveAnalysis['status']): string {
+  function getMoveClasses(index: number, status: MoveAnalysis['status']): string {
     // If there's no actionable move yet, or this move is before the first actionable
     if (firstActionableIndex === -1 || index < firstActionableIndex) {
-      if (status === 'in-repertoire') return 'move-in-repertoire';
+      if (status === 'in-repertoire') return 'bg-success-light text-success';
     }
 
     // This is the first actionable move
     if (index === firstActionableIndex) {
-      if (status === 'opponent-new') return 'move-opponent-new';
-      if (status === 'out-of-repertoire') return 'move-out-repertoire';
+      if (status === 'opponent-new') return 'bg-info-light text-info';
+      if (status === 'out-of-repertoire') return 'bg-danger-light text-danger';
     }
 
     // All moves after the first actionable move are neutral (no class)
@@ -106,34 +106,34 @@ export function GameMoveList({
   const hiddenMovesCount = moves.length - displayedMoves.length;
 
   return (
-    <div className="game-moves-list">
-      <div className="moves-list">
+    <div className="flex flex-col flex-1 min-h-0">
+      <div className="flex-1 overflow-y-auto flex flex-col gap-1">
         {movePairs.map((pair) => (
-          <div key={pair.moveNumber} className="move-row">
-            <span className="move-number">{pair.moveNumber}.</span>
+          <div key={pair.moveNumber} className="flex items-stretch gap-1">
+            <span className="font-mono text-text-muted min-w-[32px] flex items-center text-sm">{pair.moveNumber}.</span>
 
             {pair.white && pair.whiteIndex !== undefined ? (
               <div
                 ref={currentMoveIndex === pair.whiteIndex ? selectedRef : null}
-                className={`move-cell ${getMoveClass(pair.whiteIndex, pair.white.status)} ${currentMoveIndex === pair.whiteIndex ? 'selected' : ''}`}
+                className={`flex-1 py-1 px-2 rounded-sm cursor-pointer transition-all duration-150 flex items-center font-mono text-[0.9rem] hover:brightness-95 ${getMoveClasses(pair.whiteIndex, pair.white.status)} ${currentMoveIndex === pair.whiteIndex ? 'outline-2 outline-primary outline-offset-1' : ''}`}
                 onClick={() => onMoveClick(pair.whiteIndex!)}
               >
-                <span className="move-san">{pair.white.san}</span>
+                <span className="font-medium">{pair.white.san}</span>
               </div>
             ) : (
-              <div className="move-cell empty" />
+              <div className="flex-1 cursor-default bg-transparent" />
             )}
 
             {pair.black && pair.blackIndex !== undefined ? (
               <div
                 ref={currentMoveIndex === pair.blackIndex ? selectedRef : null}
-                className={`move-cell ${getMoveClass(pair.blackIndex, pair.black.status)} ${currentMoveIndex === pair.blackIndex ? 'selected' : ''}`}
+                className={`flex-1 py-1 px-2 rounded-sm cursor-pointer transition-all duration-150 flex items-center font-mono text-[0.9rem] hover:brightness-95 ${getMoveClasses(pair.blackIndex, pair.black.status)} ${currentMoveIndex === pair.blackIndex ? 'outline-2 outline-primary outline-offset-1' : ''}`}
                 onClick={() => onMoveClick(pair.blackIndex!)}
               >
-                <span className="move-san">{pair.black.san}</span>
+                <span className="font-medium">{pair.black.san}</span>
               </div>
             ) : (
-              <div className="move-cell empty" />
+              <div className="flex-1 cursor-default bg-transparent" />
             )}
           </div>
         ))}
@@ -141,12 +141,12 @@ export function GameMoveList({
 
       {/* Toggle full game button */}
       {hasMoreMoves && (
-        <div className="show-more-section">
+        <div className="flex justify-center py-2 mt-2 border-t border-dashed border-border">
           <Button
             variant="ghost"
             size="sm"
             onClick={onToggleFullGame}
-            className="show-more-btn"
+            className="text-sm text-primary"
           >
             {showFullGame
               ? 'Show opening only'
@@ -157,11 +157,11 @@ export function GameMoveList({
 
       {/* Show error details for selected move (only for first error) */}
       {currentMoveIndex >= 0 && currentMoveIndex < displayedMoves.length && (
-        <div className="selected-move-details">
+        <div className="mt-4 pt-4 border-t border-border flex flex-col gap-2">
           {showExpectedMoveError(currentMoveIndex, displayedMoves[currentMoveIndex]) && (
-            <div className="expected-move-info">
-              <span className="expected-label">Expected:</span>
-              <span className="expected-san">{displayedMoves[currentMoveIndex].expectedMove}</span>
+            <div className="flex items-center gap-2 p-2 bg-danger-light rounded-sm">
+              <span className="text-text-muted text-sm">Expected:</span>
+              <span className="font-mono font-semibold text-danger">{displayedMoves[currentMoveIndex].expectedMove}</span>
             </div>
           )}
           {showAddButton(currentMoveIndex) && onAddToRepertoire && (

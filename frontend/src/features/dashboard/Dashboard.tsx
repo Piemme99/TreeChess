@@ -16,14 +16,14 @@ export function Dashboard() {
 
   if (repertoires.length === 0) {
     return (
-      <div className="dashboard-overview">
+      <div className="flex flex-col gap-8">
         <EmptyRepertoireState onRefresh={() => window.location.reload()} />
       </div>
     );
   }
 
   return (
-    <div className="dashboard-overview">
+    <div className="flex flex-col gap-8">
       <RepertoireOverview
         whiteRepertoires={whiteRepertoires}
         blackRepertoires={blackRepertoires}

@@ -61,9 +61,9 @@ function formatMoveSequence(nodes: RepertoireNode[]): string {
 export function MoveHistory({ rootNode, selectedNodeId }: MoveHistoryProps) {
   if (!selectedNodeId) {
     return (
-      <div className="move-history">
-        <span className="move-history-label">Moves played:</span>
-        <span className="move-history-moves">Select a position</span>
+      <div className="flex items-center gap-2 p-4 bg-bg-card rounded-md font-mono text-sm overflow-x-auto">
+        <span className="font-semibold text-text-muted whitespace-nowrap">Moves played:</span>
+        <span className="text-text whitespace-nowrap">Select a position</span>
       </div>
     );
   }
@@ -72,9 +72,9 @@ export function MoveHistory({ rootNode, selectedNodeId }: MoveHistoryProps) {
 
   if (!path || path.length <= 1) {
     return (
-      <div className="move-history">
-        <span className="move-history-label">Moves played:</span>
-        <span className="move-history-moves">Starting position</span>
+      <div className="flex items-center gap-2 p-4 bg-bg-card rounded-md font-mono text-sm overflow-x-auto">
+        <span className="font-semibold text-text-muted whitespace-nowrap">Moves played:</span>
+        <span className="text-text whitespace-nowrap">Starting position</span>
       </div>
     );
   }
@@ -82,9 +82,9 @@ export function MoveHistory({ rootNode, selectedNodeId }: MoveHistoryProps) {
   const moveSequence = formatMoveSequence(path);
 
   return (
-    <div className="move-history">
-      <span className="move-history-label">Moves played:</span>
-      <span className="move-history-moves">{moveSequence}</span>
+    <div className="flex items-center gap-2 p-4 bg-bg-card rounded-md font-mono text-sm overflow-x-auto">
+      <span className="font-semibold text-text-muted whitespace-nowrap">Moves played:</span>
+      <span className="text-text whitespace-nowrap">{moveSequence}</span>
     </div>
   );
 }

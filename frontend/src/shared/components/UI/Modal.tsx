@@ -1,5 +1,22 @@
 import { ReactNode, useEffect, useCallback } from 'react';
+import { cva } from 'class-variance-authority';
 import { Button } from './Button';
+
+const modal = cva(
+  'bg-bg-card rounded-lg shadow-lg max-h-[90vh] overflow-hidden flex flex-col w-full',
+  {
+    variants: {
+      size: {
+        sm: 'max-w-[400px]',
+        md: 'max-w-[600px]',
+        lg: 'max-w-[800px]',
+      },
+    },
+    defaultVariants: {
+      size: 'md',
+    },
+  }
+);
 
 type ModalSize = 'sm' | 'md' | 'lg';
 
@@ -40,19 +57,29 @@ export function Modal({
   if (!isOpen) return null;
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-[1000] p-4"
+      onClick={onClose}
+    >
       <div
-        className={`modal modal-${size}`}
+        className={modal({ size })}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="modal-header">
-          <h2 className="modal-title">{title}</h2>
-          <button className="modal-close" onClick={onClose}>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+          <h2 className="text-xl font-semibold">{title}</h2>
+          <button
+            className="bg-transparent border-none text-2xl text-text-muted cursor-pointer p-1 leading-none hover:text-text"
+            onClick={onClose}
+          >
             &times;
           </button>
         </div>
-        <div className="modal-body">{children}</div>
-        {footer && <div className="modal-footer">{footer}</div>}
+        <div className="p-6 overflow-y-auto">{children}</div>
+        {footer && (
+          <div className="flex justify-end gap-2 px-6 py-4 border-t border-border">
+            {footer}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -88,7 +115,7 @@ export function ConfirmModal({
       title={title}
       size="sm"
       footer={
-        <div className="modal-actions">
+        <div className="flex gap-2">
           <Button variant="ghost" onClick={onClose} disabled={loading}>
             {cancelText}
           </Button>

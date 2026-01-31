@@ -36,7 +36,7 @@ export function RepertoireSelector({ userColor, currentRepertoire, matchScore, o
 
   const handleReanalyze = useCallback(async () => {
     if (!selectedId || selectedId === currentRepertoire?.id) return;
-    
+
     setIsReanalyzing(true);
     await onReanalyze(selectedId);
     setIsReanalyzing(false);
@@ -46,26 +46,26 @@ export function RepertoireSelector({ userColor, currentRepertoire, matchScore, o
 
   if (loading) {
     return (
-      <div className="repertoire-selector-bar">
-        <span className="repertoire-selector-label">Analyzed against:</span>
-        <span className="repertoire-selector-loading">Loading repertoires...</span>
+      <div className="flex items-center gap-4 py-2 px-6 bg-primary-light text-text text-sm border-b border-border">
+        <span className="font-medium whitespace-nowrap">Analyzed against:</span>
+        <span className="text-text-muted italic">Loading repertoires...</span>
       </div>
     );
   }
 
   if (repertoires.length === 0) {
     return (
-      <div className="repertoire-selector-bar repertoire-selector-warning">
+      <div className="flex items-center gap-4 py-2 px-6 bg-warning-light text-text text-sm border-b border-border">
         <span>No {userColor} repertoire available. Create one to analyze games.</span>
       </div>
     );
   }
 
   return (
-    <div className="repertoire-selector-bar">
-      <span className="repertoire-selector-label">Analyzed against:</span>
+    <div className="flex items-center gap-4 py-2 px-6 bg-primary-light text-text text-sm border-b border-border">
+      <span className="font-medium whitespace-nowrap">Analyzed against:</span>
       <select
-        className="repertoire-selector-select"
+        className="flex-1 max-w-[300px] py-1 px-2 font-sans text-sm border border-border rounded-sm bg-bg-card text-text cursor-pointer focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary-light disabled:opacity-60 disabled:cursor-not-allowed"
         value={selectedId}
         onChange={(e) => setSelectedId(e.target.value)}
         disabled={isReanalyzing}
@@ -78,7 +78,7 @@ export function RepertoireSelector({ userColor, currentRepertoire, matchScore, o
         ))}
       </select>
       {!hasChanged && matchScore !== undefined && matchScore > 0 && (
-        <span className="repertoire-selector-match-score">
+        <span className="text-text-muted text-[0.8125rem] whitespace-nowrap">
           ({matchScore} moves matched)
         </span>
       )}

@@ -38,7 +38,7 @@ export function RepertoireEdit() {
 
   useEffect(() => {
     engine.analyze(currentFEN);
-  }, [currentFEN]);
+  }, [currentFEN, engine]);
   const isRootNode = selectedNode?.id === repertoire?.treeData?.id;
 
   usePendingAddNode(repertoire, id, selectNode, setRepertoire);
@@ -90,20 +90,20 @@ export function RepertoireEdit() {
 
   if (loading || !repertoire) {
     return (
-      <div className="repertoire-edit">
+      <div className="h-full flex flex-col overflow-hidden">
         <Loading size="lg" text="Loading repertoire..." />
       </div>
     );
   }
 
   return (
-    <div className="repertoire-edit">
-      <div className="repertoire-edit-back">
+    <div className="h-full flex flex-col overflow-hidden">
+      <div className="py-1 px-4">
         <Button variant="ghost" size="sm" onClick={() => navigate('/repertoires')}>
           &larr; Back
         </Button>
       </div>
-      <div className="repertoire-edit-content">
+      <div className="flex-1 flex gap-0 min-h-0 overflow-hidden max-md:flex-col">
         <BoardSection
           selectedNode={selectedNode}
           repertoire={repertoire}
@@ -115,18 +115,18 @@ export function RepertoireEdit() {
           engineEvaluation={engine.currentEvaluation}
         />
 
-        <div className={`repertoire-edit-tree${treeExpanded ? ' expanded' : ''}`}>
-          <div className="panel-header">
-            <div className="panel-header-left">
+        <div className={`flex-1 min-w-0 min-h-0 bg-bg-card overflow-hidden flex flex-col border-l border-border${treeExpanded ? ' fixed inset-0 w-full h-full z-100' : ''}`}>
+          <div className="flex items-center justify-between py-2 px-4 border-b border-border gap-2">
+            <div className="flex items-center gap-2">
               {selectedNode && (
-                <span className="position-info">
+                <span className="font-mono text-sm text-text font-medium">
                   {selectedNode.move
                     ? `${selectedNode.moveNumber}${selectedNode.colorToMove === 'w' ? '.' : '...'} ${selectedNode.move}`
                     : 'Starting Position'}
                 </span>
               )}
             </div>
-            <div className="panel-header-right">
+            <div className="flex items-center gap-2">
               <Button variant="primary" size="sm" onClick={() => setExtractConfirmOpen(true)} disabled={isRootNode || actionLoading}>
                 Extract branch
               </Button>
@@ -139,9 +139,9 @@ export function RepertoireEdit() {
             </div>
           </div>
           {selectedNode && (
-            <div className="node-comment-editor">
+            <div className="px-2 pb-2">
               <textarea
-                className="node-comment-textarea"
+                className="w-full py-1 px-2 text-[0.8rem] font-sans border border-border rounded-sm bg-bg text-text resize-y min-h-[2.5rem] focus:outline-none focus:border-primary placeholder:text-text-muted"
                 placeholder="Add a note for this position..."
                 value={commentText}
                 onChange={handleCommentChange}

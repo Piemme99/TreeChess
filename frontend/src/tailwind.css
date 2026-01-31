@@ -1,0 +1,61 @@
+@import "tailwindcss";
+
+@theme {
+  /* Colors */
+  --color-primary: #4a90d9;
+  --color-primary-hover: #3a7bc8;
+  --color-primary-light: #e3f2fd;
+  --color-danger: #e74c3c;
+  --color-danger-hover: #c0392b;
+  --color-danger-light: #fee2e2;
+  --color-success: #27ae60;
+  --color-success-light: #dcfce7;
+  --color-warning: #f39c12;
+  --color-warning-light: #fef3c7;
+  --color-info: #3498db;
+  --color-info-light: #dbeafe;
+
+  --color-text: #1f2937;
+  --color-text-muted: #6b7280;
+  --color-text-light: #9ca3af;
+  --color-bg: #f3f4f6;
+  --color-bg-card: #ffffff;
+  --color-border: #e5e7eb;
+  --color-border-dark: #d1d5db;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+
+  /* Radii */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-full: 9999px;
+
+  /* Fonts */
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+
+  /* Animations */
+  --animate-spin: spin 0.6s linear infinite;
+  --animate-slide-in: slideIn 0.2s ease;
+  --animate-sync-fade-out: sync-fade-out 5s forwards;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes sync-fade-out {
+  0%, 80% { opacity: 1; }
+  100% { opacity: 0; }
+}

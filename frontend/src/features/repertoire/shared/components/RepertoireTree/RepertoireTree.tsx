@@ -81,14 +81,14 @@ export function RepertoireTree({
   }, [hoveredNode, isDragging, viewBox]);
 
   return (
-    <div className="tree-container" ref={containerRef}>
+    <div className="flex-1 relative overflow-hidden" ref={containerRef}>
       <TreeControls scale={scale} onReset={resetView} isExpanded={isExpanded} onToggleExpand={onToggleExpand} />
       <svg
         ref={svgRef}
         width="100%"
         height="100%"
         viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.width} ${viewBox.height}`}
-        className="tree-svg"
+        className="tree-svg cursor-grab active:cursor-grabbing"
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
@@ -107,13 +107,13 @@ export function RepertoireTree({
           </marker>
         </defs>
 
-        <g className="tree-edges">
+        <g>
           {layout.edges.map((edge, i) => (
             <TreeEdge key={i} edge={edge} />
           ))}
         </g>
 
-        <g className="tree-nodes">
+        <g>
           {layout.nodes.map((layoutNode) => (
             <TreeNode
               key={layoutNode.id}
@@ -129,16 +129,14 @@ export function RepertoireTree({
 
       {hoveredNode && !isDragging && previewStyle && (
         <div
-          className="tree-board-preview"
+          className="absolute z-20 rounded-md shadow-lg border border-border overflow-hidden pointer-events-none"
           style={{
-            position: 'absolute',
             left: previewStyle.left,
             top: previewStyle.top,
-            pointerEvents: 'none',
           }}
         >
           {hoveredNode.node.comment && (
-            <div className="tree-board-preview-comment">
+            <div className="py-1 px-2 text-xs leading-snug text-text bg-bg-card max-w-[150px] break-words border-b border-border">
               {hoveredNode.node.comment}
             </div>
           )}

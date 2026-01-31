@@ -44,7 +44,7 @@ export function AnalyseTab() {
   }, [setDeleteTarget]);
 
   return (
-    <div className="analyse-tab">
+    <div className="flex flex-col gap-8">
       <ImportSection
         username={username}
         onUsernameChange={setUsername}
@@ -53,8 +53,8 @@ export function AnalyseTab() {
         chesscomImportState={chesscomImportState}
       />
 
-      <section className="analyses-section">
-        <h2>Games</h2>
+      <section>
+        <h2 className="text-xl font-semibold mb-4 text-text-muted">Games</h2>
         <GamesList
           games={games}
           loading={loading}

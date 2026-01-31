@@ -35,15 +35,15 @@ export function EmptyRepertoireState({ onRefresh }: EmptyRepertoireStateProps) {
   };
 
   return (
-    <div className="empty-state">
-      <div className="empty-state-icon">
+    <div className="flex flex-col items-center text-center py-12 px-6 bg-bg-card rounded-lg shadow-sm">
+      <div className="text-5xl mb-4 leading-none">
         <span>&#9812;</span>{' '}<span>&#9818;</span>
       </div>
-      <h3 className="empty-state-title">Start building your repertoire</h3>
-      <p className="empty-state-text">
+      <h3 className="text-2xl font-semibold mb-2">Start building your repertoire</h3>
+      <p className="text-text-muted mb-6 max-w-[400px]">
         A repertoire is your personal playbook of opening moves.
       </p>
-      <div className="empty-state-actions">
+      <div className="flex gap-2 flex-wrap justify-center">
         <Button variant="primary" onClick={() => handleCreate('white')} disabled={creating}>
           Create White Repertoire
         </Button>

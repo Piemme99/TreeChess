@@ -27,31 +27,31 @@ export function GameSection({ game, gameNumber, importId, onAddToRepertoire }: G
   const result = game.headers.Result || '*';
 
   return (
-    <div className={`game-section ${hasIssues ? 'has-issues' : ''}`}>
+    <div className="bg-bg-card rounded-md mb-2 shadow-sm overflow-hidden">
       <div
-        className="game-header"
+        className="flex items-center p-4 cursor-pointer transition-colors duration-150 hover:bg-bg"
         onClick={() => setExpanded(!expanded)}
       >
-        <div className="game-info">
-          <span className="game-number">Game {gameNumber}</span>
-          <span className="game-players">{opponent}</span>
-          <span className="game-result">{result}</span>
+        <div className="flex-1 flex items-center gap-4">
+          <span className="font-semibold">Game {gameNumber}</span>
+          <span className="text-text-muted">{opponent}</span>
+          <span className="font-mono font-medium">{result}</span>
         </div>
-        <div className="game-badges">
+        <div className="flex gap-2">
           {firstActionable?.status === 'out-of-repertoire' && (
-            <span className="badge badge-error">Error</span>
+            <span className="py-1 px-2 rounded-full text-xs font-medium bg-danger-light text-danger">Error</span>
           )}
           {firstActionable?.status === 'opponent-new' && (
-            <span className="badge badge-new">New line</span>
+            <span className="py-1 px-2 rounded-full text-xs font-medium bg-warning-light text-warning">New line</span>
           )}
           {!hasIssues && (
-            <span className="badge badge-ok">All in repertoire</span>
+            <span className="py-1 px-2 rounded-full text-xs font-medium bg-success-light text-success">All in repertoire</span>
           )}
         </div>
         <Button
           variant="primary"
           size="sm"
-          className="view-analysis-btn"
+          className="ml-auto mr-2"
           onClick={(e) => {
             e.stopPropagation();
             navigate(`/analyse/${importId}/game/${gameNumber - 1}`);
@@ -59,22 +59,22 @@ export function GameSection({ game, gameNumber, importId, onAddToRepertoire }: G
         >
           Analyze
         </Button>
-        <span className="expand-icon">{expanded ? '▼' : '▶'}</span>
+        <span className="text-text-muted ml-2">{expanded ? '\u25BC' : '\u25B6'}</span>
       </div>
 
       {expanded && (
-        <div className="game-details">
+        <div className="p-4 border-t border-border bg-bg">
           {errors.length > 0 && (
-            <div className="move-group">
-              <h4 className="move-group-title error">Out of Repertoire (Your Errors)</h4>
+            <div className="mb-4">
+              <h4 className="text-sm font-semibold mb-2 py-1 px-2 rounded-sm bg-danger-light text-danger">Out of Repertoire (Your Errors)</h4>
               {errors.map((move, i) => (
-                <div key={i} className="move-item error">
-                  <span className="move-ply">
+                <div key={i} className="flex items-center gap-4 p-2 bg-bg-card rounded-sm mb-1">
+                  <span className="font-mono text-text-muted min-w-[40px]">
                     {Math.floor(move.plyNumber / 2) + 1}{move.plyNumber % 2 === 0 ? '.' : '...'}
                   </span>
-                  <span className="move-san">{move.san}</span>
+                  <span className="font-mono font-semibold">{move.san}</span>
                   {move.expectedMove && (
-                    <span className="move-expected">
+                    <span className="flex-1 text-text-muted text-sm">
                       Expected: <strong>{move.expectedMove}</strong>
                     </span>
                   )}
@@ -91,14 +91,14 @@ export function GameSection({ game, gameNumber, importId, onAddToRepertoire }: G
           )}
 
           {newLines.length > 0 && (
-            <div className="move-group">
-              <h4 className="move-group-title new">New Opponent Lines</h4>
+            <div className="mb-4">
+              <h4 className="text-sm font-semibold mb-2 py-1 px-2 rounded-sm bg-warning-light text-warning">New Opponent Lines</h4>
               {newLines.map((move, i) => (
-                <div key={i} className="move-item new">
-                  <span className="move-ply">
+                <div key={i} className="flex items-center gap-4 p-2 bg-bg-card rounded-sm mb-1">
+                  <span className="font-mono text-text-muted min-w-[40px]">
                     {Math.floor(move.plyNumber / 2) + 1}{move.plyNumber % 2 === 0 ? '.' : '...'}
                   </span>
-                  <span className="move-san">{move.san}</span>
+                  <span className="font-mono font-semibold">{move.san}</span>
                   <Button
                     variant="secondary"
                     size="sm"
@@ -112,7 +112,7 @@ export function GameSection({ game, gameNumber, importId, onAddToRepertoire }: G
           )}
 
           {!hasIssues && (
-            <p className="all-ok-message">All moves were in your repertoire!</p>
+            <p className="text-center text-success font-medium">All moves were in your repertoire!</p>
           )}
         </div>
       )}

@@ -19,14 +19,14 @@ export const GameNavigation = memo(function GameNavigation({
   goLast
 }: GameNavigationProps) {
   return (
-    <div className="game-analysis-nav">
+    <div className="flex items-center justify-center gap-4 p-4 bg-bg-card rounded-md mt-6">
       <Button variant="secondary" size="sm" onClick={goFirst} disabled={currentMoveIndex === -1}>
         ⟪
       </Button>
       <Button variant="secondary" size="sm" onClick={goPrev} disabled={currentMoveIndex === -1}>
         ⟨
       </Button>
-      <span className="nav-info">
+      <span className="font-mono text-text-muted min-w-[120px] text-center">
         Move {currentMoveIndex + 1} / {maxDisplayedMoveIndex + 1}
       </span>
       <Button variant="secondary" size="sm" onClick={goNext} disabled={currentMoveIndex >= maxDisplayedMoveIndex}>

@@ -15,24 +15,24 @@ export function AnalysesList({ analyses, loading, onDeleteClick, onViewClick }: 
   }
 
   if (analyses.length === 0) {
-    return <p className="no-analyses">No analyses yet. Upload a PGN file to get started.</p>;
+    return <p className="text-center text-text-muted p-8">No analyses yet. Upload a PGN file to get started.</p>;
   }
 
   return (
-    <div className="analyses-list">
+    <div className="flex flex-col gap-2">
       {analyses.map((analysis) => (
-        <div key={analysis.id} className="analysis-card">
-          <div className="analysis-info">
-            <div className="analysis-details">
-              <h3 className="analysis-filename">{analysis.filename}</h3>
-              <p className="analysis-meta">
+        <div key={analysis.id} className="flex items-center justify-between p-4 bg-bg-card rounded-md shadow-sm">
+          <div className="flex items-center gap-4">
+            <div>
+              <h3 className="font-semibold mb-1">{analysis.filename}</h3>
+              <p className="text-sm text-text-muted">
                 {analysis.username} &middot;{' '}
                 {analysis.gameCount} game{analysis.gameCount !== 1 ? 's' : ''} &middot;{' '}
                 {formatDate(analysis.uploadedAt)}
               </p>
             </div>
           </div>
-          <div className="analysis-actions">
+          <div className="flex gap-2">
             <Button
               variant="primary"
               size="sm"

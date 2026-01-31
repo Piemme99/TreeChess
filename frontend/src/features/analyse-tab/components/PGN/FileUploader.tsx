@@ -63,27 +63,27 @@ export function FileUploader({
   }, []);
 
   return (
-    <div className="file-uploader">
-      <div className="color-selector">
-        <label>Analyze against:</label>
-        <div className="color-buttons">
+    <div>
+      <div className="mb-6">
+        <label className="block mb-2 font-medium text-text-muted">Analyze against:</label>
+        <div className="flex gap-2">
           <button
-            className={`color-btn ${selectedColor === 'white' ? 'active' : ''}`}
+            className={`flex-1 flex items-center justify-center gap-2 p-4 bg-bg border-2 rounded-md text-base cursor-pointer transition-all duration-150 ${selectedColor === 'white' ? 'border-primary bg-primary-light' : 'border-border hover:border-primary'}`}
             onClick={() => onColorChange('white')}
           >
-            <span className="color-icon">♔</span> White
+            <span className="text-2xl">{'\u2654'}</span> White
           </button>
           <button
-            className={`color-btn ${selectedColor === 'black' ? 'active' : ''}`}
+            className={`flex-1 flex items-center justify-center gap-2 p-4 bg-bg border-2 rounded-md text-base cursor-pointer transition-all duration-150 ${selectedColor === 'black' ? 'border-primary bg-primary-light' : 'border-border hover:border-primary'}`}
             onClick={() => onColorChange('black')}
           >
-            <span className="color-icon">♚</span> Black
+            <span className="text-2xl">{'\u265A'}</span> Black
           </button>
         </div>
       </div>
 
       <div
-        className={`drop-zone ${dragOver ? 'drag-over' : ''} ${uploading ? 'uploading' : ''}`}
+        className={`border-2 border-dashed rounded-lg py-12 text-center cursor-pointer transition-all duration-150 ${dragOver ? 'border-primary bg-primary-light' : 'border-border hover:border-primary hover:bg-primary-light'} ${uploading ? 'pointer-events-none opacity-70' : ''}`}
         onDrop={handleDrop}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
@@ -93,9 +93,9 @@ export function FileUploader({
           <Loading text="Uploading and analyzing..." />
         ) : (
           <>
-            <div className="drop-zone-icon">📁</div>
-            <p className="drop-zone-text">Choose file or drag and drop</p>
-            <p className="drop-zone-hint">.pgn files only</p>
+            <div className="text-5xl mb-4">&#128193;</div>
+            <p className="text-lg text-text mb-1">Choose file or drag and drop</p>
+            <p className="text-text-muted text-sm">.pgn files only</p>
           </>
         )}
       </div>

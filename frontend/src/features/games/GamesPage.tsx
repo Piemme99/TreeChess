@@ -107,9 +107,9 @@ export function GamesPage() {
   const hasGames = games.length > 0 || loading;
 
   return (
-    <div className="games-page">
-      <div className="games-page-header">
-        <h2>Games</h2>
+    <div className="flex flex-col gap-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-semibold">Games</h2>
         <Button
           variant={showImport ? 'secondary' : 'primary'}
           onClick={() => setShowImport(!showImport)}
@@ -128,32 +128,40 @@ export function GamesPage() {
         />
       )}
 
-      <div className="games-filters">
-        <div className="time-class-filters">
+      <div className="flex items-center gap-4 flex-wrap">
+        <div className="flex gap-2 flex-wrap">
           {TIME_CLASS_FILTERS.map((filter) => (
             <button
               key={filter.value}
-              className={`filter-chip${timeClassFilter === filter.value ? ' active' : ''}`}
+              className={`py-1 px-4 rounded-full border text-sm cursor-pointer transition-all duration-150 ${
+                timeClassFilter === filter.value
+                  ? 'bg-primary border-primary text-white'
+                  : 'border-border bg-transparent text-text-muted hover:border-primary hover:text-text'
+              }`}
               onClick={() => setTimeClassFilter(filter.value)}
             >
               {filter.label}
             </button>
           ))}
         </div>
-        <div className="time-class-filters">
+        <div className="flex gap-2 flex-wrap">
           {SOURCE_FILTERS.map((filter) => (
             <button
               key={filter.value}
-              className={`filter-chip${sourceFilter === filter.value ? ' active' : ''}`}
+              className={`py-1 px-4 rounded-full border text-sm cursor-pointer transition-all duration-150 ${
+                sourceFilter === filter.value
+                  ? 'bg-primary border-primary text-white'
+                  : 'border-border bg-transparent text-text-muted hover:border-primary hover:text-text'
+              }`}
               onClick={() => setSourceFilter(filter.value)}
             >
               {filter.label}
             </button>
           ))}
         </div>
-        <div className="opening-filter">
+        <div className="relative flex-1 min-w-[180px] max-w-[300px]">
           <select
-            className="opening-filter-select"
+            className="w-full py-2 px-4 border border-border rounded-md text-sm font-sans bg-bg-card text-text cursor-pointer appearance-auto focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary-light/20"
             value={repertoireFilter}
             onChange={(e) => setRepertoireFilter(e.target.value)}
           >
@@ -166,7 +174,7 @@ export function GamesPage() {
       </div>
 
       {hasGames ? (
-        <section className="analyses-section">
+        <section>
           <GamesList
             games={games}
             loading={loading}

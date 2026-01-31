@@ -95,7 +95,7 @@ export function GameAnalysisPage() {
 
   if (loading) {
     return (
-      <div className="game-analysis">
+      <div className="max-w-[1000px] mx-auto min-h-full flex flex-col">
         <Loading size="lg" text="Loading game..." />
       </div>
     );
@@ -103,8 +103,8 @@ export function GameAnalysisPage() {
 
   if (!analysis || !game) {
     return (
-      <div className="game-analysis">
-        <div className="game-analysis-error">
+      <div className="max-w-[1000px] mx-auto min-h-full flex flex-col">
+        <div className="flex flex-col items-center justify-center gap-6 py-12">
           <p>Game not found</p>
           <Button variant="primary" onClick={() => navigate('/')}>
             Back
@@ -120,13 +120,13 @@ export function GameAnalysisPage() {
   const result = game.headers.Result || '*';
 
   return (
-    <div className="game-analysis">
-      <div className="game-analysis-title-bar">
+    <div className="max-w-[1000px] mx-auto min-h-full flex flex-col">
+      <div className="flex items-center gap-4 mb-6 pb-4 border-b border-border">
         <Button variant="ghost" size="sm" onClick={() => navigate('/games')}>
           &larr; Back
         </Button>
-        <span className="game-title-main">Game {gameIdx + 1}: {opponent}</span>
-        <span className="game-title-result">{result}</span>
+        <span className="text-xl font-semibold">Game {gameIdx + 1}: {opponent}</span>
+        <span className="font-mono text-text-muted">{result}</span>
         <Button
           variant="danger"
           size="sm"
@@ -144,7 +144,7 @@ export function GameAnalysisPage() {
         onReanalyze={(repertoireId) => reanalyzeGame(gameIdx, repertoireId)}
       />
 
-      <div className="game-analysis-content">
+      <div className="flex gap-6 flex-1 min-h-0 max-md:flex-col">
         <GameBoardSection
           fen={currentFEN}
           orientation={flipped ? 'black' : 'white'}
@@ -152,8 +152,8 @@ export function GameAnalysisPage() {
           onFlip={() => setFlipped(!flipped)}
         />
 
-        <div className="game-analysis-moves-section">
-          <h3>Opening</h3>
+        <div className="flex-1 min-w-0 bg-bg-card rounded-lg p-4 shadow-sm flex flex-col overflow-hidden">
+          <h3 className="text-base font-semibold text-text-muted mb-4 pb-2 border-b border-border">Opening</h3>
           <GameMoveList
             moves={game.moves}
             currentMoveIndex={currentMoveIndex}

@@ -1,5 +1,5 @@
 import { useRef, useState, useCallback } from 'react';
-import { Loading } from '../../../shared/components/UI';
+import { Button, Loading } from '../../../shared/components/UI';
 import type { UseFileUploadReturn } from '../../analyse-tab/hooks/useFileUpload';
 import type { UseLichessImportReturn } from '../../analyse-tab/hooks/useLichessImport';
 import type { UseChesscomImportReturn } from '../../analyse-tab/hooks/useChesscomImport';
@@ -64,33 +64,25 @@ export function ImportPanel({ username, onUsernameChange, fileUploadState, liche
     handleChesscomImport(opts);
   }, [handleChesscomImport, chesscomOptions]);
 
+  const tabClass = (tab: ImportTab) =>
+    `flex-1 py-2 px-4 font-sans text-[0.9375rem] font-medium cursor-pointer transition-all duration-150 border-none border-b-2 ${
+      activeTab === tab
+        ? 'text-primary border-b-primary bg-transparent'
+        : 'text-text-muted border-b-transparent bg-transparent hover:text-text hover:bg-bg'
+    }`;
+
   return (
-    <div className="import-panel">
-      <div className="import-panel-tabs">
-        <button
-          className={`import-panel-tab${activeTab === 'lichess' ? ' active' : ''}`}
-          onClick={() => setActiveTab('lichess')}
-        >
-          Lichess
-        </button>
-        <button
-          className={`import-panel-tab${activeTab === 'chesscom' ? ' active' : ''}`}
-          onClick={() => setActiveTab('chesscom')}
-        >
-          Chess.com
-        </button>
-        <button
-          className={`import-panel-tab${activeTab === 'pgn' ? ' active' : ''}`}
-          onClick={() => setActiveTab('pgn')}
-        >
-          PGN File
-        </button>
+    <div className="bg-bg-card rounded-lg shadow-sm overflow-hidden mb-6">
+      <div className="flex border-b border-border">
+        <button className={tabClass('lichess')} onClick={() => setActiveTab('lichess')}>Lichess</button>
+        <button className={tabClass('chesscom')} onClick={() => setActiveTab('chesscom')}>Chess.com</button>
+        <button className={tabClass('pgn')} onClick={() => setActiveTab('pgn')}>PGN File</button>
       </div>
 
-      <div className="import-panel-content">
+      <div className="p-6">
         {(activeTab === 'lichess' || activeTab === 'chesscom') && (
-          <div className="username-input">
-            <label htmlFor="import-username">Username:</label>
+          <div className="mb-6">
+            <label htmlFor="import-username" className="block mb-2 font-medium text-text-muted">Username:</label>
             <input
               id="import-username"
               type="text"
@@ -98,69 +90,50 @@ export function ImportPanel({ username, onUsernameChange, fileUploadState, liche
               onChange={(e) => onUsernameChange(e.target.value)}
               placeholder={`Enter your ${activeTab === 'lichess' ? 'Lichess' : 'Chess.com'} username`}
               disabled={isLoading}
+              className="w-full py-2 px-4 border border-border rounded-md text-base font-sans focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary-light"
             />
           </div>
         )}
 
         {activeTab === 'lichess' && (
-          <div className="lichess-import">
-            <div className="lichess-import-header">
-              <button
-                className="btn btn-primary btn-md lichess-import-btn"
-                onClick={handleQuickLichess}
-                disabled={isLoading}
-              >
+          <div className="mb-6">
+            <div className="flex items-center gap-2">
+              <Button className="flex-1" onClick={handleQuickLichess} disabled={isLoading}>
                 {importing ? <Loading text="Importing..." size="sm" /> : 'Import 20 games'}
-              </button>
-              <button
-                className="btn btn-secondary btn-sm"
-                onClick={() => setShowLichessOptions(!showLichessOptions)}
-                disabled={isLoading}
-              >
+              </Button>
+              <Button variant="secondary" size="sm" onClick={() => setShowLichessOptions(!showLichessOptions)} disabled={isLoading}>
                 {showLichessOptions ? 'Hide options' : 'Options'}
-              </button>
+              </Button>
             </div>
 
             {showLichessOptions && (
-              <div className="lichess-options">
-                <div className="lichess-option">
-                  <label htmlFor="lichess-max">Number of games:</label>
-                  <input
-                    id="lichess-max"
-                    type="number"
-                    min={1}
-                    max={100}
-                    value={lichessOptions.max || 20}
+              <div className="mt-4 p-4 bg-bg rounded-md flex flex-col gap-4">
+                <div className="flex items-center gap-4">
+                  <label htmlFor="lichess-max" className="min-w-[140px] font-medium text-text-muted">Number of games:</label>
+                  <input id="lichess-max" type="number" min={1} max={100} value={lichessOptions.max || 20}
                     onChange={(e) => setLichessOptions({ ...lichessOptions, max: parseInt(e.target.value) || 20 })}
                     disabled={isLoading}
+                    className="flex-1 py-2 px-4 border border-border rounded-md text-base font-sans max-w-[100px] focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary-light"
                   />
                 </div>
-                <div className="lichess-option">
-                  <label htmlFor="lichess-rated">Game type:</label>
-                  <select
-                    id="lichess-rated"
-                    value={lichessOptions.rated === undefined ? '' : lichessOptions.rated ? 'rated' : 'casual'}
-                    onChange={(e) => setLichessOptions({
-                      ...lichessOptions,
-                      rated: e.target.value === '' ? undefined : e.target.value === 'rated'
-                    })}
+                <div className="flex items-center gap-4">
+                  <label htmlFor="lichess-rated" className="min-w-[140px] font-medium text-text-muted">Game type:</label>
+                  <select id="lichess-rated" value={lichessOptions.rated === undefined ? '' : lichessOptions.rated ? 'rated' : 'casual'}
+                    onChange={(e) => setLichessOptions({ ...lichessOptions, rated: e.target.value === '' ? undefined : e.target.value === 'rated' })}
                     disabled={isLoading}
+                    className="flex-1 py-2 px-4 border border-border rounded-md text-base font-sans focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary-light"
                   >
                     <option value="">All games</option>
                     <option value="rated">Rated only</option>
                     <option value="casual">Casual only</option>
                   </select>
                 </div>
-                <div className="lichess-option">
-                  <label htmlFor="lichess-perf">Time control:</label>
-                  <select
-                    id="lichess-perf"
-                    value={lichessOptions.perfType || ''}
-                    onChange={(e) => setLichessOptions({
-                      ...lichessOptions,
-                      perfType: e.target.value as LichessImportOptions['perfType'] || undefined
-                    })}
+                <div className="flex items-center gap-4">
+                  <label htmlFor="lichess-perf" className="min-w-[140px] font-medium text-text-muted">Time control:</label>
+                  <select id="lichess-perf" value={lichessOptions.perfType || ''}
+                    onChange={(e) => setLichessOptions({ ...lichessOptions, perfType: e.target.value as LichessImportOptions['perfType'] || undefined })}
                     disabled={isLoading}
+                    className="flex-1 py-2 px-4 border border-border rounded-md text-base font-sans focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary-light"
                   >
                     <option value="">All</option>
                     <option value="bullet">Bullet</option>
@@ -169,61 +142,39 @@ export function ImportPanel({ username, onUsernameChange, fileUploadState, liche
                     <option value="classical">Classical</option>
                   </select>
                 </div>
-                <button
-                  className="btn btn-primary btn-md"
-                  onClick={handleCustomLichess}
-                  disabled={isLoading}
-                >
-                  Import with options
-                </button>
+                <Button onClick={handleCustomLichess} disabled={isLoading}>Import with options</Button>
               </div>
             )}
           </div>
         )}
 
         {activeTab === 'chesscom' && (
-          <div className="lichess-import">
-            <div className="lichess-import-header">
-              <button
-                className="btn btn-primary btn-md lichess-import-btn"
-                onClick={handleQuickChesscom}
-                disabled={isLoading}
-              >
+          <div className="mb-6">
+            <div className="flex items-center gap-2">
+              <Button className="flex-1" onClick={handleQuickChesscom} disabled={isLoading}>
                 {chesscomImporting ? <Loading text="Importing..." size="sm" /> : 'Import 20 games'}
-              </button>
-              <button
-                className="btn btn-secondary btn-sm"
-                onClick={() => setShowChesscomOptions(!showChesscomOptions)}
-                disabled={isLoading}
-              >
+              </Button>
+              <Button variant="secondary" size="sm" onClick={() => setShowChesscomOptions(!showChesscomOptions)} disabled={isLoading}>
                 {showChesscomOptions ? 'Hide options' : 'Options'}
-              </button>
+              </Button>
             </div>
 
             {showChesscomOptions && (
-              <div className="lichess-options">
-                <div className="lichess-option">
-                  <label htmlFor="chesscom-max">Number of games:</label>
-                  <input
-                    id="chesscom-max"
-                    type="number"
-                    min={1}
-                    max={100}
-                    value={chesscomOptions.max || 20}
+              <div className="mt-4 p-4 bg-bg rounded-md flex flex-col gap-4">
+                <div className="flex items-center gap-4">
+                  <label htmlFor="chesscom-max" className="min-w-[140px] font-medium text-text-muted">Number of games:</label>
+                  <input id="chesscom-max" type="number" min={1} max={100} value={chesscomOptions.max || 20}
                     onChange={(e) => setChesscomOptions({ ...chesscomOptions, max: parseInt(e.target.value) || 20 })}
                     disabled={isLoading}
+                    className="flex-1 py-2 px-4 border border-border rounded-md text-base font-sans max-w-[100px] focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary-light"
                   />
                 </div>
-                <div className="lichess-option">
-                  <label htmlFor="chesscom-time">Time control:</label>
-                  <select
-                    id="chesscom-time"
-                    value={chesscomOptions.timeClass || ''}
-                    onChange={(e) => setChesscomOptions({
-                      ...chesscomOptions,
-                      timeClass: e.target.value as ChesscomImportOptions['timeClass'] || undefined
-                    })}
+                <div className="flex items-center gap-4">
+                  <label htmlFor="chesscom-time" className="min-w-[140px] font-medium text-text-muted">Time control:</label>
+                  <select id="chesscom-time" value={chesscomOptions.timeClass || ''}
+                    onChange={(e) => setChesscomOptions({ ...chesscomOptions, timeClass: e.target.value as ChesscomImportOptions['timeClass'] || undefined })}
                     disabled={isLoading}
+                    className="flex-1 py-2 px-4 border border-border rounded-md text-base font-sans focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary-light"
                   >
                     <option value="">All</option>
                     <option value="bullet">Bullet</option>
@@ -232,13 +183,7 @@ export function ImportPanel({ username, onUsernameChange, fileUploadState, liche
                     <option value="daily">Daily</option>
                   </select>
                 </div>
-                <button
-                  className="btn btn-primary btn-md"
-                  onClick={handleCustomChesscom}
-                  disabled={isLoading}
-                >
-                  Import with options
-                </button>
+                <Button onClick={handleCustomChesscom} disabled={isLoading}>Import with options</Button>
               </div>
             )}
           </div>
@@ -246,7 +191,9 @@ export function ImportPanel({ username, onUsernameChange, fileUploadState, liche
 
         {activeTab === 'pgn' && (
           <div
-            className={`drop-zone ${dragOver ? 'drag-over' : ''} ${uploading ? 'uploading' : ''}`}
+            className={`border-2 border-dashed rounded-lg p-12 text-center cursor-pointer transition-all duration-150 ${
+              dragOver ? 'border-primary bg-primary-light' : 'border-border'
+            } ${uploading ? 'pointer-events-none opacity-70' : ''}`}
             onDrop={handleDrop}
             onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
             onDragLeave={() => setDragOver(false)}
@@ -256,9 +203,9 @@ export function ImportPanel({ username, onUsernameChange, fileUploadState, liche
               <Loading text="Uploading and analyzing..." />
             ) : (
               <>
-                <div className="drop-zone-icon">&#128193;</div>
-                <p className="drop-zone-text">Drag & drop a PGN file here, or click to select</p>
-                <p className="drop-zone-hint">.pgn files only</p>
+                <div className="text-5xl mb-4">&#128193;</div>
+                <p className="text-lg text-text mb-1">Drag & drop a PGN file here, or click to select</p>
+                <p className="text-text-muted text-sm">.pgn files only</p>
               </>
             )}
           </div>

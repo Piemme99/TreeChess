@@ -13,12 +13,15 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
+    "@tailwindcss/vite": "^4.1.18",
     "axios": "^1.6.0",
     "chess.js": "^1.0.0-beta.0",
+    "class-variance-authority": "^0.7.1",
     "react": "^18.2.0",
     "react-chessboard": "^4.4.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.20.0",
+    "tailwindcss": "^4.1.18",
     "zustand": "^4.5.0"
   },
   "devDependencies": {

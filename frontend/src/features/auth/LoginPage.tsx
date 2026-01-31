@@ -75,27 +75,27 @@ export function LoginPage() {
   };
 
   return (
-    <div className="login-page">
-      <div className="login-card">
-        <h1 className="login-logo">TreeChess</h1>
-        <h2 className="login-title">{isRegister ? 'Create Account' : 'Sign In'}</h2>
+    <div className="flex items-center justify-center min-h-screen bg-bg p-4">
+      <div className="bg-bg-card rounded-lg shadow-lg p-8 w-full max-w-[400px]">
+        <h1 className="text-center text-[1.75rem] text-primary mb-1">TreeChess</h1>
+        <h2 className="text-center text-xl text-text mb-6 font-medium">{isRegister ? 'Create Account' : 'Sign In'}</h2>
 
         {!isRegister && (
           <>
-            <a href={`${API_BASE}/auth/lichess/login`} className="login-oauth-btn lichess-btn">
+            <a href={`${API_BASE}/auth/lichess/login`} className="block w-full py-2 px-4 border border-border rounded-md text-[0.9375rem] font-medium cursor-pointer transition-all duration-150 font-sans text-center no-underline text-text hover:bg-bg hover:border-border-dark">
               Sign in with Lichess
             </a>
-            <div className="login-divider">
-              <span>or</span>
+            <div className="flex items-center my-4 text-text-muted text-[0.8125rem] before:content-[''] before:flex-1 before:border-b before:border-border after:content-[''] after:flex-1 after:border-b after:border-border">
+              <span className="px-2">or</span>
             </div>
           </>
         )}
 
-        <form onSubmit={handleSubmit} className="login-form">
-          {error && <div className="login-error">{error}</div>}
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          {error && <div className="bg-danger-light text-danger py-2 px-4 rounded-md text-sm">{error}</div>}
 
-          <div className="login-field">
-            <label htmlFor="username">Username</label>
+          <div className="flex flex-col gap-1">
+            <label htmlFor="username" className="text-sm font-medium text-text">Username</label>
             <input
               id="username"
               type="text"
@@ -106,11 +106,12 @@ export function LoginPage() {
               required
               minLength={3}
               maxLength={50}
+              className="py-2 px-4 border border-border rounded-md text-[0.9375rem] font-sans transition-colors duration-150 focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary-light"
             />
           </div>
 
-          <div className="login-field">
-            <label htmlFor="password">Password</label>
+          <div className="flex flex-col gap-1">
+            <label htmlFor="password" className="text-sm font-medium text-text">Password</label>
             <input
               id="password"
               type="password"
@@ -120,12 +121,13 @@ export function LoginPage() {
               autoComplete={isRegister ? 'new-password' : 'current-password'}
               required
               minLength={8}
+              className="py-2 px-4 border border-border rounded-md text-[0.9375rem] font-sans transition-colors duration-150 focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary-light"
             />
           </div>
 
           {isRegister && (
-            <div className="login-field">
-              <label htmlFor="confirmPassword">Confirm Password</label>
+            <div className="flex flex-col gap-1">
+              <label htmlFor="confirmPassword" className="text-sm font-medium text-text">Confirm Password</label>
               <input
                 id="confirmPassword"
                 type="password"
@@ -135,18 +137,19 @@ export function LoginPage() {
                 autoComplete="new-password"
                 required
                 minLength={8}
+                className="py-2 px-4 border border-border rounded-md text-[0.9375rem] font-sans transition-colors duration-150 focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary-light"
               />
             </div>
           )}
 
-          <button type="submit" className="login-submit" disabled={submitting}>
+          <button type="submit" className="py-2 px-4 bg-primary text-white border-none rounded-md text-[0.9375rem] font-medium cursor-pointer transition-colors duration-150 font-sans mt-2 hover:not-disabled:bg-primary-hover disabled:opacity-60 disabled:cursor-not-allowed" disabled={submitting}>
             {submitting ? 'Loading...' : isRegister ? 'Create Account' : 'Sign In'}
           </button>
         </form>
 
-        <div className="login-toggle">
+        <div className="text-center mt-6 text-sm text-text-muted">
           {isRegister ? 'Already have an account?' : "Don't have an account?"}{' '}
-          <button type="button" className="login-toggle-btn" onClick={toggleMode}>
+          <button type="button" className="bg-transparent border-none text-primary cursor-pointer text-sm font-medium font-sans hover:underline" onClick={toggleMode}>
             {isRegister ? 'Sign In' : 'Create Account'}
           </button>
         </div>

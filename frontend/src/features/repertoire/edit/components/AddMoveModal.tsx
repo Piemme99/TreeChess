@@ -54,7 +54,7 @@ export function AddMoveModal({
       title="Add Move"
       size="sm"
       footer={
-        <div className="modal-actions">
+        <div className="flex gap-2">
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
@@ -69,8 +69,8 @@ export function AddMoveModal({
         </div>
       }
     >
-      <div className="add-move-form">
-        <label htmlFor="move-input">Move (SAN notation)</label>
+      <div className="flex flex-col gap-2">
+        <label htmlFor="move-input" className="font-medium text-text-muted">Move (SAN notation)</label>
         <input
           id="move-input"
           type="text"
@@ -80,19 +80,19 @@ export function AddMoveModal({
             setMoveError('');
           }}
           placeholder="e.g., e4, Nf3, O-O, e8=Q"
-          className={moveError ? 'input-error' : ''}
+          className={`py-2 px-4 border rounded-md text-base font-mono focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary-light ${moveError ? 'border-danger' : 'border-border'}`}
           autoFocus
           onKeyDown={handleKeyDown}
         />
-        {moveError && <p className="error-message">{moveError}</p>}
+        {moveError && <p className="text-danger text-sm">{moveError}</p>}
       </div>
 
       {suggestedMove && (
-        <div className="stockfish-suggestion" style={{ marginTop: '12px', padding: '12px', background: '#e3f2fd', borderRadius: '6px', borderLeft: '4px solid #2196f3' }}>
-          <div style={{ fontSize: '14px', marginBottom: '4px' }}>
+        <div className="mt-3 p-3 bg-primary-light rounded-md border-l-4 border-l-[#2196f3]">
+          <div className="text-sm mb-1">
             Stockfish suggests: <strong>{suggestedMove}</strong>
             {suggestedScore !== null && suggestedScore !== undefined && (
-              <span style={{ marginLeft: '8px', color: '#666' }}>
+              <span className="ml-2 text-text-muted">
                 ({stockfishService.formatScore(suggestedScore)}, depth {suggestedDepth})
               </span>
             )}

@@ -25,7 +25,6 @@ export function StudyImportModal({ isOpen, onClose, onSuccess }: StudyImportModa
   const onPreview = useCallback(async () => {
     const success = await handlePreview(url);
     if (success) {
-      // Auto-select all chapters
       setSelectedChapters(new Set());
     }
   }, [url, handlePreview]);
@@ -68,14 +67,14 @@ export function StudyImportModal({ isOpen, onClose, onSuccess }: StudyImportModa
   return (
     <Modal isOpen={isOpen} onClose={handleClose} title="Import Lichess Study" size="md">
       {!studyInfo ? (
-        <div className="study-import-step">
-          <p className="study-import-hint">
+        <div className="flex flex-col gap-4">
+          <p className="text-text-muted text-[0.9rem] m-0">
             Paste a Lichess study URL to import its chapters as repertoires.
           </p>
-          <div className="study-import-url-row">
+          <div className="flex gap-2">
             <input
               type="text"
-              className="study-import-input"
+              className="flex-1 py-2 px-4 border border-border rounded-md text-[0.9rem] bg-bg text-text focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary-light"
               placeholder="https://lichess.org/study/abcdef12"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
@@ -87,42 +86,42 @@ export function StudyImportModal({ isOpen, onClose, onSuccess }: StudyImportModa
             </Button>
           </div>
           {previewError && (
-            <p className="study-import-error">{previewError}</p>
+            <p className="text-danger text-[0.85rem] m-0">{previewError}</p>
           )}
         </div>
       ) : (
-        <div className="study-import-step">
-          <div className="study-import-header">
-            <h3 className="study-import-name">{studyInfo.studyName}</h3>
-            <span className="study-import-count">{studyInfo.chapters.length} chapter(s)</span>
+        <div className="flex flex-col gap-4">
+          <div className="flex items-baseline justify-between gap-2">
+            <h3 className="m-0 text-[1.1rem] font-semibold text-text">{studyInfo.studyName}</h3>
+            <span className="text-text-muted text-[0.85rem] whitespace-nowrap">{studyInfo.chapters.length} chapter(s)</span>
           </div>
 
-          <div className="study-import-chapters">
-            <label className="study-chapter-row study-chapter-row--header">
+          <div className="flex flex-col border border-border rounded-md max-h-[320px] overflow-y-auto">
+            <label className="flex items-center gap-2 py-2 px-4 border-b border-border cursor-pointer text-[0.9rem] bg-bg font-medium sticky top-0">
               <input
                 type="checkbox"
                 checked={allSelected}
                 onChange={toggleAll}
               />
-              <span className="study-chapter-label">Select all</span>
+              <span className="flex-1">Select all</span>
             </label>
             {studyInfo.chapters.map((ch) => (
-              <label key={ch.index} className="study-chapter-row">
+              <label key={ch.index} className="flex items-center gap-2 py-2 px-4 border-b border-border last:border-b-0 cursor-pointer text-[0.9rem] hover:bg-bg">
                 <input
                   type="checkbox"
                   checked={noneSelected || selectedChapters.has(ch.index)}
                   onChange={() => toggleChapter(ch.index)}
                 />
-                <span className="study-chapter-color">
+                <span className="text-base shrink-0">
                   {ch.orientation === 'white' ? '\u2654' : '\u265A'}
                 </span>
-                <span className="study-chapter-name">{ch.name}</span>
-                <span className="study-chapter-moves">{ch.moveCount} moves</span>
+                <span className="flex-1 overflow-hidden text-ellipsis whitespace-nowrap">{ch.name}</span>
+                <span className="text-text-muted text-[0.8rem] whitespace-nowrap">{ch.moveCount} moves</span>
               </label>
             ))}
           </div>
 
-          <div className="study-import-actions">
+          <div className="flex justify-end gap-2">
             <Button variant="ghost" onClick={() => { reset(); setSelectedChapters(new Set()); }}>
               Back
             </Button>

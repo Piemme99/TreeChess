@@ -87,7 +87,7 @@ export function OnboardingModal({ isOpen, onClose }: OnboardingModalProps) {
       title="Welcome! Set up your profile"
       size="lg"
       footer={
-        <div className="modal-actions">
+        <div className="flex gap-2">
           <Button variant="ghost" onClick={onClose} disabled={loading}>
             Skip
           </Button>
@@ -99,14 +99,14 @@ export function OnboardingModal({ isOpen, onClose }: OnboardingModalProps) {
         </div>
       }
     >
-      {error && <div className="login-error" style={{ marginBottom: 16 }}>{error}</div>}
+      {error && <div className="bg-danger-light text-danger py-2 px-4 rounded-md text-sm mb-4">{error}</div>}
 
-      <div className="onboarding-section">
-        <h3 className="onboarding-section-title">Chess Usernames</h3>
-        <p className="onboarding-section-desc">Link your accounts to import games easily.</p>
-        <div className="onboarding-usernames">
-          <div className="onboarding-username-field">
-            <label htmlFor="onboarding-lichess">Lichess</label>
+      <div className="mb-6">
+        <h3 className="text-base font-semibold mb-1">Chess Usernames</h3>
+        <p className="text-sm text-text-muted mb-3">Link your accounts to import games easily.</p>
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-1">
+            <label htmlFor="onboarding-lichess" className="text-sm font-medium text-text">Lichess</label>
             <input
               id="onboarding-lichess"
               type="text"
@@ -115,10 +115,11 @@ export function OnboardingModal({ isOpen, onClose }: OnboardingModalProps) {
               placeholder="Lichess username"
               disabled={isLichessOAuth}
               maxLength={50}
+              className="py-2 px-4 border border-border rounded-md text-[0.9375rem] font-sans focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary-light disabled:opacity-60"
             />
           </div>
-          <div className="onboarding-username-field">
-            <label htmlFor="onboarding-chesscom">Chess.com</label>
+          <div className="flex flex-col gap-1">
+            <label htmlFor="onboarding-chesscom" className="text-sm font-medium text-text">Chess.com</label>
             <input
               id="onboarding-chesscom"
               type="text"
@@ -126,33 +127,34 @@ export function OnboardingModal({ isOpen, onClose }: OnboardingModalProps) {
               onChange={(e) => setChesscomUsername(e.target.value)}
               placeholder="Chess.com username"
               maxLength={50}
+              className="py-2 px-4 border border-border rounded-md text-[0.9375rem] font-sans focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary-light"
             />
           </div>
         </div>
       </div>
 
-      <div className="onboarding-section">
-        <h3 className="onboarding-section-title">Repertoire Templates</h3>
-        <p className="onboarding-section-desc">Pick openings to start with. You can always add more later.</p>
-        <div className="onboarding-templates">
+      <div>
+        <h3 className="text-base font-semibold mb-1">Repertoire Templates</h3>
+        <p className="text-sm text-text-muted mb-3">Pick openings to start with. You can always add more later.</p>
+        <div className="flex flex-col gap-2">
           {templates.map((tmpl) => (
             <label
               key={tmpl.id}
-              className={`onboarding-template-card${selected.has(tmpl.id) ? ' selected' : ''}`}
+              className={`flex items-center gap-4 p-4 border-2 rounded-md cursor-pointer transition-all duration-150 select-none ${selected.has(tmpl.id) ? 'border-primary bg-primary-light' : 'border-border hover:border-primary hover:bg-primary-light'}`}
               onClick={() => toggleTemplate(tmpl.id)}
             >
               <input
                 type="checkbox"
                 checked={selected.has(tmpl.id)}
                 onChange={() => toggleTemplate(tmpl.id)}
-                className="onboarding-checkbox"
+                className="w-[18px] h-[18px] shrink-0 accent-primary cursor-pointer"
               />
-              <span className={`onboarding-color-badge onboarding-color-${tmpl.color}`}>
+              <span className={`py-1 px-2 rounded-full text-xs font-semibold shrink-0 ${tmpl.color === 'white' ? 'bg-[#f5f5f5] text-[#333] border border-border' : 'bg-[#333] text-[#f5f5f5]'}`}>
                 {tmpl.color === 'white' ? 'White' : 'Black'}
               </span>
-              <div className="onboarding-template-info">
-                <span className="onboarding-template-name">{tmpl.name}</span>
-                <span className="onboarding-template-desc">{tmpl.description}</span>
+              <div className="flex flex-col gap-0.5">
+                <span className="font-semibold text-base">{tmpl.name}</span>
+                <span className="font-mono text-[0.8125rem] text-text-muted">{tmpl.description}</span>
               </div>
             </label>
           ))}

@@ -37,9 +37,9 @@ export interface GamesListProps {
 
 function StatusBadge({ status }: { status: GameStatus }) {
   const config: Record<GameStatus, { label: string; className: string }> = {
-    'ok': { label: 'OK', className: 'status-badge status-ok' },
-    'error': { label: 'Error', className: 'status-badge status-error' },
-    'new-line': { label: 'New line', className: 'status-badge status-new-line' }
+    'ok': { label: 'OK', className: 'py-1 px-2 rounded-full text-xs font-medium bg-success-light text-success' },
+    'error': { label: 'Error', className: 'py-1 px-2 rounded-full text-xs font-medium bg-danger-light text-danger' },
+    'new-line': { label: 'New line', className: 'py-1 px-2 rounded-full text-xs font-medium bg-info-light text-info' }
   };
 
   const { label, className } = config[status];
@@ -57,49 +57,53 @@ function GameCard({ game, onViewClick, onDeleteClick, onReanalyze, reanalyzing, 
   selected: boolean;
   onToggleSelect: () => void;
 }) {
+  const outcome = gameOutcome(game.result, game.userColor);
+  const outcomeBg = outcome === 'win' ? 'bg-success-light' : outcome === 'loss' ? 'bg-danger-light' : '';
+
   return (
     <div
-      className={`game-card game-${gameOutcome(game.result, game.userColor)}${selected ? ' game-card--selected' : ''}`}
+      className={`flex items-center justify-between p-4 bg-bg-card rounded-md shadow-sm ${outcomeBg}${selected ? ' outline-2 outline-primary bg-primary-light' : ''}`}
       onClick={selectionMode ? onToggleSelect : undefined}
     >
       {selectionMode && (
-        <div className="game-checkbox">
+        <div className="flex items-center pr-2">
           <input
             type="checkbox"
             checked={selected}
             onChange={onToggleSelect}
             onClick={(e) => e.stopPropagation()}
+            className="w-[18px] h-[18px] cursor-pointer accent-primary"
           />
         </div>
       )}
-      <div className="game-info">
-        <div className="game-players">
-          <span className="player-white">{game.white}</span>
-          <span className="vs">vs</span>
-          <span className="player-black">{game.black}</span>
-          {showNewBadge && <span className="badge-new">New</span>}
+      <div className="flex flex-col gap-1">
+        <div className="flex items-center gap-2 font-semibold text-text">
+          <span>{game.white}</span>
+          <span className="text-text-muted font-normal text-sm">vs</span>
+          <span>{game.black}</span>
+          {showNewBadge && <span className="inline-block py-px px-2 rounded-sm bg-primary text-white text-[0.6875rem] font-semibold uppercase tracking-wide ml-2 align-middle">New</span>}
         </div>
-        <div className="game-meta">
-          <span className="game-result">{game.result}</span>
-          {game.date && <span className="game-date">{game.date}</span>}
+        <div className="flex items-center gap-2 text-sm text-text-muted">
+          <span className="font-mono font-medium text-text">{game.result}</span>
+          {game.date && <span>{game.date}</span>}
           <StatusBadge status={game.status} />
-          {game.opening && <span className="game-opening">{game.opening}</span>}
-          {game.repertoireName && <span className="game-repertoire">{game.repertoireName}</span>}
+          {game.opening && <span className="text-[0.8125rem] text-text-muted italic">{game.opening}</span>}
+          {game.repertoireName && <span>{game.repertoireName}</span>}
         </div>
-        <div className="game-import-date">
+        <div className="text-xs text-text-light">
           Imported {formatDate(game.importedAt)} from {formatSource(game.source)}
         </div>
       </div>
       {!selectionMode && (
-        <div className="game-actions">
+        <div className="flex items-center gap-2">
           {game.repertoireId && (
             <button
-              className={`reanalyze-btn${reanalyzing ? ' reanalyzing' : ''}`}
+              className={`flex items-center justify-center w-7 h-7 p-0 border-none rounded-sm bg-transparent text-text-muted cursor-pointer transition-colors duration-150 hover:not-disabled:text-primary hover:not-disabled:bg-bg disabled:cursor-default ${reanalyzing ? '[&_svg]:animate-spin' : ''}`}
               onClick={() => onReanalyze(game.analysisId, game.gameIndex, game.repertoireId!)}
               disabled={reanalyzing}
               title="Re-analyze against current repertoire"
             >
-              <svg className="reanalyze-icon" viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5">
                 <path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9" strokeLinecap="round" strokeLinejoin="round" />
                 <path d="M13.5 2.5v2h-2" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
@@ -213,11 +217,11 @@ export function GamesList({
   }
 
   if (games.length === 0) {
-    return <p className="no-analyses">No games yet. Upload a PGN file to get started.</p>;
+    return <p className="text-center text-text-muted py-8">No games yet. Upload a PGN file to get started.</p>;
   }
 
   const renderGrid = (list: GameSummary[], showNew: boolean) => (
-    <div className="games-grid">
+    <div className="flex flex-col gap-2">
       {list.map((game) => {
         const key = toKey(game.analysisId, game.gameIndex);
         return (
@@ -239,8 +243,8 @@ export function GamesList({
   );
 
   return (
-    <div className="games-list">
-      <div className="games-list-toolbar">
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center gap-2">
         <Button
           variant={selectionMode ? 'primary' : 'ghost'}
           size="sm"
@@ -279,9 +283,9 @@ export function GamesList({
 
       {newGames.length > 0 && (
         <>
-          <h3 className="games-section-title">
+          <h3 className="text-[0.9375rem] font-semibold text-text my-4 mb-2 flex items-center gap-2 first:mt-0">
             New games
-            <span className="games-section-count">{newGames.length}</span>
+            <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-primary text-white text-xs font-semibold">{newGames.length}</span>
           </h3>
           {renderGrid(newGames, true)}
         </>
@@ -290,14 +294,14 @@ export function GamesList({
       {analyzedGames.length > 0 && (
         <>
           {newGames.length > 0 && (
-            <h3 className="games-section-title">Previously analyzed</h3>
+            <h3 className="text-[0.9375rem] font-semibold text-text my-4 mb-2 flex items-center gap-2">Previously analyzed</h3>
           )}
           {renderGrid(analyzedGames, false)}
         </>
       )}
 
       {totalPages > 1 && (
-        <div className="pagination">
+        <div className="flex items-center justify-center gap-4 pt-4 border-t border-border">
           <Button
             variant="secondary"
             size="sm"
@@ -306,7 +310,7 @@ export function GamesList({
           >
             Previous
           </Button>
-          <span className="pagination-info">
+          <span className="text-sm text-text-muted">
             Page {currentPage} of {totalPages}
           </span>
           <Button

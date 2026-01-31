@@ -26,27 +26,33 @@ export function QuickActions() {
   };
 
   return (
-    <section className="dashboard-section">
+    <section className="mb-8">
       {syncing && (
-        <div className="sync-status sync-status--active">
+        <div className="py-2 px-4 rounded-md text-[0.8125rem] mb-4 text-center bg-info-light text-info">
           Syncing games...
         </div>
       )}
       {showResult && !syncing && (
-        <div className="sync-status sync-status--done">
+        <div className="py-2 px-4 rounded-md text-[0.8125rem] mb-4 text-center bg-success-light text-success animate-sync-fade-out">
           {syncMessage()}
         </div>
       )}
-      <div className="quick-actions">
-        <button className="quick-action-card" onClick={() => navigate('/games')}>
-          <span className="quick-action-icon">&#128203;</span>
-          <span className="quick-action-label">Import Games</span>
-          <span className="quick-action-desc">From Lichess, Chess.com or PGN</span>
+      <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
+        <button
+          className="flex flex-col items-center p-6 bg-bg-card border border-border rounded-lg cursor-pointer transition-all duration-150 text-center font-sans hover:border-primary hover:shadow-md"
+          onClick={() => navigate('/games')}
+        >
+          <span className="text-[2rem] mb-2 leading-none">&#128203;</span>
+          <span className="font-semibold mb-1">Import Games</span>
+          <span className="text-[0.8125rem] text-text-muted">From Lichess, Chess.com or PGN</span>
         </button>
-        <button className="quick-action-card" onClick={() => navigate('/repertoires')}>
-          <span className="quick-action-icon">&#43;</span>
-          <span className="quick-action-label">Create Repertoire</span>
-          <span className="quick-action-desc">Build your opening playbook</span>
+        <button
+          className="flex flex-col items-center p-6 bg-bg-card border border-border rounded-lg cursor-pointer transition-all duration-150 text-center font-sans hover:border-primary hover:shadow-md"
+          onClick={() => navigate('/repertoires')}
+        >
+          <span className="text-[2rem] mb-2 leading-none">&#43;</span>
+          <span className="font-semibold mb-1">Create Repertoire</span>
+          <span className="text-[0.8125rem] text-text-muted">Build your opening playbook</span>
         </button>
       </div>
     </section>

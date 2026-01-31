@@ -1,0 +1,9 @@
+/* SVG hover effects that cannot be expressed in Tailwind */
+.tree-node {
+  cursor: pointer;
+}
+
+.tree-node:hover circle,
+.tree-node:hover rect {
+  filter: brightness(0.9);
+}

@@ -38,7 +38,7 @@ export function ExtractModal({
       title="Extract to New Repertoire"
       size="sm"
       footer={
-        <div className="modal-actions">
+        <div className="flex gap-2">
           <Button variant="ghost" onClick={onClose} disabled={actionLoading}>
             Cancel
           </Button>
@@ -49,8 +49,8 @@ export function ExtractModal({
       }
     >
       <p>This will extract the selected branch and all its variations into a new repertoire. The branch will be removed from the current repertoire.</p>
-      <div style={{ marginTop: '1rem' }}>
-        <label htmlFor="extract-name" style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>
+      <div className="mt-4">
+        <label htmlFor="extract-name" className="block mb-2 font-medium">
           New repertoire name
         </label>
         <input
@@ -59,15 +59,7 @@ export function ExtractModal({
           value={name}
           onChange={(e) => setName(e.target.value)}
           maxLength={100}
-          style={{
-            width: '100%',
-            padding: '0.5rem',
-            borderRadius: '4px',
-            border: '1px solid var(--color-border, #ccc)',
-            background: 'var(--color-bg-input, #fff)',
-            color: 'var(--color-text, #000)',
-            fontSize: '0.9rem'
-          }}
+          className="w-full py-2 px-3 rounded-sm border border-border bg-bg-card text-text text-[0.9rem] focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary-light"
         />
       </div>
     </Modal>
