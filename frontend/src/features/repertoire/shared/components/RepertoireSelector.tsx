@@ -44,10 +44,10 @@ export function RepertoireSelector({ color, repertoires }: RepertoireSelectorPro
 
     setLoading(true);
     try {
-      await createRepertoire(newName.trim(), color);
+      const rep = await createRepertoire(newName.trim(), color);
       setNewName('');
       setIsCreating(false);
-      toast.success('Repertoire created');
+      navigate(`/repertoire/${rep.id}/edit`);
     } catch {
       toast.error('Failed to create repertoire');
     } finally {

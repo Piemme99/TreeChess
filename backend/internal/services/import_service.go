@@ -19,6 +19,7 @@ type ImportService struct {
 	repertoireService *RepertoireService
 	analysisRepo      repository.AnalysisRepository
 	fingerprintRepo   repository.GameFingerprintRepository
+	engineService     *EngineService
 }
 
 // NewImportService creates a new import service with the given dependencies
@@ -40,6 +41,13 @@ type ImportServiceOption func(*ImportService)
 func WithFingerprintRepo(repo repository.GameFingerprintRepository) ImportServiceOption {
 	return func(s *ImportService) {
 		s.fingerprintRepo = repo
+	}
+}
+
+// WithEngineService sets the engine service on the ImportService
+func WithEngineService(svc *EngineService) ImportServiceOption {
+	return func(s *ImportService) {
+		s.engineService = svc
 	}
 }
 
@@ -157,6 +165,11 @@ func (s *ImportService) ParseAndAnalyze(filename string, username string, userID
 			// Log but don't fail the import
 			fmt.Printf("warning: failed to save fingerprints: %v\n", err)
 		}
+	}
+
+	// Enqueue engine analysis if available
+	if s.engineService != nil {
+		s.engineService.EnqueueAnalysis(userID, summary.ID, len(results))
 	}
 
 	return summary, results, nil
@@ -650,6 +663,143 @@ func ComputeFingerprint(headers models.PGNHeaders, moves []models.MoveAnalysis) 
 
 	hash := sha256.Sum256([]byte(b.String()))
 	return fmt.Sprintf("sha256:%x", hash)
+}
+
+// GetInsights computes worst opening mistakes using engine evaluations
+func (s *ImportService) GetInsights(userID string) (*models.InsightsResponse, error) {
+	response := &models.InsightsResponse{
+		WorstMistakes:      []models.OpeningMistake{},
+		EngineAnalysisDone: true,
+	}
+
+	// If no engine service, return empty (graceful degradation)
+	if s.engineService == nil {
+		return response, nil
+	}
+
+	// Get engine evals and raw game data
+	insightsData, err := s.engineService.GetInsightsData(userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get engine evals: %w", err)
+	}
+	response.EngineAnalysisDone = insightsData.AllDone
+	response.EngineAnalysisTotal = insightsData.Total
+	response.EngineAnalysisCompleted = insightsData.Completed
+	engineEvals := insightsData.Evals
+
+	analyses, err := s.analysisRepo.GetAllGamesRaw(userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get analyses: %w", err)
+	}
+
+	// Build lookup: analysisID+gameIndex -> explorer stats
+	type evalKey struct {
+		AnalysisID string
+		GameIndex  int
+	}
+	evalMap := make(map[evalKey][]models.ExplorerMoveStats)
+	for _, ee := range engineEvals {
+		if ee.Status == "done" && len(ee.Evals) > 0 {
+			evalMap[evalKey{ee.AnalysisID, ee.GameIndex}] = ee.Evals
+		}
+	}
+
+	// Group mistakes by FEN + played move
+	type mistakeKey struct {
+		FEN        string
+		PlayedMove string
+	}
+	type mistakeData struct {
+		bestMove    string
+		winrateDrop float64
+		earliestPly int
+		games       []models.GameRef
+		seen        map[string]bool
+	}
+	mistakeGroups := make(map[mistakeKey]*mistakeData)
+
+	for _, a := range analyses {
+		for _, game := range a.Results {
+			stats := evalMap[evalKey{a.ID, game.GameIndex}]
+			if len(stats) == 0 {
+				continue
+			}
+
+			for _, stat := range stats {
+				// Only count as mistake if winrate drop >= 2%
+				if stat.WinrateDrop < 0.02 {
+					continue
+				}
+
+				key := mistakeKey{FEN: stat.FEN, PlayedMove: stat.PlayedMove}
+				dedup := fmt.Sprintf("%s-%d", a.ID, game.GameIndex)
+
+				data, exists := mistakeGroups[key]
+				if !exists {
+					data = &mistakeData{
+						bestMove:    stat.BestMove,
+						winrateDrop: stat.WinrateDrop,
+						earliestPly: stat.PlyNumber,
+						seen:        make(map[string]bool),
+					}
+					mistakeGroups[key] = data
+				}
+
+				if !data.seen[dedup] {
+					data.seen[dedup] = true
+					if stat.WinrateDrop > data.winrateDrop {
+						data.winrateDrop = stat.WinrateDrop
+						data.bestMove = stat.BestMove
+					}
+					if len(data.games) < 5 {
+						data.games = append(data.games, models.GameRef{
+							AnalysisID: a.ID,
+							GameIndex:  game.GameIndex,
+							White:      game.Headers["White"],
+							Black:      game.Headers["Black"],
+							Result:     game.Headers["Result"],
+							Date:       game.Headers["Date"],
+						})
+					}
+				}
+			}
+		}
+	}
+
+	// Convert to slice, filter, and score: winrateDrop * frequency²
+	// Discard single-occurrence mistakes unless they're early (first 5 moves) and big (>=5% drop)
+	for key, data := range mistakeGroups {
+		freq := len(data.seen)
+		if freq == 1 && !(data.earliestPly <= 10 && data.winrateDrop >= 0.05) {
+			continue
+		}
+		score := data.winrateDrop * float64(freq) * float64(freq)
+		response.WorstMistakes = append(response.WorstMistakes, models.OpeningMistake{
+			FEN:         key.FEN,
+			PlayedMove:  key.PlayedMove,
+			BestMove:    data.bestMove,
+			WinrateDrop: data.winrateDrop,
+			Frequency:   freq,
+			Score:       score,
+			Games:       data.games,
+		})
+	}
+
+	// Sort by score desc, take top 5
+	sortMistakes(response.WorstMistakes)
+	if len(response.WorstMistakes) > 5 {
+		response.WorstMistakes = response.WorstMistakes[:5]
+	}
+
+	return response, nil
+}
+
+func sortMistakes(mistakes []models.OpeningMistake) {
+	for i := 1; i < len(mistakes); i++ {
+		for j := i; j > 0 && mistakes[j].Score > mistakes[j-1].Score; j-- {
+			mistakes[j], mistakes[j-1] = mistakes[j-1], mistakes[j]
+		}
+	}
 }
 
 func ensureFullFEN(fen string) string {

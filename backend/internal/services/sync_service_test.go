@@ -203,6 +203,95 @@ func TestSyncService_ComputeSince_WithoutLastSync(t *testing.T) {
 	assert.Equal(t, expected, since)
 }
 
+func TestSyncService_FirstSync_Uses50Games(t *testing.T) {
+	lichessUser := "lichessplayer"
+	chesscomUser := "chesscomuser"
+	user := &models.User{
+		ID:               "user-1",
+		LichessUsername:   &lichessUser,
+		ChesscomUsername:  &chesscomUser,
+		LastLichessSyncAt: nil,
+		LastChesscomSyncAt: nil,
+	}
+
+	var capturedLichessMax int
+	var capturedChesscomMax int
+
+	mockUserRepo := &mocks.MockUserRepo{
+		GetByIDFunc: func(id string) (*models.User, error) { return user, nil },
+		UpdateSyncTimestampsFunc: func(userID string, l, c *time.Time) error { return nil },
+	}
+	mockLichess := &mocks.MockLichessService{
+		FetchGamesFunc: func(username string, opts models.LichessImportOptions) (string, error) {
+			capturedLichessMax = opts.Max
+			return "[Event \"Test\"]\n\n1. e4 e5 1-0\n", nil
+		},
+	}
+	mockChesscom := &mocks.MockChesscomService{
+		FetchGamesFunc: func(username string, opts models.ChesscomImportOptions) (string, error) {
+			capturedChesscomMax = opts.Max
+			return "[Event \"Test\"]\n\n1. d4 d5 0-1\n", nil
+		},
+	}
+	mockImport := &mocks.MockImportService{
+		ParseAndAnalyzeFunc: func(filename, username, userID, pgnData string) (*models.AnalysisSummary, []models.GameAnalysis, error) {
+			return &models.AnalysisSummary{GameCount: 1}, nil, nil
+		},
+	}
+
+	svc := NewSyncService(mockUserRepo, mockImport, mockLichess, mockChesscom)
+	_, err := svc.Sync("user-1")
+
+	require.NoError(t, err)
+	assert.Equal(t, 50, capturedLichessMax, "first Lichess sync should request 50 games")
+	assert.Equal(t, 50, capturedChesscomMax, "first Chess.com sync should request 50 games")
+}
+
+func TestSyncService_SubsequentSync_Uses10Games(t *testing.T) {
+	lichessUser := "lichessplayer"
+	chesscomUser := "chesscomuser"
+	lastSync := time.Date(2024, 6, 15, 10, 0, 0, 0, time.UTC)
+	user := &models.User{
+		ID:                 "user-1",
+		LichessUsername:    &lichessUser,
+		ChesscomUsername:   &chesscomUser,
+		LastLichessSyncAt:  &lastSync,
+		LastChesscomSyncAt: &lastSync,
+	}
+
+	var capturedLichessMax int
+	var capturedChesscomMax int
+
+	mockUserRepo := &mocks.MockUserRepo{
+		GetByIDFunc: func(id string) (*models.User, error) { return user, nil },
+		UpdateSyncTimestampsFunc: func(userID string, l, c *time.Time) error { return nil },
+	}
+	mockLichess := &mocks.MockLichessService{
+		FetchGamesFunc: func(username string, opts models.LichessImportOptions) (string, error) {
+			capturedLichessMax = opts.Max
+			return "[Event \"Test\"]\n\n1. e4 e5 1-0\n", nil
+		},
+	}
+	mockChesscom := &mocks.MockChesscomService{
+		FetchGamesFunc: func(username string, opts models.ChesscomImportOptions) (string, error) {
+			capturedChesscomMax = opts.Max
+			return "[Event \"Test\"]\n\n1. d4 d5 0-1\n", nil
+		},
+	}
+	mockImport := &mocks.MockImportService{
+		ParseAndAnalyzeFunc: func(filename, username, userID, pgnData string) (*models.AnalysisSummary, []models.GameAnalysis, error) {
+			return &models.AnalysisSummary{GameCount: 1}, nil, nil
+		},
+	}
+
+	svc := NewSyncService(mockUserRepo, mockImport, mockLichess, mockChesscom)
+	_, err := svc.Sync("user-1")
+
+	require.NoError(t, err)
+	assert.Equal(t, 10, capturedLichessMax, "subsequent Lichess sync should request 10 games")
+	assert.Equal(t, 10, capturedChesscomMax, "subsequent Chess.com sync should request 10 games")
+}
+
 func TestSyncService_Sync_EmptyUsername(t *testing.T) {
 	emptyLichess := ""
 	emptyChesscom := ""

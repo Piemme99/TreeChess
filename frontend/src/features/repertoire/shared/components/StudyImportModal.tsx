@@ -12,12 +12,16 @@ interface StudyImportModalProps {
 export function StudyImportModal({ isOpen, onClose, onSuccess }: StudyImportModalProps) {
   const [url, setUrl] = useState('');
   const [selectedChapters, setSelectedChapters] = useState<Set<number>>(new Set());
+  const [mergeAsOne, setMergeAsOne] = useState(false);
+  const [mergeName, setMergeName] = useState('');
 
   const { previewing, importing, studyInfo, previewError, handlePreview, handleImport, reset } = useStudyImport(onSuccess);
 
   const handleClose = useCallback(() => {
     setUrl('');
     setSelectedChapters(new Set());
+    setMergeAsOne(false);
+    setMergeName('');
     reset();
     onClose();
   }, [onClose, reset]);
@@ -26,18 +30,22 @@ export function StudyImportModal({ isOpen, onClose, onSuccess }: StudyImportModa
     const success = await handlePreview(url);
     if (success) {
       setSelectedChapters(new Set());
+      setMergeAsOne(false);
+      setMergeName('');
     }
   }, [url, handlePreview]);
 
   const onImport = useCallback(async () => {
-    const chapters = selectedChapters.size > 0
-      ? Array.from(selectedChapters)
-      : studyInfo?.chapters.map(c => c.index) ?? [];
-    const result = await handleImport(url, chapters);
+    const chapters = mergeAsOne
+      ? studyInfo?.chapters.map(c => c.index) ?? []
+      : selectedChapters.size > 0
+        ? Array.from(selectedChapters)
+        : studyInfo?.chapters.map(c => c.index) ?? [];
+    const result = await handleImport(url, chapters, mergeAsOne, mergeAsOne ? (mergeName || studyInfo?.studyName) : undefined);
     if (result) {
       handleClose();
     }
-  }, [url, selectedChapters, studyInfo, handleImport, handleClose]);
+  }, [url, selectedChapters, studyInfo, mergeAsOne, mergeName, handleImport, handleClose]);
 
   const toggleChapter = (index: number) => {
     setSelectedChapters(prev => {
@@ -63,6 +71,11 @@ export function StudyImportModal({ isOpen, onClose, onSuccess }: StudyImportModa
   const allSelected = studyInfo ? selectedChapters.size === studyInfo.chapters.length : false;
   const noneSelected = selectedChapters.size === 0;
   const importCount = noneSelected ? (studyInfo?.chapters.length ?? 0) : selectedChapters.size;
+
+  // Check if all chapters share the same color (needed for merge)
+  const hasMixedColors = studyInfo
+    ? new Set(studyInfo.chapters.map(c => c.orientation)).size > 1
+    : false;
 
   return (
     <Modal isOpen={isOpen} onClose={handleClose} title="Import Lichess Study" size="md">
@@ -121,12 +134,48 @@ export function StudyImportModal({ isOpen, onClose, onSuccess }: StudyImportModa
             ))}
           </div>
 
+          <div className="flex flex-col gap-2">
+            <label className="flex items-center gap-2 cursor-pointer text-[0.9rem]">
+              <input
+                type="checkbox"
+                checked={mergeAsOne}
+                onChange={(e) => {
+                  setMergeAsOne(e.target.checked);
+                  if (e.target.checked && !mergeName) {
+                    setMergeName(studyInfo?.studyName ?? '');
+                  }
+                }}
+                disabled={hasMixedColors}
+              />
+              <span className={hasMixedColors ? 'text-text-muted' : ''}>
+                Merge all into one repertoire
+              </span>
+            </label>
+            {hasMixedColors && (
+              <p className="text-text-muted text-[0.8rem] m-0 ml-6">
+                Cannot merge: chapters have different colors (white/black)
+              </p>
+            )}
+            {mergeAsOne && (
+              <input
+                type="text"
+                className="py-2 px-4 border border-border rounded-md text-[0.9rem] bg-bg text-text focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary-light"
+                placeholder="Repertoire name"
+                value={mergeName}
+                onChange={(e) => setMergeName(e.target.value)}
+              />
+            )}
+          </div>
+
           <div className="flex justify-end gap-2">
-            <Button variant="ghost" onClick={() => { reset(); setSelectedChapters(new Set()); }}>
+            <Button variant="ghost" onClick={() => { reset(); setSelectedChapters(new Set()); setMergeAsOne(false); setMergeName(''); }}>
               Back
             </Button>
             <Button onClick={onImport} loading={importing}>
-              Import {importCount} chapter(s)
+              {mergeAsOne
+                ? `Import as 1 merged repertoire`
+                : `Import ${importCount} chapter(s)`
+              }
             </Button>
           </div>
         </div>

@@ -1,6 +1,11 @@
 interface EvalBarProps {
   score: number | undefined;
   mate: number | undefined;
+  fen: string;
+}
+
+function isBlackToMove(fen: string): boolean {
+  return fen.split(' ')[1] === 'b';
 }
 
 function scoreToWhitePercent(score: number | undefined, mate: number | undefined): number {
@@ -29,12 +34,17 @@ function formatScoreWithSign(score: number | undefined, mate: number | undefined
   return (pawns >= 0 ? '+' : '') + pawns.toFixed(1);
 }
 
-export function EvalBar({ score, mate }: EvalBarProps) {
-  const whitePercent = scoreToWhitePercent(score, mate);
+export function EvalBar({ score, mate, fen }: EvalBarProps) {
+  // Stockfish reports scores relative to the side to move.
+  // Normalize to white's perspective so the bar doesn't swing on every move.
+  const flip = isBlackToMove(fen);
+  const whiteScore = score !== undefined && flip ? -score : score;
+  const whiteMate = mate !== undefined && flip ? -mate : mate;
+  const whitePercent = scoreToWhitePercent(whiteScore, whiteMate);
   const clampedPercent = Math.max(5, Math.min(95, whitePercent));
   const blackPercent = 100 - clampedPercent;
-  const scoreText = formatScore(score, mate);
-  const hoverText = formatScoreWithSign(score, mate);
+  const scoreText = formatScore(whiteScore, whiteMate);
+  const hoverText = formatScoreWithSign(whiteScore, whiteMate);
   const whiteAdvantage = whitePercent >= 50;
 
   return (

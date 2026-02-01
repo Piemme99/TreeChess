@@ -148,6 +148,19 @@ func (db *DB) runMigrations() error {
 			viewed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
 			PRIMARY KEY (user_id, analysis_id, game_index)
 		)`,
+		`CREATE TABLE IF NOT EXISTS engine_evals (
+			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+			user_id UUID NOT NULL REFERENCES users(id),
+			analysis_id UUID NOT NULL REFERENCES analyses(id) ON DELETE CASCADE,
+			game_index INTEGER NOT NULL,
+			status VARCHAR(20) NOT NULL DEFAULT 'pending',
+			evals JSONB,
+			created_at TIMESTAMPTZ DEFAULT NOW(),
+			updated_at TIMESTAMPTZ DEFAULT NOW(),
+			UNIQUE(analysis_id, game_index)
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_engine_evals_user ON engine_evals(user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_engine_evals_status ON engine_evals(status)`,
 	}
 	for _, m := range migrations {
 		if _, err := db.Pool.Exec(ctx, m); err != nil {

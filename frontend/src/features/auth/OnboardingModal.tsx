@@ -19,6 +19,7 @@ interface OnboardingModalProps {
 export function OnboardingModal({ isOpen, onClose }: OnboardingModalProps) {
   const user = useAuthStore((s) => s.user);
   const updateProfile = useAuthStore((s) => s.updateProfile);
+  const triggerSync = useAuthStore((s) => s.triggerSync);
 
   const isLichessOAuth = user?.oauthProvider === 'lichess';
 
@@ -70,6 +71,11 @@ export function OnboardingModal({ isOpen, onClose }: OnboardingModalProps) {
 
       if (selected.size > 0) {
         await repertoireApi.seedFromTemplates(Array.from(selected));
+      }
+
+      // Trigger game sync now that the username and repertoires are set
+      if (lichessUsername || chesscomUsername) {
+        triggerSync();
       }
 
       onClose();

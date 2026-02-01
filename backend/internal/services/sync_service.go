@@ -10,8 +10,9 @@ import (
 )
 
 const (
-	syncLookbackDays = 10
-	syncMaxGames     = 10
+	syncLookbackDays      = 10
+	syncMaxGames          = 10
+	syncFirstSyncMaxGames = 50
 )
 
 type SyncService struct {
@@ -71,8 +72,13 @@ func (s *SyncService) Sync(userID string) (*models.SyncResult, error) {
 func (s *SyncService) syncLichess(user *models.User, now time.Time) (int, error) {
 	since := s.computeSince(user.LastLichessSyncAt, now)
 
+	max := syncMaxGames
+	if user.LastLichessSyncAt == nil {
+		max = syncFirstSyncMaxGames
+	}
+
 	options := models.LichessImportOptions{
-		Max:   syncMaxGames,
+		Max:   max,
 		Since: since,
 	}
 
@@ -93,8 +99,13 @@ func (s *SyncService) syncLichess(user *models.User, now time.Time) (int, error)
 func (s *SyncService) syncChesscom(user *models.User, now time.Time) (int, error) {
 	since := s.computeSince(user.LastChesscomSyncAt, now)
 
+	max := syncMaxGames
+	if user.LastChesscomSyncAt == nil {
+		max = syncFirstSyncMaxGames
+	}
+
 	options := models.ChesscomImportOptions{
-		Max:   syncMaxGames,
+		Max:   max,
 		Since: since,
 	}
 

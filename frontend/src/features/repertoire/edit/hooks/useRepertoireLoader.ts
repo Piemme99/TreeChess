@@ -67,6 +67,13 @@ export function useRepertoireLoader() {
     loadRepertoire();
   }, [id, repertoire, selectedNodeId, fetchRepertoire, selectNode, setLoading, navigate]);
 
+  // Fallback: ensure root node is always selected when repertoire is loaded
+  useEffect(() => {
+    if (repertoire && !selectedNodeId && !loading) {
+      selectNode(repertoire.treeData.id);
+    }
+  }, [repertoire, selectedNodeId, loading, selectNode]);
+
   return {
     id,
     color: repertoire?.color,

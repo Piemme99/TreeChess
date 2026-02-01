@@ -15,11 +15,10 @@ export const useEngineStore = create<EngineStoreState>((set) => ({
   error: null,
 
   setAnalyzing: (analyzing: boolean, fen?: string) => {
-    set((state) => ({ 
-      isAnalyzing: analyzing, 
+    set((state) => ({
+      isAnalyzing: analyzing,
       currentFEN: fen ?? state.currentFEN,
-      currentEvaluation: analyzing ? null : state.currentEvaluation,
-      error: null 
+      error: null
     }));
   },
 

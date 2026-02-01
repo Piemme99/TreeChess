@@ -36,6 +36,7 @@ interface RepertoireState {
   setLoading: (loading: boolean) => void;
   setError: (error: ApiError | null) => void;
   clearError: () => void;
+  clearAll: () => void;
 
   // Computed helpers
   findNode: (repertoire: Repertoire, nodeId: string) => RepertoireNode | null;
@@ -194,6 +195,14 @@ export const useRepertoireStore = create<RepertoireState>((set) => ({
   setError: (error) => set({ error }),
 
   clearError: () => set({ error: null }),
+
+  clearAll: () => set({
+    repertoires: [],
+    selectedRepertoireId: null,
+    selectedNodeId: null,
+    loading: false,
+    error: null,
+  }),
 
   findNode: (repertoire, nodeId) => {
     return findNodeInTree(repertoire.treeData, nodeId);

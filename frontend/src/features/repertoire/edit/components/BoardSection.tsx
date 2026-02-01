@@ -87,7 +87,7 @@ export function BoardSection({
 
   return (
     <div className="flex items-center justify-center aspect-square h-full shrink-0 max-md:w-full">
-      <EvalBar score={engineEvaluation?.score} mate={engineEvaluation?.mate} />
+      <EvalBar score={engineEvaluation?.score} mate={engineEvaluation?.mate} fen={currentFEN} />
       <div className="w-full h-full flex items-center justify-center p-2" ref={wrapperRef}>
         <ChessBoard
           fen={currentFEN}

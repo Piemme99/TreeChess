@@ -12,15 +12,15 @@ import (
 
 // Config holds application configuration
 type Config struct {
-	DatabaseURL      string
-	Port             int
-	AllowedOrigins   []string
-	JWTSecret        string
-	JWTExpiry        time.Duration
-	LichessClientID  string
-	FrontendURL      string
-	OAuthCallbackURL string
-	SecureCookies    bool
+	DatabaseURL       string
+	Port              int
+	AllowedOrigins    []string
+	JWTSecret         string
+	JWTExpiry         time.Duration
+	LichessClientID   string
+	FrontendURL       string
+	OAuthCallbackURL  string
+	SecureCookies     bool
 }
 
 // MustLoad loads configuration from environment variables

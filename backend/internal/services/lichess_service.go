@@ -25,7 +25,7 @@ type LichessService struct {
 func NewLichessService() *LichessService {
 	return &LichessService{
 		httpClient: &http.Client{
-			Timeout: 30 * time.Second,
+			Timeout: 120 * time.Second,
 		},
 	}
 }

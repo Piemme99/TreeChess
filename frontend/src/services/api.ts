@@ -17,7 +17,8 @@ import type {
   UpdateProfileRequest,
   SyncResult,
   StudyInfo,
-  StudyImportResponse
+  StudyImportResponse,
+  InsightsResponse
 } from '../types';
 
 const TOKEN_STORAGE_KEY = 'treechess_token';
@@ -210,12 +211,17 @@ export const healthApi = {
 // Study Import API
 export const studyApi = {
   preview: async (url: string): Promise<StudyInfo> => {
-    const response = await api.get('/studies/preview', { params: { url } });
+    const response = await api.get('/studies/preview', { params: { url }, timeout: 120000 });
     return response.data;
   },
 
-  import: async (studyUrl: string, chapters: number[]): Promise<StudyImportResponse> => {
-    const response = await api.post('/studies/import', { studyUrl, chapters });
+  import: async (studyUrl: string, chapters: number[], mergeAsOne?: boolean, mergeName?: string): Promise<StudyImportResponse> => {
+    const body: Record<string, unknown> = { studyUrl, chapters };
+    if (mergeAsOne) {
+      body.mergeAsOne = true;
+      if (mergeName) body.mergeName = mergeName;
+    }
+    const response = await api.post('/studies/import', body, { timeout: 120000 });
     return response.data;
   },
 };
@@ -261,5 +267,10 @@ export const gamesApi = {
 
   markViewed: async (analysisId: string, gameIndex: number): Promise<void> => {
     await api.post(`/games/${analysisId}/${gameIndex}/view`);
+  },
+
+  insights: async (options?: RequestOptions): Promise<InsightsResponse> => {
+    const response = await api.get('/games/insights', { signal: options?.signal });
+    return response.data;
   }
 };

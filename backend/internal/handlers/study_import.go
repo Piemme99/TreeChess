@@ -79,6 +79,34 @@ func (h *StudyImportHandler) ImportStudyHandler(c echo.Context) error {
 	userID := c.Get("userID").(string)
 	authToken := h.studyImportService.GetLichessTokenForUser(userID)
 
+	if req.MergeAsOne {
+		merged, err := h.studyImportService.ImportStudyChaptersMerged(userID, studyID, authToken, req.ChapterIndices, req.MergeName)
+		if err != nil {
+			if errors.Is(err, services.ErrLichessStudyNotFound) {
+				return NotFoundResponse(c, "Lichess study")
+			}
+			if errors.Is(err, services.ErrLichessStudyForbidden) {
+				return ErrorResponse(c, http.StatusForbidden, "this study is private; link your Lichess account to access it")
+			}
+			if errors.Is(err, services.ErrLichessRateLimited) {
+				return ErrorResponse(c, http.StatusTooManyRequests, "Lichess rate limit exceeded, try again later")
+			}
+			if errors.Is(err, services.ErrLimitReached) {
+				return BadRequestResponse(c, "maximum repertoire limit reached")
+			}
+			if errors.Is(err, services.ErrMixedColors) {
+				return BadRequestResponse(c, "cannot merge chapters with different colors (white/black)")
+			}
+			log.Printf("Study merged import error for user %s: %v", userID, err)
+			return BadRequestResponse(c, "failed to import study")
+		}
+
+		return c.JSON(http.StatusCreated, map[string]interface{}{
+			"repertoires": []models.Repertoire{*merged},
+			"count":       1,
+		})
+	}
+
 	repertoires, err := h.studyImportService.ImportStudyChapters(userID, studyID, authToken, req.ChapterIndices)
 	if err != nil {
 		if errors.Is(err, services.ErrLichessStudyNotFound) {

@@ -456,6 +456,40 @@ func (r *PostgresAnalysisRepo) GetViewedGames(userID string) (map[string]bool, e
 	return viewed, rows.Err()
 }
 
+// GetAllGamesRaw returns all analyses with full game data for a user
+func (r *PostgresAnalysisRepo) GetAllGamesRaw(userID string) ([]models.RawAnalysis, error) {
+	ctx, cancel := dbContext()
+	defer cancel()
+
+	rows, err := r.pool.Query(ctx, getAllGamesSQL, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query analyses: %w", err)
+	}
+	defer rows.Close()
+
+	var analyses []models.RawAnalysis
+	for rows.Next() {
+		var a models.RawAnalysis
+		var resultsJSON []byte
+
+		if err := rows.Scan(&a.ID, &a.Filename, &resultsJSON, &a.UploadedAt); err != nil {
+			return nil, fmt.Errorf("failed to scan analysis: %w", err)
+		}
+
+		if err := json.Unmarshal(resultsJSON, &a.Results); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal results: %w", err)
+		}
+
+		analyses = append(analyses, a)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating analyses: %w", err)
+	}
+
+	return analyses, nil
+}
+
 // classifySource derives the import source from the analysis filename
 func classifySource(filename string) string {
 	if strings.HasPrefix(filename, "sync_lichess_") || strings.HasPrefix(filename, "lichess_") {

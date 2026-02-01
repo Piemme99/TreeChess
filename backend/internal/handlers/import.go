@@ -402,6 +402,17 @@ func (h *ImportHandler) MarkGameViewedHandler(c echo.Context) error {
 	return c.NoContent(http.StatusNoContent)
 }
 
+func (h *ImportHandler) GetInsightsHandler(c echo.Context) error {
+	userID := c.Get("userID").(string)
+
+	insights, err := h.importService.GetInsights(userID)
+	if err != nil {
+		return InternalErrorResponse(c, "failed to get insights")
+	}
+
+	return c.JSON(http.StatusOK, insights)
+}
+
 func (h *ImportHandler) LichessImportHandler(c echo.Context) error {
 	var req models.LichessImportRequest
 	if err := c.Bind(&req); err != nil {

@@ -46,6 +46,16 @@ type GameFingerprintRepository interface {
 	DeleteByAnalysisAndIndex(analysisID string, gameIndex int) error
 }
 
+// EngineEvalRepository defines the interface for engine evaluation operations
+type EngineEvalRepository interface {
+	CreatePendingBatch(userID, analysisID string, gameCount int) error
+	GetPending(limit int) ([]models.EngineEval, error)
+	MarkProcessing(id string) error
+	SaveEvals(id string, evals []models.ExplorerMoveStats) error
+	MarkFailed(id string) error
+	GetByUser(userID string) ([]models.EngineEval, error)
+}
+
 // AnalysisRepository defines the interface for analysis data operations
 type AnalysisRepository interface {
 	Save(userID string, username, filename string, gameCount int, results []models.GameAnalysis) (*models.AnalysisSummary, error)
@@ -59,4 +69,5 @@ type AnalysisRepository interface {
 	GetDistinctRepertoires(userID string) ([]string, error)
 	MarkGameViewed(userID, analysisID string, gameIndex int) error
 	GetViewedGames(userID string) (map[string]bool, error)
+	GetAllGamesRaw(userID string) ([]models.RawAnalysis, error)
 }

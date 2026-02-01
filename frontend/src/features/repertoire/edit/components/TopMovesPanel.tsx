@@ -44,6 +44,11 @@ export function TopMovesPanel({ evaluation, fen }: TopMovesPanelProps) {
 
   const bestMoveSAN = pvSanMoves[0] || stockfishService.uciToSAN(evaluation.pv[0], fen);
 
+  // Normalize score to white's perspective (Stockfish reports relative to side to move)
+  const isBlack = fen ? fen.split(' ')[1] === 'b' : false;
+  const whiteScore = evaluation.score !== undefined && isBlack ? -evaluation.score : evaluation.score;
+  const whiteMate = evaluation.mate !== undefined && isBlack ? -evaluation.mate : evaluation.mate;
+
   return (
     <div className="p-4 bg-bg rounded-md mt-4">
       <h3 className="m-0 mb-3 text-base font-bold">
@@ -56,8 +61,8 @@ export function TopMovesPanel({ evaluation, fen }: TopMovesPanelProps) {
             Best: {bestMoveSAN}
           </span>
           <span className="ml-3 text-sm text-text-muted">
-            {stockfishService.formatScore(evaluation.score)}
-            {evaluation.mate && ` (Mate in ${Math.abs(evaluation.mate)})`}
+            {stockfishService.formatScore(whiteScore)}
+            {whiteMate !== undefined && whiteMate !== null && ` (Mate in ${Math.abs(whiteMate)})`}
           </span>
         </div>
       </div>

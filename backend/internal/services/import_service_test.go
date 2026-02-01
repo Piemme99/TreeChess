@@ -2,12 +2,14 @@ package services
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/notnil/chess"
 	"github.com/treechess/backend/internal/models"
+	"github.com/treechess/backend/internal/repository/mocks"
 )
 
 func TestImportService_ParsePGN(t *testing.T) {
@@ -1017,4 +1019,114 @@ func TestComputeFingerprint_LichessSitePriority(t *testing.T) {
 	fp := ComputeFingerprint(headers, moves)
 
 	assert.Equal(t, "https://lichess.org/abcdefgh", fp)
+}
+
+// --- GetInsights tests ---
+
+func makeRawAnalysis(id, filename string, uploadedAt time.Time, games []models.GameAnalysis) models.RawAnalysis {
+	return models.RawAnalysis{
+		ID:         id,
+		Filename:   filename,
+		Results:    games,
+		UploadedAt: uploadedAt,
+	}
+}
+
+func makeGameAnalysis(gameIndex int, headers models.PGNHeaders, moves []models.MoveAnalysis, userColor models.Color, repertoire *models.RepertoireRef) models.GameAnalysis {
+	return models.GameAnalysis{
+		GameIndex:         gameIndex,
+		Headers:           headers,
+		Moves:             moves,
+		UserColor:         userColor,
+		MatchedRepertoire: repertoire,
+	}
+}
+
+func TestGetInsights_NoEngineService(t *testing.T) {
+	// Without engine service, GetInsights returns empty with engineAnalysisDone=true
+	svc := NewImportService(nil, nil)
+	insights, err := svc.GetInsights("user-1")
+
+	require.NoError(t, err)
+	assert.NotNil(t, insights)
+	assert.Empty(t, insights.WorstMistakes)
+	assert.True(t, insights.EngineAnalysisDone)
+}
+
+func TestGetInsights_WithExplorerStats(t *testing.T) {
+	now := time.Now()
+
+	gameMoves := []models.MoveAnalysis{
+		{PlyNumber: 0, SAN: "d4", FEN: "startFEN w KQkq -", Status: "in-repertoire", IsUserMove: true},
+		{PlyNumber: 1, SAN: "d5", FEN: "afterD4 b KQkq -", Status: "in-repertoire", IsUserMove: false},
+		{PlyNumber: 2, SAN: "Bf4", FEN: "afterD5 w KQkq -", Status: "out-of-repertoire", IsUserMove: true},
+		{PlyNumber: 3, SAN: "Nf6", FEN: "afterBf4 b KQkq -", Status: "in-repertoire", IsUserMove: false},
+	}
+
+	analyses := []models.RawAnalysis{
+		makeRawAnalysis("a1", "lichess_user.pgn", now, []models.GameAnalysis{
+			makeGameAnalysis(0, models.PGNHeaders{"White": "A", "Black": "B", "Result": "1-0", "Date": "2024.01.01"}, gameMoves, models.ColorWhite, nil),
+		}),
+	}
+
+	// Explorer stats: user played Bf4 at ply 2, best was c4
+	// Bf4 winrate = 0.48, c4 winrate = 0.56, drop = 0.08 (8%)
+	engineEvals := []models.EngineEval{
+		{
+			ID: "ee1", UserID: "user-1", AnalysisID: "a1", GameIndex: 0, Status: "done",
+			Evals: []models.ExplorerMoveStats{
+				{PlyNumber: 0, FEN: "startFEN w KQkq -", PlayedMove: "d4", PlayedWinrate: 0.55, BestMove: "e4", BestWinrate: 0.55, WinrateDrop: 0.0, TotalGames: 1000},
+				{PlyNumber: 2, FEN: "afterD5 w KQkq -", PlayedMove: "Bf4", PlayedWinrate: 0.48, BestMove: "c4", BestWinrate: 0.56, WinrateDrop: 0.08, TotalGames: 500},
+			},
+		},
+	}
+
+	mockAnalysisRepo := &mocks.MockAnalysisRepo{
+		GetAllGamesRawFunc: func(userID string) ([]models.RawAnalysis, error) {
+			return analyses, nil
+		},
+	}
+
+	mockEvalRepo := &mocks.MockEngineEvalRepo{
+		GetByUserFunc: func(userID string) ([]models.EngineEval, error) {
+			return engineEvals, nil
+		},
+	}
+
+	engineSvc := NewEngineService(mockEvalRepo, mockAnalysisRepo)
+	svc := NewImportService(nil, mockAnalysisRepo, WithEngineService(engineSvc))
+
+	insights, err := svc.GetInsights("user-1")
+
+	require.NoError(t, err)
+	assert.True(t, insights.EngineAnalysisDone)
+	assert.Equal(t, 1, insights.EngineAnalysisTotal)
+	assert.Equal(t, 1, insights.EngineAnalysisCompleted)
+	assert.Len(t, insights.WorstMistakes, 1)
+	assert.Equal(t, "Bf4", insights.WorstMistakes[0].PlayedMove)
+	assert.Equal(t, "c4", insights.WorstMistakes[0].BestMove)
+	assert.InDelta(t, 0.08, insights.WorstMistakes[0].WinrateDrop, 0.001)
+	assert.Equal(t, 1, insights.WorstMistakes[0].Frequency)
+}
+
+func TestGetInsights_Empty(t *testing.T) {
+	mockAnalysisRepo := &mocks.MockAnalysisRepo{
+		GetAllGamesRawFunc: func(userID string) ([]models.RawAnalysis, error) {
+			return nil, nil
+		},
+	}
+	mockEvalRepo := &mocks.MockEngineEvalRepo{
+		GetByUserFunc: func(userID string) ([]models.EngineEval, error) {
+			return nil, nil
+		},
+	}
+
+	engineSvc := NewEngineService(mockEvalRepo, mockAnalysisRepo)
+	svc := NewImportService(nil, mockAnalysisRepo, WithEngineService(engineSvc))
+	insights, err := svc.GetInsights("user-1")
+
+	require.NoError(t, err)
+	assert.NotNil(t, insights)
+	assert.Empty(t, insights.WorstMistakes)
+	assert.True(t, insights.EngineAnalysisDone)
 }

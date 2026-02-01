@@ -170,6 +170,33 @@ export interface GamesResponse {
   offset: number;
 }
 
+// Insights types
+export interface GameRef {
+  analysisId: string;
+  gameIndex: number;
+  white: string;
+  black: string;
+  result: string;
+  date: string;
+}
+
+export interface OpeningMistake {
+  fen: string;
+  playedMove: string;
+  bestMove: string;
+  winrateDrop: number;
+  frequency: number;
+  score: number;
+  games: GameRef[];
+}
+
+export interface InsightsResponse {
+  worstMistakes: OpeningMistake[];
+  engineAnalysisDone: boolean;
+  engineAnalysisTotal: number;
+  engineAnalysisCompleted: number;
+}
+
 // API types
 export interface ApiError {
   message: string;
@@ -218,6 +245,8 @@ export interface StudyInfo {
 export interface StudyImportRequest {
   studyUrl: string;
   chapters: number[];
+  mergeAsOne?: boolean;
+  mergeName?: string;
 }
 
 export interface StudyImportResponse {
@@ -235,16 +264,7 @@ export interface Toast {
   duration?: number;
 }
 
-// Helper functions
-export function colorToShort(color: Color): ShortColor {
-  return color === 'white' ? 'w' : 'b';
-}
-
-export function shortToColor(short: ShortColor): Color {
-  return short === 'w' ? 'white' : 'black';
-}
-
-// Stockfish engine types
+// Engine types (browser-side Stockfish WASM for repertoire editor)
 export interface EngineEvaluation {
   score: number;
   mate?: number;
@@ -273,3 +293,13 @@ export interface UCIInfo {
   time?: number;
   nodes?: number;
 }
+
+// Helper functions
+export function colorToShort(color: Color): ShortColor {
+  return color === 'white' ? 'w' : 'b';
+}
+
+export function shortToColor(short: ShortColor): Color {
+  return short === 'w' ? 'white' : 'black';
+}
+

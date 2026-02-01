@@ -6,8 +6,10 @@ import { useFileUpload } from '../analyse-tab/hooks/useFileUpload';
 import { useLichessImport } from '../analyse-tab/hooks/useLichessImport';
 import { useChesscomImport } from '../analyse-tab/hooks/useChesscomImport';
 import { useDeleteGame } from '../analyse-tab/hooks/useDeleteGame';
+import { useInsights } from './hooks/useInsights';
 import { GamesList } from '../analyse-tab/components/GamesList';
 import { ImportPanel } from './components/ImportPanel';
+import { WorstMistakes } from './components/WorstMistakes';
 import { ConfirmModal, Button, EmptyState } from '../../shared/components/UI';
 import { gamesApi } from '../../services/api';
 import { toast } from '../../stores/toastStore';
@@ -55,6 +57,8 @@ export function GamesPage() {
     refresh
   } = useGames(timeClassFilter || undefined, repertoireFilter || undefined, sourceFilter || undefined);
 
+  const { insights, refresh: refreshInsights } = useInsights();
+
   useEffect(() => {
     const controller = new AbortController();
     gamesApi.repertoires({ signal: controller.signal })
@@ -65,9 +69,10 @@ export function GamesPage() {
 
   const handleImportSuccess = useCallback(() => {
     refresh();
+    refreshInsights();
     setShowImport(false);
     gamesApi.repertoires().then(setRepertoiresList).catch(() => {});
-  }, [refresh]);
+  }, [refresh, refreshInsights]);
 
   const fileUploadState = useFileUpload(username, handleImportSuccess);
   const lichessImportState = useLichessImport(username, handleImportSuccess);
@@ -125,6 +130,15 @@ export function GamesPage() {
           fileUploadState={fileUploadState}
           lichessImportState={lichessImportState}
           chesscomImportState={chesscomImportState}
+        />
+      )}
+
+      {insights && (
+        <WorstMistakes
+          mistakes={insights.worstMistakes}
+          engineAnalysisDone={insights.engineAnalysisDone}
+          engineAnalysisTotal={insights.engineAnalysisTotal}
+          engineAnalysisCompleted={insights.engineAnalysisCompleted}
         />
       )}
 

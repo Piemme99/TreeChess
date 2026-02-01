@@ -24,7 +24,10 @@ export function RepertoireTab() {
       </div>
       <button
         className="flex items-center gap-4 w-full max-w-[600px] py-6 px-8 border border-dashed border-border rounded-lg cursor-pointer transition-all duration-150 font-sans text-left hover:border-primary hover:border-solid hover:bg-bg-card hover:shadow-md"
-        onClick={() => setShowStudyModal(true)}
+        onClick={() => {
+          setShowStudyModal(true);
+          window.open('https://lichess.org/study', '_blank');
+        }}
       >
         <span className="text-[1.75rem] leading-none shrink-0">&#128218;</span>
         <div className="flex flex-col gap-0.5">

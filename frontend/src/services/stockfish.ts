@@ -69,7 +69,6 @@ class StockfishService {
     this.pendingEvaluation = null;
 
     this.sendCommand('stop');
-    this.sendCommand('ucinewgame');
     this.sendCommand(`position fen ${fen}`);
     this.sendCommand(`go depth ${depth}`);
   }
@@ -107,8 +106,8 @@ class StockfishService {
       if (info && info.depth <= this.currentDepth) {
         this.pendingEvaluation = info;
         
-        // Send intermediate evaluations for UI updates
-        if (info.depth >= 6 && info.pv && info.pv.length > 0) {
+        // Send intermediate evaluations for UI updates (depth 10+ for stability)
+        if (info.depth >= 10 && info.pv && info.pv.length > 0) {
           const from = info.pv[0].slice(0, 2);
           const to = info.pv[0].slice(2, 4);
           const evaluation = this.buildEvaluation(info, from, to);

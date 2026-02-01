@@ -103,6 +103,58 @@ func (m *MockFingerprintRepo) DeleteByAnalysisAndIndex(analysisID string, gameIn
 	return nil
 }
 
+// MockEngineEvalRepo is a mock implementation of EngineEvalRepository for testing
+type MockEngineEvalRepo struct {
+	CreatePendingBatchFunc func(userID, analysisID string, gameCount int) error
+	GetPendingFunc         func(limit int) ([]models.EngineEval, error)
+	MarkProcessingFunc     func(id string) error
+	SaveEvalsFunc          func(id string, evals []models.ExplorerMoveStats) error
+	MarkFailedFunc         func(id string) error
+	GetByUserFunc          func(userID string) ([]models.EngineEval, error)
+}
+
+func (m *MockEngineEvalRepo) CreatePendingBatch(userID, analysisID string, gameCount int) error {
+	if m.CreatePendingBatchFunc != nil {
+		return m.CreatePendingBatchFunc(userID, analysisID, gameCount)
+	}
+	return nil
+}
+
+func (m *MockEngineEvalRepo) GetPending(limit int) ([]models.EngineEval, error) {
+	if m.GetPendingFunc != nil {
+		return m.GetPendingFunc(limit)
+	}
+	return nil, nil
+}
+
+func (m *MockEngineEvalRepo) MarkProcessing(id string) error {
+	if m.MarkProcessingFunc != nil {
+		return m.MarkProcessingFunc(id)
+	}
+	return nil
+}
+
+func (m *MockEngineEvalRepo) SaveEvals(id string, evals []models.ExplorerMoveStats) error {
+	if m.SaveEvalsFunc != nil {
+		return m.SaveEvalsFunc(id, evals)
+	}
+	return nil
+}
+
+func (m *MockEngineEvalRepo) MarkFailed(id string) error {
+	if m.MarkFailedFunc != nil {
+		return m.MarkFailedFunc(id)
+	}
+	return nil
+}
+
+func (m *MockEngineEvalRepo) GetByUser(userID string) ([]models.EngineEval, error) {
+	if m.GetByUserFunc != nil {
+		return m.GetByUserFunc(userID)
+	}
+	return nil, nil
+}
+
 // MockRepertoireRepo is a mock implementation of RepertoireRepository for testing
 type MockRepertoireRepo struct {
 	GetByIDFunc       func(id string) (*models.Repertoire, error)
@@ -200,6 +252,7 @@ type MockAnalysisRepo struct {
 	GetDistinctRepertoiresFunc func(userID string) ([]string, error)
 	MarkGameViewedFunc         func(userID, analysisID string, gameIndex int) error
 	GetViewedGamesFunc         func(userID string) (map[string]bool, error)
+	GetAllGamesRawFunc         func(userID string) ([]models.RawAnalysis, error)
 }
 
 func (m *MockAnalysisRepo) Save(userID string, username, filename string, gameCount int, results []models.GameAnalysis) (*models.AnalysisSummary, error) {
@@ -277,6 +330,13 @@ func (m *MockAnalysisRepo) GetViewedGames(userID string) (map[string]bool, error
 		return m.GetViewedGamesFunc(userID)
 	}
 	return map[string]bool{}, nil
+}
+
+func (m *MockAnalysisRepo) GetAllGamesRaw(userID string) ([]models.RawAnalysis, error) {
+	if m.GetAllGamesRawFunc != nil {
+		return m.GetAllGamesRawFunc(userID)
+	}
+	return nil, nil
 }
 
 // MockUserRepo is a mock implementation of UserRepository for testing

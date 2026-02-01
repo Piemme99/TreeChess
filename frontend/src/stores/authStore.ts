@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { authApi, syncApi } from '../services/api';
+import { useRepertoireStore } from './repertoireStore';
 import type { User, UpdateProfileRequest, SyncResult } from '../types';
 
 const TOKEN_STORAGE_KEY = 'treechess_token';
@@ -98,6 +99,8 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   logout: () => {
     localStorage.removeItem(TOKEN_STORAGE_KEY);
+    // Clear cached data from other stores to prevent data leaking between accounts
+    useRepertoireStore.getState().clearAll();
     set({
       user: null,
       token: null,
