@@ -135,6 +135,7 @@ func main() {
 	protected.PATCH("/api/repertoires/:id/nodes/:nodeId/comment", handlers.UpdateNodeCommentHandler(repertoireSvc))
 	protected.POST("/api/repertoires/merge", handlers.MergeRepertoiresHandler(repertoireSvc))
 	protected.POST("/api/repertoires/:id/extract", handlers.ExtractSubtreeHandler(repertoireSvc))
+	protected.POST("/api/repertoires/:id/merge-transpositions", handlers.MergeTranspositionsHandler(repertoireSvc))
 
 	// Import/Analysis API
 	importHandler := handlers.NewImportHandler(importSvc, lichessSvc, chesscomSvc)

@@ -490,6 +490,40 @@ func MergeRepertoiresHandler(svc *services.RepertoireService) echo.HandlerFunc {
 	}
 }
 
+// MergeTranspositionsHandler merges transpositions within a single repertoire
+// POST /api/repertoires/:id/merge-transpositions
+func MergeTranspositionsHandler(svc *services.RepertoireService) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		userID := c.Get("userID").(string)
+		idParam := c.Param("id")
+
+		// Validate repertoire ID is a valid UUID
+		if _, err := uuid.Parse(idParam); err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{
+				"error": "repertoire id must be a valid UUID",
+			})
+		}
+
+		if err := svc.CheckOwnership(idParam, userID); err != nil {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "repertoire not found"})
+		}
+
+		rep, err := svc.MergeTranspositions(idParam)
+		if err != nil {
+			if errors.Is(err, services.ErrNotFound) {
+				return c.JSON(http.StatusNotFound, map[string]string{
+					"error": "repertoire not found",
+				})
+			}
+			return c.JSON(http.StatusInternalServerError, map[string]string{
+				"error": "failed to merge transpositions",
+			})
+		}
+
+		return c.JSON(http.StatusOK, rep)
+	}
+}
+
 // UpdateNodeCommentHandler updates the comment on a specific node
 // PATCH /api/repertoires/:id/nodes/:nodeId/comment
 func UpdateNodeCommentHandler(svc *services.RepertoireService) echo.HandlerFunc {

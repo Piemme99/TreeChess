@@ -13,6 +13,7 @@ interface TreeNodeProps {
 export function TreeNode({ layoutNode, selectedNodeId, onClick, onMouseEnter, onMouseLeave }: TreeNodeProps) {
   const isRoot = layoutNode.node.move === null;
   const isSelected = layoutNode.id === selectedNodeId;
+  const isTransposition = !!layoutNode.node.transpositionOf;
   // colorToMove is the color to play AFTER this move
   // So if colorToMove === 'b', the move that was just played was white's move
   const isWhiteMove = layoutNode.node.colorToMove === 'b';
@@ -41,9 +42,10 @@ export function TreeNode({ layoutNode, selectedNodeId, onClick, onMouseEnter, on
           cx={layoutNode.x}
           cy={layoutNode.y}
           r={NODE_RADIUS}
-          fill={isSelected ? '#4a90d9' : isWhiteMove ? '#ffffff' : '#1f2937'}
-          stroke={isSelected ? '#2563eb' : isWhiteMove ? '#9ca3af' : '#111827'}
+          fill={isTransposition ? 'transparent' : isSelected ? '#4a90d9' : isWhiteMove ? '#ffffff' : '#1f2937'}
+          stroke={isTransposition ? '#a78bfa' : isSelected ? '#2563eb' : isWhiteMove ? '#9ca3af' : '#111827'}
           strokeWidth="2"
+          strokeDasharray={isTransposition ? '4 2' : undefined}
         />
       )}
       <text
@@ -52,7 +54,7 @@ export function TreeNode({ layoutNode, selectedNodeId, onClick, onMouseEnter, on
         textAnchor="middle"
         fontSize="11"
         fontWeight="bold"
-        fill={isRoot || isSelected ? '#fff' : isWhiteMove ? '#333' : '#fff'}
+        fill={isRoot || isSelected ? '#fff' : isTransposition ? '#a78bfa' : isWhiteMove ? '#333' : '#fff'}
       >
         {isRoot ? 'Start' : layoutNode.node.move}
       </text>

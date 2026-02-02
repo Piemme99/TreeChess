@@ -438,14 +438,15 @@ func (s *RepertoireService) ExtractSubtree(userID, repertoireID, nodeID, name st
 func deepCloneSubtree(node *models.RepertoireNode, parentID *string) *models.RepertoireNode {
 	newID := uuid.New().String()
 	cloned := &models.RepertoireNode{
-		ID:          newID,
-		FEN:         node.FEN,
-		Move:        node.Move,
-		MoveNumber:  node.MoveNumber,
-		ColorToMove: node.ColorToMove,
-		ParentID:    parentID,
-		Comment:     node.Comment,
-		Children:    make([]*models.RepertoireNode, 0, len(node.Children)),
+		ID:              newID,
+		FEN:             node.FEN,
+		Move:            node.Move,
+		MoveNumber:      node.MoveNumber,
+		ColorToMove:     node.ColorToMove,
+		ParentID:        parentID,
+		Comment:         node.Comment,
+		TranspositionOf: node.TranspositionOf,
+		Children:        make([]*models.RepertoireNode, 0, len(node.Children)),
 	}
 	for _, child := range node.Children {
 		cloned.Children = append(cloned.Children, deepCloneSubtree(child, &newID))
@@ -566,6 +567,105 @@ func (s *RepertoireService) MergeRepertoires(userID string, ids []string, name s
 	}
 
 	return &models.MergeRepertoiresResponse{Merged: saved}, nil
+}
+
+// MergeTranspositions detects positions reached via different move orders
+// at the same move number and merges them. The first node encountered (BFS order)
+// becomes the canonical node; duplicates become transposition pointers.
+func (s *RepertoireService) MergeTranspositions(repertoireID string) (*models.Repertoire, error) {
+	rep, err := s.repo.GetByID(repertoireID)
+	if err != nil {
+		if errors.Is(err, repository.ErrRepertoireNotFound) {
+			return nil, fmt.Errorf("%w: %w", ErrNotFound, err)
+		}
+		return nil, err
+	}
+
+	mergeTranspositionsInTree(&rep.TreeData)
+
+	metadata := calculateMetadata(rep.TreeData)
+	return s.repo.Save(repertoireID, rep.TreeData, metadata)
+}
+
+// positionKey identifies a unique position at a specific move number.
+type positionKey struct {
+	normalizedFEN string
+	moveNumber    int
+}
+
+// mergeTranspositionsInTree performs BFS level-by-level, grouping nodes by
+// (normalizedFEN, moveNumber). For groups with >1 node, the first is canonical
+// and the others become transposition pointers.
+func mergeTranspositionsInTree(root *models.RepertoireNode) {
+	// BFS queue — we process all nodes at the current depth before moving on.
+	queue := []*models.RepertoireNode{root}
+
+	for len(queue) > 0 {
+		// Collect all children of the current level.
+		var nextLevel []*models.RepertoireNode
+		for _, node := range queue {
+			// Skip transposition nodes — they have no meaningful children.
+			if node.TranspositionOf != nil {
+				continue
+			}
+			nextLevel = append(nextLevel, node.Children...)
+		}
+
+		if len(nextLevel) == 0 {
+			break
+		}
+
+		// Group children by position key.
+		type group struct {
+			canonical *models.RepertoireNode
+			others    []*models.RepertoireNode
+		}
+		groups := make(map[positionKey]*group)
+		// Preserve insertion order for deterministic results.
+		var keys []positionKey
+
+		for _, child := range nextLevel {
+			// Already a transposition node — skip.
+			if child.TranspositionOf != nil {
+				continue
+			}
+			key := positionKey{
+				normalizedFEN: NormalizeFEN(child.FEN),
+				moveNumber:    child.MoveNumber,
+			}
+			g, exists := groups[key]
+			if !exists {
+				g = &group{canonical: child}
+				groups[key] = g
+				keys = append(keys, key)
+			} else {
+				g.others = append(g.others, child)
+			}
+		}
+
+		// Merge duplicates into the canonical node.
+		for _, key := range keys {
+			g := groups[key]
+			if len(g.others) == 0 {
+				continue
+			}
+			canonical := g.canonical
+			for _, dup := range g.others {
+				// Merge children of dup into canonical (same logic as mergeNodes).
+				mergeNodes(canonical, dup)
+				// Turn dup into a transposition pointer.
+				dup.TranspositionOf = &canonical.ID
+				dup.Children = []*models.RepertoireNode{}
+				// Preserve comment: fill in if canonical has none.
+				if canonical.Comment == nil && dup.Comment != nil {
+					canonical.Comment = dup.Comment
+				}
+			}
+		}
+
+		// Next BFS level: all children of canonical nodes at the current level.
+		queue = nextLevel
+	}
 }
 
 // mergeNodes recursively merges source children into the target node.

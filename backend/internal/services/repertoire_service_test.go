@@ -1468,3 +1468,214 @@ func TestRepertoireService_RenameRepertoire_NotFound(t *testing.T) {
 
 	assert.ErrorIs(t, err, ErrNotFound)
 }
+
+// --- MergeTranspositions tests ---
+
+// helper to build a node
+func mkNode(id string, fen string, move *string, moveNumber int, colorToMove models.ChessColor, parentID *string, children ...*models.RepertoireNode) *models.RepertoireNode {
+	if children == nil {
+		children = []*models.RepertoireNode{}
+	}
+	return &models.RepertoireNode{
+		ID:          id,
+		FEN:         fen,
+		Move:        move,
+		MoveNumber:  moveNumber,
+		ColorToMove: colorToMove,
+		ParentID:    parentID,
+		Children:    children,
+	}
+}
+
+func TestMergeTranspositions_BasicMerge(t *testing.T) {
+	// Two branches reaching the same position at move 2:
+	// Root -> e4 -> e5 -> Nf3 (pos X) -> Nc6
+	// Root -> Nf3 -> e5 -> e4 (pos X) -> Bc5
+	// After merge: Nf3 (canonical) has children [Nc6, Bc5], e4 becomes transposition.
+	posX := "rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq -"
+	rootID := "root"
+
+	nc6 := mkNode("nc6", "some-fen-nc6", strPtr("Nc6"), 2, "w", strPtr("nf3-1"))
+	d6 := mkNode("d6", "some-fen-d6", strPtr("d6"), 2, "w", strPtr("nf3-1"))
+	nf3Node1 := mkNode("nf3-1", posX, strPtr("Nf3"), 2, "b", strPtr("e5-1"), nc6, d6)
+	e5Node1 := mkNode("e5-1", "fen-e5-1", strPtr("e5"), 1, "w", strPtr("e4-1"), nf3Node1)
+	e4Node1 := mkNode("e4-1", "fen-e4", strPtr("e4"), 1, "b", &rootID, e5Node1)
+
+	bc5 := mkNode("bc5", "some-fen-bc5", strPtr("Bc5"), 2, "w", strPtr("e4-2"))
+	e4Node2 := mkNode("e4-2", posX, strPtr("e4"), 2, "b", strPtr("e5-2"), bc5)
+	e5Node2 := mkNode("e5-2", "fen-e5-2", strPtr("e5"), 1, "w", strPtr("nf3-2"), e4Node2)
+	nf3Node2 := mkNode("nf3-2", "fen-nf3", strPtr("Nf3"), 1, "b", &rootID, e5Node2)
+
+	root := models.RepertoireNode{
+		ID:          rootID,
+		FEN:         "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+		MoveNumber:  0,
+		ColorToMove: "w",
+		Children:    []*models.RepertoireNode{e4Node1, nf3Node2},
+	}
+
+	var savedTree models.RepertoireNode
+	mockRepo := &mocks.MockRepertoireRepo{
+		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+			return &models.Repertoire{
+				ID:       "rep-1",
+				TreeData: root,
+			}, nil
+		},
+		SaveFunc: func(id string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
+			savedTree = treeData
+			return &models.Repertoire{
+				ID:       id,
+				TreeData: treeData,
+				Metadata: metadata,
+			}, nil
+		},
+	}
+
+	svc := NewRepertoireService(mockRepo)
+	result, err := svc.MergeTranspositions("rep-1")
+	require.NoError(t, err)
+
+	// nf3-1 is the canonical node (encountered first in BFS)
+	canonicalNode := findNode(&savedTree, "nf3-1")
+	require.NotNil(t, canonicalNode)
+	assert.Nil(t, canonicalNode.TranspositionOf)
+	// Canonical should have 3 children: Nc6, d6 (original), Bc5 (merged from e4-2)
+	assert.Equal(t, 3, len(canonicalNode.Children))
+
+	// e4-2 should be a transposition pointer
+	transpNode := findNode(&savedTree, "e4-2")
+	require.NotNil(t, transpNode)
+	require.NotNil(t, transpNode.TranspositionOf)
+	assert.Equal(t, "nf3-1", *transpNode.TranspositionOf)
+	assert.Empty(t, transpNode.Children)
+
+	// Result should have valid metadata
+	assert.True(t, result.Metadata.TotalNodes > 0)
+}
+
+func TestMergeTranspositions_NoTranspositions(t *testing.T) {
+	// Tree with no transpositions should remain unchanged.
+	rootID := "root"
+	e4 := mkNode("e4", "fen-e4", strPtr("e4"), 1, "b", &rootID)
+	d4 := mkNode("d4", "fen-d4", strPtr("d4"), 1, "b", &rootID)
+
+	root := models.RepertoireNode{
+		ID:          rootID,
+		FEN:         "startpos",
+		MoveNumber:  0,
+		ColorToMove: "w",
+		Children:    []*models.RepertoireNode{e4, d4},
+	}
+
+	var savedTree models.RepertoireNode
+	mockRepo := &mocks.MockRepertoireRepo{
+		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+			return &models.Repertoire{ID: "rep-1", TreeData: root}, nil
+		},
+		SaveFunc: func(id string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
+			savedTree = treeData
+			return &models.Repertoire{ID: id, TreeData: treeData, Metadata: metadata}, nil
+		},
+	}
+
+	svc := NewRepertoireService(mockRepo)
+	_, err := svc.MergeTranspositions("rep-1")
+	require.NoError(t, err)
+
+	// Both nodes should remain unchanged
+	assert.Nil(t, findNode(&savedTree, "e4").TranspositionOf)
+	assert.Nil(t, findNode(&savedTree, "d4").TranspositionOf)
+	assert.Equal(t, 2, len(savedTree.Children))
+}
+
+func TestMergeTranspositions_CommonChildrenMerged(t *testing.T) {
+	// Both branches have child with same move "Nc6" — should not duplicate it.
+	posX := "rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq -"
+	rootID := "root"
+
+	nc6a := mkNode("nc6a", "fen-nc6", strPtr("Nc6"), 2, "w", strPtr("nf3-1"))
+	nf3Node1 := mkNode("nf3-1", posX, strPtr("Nf3"), 2, "b", strPtr("e5-1"), nc6a)
+	e5Node1 := mkNode("e5-1", "fen-e5-1", strPtr("e5"), 1, "w", strPtr("e4-1"), nf3Node1)
+	e4Node1 := mkNode("e4-1", "fen-e4", strPtr("e4"), 1, "b", &rootID, e5Node1)
+
+	nc6b := mkNode("nc6b", "fen-nc6", strPtr("Nc6"), 2, "w", strPtr("e4-2"))
+	d6 := mkNode("d6", "some-fen-d6", strPtr("d6"), 2, "w", strPtr("e4-2"))
+	e4Node2 := mkNode("e4-2", posX, strPtr("e4"), 2, "b", strPtr("e5-2"), nc6b, d6)
+	e5Node2 := mkNode("e5-2", "fen-e5-2", strPtr("e5"), 1, "w", strPtr("nf3-2"), e4Node2)
+	nf3Node2 := mkNode("nf3-2", "fen-nf3", strPtr("Nf3"), 1, "b", &rootID, e5Node2)
+
+	root := models.RepertoireNode{
+		ID:          rootID,
+		FEN:         "startpos",
+		MoveNumber:  0,
+		ColorToMove: "w",
+		Children:    []*models.RepertoireNode{e4Node1, nf3Node2},
+	}
+
+	var savedTree models.RepertoireNode
+	mockRepo := &mocks.MockRepertoireRepo{
+		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+			return &models.Repertoire{ID: "rep-1", TreeData: root}, nil
+		},
+		SaveFunc: func(id string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
+			savedTree = treeData
+			return &models.Repertoire{ID: id, TreeData: treeData, Metadata: metadata}, nil
+		},
+	}
+
+	svc := NewRepertoireService(mockRepo)
+	_, err := svc.MergeTranspositions("rep-1")
+	require.NoError(t, err)
+
+	canonicalNode := findNode(&savedTree, "nf3-1")
+	require.NotNil(t, canonicalNode)
+	// Should have Nc6 (original, matched) + d6 (merged) = 2 children, not 3
+	assert.Equal(t, 2, len(canonicalNode.Children))
+
+	// Find child moves
+	childMoves := make(map[string]bool)
+	for _, ch := range canonicalNode.Children {
+		if ch.Move != nil {
+			childMoves[*ch.Move] = true
+		}
+	}
+	assert.True(t, childMoves["Nc6"])
+	assert.True(t, childMoves["d6"])
+}
+
+func TestMergeTranspositions_SameFENDifferentMoveNumber(t *testing.T) {
+	// Same FEN but different move numbers should NOT be merged.
+	posX := "rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq -"
+	rootID := "root"
+
+	node1 := mkNode("n1", posX, strPtr("Nf3"), 2, "b", &rootID)
+	node2 := mkNode("n2", posX, strPtr("Nf3"), 3, "b", &rootID)
+
+	root := models.RepertoireNode{
+		ID:          rootID,
+		FEN:         "startpos",
+		MoveNumber:  0,
+		ColorToMove: "w",
+		Children:    []*models.RepertoireNode{node1, node2},
+	}
+
+	var savedTree models.RepertoireNode
+	mockRepo := &mocks.MockRepertoireRepo{
+		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+			return &models.Repertoire{ID: "rep-1", TreeData: root}, nil
+		},
+		SaveFunc: func(id string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
+			savedTree = treeData
+			return &models.Repertoire{ID: id, TreeData: treeData, Metadata: metadata}, nil
+		},
+	}
+
+	svc := NewRepertoireService(mockRepo)
+	_, err := svc.MergeTranspositions("rep-1")
+	require.NoError(t, err)
+
+	// Both nodes should remain unchanged — no transposition
+	assert.Nil(t, findNode(&savedTree, "n1").TranspositionOf)
+	assert.Nil(t, findNode(&savedTree, "n2").TranspositionOf)
+}

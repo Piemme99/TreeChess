@@ -50,6 +50,7 @@ export interface RepertoireNode {
   colorToMove: ShortColor;
   parentId: string | null;
   comment?: string | null;
+  transpositionOf?: string | null;
   children: RepertoireNode[];
 }
 

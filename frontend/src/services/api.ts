@@ -149,6 +149,11 @@ export const repertoireApi = {
   updateNodeComment: async (id: string, nodeId: string, comment: string): Promise<Repertoire> => {
     const response = await api.patch(`/repertoires/${id}/nodes/${nodeId}/comment`, { comment });
     return response.data;
+  },
+
+  mergeTranspositions: async (id: string): Promise<Repertoire> => {
+    const response = await api.post(`/repertoires/${id}/merge-transpositions`);
+    return response.data;
   }
 };
 

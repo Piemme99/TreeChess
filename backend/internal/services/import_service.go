@@ -351,13 +351,18 @@ func (s *ImportService) analyzeGame(gameIndex int, game *chess.Game, repertoireR
 	return analysis
 }
 
-func normalizeFEN(fen string) string {
+// NormalizeFEN strips half-move and full-move counters from a FEN string,
+// keeping only board, side to move, castling, and en passant fields.
+func NormalizeFEN(fen string) string {
 	parts := strings.Fields(fen)
 	if len(parts) >= 4 {
 		return strings.Join(parts[:4], " ")
 	}
 	return fen
 }
+
+// normalizeFEN is the package-internal alias kept for existing callers.
+func normalizeFEN(fen string) string { return NormalizeFEN(fen) }
 
 func (s *ImportService) extractHeaders(game *chess.Game) models.PGNHeaders {
 	headers := make(models.PGNHeaders)

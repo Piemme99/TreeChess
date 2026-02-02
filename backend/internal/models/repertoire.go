@@ -24,14 +24,15 @@ const (
 )
 
 type RepertoireNode struct {
-	ID          string            `json:"id"`
-	FEN         string            `json:"fen"`
-	Move        *string           `json:"move,omitempty"`
-	MoveNumber  int               `json:"moveNumber"`
-	ColorToMove ChessColor        `json:"colorToMove"`
-	ParentID    *string           `json:"parentId,omitempty"`
-	Comment     *string           `json:"comment,omitempty"`
-	Children    []*RepertoireNode `json:"children"`
+	ID              string            `json:"id"`
+	FEN             string            `json:"fen"`
+	Move            *string           `json:"move,omitempty"`
+	MoveNumber      int               `json:"moveNumber"`
+	ColorToMove     ChessColor        `json:"colorToMove"`
+	ParentID        *string           `json:"parentId,omitempty"`
+	Comment         *string           `json:"comment,omitempty"`
+	TranspositionOf *string           `json:"transpositionOf,omitempty"`
+	Children        []*RepertoireNode `json:"children"`
 }
 
 type Metadata struct {

@@ -76,11 +76,31 @@ export function RepertoireEdit() {
 
   const handleNodeClick = useCallback(
     (node: RepertoireNode) => {
-      selectNode(node.id);
+      // If clicking a transposition node, navigate to the canonical node
+      if (node.transpositionOf) {
+        selectNode(node.transpositionOf);
+      } else {
+        selectNode(node.id);
+      }
       setPossibleMoves([]);
     },
     [selectNode, setPossibleMoves]
   );
+
+  const [mergeLoading, setMergeLoading] = useState(false);
+  const handleMergeTranspositions = useCallback(async () => {
+    if (!id) return;
+    setMergeLoading(true);
+    try {
+      const updated = await repertoireApi.mergeTranspositions(id);
+      setRepertoire(updated);
+      toast.success('Transpositions merged');
+    } catch {
+      toast.error('Failed to merge transpositions');
+    } finally {
+      setMergeLoading(false);
+    }
+  }, [id, setRepertoire]);
 
   const goToRoot = useCallback(() => {
     if (repertoire) {
@@ -127,6 +147,9 @@ export function RepertoireEdit() {
               )}
             </div>
             <div className="flex items-center gap-2">
+              <Button variant="ghost" size="sm" onClick={handleMergeTranspositions} disabled={mergeLoading}>
+                {mergeLoading ? 'Merging...' : 'Merge transpositions'}
+              </Button>
               <Button variant="primary" size="sm" onClick={() => setExtractConfirmOpen(true)} disabled={isRootNode || actionLoading}>
                 Extract branch
               </Button>
