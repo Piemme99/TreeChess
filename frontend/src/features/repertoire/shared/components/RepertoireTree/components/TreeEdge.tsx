@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import type { LayoutEdge } from '../utils/types';
 import { createBezierPath } from '../utils/layoutCalculator';
 
@@ -5,7 +6,7 @@ interface TreeEdgeProps {
   edge: LayoutEdge;
 }
 
-export function TreeEdge({ edge }: TreeEdgeProps) {
+export const TreeEdge = memo(function TreeEdge({ edge }: TreeEdgeProps) {
   return (
     <path
       d={createBezierPath(edge.from, edge.to)}
@@ -15,4 +16,4 @@ export function TreeEdge({ edge }: TreeEdgeProps) {
       markerEnd="url(#arrowhead)"
     />
   );
-}
+});

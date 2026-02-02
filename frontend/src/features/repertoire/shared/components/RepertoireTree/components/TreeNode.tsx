@@ -1,28 +1,31 @@
+import { memo, useCallback } from 'react';
 import type { RepertoireNode } from '../../../../../../types';
 import type { LayoutNode } from '../utils/types';
 import { NODE_RADIUS } from '../constants';
 
 interface TreeNodeProps {
   layoutNode: LayoutNode;
-  selectedNodeId: string | null;
+  isSelected: boolean;
   onClick: (node: RepertoireNode) => void;
   onMouseEnter?: (layoutNode: LayoutNode) => void;
   onMouseLeave?: () => void;
 }
 
-export function TreeNode({ layoutNode, selectedNodeId, onClick, onMouseEnter, onMouseLeave }: TreeNodeProps) {
+export const TreeNode = memo(function TreeNode({ layoutNode, isSelected, onClick, onMouseEnter, onMouseLeave }: TreeNodeProps) {
   const isRoot = layoutNode.node.move === null;
-  const isSelected = layoutNode.id === selectedNodeId;
   const isTransposition = !!layoutNode.node.transpositionOf;
   // colorToMove is the color to play AFTER this move
   // So if colorToMove === 'b', the move that was just played was white's move
   const isWhiteMove = layoutNode.node.colorToMove === 'b';
 
+  const handleClick = useCallback(() => onClick(layoutNode.node), [onClick, layoutNode.node]);
+  const handleMouseEnter = useCallback(() => onMouseEnter?.(layoutNode), [onMouseEnter, layoutNode]);
+
   return (
     <g
       className={`tree-node ${isSelected ? 'selected' : ''}`}
-      onClick={() => onClick(layoutNode.node)}
-      onMouseEnter={() => onMouseEnter?.(layoutNode)}
+      onClick={handleClick}
+      onMouseEnter={handleMouseEnter}
       onMouseLeave={onMouseLeave}
       style={{ cursor: 'pointer' }}
     >
@@ -60,4 +63,4 @@ export function TreeNode({ layoutNode, selectedNodeId, onClick, onMouseEnter, on
       </text>
     </g>
   );
-}
+});

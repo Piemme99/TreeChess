@@ -54,6 +54,7 @@ export function calculateLayout(root: RepertoireNode): TreeLayout {
       const childNode = nodes.find((n) => n.id === node.children[i].id);
       if (childNode) {
         edges.push({
+          id: `${node.id}-${node.children[i].id}`,
           from: { x: centerX, y },
           to: { x: childNode.x, y: childNode.y }
         });

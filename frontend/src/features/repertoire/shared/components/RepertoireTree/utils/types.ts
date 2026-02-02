@@ -17,6 +17,7 @@ export interface LayoutNode {
 
 /** An edge connecting two nodes */
 export interface LayoutEdge {
+  id: string;
   from: Point;
   to: Point;
 }

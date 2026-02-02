@@ -108,8 +108,8 @@ export function RepertoireTree({
         </defs>
 
         <g>
-          {layout.edges.map((edge, i) => (
-            <TreeEdge key={i} edge={edge} />
+          {layout.edges.map((edge) => (
+            <TreeEdge key={edge.id} edge={edge} />
           ))}
         </g>
 
@@ -118,7 +118,7 @@ export function RepertoireTree({
             <TreeNode
               key={layoutNode.id}
               layoutNode={layoutNode}
-              selectedNodeId={selectedNodeId}
+              isSelected={layoutNode.id === selectedNodeId}
               onClick={onNodeClick}
               onMouseEnter={handleNodeMouseEnter}
               onMouseLeave={handleNodeMouseLeave}
