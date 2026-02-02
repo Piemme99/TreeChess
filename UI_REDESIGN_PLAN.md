@@ -84,7 +84,6 @@ All colors defined as CSS custom properties in `tailwind.css` for easy swapping.
    - Chronological list of recent events:
      - Games imported (with result icon: win/loss/draw)
      - Repertoire edits (e.g., "Added 3 moves to Sicilian Defense")
-     - Video imports completed
    - Each item: icon + description + timestamp + link to resource
    - Card-based items with white background, light border, subtle shadow on hover
 
@@ -251,10 +250,19 @@ All buttons: `font-medium`, consistent padding (`px-4 py-2` default), `transitio
 
 ## Repertoire Tree — Dual View
 
+### Main Line Concept (new)
+
+The tree currently has no notion of a "main line." This redesign introduces one:
+
+- **User-defined:** The user explicitly marks a child as the main line at each branch point (right-click > "Set as main line", or drag to reorder).
+- **Data model change:** Each `RepertoireNode` gets an ordered children list (or a `main_child_id` field). The first child in the order is the main line; the rest are alternatives.
+- **Default:** When a new move is added, it becomes the main line if it's the first child. Subsequent children are alternatives by default.
+- **Backend:** Requires a migration to store child ordering or a main line marker in the JSONB tree structure.
+
 ### SVG Tree View (existing, updated)
 
 - Node colors updated:
-  - Main line nodes: orange fill
+  - Main line nodes: orange fill (determined by user-set main line)
   - Alternative/variation nodes: light gray fill with orange border
   - Current position: bold orange ring
   - Transposition indicator: dashed purple (keep existing)
@@ -278,7 +286,7 @@ All buttons: `font-medium`, consistent padding (`px-4 py-2` default), `transitio
 - Chevron icons for expand/collapse
 - Click a move to navigate the board
 - Current position: orange background highlight
-- Right-click context menu: delete, extract, set as main line
+- Right-click context menu: delete, extract, **set as main line** (promotes this branch)
 - Depth indicators: subtle vertical lines connecting children
 
 ### Toggle Switch

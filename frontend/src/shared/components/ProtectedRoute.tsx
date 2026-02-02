@@ -1,5 +1,6 @@
 import { Navigate } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
+import { Loading } from './UI';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -10,8 +11,8 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
 
   if (loading) {
     return (
-      <div className="loading-screen">
-        <div className="loading-spinner" />
+      <div className="min-h-screen flex items-center justify-center bg-bg">
+        <Loading size="lg" />
       </div>
     );
   }

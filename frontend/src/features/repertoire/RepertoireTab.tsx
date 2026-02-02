@@ -10,20 +10,21 @@ export function RepertoireTab() {
 
   if (loading && repertoires.length === 0) {
     return (
-      <div className="flex flex-col items-center py-8 gap-8">
+      <div className="max-w-[1000px] mx-auto w-full flex flex-col items-center py-8 gap-8">
         <Loading size="lg" text="Loading repertoires..." />
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col items-center py-8 gap-8">
+    <div className="max-w-[1000px] mx-auto w-full flex flex-col items-center py-8 gap-8">
+      <h1 className="text-2xl font-bold text-text">Repertoires</h1>
       <div className="flex gap-8 p-6 max-md:flex-col">
         <RepertoireSelector color="white" repertoires={whiteRepertoires} />
         <RepertoireSelector color="black" repertoires={blackRepertoires} />
       </div>
       <button
-        className="flex items-center gap-4 w-full max-w-[600px] py-6 px-8 border border-dashed border-border rounded-lg cursor-pointer transition-all duration-150 font-sans text-left hover:border-primary hover:border-solid hover:bg-bg-card hover:shadow-md"
+        className="flex items-center gap-4 w-full max-w-[600px] py-6 px-8 bg-transparent border border-dashed border-border rounded-lg cursor-pointer transition-all duration-150 font-sans text-left hover:border-primary hover:border-solid hover:bg-bg-card hover:shadow-md focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2"
         onClick={() => {
           setShowStudyModal(true);
           window.open('https://lichess.org/study', '_blank');

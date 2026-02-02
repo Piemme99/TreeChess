@@ -1,55 +1,66 @@
 import { useNavigate } from 'react-router-dom';
-import { Button } from '../../../shared/components/UI';
 import type { Repertoire } from '../../../types';
 
 interface RepertoireOverviewProps {
-  whiteRepertoires: Repertoire[];
-  blackRepertoires: Repertoire[];
+  repertoires: Repertoire[];
 }
 
-function RepertoireColorCard({ color, repertoires }: { color: 'white' | 'black'; repertoires: Repertoire[] }) {
+function formatDate(iso: string): string {
+  const date = new Date(iso);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  if (diffDays === 0) return 'Today';
+  if (diffDays === 1) return 'Yesterday';
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function RepertoireCard({ repertoire }: { repertoire: Repertoire }) {
   const navigate = useNavigate();
-  const isWhite = color === 'white';
+  const isWhite = repertoire.color === 'white';
 
   return (
-    <div className={`bg-bg-card rounded-lg p-6 shadow-sm ${isWhite ? 'border-t-4 border-t-[#f5f5f5]' : 'border-t-4 border-t-[#333]'}`}>
-      <div className="flex items-center gap-2 mb-4">
-        <span className="text-2xl">{isWhite ? '\u2654' : '\u265A'}</span>
-        <h3 className="text-lg font-semibold">{isWhite ? 'White' : 'Black'}</h3>
+    <button
+      className="flex-shrink-0 w-48 bg-bg-card border border-border rounded-lg p-4 cursor-pointer transition-all duration-150 text-left font-sans hover:border-primary hover:shadow-md group"
+      onClick={() => navigate(`/repertoire/${repertoire.id}/edit`)}
+    >
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-lg leading-none">{isWhite ? '\u2654' : '\u265A'}</span>
+        <span className="font-semibold text-sm text-text truncate">{repertoire.name}</span>
       </div>
-      {repertoires.length === 0 ? (
-        <p className="text-text-muted italic p-4 text-center">No repertoires yet</p>
-      ) : (
-        <ul className="list-none flex flex-col gap-1 mb-4">
-          {repertoires.map((rep) => (
-            <li key={rep.id} className="flex justify-between items-center py-2 px-4 bg-bg rounded-md">
-              <span className="font-medium">{rep.name}</span>
-              <span className="text-[0.8125rem] text-text-muted">
-                {rep.metadata.totalMoves} moves
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => navigate('/repertoires')}
-        className="w-full text-center"
-      >
-        Edit
-      </Button>
-    </div>
+      <div className="flex items-center justify-between text-xs text-text-muted">
+        <span>{repertoire.metadata.totalMoves} moves</span>
+        <span>{formatDate(repertoire.updatedAt)}</span>
+      </div>
+    </button>
   );
 }
 
-export function RepertoireOverview({ whiteRepertoires, blackRepertoires }: RepertoireOverviewProps) {
+function AddRepertoireCard() {
+  const navigate = useNavigate();
+
   return (
-    <section className="mb-8">
-      <h2 className="text-lg font-semibold text-text-muted mb-4">Your Repertoires</h2>
-      <div className="grid grid-cols-2 gap-6 max-md:grid-cols-1">
-        <RepertoireColorCard color="white" repertoires={whiteRepertoires} />
-        <RepertoireColorCard color="black" repertoires={blackRepertoires} />
+    <button
+      className="flex-shrink-0 w-48 bg-bg-card border border-dashed border-border-dark rounded-lg p-4 cursor-pointer transition-all duration-150 font-sans hover:border-primary hover:bg-primary-light flex flex-col items-center justify-center gap-2"
+      onClick={() => navigate('/repertoires')}
+    >
+      <span className="text-2xl text-text-muted leading-none">+</span>
+      <span className="text-sm text-text-muted font-medium">New Repertoire</span>
+    </button>
+  );
+}
+
+export function RepertoireOverview({ repertoires }: RepertoireOverviewProps) {
+  return (
+    <section>
+      <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wide mb-3">Your Repertoires</h2>
+      <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+        {repertoires.map((rep) => (
+          <RepertoireCard key={rep.id} repertoire={rep} />
+        ))}
+        <AddRepertoireCard />
       </div>
     </section>
   );

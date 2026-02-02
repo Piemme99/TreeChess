@@ -2,6 +2,8 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button, Loading } from '../../shared/components/UI';
 import { RepertoireTree } from './shared/components/RepertoireTree';
+import { MoveHistory } from './shared/components/MoveHistory';
+import { TopMovesPanel } from './edit/components/TopMovesPanel';
 import { useRepertoireLoader } from './edit/hooks/useRepertoireLoader';
 import { usePendingAddNode } from './edit/hooks/usePendingAddNode';
 import { useMoveActions } from './edit/hooks/useMoveActions';
@@ -16,12 +18,21 @@ import { ExtractModal } from './edit/components/ExtractModal';
 import { repertoireApi } from '../../services/api';
 import { toast } from '../../stores/toastStore';
 
+type TabId = 'tree' | 'moves' | 'engine';
+
+const TABS: { id: TabId; label: string }[] = [
+  { id: 'tree', label: 'Tree' },
+  { id: 'moves', label: 'Moves' },
+  { id: 'engine', label: 'Engine' },
+];
+
 export function RepertoireEdit() {
   // All hooks must be called first, before any conditions
   const navigate = useNavigate();
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [extractConfirmOpen, setExtractConfirmOpen] = useState(false);
   const [treeExpanded, setTreeExpanded] = useState(false);
+  const [activeTab, setActiveTab] = useState<TabId>('tree');
 
   const { id, color, repertoire, selectedNodeId, loading, selectNode, setRepertoire } = useRepertoireLoader();
   const engine = useEngine();
@@ -135,7 +146,8 @@ export function RepertoireEdit() {
           engineEvaluation={engine.currentEvaluation}
         />
 
-        <div className={`flex-1 min-w-0 min-h-0 bg-bg-card overflow-hidden flex flex-col border-l border-border${treeExpanded ? ' fixed inset-0 w-full h-full z-100' : ''}`}>
+        <div className={`flex-1 min-w-0 min-h-0 bg-bg-card overflow-hidden flex flex-col border-l border-border${activeTab === 'tree' && treeExpanded ? ' fixed inset-0 w-full h-full z-100' : ''}`}>
+          {/* Action bar */}
           <div className="flex items-center justify-between py-2 px-4 border-b border-border gap-2">
             <div className="flex items-center gap-2">
               {selectedNode && (
@@ -146,23 +158,25 @@ export function RepertoireEdit() {
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-2">
-              <Button variant="ghost" size="sm" onClick={handleMergeTranspositions} disabled={mergeLoading}>
-                {mergeLoading ? 'Merging...' : 'Merge transpositions'}
+            <div className="flex items-center gap-1">
+              <Button variant="ghost" size="sm" onClick={handleMergeTranspositions} disabled={mergeLoading} title="Merge transpositions">
+                {mergeLoading ? 'Merging...' : 'Merge'}
               </Button>
-              <Button variant="primary" size="sm" onClick={() => setExtractConfirmOpen(true)} disabled={isRootNode || actionLoading}>
-                Extract branch
+              <Button variant="ghost" size="sm" onClick={() => setExtractConfirmOpen(true)} disabled={isRootNode || actionLoading} title="Extract branch into new repertoire">
+                Extract
               </Button>
-              <Button variant="danger" size="sm" onClick={() => setDeleteConfirmOpen(true)} disabled={isRootNode || actionLoading}>
-                Delete branch
+              <Button variant="ghost" size="sm" onClick={() => setDeleteConfirmOpen(true)} disabled={isRootNode || actionLoading} title="Delete this branch">
+                <span className="text-danger">Delete</span>
               </Button>
-              <Button variant="ghost" size="sm" onClick={goToRoot}>
-                Go to Root
+              <Button variant="ghost" size="sm" onClick={goToRoot} title="Go to starting position">
+                Root
               </Button>
             </div>
           </div>
+
+          {/* Comment textarea */}
           {selectedNode && (
-            <div className="px-2 pb-2">
+            <div className="px-3 py-2">
               <textarea
                 className="w-full py-1 px-2 text-[0.8rem] font-sans border border-border rounded-sm bg-bg text-text resize-y min-h-[2.5rem] focus:outline-none focus:border-primary placeholder:text-text-muted"
                 placeholder="Add a note for this position..."
@@ -173,14 +187,53 @@ export function RepertoireEdit() {
               />
             </div>
           )}
-          <RepertoireTree
-            repertoire={repertoire.treeData}
-            selectedNodeId={selectedNodeId}
-            onNodeClick={handleNodeClick}
-            color={repertoire.color}
-            isExpanded={treeExpanded}
-            onToggleExpand={() => setTreeExpanded((prev) => !prev)}
-          />
+
+          {/* Tab bar */}
+          <div className="flex border-b border-border px-3">
+            {TABS.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`px-4 py-2 text-sm font-medium transition-colors relative ${
+                  activeTab === tab.id
+                    ? 'text-primary border-b-2 border-primary'
+                    : 'text-text-muted hover:text-text'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Tab content */}
+          <div className="flex-1 min-h-0 overflow-auto">
+            {activeTab === 'tree' && (
+              <RepertoireTree
+                repertoire={repertoire.treeData}
+                selectedNodeId={selectedNodeId}
+                onNodeClick={handleNodeClick}
+                color={repertoire.color}
+                isExpanded={treeExpanded}
+                onToggleExpand={() => setTreeExpanded((prev) => !prev)}
+              />
+            )}
+            {activeTab === 'moves' && (
+              <div className="p-4">
+                <MoveHistory
+                  rootNode={repertoire.treeData}
+                  selectedNodeId={selectedNodeId}
+                />
+              </div>
+            )}
+            {activeTab === 'engine' && (
+              <div className="p-4">
+                <TopMovesPanel
+                  evaluation={engine.currentEvaluation}
+                  fen={currentFEN}
+                />
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

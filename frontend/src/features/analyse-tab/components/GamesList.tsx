@@ -1,7 +1,7 @@
 import { useMemo, useState, useCallback } from 'react';
 import { Button, Loading } from '../../../shared/components/UI';
 import type { GameSummary, GameStatus, Color } from '../../../types';
-import { formatDate, formatSource } from '../utils/dateUtils';
+import { formatSource } from '../utils/dateUtils';
 import { gamesApi } from '../../../services/api';
 import { toast } from '../../../stores/toastStore';
 
@@ -58,44 +58,38 @@ function GameCard({ game, onViewClick, onDeleteClick, onReanalyze, reanalyzing, 
   onToggleSelect: () => void;
 }) {
   const outcome = gameOutcome(game.result, game.userColor);
-  const outcomeBg = outcome === 'win' ? 'bg-success-light' : outcome === 'loss' ? 'bg-danger-light' : '';
+  const dotColor = outcome === 'win' ? 'bg-success' : outcome === 'loss' ? 'bg-danger' : 'bg-text-light';
 
   return (
     <div
-      className={`flex items-center justify-between p-4 bg-bg-card rounded-md shadow-sm ${outcomeBg}${selected ? ' outline-2 outline-primary bg-primary-light' : ''}`}
-      onClick={selectionMode ? onToggleSelect : undefined}
+      className={`flex items-center gap-4 py-3 px-4 bg-bg-card border-b border-border transition-colors duration-150 hover:bg-bg cursor-pointer${selected ? ' bg-primary-light' : ''}`}
+      onClick={selectionMode ? onToggleSelect : () => onViewClick(game.analysisId, game.gameIndex)}
     >
       {selectionMode && (
-        <div className="flex items-center pr-2">
-          <input
-            type="checkbox"
-            checked={selected}
-            onChange={onToggleSelect}
-            onClick={(e) => e.stopPropagation()}
-            className="w-[18px] h-[18px] cursor-pointer accent-primary"
-          />
-        </div>
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={onToggleSelect}
+          onClick={(e) => e.stopPropagation()}
+          className="w-[18px] h-[18px] cursor-pointer accent-primary shrink-0"
+        />
       )}
-      <div className="flex flex-col gap-1">
-        <div className="flex items-center gap-2 font-semibold text-text">
-          <span>{game.white}</span>
-          <span className="text-text-muted font-normal text-sm">vs</span>
-          <span>{game.black}</span>
-          {showNewBadge && <span className="inline-block py-px px-2 rounded-sm bg-primary text-white text-[0.6875rem] font-semibold uppercase tracking-wide ml-2 align-middle">New</span>}
-        </div>
-        <div className="flex items-center gap-2 text-sm text-text-muted">
-          <span className="font-mono font-medium text-text">{game.result}</span>
-          {game.date && <span>{game.date}</span>}
-          <StatusBadge status={game.status} />
-          {game.opening && <span className="text-[0.8125rem] text-text-muted italic">{game.opening}</span>}
-          {game.repertoireName && <span>{game.repertoireName}</span>}
-        </div>
-        <div className="text-xs text-text-light">
-          Imported {formatDate(game.importedAt)} from {formatSource(game.source)}
-        </div>
+      <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${dotColor}`} />
+      <span className="font-mono text-sm font-medium w-16 shrink-0">{game.result}</span>
+      <div className="flex items-center gap-1 min-w-0 shrink-0">
+        <span className="font-medium truncate">{game.white}</span>
+        <span className="text-text-muted text-sm">vs</span>
+        <span className="font-medium truncate">{game.black}</span>
+        {showNewBadge && <span className="inline-block py-px px-2 rounded-sm bg-primary text-white text-[0.6875rem] font-semibold uppercase tracking-wide ml-1">New</span>}
+      </div>
+      <span className="text-sm text-text-muted truncate max-w-[200px] hidden lg:inline">{game.opening || ''}</span>
+      <div className="flex items-center gap-2 ml-auto shrink-0">
+        <StatusBadge status={game.status} />
+        <span className="text-sm text-text-muted whitespace-nowrap hidden sm:inline">{game.date || ''}</span>
+        <span className="text-xs text-text-light whitespace-nowrap hidden md:inline">{formatSource(game.source)}</span>
       </div>
       {!selectionMode && (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
           {game.repertoireId && (
             <button
               className={`flex items-center justify-center w-7 h-7 p-0 border-none rounded-sm bg-transparent text-text-muted cursor-pointer transition-colors duration-150 hover:not-disabled:text-primary hover:not-disabled:bg-bg disabled:cursor-default ${reanalyzing ? '[&_svg]:animate-spin' : ''}`}
@@ -110,18 +104,13 @@ function GameCard({ game, onViewClick, onDeleteClick, onReanalyze, reanalyzing, 
             </button>
           )}
           <Button
-            variant="primary"
-            size="sm"
-            onClick={() => onViewClick(game.analysisId, game.gameIndex)}
-          >
-            View
-          </Button>
-          <Button
-            variant="danger"
+            variant="ghost"
             size="sm"
             onClick={() => onDeleteClick(game.analysisId, game.gameIndex)}
           >
-            Delete
+            <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <path d="M2 4h12M5.5 4V2.5a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1V4M6.5 7v5M9.5 7v5M3.5 4l.5 9a1.5 1.5 0 0 0 1.5 1.5h5A1.5 1.5 0 0 0 12 13l.5-9" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
           </Button>
         </div>
       )}
@@ -221,7 +210,7 @@ export function GamesList({
   }
 
   const renderGrid = (list: GameSummary[], showNew: boolean) => (
-    <div className="flex flex-col gap-2">
+    <div className="rounded-lg border border-border overflow-hidden">
       {list.map((game) => {
         const key = toKey(game.analysisId, game.gameIndex);
         return (

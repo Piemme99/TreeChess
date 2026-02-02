@@ -75,14 +75,16 @@ export function LoginPage() {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-bg p-4">
-      <div className="bg-bg-card rounded-lg shadow-lg p-8 w-full max-w-[400px]">
-        <h1 className="text-center text-[1.75rem] text-primary mb-1">TreeChess</h1>
-        <h2 className="text-center text-xl text-text mb-6 font-medium">{isRegister ? 'Create Account' : 'Sign In'}</h2>
+    <div className="flex items-center justify-center min-h-screen bg-bg p-4 animate-fade-in">
+      <div className="bg-bg-card rounded-xl shadow-lg p-8 w-full max-w-[400px]">
+        <h1 className="text-center text-3xl font-bold mb-1">
+          Tree<span className="text-primary">Chess</span>
+        </h1>
+        <h2 className="text-center text-lg text-text-muted mb-8 font-medium">{isRegister ? 'Create Account' : 'Sign In'}</h2>
 
         {!isRegister && (
           <>
-            <a href={`${API_BASE}/auth/lichess/login`} className="block w-full py-2 px-4 border border-border rounded-md text-[0.9375rem] font-medium cursor-pointer transition-all duration-150 font-sans text-center no-underline text-text hover:bg-bg hover:border-border-dark">
+            <a href={`${API_BASE}/auth/lichess/login`} className="block w-full py-2 px-4 bg-bg border border-border rounded-md text-[0.9375rem] font-medium cursor-pointer transition-all duration-150 font-sans text-center no-underline text-text hover:border-border-dark hover:shadow-sm focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2">
               Sign in with Lichess
             </a>
             <div className="flex items-center my-4 text-text-muted text-[0.8125rem] before:content-[''] before:flex-1 before:border-b before:border-border after:content-[''] after:flex-1 after:border-b after:border-border">
@@ -142,14 +144,14 @@ export function LoginPage() {
             </div>
           )}
 
-          <button type="submit" className="py-2 px-4 bg-primary text-white border-none rounded-md text-[0.9375rem] font-medium cursor-pointer transition-colors duration-150 font-sans mt-2 hover:not-disabled:bg-primary-hover disabled:opacity-60 disabled:cursor-not-allowed" disabled={submitting}>
+          <button type="submit" className="py-2 px-4 bg-primary text-white border-none rounded-md text-[0.9375rem] font-medium cursor-pointer transition-colors duration-150 font-sans mt-2 hover:not-disabled:bg-primary-hover disabled:opacity-60 disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2" disabled={submitting}>
             {submitting ? 'Loading...' : isRegister ? 'Create Account' : 'Sign In'}
           </button>
         </form>
 
         <div className="text-center mt-6 text-sm text-text-muted">
           {isRegister ? 'Already have an account?' : "Don't have an account?"}{' '}
-          <button type="button" className="bg-transparent border-none text-primary cursor-pointer text-sm font-medium font-sans hover:underline" onClick={toggleMode}>
+          <button type="button" className="bg-transparent border-none text-primary cursor-pointer text-sm font-medium font-sans hover:underline focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 rounded-sm" onClick={toggleMode}>
             {isRegister ? 'Sign In' : 'Create Account'}
           </button>
         </div>

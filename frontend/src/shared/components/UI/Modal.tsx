@@ -3,7 +3,7 @@ import { cva } from 'class-variance-authority';
 import { Button } from './Button';
 
 const modal = cva(
-  'bg-bg-card rounded-lg shadow-lg max-h-[90vh] overflow-hidden flex flex-col w-full',
+  'bg-bg-card rounded-xl shadow-xl max-h-[90vh] overflow-hidden flex flex-col w-full animate-fade-in',
   {
     variants: {
       size: {
@@ -58,7 +58,7 @@ export function Modal({
 
   return (
     <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-[1000] p-4"
+      className="fixed inset-0 bg-black/40 flex items-center justify-center z-[1000] p-4 animate-fade-in"
       onClick={onClose}
     >
       <div

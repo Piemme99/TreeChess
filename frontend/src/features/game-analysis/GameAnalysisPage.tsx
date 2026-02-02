@@ -121,7 +121,7 @@ export function GameAnalysisPage() {
 
   return (
     <div className="max-w-[1000px] mx-auto min-h-full flex flex-col">
-      <div className="flex items-center gap-4 mb-6 pb-4 border-b border-border">
+      <div className="flex items-center gap-4 mb-6 pb-4 border-b border-border flex-wrap">
         <Button variant="ghost" size="sm" onClick={() => navigate('/games')}>
           &larr; Back
         </Button>
@@ -130,6 +130,7 @@ export function GameAnalysisPage() {
         <Button
           variant="danger"
           size="sm"
+          className="ml-auto"
           onClick={() => setDeleteTarget({ analysisId: analysis.id, gameIndex: gameIdx })}
         >
           Delete

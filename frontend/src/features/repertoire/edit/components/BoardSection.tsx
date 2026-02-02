@@ -43,7 +43,7 @@ export function BoardSection({
 
   const bestMoveArrow = useMemo<[string, string, string?][]>(() => {
     if (engineEvaluation?.bestMoveFrom && engineEvaluation?.bestMoveTo) {
-      return [[engineEvaluation.bestMoveFrom, engineEvaluation.bestMoveTo, 'rgba(0, 120, 255, 0.6)']];
+      return [[engineEvaluation.bestMoveFrom, engineEvaluation.bestMoveTo, 'rgba(230, 126, 34, 0.6)']];
     }
     return [];
   }, [engineEvaluation?.bestMoveFrom, engineEvaluation?.bestMoveTo]);
@@ -85,20 +85,36 @@ export function BoardSection({
     }
   };
 
+  const truncatedFEN = currentFEN.length > 60 ? currentFEN.slice(0, 57) + '...' : currentFEN;
+  const orientationLabel = color === 'white' ? 'White' : color === 'black' ? 'Black' : '';
+
   return (
-    <div className="flex items-center justify-center aspect-square h-full shrink-0 max-md:w-full">
-      <EvalBar score={engineEvaluation?.score} mate={engineEvaluation?.mate} fen={currentFEN} />
-      <div className="w-full h-full flex items-center justify-center p-2" ref={wrapperRef}>
-        <ChessBoard
-          fen={currentFEN}
-          orientation={color}
-          onMove={onMove}
-          onSquareClick={handleSquareClick}
-          highlightSquares={possibleMoves}
-          interactive={true}
-          width={boardSize}
-          customArrows={bestMoveArrow}
-        />
+    <div className="flex flex-col items-center justify-center h-full shrink-0 max-md:w-full">
+      <div className="flex items-center justify-center flex-1 min-h-0 w-full">
+        <EvalBar score={engineEvaluation?.score} mate={engineEvaluation?.mate} fen={currentFEN} />
+        <div className="w-full h-full flex items-center justify-center p-2 aspect-square" ref={wrapperRef}>
+          <ChessBoard
+            fen={currentFEN}
+            orientation={color}
+            onMove={onMove}
+            onSquareClick={handleSquareClick}
+            highlightSquares={possibleMoves}
+            interactive={true}
+            width={boardSize}
+            customArrows={bestMoveArrow}
+          />
+        </div>
+      </div>
+      <div className="w-full flex items-center justify-between px-3 py-1.5 border-t border-border bg-bg">
+        <span className="font-mono text-xs text-text-muted truncate max-w-[70%]" title={currentFEN}>
+          {truncatedFEN}
+        </span>
+        {orientationLabel && (
+          <span className="text-xs text-text-muted flex items-center gap-1">
+            <span className={`inline-block w-2.5 h-2.5 rounded-full border border-border-dark ${color === 'white' ? 'bg-white' : 'bg-gray-800'}`} />
+            {orientationLabel}
+          </span>
+        )}
       </div>
     </div>
   );

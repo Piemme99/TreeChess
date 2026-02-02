@@ -112,6 +112,7 @@ export function GamesPage() {
   const hasGames = games.length > 0 || loading;
 
   return (
+    <div className="max-w-[1200px] mx-auto w-full">
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-semibold">Games</h2>
@@ -245,6 +246,7 @@ export function GamesPage() {
         variant="danger"
         loading={bulkDeleting}
       />
+    </div>
     </div>
   );
 }

@@ -33,8 +33,8 @@ export function TreeNode({ layoutNode, selectedNodeId, onClick, onMouseEnter, on
           width={NODE_RADIUS * 2}
           height={NODE_RADIUS * 2}
           rx="4"
-          fill={isSelected ? '#4a90d9' : '#6b7280'}
-          stroke={isSelected ? '#2563eb' : '#4b5563'}
+          fill={isSelected ? '#E67E22' : '#6b7280'}
+          stroke={isSelected ? '#D4740A' : '#4b5563'}
           strokeWidth="2"
         />
       ) : (
@@ -42,8 +42,8 @@ export function TreeNode({ layoutNode, selectedNodeId, onClick, onMouseEnter, on
           cx={layoutNode.x}
           cy={layoutNode.y}
           r={NODE_RADIUS}
-          fill={isTransposition ? 'transparent' : isSelected ? '#4a90d9' : isWhiteMove ? '#ffffff' : '#1f2937'}
-          stroke={isTransposition ? '#a78bfa' : isSelected ? '#2563eb' : isWhiteMove ? '#9ca3af' : '#111827'}
+          fill={isTransposition ? 'transparent' : isSelected ? '#E67E22' : isWhiteMove ? '#ffffff' : '#1f2937'}
+          stroke={isTransposition ? '#a78bfa' : isSelected ? '#D4740A' : isWhiteMove ? '#9ca3af' : '#111827'}
           strokeWidth="2"
           strokeDasharray={isTransposition ? '4 2' : undefined}
         />

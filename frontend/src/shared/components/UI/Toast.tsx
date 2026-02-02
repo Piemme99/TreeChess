@@ -40,7 +40,12 @@ function ToastItem({ toast }: { toast: ToastType }) {
   };
 
   return (
-    <div className="flex items-center gap-2 p-4 bg-bg-card rounded-md shadow-md animate-slide-in">
+    <div className={`flex items-center gap-2 p-4 bg-bg-card rounded-lg shadow-md animate-slide-in border-l-4 ${
+      toast.type === 'success' ? 'border-l-success' :
+      toast.type === 'error' ? 'border-l-danger' :
+      toast.type === 'warning' ? 'border-l-warning' :
+      'border-l-info'
+    }`}>
       <span className={toastIcon({ type: toast.type })}>{getIcon(toast.type)}</span>
       <span className="flex-1">{toast.message}</span>
       <button
@@ -59,7 +64,7 @@ export function ToastContainer() {
   if (toasts.length === 0) return null;
 
   return (
-    <div className="fixed top-6 right-6 flex flex-col gap-2 z-[1100] max-w-[400px]">
+    <div className="fixed bottom-6 right-6 flex flex-col gap-2 z-[1100] max-w-[400px]">
       {toasts.map((toast) => (
         <ToastItem key={toast.id} toast={toast} />
       ))}
