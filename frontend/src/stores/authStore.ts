@@ -46,6 +46,10 @@ export const useAuthStore = create<AuthState>((set) => ({
         isAuthenticated: true,
         error: null,
       });
+      // Fire-and-forget sync if user has platform usernames configured
+      if (response.user.lichessUsername || response.user.chesscomUsername) {
+        useAuthStore.getState().triggerSync();
+      }
     } catch (err: unknown) {
       const message = getErrorMessage(err, 'Login failed');
       set({ error: message });
@@ -84,6 +88,10 @@ export const useAuthStore = create<AuthState>((set) => ({
         needsOnboarding: isNew,
         loading: false,
       });
+      // Fire-and-forget sync for returning OAuth users with platform usernames
+      if (!isNew && (user.lichessUsername || user.chesscomUsername)) {
+        useAuthStore.getState().triggerSync();
+      }
     } catch {
       localStorage.removeItem(TOKEN_STORAGE_KEY);
       set({
@@ -149,6 +157,9 @@ export const useAuthStore = create<AuthState>((set) => ({
   clearOnboarding: () => set({ needsOnboarding: false }),
 
   triggerSync: async () => {
+    if (useAuthStore.getState().syncing) {
+      return;
+    }
     set({ syncing: true, lastSyncResult: null });
     try {
       const result = await syncApi.sync();
