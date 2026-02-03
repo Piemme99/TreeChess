@@ -4,6 +4,9 @@ import "fmt"
 
 // Sentinel errors for repository operations
 var (
+	// Category errors
+	ErrCategoryNotFound = fmt.Errorf("category not found")
+
 	// Repertoire errors
 	ErrRepertoireNotFound = fmt.Errorf("repertoire not found")
 

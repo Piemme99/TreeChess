@@ -77,11 +77,23 @@ func (m *MockImportService) ParseAndAnalyze(filename, username, userID, pgnData 
 
 // MockRepertoireService implements services.RepertoireManager for testing
 type MockRepertoireService struct {
-	CreateRepertoireFunc func(userID, name string, color models.Color) (*models.Repertoire, error)
-	SaveTreeFunc         func(repertoireID string, treeData models.RepertoireNode) (*models.Repertoire, error)
+	CreateRepertoireFunc             func(userID, name string, color models.Color) (*models.Repertoire, error)
+	CreateRepertoireWithCategoryFunc func(userID, name string, color models.Color, categoryID *string) (*models.Repertoire, error)
+	SaveTreeFunc                     func(repertoireID string, treeData models.RepertoireNode) (*models.Repertoire, error)
 }
 
 func (m *MockRepertoireService) CreateRepertoire(userID, name string, color models.Color) (*models.Repertoire, error) {
+	if m.CreateRepertoireFunc != nil {
+		return m.CreateRepertoireFunc(userID, name, color)
+	}
+	return nil, nil
+}
+
+func (m *MockRepertoireService) CreateRepertoireWithCategory(userID, name string, color models.Color, categoryID *string) (*models.Repertoire, error) {
+	if m.CreateRepertoireWithCategoryFunc != nil {
+		return m.CreateRepertoireWithCategoryFunc(userID, name, color, categoryID)
+	}
+	// Fall back to CreateRepertoireFunc if not set
 	if m.CreateRepertoireFunc != nil {
 		return m.CreateRepertoireFunc(userID, name, color)
 	}
@@ -179,16 +191,20 @@ func (m *MockEngineEvalRepo) GetByUser(userID string) ([]models.EngineEval, erro
 
 // MockRepertoireRepo is a mock implementation of RepertoireRepository for testing
 type MockRepertoireRepo struct {
-	GetByIDFunc       func(id string) (*models.Repertoire, error)
-	GetByColorFunc    func(userID string, color models.Color) ([]models.Repertoire, error)
-	GetAllFunc        func(userID string) ([]models.Repertoire, error)
-	CreateFunc        func(userID string, name string, color models.Color) (*models.Repertoire, error)
-	SaveFunc          func(id string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error)
-	UpdateNameFunc    func(id string, name string) (*models.Repertoire, error)
-	DeleteFunc        func(id string) error
-	CountFunc         func(userID string) (int, error)
-	ExistsFunc        func(id string) (bool, error)
-	BelongsToUserFunc func(id string, userID string) (bool, error)
+	GetByIDFunc             func(id string) (*models.Repertoire, error)
+	GetByColorFunc          func(userID string, color models.Color) ([]models.Repertoire, error)
+	GetAllFunc              func(userID string) ([]models.Repertoire, error)
+	CreateFunc              func(userID string, name string, color models.Color) (*models.Repertoire, error)
+	CreateWithCategoryFunc  func(userID, name string, color models.Color, categoryID *string) (*models.Repertoire, error)
+	SaveFunc                func(id string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error)
+	UpdateNameFunc          func(id string, name string) (*models.Repertoire, error)
+	UpdateCategoryFunc      func(id string, categoryID *string) (*models.Repertoire, error)
+	DeleteFunc              func(id string) error
+	CountFunc               func(userID string) (int, error)
+	ExistsFunc              func(id string) (bool, error)
+	BelongsToUserFunc       func(id string, userID string) (bool, error)
+	GetByCategoryFunc       func(categoryID string) ([]models.Repertoire, error)
+	GetUncategorizedFunc    func(userID string, color models.Color) ([]models.Repertoire, error)
 }
 
 func (m *MockRepertoireRepo) GetByID(id string) (*models.Repertoire, error) {
@@ -219,6 +235,17 @@ func (m *MockRepertoireRepo) Create(userID string, name string, color models.Col
 	return nil, nil
 }
 
+func (m *MockRepertoireRepo) CreateWithCategory(userID, name string, color models.Color, categoryID *string) (*models.Repertoire, error) {
+	if m.CreateWithCategoryFunc != nil {
+		return m.CreateWithCategoryFunc(userID, name, color, categoryID)
+	}
+	// Fall back to CreateFunc if not set
+	if m.CreateFunc != nil {
+		return m.CreateFunc(userID, name, color)
+	}
+	return nil, nil
+}
+
 func (m *MockRepertoireRepo) Save(id string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
 	if m.SaveFunc != nil {
 		return m.SaveFunc(id, treeData, metadata)
@@ -229,6 +256,13 @@ func (m *MockRepertoireRepo) Save(id string, treeData models.RepertoireNode, met
 func (m *MockRepertoireRepo) UpdateName(id string, name string) (*models.Repertoire, error) {
 	if m.UpdateNameFunc != nil {
 		return m.UpdateNameFunc(id, name)
+	}
+	return nil, nil
+}
+
+func (m *MockRepertoireRepo) UpdateCategory(id string, categoryID *string) (*models.Repertoire, error) {
+	if m.UpdateCategoryFunc != nil {
+		return m.UpdateCategoryFunc(id, categoryID)
 	}
 	return nil, nil
 }
@@ -259,6 +293,20 @@ func (m *MockRepertoireRepo) BelongsToUser(id string, userID string) (bool, erro
 		return m.BelongsToUserFunc(id, userID)
 	}
 	return true, nil
+}
+
+func (m *MockRepertoireRepo) GetByCategory(categoryID string) ([]models.Repertoire, error) {
+	if m.GetByCategoryFunc != nil {
+		return m.GetByCategoryFunc(categoryID)
+	}
+	return nil, nil
+}
+
+func (m *MockRepertoireRepo) GetUncategorized(userID string, color models.Color) ([]models.Repertoire, error) {
+	if m.GetUncategorizedFunc != nil {
+		return m.GetUncategorizedFunc(userID, color)
+	}
+	return nil, nil
 }
 
 // MockAnalysisRepo is a mock implementation of AnalysisRepository for testing
@@ -459,6 +507,82 @@ func (m *MockUserRepo) UpdatePassword(userID, passwordHash string) error {
 		return m.UpdatePasswordFunc(userID, passwordHash)
 	}
 	return nil
+}
+
+// MockCategoryRepo is a mock implementation of CategoryRepository for testing
+type MockCategoryRepo struct {
+	GetByIDFunc            func(id string) (*models.Category, error)
+	GetByUserAndColorFunc  func(userID string, color models.Color) ([]models.Category, error)
+	GetAllFunc             func(userID string) ([]models.Category, error)
+	CreateFunc             func(userID, name string, color models.Color) (*models.Category, error)
+	UpdateNameFunc         func(id, name string) (*models.Category, error)
+	DeleteFunc             func(id string) error
+	BelongsToUserFunc      func(id, userID string) (bool, error)
+	ExistsFunc             func(id string) (bool, error)
+	CountFunc              func(userID string) (int, error)
+}
+
+func (m *MockCategoryRepo) GetByID(id string) (*models.Category, error) {
+	if m.GetByIDFunc != nil {
+		return m.GetByIDFunc(id)
+	}
+	return nil, nil
+}
+
+func (m *MockCategoryRepo) GetByUserAndColor(userID string, color models.Color) ([]models.Category, error) {
+	if m.GetByUserAndColorFunc != nil {
+		return m.GetByUserAndColorFunc(userID, color)
+	}
+	return nil, nil
+}
+
+func (m *MockCategoryRepo) GetAll(userID string) ([]models.Category, error) {
+	if m.GetAllFunc != nil {
+		return m.GetAllFunc(userID)
+	}
+	return nil, nil
+}
+
+func (m *MockCategoryRepo) Create(userID, name string, color models.Color) (*models.Category, error) {
+	if m.CreateFunc != nil {
+		return m.CreateFunc(userID, name, color)
+	}
+	return nil, nil
+}
+
+func (m *MockCategoryRepo) UpdateName(id, name string) (*models.Category, error) {
+	if m.UpdateNameFunc != nil {
+		return m.UpdateNameFunc(id, name)
+	}
+	return nil, nil
+}
+
+func (m *MockCategoryRepo) Delete(id string) error {
+	if m.DeleteFunc != nil {
+		return m.DeleteFunc(id)
+	}
+	return nil
+}
+
+func (m *MockCategoryRepo) BelongsToUser(id, userID string) (bool, error) {
+	if m.BelongsToUserFunc != nil {
+		return m.BelongsToUserFunc(id, userID)
+	}
+	return true, nil
+}
+
+func (m *MockCategoryRepo) Exists(id string) (bool, error) {
+	if m.ExistsFunc != nil {
+		return m.ExistsFunc(id)
+	}
+	return false, nil
+}
+
+func (m *MockCategoryRepo) Count(userID string) (int, error) {
+	if m.CountFunc != nil {
+		return m.CountFunc(userID)
+	}
+	return 0, nil
 }
 
 // MockPasswordResetRepo is a mock implementation of PasswordResetRepository for testing

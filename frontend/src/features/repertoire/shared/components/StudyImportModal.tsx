@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { Modal } from '../../../../shared/components/UI/Modal';
 import { Button } from '../../../../shared/components/UI/Button';
 import { useStudyImport } from '../hooks/useStudyImport';
+import { useRepertoireStore } from '../../../../stores/repertoireStore';
 
 interface StudyImportModalProps {
   isOpen: boolean;
@@ -14,6 +15,8 @@ export function StudyImportModal({ isOpen, onClose, onSuccess }: StudyImportModa
   const [selectedChapters, setSelectedChapters] = useState<Set<number>>(new Set());
   const [mergeAsOne, setMergeAsOne] = useState(false);
   const [mergeName, setMergeName] = useState('');
+  const [createCategory, setCreateCategory] = useState(true);
+  const addCategory = useRepertoireStore((state) => state.addCategory);
 
   const { previewing, importing, studyInfo, previewError, handlePreview, handleImport, reset } = useStudyImport(onSuccess);
 
@@ -22,6 +25,7 @@ export function StudyImportModal({ isOpen, onClose, onSuccess }: StudyImportModa
     setSelectedChapters(new Set());
     setMergeAsOne(false);
     setMergeName('');
+    setCreateCategory(true);
     reset();
     onClose();
   }, [onClose, reset]);
@@ -32,6 +36,7 @@ export function StudyImportModal({ isOpen, onClose, onSuccess }: StudyImportModa
       setSelectedChapters(new Set());
       setMergeAsOne(false);
       setMergeName('');
+      setCreateCategory(true);
     }
   }, [url, handlePreview]);
 
@@ -41,11 +46,22 @@ export function StudyImportModal({ isOpen, onClose, onSuccess }: StudyImportModa
       : selectedChapters.size > 0
         ? Array.from(selectedChapters)
         : studyInfo?.chapters.map(c => c.index) ?? [];
-    const result = await handleImport(url, chapters, mergeAsOne, mergeAsOne ? (mergeName || studyInfo?.studyName) : undefined);
+    const result = await handleImport(
+      url,
+      chapters,
+      mergeAsOne,
+      mergeAsOne ? (mergeName || studyInfo?.studyName) : undefined,
+      !mergeAsOne && createCategory,
+      !mergeAsOne && createCategory ? studyInfo?.studyName : undefined
+    );
     if (result) {
+      // Add the created category to the store
+      if (result.category) {
+        addCategory(result.category);
+      }
       handleClose();
     }
-  }, [url, selectedChapters, studyInfo, mergeAsOne, mergeName, handleImport, handleClose]);
+  }, [url, selectedChapters, studyInfo, mergeAsOne, mergeName, createCategory, handleImport, handleClose, addCategory]);
 
   const toggleChapter = (index: number) => {
     setSelectedChapters(prev => {
@@ -164,6 +180,18 @@ export function StudyImportModal({ isOpen, onClose, onSuccess }: StudyImportModa
                 value={mergeName}
                 onChange={(e) => setMergeName(e.target.value)}
               />
+            )}
+            {!mergeAsOne && (
+              <label className="flex items-center gap-2 cursor-pointer text-[0.9rem] mt-2">
+                <input
+                  type="checkbox"
+                  checked={createCategory}
+                  onChange={(e) => setCreateCategory(e.target.checked)}
+                />
+                <span>
+                  Group into category "{studyInfo?.studyName || 'Imported Study'}"
+                </span>
+              </label>
             )}
           </div>
 

@@ -18,7 +18,11 @@ import type {
   SyncResult,
   StudyInfo,
   StudyImportResponse,
-  InsightsResponse
+  InsightsResponse,
+  Category,
+  CategoryWithRepertoires,
+  CreateCategoryRequest,
+  UpdateCategoryRequest
 } from '../types';
 
 const TOKEN_STORAGE_KEY = 'treechess_token';
@@ -184,6 +188,40 @@ export const repertoireApi = {
   toggleNodeCollapsed: async (id: string, nodeId: string): Promise<Repertoire> => {
     const response = await api.post(`/repertoires/${id}/nodes/${nodeId}/toggle-collapsed`);
     return response.data;
+  },
+
+  assignCategory: async (id: string, categoryId: string | null): Promise<Repertoire> => {
+    const response = await api.patch(`/repertoires/${id}/category`, { categoryId });
+    return response.data;
+  }
+};
+
+// Category API
+export const categoryApi = {
+  list: async (color?: Color): Promise<Category[]> => {
+    const params = color ? { color } : {};
+    const response = await api.get('/categories', { params });
+    return response.data;
+  },
+
+  get: async (id: string): Promise<CategoryWithRepertoires> => {
+    const response = await api.get(`/categories/${id}`);
+    return response.data;
+  },
+
+  create: async (data: CreateCategoryRequest): Promise<Category> => {
+    const response = await api.post('/categories', data);
+    return response.data;
+  },
+
+  rename: async (id: string, name: string): Promise<Category> => {
+    const data: UpdateCategoryRequest = { name };
+    const response = await api.patch(`/categories/${id}`, data);
+    return response.data;
+  },
+
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/categories/${id}`);
   }
 };
 
@@ -250,11 +288,21 @@ export const studyApi = {
     return response.data;
   },
 
-  import: async (studyUrl: string, chapters: number[], mergeAsOne?: boolean, mergeName?: string): Promise<StudyImportResponse> => {
+  import: async (
+    studyUrl: string,
+    chapters: number[],
+    mergeAsOne?: boolean,
+    mergeName?: string,
+    createCategory?: boolean,
+    categoryName?: string
+  ): Promise<StudyImportResponse> => {
     const body: Record<string, unknown> = { studyUrl, chapters };
     if (mergeAsOne) {
       body.mergeAsOne = true;
       if (mergeName) body.mergeName = mergeName;
+    } else if (createCategory) {
+      body.createCategory = true;
+      if (categoryName) body.categoryName = categoryName;
     }
     const response = await api.post('/studies/import', body, { timeout: 120000 });
     return response.data;

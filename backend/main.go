@@ -30,6 +30,7 @@ func main() {
 	// Initialize repositories
 	userRepo := repository.NewPostgresUserRepo(db.Pool)
 	repertoireRepo := repository.NewPostgresRepertoireRepo(db.Pool)
+	categoryRepo := repository.NewPostgresCategoryRepo(db.Pool)
 	analysisRepo := repository.NewPostgresAnalysisRepo(db.Pool)
 	fingerprintRepo := repository.NewPostgresFingerprintRepo(db.Pool)
 	engineEvalRepo := repository.NewPostgresEngineEvalRepo(db.Pool)
@@ -45,6 +46,7 @@ func main() {
 	authSvc.WithPasswordReset(passwordResetRepo, emailSvc, cfg.PasswordResetExpiryHours)
 	oauthSvc := services.NewOAuthService(userRepo, authSvc, cfg.LichessClientID, cfg.OAuthCallbackURL)
 	repertoireSvc := services.NewRepertoireService(repertoireRepo)
+	categorySvc := services.NewCategoryService(categoryRepo, repertoireRepo)
 	importSvc := services.NewImportService(repertoireSvc, analysisRepo,
 		services.WithFingerprintRepo(fingerprintRepo),
 		services.WithEngineService(engineSvc),
@@ -53,7 +55,7 @@ func main() {
 	lichessSvc := services.NewLichessService()
 	chesscomSvc := services.NewChesscomService()
 	syncSvc := services.NewSyncService(userRepo, importSvc, lichessSvc, chesscomSvc)
-	studyImportSvc := services.NewStudyImportService(lichessSvc, repertoireSvc, userRepo)
+	studyImportSvc := services.NewStudyImportService(lichessSvc, repertoireSvc, categoryRepo, userRepo)
 
 	// Initialize handlers
 	authHandler := handlers.NewAuthHandler(authSvc)
@@ -147,6 +149,14 @@ func main() {
 	protected.POST("/api/repertoires/merge", handlers.MergeRepertoiresHandler(repertoireSvc))
 	protected.POST("/api/repertoires/:id/extract", handlers.ExtractSubtreeHandler(repertoireSvc))
 	protected.POST("/api/repertoires/:id/merge-transpositions", handlers.MergeTranspositionsHandler(repertoireSvc))
+	protected.PATCH("/api/repertoires/:id/category", handlers.AssignCategoryHandler(repertoireSvc, categorySvc))
+
+	// Category API
+	protected.GET("/api/categories", handlers.ListCategoriesHandler(categorySvc))
+	protected.POST("/api/categories", handlers.CreateCategoryHandler(categorySvc))
+	protected.GET("/api/categories/:id", handlers.GetCategoryHandler(categorySvc))
+	protected.PATCH("/api/categories/:id", handlers.UpdateCategoryHandler(categorySvc))
+	protected.DELETE("/api/categories/:id", handlers.DeleteCategoryHandler(categorySvc))
 
 	// Import/Analysis API
 	importHandler := handlers.NewImportHandler(importSvc, lichessSvc, chesscomSvc)

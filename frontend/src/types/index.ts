@@ -47,6 +47,32 @@ export interface AuthResponse {
 export type Color = 'white' | 'black';
 export type ShortColor = 'w' | 'b';
 
+// Category types
+export interface Category {
+  id: string;
+  name: string;
+  color: Color;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CategoryWithRepertoires extends Category {
+  repertoires: Repertoire[];
+}
+
+export interface CreateCategoryRequest {
+  name: string;
+  color: Color;
+}
+
+export interface UpdateCategoryRequest {
+  name: string;
+}
+
+export interface AssignCategoryRequest {
+  categoryId: string | null;
+}
+
 // Repertoire types
 export interface RepertoireNode {
   id: string;
@@ -72,6 +98,7 @@ export interface Repertoire {
   id: string;
   name: string;
   color: Color;
+  categoryId?: string | null;
   treeData: RepertoireNode;
   metadata: RepertoireMetadata;
   createdAt: string;
@@ -259,11 +286,14 @@ export interface StudyImportRequest {
   chapters: number[];
   mergeAsOne?: boolean;
   mergeName?: string;
+  createCategory?: boolean;
+  categoryName?: string;
 }
 
 export interface StudyImportResponse {
   repertoires: Repertoire[];
   count: number;
+  category?: Category;
 }
 
 // Toast types

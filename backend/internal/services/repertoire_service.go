@@ -52,13 +52,22 @@ var (
 	ErrLichessStudyForbidden = fmt.Errorf("Lichess study is private, authentication required")
 )
 
+// RepertoireRepository interface for repository operations
+type RepertoireRepository interface {
+	repository.RepertoireRepository
+	CreateWithCategory(userID, name string, color models.Color, categoryID *string) (*models.Repertoire, error)
+	UpdateCategory(id string, categoryID *string) (*models.Repertoire, error)
+	GetByCategory(categoryID string) ([]models.Repertoire, error)
+	GetUncategorized(userID string, color models.Color) ([]models.Repertoire, error)
+}
+
 // RepertoireService handles repertoire business logic
 type RepertoireService struct {
-	repo repository.RepertoireRepository
+	repo RepertoireRepository
 }
 
 // NewRepertoireService creates a new repertoire service with the given repository
-func NewRepertoireService(repo repository.RepertoireRepository) *RepertoireService {
+func NewRepertoireService(repo RepertoireRepository) *RepertoireService {
 	return &RepertoireService{repo: repo}
 }
 
@@ -86,6 +95,46 @@ func (s *RepertoireService) CreateRepertoire(userID string, name string, color m
 	}
 
 	return s.repo.Create(userID, name, color)
+}
+
+// CreateRepertoireWithCategory creates a new repertoire with the given name, color, and optional category
+func (s *RepertoireService) CreateRepertoireWithCategory(userID, name string, color models.Color, categoryID *string) (*models.Repertoire, error) {
+	if color != models.ColorWhite && color != models.ColorBlack {
+		return nil, fmt.Errorf("%w: %s", ErrInvalidColor, color)
+	}
+
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return nil, ErrNameRequired
+	}
+	if len(name) > config.MaxRepertoireNameLen {
+		return nil, ErrNameTooLong
+	}
+
+	// Check repertoire limit
+	count, err := s.repo.Count(userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check repertoire count: %w", err)
+	}
+	if count >= config.MaxRepertoires {
+		return nil, ErrLimitReached
+	}
+
+	return s.repo.CreateWithCategory(userID, name, color, categoryID)
+}
+
+// AssignToCategory assigns a repertoire to a category (or removes from category if categoryID is nil)
+func (s *RepertoireService) AssignToCategory(repertoireID string, categoryID *string) (*models.Repertoire, error) {
+	// Check if repertoire exists
+	exists, err := s.repo.Exists(repertoireID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check repertoire existence: %w", err)
+	}
+	if !exists {
+		return nil, fmt.Errorf("%w: %s", ErrNotFound, repertoireID)
+	}
+
+	return s.repo.UpdateCategory(repertoireID, categoryID)
 }
 
 // GetRepertoire retrieves a repertoire by its ID

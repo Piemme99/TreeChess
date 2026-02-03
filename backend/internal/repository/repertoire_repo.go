@@ -15,38 +15,61 @@ import (
 
 const (
 	getRepertoireByIDSQL = `
-		SELECT id, name, color, tree_data, metadata, created_at, updated_at
+		SELECT id, name, color, category_id, tree_data, metadata, created_at, updated_at
 		FROM repertoires
 		WHERE id = $1
 	`
 	getRepertoiresByColorSQL = `
-		SELECT id, name, color, tree_data, metadata, created_at, updated_at
+		SELECT id, name, color, category_id, tree_data, metadata, created_at, updated_at
 		FROM repertoires
 		WHERE user_id = $1 AND color = $2
 		ORDER BY updated_at DESC
 	`
 	getAllRepertoiresSQL = `
-		SELECT id, name, color, tree_data, metadata, created_at, updated_at
+		SELECT id, name, color, category_id, tree_data, metadata, created_at, updated_at
 		FROM repertoires
 		WHERE user_id = $1
 		ORDER BY color, updated_at DESC
 	`
+	getRepertoiresByCategorySQL = `
+		SELECT id, name, color, category_id, tree_data, metadata, created_at, updated_at
+		FROM repertoires
+		WHERE category_id = $1
+		ORDER BY updated_at DESC
+	`
+	getUncategorizedRepertoiresSQL = `
+		SELECT id, name, color, category_id, tree_data, metadata, created_at, updated_at
+		FROM repertoires
+		WHERE user_id = $1 AND color = $2 AND category_id IS NULL
+		ORDER BY updated_at DESC
+	`
 	createRepertoireSQL = `
 		INSERT INTO repertoires (id, user_id, name, color, tree_data, metadata)
 		VALUES ($1, $2, $3, $4, $5, $6)
-		RETURNING id, name, color, tree_data, metadata, created_at, updated_at
+		RETURNING id, name, color, category_id, tree_data, metadata, created_at, updated_at
+	`
+	createRepertoireWithCategorySQL = `
+		INSERT INTO repertoires (id, user_id, name, color, category_id, tree_data, metadata)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		RETURNING id, name, color, category_id, tree_data, metadata, created_at, updated_at
 	`
 	updateRepertoireByIDSQL = `
 		UPDATE repertoires
 		SET tree_data = $2, metadata = $3, updated_at = NOW()
 		WHERE id = $1
-		RETURNING id, name, color, tree_data, metadata, created_at, updated_at
+		RETURNING id, name, color, category_id, tree_data, metadata, created_at, updated_at
 	`
 	updateRepertoireNameSQL = `
 		UPDATE repertoires
 		SET name = $2, updated_at = NOW()
 		WHERE id = $1
-		RETURNING id, name, color, tree_data, metadata, created_at, updated_at
+		RETURNING id, name, color, category_id, tree_data, metadata, created_at, updated_at
+	`
+	updateRepertoireCategorySQL = `
+		UPDATE repertoires
+		SET category_id = $2, updated_at = NOW()
+		WHERE id = $1
+		RETURNING id, name, color, category_id, tree_data, metadata, created_at, updated_at
 	`
 	deleteRepertoireSQL = `
 		DELETE FROM repertoires WHERE id = $1
@@ -84,6 +107,7 @@ func (r *PostgresRepertoireRepo) GetByID(id string) (*models.Repertoire, error) 
 		&rep.ID,
 		&rep.Name,
 		&rep.Color,
+		&rep.CategoryID,
 		&treeDataJSON,
 		&metadataJSON,
 		&rep.CreatedAt,
@@ -137,6 +161,11 @@ func (r *PostgresRepertoireRepo) GetAll(userID string) ([]models.Repertoire, err
 
 // Create creates a new repertoire with a name and color for a user
 func (r *PostgresRepertoireRepo) Create(userID string, name string, color models.Color) (*models.Repertoire, error) {
+	return r.CreateWithCategory(userID, name, color, nil)
+}
+
+// CreateWithCategory creates a new repertoire with a name, color, and optional category for a user
+func (r *PostgresRepertoireRepo) CreateWithCategory(userID string, name string, color models.Color, categoryID *string) (*models.Repertoire, error) {
 	ctx, cancel := dbContext()
 	defer cancel()
 
@@ -167,26 +196,32 @@ func (r *PostgresRepertoireRepo) Create(userID string, name string, color models
 	}
 
 	rep := models.Repertoire{
-		ID:        uuid.New().String(),
-		Name:      name,
-		Color:     color,
-		TreeData:  rootNode,
-		Metadata:  metadata,
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
+		ID:         uuid.New().String(),
+		Name:       name,
+		Color:      color,
+		CategoryID: categoryID,
+		TreeData:   rootNode,
+		Metadata:   metadata,
+		CreatedAt:  time.Now(),
+		UpdatedAt:  time.Now(),
 	}
 
-	err = r.pool.QueryRow(ctx, createRepertoireSQL,
-		rep.ID,
-		userID,
-		rep.Name,
-		string(rep.Color),
-		treeDataJSON,
-		metadataJSON,
-	).Scan(
+	var query string
+	var args []interface{}
+
+	if categoryID != nil {
+		query = createRepertoireWithCategorySQL
+		args = []interface{}{rep.ID, userID, rep.Name, string(rep.Color), *categoryID, treeDataJSON, metadataJSON}
+	} else {
+		query = createRepertoireSQL
+		args = []interface{}{rep.ID, userID, rep.Name, string(rep.Color), treeDataJSON, metadataJSON}
+	}
+
+	err = r.pool.QueryRow(ctx, query, args...).Scan(
 		&rep.ID,
 		&rep.Name,
 		&rep.Color,
+		&rep.CategoryID,
 		&treeDataJSON,
 		&metadataJSON,
 		&rep.CreatedAt,
@@ -233,6 +268,7 @@ func (r *PostgresRepertoireRepo) Save(id string, treeData models.RepertoireNode,
 		&rep.ID,
 		&rep.Name,
 		&rep.Color,
+		&rep.CategoryID,
 		&newTreeDataJSON,
 		&newMetadataJSON,
 		&rep.CreatedAt,
@@ -265,6 +301,7 @@ func (r *PostgresRepertoireRepo) UpdateName(id string, name string) (*models.Rep
 		&rep.ID,
 		&rep.Name,
 		&rep.Color,
+		&rep.CategoryID,
 		&treeDataJSON,
 		&metadataJSON,
 		&rep.CreatedAt,
@@ -283,6 +320,70 @@ func (r *PostgresRepertoireRepo) UpdateName(id string, name string) (*models.Rep
 	}
 
 	return &rep, nil
+}
+
+// UpdateCategory updates the category of a repertoire
+func (r *PostgresRepertoireRepo) UpdateCategory(id string, categoryID *string) (*models.Repertoire, error) {
+	ctx, cancel := dbContext()
+	defer cancel()
+
+	var rep models.Repertoire
+	var treeDataJSON, metadataJSON []byte
+
+	err := r.pool.QueryRow(ctx, updateRepertoireCategorySQL, id, categoryID).Scan(
+		&rep.ID,
+		&rep.Name,
+		&rep.Color,
+		&rep.CategoryID,
+		&treeDataJSON,
+		&metadataJSON,
+		&rep.CreatedAt,
+		&rep.UpdatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrRepertoireNotFound
+		}
+		return nil, fmt.Errorf("failed to update repertoire category: %w", err)
+	}
+
+	if err := json.Unmarshal(treeDataJSON, &rep.TreeData); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal tree_data: %w", err)
+	}
+
+	if err := json.Unmarshal(metadataJSON, &rep.Metadata); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal metadata: %w", err)
+	}
+
+	return &rep, nil
+}
+
+// GetByCategory retrieves all repertoires in a specific category
+func (r *PostgresRepertoireRepo) GetByCategory(categoryID string) ([]models.Repertoire, error) {
+	ctx, cancel := dbContext()
+	defer cancel()
+
+	rows, err := r.pool.Query(ctx, getRepertoiresByCategorySQL, categoryID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query repertoires by category: %w", err)
+	}
+	defer rows.Close()
+
+	return r.scanRepertoires(rows)
+}
+
+// GetUncategorized retrieves all repertoires without a category for a user and color
+func (r *PostgresRepertoireRepo) GetUncategorized(userID string, color models.Color) ([]models.Repertoire, error) {
+	ctx, cancel := dbContext()
+	defer cancel()
+
+	rows, err := r.pool.Query(ctx, getUncategorizedRepertoiresSQL, userID, string(color))
+	if err != nil {
+		return nil, fmt.Errorf("failed to query uncategorized repertoires: %w", err)
+	}
+	defer rows.Close()
+
+	return r.scanRepertoires(rows)
 }
 
 // Delete deletes a repertoire by ID
@@ -358,6 +459,7 @@ func (r *PostgresRepertoireRepo) scanRepertoires(rows interface {
 			&rep.ID,
 			&rep.Name,
 			&rep.Color,
+			&rep.CategoryID,
 			&treeDataJSON,
 			&metadataJSON,
 			&rep.CreatedAt,

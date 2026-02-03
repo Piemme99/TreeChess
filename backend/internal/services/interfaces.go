@@ -23,5 +23,6 @@ type GameImporter interface {
 // RepertoireManager abstracts repertoire creation and tree operations.
 type RepertoireManager interface {
 	CreateRepertoire(userID, name string, color models.Color) (*models.Repertoire, error)
+	CreateRepertoireWithCategory(userID, name string, color models.Color, categoryID *string) (*models.Repertoire, error)
 	SaveTree(repertoireID string, treeData models.RepertoireNode) (*models.Repertoire, error)
 }

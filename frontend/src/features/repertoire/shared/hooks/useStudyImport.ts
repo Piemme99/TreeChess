@@ -9,7 +9,7 @@ export interface UseStudyImportReturn {
   studyInfo: StudyInfo | null;
   previewError: string | null;
   handlePreview: (url: string) => Promise<boolean>;
-  handleImport: (studyUrl: string, chapters: number[], mergeAsOne?: boolean, mergeName?: string) => Promise<StudyImportResponse | null>;
+  handleImport: (studyUrl: string, chapters: number[], mergeAsOne?: boolean, mergeName?: string, createCategory?: boolean, categoryName?: string) => Promise<StudyImportResponse | null>;
   reset: () => void;
 }
 
@@ -43,7 +43,7 @@ export function useStudyImport(onSuccess?: () => void): UseStudyImportReturn {
     }
   }, []);
 
-  const handleImport = useCallback(async (studyUrl: string, chapters: number[], mergeAsOne?: boolean, mergeName?: string) => {
+  const handleImport = useCallback(async (studyUrl: string, chapters: number[], mergeAsOne?: boolean, mergeName?: string, createCategory?: boolean, categoryName?: string) => {
     if (chapters.length === 0) {
       toast.error('Please select at least one chapter');
       return null;
@@ -52,11 +52,13 @@ export function useStudyImport(onSuccess?: () => void): UseStudyImportReturn {
     setImporting(true);
 
     try {
-      const result = await studyApi.import(studyUrl, chapters, mergeAsOne, mergeName);
+      const result = await studyApi.import(studyUrl, chapters, mergeAsOne, mergeName, createCategory, categoryName);
       toast.success(
         mergeAsOne
           ? `Imported ${chapters.length} chapter(s) as 1 merged repertoire`
-          : `Imported ${result.count} repertoire(s) from Lichess study`
+          : createCategory && result.category
+            ? `Imported ${result.count} repertoire(s) into category "${result.category.name}"`
+            : `Imported ${result.count} repertoire(s) from Lichess study`
       );
       onSuccess?.();
       return result;

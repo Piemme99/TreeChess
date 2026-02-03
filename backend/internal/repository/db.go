@@ -182,6 +182,21 @@ func (db *DB) runMigrations() error {
 		)`,
 		`CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_user ON password_reset_tokens(user_id)`,
 		`CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_hash ON password_reset_tokens(token_hash)`,
+		// Categories table for grouping repertoires
+		`CREATE TABLE IF NOT EXISTS categories (
+			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+			user_id UUID NOT NULL REFERENCES users(id),
+			name VARCHAR(100) NOT NULL,
+			color VARCHAR(5) NOT NULL CHECK (color IN ('white', 'black')),
+			created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+			updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+			UNIQUE(user_id, name, color)
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_categories_user_id ON categories(user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_categories_color ON categories(color)`,
+		// Add category_id to repertoires with cascade delete
+		`ALTER TABLE repertoires ADD COLUMN IF NOT EXISTS category_id UUID REFERENCES categories(id) ON DELETE CASCADE`,
+		`CREATE INDEX IF NOT EXISTS idx_repertoires_category ON repertoires(category_id)`,
 	}
 	for _, m := range migrations {
 		if _, err := db.Pool.Exec(ctx, m); err != nil {

@@ -44,13 +44,14 @@ type Metadata struct {
 }
 
 type Repertoire struct {
-	ID        string         `json:"id"`
-	Name      string         `json:"name"`
-	Color     Color          `json:"color"`
-	TreeData  RepertoireNode `json:"treeData"`
-	Metadata  Metadata       `json:"metadata"`
-	CreatedAt time.Time      `json:"createdAt"`
-	UpdatedAt time.Time      `json:"updatedAt"`
+	ID         string         `json:"id"`
+	Name       string         `json:"name"`
+	Color      Color          `json:"color"`
+	CategoryID *string        `json:"categoryId,omitempty"`
+	TreeData   RepertoireNode `json:"treeData"`
+	Metadata   Metadata       `json:"metadata"`
+	CreatedAt  time.Time      `json:"createdAt"`
+	UpdatedAt  time.Time      `json:"updatedAt"`
 }
 
 // CreateRepertoireRequest represents a request to create a new repertoire
@@ -189,6 +190,8 @@ type StudyImportRequest struct {
 	ChapterIndices []int  `json:"chapters"`
 	MergeAsOne     bool   `json:"mergeAsOne"`
 	MergeName      string `json:"mergeName,omitempty"`
+	CreateCategory bool   `json:"createCategory,omitempty"`
+	CategoryName   string `json:"categoryName,omitempty"`
 }
 
 // GameSummary represents a single game for the games list

@@ -15,14 +15,16 @@ import (
 type StudyImportService struct {
 	lichessService    LichessGameFetcher
 	repertoireService RepertoireManager
+	categoryRepo      repository.CategoryRepository
 	userRepo          repository.UserRepository
 }
 
 // NewStudyImportService creates a new study import service.
-func NewStudyImportService(lichessSvc LichessGameFetcher, repertoireSvc RepertoireManager, userRepo repository.UserRepository) *StudyImportService {
+func NewStudyImportService(lichessSvc LichessGameFetcher, repertoireSvc RepertoireManager, categoryRepo repository.CategoryRepository, userRepo repository.UserRepository) *StudyImportService {
 	return &StudyImportService{
 		lichessService:    lichessSvc,
 		repertoireService: repertoireSvc,
+		categoryRepo:      categoryRepo,
 		userRepo:          userRepo,
 	}
 }
@@ -116,8 +118,25 @@ func (s *StudyImportService) PreviewStudy(studyID, authToken string) (*models.St
 	}, nil
 }
 
+// StudyImportResult contains the imported repertoires and optional created category
+type StudyImportResult struct {
+	Repertoires []models.Repertoire `json:"repertoires"`
+	Category    *models.Category    `json:"category,omitempty"`
+}
+
 // ImportStudyChapters imports selected chapters from a Lichess study as new repertoires.
 func (s *StudyImportService) ImportStudyChapters(userID, studyID, authToken string, chapterIndices []int) ([]models.Repertoire, error) {
+	result, err := s.ImportStudyChaptersWithCategory(userID, studyID, authToken, chapterIndices, false, "")
+	if err != nil {
+		return nil, err
+	}
+	return result.Repertoires, nil
+}
+
+// ImportStudyChaptersWithCategory imports selected chapters with optional category creation.
+// When createCategory is true and chapters are not being merged, it creates a category
+// and assigns all imported repertoires to it.
+func (s *StudyImportService) ImportStudyChaptersWithCategory(userID, studyID, authToken string, chapterIndices []int, createCategory bool, categoryName string) (*StudyImportResult, error) {
 	pgnData, err := s.lichessService.FetchStudyPGN(studyID, authToken)
 	if err != nil {
 		return nil, err
@@ -135,6 +154,60 @@ func (s *StudyImportService) ImportStudyChapters(userID, studyID, authToken stri
 	}
 
 	studyName := ""
+	// First pass: determine study name and dominant color
+	var detectedColor models.Color
+	colorsFound := make(map[models.Color]int)
+
+	for i, chapterPGN := range chapters {
+		if !requested[i] {
+			continue
+		}
+
+		headers, _ := splitPGNHeadersAndMovetext(chapterPGN)
+		name := headers["Event"]
+		if studyName == "" {
+			if parts := strings.SplitN(name, ": ", 2); len(parts) == 2 {
+				studyName = parts[0]
+			} else {
+				studyName = name
+			}
+		}
+
+		orientation := strings.ToLower(headers["Orientation"])
+		color := models.ColorWhite
+		if orientation == "black" {
+			color = models.ColorBlack
+		}
+		colorsFound[color]++
+	}
+
+	// Determine the dominant color (for category creation)
+	if colorsFound[models.ColorWhite] >= colorsFound[models.ColorBlack] {
+		detectedColor = models.ColorWhite
+	} else {
+		detectedColor = models.ColorBlack
+	}
+
+	// Create category if requested
+	var category *models.Category
+	var categoryID *string
+	if createCategory && s.categoryRepo != nil {
+		catName := categoryName
+		if catName == "" {
+			catName = studyName
+		}
+		if catName == "" {
+			catName = "Imported Study"
+		}
+
+		cat, err := s.categoryRepo.Create(userID, catName, detectedColor)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create category: %w", err)
+		}
+		category = cat
+		categoryID = &cat.ID
+	}
+
 	var created []models.Repertoire
 
 	for i, chapterPGN := range chapters {
@@ -157,9 +230,6 @@ func (s *StudyImportService) ImportStudyChapters(userID, studyID, authToken stri
 			name = fmt.Sprintf("Chapter %d", i+1)
 		}
 		if parts := strings.SplitN(name, ": ", 2); len(parts) == 2 {
-			if studyName == "" {
-				studyName = parts[0]
-			}
 			name = parts[1]
 		}
 
@@ -170,8 +240,13 @@ func (s *StudyImportService) ImportStudyChapters(userID, studyID, authToken stri
 			color = models.ColorBlack
 		}
 
-		// Create the repertoire
-		rep, err := s.repertoireService.CreateRepertoire(userID, name, color)
+		// Create the repertoire (with category if one was created and colors match)
+		var rep *models.Repertoire
+		if categoryID != nil && color == detectedColor {
+			rep, err = s.repertoireService.CreateRepertoireWithCategory(userID, name, color, categoryID)
+		} else {
+			rep, err = s.repertoireService.CreateRepertoire(userID, name, color)
+		}
 		if err != nil {
 			return nil, fmt.Errorf("failed to create repertoire for chapter %d: %w", i, err)
 		}
@@ -185,7 +260,10 @@ func (s *StudyImportService) ImportStudyChapters(userID, studyID, authToken stri
 		created = append(created, *saved)
 	}
 
-	return created, nil
+	return &StudyImportResult{
+		Repertoires: created,
+		Category:    category,
+	}, nil
 }
 
 // ErrMixedColors is returned when trying to merge chapters with different orientations.

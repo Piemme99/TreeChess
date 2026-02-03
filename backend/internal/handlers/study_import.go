@@ -107,7 +107,7 @@ func (h *StudyImportHandler) ImportStudyHandler(c echo.Context) error {
 		})
 	}
 
-	repertoires, err := h.studyImportService.ImportStudyChapters(userID, studyID, authToken, req.ChapterIndices)
+	result, err := h.studyImportService.ImportStudyChaptersWithCategory(userID, studyID, authToken, req.ChapterIndices, req.CreateCategory, req.CategoryName)
 	if err != nil {
 		if errors.Is(err, services.ErrLichessStudyNotFound) {
 			return NotFoundResponse(c, "Lichess study")
@@ -125,8 +125,12 @@ func (h *StudyImportHandler) ImportStudyHandler(c echo.Context) error {
 		return BadRequestResponse(c, "failed to import study")
 	}
 
-	return c.JSON(http.StatusCreated, map[string]interface{}{
-		"repertoires": repertoires,
-		"count":       len(repertoires),
-	})
+	response := map[string]interface{}{
+		"repertoires": result.Repertoires,
+		"count":       len(result.Repertoires),
+	}
+	if result.Category != nil {
+		response["category"] = result.Category
+	}
+	return c.JSON(http.StatusCreated, response)
 }
