@@ -69,7 +69,7 @@ function CollapseIcon({ collapsed, className = 'w-4 h-4' }: { collapsed: boolean
 }
 
 const navItems = [
-  { to: '/', label: 'Dashboard', Icon: DashboardIcon, end: true },
+  { to: '/dashboard', label: 'Dashboard', Icon: DashboardIcon, end: true },
   { to: '/repertoires', label: 'Repertoires', Icon: RepertoiresIcon, end: false },
   { to: '/games', label: 'Games', Icon: GamesIcon, end: false },
   { to: '/profile', label: 'Profile', Icon: ProfileIcon, end: false },

@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useAuthStore } from '../../stores/authStore';
 import { Button } from '../../shared/components/UI';
 import { toast } from '../../stores/toastStore';
+import { authApi } from '../../services/api';
 import type { TimeFormat } from '../../types';
 
 export function ProfilePage() {
@@ -17,6 +18,21 @@ export function ProfilePage() {
     new Set(['rapid', 'blitz', 'bullet'])
   );
   const [loading, setLoading] = useState(false);
+
+  // Password change state
+  const [hasPassword, setHasPassword] = useState<boolean | null>(null);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [passwordError, setPasswordError] = useState('');
+
+  // Check if user has a password set
+  useEffect(() => {
+    authApi.hasPassword()
+      .then(({ hasPassword }) => setHasPassword(hasPassword))
+      .catch(() => setHasPassword(false));
+  }, []);
 
   // Initialize form from user data
   useEffect(() => {
@@ -81,6 +97,40 @@ export function ProfilePage() {
       setLoading(false);
     }
   };
+
+  const handleChangePassword = async () => {
+    setPasswordError('');
+
+    if (newPassword !== confirmNewPassword) {
+      setPasswordError('Passwords do not match');
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      setPasswordError('Password must be at least 8 characters');
+      return;
+    }
+
+    setPasswordLoading(true);
+    try {
+      await authApi.changePassword(currentPassword, newPassword);
+      toast.success('Password changed successfully');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmNewPassword('');
+    } catch (err) {
+      if (err instanceof Error && 'response' in err) {
+        const axiosError = err as { response?: { data?: { error?: string } } };
+        setPasswordError(axiosError.response?.data?.error || 'Failed to change password');
+      } else {
+        setPasswordError('Failed to change password');
+      }
+    } finally {
+      setPasswordLoading(false);
+    }
+  };
+
+  const canChangePassword = currentPassword && newPassword && confirmNewPassword;
 
   return (
     <div className="max-w-[600px] mx-auto w-full">
@@ -161,6 +211,74 @@ export function ProfilePage() {
           </div>
           <p className="text-xs text-text-muted mt-2">At least one format is required.</p>
         </div>
+
+        {hasPassword && (
+          <div className="bg-bg-card rounded-lg p-6 border border-border">
+            <h3 className="text-base font-semibold mb-1">Change Password</h3>
+            <p className="text-sm text-text-muted mb-4">
+              Update your account password.
+            </p>
+            {passwordError && (
+              <div className="bg-danger-light text-danger py-2 px-4 rounded-md text-sm mb-4">
+                {passwordError}
+              </div>
+            )}
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-1">
+                <label htmlFor="currentPassword" className="text-sm font-medium text-text">
+                  Current Password
+                </label>
+                <input
+                  id="currentPassword"
+                  type="password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  placeholder="Enter current password"
+                  autoComplete="current-password"
+                  className="py-2 px-4 border border-border rounded-md text-[0.9375rem] font-sans focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary-light"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label htmlFor="newPassword" className="text-sm font-medium text-text">
+                  New Password
+                </label>
+                <input
+                  id="newPassword"
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Enter new password"
+                  autoComplete="new-password"
+                  minLength={8}
+                  className="py-2 px-4 border border-border rounded-md text-[0.9375rem] font-sans focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary-light"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label htmlFor="confirmNewPassword" className="text-sm font-medium text-text">
+                  Confirm New Password
+                </label>
+                <input
+                  id="confirmNewPassword"
+                  type="password"
+                  value={confirmNewPassword}
+                  onChange={(e) => setConfirmNewPassword(e.target.value)}
+                  placeholder="Confirm new password"
+                  autoComplete="new-password"
+                  minLength={8}
+                  className="py-2 px-4 border border-border rounded-md text-[0.9375rem] font-sans focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary-light"
+                />
+              </div>
+              <Button
+                variant="secondary"
+                onClick={handleChangePassword}
+                loading={passwordLoading}
+                disabled={!canChangePassword}
+              >
+                Change Password
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -9,7 +9,11 @@ import { GameAnalysisPage } from './features/game-analysis';
 import { RepertoireEdit } from './features/repertoire/RepertoireEdit';
 import { ToastContainer } from './shared/components/UI';
 import { LoginPage } from './features/auth/LoginPage';
+import { ForgotPasswordPage } from './features/auth/ForgotPasswordPage';
+import { ResetPasswordPage } from './features/auth/ResetPasswordPage';
+import { LandingPage } from './features/landing';
 import { ProtectedRoute } from './shared/components/ProtectedRoute';
+import { PublicRoute } from './shared/components/PublicRoute';
 import { useAuthStore } from './stores/authStore';
 
 function PageWrapper({ children }: { children: React.ReactNode }) {
@@ -31,7 +35,10 @@ function App() {
   return (
     <div className="app animate-fade-in">
       <Routes>
+        <Route path="/" element={<PublicRoute><LandingPage /></PublicRoute>} />
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route
           element={
             <ProtectedRoute>
@@ -39,7 +46,7 @@ function App() {
             </ProtectedRoute>
           }
         >
-          <Route index element={<PageWrapper><Dashboard /></PageWrapper>} />
+          <Route path="dashboard" element={<PageWrapper><Dashboard /></PageWrapper>} />
           <Route path="repertoires" element={<PageWrapper><RepertoireTab /></PageWrapper>} />
           <Route path="games" element={<PageWrapper><GamesPage /></PageWrapper>} />
           <Route path="profile" element={<PageWrapper><ProfilePage /></PageWrapper>} />

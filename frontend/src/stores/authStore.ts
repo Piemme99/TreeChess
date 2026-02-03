@@ -14,8 +14,8 @@ interface AuthState {
   needsOnboarding: boolean;
   syncing: boolean;
   lastSyncResult: SyncResult | null;
-  login: (username: string, password: string) => Promise<void>;
-  register: (username: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<void>;
+  register: (email: string, username: string, password: string) => Promise<void>;
   handleOAuthToken: (token: string, isNew?: boolean) => Promise<void>;
   logout: () => void;
   checkAuth: () => Promise<void>;
@@ -35,10 +35,10 @@ export const useAuthStore = create<AuthState>((set) => ({
   syncing: false,
   lastSyncResult: null,
 
-  login: async (username: string, password: string) => {
+  login: async (email: string, password: string) => {
     set({ error: null });
     try {
-      const response = await authApi.login(username, password);
+      const response = await authApi.login(email, password);
       localStorage.setItem(TOKEN_STORAGE_KEY, response.token);
       set({
         user: response.user,
@@ -53,10 +53,10 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
   },
 
-  register: async (username: string, password: string) => {
+  register: async (email: string, username: string, password: string) => {
     set({ error: null });
     try {
-      const response = await authApi.register(username, password);
+      const response = await authApi.register(email, username, password);
       localStorage.setItem(TOKEN_STORAGE_KEY, response.token);
       set({
         user: response.user,

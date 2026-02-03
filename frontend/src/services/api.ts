@@ -67,13 +67,13 @@ api.interceptors.response.use(
 
 // Auth API
 export const authApi = {
-  register: async (username: string, password: string): Promise<AuthResponse> => {
-    const response = await api.post('/auth/register', { username, password });
+  register: async (email: string, username: string, password: string): Promise<AuthResponse> => {
+    const response = await api.post('/auth/register', { email, username, password });
     return response.data;
   },
 
-  login: async (username: string, password: string): Promise<AuthResponse> => {
-    const response = await api.post('/auth/login', { username, password });
+  login: async (email: string, password: string): Promise<AuthResponse> => {
+    const response = await api.post('/auth/login', { email, password });
     return response.data;
   },
 
@@ -84,6 +84,26 @@ export const authApi = {
 
   updateProfile: async (data: UpdateProfileRequest): Promise<User> => {
     const response = await api.put('/auth/profile', data);
+    return response.data;
+  },
+
+  forgotPassword: async (email: string): Promise<{ message: string }> => {
+    const response = await api.post('/auth/forgot-password', { email });
+    return response.data;
+  },
+
+  resetPassword: async (token: string, newPassword: string): Promise<{ message: string }> => {
+    const response = await api.post('/auth/reset-password', { token, newPassword });
+    return response.data;
+  },
+
+  changePassword: async (currentPassword: string, newPassword: string): Promise<{ message: string }> => {
+    const response = await api.post('/auth/change-password', { currentPassword, newPassword });
+    return response.data;
+  },
+
+  hasPassword: async (): Promise<{ hasPassword: boolean }> => {
+    const response = await api.get('/auth/has-password');
     return response.data;
   },
 };

@@ -34,12 +34,15 @@ func main() {
 	fingerprintRepo := repository.NewPostgresFingerprintRepo(db.Pool)
 	engineEvalRepo := repository.NewPostgresEngineEvalRepo(db.Pool)
 	dismissedMistakeRepo := repository.NewDismissedMistakeRepo(db.Pool)
+	passwordResetRepo := repository.NewPostgresPasswordResetRepo(db.Pool)
 
 	// Initialize opening analysis service (uses Lichess Explorer API)
 	engineSvc := services.NewEngineService(engineEvalRepo, analysisRepo)
 
 	// Initialize services
 	authSvc := services.NewAuthService(userRepo, cfg.JWTSecret, cfg.JWTExpiry)
+	emailSvc := services.NewEmailService(cfg)
+	authSvc.WithPasswordReset(passwordResetRepo, emailSvc, cfg.PasswordResetExpiryHours)
 	oauthSvc := services.NewOAuthService(userRepo, authSvc, cfg.LichessClientID, cfg.OAuthCallbackURL)
 	repertoireSvc := services.NewRepertoireService(repertoireRepo)
 	importSvc := services.NewImportService(repertoireSvc, analysisRepo,
@@ -114,6 +117,8 @@ func main() {
 	}))
 	authGroup.POST("/api/auth/register", authHandler.RegisterHandler)
 	authGroup.POST("/api/auth/login", authHandler.LoginHandler)
+	authGroup.POST("/api/auth/forgot-password", authHandler.ForgotPasswordHandler)
+	authGroup.POST("/api/auth/reset-password", authHandler.ResetPasswordHandler)
 	e.GET("/api/auth/lichess/login", oauthHandler.LoginRedirect)
 	e.GET("/api/auth/lichess/callback", oauthHandler.Callback)
 
@@ -123,6 +128,8 @@ func main() {
 	// Auth - current user
 	protected.GET("/api/auth/me", authHandler.MeHandler)
 	protected.PUT("/api/auth/profile", authHandler.UpdateProfileHandler)
+	protected.POST("/api/auth/change-password", authHandler.ChangePasswordHandler)
+	protected.GET("/api/auth/has-password", authHandler.HasPasswordHandler)
 
 	// Repertoire API
 	protected.GET("/api/repertoires/templates", handlers.ListTemplatesHandler())

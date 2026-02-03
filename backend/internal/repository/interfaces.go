@@ -14,15 +14,18 @@ type FingerprintEntry struct {
 
 // UserRepository defines the interface for user data operations
 type UserRepository interface {
-	Create(username, passwordHash string) (*models.User, error)
+	Create(email, username, passwordHash string) (*models.User, error)
 	GetByUsername(username string) (*models.User, error)
+	GetByEmail(email string) (*models.User, error)
 	GetByID(id string) (*models.User, error)
 	Exists(username string) (bool, error)
+	EmailExists(email string) (bool, error)
 	FindByOAuth(provider, oauthID string) (*models.User, error)
 	CreateOAuth(provider, oauthID, username string) (*models.User, error)
 	UpdateProfile(userID string, lichess, chesscom *string, timeFormatPrefs []string) (*models.User, error)
 	UpdateSyncTimestamps(userID string, lichessSyncAt, chesscomSyncAt *time.Time) error
 	UpdateLichessToken(userID, token string) error
+	UpdatePassword(userID, passwordHash string) error
 }
 
 // RepertoireRepository defines the interface for repertoire data operations
@@ -76,4 +79,13 @@ type AnalysisRepository interface {
 	MarkGameViewed(userID, analysisID string, gameIndex int) error
 	GetViewedGames(userID string) (map[string]bool, error)
 	GetAllGamesRaw(userID string) ([]models.RawAnalysis, error)
+}
+
+// PasswordResetRepository defines the interface for password reset token operations
+type PasswordResetRepository interface {
+	Create(userID, tokenHash string, expiresAt time.Time) (*models.PasswordResetToken, error)
+	GetByTokenHash(tokenHash string) (*models.PasswordResetToken, error)
+	MarkUsed(id string) error
+	DeleteByUserID(userID string) error
+	CountRecentByUserID(userID string, since time.Time) (int, error)
 }

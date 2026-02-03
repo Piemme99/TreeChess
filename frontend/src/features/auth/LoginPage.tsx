@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { OnboardingModal } from './OnboardingModal';
 
@@ -7,6 +7,7 @@ const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
 export function LoginPage() {
   const [isRegister, setIsRegister] = useState(false);
+  const [email, setEmail] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -18,6 +19,13 @@ export function LoginPage() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab === 'register') {
+      setIsRegister(true);
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
     const token = searchParams.get('token');
     const oauthError = searchParams.get('error');
     const isNew = searchParams.get('new') === '1';
@@ -27,7 +35,7 @@ export function LoginPage() {
       handleOAuthToken(token, isNew)
         .then(() => {
           if (!isNew) {
-            navigate('/', { replace: true });
+            navigate('/dashboard', { replace: true });
           }
         })
         .catch((err) => {
@@ -53,11 +61,11 @@ export function LoginPage() {
     setSubmitting(true);
     try {
       if (isRegister) {
-        await register(username, password);
+        await register(email, username, password);
         // Don't navigate yet — onboarding modal will show
       } else {
-        await login(username, password);
-        navigate('/', { replace: true });
+        await login(email, password);
+        navigate('/dashboard', { replace: true });
       }
     } catch (err) {
       if (err instanceof Error) {
@@ -72,6 +80,10 @@ export function LoginPage() {
     setIsRegister(!isRegister);
     setError('');
     setConfirmPassword('');
+    if (!isRegister) {
+      // Switching to register mode - clear username as it will be a separate field
+      setUsername('');
+    }
   };
 
   return (
@@ -97,23 +109,46 @@ export function LoginPage() {
           {error && <div className="bg-danger-light text-danger py-2 px-4 rounded-md text-sm">{error}</div>}
 
           <div className="flex flex-col gap-1">
-            <label htmlFor="username" className="text-sm font-medium text-text">Username</label>
+            <label htmlFor="email" className="text-sm font-medium text-text">Email</label>
             <input
-              id="username"
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder="Enter username"
-              autoComplete="username"
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Enter email"
+              autoComplete="email"
               required
-              minLength={3}
-              maxLength={50}
               className="py-2 px-4 border border-border rounded-md text-[0.9375rem] font-sans transition-colors duration-150 focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary-light"
             />
           </div>
 
+          {isRegister && (
+            <div className="flex flex-col gap-1">
+              <label htmlFor="username" className="text-sm font-medium text-text">Username</label>
+              <input
+                id="username"
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="Choose a display name"
+                autoComplete="username"
+                required
+                minLength={3}
+                maxLength={50}
+                className="py-2 px-4 border border-border rounded-md text-[0.9375rem] font-sans transition-colors duration-150 focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary-light"
+              />
+            </div>
+          )}
+
           <div className="flex flex-col gap-1">
-            <label htmlFor="password" className="text-sm font-medium text-text">Password</label>
+            <div className="flex justify-between items-center">
+              <label htmlFor="password" className="text-sm font-medium text-text">Password</label>
+              {!isRegister && (
+                <Link to="/forgot-password" className="text-sm text-primary hover:underline">
+                  Forgot password?
+                </Link>
+              )}
+            </div>
             <input
               id="password"
               type="password"
@@ -161,7 +196,7 @@ export function LoginPage() {
         isOpen={needsOnboarding}
         onClose={() => {
           clearOnboarding();
-          navigate('/', { replace: true });
+          navigate('/dashboard', { replace: true });
         }}
       />
     </div>

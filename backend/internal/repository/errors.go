@@ -14,4 +14,8 @@ var (
 	// User errors
 	ErrUserNotFound   = fmt.Errorf("user not found")
 	ErrUsernameExists = fmt.Errorf("username already exists")
+	ErrEmailExists    = fmt.Errorf("email already exists")
+
+	// Password reset errors
+	ErrResetTokenNotFound = fmt.Errorf("reset token not found")
 )

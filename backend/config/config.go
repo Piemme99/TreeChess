@@ -12,15 +12,21 @@ import (
 
 // Config holds application configuration
 type Config struct {
-	DatabaseURL       string
-	Port              int
-	AllowedOrigins    []string
-	JWTSecret         string
-	JWTExpiry         time.Duration
-	LichessClientID   string
-	FrontendURL       string
-	OAuthCallbackURL  string
-	SecureCookies     bool
+	DatabaseURL              string
+	Port                     int
+	AllowedOrigins           []string
+	JWTSecret                string
+	JWTExpiry                time.Duration
+	LichessClientID          string
+	FrontendURL              string
+	OAuthCallbackURL         string
+	SecureCookies            bool
+	SMTPHost                 string
+	SMTPPort                 int
+	SMTPUser                 string
+	SMTPPassword             string
+	SMTPFromAddress          string
+	PasswordResetExpiryHours int
 }
 
 // MustLoad loads configuration from environment variables
@@ -83,15 +89,44 @@ func MustLoad() Config {
 
 	secureCookies := os.Getenv("SECURE_COOKIES") == "true"
 
+	// SMTP config (optional - if not set, email sending is disabled)
+	smtpHost := os.Getenv("SMTP_HOST")
+	smtpPort := 587
+	if smtpPortStr := os.Getenv("SMTP_PORT"); smtpPortStr != "" {
+		p, err := strconv.Atoi(smtpPortStr)
+		if err != nil {
+			panic(fmt.Sprintf("Invalid SMTP_PORT value: %s", smtpPortStr))
+		}
+		smtpPort = p
+	}
+	smtpUser := os.Getenv("SMTP_USER")
+	smtpPassword := os.Getenv("SMTP_PASSWORD")
+	smtpFromAddress := os.Getenv("SMTP_FROM_ADDRESS")
+
+	passwordResetExpiryHours := 1
+	if expiryStr := os.Getenv("PASSWORD_RESET_EXPIRY_HOURS"); expiryStr != "" {
+		hours, err := strconv.Atoi(expiryStr)
+		if err != nil {
+			panic(fmt.Sprintf("Invalid PASSWORD_RESET_EXPIRY_HOURS value: %s", expiryStr))
+		}
+		passwordResetExpiryHours = hours
+	}
+
 	return Config{
-		DatabaseURL:      dbURL,
-		Port:             port,
-		AllowedOrigins:   allowedOrigins,
-		JWTSecret:        jwtSecret,
-		JWTExpiry:        jwtExpiry,
-		LichessClientID:  lichessClientID,
-		FrontendURL:      frontendURL,
-		OAuthCallbackURL: oauthCallbackURL,
-		SecureCookies:    secureCookies,
+		DatabaseURL:              dbURL,
+		Port:                     port,
+		AllowedOrigins:           allowedOrigins,
+		JWTSecret:                jwtSecret,
+		JWTExpiry:                jwtExpiry,
+		LichessClientID:          lichessClientID,
+		FrontendURL:              frontendURL,
+		OAuthCallbackURL:         oauthCallbackURL,
+		SecureCookies:            secureCookies,
+		SMTPHost:                 smtpHost,
+		SMTPPort:                 smtpPort,
+		SMTPUser:                 smtpUser,
+		SMTPPassword:             smtpPassword,
+		SMTPFromAddress:          smtpFromAddress,
+		PasswordResetExpiryHours: passwordResetExpiryHours,
 	}
 }

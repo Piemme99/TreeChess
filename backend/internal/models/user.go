@@ -5,6 +5,7 @@ import "time"
 type User struct {
 	ID                 string     `json:"id"`
 	Username           string     `json:"username"`
+	Email              *string    `json:"email,omitempty"`
 	PasswordHash       string     `json:"-"`
 	OAuthProvider      *string    `json:"oauthProvider,omitempty"`
 	OAuthID            *string    `json:"-"`
@@ -31,12 +32,13 @@ type UpdateProfileRequest struct {
 }
 
 type RegisterRequest struct {
+	Email    string `json:"email"`
 	Username string `json:"username"`
 	Password string `json:"password"`
 }
 
 type LoginRequest struct {
-	Username string `json:"username"`
+	Email    string `json:"email"`
 	Password string `json:"password"`
 }
 

@@ -25,12 +25,12 @@ func generateTestToken(t *testing.T) string {
 	authSvc := newTestAuthService()
 	// Register a user to get a valid token
 	mockRepo := &mocks.MockUserRepo{
-		CreateFunc: func(username, passwordHash string) (*models.User, error) {
-			return &models.User{ID: "user-123", Username: username}, nil
+		CreateFunc: func(email, username, passwordHash string) (*models.User, error) {
+			return &models.User{ID: "user-123", Username: username, Email: &email}, nil
 		},
 	}
 	svc := services.NewAuthService(mockRepo, testJWTSecret, 24*time.Hour)
-	resp, err := svc.Register("testuser", "password123")
+	resp, err := svc.Register("test@example.com", "testuser", "password123")
 	require.NoError(t, err)
 	_ = authSvc
 	return resp.Token

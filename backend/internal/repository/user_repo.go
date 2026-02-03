@@ -14,16 +14,20 @@ import (
 )
 
 const (
-	userColumns = `id, username, password_hash, oauth_provider, oauth_id, lichess_username, chesscom_username, lichess_access_token, last_lichess_sync_at, last_chesscom_sync_at, time_format_prefs, created_at`
+	userColumns = `id, username, email, password_hash, oauth_provider, oauth_id, lichess_username, chesscom_username, lichess_access_token, last_lichess_sync_at, last_chesscom_sync_at, time_format_prefs, created_at`
 
 	createUserSQL = `
-		INSERT INTO users (id, username, password_hash)
-		VALUES ($1, $2, $3)
+		INSERT INTO users (id, username, email, password_hash)
+		VALUES ($1, $2, LOWER($3), $4)
 		RETURNING ` + userColumns + `
 	`
 	getUserByUsernameSQL = `
 		SELECT ` + userColumns + `
 		FROM users WHERE username = $1
+	`
+	getUserByEmailSQL = `
+		SELECT ` + userColumns + `
+		FROM users WHERE LOWER(email) = LOWER($1)
 	`
 	getUserByIDSQL = `
 		SELECT ` + userColumns + `
@@ -31,6 +35,9 @@ const (
 	`
 	checkUserExistsSQL = `
 		SELECT EXISTS(SELECT 1 FROM users WHERE username = $1)
+	`
+	checkEmailExistsSQL = `
+		SELECT EXISTS(SELECT 1 FROM users WHERE LOWER(email) = LOWER($1))
 	`
 	findByOAuthSQL = `
 		SELECT ` + userColumns + `
@@ -54,6 +61,11 @@ const (
 		UPDATE users SET lichess_access_token = $2
 		WHERE id = $1
 	`
+
+	updatePasswordSQL = `
+		UPDATE users SET password_hash = $2
+		WHERE id = $1
+	`
 )
 
 type PostgresUserRepo struct {
@@ -68,7 +80,7 @@ func scanUser(scan func(dest ...any) error) (*models.User, error) {
 	var user models.User
 	var passwordHash *string
 	err := scan(
-		&user.ID, &user.Username, &passwordHash, &user.OAuthProvider, &user.OAuthID,
+		&user.ID, &user.Username, &user.Email, &passwordHash, &user.OAuthProvider, &user.OAuthID,
 		&user.LichessUsername, &user.ChesscomUsername, &user.LichessAccessToken,
 		&user.LastLichessSyncAt, &user.LastChesscomSyncAt, &user.TimeFormatPrefs, &user.CreatedAt,
 	)
@@ -81,14 +93,17 @@ func scanUser(scan func(dest ...any) error) (*models.User, error) {
 	return &user, nil
 }
 
-func (r *PostgresUserRepo) Create(username, passwordHash string) (*models.User, error) {
+func (r *PostgresUserRepo) Create(email, username, passwordHash string) (*models.User, error) {
 	ctx, cancel := dbContext()
 	defer cancel()
 
 	id := uuid.New().String()
-	user, err := scanUser(r.pool.QueryRow(ctx, createUserSQL, id, username, passwordHash).Scan)
+	user, err := scanUser(r.pool.QueryRow(ctx, createUserSQL, id, username, email, passwordHash).Scan)
 	if err != nil {
 		if isDuplicateKeyError(err) {
+			if isDuplicateEmailError(err) {
+				return nil, ErrEmailExists
+			}
 			return nil, ErrUsernameExists
 		}
 		return nil, fmt.Errorf("failed to create user: %w", err)
@@ -106,6 +121,20 @@ func (r *PostgresUserRepo) GetByUsername(username string) (*models.User, error) 
 			return nil, ErrUserNotFound
 		}
 		return nil, fmt.Errorf("failed to get user by username: %w", err)
+	}
+	return user, nil
+}
+
+func (r *PostgresUserRepo) GetByEmail(email string) (*models.User, error) {
+	ctx, cancel := dbContext()
+	defer cancel()
+
+	user, err := scanUser(r.pool.QueryRow(ctx, getUserByEmailSQL, email).Scan)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrUserNotFound
+		}
+		return nil, fmt.Errorf("failed to get user by email: %w", err)
 	}
 	return user, nil
 }
@@ -204,6 +233,29 @@ func (r *PostgresUserRepo) Exists(username string) (bool, error) {
 	return exists, nil
 }
 
+func (r *PostgresUserRepo) EmailExists(email string) (bool, error) {
+	ctx, cancel := dbContext()
+	defer cancel()
+
+	var exists bool
+	err := r.pool.QueryRow(ctx, checkEmailExistsSQL, email).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("failed to check email existence: %w", err)
+	}
+	return exists, nil
+}
+
+func (r *PostgresUserRepo) UpdatePassword(userID, passwordHash string) error {
+	ctx, cancel := dbContext()
+	defer cancel()
+
+	_, err := r.pool.Exec(ctx, updatePasswordSQL, userID, passwordHash)
+	if err != nil {
+		return fmt.Errorf("failed to update password: %w", err)
+	}
+	return nil
+}
+
 // isDuplicateKeyError checks if the error is a PostgreSQL unique constraint violation
 func isDuplicateKeyError(err error) bool {
 	if err == nil {
@@ -211,4 +263,13 @@ func isDuplicateKeyError(err error) bool {
 	}
 	errStr := err.Error()
 	return strings.Contains(errStr, "23505") || strings.Contains(errStr, "duplicate key")
+}
+
+// isDuplicateEmailError checks if the duplicate key error is specifically for the email field
+func isDuplicateEmailError(err error) bool {
+	if err == nil {
+		return false
+	}
+	errStr := err.Error()
+	return strings.Contains(errStr, "idx_users_email") || strings.Contains(errStr, "email")
 }

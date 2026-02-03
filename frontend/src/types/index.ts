@@ -4,6 +4,7 @@ export type TimeFormat = 'bullet' | 'blitz' | 'rapid';
 export interface User {
   id: string;
   username: string;
+  email?: string;
   oauthProvider?: string;
   lichessUsername?: string;
   chesscomUsername?: string;
@@ -27,11 +28,12 @@ export interface UpdateProfileRequest {
 }
 
 export interface LoginRequest {
-  username: string;
+  email: string;
   password: string;
 }
 
 export interface RegisterRequest {
+  email: string;
   username: string;
   password: string;
 }

@@ -25,6 +25,9 @@ func (h *AuthHandler) RegisterHandler(c echo.Context) error {
 		return BadRequestResponse(c, "invalid request body")
 	}
 
+	if !RequireField(c, "email", req.Email) {
+		return nil
+	}
 	if !RequireField(c, "username", req.Username) {
 		return nil
 	}
@@ -32,13 +35,19 @@ func (h *AuthHandler) RegisterHandler(c echo.Context) error {
 		return nil
 	}
 
-	resp, err := h.authService.Register(req.Username, req.Password)
+	resp, err := h.authService.Register(req.Email, req.Username, req.Password)
 	if err != nil {
+		if errors.Is(err, services.ErrInvalidEmail) {
+			return BadRequestResponse(c, err.Error())
+		}
 		if errors.Is(err, services.ErrInvalidUsername) {
 			return BadRequestResponse(c, err.Error())
 		}
 		if errors.Is(err, services.ErrPasswordTooShort) {
 			return BadRequestResponse(c, err.Error())
+		}
+		if errors.Is(err, repository.ErrEmailExists) {
+			return ConflictResponse(c, "email already taken")
 		}
 		if errors.Is(err, repository.ErrUsernameExists) {
 			return ConflictResponse(c, "username already taken")
@@ -55,14 +64,14 @@ func (h *AuthHandler) LoginHandler(c echo.Context) error {
 		return BadRequestResponse(c, "invalid request body")
 	}
 
-	if !RequireField(c, "username", req.Username) {
+	if !RequireField(c, "email", req.Email) {
 		return nil
 	}
 	if !RequireField(c, "password", req.Password) {
 		return nil
 	}
 
-	resp, err := h.authService.Login(req.Username, req.Password)
+	resp, err := h.authService.Login(req.Email, req.Password)
 	if err != nil {
 		if errors.Is(err, services.ErrInvalidCredentials) {
 			return ErrorResponse(c, http.StatusUnauthorized, "invalid credentials")
@@ -119,4 +128,108 @@ func (h *AuthHandler) UpdateProfileHandler(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, user)
+}
+
+func (h *AuthHandler) ForgotPasswordHandler(c echo.Context) error {
+	var req models.ForgotPasswordRequest
+	if err := c.Bind(&req); err != nil {
+		return BadRequestResponse(c, "invalid request body")
+	}
+
+	if !RequireField(c, "email", req.Email) {
+		return nil
+	}
+
+	// Always return success to prevent email enumeration
+	_ = h.authService.RequestPasswordReset(req.Email)
+
+	return c.JSON(http.StatusOK, map[string]string{
+		"message": "If an account with that email exists, a password reset link has been sent.",
+	})
+}
+
+func (h *AuthHandler) ResetPasswordHandler(c echo.Context) error {
+	var req models.ResetPasswordRequest
+	if err := c.Bind(&req); err != nil {
+		return BadRequestResponse(c, "invalid request body")
+	}
+
+	if !RequireField(c, "token", req.Token) {
+		return nil
+	}
+	if !RequireField(c, "newPassword", req.NewPassword) {
+		return nil
+	}
+
+	err := h.authService.ResetPassword(req.Token, req.NewPassword)
+	if err != nil {
+		if errors.Is(err, services.ErrResetTokenInvalid) {
+			return BadRequestResponse(c, "invalid reset token")
+		}
+		if errors.Is(err, services.ErrResetTokenExpired) {
+			return BadRequestResponse(c, "reset token has expired")
+		}
+		if errors.Is(err, services.ErrResetTokenUsed) {
+			return BadRequestResponse(c, "reset token has already been used")
+		}
+		if errors.Is(err, services.ErrPasswordTooShort) {
+			return BadRequestResponse(c, "password must be at least 8 characters")
+		}
+		return InternalErrorResponse(c, "failed to reset password")
+	}
+
+	return c.JSON(http.StatusOK, map[string]string{
+		"message": "Password has been reset successfully.",
+	})
+}
+
+func (h *AuthHandler) ChangePasswordHandler(c echo.Context) error {
+	userID := c.Get("userID").(string)
+
+	var req models.ChangePasswordRequest
+	if err := c.Bind(&req); err != nil {
+		return BadRequestResponse(c, "invalid request body")
+	}
+
+	if !RequireField(c, "currentPassword", req.CurrentPassword) {
+		return nil
+	}
+	if !RequireField(c, "newPassword", req.NewPassword) {
+		return nil
+	}
+
+	err := h.authService.ChangePassword(userID, req.CurrentPassword, req.NewPassword)
+	if err != nil {
+		if errors.Is(err, services.ErrIncorrectPassword) {
+			return BadRequestResponse(c, "current password is incorrect")
+		}
+		if errors.Is(err, services.ErrNoPassword) {
+			return BadRequestResponse(c, "this account does not have a password set")
+		}
+		if errors.Is(err, services.ErrPasswordTooShort) {
+			return BadRequestResponse(c, "password must be at least 8 characters")
+		}
+		if errors.Is(err, repository.ErrUserNotFound) {
+			return ErrorResponse(c, http.StatusUnauthorized, "user not found")
+		}
+		return InternalErrorResponse(c, "failed to change password")
+	}
+
+	return c.JSON(http.StatusOK, map[string]string{
+		"message": "Password changed successfully.",
+	})
+}
+
+func (h *AuthHandler) HasPasswordHandler(c echo.Context) error {
+	userID := c.Get("userID").(string)
+
+	hasPassword, err := h.authService.HasPassword(userID)
+	if err != nil {
+		if errors.Is(err, repository.ErrUserNotFound) {
+			return ErrorResponse(c, http.StatusUnauthorized, "user not found")
+		}
+		return InternalErrorResponse(c, "failed to check password status")
+	}
+
+	return c.JSON(http.StatusOK, models.HasPasswordResponse{HasPassword: hasPassword})
 }

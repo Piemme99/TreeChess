@@ -7,6 +7,28 @@ import (
 	"github.com/treechess/backend/internal/repository"
 )
 
+// --- Email service mock ---
+
+// MockEmailService implements services.EmailSender for testing
+type MockEmailService struct {
+	SendPasswordResetEmailFunc func(toEmail, token string) error
+	EnabledFunc                func() bool
+}
+
+func (m *MockEmailService) SendPasswordResetEmail(toEmail, token string) error {
+	if m.SendPasswordResetEmailFunc != nil {
+		return m.SendPasswordResetEmailFunc(toEmail, token)
+	}
+	return nil
+}
+
+func (m *MockEmailService) Enabled() bool {
+	if m.EnabledFunc != nil {
+		return m.EnabledFunc()
+	}
+	return true
+}
+
 // --- Service mocks ---
 
 // MockLichessService implements services.LichessGameFetcher for testing
@@ -341,20 +363,23 @@ func (m *MockAnalysisRepo) GetAllGamesRaw(userID string) ([]models.RawAnalysis, 
 
 // MockUserRepo is a mock implementation of UserRepository for testing
 type MockUserRepo struct {
-	CreateFunc              func(username, passwordHash string) (*models.User, error)
-	GetByUsernameFunc       func(username string) (*models.User, error)
-	GetByIDFunc             func(id string) (*models.User, error)
-	ExistsFunc              func(username string) (bool, error)
-	FindByOAuthFunc         func(provider, oauthID string) (*models.User, error)
-	CreateOAuthFunc         func(provider, oauthID, username string) (*models.User, error)
-	UpdateProfileFunc       func(userID string, lichess, chesscom *string, timeFormatPrefs []string) (*models.User, error)
-	UpdateSyncTimestampsFunc  func(userID string, lichessSyncAt, chesscomSyncAt *time.Time) error
-	UpdateLichessTokenFunc    func(userID, token string) error
+	CreateFunc               func(email, username, passwordHash string) (*models.User, error)
+	GetByUsernameFunc        func(username string) (*models.User, error)
+	GetByEmailFunc           func(email string) (*models.User, error)
+	GetByIDFunc              func(id string) (*models.User, error)
+	ExistsFunc               func(username string) (bool, error)
+	EmailExistsFunc          func(email string) (bool, error)
+	FindByOAuthFunc          func(provider, oauthID string) (*models.User, error)
+	CreateOAuthFunc          func(provider, oauthID, username string) (*models.User, error)
+	UpdateProfileFunc        func(userID string, lichess, chesscom *string, timeFormatPrefs []string) (*models.User, error)
+	UpdateSyncTimestampsFunc func(userID string, lichessSyncAt, chesscomSyncAt *time.Time) error
+	UpdateLichessTokenFunc   func(userID, token string) error
+	UpdatePasswordFunc       func(userID, passwordHash string) error
 }
 
-func (m *MockUserRepo) Create(username, passwordHash string) (*models.User, error) {
+func (m *MockUserRepo) Create(email, username, passwordHash string) (*models.User, error) {
 	if m.CreateFunc != nil {
-		return m.CreateFunc(username, passwordHash)
+		return m.CreateFunc(email, username, passwordHash)
 	}
 	return nil, nil
 }
@@ -362,6 +387,13 @@ func (m *MockUserRepo) Create(username, passwordHash string) (*models.User, erro
 func (m *MockUserRepo) GetByUsername(username string) (*models.User, error) {
 	if m.GetByUsernameFunc != nil {
 		return m.GetByUsernameFunc(username)
+	}
+	return nil, nil
+}
+
+func (m *MockUserRepo) GetByEmail(email string) (*models.User, error) {
+	if m.GetByEmailFunc != nil {
+		return m.GetByEmailFunc(email)
 	}
 	return nil, nil
 }
@@ -376,6 +408,13 @@ func (m *MockUserRepo) GetByID(id string) (*models.User, error) {
 func (m *MockUserRepo) Exists(username string) (bool, error) {
 	if m.ExistsFunc != nil {
 		return m.ExistsFunc(username)
+	}
+	return false, nil
+}
+
+func (m *MockUserRepo) EmailExists(email string) (bool, error) {
+	if m.EmailExistsFunc != nil {
+		return m.EmailExistsFunc(email)
 	}
 	return false, nil
 }
@@ -413,4 +452,60 @@ func (m *MockUserRepo) UpdateLichessToken(userID, token string) error {
 		return m.UpdateLichessTokenFunc(userID, token)
 	}
 	return nil
+}
+
+func (m *MockUserRepo) UpdatePassword(userID, passwordHash string) error {
+	if m.UpdatePasswordFunc != nil {
+		return m.UpdatePasswordFunc(userID, passwordHash)
+	}
+	return nil
+}
+
+// MockPasswordResetRepo is a mock implementation of PasswordResetRepository for testing
+type MockPasswordResetRepo struct {
+	CreateFunc              func(userID, tokenHash string, expiresAt time.Time) (*models.PasswordResetToken, error)
+	GetByTokenHashFunc      func(tokenHash string) (*models.PasswordResetToken, error)
+	MarkUsedFunc            func(id string) error
+	DeleteByUserIDFunc      func(userID string) error
+	CountRecentByUserIDFunc func(userID string, since time.Time) (int, error)
+}
+
+func (m *MockPasswordResetRepo) Create(userID, tokenHash string, expiresAt time.Time) (*models.PasswordResetToken, error) {
+	if m.CreateFunc != nil {
+		return m.CreateFunc(userID, tokenHash, expiresAt)
+	}
+	return &models.PasswordResetToken{
+		ID:        "reset-123",
+		UserID:    userID,
+		TokenHash: tokenHash,
+		ExpiresAt: expiresAt,
+	}, nil
+}
+
+func (m *MockPasswordResetRepo) GetByTokenHash(tokenHash string) (*models.PasswordResetToken, error) {
+	if m.GetByTokenHashFunc != nil {
+		return m.GetByTokenHashFunc(tokenHash)
+	}
+	return nil, repository.ErrResetTokenNotFound
+}
+
+func (m *MockPasswordResetRepo) MarkUsed(id string) error {
+	if m.MarkUsedFunc != nil {
+		return m.MarkUsedFunc(id)
+	}
+	return nil
+}
+
+func (m *MockPasswordResetRepo) DeleteByUserID(userID string) error {
+	if m.DeleteByUserIDFunc != nil {
+		return m.DeleteByUserIDFunc(userID)
+	}
+	return nil
+}
+
+func (m *MockPasswordResetRepo) CountRecentByUserID(userID string, since time.Time) (int, error) {
+	if m.CountRecentByUserIDFunc != nil {
+		return m.CountRecentByUserIDFunc(userID, since)
+	}
+	return 0, nil
 }
