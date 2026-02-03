@@ -25,7 +25,15 @@ export function useTreeNavigation(
   const goToFirstChild = useCallback(() => {
     if (!treeData || !selectedNodeId) return;
     const node = findNode(treeData, selectedNodeId);
-    if (node && node.children.length > 0) {
+    if (!node) return;
+
+    // If this is a transposition node with no children, follow to canonical node's children
+    if (node.children.length === 0 && node.transpositionOf) {
+      const canonicalNode = findNode(treeData, node.transpositionOf);
+      if (canonicalNode && canonicalNode.children.length > 0) {
+        selectNode(canonicalNode.children[0].id);
+      }
+    } else if (node.children.length > 0) {
       selectNode(node.children[0].id);
     }
   }, [treeData, selectedNodeId, selectNode]);

@@ -4,6 +4,7 @@ import { MainLayout } from './shared/components/Layout/MainLayout';
 import { Dashboard } from './features/dashboard';
 import { RepertoireTab } from './features/repertoire/RepertoireTab';
 import { GamesPage } from './features/games';
+import { ProfilePage } from './features/profile';
 import { GameAnalysisPage } from './features/game-analysis';
 import { RepertoireEdit } from './features/repertoire/RepertoireEdit';
 import { ToastContainer } from './shared/components/UI';
@@ -41,6 +42,7 @@ function App() {
           <Route index element={<PageWrapper><Dashboard /></PageWrapper>} />
           <Route path="repertoires" element={<PageWrapper><RepertoireTab /></PageWrapper>} />
           <Route path="games" element={<PageWrapper><GamesPage /></PageWrapper>} />
+          <Route path="profile" element={<PageWrapper><ProfilePage /></PageWrapper>} />
           <Route path="analyse/:id/game/:gameIndex" element={<PageWrapper><GameAnalysisPage /></PageWrapper>} />
           <Route path="repertoire/:id/edit" element={<RepertoireEdit />} />
         </Route>

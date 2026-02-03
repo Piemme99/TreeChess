@@ -7,6 +7,7 @@ interface WorstMistakesProps {
   engineAnalysisDone: boolean;
   engineAnalysisTotal: number;
   engineAnalysisCompleted: number;
+  onDismiss?: (fen: string, playedMove: string) => void;
 }
 
 function SeverityIndicator({ winrateDrop }: { winrateDrop: number }) {
@@ -25,7 +26,12 @@ function SeverityIndicator({ winrateDrop }: { winrateDrop: number }) {
   );
 }
 
-function MistakeCard({ mistake }: { mistake: OpeningMistake }) {
+interface MistakeCardProps {
+  mistake: OpeningMistake;
+  onDismiss?: (fen: string, playedMove: string) => void;
+}
+
+function MistakeCard({ mistake, onDismiss }: MistakeCardProps) {
   const [expanded, setExpanded] = useState(false);
   const navigate = useNavigate();
   const dropPct = (mistake.winrateDrop * 100).toFixed(1);
@@ -51,6 +57,18 @@ function MistakeCard({ mistake }: { mistake: OpeningMistake }) {
             {mistake.frequency} game{mistake.frequency > 1 ? 's' : ''}
           </span>
           <SeverityIndicator winrateDrop={mistake.winrateDrop} />
+          {onDismiss && (
+            <button
+              className="text-xs text-text-muted hover:text-danger transition-colors cursor-pointer bg-transparent border-none p-1"
+              onClick={() => onDismiss(mistake.fen, mistake.playedMove)}
+              title="Dismiss this mistake"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
+          )}
         </div>
       </div>
 
@@ -68,7 +86,7 @@ function MistakeCard({ mistake }: { mistake: OpeningMistake }) {
                 <button
                   key={`${ref.analysisId}-${ref.gameIndex}`}
                   className="w-full text-left text-sm px-3 py-1.5 rounded bg-bg hover:bg-border transition-colors cursor-pointer border-none"
-                  onClick={() => navigate(`/analyse/${ref.analysisId}/game/${ref.gameIndex}`)}
+                  onClick={() => navigate(`/analyse/${ref.analysisId}/game/${ref.gameIndex}?ply=${ref.plyNumber}`)}
                 >
                   <span className="text-text">{ref.white} vs {ref.black}</span>
                   <span className="text-text-muted ml-2">{ref.result}</span>
@@ -83,7 +101,7 @@ function MistakeCard({ mistake }: { mistake: OpeningMistake }) {
   );
 }
 
-export function WorstMistakes({ mistakes, engineAnalysisDone, engineAnalysisTotal, engineAnalysisCompleted }: WorstMistakesProps) {
+export function WorstMistakes({ mistakes, engineAnalysisDone, engineAnalysisTotal, engineAnalysisCompleted, onDismiss }: WorstMistakesProps) {
   if (mistakes.length === 0 && engineAnalysisDone) return null;
 
   const progressPct = engineAnalysisTotal > 0 ? Math.round((engineAnalysisCompleted / engineAnalysisTotal) * 100) : 0;
@@ -116,7 +134,7 @@ export function WorstMistakes({ mistakes, engineAnalysisDone, engineAnalysisTota
       ) : (
         <div className="space-y-3">
           {mistakes.map((mistake, i) => (
-            <MistakeCard key={`${mistake.fen}-${mistake.playedMove}-${i}`} mistake={mistake} />
+            <MistakeCard key={`${mistake.fen}-${mistake.playedMove}-${i}`} mistake={mistake} onDismiss={onDismiss} />
           ))}
         </div>
       )}

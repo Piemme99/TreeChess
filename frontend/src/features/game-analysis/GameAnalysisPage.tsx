@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useGameLoader } from './hooks/useGameLoader';
 import { useChessNavigation, useToggleFullGame } from './hooks/useChessNavigation';
 import { useFENComputed } from './hooks/useFENComputed';
@@ -10,19 +10,32 @@ import { RepertoireSelector } from './components/RepertoireSelector';
 import { Button, Loading, ConfirmModal } from '../../shared/components/UI';
 import { GameMoveList } from './components/GameMoveList';
 import { useDeleteGame } from '../analyse-tab/hooks/useDeleteGame';
+import { useEngine } from '../repertoire/edit/hooks/useEngine';
 import { toast } from '../../stores/toastStore';
 import type { GameAnalysis, MoveAnalysis } from '../../types';
 
 export function GameAnalysisPage() {
   const { gameIndex } = useParams<{ id: string; gameIndex: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const { analysis, loading, reanalyzeGame } = useGameLoader();
+
+  // Read initial ply from query parameter
+  const initialPly = useMemo(() => {
+    const plyParam = searchParams.get('ply');
+    if (plyParam !== null) {
+      const parsed = parseInt(plyParam, 10);
+      return isNaN(parsed) ? undefined : parsed;
+    }
+    return undefined;
+  }, [searchParams]);
   const [flipped, setFlipped] = useState(false);
   const { showFullGame, toggleFullGame } = useToggleFullGame();
   const { deleteTarget, setDeleteTarget, deleting, handleDelete } = useDeleteGame(() => {
     navigate('/games');
   });
+  const engine = useEngine();
 
   const gameIdx = parseInt(gameIndex || '0', 10);
   const game: GameAnalysis | null = useMemo(() => {
@@ -31,6 +44,31 @@ export function GameAnalysisPage() {
     }
     return analysis.results[gameIdx];
   }, [analysis, gameIdx]);
+
+  // Extract opening name from headers (Opening, ECOUrl, or ECO as fallback)
+  const openingName = useMemo(() => {
+    if (!game) return undefined;
+    const { Opening, ECOUrl, ECO } = game.headers;
+
+    // If Opening header exists, use it
+    if (Opening) return Opening;
+
+    // Extract from Chess.com ECOUrl (e.g., "https://www.chess.com/openings/Sicilian-Defense-...")
+    if (ECOUrl) {
+      const match = ECOUrl.match(/\/openings\/([^?]+)/);
+      if (match) {
+        let name = match[1];
+        // Remove move sequences (e.g., "...4.O-O-Nge7-5.Re1") - stop at first digit followed by a dot
+        name = name.replace(/\.{2,}.*$/, ''); // Remove "..." and everything after
+        name = name.replace(/-\d+\..*$/, ''); // Remove move sequences like "-4.O-O-..."
+        // Convert "Sicilian-Defense-Najdorf-Variation" to "Sicilian Defense Najdorf Variation"
+        return name.replace(/-/g, ' ');
+      }
+    }
+
+    // Fallback to ECO code
+    return ECO;
+  }, [game]);
 
   useEffect(() => {
     if (game?.userColor === 'black') {
@@ -47,9 +85,14 @@ export function GameAnalysisPage() {
     goPrev,
     goNext,
     goLast
-  } = useChessNavigation(game, showFullGame);
+  } = useChessNavigation(game, showFullGame, initialPly);
 
   const { currentFEN, lastMove } = useFENComputed(game, currentMoveIndex);
+
+  // Trigger engine analysis when position changes
+  useEffect(() => {
+    engine.analyze(currentFEN);
+  }, [currentFEN, engine]);
 
   const handleAddToRepertoire = useCallback((_move: MoveAnalysis, clickedIndex: number) => {
     if (!game || !game.userColor) return;
@@ -93,9 +136,53 @@ export function GameAnalysisPage() {
     navigate(`/repertoire/${game.matchedRepertoire.id}/edit`);
   }, [game, navigate]);
 
+  // Handle creating a new repertoire and adding the current moves to it
+  const handleCreateAndAdd = useCallback((repertoireId: string) => {
+    if (!game || !game.userColor) return;
+
+    // Find the divergence index: first non-in-repertoire move
+    const divergenceIndex = game.moves.findIndex(
+      m => m.status === 'opponent-new' || m.status === 'out-of-repertoire'
+    );
+
+    // If no divergence, start from current move
+    const startIndex = divergenceIndex === -1 ? currentMoveIndex : divergenceIndex;
+    const endIndex = currentMoveIndex;
+
+    const gameInfo = `${game.headers.White || '?'} vs ${game.headers.Black || '?'}`;
+
+    // Build array of moves from start to current move
+    const moves: { parentFEN: string; moveSAN: string; resultFEN: string }[] = [];
+    for (let i = startIndex; i <= endIndex; i++) {
+      const parentFEN = i === 0 ? STARTING_FEN : computeFEN(game.moves, i - 1);
+      const resultFEN = computeFEN(game.moves, i);
+      moves.push({
+        parentFEN,
+        moveSAN: game.moves[i].san,
+        resultFEN
+      });
+    }
+
+    const context = {
+      repertoireId,
+      repertoireName: 'New Repertoire',
+      gameInfo,
+      moves
+    };
+    sessionStorage.setItem('pendingAddNode', JSON.stringify(context));
+
+    navigate(`/repertoire/${repertoireId}/edit`);
+  }, [game, currentMoveIndex, navigate]);
+
+  // Refresh repertoire data after import - reanalyze with new repertoires available
+  const handleImportSuccess = useCallback(() => {
+    // The user will need to select a repertoire from the dropdown and reanalyze
+    toast.success('Repertoire imported! Select it from the dropdown above to analyze.');
+  }, []);
+
   if (loading) {
     return (
-      <div className="max-w-[1000px] mx-auto min-h-full flex flex-col">
+      <div className="max-w-[1400px] mx-auto min-h-full flex flex-col">
         <Loading size="lg" text="Loading game..." />
       </div>
     );
@@ -103,7 +190,7 @@ export function GameAnalysisPage() {
 
   if (!analysis || !game) {
     return (
-      <div className="max-w-[1000px] mx-auto min-h-full flex flex-col">
+      <div className="max-w-[1400px] mx-auto min-h-full flex flex-col">
         <div className="flex flex-col items-center justify-center gap-6 py-12">
           <p>Game not found</p>
           <Button variant="primary" onClick={() => navigate('/')}>
@@ -120,7 +207,7 @@ export function GameAnalysisPage() {
   const result = game.headers.Result || '*';
 
   return (
-    <div className="max-w-[1000px] mx-auto min-h-full flex flex-col">
+    <div className="max-w-[1400px] mx-auto min-h-full flex flex-col">
       <div className="flex items-center gap-4 mb-6 pb-4 border-b border-border flex-wrap">
         <Button variant="ghost" size="sm" onClick={() => navigate('/games')}>
           &larr; Back
@@ -151,6 +238,7 @@ export function GameAnalysisPage() {
           orientation={flipped ? 'black' : 'white'}
           lastMove={lastMove}
           onFlip={() => setFlipped(!flipped)}
+          engineEvaluation={engine.currentEvaluation}
         />
 
         <div className="flex-1 min-w-0 bg-bg-card rounded-lg p-4 shadow-sm flex flex-col overflow-hidden">
@@ -161,6 +249,10 @@ export function GameAnalysisPage() {
             maxDisplayedIndex={maxDisplayedMoveIndex}
             onMoveClick={goToMove}
             onAddToRepertoire={game.matchedRepertoire ? handleAddToRepertoire : undefined}
+            onCreateAndAdd={handleCreateAndAdd}
+            onImportSuccess={handleImportSuccess}
+            userColor={game.userColor}
+            openingName={openingName}
             showFullGame={showFullGame}
             hasMoreMoves={hasMoreMoves}
             onToggleFullGame={toggleFullGame}

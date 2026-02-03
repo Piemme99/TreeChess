@@ -580,6 +580,109 @@ func UpdateNodeCommentHandler(svc *services.RepertoireService) echo.HandlerFunc 
 	}
 }
 
+// UpdateNodeBranchNameHandler updates the branch name on a specific node
+// PATCH /api/repertoires/:id/nodes/:nodeId/branch-name
+func UpdateNodeBranchNameHandler(svc *services.RepertoireService) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		userID := c.Get("userID").(string)
+		idParam := c.Param("id")
+		nodeID := c.Param("nodeId")
+
+		// Validate repertoire ID is a valid UUID
+		if _, err := uuid.Parse(idParam); err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{
+				"error": "repertoire id must be a valid UUID",
+			})
+		}
+
+		// Validate nodeId is a valid UUID
+		if _, err := uuid.Parse(nodeID); err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{
+				"error": "node id must be a valid UUID",
+			})
+		}
+
+		if err := svc.CheckOwnership(idParam, userID); err != nil {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "repertoire not found"})
+		}
+
+		var req struct {
+			BranchName string `json:"branchName"`
+		}
+		if err := c.Bind(&req); err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{
+				"error": "invalid request body",
+			})
+		}
+
+		rep, err := svc.UpdateNodeBranchName(idParam, nodeID, req.BranchName)
+		if err != nil {
+			if errors.Is(err, services.ErrNotFound) {
+				return c.JSON(http.StatusNotFound, map[string]string{
+					"error": "repertoire not found",
+				})
+			}
+			if errors.Is(err, services.ErrNodeNotFound) {
+				return c.JSON(http.StatusNotFound, map[string]string{
+					"error": "node not found",
+				})
+			}
+			return c.JSON(http.StatusInternalServerError, map[string]string{
+				"error": "failed to update branch name",
+			})
+		}
+
+		return c.JSON(http.StatusOK, rep)
+	}
+}
+
+// ToggleNodeCollapsedHandler toggles the collapsed state on a specific node
+// POST /api/repertoires/:id/nodes/:nodeId/toggle-collapsed
+func ToggleNodeCollapsedHandler(svc *services.RepertoireService) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		userID := c.Get("userID").(string)
+		idParam := c.Param("id")
+		nodeID := c.Param("nodeId")
+
+		// Validate repertoire ID is a valid UUID
+		if _, err := uuid.Parse(idParam); err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{
+				"error": "repertoire id must be a valid UUID",
+			})
+		}
+
+		// Validate nodeId is a valid UUID
+		if _, err := uuid.Parse(nodeID); err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{
+				"error": "node id must be a valid UUID",
+			})
+		}
+
+		if err := svc.CheckOwnership(idParam, userID); err != nil {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "repertoire not found"})
+		}
+
+		rep, err := svc.ToggleNodeCollapsed(idParam, nodeID)
+		if err != nil {
+			if errors.Is(err, services.ErrNotFound) {
+				return c.JSON(http.StatusNotFound, map[string]string{
+					"error": "repertoire not found",
+				})
+			}
+			if errors.Is(err, services.ErrNodeNotFound) {
+				return c.JSON(http.StatusNotFound, map[string]string{
+					"error": "node not found",
+				})
+			}
+			return c.JSON(http.StatusInternalServerError, map[string]string{
+				"error": "failed to toggle collapsed state",
+			})
+		}
+
+		return c.JSON(http.StatusOK, rep)
+	}
+}
+
 // DeleteNodeHandler deletes a node from a repertoire
 // DELETE /api/repertoire/:id/node/:nodeId
 func DeleteNodeHandler(svc *services.RepertoireService) echo.HandlerFunc {

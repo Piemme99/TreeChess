@@ -38,14 +38,17 @@ export function RepertoireEdit() {
   const engine = useEngine();
   const [commentText, setCommentText] = useState('');
   const commentSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [branchNameText, setBranchNameText] = useState('');
+  const branchNameSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const selectedNode = repertoire && selectedNodeId ? findNode(repertoire.treeData, selectedNodeId) : null;
   const currentFEN = selectedNode?.fen || STARTING_FEN;
 
-  // Sync comment text when selected node changes
+  // Sync comment text and branch name when selected node changes
   useEffect(() => {
     setCommentText(selectedNode?.comment || '');
-  }, [selectedNodeId, selectedNode?.comment]);
+    setBranchNameText(selectedNode?.branchName || '');
+  }, [selectedNodeId, selectedNode?.comment, selectedNode?.branchName]);
 
   useEffect(() => {
     engine.analyze(currentFEN);
@@ -85,6 +88,31 @@ export function RepertoireEdit() {
     saveComment(commentText);
   }, [saveComment, commentText]);
 
+  const saveBranchName = useCallback((text: string) => {
+    if (!id || !selectedNodeId) return;
+    const currentBranchName = selectedNode?.branchName || '';
+    if (text === currentBranchName) return;
+
+    repertoireApi.updateNodeBranchName(id, selectedNodeId, text)
+      .then((updated) => setRepertoire(updated))
+      .catch(() => toast.error('Failed to save branch name'));
+  }, [id, selectedNodeId, selectedNode?.branchName, setRepertoire]);
+
+  const handleBranchNameChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const text = e.target.value;
+    setBranchNameText(text);
+    if (branchNameSaveTimer.current) clearTimeout(branchNameSaveTimer.current);
+    branchNameSaveTimer.current = setTimeout(() => saveBranchName(text), 800);
+  }, [saveBranchName]);
+
+  const handleBranchNameBlur = useCallback(() => {
+    if (branchNameSaveTimer.current) {
+      clearTimeout(branchNameSaveTimer.current);
+      branchNameSaveTimer.current = null;
+    }
+    saveBranchName(branchNameText);
+  }, [saveBranchName, branchNameText]);
+
   const handleNodeClick = useCallback(
     (node: RepertoireNode) => {
       // If clicking a transposition node, navigate to the canonical node
@@ -97,6 +125,16 @@ export function RepertoireEdit() {
     },
     [selectNode, setPossibleMoves]
   );
+
+  const handleToggleCollapsed = useCallback(async (nodeId: string) => {
+    if (!id) return;
+    try {
+      const updated = await repertoireApi.toggleNodeCollapsed(id, nodeId);
+      setRepertoire(updated);
+    } catch {
+      toast.error('Failed to toggle collapsed state');
+    }
+  }, [id, setRepertoire]);
 
   const [mergeLoading, setMergeLoading] = useState(false);
   const handleMergeTranspositions = useCallback(async () => {
@@ -174,9 +212,17 @@ export function RepertoireEdit() {
             </div>
           </div>
 
-          {/* Comment textarea */}
+          {/* Branch name and comment */}
           {selectedNode && (
-            <div className="px-3 py-2">
+            <div className="px-3 py-2 flex flex-col gap-2">
+              <input
+                type="text"
+                className="w-full py-1 px-2 text-[0.8rem] font-sans border border-border rounded-sm bg-bg text-text focus:outline-none focus:border-primary placeholder:text-text-muted"
+                placeholder="Branch name (e.g., Italian Game)"
+                value={branchNameText}
+                onChange={handleBranchNameChange}
+                onBlur={handleBranchNameBlur}
+              />
               <textarea
                 className="w-full py-1 px-2 text-[0.8rem] font-sans border border-border rounded-sm bg-bg text-text resize-y min-h-[2.5rem] focus:outline-none focus:border-primary placeholder:text-text-muted"
                 placeholder="Add a note for this position..."
@@ -215,6 +261,7 @@ export function RepertoireEdit() {
                 color={repertoire.color}
                 isExpanded={treeExpanded}
                 onToggleExpand={() => setTreeExpanded((prev) => !prev)}
+                onToggleCollapsed={handleToggleCollapsed}
               />
             )}
             {activeTab === 'moves' && (

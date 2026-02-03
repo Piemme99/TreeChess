@@ -74,6 +74,15 @@ export function GamesPage() {
     gamesApi.repertoires().then(setRepertoiresList).catch(() => {});
   }, [refresh, refreshInsights]);
 
+  const handleDismissMistake = useCallback(async (fen: string, playedMove: string) => {
+    try {
+      await gamesApi.dismissMistake(fen, playedMove);
+      refreshInsights();
+    } catch {
+      toast.error('Failed to dismiss mistake');
+    }
+  }, [refreshInsights]);
+
   const fileUploadState = useFileUpload(username, handleImportSuccess);
   const lichessImportState = useLichessImport(username, handleImportSuccess);
   const chesscomImportState = useChesscomImport(username, handleImportSuccess);
@@ -140,6 +149,7 @@ export function GamesPage() {
           engineAnalysisDone={insights.engineAnalysisDone}
           engineAnalysisTotal={insights.engineAnalysisTotal}
           engineAnalysisCompleted={insights.engineAnalysisCompleted}
+          onDismiss={handleDismissMistake}
         />
       )}
 

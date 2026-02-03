@@ -217,7 +217,7 @@ func TestAuthService_GetUserByID_NotFound(t *testing.T) {
 func TestAuthService_UpdateProfile(t *testing.T) {
 	lichess := "lichessuser"
 	mockRepo := &mocks.MockUserRepo{
-		UpdateProfileFunc: func(userID string, l, c *string) (*models.User, error) {
+		UpdateProfileFunc: func(userID string, l, c *string, timeFormatPrefs []string) (*models.User, error) {
 			return &models.User{
 				ID:               userID,
 				Username:         "testuser",

@@ -90,12 +90,24 @@ func (h *AuthHandler) MeHandler(c echo.Context) error {
 	return c.JSON(http.StatusOK, user)
 }
 
+var validTimeFormats = map[string]bool{
+	"bullet": true,
+	"blitz":  true,
+	"rapid":  true,
+}
+
 func (h *AuthHandler) UpdateProfileHandler(c echo.Context) error {
 	userID := c.Get("userID").(string)
 
 	var req models.UpdateProfileRequest
 	if err := c.Bind(&req); err != nil {
 		return BadRequestResponse(c, "invalid request body")
+	}
+
+	for _, tf := range req.TimeFormatPrefs {
+		if !validTimeFormats[tf] {
+			return BadRequestResponse(c, "invalid time format: "+tf+". Allowed values: bullet, blitz, rapid")
+		}
 	}
 
 	user, err := h.authService.UpdateProfile(userID, req)

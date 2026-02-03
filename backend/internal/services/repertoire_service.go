@@ -445,6 +445,8 @@ func deepCloneSubtree(node *models.RepertoireNode, parentID *string) *models.Rep
 		ColorToMove:     node.ColorToMove,
 		ParentID:        parentID,
 		Comment:         node.Comment,
+		BranchName:      node.BranchName,
+		Collapsed:       node.Collapsed,
 		TranspositionOf: node.TranspositionOf,
 		Children:        make([]*models.RepertoireNode, 0, len(node.Children)),
 	}
@@ -726,6 +728,53 @@ func (s *RepertoireService) UpdateNodeComment(repertoireID, nodeID, comment stri
 	} else {
 		node.Comment = &comment
 	}
+
+	metadata := calculateMetadata(rep.TreeData)
+	return s.repo.Save(repertoireID, rep.TreeData, metadata)
+}
+
+// UpdateNodeBranchName updates the branch name on a specific node in a repertoire
+func (s *RepertoireService) UpdateNodeBranchName(repertoireID, nodeID, branchName string) (*models.Repertoire, error) {
+	rep, err := s.repo.GetByID(repertoireID)
+	if err != nil {
+		if errors.Is(err, repository.ErrRepertoireNotFound) {
+			return nil, fmt.Errorf("%w: %w", ErrNotFound, err)
+		}
+		return nil, err
+	}
+
+	node := findNode(&rep.TreeData, nodeID)
+	if node == nil {
+		return nil, fmt.Errorf("%w: %s", ErrNodeNotFound, nodeID)
+	}
+
+	branchName = strings.TrimSpace(branchName)
+	if branchName == "" {
+		node.BranchName = nil
+	} else {
+		node.BranchName = &branchName
+	}
+
+	metadata := calculateMetadata(rep.TreeData)
+	return s.repo.Save(repertoireID, rep.TreeData, metadata)
+}
+
+// ToggleNodeCollapsed toggles the collapsed state on a specific node in a repertoire
+func (s *RepertoireService) ToggleNodeCollapsed(repertoireID, nodeID string) (*models.Repertoire, error) {
+	rep, err := s.repo.GetByID(repertoireID)
+	if err != nil {
+		if errors.Is(err, repository.ErrRepertoireNotFound) {
+			return nil, fmt.Errorf("%w: %w", ErrNotFound, err)
+		}
+		return nil, err
+	}
+
+	node := findNode(&rep.TreeData, nodeID)
+	if node == nil {
+		return nil, fmt.Errorf("%w: %s", ErrNodeNotFound, nodeID)
+	}
+
+	node.Collapsed = !node.Collapsed
 
 	metadata := calculateMetadata(rep.TreeData)
 	return s.repo.Save(repertoireID, rep.TreeData, metadata)

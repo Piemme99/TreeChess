@@ -3,16 +3,17 @@ package models
 import "time"
 
 type User struct {
-	ID                string     `json:"id"`
-	Username          string     `json:"username"`
-	PasswordHash      string     `json:"-"`
-	OAuthProvider     *string    `json:"oauthProvider,omitempty"`
-	OAuthID           *string    `json:"-"`
-	LichessUsername   *string    `json:"lichessUsername,omitempty"`
-	ChesscomUsername  *string    `json:"chesscomUsername,omitempty"`
+	ID                 string     `json:"id"`
+	Username           string     `json:"username"`
+	PasswordHash       string     `json:"-"`
+	OAuthProvider      *string    `json:"oauthProvider,omitempty"`
+	OAuthID            *string    `json:"-"`
+	LichessUsername    *string    `json:"lichessUsername,omitempty"`
+	ChesscomUsername   *string    `json:"chesscomUsername,omitempty"`
 	LichessAccessToken *string    `json:"-"`
 	LastLichessSyncAt  *time.Time `json:"lastLichessSyncAt,omitempty"`
 	LastChesscomSyncAt *time.Time `json:"lastChesscomSyncAt,omitempty"`
+	TimeFormatPrefs    []string   `json:"timeFormatPrefs,omitempty"`
 	CreatedAt          time.Time  `json:"createdAt"`
 }
 
@@ -24,8 +25,9 @@ type SyncResult struct {
 }
 
 type UpdateProfileRequest struct {
-	LichessUsername  *string `json:"lichessUsername"`
-	ChesscomUsername *string `json:"chesscomUsername"`
+	LichessUsername  *string  `json:"lichessUsername"`
+	ChesscomUsername *string  `json:"chesscomUsername"`
+	TimeFormatPrefs  []string `json:"timeFormatPrefs,omitempty"`
 }
 
 type RegisterRequest struct {

@@ -1,6 +1,9 @@
-import { useRef, useEffect, useMemo } from 'react';
+import { useRef, useEffect, useMemo, useState, useCallback } from 'react';
 import { Button } from '../../../shared/components/UI';
-import type { MoveAnalysis } from '../../../types';
+import { StudyImportModal } from '../../repertoire/shared/components/StudyImportModal';
+import { useRepertoireStore } from '../../../stores/repertoireStore';
+import { toast } from '../../../stores/toastStore';
+import type { MoveAnalysis, Color } from '../../../types';
 
 interface GameMoveListProps {
   moves: MoveAnalysis[];
@@ -8,6 +11,10 @@ interface GameMoveListProps {
   maxDisplayedIndex: number;
   onMoveClick: (index: number) => void;
   onAddToRepertoire?: (move: MoveAnalysis, moveIndex: number) => void;
+  onCreateAndAdd?: (repertoireId: string) => void;
+  onImportSuccess?: () => void;
+  userColor?: Color;
+  openingName?: string;
   showFullGame: boolean;
   hasMoreMoves: boolean;
   onToggleFullGame: () => void;
@@ -19,11 +26,45 @@ export function GameMoveList({
   maxDisplayedIndex,
   onMoveClick,
   onAddToRepertoire,
+  onCreateAndAdd,
+  onImportSuccess,
+  userColor,
+  openingName,
   showFullGame,
   hasMoreMoves,
   onToggleFullGame
 }: GameMoveListProps) {
   const selectedRef = useRef<HTMLDivElement>(null);
+  const [showStudyModal, setShowStudyModal] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [createLoading, setCreateLoading] = useState(false);
+  const { createRepertoire } = useRepertoireStore();
+
+  const handleCreate = useCallback(async () => {
+    if (!newName.trim() || !userColor) {
+      toast.error('Please enter a name');
+      return;
+    }
+
+    setCreateLoading(true);
+    try {
+      const rep = await createRepertoire(newName.trim(), userColor);
+      setNewName('');
+      setIsCreating(false);
+      toast.success('Repertoire created');
+      onCreateAndAdd?.(rep.id);
+    } catch {
+      toast.error('Failed to create repertoire');
+    } finally {
+      setCreateLoading(false);
+    }
+  }, [newName, userColor, createRepertoire, onCreateAndAdd]);
+
+  const handleImportSuccess = useCallback(() => {
+    setShowStudyModal(false);
+    onImportSuccess?.();
+  }, [onImportSuccess]);
 
   useEffect(() => {
     if (selectedRef.current) {
@@ -173,8 +214,62 @@ export function GameMoveList({
               {getAddButtonLabel(currentMoveIndex)}
             </Button>
           )}
+          {showAddButton(currentMoveIndex) && userColor && (
+            <div className="flex flex-col gap-2 pt-2 border-t border-dashed border-border mt-2">
+              <span className="text-xs text-text-muted">Or add to a new repertoire:</span>
+              {isCreating ? (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={newName}
+                    onChange={(e) => setNewName(e.target.value)}
+                    placeholder="Repertoire name"
+                    className="flex-1 py-1 px-2 border border-border rounded-sm text-sm bg-bg text-text focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary-light"
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleCreate();
+                      if (e.key === 'Escape') {
+                        setIsCreating(false);
+                        setNewName('');
+                      }
+                    }}
+                  />
+                  <Button variant="primary" size="sm" onClick={handleCreate} disabled={createLoading}>
+                    {createLoading ? 'Creating...' : 'Create'}
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => { setIsCreating(false); setNewName(''); }} disabled={createLoading}>
+                    Cancel
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <Button variant="secondary" size="sm" onClick={() => setIsCreating(true)}>
+                    Create New Repertoire
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setShowStudyModal(true);
+                      const lichessUrl = openingName
+                        ? `https://lichess.org/study/search?q=${encodeURIComponent(openingName)}`
+                        : 'https://lichess.org/study';
+                      window.open(lichessUrl, '_blank');
+                    }}
+                  >
+                    Import from Lichess
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
+      <StudyImportModal
+        isOpen={showStudyModal}
+        onClose={() => setShowStudyModal(false)}
+        onSuccess={handleImportSuccess}
+      />
     </div>
   );
 }

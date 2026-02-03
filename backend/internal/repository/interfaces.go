@@ -20,7 +20,7 @@ type UserRepository interface {
 	Exists(username string) (bool, error)
 	FindByOAuth(provider, oauthID string) (*models.User, error)
 	CreateOAuth(provider, oauthID, username string) (*models.User, error)
-	UpdateProfile(userID string, lichess, chesscom *string) (*models.User, error)
+	UpdateProfile(userID string, lichess, chesscom *string, timeFormatPrefs []string) (*models.User, error)
 	UpdateSyncTimestamps(userID string, lichessSyncAt, chesscomSyncAt *time.Time) error
 	UpdateLichessToken(userID, token string) error
 }
@@ -54,6 +54,12 @@ type EngineEvalRepository interface {
 	SaveEvals(id string, evals []models.ExplorerMoveStats) error
 	MarkFailed(id string) error
 	GetByUser(userID string) ([]models.EngineEval, error)
+}
+
+// DismissedMistakeRepository defines the interface for dismissed mistake operations
+type DismissedMistakeRepository interface {
+	Dismiss(userID, fen, playedMove string) error
+	GetDismissed(userID string) (map[string]bool, error)
 }
 
 // AnalysisRepository defines the interface for analysis data operations

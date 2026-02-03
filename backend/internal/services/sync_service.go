@@ -3,6 +3,7 @@ package services
 import (
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/treechess/backend/internal/models"
@@ -77,9 +78,15 @@ func (s *SyncService) syncLichess(user *models.User, now time.Time) (int, error)
 		max = syncFirstSyncMaxGames
 	}
 
+	perfType := strings.Join(user.TimeFormatPrefs, ",")
+	if perfType == "" {
+		perfType = "bullet,blitz,rapid"
+	}
+
 	options := models.LichessImportOptions{
-		Max:   max,
-		Since: since,
+		Max:      max,
+		Since:    since,
+		PerfType: perfType,
 	}
 
 	pgnData, err := s.lichessService.FetchGames(*user.LichessUsername, options)
@@ -104,18 +111,33 @@ func (s *SyncService) syncChesscom(user *models.User, now time.Time) (int, error
 		max = syncFirstSyncMaxGames
 	}
 
-	options := models.ChesscomImportOptions{
-		Max:   max,
-		Since: since,
+	timeClasses := user.TimeFormatPrefs
+	if len(timeClasses) == 0 {
+		timeClasses = []string{"bullet", "blitz", "rapid"}
 	}
 
-	pgnData, err := s.chesscomService.FetchGames(*user.ChesscomUsername, options)
-	if err != nil {
-		return 0, fmt.Errorf("failed to fetch Chess.com games: %w", err)
+	var allPgnData strings.Builder
+	for _, tc := range timeClasses {
+		options := models.ChesscomImportOptions{
+			Max:       max,
+			Since:     since,
+			TimeClass: tc,
+		}
+
+		pgnData, err := s.chesscomService.FetchGames(*user.ChesscomUsername, options)
+		if err != nil {
+			log.Printf("Chess.com sync error for time class %s: %v", tc, err)
+			continue
+		}
+		allPgnData.WriteString(pgnData)
+	}
+
+	if allPgnData.Len() == 0 {
+		return 0, nil
 	}
 
 	filename := fmt.Sprintf("sync_chesscom_%s.pgn", *user.ChesscomUsername)
-	summary, _, err := s.importService.ParseAndAnalyze(filename, *user.ChesscomUsername, user.ID, pgnData)
+	summary, _, err := s.importService.ParseAndAnalyze(filename, *user.ChesscomUsername, user.ID, allPgnData.String())
 	if err != nil {
 		return 0, fmt.Errorf("failed to analyze Chess.com games: %w", err)
 	}

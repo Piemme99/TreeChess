@@ -347,7 +347,7 @@ type MockUserRepo struct {
 	ExistsFunc              func(username string) (bool, error)
 	FindByOAuthFunc         func(provider, oauthID string) (*models.User, error)
 	CreateOAuthFunc         func(provider, oauthID, username string) (*models.User, error)
-	UpdateProfileFunc       func(userID string, lichess, chesscom *string) (*models.User, error)
+	UpdateProfileFunc       func(userID string, lichess, chesscom *string, timeFormatPrefs []string) (*models.User, error)
 	UpdateSyncTimestampsFunc  func(userID string, lichessSyncAt, chesscomSyncAt *time.Time) error
 	UpdateLichessTokenFunc    func(userID, token string) error
 }
@@ -394,9 +394,9 @@ func (m *MockUserRepo) CreateOAuth(provider, oauthID, username string) (*models.
 	return nil, nil
 }
 
-func (m *MockUserRepo) UpdateProfile(userID string, lichess, chesscom *string) (*models.User, error) {
+func (m *MockUserRepo) UpdateProfile(userID string, lichess, chesscom *string, timeFormatPrefs []string) (*models.User, error) {
 	if m.UpdateProfileFunc != nil {
-		return m.UpdateProfileFunc(userID, lichess, chesscom)
+		return m.UpdateProfileFunc(userID, lichess, chesscom, timeFormatPrefs)
 	}
 	return nil, nil
 }

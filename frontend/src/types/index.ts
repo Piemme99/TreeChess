@@ -1,4 +1,6 @@
 // Auth types
+export type TimeFormat = 'bullet' | 'blitz' | 'rapid';
+
 export interface User {
   id: string;
   username: string;
@@ -7,6 +9,7 @@ export interface User {
   chesscomUsername?: string;
   lastLichessSyncAt?: string;
   lastChesscomSyncAt?: string;
+  timeFormatPrefs?: TimeFormat[];
   createdAt: string;
 }
 
@@ -20,6 +23,7 @@ export interface SyncResult {
 export interface UpdateProfileRequest {
   lichessUsername?: string;
   chesscomUsername?: string;
+  timeFormatPrefs?: TimeFormat[];
 }
 
 export interface LoginRequest {
@@ -50,6 +54,8 @@ export interface RepertoireNode {
   colorToMove: ShortColor;
   parentId: string | null;
   comment?: string | null;
+  branchName?: string | null;
+  collapsed?: boolean;
   transpositionOf?: string | null;
   children: RepertoireNode[];
 }
@@ -105,6 +111,8 @@ export interface PGNHeaders {
   Black?: string;
   Result?: string;
   ECO?: string;
+  Opening?: string;
+  ECOUrl?: string;
 }
 
 export type MoveStatus = 'in-repertoire' | 'out-of-repertoire' | 'opponent-new';
@@ -175,6 +183,7 @@ export interface GamesResponse {
 export interface GameRef {
   analysisId: string;
   gameIndex: number;
+  plyNumber: number;
   white: string;
   black: string;
   result: string;

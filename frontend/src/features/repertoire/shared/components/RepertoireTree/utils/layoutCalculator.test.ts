@@ -1,12 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { calculateLayout, createBezierPath } from './layoutCalculator';
+import { calculateLayout, createBezierPath, createMergePath } from './layoutCalculator';
 import type { RepertoireNode } from '../../../../../../types';
 import { NODE_RADIUS, NODE_SPACING_X, ROOT_OFFSET_X } from '../constants';
 
 function createNode(
   id: string,
   move: string | null = null,
-  children: RepertoireNode[] = []
+  children: RepertoireNode[] = [],
+  transpositionOf?: string
 ): RepertoireNode {
   return {
     id,
@@ -15,7 +16,8 @@ function createNode(
     moveNumber: 0,
     colorToMove: 'w',
     parentId: null,
-    children
+    children,
+    transpositionOf
   };
 }
 
@@ -213,5 +215,98 @@ describe('createBezierPath', () => {
     const midX = (from.x + to.x) / 2;
     // Control points should use midX
     expect(path).toContain(`${midX}`);
+  });
+});
+
+describe('edge types', () => {
+  it('parent-child edges have type parent-child', () => {
+    const root = createNode('root', null, [createNode('c1', 'e4')]);
+
+    const layout = calculateLayout(root);
+
+    expect(layout.edges).toHaveLength(1);
+    expect(layout.edges[0].type).toBe('parent-child');
+  });
+
+  it('creates merge edge when transpositionOf is defined', () => {
+    const root = createNode('root', null, [
+      createNode('e4', 'e4', [createNode('nf3', 'Nf3')]),
+      createNode('nf3-transpose', 'Nf3', [], 'nf3')
+    ]);
+
+    const layout = calculateLayout(root);
+
+    const mergeEdge = layout.edges.find((e) => e.type === 'merge');
+    expect(mergeEdge).toBeDefined();
+    expect(mergeEdge!.id).toBe('merge-nf3-transpose-nf3');
+  });
+
+  it('does not create merge edge if canonical node does not exist', () => {
+    const root = createNode('root', null, [
+      createNode('c1', 'e4', [], 'non-existent')
+    ]);
+
+    const layout = calculateLayout(root);
+
+    const mergeEdge = layout.edges.find((e) => e.type === 'merge');
+    expect(mergeEdge).toBeUndefined();
+  });
+
+  it('merge edge connects from transposition to canonical node', () => {
+    const root = createNode('root', null, [
+      createNode('canonical', 'e4'),
+      createNode('transpose', 'd4', [], 'canonical')
+    ]);
+
+    const layout = calculateLayout(root);
+
+    const mergeEdge = layout.edges.find((e) => e.type === 'merge');
+    const canonicalNode = layout.nodes.find((n) => n.id === 'canonical');
+    const transposeNode = layout.nodes.find((n) => n.id === 'transpose');
+
+    expect(mergeEdge).toBeDefined();
+    expect(mergeEdge!.from.x).toBe(transposeNode!.x);
+    expect(mergeEdge!.from.y).toBe(transposeNode!.y);
+    expect(mergeEdge!.to.x).toBe(canonicalNode!.x);
+    expect(mergeEdge!.to.y).toBe(canonicalNode!.y);
+  });
+});
+
+describe('createMergePath', () => {
+  it('creates valid SVG path string', () => {
+    const path = createMergePath({ x: 100, y: 200 }, { x: 50, y: 100 });
+
+    expect(path).toContain('M');
+    expect(path).toContain('C');
+  });
+
+  it('always starts from bottom of node', () => {
+    const from = { x: 100, y: 200 };
+    const to = { x: 50, y: 100 };
+    const path = createMergePath(from, to);
+
+    // Should always start at from.y + NODE_RADIUS (bottom of node)
+    expect(path.startsWith(`M ${from.x} ${from.y + NODE_RADIUS}`)).toBe(true);
+  });
+
+  it('ends at target node right edge', () => {
+    const from = { x: 100, y: 200 };
+    const to = { x: 50, y: 100 };
+    const path = createMergePath(from, to);
+
+    // Should end at to.x + NODE_RADIUS
+    expect(path).toContain(`${to.x + NODE_RADIUS} ${to.y}`);
+  });
+
+  it('curves to the right of both nodes', () => {
+    const from = { x: 100, y: 200 };
+    const to = { x: 50, y: 100 };
+    const path = createMergePath(from, to);
+
+    // Control points should be to the right of both nodes
+    const controlPointMatch = path.match(/C (\d+)/);
+    expect(controlPointMatch).not.toBeNull();
+    const controlX = parseInt(controlPointMatch![1]);
+    expect(controlX).toBeGreaterThan(Math.max(from.x, to.x));
   });
 });

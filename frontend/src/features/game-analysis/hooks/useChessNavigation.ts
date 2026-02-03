@@ -5,14 +5,26 @@ const DEFAULT_OPENING_PLIES = 20;
 
 export function useChessNavigation(
   game: GameAnalysis | null,
-  showFullGame: boolean
+  showFullGame: boolean,
+  initialPly?: number
 ) {
   const [currentMoveIndex, setCurrentMoveIndex] = useState(-1);
+  const [initialPlyApplied, setInitialPlyApplied] = useState(false);
 
-  // Reset to starting position when game changes
+  // Apply initial ply when game loads (only once)
   useEffect(() => {
-    setCurrentMoveIndex(-1);
-  }, [game?.gameIndex]);
+    if (!game) return;
+
+    if (initialPly !== undefined && initialPly >= 0 && !initialPlyApplied) {
+      // plyNumber is 0-indexed, same as move index
+      setCurrentMoveIndex(initialPly);
+      setInitialPlyApplied(true);
+    } else if (!initialPlyApplied) {
+      // No initial ply, reset to start
+      setCurrentMoveIndex(-1);
+      setInitialPlyApplied(true);
+    }
+  }, [game, initialPly, initialPlyApplied]);
 
   const maxDisplayedMoveIndex = useMemo(() => {
     if (!game) return -1;

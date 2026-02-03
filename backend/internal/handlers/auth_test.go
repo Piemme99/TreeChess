@@ -261,7 +261,7 @@ func TestMeHandler_NotFound(t *testing.T) {
 func TestUpdateProfileHandler_Success(t *testing.T) {
 	lichess := "lichessuser"
 	mockRepo := &mocks.MockUserRepo{
-		UpdateProfileFunc: func(userID string, l, c *string) (*models.User, error) {
+		UpdateProfileFunc: func(userID string, l, c *string, timeFormatPrefs []string) (*models.User, error) {
 			return &models.User{
 				ID:              userID,
 				Username:        "testuser",
@@ -287,7 +287,7 @@ func TestUpdateProfileHandler_Success(t *testing.T) {
 
 func TestUpdateProfileHandler_NotFound(t *testing.T) {
 	mockRepo := &mocks.MockUserRepo{
-		UpdateProfileFunc: func(userID string, l, c *string) (*models.User, error) {
+		UpdateProfileFunc: func(userID string, l, c *string, timeFormatPrefs []string) (*models.User, error) {
 			return nil, repository.ErrUserNotFound
 		},
 	}

@@ -161,6 +161,15 @@ func (db *DB) runMigrations() error {
 		)`,
 		`CREATE INDEX IF NOT EXISTS idx_engine_evals_user ON engine_evals(user_id)`,
 		`CREATE INDEX IF NOT EXISTS idx_engine_evals_status ON engine_evals(status)`,
+		`CREATE TABLE IF NOT EXISTS dismissed_mistakes (
+			user_id UUID NOT NULL REFERENCES users(id),
+			fen TEXT NOT NULL,
+			played_move VARCHAR(10) NOT NULL,
+			dismissed_at TIMESTAMPTZ DEFAULT NOW(),
+			PRIMARY KEY (user_id, fen, played_move)
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_dismissed_mistakes_user ON dismissed_mistakes(user_id)`,
+		`ALTER TABLE users ADD COLUMN IF NOT EXISTS time_format_prefs TEXT[] DEFAULT '{}'`,
 	}
 	for _, m := range migrations {
 		if _, err := db.Pool.Exec(ctx, m); err != nil {

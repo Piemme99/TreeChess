@@ -33,6 +33,7 @@ func main() {
 	analysisRepo := repository.NewPostgresAnalysisRepo(db.Pool)
 	fingerprintRepo := repository.NewPostgresFingerprintRepo(db.Pool)
 	engineEvalRepo := repository.NewPostgresEngineEvalRepo(db.Pool)
+	dismissedMistakeRepo := repository.NewDismissedMistakeRepo(db.Pool)
 
 	// Initialize opening analysis service (uses Lichess Explorer API)
 	engineSvc := services.NewEngineService(engineEvalRepo, analysisRepo)
@@ -44,6 +45,7 @@ func main() {
 	importSvc := services.NewImportService(repertoireSvc, analysisRepo,
 		services.WithFingerprintRepo(fingerprintRepo),
 		services.WithEngineService(engineSvc),
+		services.WithDismissedMistakeRepo(dismissedMistakeRepo),
 	)
 	lichessSvc := services.NewLichessService()
 	chesscomSvc := services.NewChesscomService()
@@ -133,6 +135,8 @@ func main() {
 	protected.POST("/api/repertoires/:id/nodes", handlers.AddNodeHandler(repertoireSvc))
 	protected.DELETE("/api/repertoires/:id/nodes/:nodeId", handlers.DeleteNodeHandler(repertoireSvc))
 	protected.PATCH("/api/repertoires/:id/nodes/:nodeId/comment", handlers.UpdateNodeCommentHandler(repertoireSvc))
+	protected.PATCH("/api/repertoires/:id/nodes/:nodeId/branch-name", handlers.UpdateNodeBranchNameHandler(repertoireSvc))
+	protected.POST("/api/repertoires/:id/nodes/:nodeId/toggle-collapsed", handlers.ToggleNodeCollapsedHandler(repertoireSvc))
 	protected.POST("/api/repertoires/merge", handlers.MergeRepertoiresHandler(repertoireSvc))
 	protected.POST("/api/repertoires/:id/extract", handlers.ExtractSubtreeHandler(repertoireSvc))
 	protected.POST("/api/repertoires/:id/merge-transpositions", handlers.MergeTranspositionsHandler(repertoireSvc))
@@ -158,6 +162,7 @@ func main() {
 
 	// Games API
 	protected.GET("/api/games/insights", importHandler.GetInsightsHandler)
+	protected.POST("/api/games/insights/dismiss", importHandler.DismissMistakeHandler)
 	protected.GET("/api/games/repertoires", importHandler.GetDistinctRepertoiresHandler)
 	protected.GET("/api/games", importHandler.GetGamesHandler)
 	protected.DELETE("/api/games/:analysisId/:gameIndex", importHandler.DeleteGameHandler)

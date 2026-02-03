@@ -31,6 +31,8 @@ type RepertoireNode struct {
 	ColorToMove     ChessColor        `json:"colorToMove"`
 	ParentID        *string           `json:"parentId,omitempty"`
 	Comment         *string           `json:"comment,omitempty"`
+	BranchName      *string           `json:"branchName,omitempty"`
+	Collapsed       bool              `json:"collapsed,omitempty"`
 	TranspositionOf *string           `json:"transpositionOf,omitempty"`
 	Children        []*RepertoireNode `json:"children"`
 }
@@ -247,6 +249,7 @@ func ClassifyTimeControl(tc string) string {
 type GameRef struct {
 	AnalysisID string `json:"analysisId"`
 	GameIndex  int    `json:"gameIndex"`
+	PlyNumber  int    `json:"plyNumber"`
 	White      string `json:"white"`
 	Black      string `json:"black"`
 	Result     string `json:"result"`

@@ -16,6 +16,17 @@ interface RepertoireTreeProps {
   color: Color;
   isExpanded?: boolean;
   onToggleExpand?: () => void;
+  onToggleCollapsed?: (nodeId: string) => void;
+}
+
+// Helper to collect collapsed node IDs from tree
+function collectCollapsedNodes(node: RepertoireNode, result: Set<string>): void {
+  if (node.collapsed) {
+    result.add(node.id);
+  }
+  for (const child of node.children) {
+    collectCollapsedNodes(child, result);
+  }
 }
 
 export function RepertoireTree({
@@ -24,10 +35,18 @@ export function RepertoireTree({
   onNodeClick,
   color,
   isExpanded,
-  onToggleExpand
+  onToggleExpand,
+  onToggleCollapsed
 }: RepertoireTreeProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
+
+  // Calculate collapsed nodes from repertoire data
+  const collapsedNodes = useMemo(() => {
+    const result = new Set<string>();
+    collectCollapsedNodes(repertoire, result);
+    return result;
+  }, [repertoire]);
 
   const {
     viewBox,
@@ -39,7 +58,14 @@ export function RepertoireTree({
     resetView
   } = usePanZoom(containerRef, svgRef);
 
-  const layout = useMemo(() => calculateLayout(repertoire), [repertoire]);
+  const layout = useMemo(() => calculateLayout(repertoire, collapsedNodes), [repertoire, collapsedNodes]);
+
+  const handleNodeDoubleClick = useCallback((node: RepertoireNode) => {
+    if (node.children.length === 0) return;
+    if (onToggleCollapsed) {
+      onToggleCollapsed(node.id);
+    }
+  }, [onToggleCollapsed]);
 
   const [hoveredNode, setHoveredNode] = useState<LayoutNode | null>(null);
 
@@ -120,6 +146,7 @@ export function RepertoireTree({
               layoutNode={layoutNode}
               isSelected={layoutNode.id === selectedNodeId}
               onClick={onNodeClick}
+              onDoubleClick={handleNodeDoubleClick}
               onMouseEnter={handleNodeMouseEnter}
               onMouseLeave={handleNodeMouseLeave}
             />

@@ -116,7 +116,7 @@ func (s *AuthService) GetUserByID(id string) (*models.User, error) {
 }
 
 func (s *AuthService) UpdateProfile(userID string, req models.UpdateProfileRequest) (*models.User, error) {
-	return s.userRepo.UpdateProfile(userID, req.LichessUsername, req.ChesscomUsername)
+	return s.userRepo.UpdateProfile(userID, req.LichessUsername, req.ChesscomUsername, req.TimeFormatPrefs)
 }
 
 func (s *AuthService) generateToken(user *models.User) (string, error) {

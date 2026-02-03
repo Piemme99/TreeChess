@@ -151,8 +151,18 @@ export const repertoireApi = {
     return response.data;
   },
 
+  updateNodeBranchName: async (id: string, nodeId: string, branchName: string): Promise<Repertoire> => {
+    const response = await api.patch(`/repertoires/${id}/nodes/${nodeId}/branch-name`, { branchName });
+    return response.data;
+  },
+
   mergeTranspositions: async (id: string): Promise<Repertoire> => {
     const response = await api.post(`/repertoires/${id}/merge-transpositions`);
+    return response.data;
+  },
+
+  toggleNodeCollapsed: async (id: string, nodeId: string): Promise<Repertoire> => {
+    const response = await api.post(`/repertoires/${id}/nodes/${nodeId}/toggle-collapsed`);
     return response.data;
   }
 };
@@ -277,5 +287,9 @@ export const gamesApi = {
   insights: async (options?: RequestOptions): Promise<InsightsResponse> => {
     const response = await api.get('/games/insights', { signal: options?.signal });
     return response.data;
+  },
+
+  dismissMistake: async (fen: string, playedMove: string): Promise<void> => {
+    await api.post('/games/insights/dismiss', { fen, playedMove });
   }
 };

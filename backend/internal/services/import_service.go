@@ -16,10 +16,11 @@ var ErrAllGamesDuplicate = fmt.Errorf("all games have already been imported")
 
 // ImportService handles game import and analysis business logic
 type ImportService struct {
-	repertoireService *RepertoireService
-	analysisRepo      repository.AnalysisRepository
-	fingerprintRepo   repository.GameFingerprintRepository
-	engineService     *EngineService
+	repertoireService    *RepertoireService
+	analysisRepo         repository.AnalysisRepository
+	fingerprintRepo      repository.GameFingerprintRepository
+	engineService        *EngineService
+	dismissedMistakeRepo repository.DismissedMistakeRepository
 }
 
 // NewImportService creates a new import service with the given dependencies
@@ -48,6 +49,13 @@ func WithFingerprintRepo(repo repository.GameFingerprintRepository) ImportServic
 func WithEngineService(svc *EngineService) ImportServiceOption {
 	return func(s *ImportService) {
 		s.engineService = svc
+	}
+}
+
+// WithDismissedMistakeRepo sets the dismissed mistake repository on the ImportService
+func WithDismissedMistakeRepo(repo repository.DismissedMistakeRepository) ImportServiceOption {
+	return func(s *ImportService) {
+		s.dismissedMistakeRepo = repo
 	}
 }
 
@@ -367,18 +375,9 @@ func normalizeFEN(fen string) string { return NormalizeFEN(fen) }
 func (s *ImportService) extractHeaders(game *chess.Game) models.PGNHeaders {
 	headers := make(models.PGNHeaders)
 
-	pgnOutput := game.String()
-	lines := strings.Split(pgnOutput, "\n")
-	for _, line := range lines {
-		if strings.HasPrefix(line, "[") && strings.HasSuffix(line, "]") {
-			tagContent := strings.Trim(line, "[]")
-			parts := strings.SplitN(tagContent, " ", 2)
-			if len(parts) == 2 {
-				key := strings.Trim(parts[0], `"`)
-				value := strings.Trim(parts[1], `"`)
-				headers[key] = value
-			}
-		}
+	// Use TagPairs() to get all headers including Opening, ECO, etc.
+	for _, tp := range game.TagPairs() {
+		headers[tp.Key] = tp.Value
 	}
 
 	if _, ok := headers["Event"]; !ok {
@@ -670,6 +669,28 @@ func ComputeFingerprint(headers models.PGNHeaders, moves []models.MoveAnalysis) 
 	return fmt.Sprintf("sha256:%x", hash)
 }
 
+// DismissMistake marks a mistake as dismissed for a user
+func (s *ImportService) DismissMistake(userID, fen, playedMove string) error {
+	if s.dismissedMistakeRepo == nil {
+		return fmt.Errorf("dismissed mistake repository not configured")
+	}
+	return s.dismissedMistakeRepo.Dismiss(userID, fen, playedMove)
+}
+
+// collectRepertoireMoves extracts all parent FEN + child move combinations from a repertoire tree
+// The key format is "parentFEN|childMove" to identify moves that exist in the repertoire
+func collectRepertoireMoves(node *models.RepertoireNode, moves map[string]bool) {
+	for _, child := range node.Children {
+		if child.Move != nil && *child.Move != "" {
+			// Use the parent's FEN (node.FEN) and the child's move
+			// This represents "at this position, this move is in the repertoire"
+			key := node.FEN + "|" + *child.Move
+			moves[key] = true
+		}
+		collectRepertoireMoves(child, moves)
+	}
+}
+
 // GetInsights computes worst opening mistakes using engine evaluations
 func (s *ImportService) GetInsights(userID string) (*models.InsightsResponse, error) {
 	response := &models.InsightsResponse{
@@ -680,6 +701,28 @@ func (s *ImportService) GetInsights(userID string) (*models.InsightsResponse, er
 	// If no engine service, return empty (graceful degradation)
 	if s.engineService == nil {
 		return response, nil
+	}
+
+	// Get dismissed mistakes to filter them out
+	var dismissedMistakes map[string]bool
+	if s.dismissedMistakeRepo != nil {
+		var err error
+		dismissedMistakes, err = s.dismissedMistakeRepo.GetDismissed(userID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get dismissed mistakes: %w", err)
+		}
+	}
+
+	// Get repertoire moves to filter them out (moves in repertoire are intentional, not mistakes)
+	repertoireMoves := make(map[string]bool)
+	if s.repertoireService != nil {
+		repertoires, err := s.repertoireService.ListRepertoires(userID, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get repertoires: %w", err)
+		}
+		for _, rep := range repertoires {
+			collectRepertoireMoves(&rep.TreeData, repertoireMoves)
+		}
 	}
 
 	// Get engine evals and raw game data
@@ -731,6 +774,10 @@ func (s *ImportService) GetInsights(userID string) (*models.InsightsResponse, er
 			}
 
 			for _, stat := range stats {
+				// Skip the very first move (ply 1-2) - opening choice, not a mistake
+				if stat.PlyNumber <= 2 {
+					continue
+				}
 				// Only count as mistake if winrate drop >= 2%
 				if stat.WinrateDrop < 0.02 {
 					continue
@@ -760,6 +807,7 @@ func (s *ImportService) GetInsights(userID string) (*models.InsightsResponse, er
 						data.games = append(data.games, models.GameRef{
 							AnalysisID: a.ID,
 							GameIndex:  game.GameIndex,
+							PlyNumber:  stat.PlyNumber,
 							White:      game.Headers["White"],
 							Black:      game.Headers["Black"],
 							Result:     game.Headers["Result"],
@@ -774,6 +822,12 @@ func (s *ImportService) GetInsights(userID string) (*models.InsightsResponse, er
 	// Convert to slice, filter, and score: winrateDrop * frequency²
 	// Discard single-occurrence mistakes unless they're early (first 5 moves) and big (>=5% drop)
 	for key, data := range mistakeGroups {
+		// Skip dismissed mistakes and moves that exist in repertoires
+		moveKey := key.FEN + "|" + key.PlayedMove
+		if dismissedMistakes[moveKey] || repertoireMoves[moveKey] {
+			continue
+		}
+
 		freq := len(data.seen)
 		if freq == 1 && !(data.earliestPly <= 10 && data.winrateDrop >= 0.05) {
 			continue
@@ -790,10 +844,10 @@ func (s *ImportService) GetInsights(userID string) (*models.InsightsResponse, er
 		})
 	}
 
-	// Sort by score desc, take top 5
+	// Sort by score desc, take top 2
 	sortMistakes(response.WorstMistakes)
-	if len(response.WorstMistakes) > 5 {
-		response.WorstMistakes = response.WorstMistakes[:5]
+	if len(response.WorstMistakes) > 2 {
+		response.WorstMistakes = response.WorstMistakes[:2]
 	}
 
 	return response, nil

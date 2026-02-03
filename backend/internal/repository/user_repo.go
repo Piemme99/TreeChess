@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	userColumns = `id, username, password_hash, oauth_provider, oauth_id, lichess_username, chesscom_username, lichess_access_token, last_lichess_sync_at, last_chesscom_sync_at, created_at`
+	userColumns = `id, username, password_hash, oauth_provider, oauth_id, lichess_username, chesscom_username, lichess_access_token, last_lichess_sync_at, last_chesscom_sync_at, time_format_prefs, created_at`
 
 	createUserSQL = `
 		INSERT INTO users (id, username, password_hash)
@@ -42,7 +42,7 @@ const (
 		RETURNING ` + userColumns + `
 	`
 	updateProfileSQL = `
-		UPDATE users SET lichess_username = $2, chesscom_username = $3
+		UPDATE users SET lichess_username = $2, chesscom_username = $3, time_format_prefs = $4
 		WHERE id = $1
 		RETURNING ` + userColumns + `
 	`
@@ -70,7 +70,7 @@ func scanUser(scan func(dest ...any) error) (*models.User, error) {
 	err := scan(
 		&user.ID, &user.Username, &passwordHash, &user.OAuthProvider, &user.OAuthID,
 		&user.LichessUsername, &user.ChesscomUsername, &user.LichessAccessToken,
-		&user.LastLichessSyncAt, &user.LastChesscomSyncAt, &user.CreatedAt,
+		&user.LastLichessSyncAt, &user.LastChesscomSyncAt, &user.TimeFormatPrefs, &user.CreatedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -159,11 +159,11 @@ func (r *PostgresUserRepo) CreateOAuth(provider, oauthID, username string) (*mod
 	return user, nil
 }
 
-func (r *PostgresUserRepo) UpdateProfile(userID string, lichess, chesscom *string) (*models.User, error) {
+func (r *PostgresUserRepo) UpdateProfile(userID string, lichess, chesscom *string, timeFormatPrefs []string) (*models.User, error) {
 	ctx, cancel := dbContext()
 	defer cancel()
 
-	user, err := scanUser(r.pool.QueryRow(ctx, updateProfileSQL, userID, lichess, chesscom).Scan)
+	user, err := scanUser(r.pool.QueryRow(ctx, updateProfileSQL, userID, lichess, chesscom, timeFormatPrefs).Scan)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update profile: %w", err)
 	}

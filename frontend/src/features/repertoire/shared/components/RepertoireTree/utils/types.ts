@@ -13,13 +13,18 @@ export interface LayoutNode {
   y: number;
   node: RepertoireNode;
   depth: number;
+  hiddenDescendantCount?: number;
 }
+
+/** Type of edge in the tree */
+export type EdgeType = 'parent-child' | 'merge';
 
 /** An edge connecting two nodes */
 export interface LayoutEdge {
   id: string;
   from: Point;
   to: Point;
+  type: EdgeType;
 }
 
 /** Complete tree layout calculation result */

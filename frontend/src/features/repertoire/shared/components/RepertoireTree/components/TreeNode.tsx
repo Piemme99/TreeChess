@@ -7,24 +7,28 @@ interface TreeNodeProps {
   layoutNode: LayoutNode;
   isSelected: boolean;
   onClick: (node: RepertoireNode) => void;
+  onDoubleClick?: (node: RepertoireNode) => void;
   onMouseEnter?: (layoutNode: LayoutNode) => void;
   onMouseLeave?: () => void;
 }
 
-export const TreeNode = memo(function TreeNode({ layoutNode, isSelected, onClick, onMouseEnter, onMouseLeave }: TreeNodeProps) {
+export const TreeNode = memo(function TreeNode({ layoutNode, isSelected, onClick, onDoubleClick, onMouseEnter, onMouseLeave }: TreeNodeProps) {
   const isRoot = layoutNode.node.move === null;
   const isTransposition = !!layoutNode.node.transpositionOf;
   // colorToMove is the color to play AFTER this move
   // So if colorToMove === 'b', the move that was just played was white's move
   const isWhiteMove = layoutNode.node.colorToMove === 'b';
+  const hiddenCount = layoutNode.hiddenDescendantCount;
 
   const handleClick = useCallback(() => onClick(layoutNode.node), [onClick, layoutNode.node]);
+  const handleDoubleClick = useCallback(() => onDoubleClick?.(layoutNode.node), [onDoubleClick, layoutNode.node]);
   const handleMouseEnter = useCallback(() => onMouseEnter?.(layoutNode), [onMouseEnter, layoutNode]);
 
   return (
     <g
       className={`tree-node ${isSelected ? 'selected' : ''}`}
       onClick={handleClick}
+      onDoubleClick={handleDoubleClick}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={onMouseLeave}
       style={{ cursor: 'pointer' }}
@@ -45,11 +49,23 @@ export const TreeNode = memo(function TreeNode({ layoutNode, isSelected, onClick
           cx={layoutNode.x}
           cy={layoutNode.y}
           r={NODE_RADIUS}
-          fill={isTransposition ? 'transparent' : isSelected ? '#E67E22' : isWhiteMove ? '#ffffff' : '#1f2937'}
+          fill={isTransposition ? '#ede9fe' : isSelected ? '#E67E22' : isWhiteMove ? '#ffffff' : '#1f2937'}
           stroke={isTransposition ? '#a78bfa' : isSelected ? '#D4740A' : isWhiteMove ? '#9ca3af' : '#111827'}
           strokeWidth="2"
           strokeDasharray={isTransposition ? '4 2' : undefined}
         />
+      )}
+      {layoutNode.node.branchName && (
+        <text
+          x={layoutNode.x}
+          y={layoutNode.y - NODE_RADIUS - 20}
+          textAnchor="middle"
+          fontSize="11"
+          fontStyle="italic"
+          fill="#1f2937"
+        >
+          {layoutNode.node.branchName}
+        </text>
       )}
       <text
         x={layoutNode.x}
@@ -57,10 +73,30 @@ export const TreeNode = memo(function TreeNode({ layoutNode, isSelected, onClick
         textAnchor="middle"
         fontSize="11"
         fontWeight="bold"
-        fill={isRoot || isSelected ? '#fff' : isTransposition ? '#a78bfa' : isWhiteMove ? '#333' : '#fff'}
+        fill={isRoot || isSelected ? '#fff' : isTransposition ? '#6d28d9' : isWhiteMove ? '#333' : '#fff'}
       >
         {isRoot ? 'Start' : layoutNode.node.move}
       </text>
+      {hiddenCount && hiddenCount > 0 && (
+        <g>
+          <circle
+            cx={layoutNode.x + NODE_RADIUS - 2}
+            cy={layoutNode.y - NODE_RADIUS + 2}
+            r={8}
+            fill="#E67E22"
+          />
+          <text
+            x={layoutNode.x + NODE_RADIUS - 2}
+            y={layoutNode.y - NODE_RADIUS + 5}
+            textAnchor="middle"
+            fontSize="8"
+            fontWeight="bold"
+            fill="#fff"
+          >
+            +{hiddenCount}
+          </text>
+        </g>
+      )}
     </g>
   );
 });

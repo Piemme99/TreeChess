@@ -1059,8 +1059,10 @@ func TestGetInsights_WithExplorerStats(t *testing.T) {
 	gameMoves := []models.MoveAnalysis{
 		{PlyNumber: 0, SAN: "d4", FEN: "startFEN w KQkq -", Status: "in-repertoire", IsUserMove: true},
 		{PlyNumber: 1, SAN: "d5", FEN: "afterD4 b KQkq -", Status: "in-repertoire", IsUserMove: false},
-		{PlyNumber: 2, SAN: "Bf4", FEN: "afterD5 w KQkq -", Status: "out-of-repertoire", IsUserMove: true},
-		{PlyNumber: 3, SAN: "Nf6", FEN: "afterBf4 b KQkq -", Status: "in-repertoire", IsUserMove: false},
+		{PlyNumber: 2, SAN: "c4", FEN: "afterD5 w KQkq -", Status: "in-repertoire", IsUserMove: true},
+		{PlyNumber: 3, SAN: "e6", FEN: "afterC4 b KQkq -", Status: "in-repertoire", IsUserMove: false},
+		{PlyNumber: 4, SAN: "Bf4", FEN: "afterE6 w KQkq -", Status: "out-of-repertoire", IsUserMove: true},
+		{PlyNumber: 5, SAN: "Nf6", FEN: "afterBf4 b KQkq -", Status: "in-repertoire", IsUserMove: false},
 	}
 
 	analyses := []models.RawAnalysis{
@@ -1069,14 +1071,14 @@ func TestGetInsights_WithExplorerStats(t *testing.T) {
 		}),
 	}
 
-	// Explorer stats: user played Bf4 at ply 2, best was c4
-	// Bf4 winrate = 0.48, c4 winrate = 0.56, drop = 0.08 (8%)
+	// Explorer stats: user played Bf4 at ply 4, best was Nc3
+	// Bf4 winrate = 0.48, Nc3 winrate = 0.56, drop = 0.08 (8%)
 	engineEvals := []models.EngineEval{
 		{
 			ID: "ee1", UserID: "user-1", AnalysisID: "a1", GameIndex: 0, Status: "done",
 			Evals: []models.ExplorerMoveStats{
 				{PlyNumber: 0, FEN: "startFEN w KQkq -", PlayedMove: "d4", PlayedWinrate: 0.55, BestMove: "e4", BestWinrate: 0.55, WinrateDrop: 0.0, TotalGames: 1000},
-				{PlyNumber: 2, FEN: "afterD5 w KQkq -", PlayedMove: "Bf4", PlayedWinrate: 0.48, BestMove: "c4", BestWinrate: 0.56, WinrateDrop: 0.08, TotalGames: 500},
+				{PlyNumber: 4, FEN: "afterE6 w KQkq -", PlayedMove: "Bf4", PlayedWinrate: 0.48, BestMove: "Nc3", BestWinrate: 0.56, WinrateDrop: 0.08, TotalGames: 500},
 			},
 		},
 	}
@@ -1104,9 +1106,12 @@ func TestGetInsights_WithExplorerStats(t *testing.T) {
 	assert.Equal(t, 1, insights.EngineAnalysisCompleted)
 	assert.Len(t, insights.WorstMistakes, 1)
 	assert.Equal(t, "Bf4", insights.WorstMistakes[0].PlayedMove)
-	assert.Equal(t, "c4", insights.WorstMistakes[0].BestMove)
+	assert.Equal(t, "Nc3", insights.WorstMistakes[0].BestMove)
 	assert.InDelta(t, 0.08, insights.WorstMistakes[0].WinrateDrop, 0.001)
 	assert.Equal(t, 1, insights.WorstMistakes[0].Frequency)
+	// Verify the game reference includes the ply number for navigation
+	assert.Len(t, insights.WorstMistakes[0].Games, 1)
+	assert.Equal(t, 4, insights.WorstMistakes[0].Games[0].PlyNumber)
 }
 
 func TestGetInsights_Empty(t *testing.T) {

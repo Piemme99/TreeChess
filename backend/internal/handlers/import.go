@@ -413,6 +413,31 @@ func (h *ImportHandler) GetInsightsHandler(c echo.Context) error {
 	return c.JSON(http.StatusOK, insights)
 }
 
+// DismissMistakeRequest is the request body for dismissing a mistake
+type DismissMistakeRequest struct {
+	FEN        string `json:"fen"`
+	PlayedMove string `json:"playedMove"`
+}
+
+func (h *ImportHandler) DismissMistakeHandler(c echo.Context) error {
+	userID := c.Get("userID").(string)
+
+	var req DismissMistakeRequest
+	if err := c.Bind(&req); err != nil {
+		return BadRequestResponse(c, "invalid request body")
+	}
+
+	if req.FEN == "" || req.PlayedMove == "" {
+		return BadRequestResponse(c, "fen and playedMove are required")
+	}
+
+	if err := h.importService.DismissMistake(userID, req.FEN, req.PlayedMove); err != nil {
+		return InternalErrorResponse(c, "failed to dismiss mistake")
+	}
+
+	return c.NoContent(http.StatusNoContent)
+}
+
 func (h *ImportHandler) LichessImportHandler(c echo.Context) error {
 	var req models.LichessImportRequest
 	if err := c.Bind(&req); err != nil {

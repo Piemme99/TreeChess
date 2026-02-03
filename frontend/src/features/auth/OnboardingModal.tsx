@@ -3,6 +3,7 @@ import { Modal } from '../../shared/components/UI/Modal';
 import { Button } from '../../shared/components/UI/Button';
 import { repertoireApi } from '../../services/api';
 import { useAuthStore } from '../../stores/authStore';
+import type { TimeFormat } from '../../types';
 
 interface Template {
   id: string;
@@ -25,6 +26,9 @@ export function OnboardingModal({ isOpen, onClose }: OnboardingModalProps) {
 
   const [lichessUsername, setLichessUsername] = useState('');
   const [chesscomUsername, setChesscomUsername] = useState('');
+  const [timeFormats, setTimeFormats] = useState<Set<TimeFormat>>(
+    new Set(['rapid', 'blitz', 'bullet'])
+  );
   const [templates, setTemplates] = useState<Template[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
@@ -39,8 +43,11 @@ export function OnboardingModal({ isOpen, onClose }: OnboardingModalProps) {
       if (user?.chesscomUsername) {
         setChesscomUsername(user.chesscomUsername);
       }
+      if (user?.timeFormatPrefs && user.timeFormatPrefs.length > 0) {
+        setTimeFormats(new Set(user.timeFormatPrefs));
+      }
     }
-  }, [isOpen, user?.lichessUsername, user?.chesscomUsername]);
+  }, [isOpen, user?.lichessUsername, user?.chesscomUsername, user?.timeFormatPrefs]);
 
   const toggleTemplate = (id: string) => {
     setSelected((prev) => {
@@ -54,6 +61,20 @@ export function OnboardingModal({ isOpen, onClose }: OnboardingModalProps) {
     });
   };
 
+  const toggleTimeFormat = (format: TimeFormat) => {
+    setTimeFormats((prev) => {
+      const next = new Set(prev);
+      if (next.has(format)) {
+        if (next.size > 1) {
+          next.delete(format);
+        }
+      } else {
+        next.add(format);
+      }
+      return next;
+    });
+  };
+
   const handleSubmit = async () => {
     setLoading(true);
     setError('');
@@ -62,10 +83,16 @@ export function OnboardingModal({ isOpen, onClose }: OnboardingModalProps) {
         lichessUsername !== (user?.lichessUsername || '') ||
         chesscomUsername !== (user?.chesscomUsername || '');
 
-      if (hasUsernameChanges) {
+      const currentPrefs = new Set(user?.timeFormatPrefs || []);
+      const hasTimeFormatChanges =
+        timeFormats.size !== currentPrefs.size ||
+        [...timeFormats].some((f) => !currentPrefs.has(f));
+
+      if (hasUsernameChanges || hasTimeFormatChanges) {
         await updateProfile({
           lichessUsername: lichessUsername || undefined,
           chesscomUsername: chesscomUsername || undefined,
+          timeFormatPrefs: Array.from(timeFormats),
         });
       }
 
@@ -136,6 +163,27 @@ export function OnboardingModal({ isOpen, onClose }: OnboardingModalProps) {
               className="py-2 px-4 border border-border rounded-md text-[0.9375rem] font-sans focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary-light"
             />
           </div>
+        </div>
+      </div>
+
+      <div className="mb-6">
+        <h3 className="text-base font-semibold mb-1">Time Formats</h3>
+        <p className="text-sm text-text-muted mb-3">Select which time controls to sync from Lichess/Chess.com.</p>
+        <div className="flex gap-2">
+          {(['rapid', 'blitz', 'bullet'] as const).map((format) => (
+            <button
+              key={format}
+              type="button"
+              onClick={() => toggleTimeFormat(format)}
+              className={`py-2 px-4 rounded-md text-sm font-medium transition-all duration-150 border-2 ${
+                timeFormats.has(format)
+                  ? 'border-primary bg-primary text-white'
+                  : 'border-border bg-transparent text-text hover:border-primary'
+              }`}
+            >
+              {format.charAt(0).toUpperCase() + format.slice(1)}
+            </button>
+          ))}
         </div>
       </div>
 

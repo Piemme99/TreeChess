@@ -37,6 +37,15 @@ function GamesIcon({ className = 'w-5 h-5' }: { className?: string }) {
   );
 }
 
+function ProfileIcon({ className = 'w-5 h-5' }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="8" r="4" />
+      <path d="M20 21a8 8 0 0 0-16 0" />
+    </svg>
+  );
+}
+
 function LogoutIcon({ className = 'w-4 h-4' }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -63,6 +72,7 @@ const navItems = [
   { to: '/', label: 'Dashboard', Icon: DashboardIcon, end: true },
   { to: '/repertoires', label: 'Repertoires', Icon: RepertoiresIcon, end: false },
   { to: '/games', label: 'Games', Icon: GamesIcon, end: false },
+  { to: '/profile', label: 'Profile', Icon: ProfileIcon, end: false },
 ] as const;
 
 function useMediaQuery(query: string) {
