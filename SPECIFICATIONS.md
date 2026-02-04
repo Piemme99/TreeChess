@@ -1,7 +1,7 @@
 # TreeChess - Technical and Functional Specifications
 
-**Version:** 8.0
-**Date:** January 30, 2026
+**Version:** 9.0
+**Date:** February 4, 2026
 **Status:** Draft
 
 ---
@@ -33,11 +33,14 @@ TreeChess is a multi-user web application allowing players to create, visualize,
 
 - **Authentication**: Local registration + OAuth Lichess
 - **Multiple repertoires**: Up to 50 per user, multiple per color
-- **Import sources**: PGN file upload, Lichess API, Chess.com API
+- **Categories**: Organize repertoires into named categories (e.g., "White Openings", "Aggressive Lines")
+- **Import sources**: PGN file upload, Lichess API, Chess.com API, Lichess Study import
 - **Sync**: Automatic sync of recent games from Lichess/Chess.com
 - **Analysis**: Game-by-game comparison against repertoire trees
 - **Engine**: Stockfish WebAssembly for position evaluation
 - **Repertoire templates**: Pre-built opening trees (Sicilian, Italian, etc.)
+- **Repertoire operations**: Merge multiple repertoires, extract subtrees into new repertoires
+- **Insights**: Engine-powered opening mistake detection and analysis
 
 **Tech Stack:**
 
@@ -53,7 +56,7 @@ TreeChess is a multi-user web application allowing players to create, visualize,
 - Main line vs sideline visualization
 - Repertoire PGN export
 - Progress statistics
-- Comments on positions
+- Comments on positions (backend supports, UI pending)
 - Production deployment
 
 ---
@@ -80,6 +83,31 @@ Data is stored in a PostgreSQL database. See section 4.2 for the full schema.
 
 Users can create up to 50 repertoires total, multiple per color. Each repertoire has a name and color. A trigger enforces the 50-repertoire limit per user.
 
+#### REQ-005: Repertoire Categories (Implemented)
+
+Users can organize repertoires into named categories:
+- Create categories with name and color
+- Assign repertoires to categories
+- Repertoires display grouped by category in the UI
+- Maximum 50 categories per user
+- Cascade delete: deleting a category removes all its repertoires
+
+#### REQ-006: Merge Repertoires (Implemented)
+
+Users can merge multiple repertoires of the same color into a single new repertoire:
+- Select 2+ repertoires to merge
+- All source repertoires are deleted after merge
+- New repertoire contains combined tree structure
+- Move conflicts resolved by keeping both branches
+
+#### REQ-007: Extract Subtree (Implemented)
+
+Users can extract a branch from a repertoire into a new standalone repertoire:
+- Select any non-root node in a repertoire
+- Creates new repertoire with the subtree from that node
+- Original repertoire has the branch removed (pruned)
+- Both repertoires are returned
+
 ---
 
 ### 3.2 PGN Import
@@ -105,7 +133,27 @@ If the file is not valid PGN, display an explicit error message with the problem
 
 ---
 
-### 3.3 Repertoire Comparison
+### 3.3 Lichess Study Import (Implemented)
+
+#### REQ-015: Study Import
+
+Users can import chapters from Lichess studies as repertoires:
+- Paste a Lichess study URL
+- System fetches study metadata (name, chapters)
+- User selects which chapters to import
+- Each chapter becomes a separate repertoire
+- Optional: Merge all chapters into a single repertoire
+- Optional: Create a category and assign imported repertoires to it
+
+#### REQ-016: Study Import Validation
+
+- Studies with custom starting positions are rejected
+- Private studies require authentication
+- Invalid study URLs return clear error messages
+
+---
+
+### 3.4 Repertoire Comparison
 
 #### REQ-020: Automatic Move Matching
 
@@ -136,7 +184,7 @@ After processing a PGN file, display a summary:
 
 ---
 
-### 3.4 Repertoire Enrichment
+### 3.5 Repertoire Enrichment
 
 #### REQ-030: Manual Move Addition
 
@@ -159,7 +207,7 @@ Every added move must be legal according to chess rules. Use `chess.js` for vali
 
 ---
 
-### 3.5 Tree Visualization
+### 3.6 Tree Visualization
 
 #### REQ-040: GitHub-Style Representation
 
@@ -190,7 +238,7 @@ Each node displays:
 
 ---
 
-### 3.6 Stockfish Engine Analysis
+### 3.7 Stockfish Engine Analysis
 
 #### REQ-050: Engine Integration
 
@@ -286,11 +334,38 @@ Engine analysis errors are handled gracefully:
 
 ---
 
-### 3.7 Review Mode (V2)
+### 3.8 Opening Insights (Implemented)
+
+#### REQ-060: Opening Mistake Detection
+
+The system analyzes imported games to detect recurring opening mistakes:
+- Compares user's played moves against engine top moves at each position
+- Calculates winrate drop for non-optimal moves
+- Identifies positions where user consistently plays suboptimal moves
+- Groups mistakes by FEN position and move
+
+#### REQ-061: Mistake Scoring
+
+Each mistake is scored by:
+- **Winrate drop:** Difference between played move and best move winrates
+- **Frequency:** How many times the mistake occurs
+- **Final score:** Weighted combination of severity and frequency
+
+#### REQ-062: Insights Dashboard
+
+The insights page displays:
+- Worst mistakes ranked by score
+- Associated games for each mistake
+- Best move suggestion
+- Engine analysis progress indicator
+
+---
+
+### 3.9 Review Mode (V2)
 
 **Note**: This feature is deferred to V2.
 
-#### REQ-060: Branch Visualization
+#### REQ-070: Branch Visualization
 
 The user selects a node and accesses a dedicated view displaying:
 
@@ -298,7 +373,7 @@ The user selects a node and accesses a dedicated view displaying:
 - The move sequence from root node to selected node
 - Previous/Next navigation to browse the sequence
 
-#### REQ-061: Active Review
+#### REQ-071: Active Review
 
 In review mode, the user can:
 
@@ -306,7 +381,7 @@ In review mode, the user can:
 - Receive immediate feedback on wrong move
 - Return to branch start
 
-#### REQ-062: Position + Notation Display
+#### REQ-072: Position + Notation Display
 
 ALWAYS display simultaneously:
 
@@ -315,20 +390,20 @@ ALWAYS display simultaneously:
 
 ---
 
-### 3.8 Game Sync
+### 3.10 Game Sync
 
-#### REQ-070: Automatic Game Sync
+#### REQ-080: Automatic Game Sync
 
 Users can link their Lichess and/or Chess.com usernames via their profile (`PUT /api/auth/profile`). The sync endpoint (`POST /api/sync`) fetches recent games from both platforms and imports them automatically.
 
-#### REQ-071: Sync Behavior
+#### REQ-081: Sync Behavior
 
 - Only fetches games played since the last sync (tracked per platform via `last_lichess_sync_at` / `last_chesscom_sync_at`)
 - Imported games are parsed and analyzed against the user's repertoires
 - Errors on one platform do not block the other
 - Returns a `SyncResult` with counts of imported games and any errors
 
-#### REQ-072: Platform Usernames
+#### REQ-082: Platform Usernames
 
 Users set their Lichess and Chess.com usernames in the profile page. These are validated against `^[a-zA-Z0-9_-]{1,50}$` before being accepted.
 
@@ -349,6 +424,10 @@ interface RepertoireNode {
   moveNumber: number;
   colorToMove: Color;
   parentId: string | null;
+  comment: string | null;
+  branchName: string | null;
+  collapsed: boolean;
+  transpositionOf: string | null;
   children: RepertoireNode[];
 }
 
@@ -380,10 +459,21 @@ CREATE TABLE users (
     UNIQUE(oauth_provider, oauth_id)
 );
 
+-- Categories table
+CREATE TABLE categories (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name VARCHAR(100) NOT NULL,
+    color VARCHAR(5) NOT NULL CHECK (color IN ('white', 'black')),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- Repertoires table (multiple per user, up to 50)
 CREATE TABLE repertoires (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL REFERENCES users(id),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    category_id UUID REFERENCES categories(id) ON DELETE CASCADE,
     name VARCHAR(100) NOT NULL DEFAULT 'Main Repertoire',
     color VARCHAR(5) NOT NULL CHECK (color IN ('white', 'black')),
     tree_data JSONB NOT NULL,
@@ -397,10 +487,15 @@ CREATE TRIGGER repertoire_limit_trigger
     BEFORE INSERT ON repertoires
     FOR EACH ROW EXECUTE FUNCTION check_repertoire_limit();
 
+-- Trigger: max 50 categories per user
+CREATE TRIGGER category_limit_trigger
+    BEFORE INSERT ON categories
+    FOR EACH ROW EXECUTE FUNCTION check_category_limit();
+
 -- Analyses table
 CREATE TABLE analyses (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL REFERENCES users(id),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     username VARCHAR(255) NOT NULL,
     filename VARCHAR(255) NOT NULL,
     game_count INTEGER NOT NULL,
@@ -408,14 +503,41 @@ CREATE TABLE analyses (
     uploaded_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Engine evaluations table (for insights)
+CREATE TABLE engine_evals (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    analysis_id UUID NOT NULL REFERENCES analyses(id) ON DELETE CASCADE,
+    game_index INTEGER NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'pending',
+    evals JSONB,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Dismissed mistakes table
+CREATE TABLE dismissed_mistakes (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    fen_hash VARCHAR(64) NOT NULL,
+    played_move VARCHAR(10) NOT NULL,
+    dismissed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(user_id, fen_hash, played_move)
+);
+
 -- Performance indexes
 CREATE INDEX idx_repertoires_user_id ON repertoires(user_id);
 CREATE INDEX idx_repertoires_color ON repertoires(color);
+CREATE INDEX idx_repertoires_category ON repertoires(category_id);
 CREATE INDEX idx_repertoires_updated ON repertoires(updated_at DESC);
 CREATE INDEX idx_repertoires_name ON repertoires(name);
+CREATE INDEX idx_categories_user_id ON categories(user_id);
+CREATE INDEX idx_categories_color ON categories(color);
 CREATE INDEX idx_analyses_user_id ON analyses(user_id);
 CREATE INDEX idx_analyses_username ON analyses(username);
 CREATE INDEX idx_analyses_uploaded ON analyses(uploaded_at DESC);
+CREATE INDEX idx_engine_evals_user_analysis ON engine_evals(user_id, analysis_id);
+CREATE INDEX idx_engine_evals_status ON engine_evals(status);
 ```
 
 ### 4.3 JSONB Stored Structure
@@ -558,27 +680,38 @@ backend/
 │   │   ├── health.go                # Health check endpoint
 │   │   ├── helpers.go               # Shared response helpers, validators
 │   │   ├── repertoire.go            # CRUD repertoires, nodes, templates
+│   │   ├── category.go              # Category CRUD operations
+│   │   ├── study_import.go          # Lichess study import handler
 │   │   ├── import.go                # PGN upload, Lichess/Chess.com import
-│   │   └── sync.go                  # Game sync handler
+│   │   ├── sync.go                  # Game sync handler
+│   │   ├── games.go                 # Games list, delete, insights
+│   │   └── engine.go                # Engine evaluation requests
 │   ├── services/
 │   │   ├── auth_service.go          # Registration, login, JWT generation
 │   │   ├── oauth_service.go         # Lichess OAuth flow (PKCE)
 │   │   ├── repertoire_service.go    # Repertoire CRUD + tree operations
 │   │   ├── repertoire_templates.go  # Pre-built opening templates
+│   │   ├── category_service.go      # Category business logic
+│   │   ├── study_import_service.go  # Lichess study import
 │   │   ├── import_service.go        # PGN parsing + repertoire analysis
 │   │   ├── lichess_service.go       # Lichess API client
 │   │   ├── chesscom_service.go      # Chess.com API client
-│   │   └── sync_service.go          # Game sync orchestration
+│   │   ├── sync_service.go          # Game sync orchestration
+│   │   ├── engine_service.go        # Engine evaluation management
+│   │   └── game_analysis_service.go # Opening insights calculation
 │   ├── repository/
 │   │   ├── interfaces.go            # Repository interfaces
 │   │   ├── db.go                    # Connection pool + inline migrations
 │   │   ├── errors.go                # Sentinel errors
 │   │   ├── user_repo.go             # User CRUD, OAuth, profile, sync timestamps
+│   │   ├── category_repo.go         # Category CRUD
 │   │   ├── repertoire_repo.go       # Repertoire CRUD, ownership checks
 │   │   ├── import_repo.go           # Analysis CRUD, games, ownership
+│   │   ├── engine_eval_repo.go      # Engine evaluation storage
 │   │   └── mocks/mocks.go          # Mock implementations for testing
 │   ├── models/
 │   │   ├── user.go                  # User, AuthResponse, SyncResult
+│   │   ├── category.go              # Category, CategoryWithRepertoires
 │   │   └── repertoire.go            # RepertoireNode, Repertoire, GameAnalysis, etc.
 │   └── middleware/
 │       └── auth.go                  # JWT authentication middleware
@@ -603,16 +736,28 @@ GET    /api/auth/lichess/callback            # Lichess OAuth callback
 GET    /api/auth/me                          # Get current user profile
 PUT    /api/auth/profile                     # Update profile (Lichess/Chess.com usernames)
 
+# Protected - Categories
+GET    /api/categories                       # List user's categories
+POST   /api/categories                       # Create new category
+PATCH  /api/categories/:id                   # Rename category
+DELETE /api/categories/:id                   # Delete category (cascades to repertoires)
+
 # Protected - Repertoire CRUD
 GET    /api/repertoires/templates            # List opening templates
 POST   /api/repertoires/seed                 # Create repertoire from template
 GET    /api/repertoires                      # List user's repertoires
 POST   /api/repertoires                      # Create new repertoire
+POST   /api/repertoires/merge                # Merge multiple repertoires
 GET    /api/repertoires/:id                  # Get repertoire by ID
-PATCH  /api/repertoires/:id                  # Update repertoire (rename)
+PATCH  /api/repertoires/:id                  # Update repertoire (rename, assign category)
 DELETE /api/repertoires/:id                  # Delete repertoire
 POST   /api/repertoires/:id/nodes            # Add node to repertoire
 DELETE /api/repertoires/:id/nodes/:nodeId    # Delete node from repertoire
+POST   /api/repertoires/:id/extract          # Extract subtree to new repertoire
+
+# Protected - Studies
+POST   /api/studies/info                     # Get Lichess study metadata
+POST   /api/studies/import                   # Import chapters from Lichess study
 
 # Protected - Import/Analysis
 POST   /api/imports                          # Upload PGN + auto-analyze
@@ -631,6 +776,14 @@ DELETE /api/games/:analysisId/:gameIndex     # Delete specific game
 POST   /api/games/bulk-delete                # Delete multiple games
 POST   /api/games/:analysisId/:gameIndex/reanalyze  # Reanalyze game
 
+# Protected - Insights
+GET    /api/games/insights                   # Get opening insights (mistakes)
+POST   /api/games/dismiss-mistake            # Dismiss a mistake
+
+# Protected - Engine
+POST   /api/engine/evaluate                  # Request engine evaluation
+GET    /api/engine/status/:id                # Get evaluation status
+
 # Protected - Sync
 POST   /api/sync                             # Sync games from Lichess/Chess.com
 ```
@@ -643,7 +796,8 @@ Feature-based structure:
 frontend/src/
 ├── App.tsx                           # React Router
 ├── main.tsx                          # Entry point
-├── index.css                         # Global styles
+├── tailwind.css                      # Global styles + theme tokens
+├── overrides.css                     # Component overrides
 ├── services/
 │   ├── api.ts                        # Axios API client
 │   └── stockfish.ts                  # Stockfish WebAssembly service
@@ -671,307 +825,32 @@ frontend/src/
 │   │   ├── LoginPage.tsx             # Login/register + OAuth
 │   │   └── OnboardingModal.tsx       # First-login profile setup
 │   ├── dashboard/
-│   │   ├── Dashboard.tsx             # Home page
-│   │   └── components/               # QuickActions, RecentGames, RepertoireOverview, TemplatePicker
+│   │   └── Dashboard.tsx             # Home page
 │   ├── repertoire/
 │   │   ├── RepertoireTab.tsx         # Repertoire list view
 │   │   ├── RepertoireEdit.tsx        # Repertoire editor (main page)
-│   │   ├── edit/
-│   │   │   ├── components/           # BoardSection, AddMoveModal, DeleteModal, TopMovesPanel
-│   │   │   ├── hooks/               # useEngine, useMoveActions, usePendingAddNode, useRepertoireLoader
-│   │   │   └── utils/               # constants, nodeUtils
 │   │   └── shared/
-│   │       ├── components/           # RepertoireCard, RepertoireSelector, MoveHistory, RepertoireTree/
-│   │       └── hooks/               # useRepertoires
+│   │       ├── components/           # RepertoireCard, RepertoireSelector, RepertoireTree
+│   │       └── hooks/               # useRepertoires, useStudyImport
 │   ├── game-analysis/
 │   │   ├── GameAnalysisPage.tsx      # Single game analysis
-│   │   ├── components/               # GameBoardSection, GameMoveList, GameNavigation
 │   │   └── hooks/                   # useChessNavigation, useFENComputed, useGameLoader
 │   ├── analyse-tab/
 │   │   ├── AnalyseTab.tsx            # Import/analysis tab
-│   │   ├── components/               # GamesList, AnalysesList, ImportSection, PGN/FileUploader
-│   │   └── hooks/                   # useGames, useAnalyses, useFileUpload, useChesscomImport, useLichessImport
+│   │   └── hooks/                   # useGames, useAnalyses, useFileUpload
 │   ├── analyse-import/
 │   │   ├── ImportDetail.tsx          # Analysis results detail
-│   │   ├── components/               # GameSection
 │   │   └── hooks/                   # useAnalysisLoader, useAddToRepertoire
-│   └── games/
-│       ├── GamesPage.tsx             # Games management
-│       └── components/               # ImportPanel
+│   ├── games/
+│   │   ├── GamesPage.tsx             # Games management
+│   │   └── hooks/                   # useInsights
+│   └── landing/
+│       └── LandingPage.tsx           # Marketing landing page
 ```
 
 ### 5.5 Stockfish Integration Architecture
 
-Frontend architecture for Stockfish integration:
-
-```text
-src/
-├── services/
-│   ├── api.ts                    # REST API calls
-│   └── stockfish.ts              # Stockfish UCI service
-├── features/repertoire/
-│   ├── edit/
-│   │   ├── components/
-│   │   │   ├── BoardSection.tsx        # Displays board with score indicator
-│   │   │   ├── AddMoveModal.tsx        # Modal with top suggestions
-│   │   │   └── TopMovesPanel.tsx       # Panel showing top 3 moves
-│   │   ├── hooks/
-│   │   │   └── useEngine.ts           # Engine lifecycle management
-│   │   └── RepertoireEdit.tsx          # Main edit page with engine
-│   └── shared/
-│       └── components/
-│           └── RepertoireTree.tsx       # [No engine integration]
-├── shared/components/Board/
-│   └── ChessBoard.tsx                  # Extended for best move highlighting
-├── stores/
-│   ├── repertoireStore.ts
-│   └── engineStore.ts                  # Engine state (Zustand)
-└── types/
-    └── index.ts                        # EngineEvaluation, TopMove, etc.
-```
-
-#### 5.5.1 Stockfish Service (`services/stockfish.ts`)
-
-Singleton service that manages Stockfish Web Worker communication:
-
-```typescript
-class StockfishService {
-  private worker: Worker | null = null;
-  private currentDepth = 12;
-
-  // Initialize Stockfish Web Worker
-  initialize(): void {
-    this.worker = Stockfish();
-    this.worker.onmessage = this.handleMessage.bind(this);
-    this.worker.postMessage("uci");
-    this.worker.postMessage("isready");
-  }
-
-  // Analyze position with FEN string
-  analyzePosition(fen: string, depth: number = 12): void {
-    if (!this.worker) return;
-    this.currentDepth = depth;
-    this.worker.postMessage("ucinewgame");
-    this.worker.postMessage(`position fen ${fen}`);
-    this.worker.postMessage(`go depth ${depth}`);
-  }
-
-  // Stop current analysis
-  stop(): void {
-    this.worker?.postMessage("stop");
-  }
-
-  // Parse UCI info lines
-  private parseInfoLine(line: string): UCIInfo | null {
-    // Extract depth, scorecp/scoremate, bestmove, pv
-    // Returns structured UCIInfo
-  }
-
-  // Handle worker messages
-  private handleMessage(event: MessageEvent): void {
-    const line = event.data;
-    if (line.startsWith("info depth")) {
-      const info = this.parseInfoLine(line);
-      if (info && info.depth >= this.currentDepth) {
-        this.onEvaluation?.(this.buildEvaluation(info, line));
-      }
-    } else if (line.startsWith("bestmove")) {
-      const parts = line.split(" ");
-      if (parts[1]) {
-        const from = parts[1].slice(0, 2);
-        const to = parts[1].slice(2, 4);
-        this.onBestMove?.({ from, to });
-      }
-    }
-  }
-}
-```
-
-#### 5.5.2 Engine Store (`stores/engineStore.ts`)
-
-Zustand store for engine state across components:
-
-```typescript
-import { create } from "zustand";
-
-interface EngineState {
-  isAnalyzing: boolean;
-  currentEvaluation: EngineEvaluation | null;
-  currentFEN: string;
-  error: string | null;
-
-  analyze: (fen: string) => void;
-  stop: () => void;
-  setEvaluation: (evaluation: EngineEvaluation) => void;
-  setError: (error: string) => void;
-  reset: () => void;
-}
-
-export const useEngineStore = create<EngineState>((set) => ({
-  isAnalyzing: false,
-  currentEvaluation: null,
-  currentFEN: "",
-  error: null,
-
-  analyze: (fen: string) => {
-    set({ isAnalyzing: true, currentFEN: fen, error: null });
-    stockfishService.analyzePosition(fen);
-  },
-
-  stop: () => {
-    stockfishService.stop();
-    set({ isAnalyzing: false });
-  },
-
-  setEvaluation: (evaluation: EngineEvaluation) => {
-    set({ currentEvaluation: evaluation, isAnalyzing: false });
-  },
-
-  setError: (error: string) => {
-    set({ error, isAnalyzing: false });
-  },
-
-  reset: () => {
-    stockfishService.stop();
-    set({
-      isAnalyzing: false,
-      currentEvaluation: null,
-      currentFEN: "",
-      error: null,
-    });
-  },
-}));
-```
-
-#### 5.5.3 RepertoireEdit Integration
-
-Engine initialization and position-changed analysis:
-
-```typescript
-useEffect(() => {
-  stockfishService.initialize();
-
-  stockfishService.onEvaluation = (evaluation) => {
-    useEngineStore.getState().setEvaluation(evaluation);
-  };
-
-  stockfishService.onBestMove = (move) => {
-    const { currentEvaluation } = useEngineStore.getState();
-    if (currentEvaluation) {
-      useEngineStore.getState().setEvaluation({
-        ...currentEvaluation,
-        bestMoveFrom: move.from,
-        bestMoveTo: move.to,
-      });
-    }
-  };
-
-  return () => {
-    stockfishService.stop();
-    stockfishService.terminate();
-  };
-}, []);
-
-// Analyze after position changes
-useEffect(() => {
-  if (currentFEN && selectedNode) {
-    useEngineStore.getState().analyze(currentFEN);
-  }
-}, [currentFEN]);
-```
-
-#### 5.5.4 BoardSection with Score Indicator
-
-```typescript
-function BoardSection({ currentEvaluation, isAnalyzing }: Props) {
-  const getScoreDisplay = () => {
-    if (isAnalyzing) return 'Analyzing...';
-    if (!currentEvaluation) return null;
-    if (currentEvaluation.mate) return `Mate in ${currentEvaluation.mate}`;
-    return `+${(currentEvaluation.score / 100).toFixed(1)}`;
-  };
-
-  const scoreColor = () => {
-    if (!currentEvaluation || currentEvaluation.score > -50) return '#4caf50';
-    return '#f44336';
-  };
-
-  return (
-    <div className="repertoire-edit-board">
-      <div className="panel-header">
-        <h2>Position</h2>
-      </div>
-
-      {getScoreDisplay() && (
-        <div className="score-indicator" style={{ color: scoreColor() }}>
-          {getScoreDisplay()}
-        </div>
-      )}
-
-      <ChessBoard
-        fen={currentFEN}
-        bestMoveFrom={currentEvaluation?.bestMoveFrom}
-        bestMoveTo={currentEvaluation?.bestMoveTo}
-        // ... other props
-      />
-    </div>
-  );
-}
-```
-
-#### 5.5.5 TopMovesPanel Component
-
-```typescript
-function TopMovesPanel({ evaluation }: Props) {
-  if (!evaluation || evaluation.pv.length === 0) return null;
-
-  const topMoves: TopMove[] = evaluation.pv.slice(0, 3).map((uciMove, index) => ({
-    san: uciToSAN(uciMove, evaluation.currentFEN),
-    score: index === 0 ? evaluation.score : evaluation.score - index * 20,
-    depth: evaluation.depth
-  }));
-
-  return (
-    <div className="top-moves-panel">
-      <h3>Top Moves (depth {evaluation.depth})</h3>
-      <ul className="top-moves-list">
-        {topMoves.map((move, index) => (
-          <li key={index}>
-            <span className="move-san">{index + 1}. {move.san}</span>
-            <span className="move-score">{formatScore(move.score)}</span>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-```
-
-#### 5.5.6 AddMoveModal with Suggestions
-
-```typescript
-function AddMoveModal({ evaluation }: Props) {
-  const suggestedMove = evaluation?.bestMove;
-
-  return (
-    <Modal isOpen={isOpen}>
-      {suggestedMove && (
-        <div className="stockfish-suggestion">
-          Stockfish suggests: <strong>{suggestedMove}</strong>
-          {evaluation.score && (
-            <span className="suggestion-score">
-              ({formatScore(evaluation.score)}, depth {evaluation.depth})
-            </span>
-          )}
-        </div>
-      )}
-      <div className="add-move-form">
-        {/* ... move input ... */}
-      </div>
-    </Modal>
-  );
-}
-```
+See section 3.7 for detailed specifications.
 
 ---
 
@@ -1072,20 +951,28 @@ function computeTreeLayout(root: RepertoireNode): TreeLayout {
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### 7.2 Repertoires Page (List)
+### 7.2 Repertoires Page (List with Categories)
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│  Repertoires                                                    │
+│  Repertoires                                        [+ New]     │
 ├─────────────────────────────────────────────────────────────────┤
+│  ▼ Aggressive Lines (White)                                    │
 │  ┌─────────────────────────────────────────────────────────────┐│
-│  │  ♔ White                                                   ││
-│  │  [Edit]                                                    ││
+│  │  ♔ King's Gambit              [Edit] [🗑]                  ││
+│  └─────────────────────────────────────────────────────────────┘│
+│  ┌─────────────────────────────────────────────────────────────┐│
+│  │  ♔ Evans Gambit               [Edit] [🗑]                  ││
 │  └─────────────────────────────────────────────────────────────┘│
 │                                                                 │
+│  ▼ Solid Defenses (Black)                                      │
 │  ┌─────────────────────────────────────────────────────────────┐│
-│  │  ♚ Black                                                   ││
-│  │  [Edit]                                                    ││
+│  │  ♚ Caro-Kann                  [Edit] [🗑]                  ││
+│  └─────────────────────────────────────────────────────────────┘│
+│                                                                 │
+│  ▼ Uncategorized                                               │
+│  ┌─────────────────────────────────────────────────────────────┐│
+│  │  ♔ Italian Game               [Edit] [🗑]                  ││
 │  └─────────────────────────────────────────────────────────────┘│
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -1207,9 +1094,179 @@ Legend:
 
 ---
 
-## 8. Detailed User Journeys
+## 8. UI Design System
 
-### 8.1 Scenario 1: Initial Repertoire Creation
+### 8.1 Design Direction
+
+**Inspiration:** chess.com — clean, functional, board-focused.  
+**Mode:** Light mode only.  
+**Accent color:** Warm amber orange (`#E67E22` primary, `#D4740A` hover) on a white/light gray base.  
+**Typography:** Inter (clean sans-serif). Fallback: system sans-serif stack.  
+**Chess board:** Keep current board styling unchanged (react-chessboard defaults).
+
+### 8.2 Color Palette
+
+All colors defined as CSS custom properties in `tailwind.css`.
+
+| Token              | Value       | Usage                                      |
+|--------------------|-------------|---------------------------------------------|
+| `--primary`        | `#E67E22`   | Buttons, active nav, links, accents         |
+| `--primary-hover`  | `#D4740A`   | Button hover, active states                 |
+| `--primary-light`  | `#FDF2E6`   | Active nav background, light badges         |
+| `--primary-dark`   | `#A85C12`   | Focused outlines, pressed states            |
+| `--bg`             | `#F9FAFB`   | Page background                             |
+| `--bg-card`        | `#FFFFFF`   | Card surfaces, panels                       |
+| `--bg-sidebar`     | `#FFFFFF`   | Sidebar background                          |
+| `--text`           | `#1F2937`   | Primary text                                |
+| `--text-muted`     | `#6B7280`   | Secondary text, labels                      |
+| `--text-light`     | `#9CA3AF`   | Placeholder, disabled text                  |
+| `--border`         | `#E5E7EB`   | Default borders                             |
+| `--border-dark`    | `#D1D5DB`   | Emphasized borders                          |
+| `--success`        | `#16A34A`   | Success states                              |
+| `--danger`         | `#DC2626`   | Destructive actions, errors                 |
+| `--warning`        | `#F59E0B`   | Warnings                                    |
+| `--info`           | `#3B82F6`   | Informational highlights                    |
+
+### 8.3 Typography
+
+- **Font family:** `'Inter', system-ui, -apple-system, sans-serif`
+- **Headings:** Semi-bold (600), tracking tight
+- **Body:** Regular (400), 14–16px depending on context
+- **Small/labels:** Medium (500), 12px, uppercase where appropriate
+- **Monospace (FEN, PGN):** `'JetBrains Mono', 'Fira Code', monospace`
+
+### 8.4 Layout & Navigation
+
+#### Left Sidebar
+
+- **Width:** 220px (desktop), collapsible icon-only mode at 60px
+- **Background:** White with a subtle right border
+- **Logo:** "TreeChess" in Inter Bold, with a small orange tree icon
+- **Nav items:**
+  - Icon + label, vertically stacked
+  - Active state: orange left border (3px) + `--primary-light` background + orange text
+  - Hover: light gray background
+  - Items: Dashboard, Repertoires, Games
+- **User section:** Bottom of sidebar — avatar circle (initials), username, logout icon
+- **Mobile:** Sidebar collapses to a bottom tab bar (3 icons)
+
+#### Main Content Area
+
+- `flex-1`, scrollable, `--bg` background
+- Consistent padding: `p-6` on desktop, `p-4` on mobile
+- Max content width: none (full width utilization for board + panels)
+
+### 8.5 Component Design System
+
+#### Buttons
+
+| Variant     | Style                                                  |
+|-------------|--------------------------------------------------------|
+| Primary     | Orange bg (`--primary`), white text, rounded-md        |
+| Secondary   | White bg, orange border, orange text                   |
+| Ghost       | Transparent bg, gray text, hover: light gray bg        |
+| Danger      | Red bg, white text (for destructive actions)           |
+| Icon button | Ghost style with icon only, rounded-full, tooltip      |
+
+All buttons: `font-medium`, consistent padding (`px-4 py-2` default), `transition-colors duration-150`.
+
+#### Cards
+
+- White background, `rounded-lg`, `border` (`--border`)
+- `shadow-sm` default, `shadow-md` on hover (with transition)
+- Consistent padding: `p-4` or `p-6`
+
+#### Inputs
+
+- White background, `rounded-md`, `border` (`--border`)
+- Focus: orange ring (`ring-2 ring-primary/30`) + orange border
+- Placeholder text: `--text-light`
+
+#### Modals
+
+- Centered overlay with semi-transparent dark backdrop
+- White card, `rounded-xl`, `shadow-xl`
+- Header with title + close button
+- Footer with action buttons (primary right-aligned)
+- Smooth fade-in animation
+
+#### Toasts
+
+- Bottom-right positioned
+- Rounded, shadow, icon + message
+- Color-coded left border (success=green, error=red, info=blue, warning=orange)
+- Auto-dismiss with progress bar
+
+#### Tabs
+
+- Underline style: orange bottom border for active tab
+- Text: `--text-muted` for inactive, `--primary` for active
+- No background change, clean and minimal
+
+### 8.6 Repertoire Tree — Dual View
+
+#### SVG Tree View
+
+- Node colors:
+  - Main line nodes: orange fill
+  - Alternative/variation nodes: light gray fill with orange border
+  - Current position: bold orange ring
+  - Transposition indicator: dashed purple
+- Edge lines: gray, slightly rounded
+- Background: subtle dot grid pattern (optional)
+- Pan/zoom controls: minimal floating buttons in corner
+
+#### Indented List View
+
+- File-explorer style with collapsible sections
+- Structure:
+  ```
+  ▼ 1. e4
+    ▼ 1... e5
+      ▼ 2. Nf3
+        2... Nc6 (Main line)
+        ▶ 2... d6 (Philidor)
+    ▶ 1... c5 (Sicilian)
+    ▶ 1... e6 (French)
+  ```
+- Chevron icons for expand/collapse
+- Click a move to navigate the board
+- Current position: orange background highlight
+- Right-click context menu: delete, extract
+- Depth indicators: subtle vertical lines connecting children
+
+#### Toggle Switch
+
+- Small icon toggle in the top-right of the tree panel
+- Tree icon (graph) | List icon (lines)
+- Persisted in localStorage
+
+### 8.7 Animations & Transitions
+
+- **Page transitions:** Subtle fade-in for route changes (`opacity 0 -> 1`, 150ms)
+- **Cards:** Hover lift with shadow transition (200ms ease)
+- **Sidebar:** Collapse/expand with width transition (200ms)
+- **Modals:** Fade in backdrop + scale up card (150ms)
+- **Toasts:** Slide in from right (200ms)
+- **Tree nodes:** Subtle scale on hover (50ms)
+- **Tab underline:** Slide transition (150ms)
+
+Keep animations minimal and fast. No flashy effects.
+
+### 8.8 Responsive Breakpoints
+
+| Breakpoint | Layout changes                                           |
+|------------|----------------------------------------------------------|
+| `>= 1280px` (xl) | Full layout: sidebar (220px) + two-column content |
+| `1024–1279px` (lg) | Sidebar collapses to icon-only (60px)           |
+| `768–1023px` (md) | Single column content, sidebar as bottom tabs     |
+| `< 768px` (sm) | Bottom tab bar, stacked panels, full-width board   |
+
+---
+
+## 9. Detailed User Journeys
+
+### 9.1 Scenario 1: Initial Repertoire Creation
 
 **Preconditions**: Empty application, first launch
 
@@ -1224,7 +1281,7 @@ Legend:
 9. Plays c5 and adds it to repertoire
 10. Base repertoire is created
 
-### 8.2 Scenario 2: PGN Import and Analysis
+### 9.2 Scenario 2: PGN Import and Analysis
 
 **Preconditions**: Existing repertoire, PGN file available
 
@@ -1239,7 +1296,7 @@ Legend:
    - Games with errors (move out of repertoire)
    - Games with new lines (missing opponent move)
 
-### 8.3 Scenario 3: Repertoire Enrichment via Analysis
+### 9.3 Scenario 3: Repertoire Enrichment via Analysis
 
 **Preconditions**: Existing repertoire, analysis completed
 
@@ -1250,7 +1307,7 @@ Legend:
 5. User can add additional moves (response to g4)
 6. Validates and returns to analysis
 
-### 8.4 Scenario 4: Adding New Opponent Line
+### 9.4 Scenario 4: Adding New Opponent Line
 
 **Preconditions**: Existing repertoire, analysis completed
 
@@ -1261,7 +1318,7 @@ Legend:
 5. User plays their response (e.g., 4.Bb5+)
 6. Validates and returns to analysis
 
-### 8.5 Scenario 5: Branch Deletion
+### 9.5 Scenario 5: Branch Deletion
 
 **Preconditions**: Existing repertoire with at least 2 nodes
 
@@ -1273,11 +1330,35 @@ Legend:
 6. User confirms
 7. Node and children are removed from tree
 
+### 9.6 Scenario 6: Organizing with Categories
+
+**Preconditions**: Multiple repertoires exist
+
+1. User clicks "New Category" button
+2. Enters name "Aggressive Lines" and selects color
+3. Creates category
+4. Drags repertoires into the category
+5. Categories are displayed with collapsible sections
+6. Repertoires are grouped by category in the list
+
+### 9.7 Scenario 7: Importing from Lichess Study
+
+**Preconditions**: User has a Lichess study URL
+
+1. User clicks "Import from Lichess Study"
+2. Pastes study URL
+3. System fetches study metadata (chapters list)
+4. User selects chapters 1, 3, and 5
+5. Optionally chooses to merge into one repertoire
+6. Optionally creates a category for the imports
+7. Clicks Import
+8. New repertoires created from selected chapters
+
 ---
 
-## 9. Error Handling and Validation
+## 10. Error Handling and Validation
 
-### 9.1 PGN Parsing Errors
+### 10.1 PGN Parsing Errors
 
 | Error          | Message                        | Action                        |
 | -------------- | ------------------------------ | ----------------------------- |
@@ -1286,7 +1367,7 @@ Legend:
 | UTF-8 encoding | "Encoding error, use UTF-8"    | Auto-correct if possible      |
 | No moves found | "File contains no games"       | Invite to verify file         |
 
-### 9.2 Move Validation Errors
+### 10.2 Move Validation Errors
 
 | Error            | Message                                | Action                    |
 | ---------------- | -------------------------------------- | ------------------------- |
@@ -1294,7 +1375,7 @@ Legend:
 | SAN ambiguity    | "Specify starting square (e.g., Nge2)" | Request complete notation |
 | Invalid position | "Inconsistent position"                | Reload from FEN           |
 
-### 9.3 Backend Errors
+### 10.3 Backend Errors
 
 | Error         | Message                     | Action                         |
 | ------------- | --------------------------- | ------------------------------ |
@@ -1304,9 +1385,9 @@ Legend:
 
 ---
 
-## 10. Interface Contracts
+## 11. Interface Contracts
 
-### 10.1 Naming Conventions
+### 11.1 Naming Conventions
 
 #### Database
 
@@ -1342,7 +1423,7 @@ Legend:
 | Structs  | PascalCase    | RepertoireNode        |
 | Fields   | camelCase     | moveNumber            |
 
-### 10.2 CORS Configuration
+### 11.2 CORS Configuration
 
 **Allowed Origins:** `http://localhost:5173` (development, configurable via `CORS_ALLOWED_ORIGINS`)
 
@@ -1350,7 +1431,7 @@ Legend:
 
 **Allowed Headers:** Origin, Content-Type, Accept, Authorization
 
-### 10.3 Session Storage Keys
+### 11.3 Session Storage Keys
 
 For cross-page navigation (e.g., PGN import to repertoire edit):
 
@@ -1361,7 +1442,7 @@ For cross-page navigation (e.g., PGN import to repertoire edit):
 
 Both expire on page unload.
 
-### 10.4 Transposition Policy
+### 11.4 Transposition Policy
 
 **For MVP, transpositions are NOT merged automatically.**
 
@@ -1374,7 +1455,7 @@ Both paths lead to the same position but are stored as separate branches.
 
 **Rationale:** Simpler implementation, matches user's actual game experience.
 
-### 10.5 Promotion Handling
+### 11.5 Promotion Handling
 
 **Default Behavior:** When a promotion is encountered without explicit piece, default to Queen promotion (most common).
 
@@ -1388,9 +1469,9 @@ Both paths lead to the same position but are stored as separate branches.
 
 ---
 
-## 11. Installation and Local Development
+## 12. Installation and Local Development
 
-### 11.1 Prerequisites
+### 12.1 Prerequisites
 
 - Go 1.25+
 - PostgreSQL 17+
@@ -1398,7 +1479,7 @@ Both paths lead to the same position but are stored as separate branches.
 - npm
 - Docker and Docker Compose (optional)
 
-### 11.2 Database Setup
+### 12.2 Database Setup
 
 ```bash
 # Create database
@@ -1408,7 +1489,7 @@ createdb treechess
 psql -d treechess -f migrations/001_init.sql
 ```
 
-### 11.3 Run Backend
+### 12.3 Run Backend
 
 **Without Docker (with hot reload):**
 
@@ -1419,9 +1500,9 @@ air
 # Backend available at http://localhost:8080
 ```
 
-**With Docker:** See section 11.6
+**With Docker:** See section 12.6
 
-### 11.4 Run Frontend
+### 12.4 Run Frontend
 
 ```bash
 cd frontend
@@ -1431,9 +1512,9 @@ npm run dev
 # Vite includes automatic Hot Module Replacement (HMR)
 ```
 
-**With Docker:** See section 11.6
+**With Docker:** See section 12.6
 
-### 11.5 Environment Variables
+### 12.5 Environment Variables
 
 See `.env.example` for a full template. Required variables:
 
@@ -1442,9 +1523,9 @@ DATABASE_URL=postgres://treechess:password@localhost:5432/treechess?sslmode=disa
 JWT_SECRET=your-random-secret
 ```
 
-See section 18.3 for the complete environment variables reference.
+See section 19.3 for the complete environment variables reference.
 
-### 11.6 Dockerization
+### 12.6 Dockerization
 
 **Prerequisites**: Docker and Docker Compose installed.
 
@@ -1491,9 +1572,9 @@ docker-compose down -v
 
 ---
 
-## 12. Testing Strategy
+## 13. Testing Strategy
 
-### 12.1 Frontend Testing
+### 13.1 Frontend Testing
 
 **Framework**: Vitest (included with Vite)
 
@@ -1502,10 +1583,10 @@ docker-compose down -v
 npm run test
 
 # CI mode (no watch)
-npm run test -- --run
+npm run test:run
 
 # Specific test
-npm run test -- --grep "repertoire"
+npx vitest run -t "test name"
 ```
 
 **Coverage Target**: 50%
@@ -1514,17 +1595,14 @@ npm run test -- --grep "repertoire"
 
 ```
 src/
-├── __tests__/
-│   ├── components/
-│   │   ├── ChessBoard.test.tsx
-│   │   └── RepertoireTree.test.tsx
-│   ├── hooks/
-│   │   └── useRepertoire.test.ts
-│   └── services/
-│       └── api.test.ts
+├── test/
+│   └── setup.ts
+└── shared/
+    └── utils/
+        └── chess.test.ts
 ```
 
-### 12.2 Backend Testing
+### 13.2 Backend Testing
 
 **Framework**: Go standard library + testify
 
@@ -1551,15 +1629,20 @@ go tool cover -html=coverage.out -o coverage.html
 internal/
 ├── handlers/
 │   ├── repertoire_test.go
-│   └── pgn_test.go
+│   ├── auth_test.go
+│   └── ...
 ├── services/
 │   ├── repertoire_service_test.go
-│   └── pgn_parser_test.go
-└── repository/
-    └── repertoire_repo_test.go
+│   └── ...
+├── repository/
+│   └── mocks/
+│       └── mocks.go
+└── testhelpers/
+    ├── testdb.go
+    └── seeds.go
 ```
 
-### 12.3 Integration Tests
+### 13.3 Integration Tests
 
 - API + Database tests for core functionality
 - PGN import workflow tests
@@ -1567,9 +1650,9 @@ internal/
 
 ---
 
-## 13. Logging
+## 14. Logging
 
-### 13.1 Log Format
+### 14.1 Log Format
 
 All logs are structured JSON:
 
@@ -1584,7 +1667,7 @@ All logs are structured JSON:
 }
 ```
 
-### 13.2 Log Levels
+### 14.2 Log Levels
 
 | Level | Usage                                       |
 | ----- | ------------------------------------------- |
@@ -1593,12 +1676,12 @@ All logs are structured JSON:
 | ERROR | Errors that require attention               |
 | WARN  | Warnings (non-blocking issues)              |
 
-### 13.3 Output
+### 14.3 Output
 
 - **Development**: stdout (captured by Docker)
 - **Production**: stdout (container log aggregation)
 
-### 13.4 Implementation (Go)
+### 14.4 Implementation (Go)
 
 ```go
 package middleware
@@ -1630,7 +1713,7 @@ func Log(level, message string, fields map[string]interface{}) {
 }
 ```
 
-### 13.5 Implementation (React)
+### 14.5 Implementation (React)
 
 ```typescript
 // utils/logger.ts
@@ -1663,9 +1746,9 @@ export const logger = {
 
 ---
 
-## 14. Database Migrations
+## 15. Database Migrations
 
-### 14.1 Migration Strategy
+### 15.1 Migration Strategy
 
 Migrations are managed inline in `repository/db.go` via the `runMigrations()` function, which runs on application startup. The schema is idempotent (`CREATE TABLE IF NOT EXISTS`, `ADD COLUMN IF NOT EXISTS`).
 
@@ -1678,13 +1761,13 @@ migrations/
 └── 003_multiple_repertoires.sql # Multiple repertoires per color, name column
 ```
 
-### 14.2 Naming Convention
+### 15.2 Naming Convention
 
 - Format: `NNN_description.sql` where NNN is a 3-digit sequential number
 - All migrations must be forward-only (no down migrations for MVP)
 - Each file contains DDL statements in order
 
-### 14.3 Running Migrations
+### 15.3 Running Migrations
 
 Migrations run automatically on application startup via `repository.NewDB()`. No manual migration step is needed.
 
@@ -1692,9 +1775,9 @@ For schema changes, add idempotent SQL to the `runMigrations()` function in `rep
 
 ---
 
-## 15. Project README
+## 16. Project README
 
-### 15.1 README.md Template
+### 16.1 README.md Template
 
 The README should reflect the actual project structure:
 
@@ -1722,15 +1805,17 @@ cd frontend && npm run dev # Frontend with HMR
 Features:
 - Multi-user authentication (local + Lichess OAuth)
 - Create and edit opening repertoires (up to 50 per user)
-- Import games from PGN files, Lichess, or Chess.com
+- Organize repertoires into categories
+- Import games from PGN files, Lichess, Chess.com, or Lichess Studies
 - Analyze games against repertoire trees
 - GitHub-style tree visualization
 - Stockfish engine analysis (WebAssembly)
 - Auto-sync from Lichess/Chess.com
+- Opening insights with mistake detection
 
 ---
 
-## 16. Glossary
+## 17. Glossary
 
 ### Chess Terms
 
@@ -1746,6 +1831,7 @@ Features:
 | Term | Definition |
 |------|------------|
 | **Repertoire** | A tree of opening lines the player wants to learn |
+| **Category** | A named grouping of repertoires (e.g., "White Openings") |
 | **Node** | A position in the tree after a specific move |
 | **Branch** | A path from root to a specific node (sequence of moves) |
 | **Divergence** | A point where a game deviates from the known repertoire |
@@ -1753,10 +1839,11 @@ Features:
 | **Out-of-repertoire** | User's move that doesn't exist in their tree |
 | **New line** | Opponent's move not covered in the tree |
 | **Analysis** | Comparison of imported games against the repertoire |
+| **Insight** | Opening mistake detected through engine analysis |
 
 ---
 
-## 17. Change Log
+## 18. Change Log
 
 | Version | Date | Author | Description |
 |---------|------|--------|-------------|
@@ -1768,14 +1855,15 @@ Features:
 | 6.0 | 2026-01-29 | - | Added YouTube video import feature (REQ-070 to REQ-078): video_imports/video_positions tables, SSE progress, tree builder, video search, preview page |
 | 7.0 | 2026-01-29 | - | Migrated video recognition from Python OpenCV to native Go (GoCV). Added `internal/recognition/` package. Removed Python/script dependencies. Updated architecture diagram. |
 | 8.0 | 2026-01-30 | - | Added security hardening section (18). Rate limiting, security headers, input validation, generic errors, multi-stage Dockerfiles, configurable OAuth callback. |
+| 9.0 | 2026-02-04 | - | Added missing features: Categories (REQ-005), Merge/Extract (REQ-006/007), Lichess Study Import (REQ-015/016), Opening Insights (REQ-060-062). Merged UI Design System from UI_REDESIGN_PLAN.md. Updated database schema with categories, engine_evals, dismissed_mistakes tables. Removed video import features (no longer in codebase). |
 
 ---
 
-## 18. Production Security Checklist
+## 19. Production Security Checklist
 
 This section lists security items that **must be addressed before production deployment**. Items marked with `[DEV]` have already been implemented for development. Items marked with `[PROD]` require production infrastructure.
 
-### 18.1 Already Implemented [DEV]
+### 19.1 Already Implemented [DEV]
 
 | Item | Description | Files |
 |------|-------------|-------|
@@ -1790,7 +1878,7 @@ This section lists security items that **must be addressed before production dep
 | `.env` excluded from git | `.gitignore` prevents secret leaks, `.env.example` provided | `.gitignore`, `.env.example` |
 | Multi-stage Dockerfiles | Dev and prod stages separated; prod runs as non-root user | `backend/Dockerfile`, `frontend/Dockerfile` |
 
-### 18.2 Required for Production [PROD]
+### 19.2 Required for Production [PROD]
 
 #### Authentication & Token Security
 
@@ -1820,7 +1908,7 @@ This section lists security items that **must be addressed before production dep
 
 - [ ] **Improve AES key derivation for OAuth cookies**: Replace `copy(key, []byte(jwtSecret))` in `oauth.go` with HKDF (RFC 5869) to properly derive a 32-byte encryption key from the JWT secret. Use `golang.org/x/crypto/hkdf` with a dedicated salt.
 
-### 18.3 Environment Variables Reference
+### 19.3 Environment Variables Reference
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
