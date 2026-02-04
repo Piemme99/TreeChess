@@ -7,17 +7,31 @@ treechess/
 ├── backend/          # Go 1.25 + Echo v4 + pgx v5
 │   ├── main.go
 │   ├── config/
-│   ├── internal/{handlers,middleware,models,repository,services}/
+│   ├── internal/{handlers,middleware,models,repository,services,testhelpers}/
 │   └── go.mod
 ├── frontend/         # React 18 + TypeScript 5 + Vite 5
-│   ├── src/{components,features,shared,stores,types,utils}/
+│   ├── src/{features,services,shared,stores,test,types}/
 │   └── package.json
+├── Makefile          # Docker orchestration commands
 └── docker-compose.yml
 ```
 
 ---
 
 ## Build, Lint, and Test Commands
+
+### Quick Start (Makefile - preferred)
+
+```bash
+make dev                          # Build and start all containers (detached)
+make build                        # Build images without starting
+make stop                         # Stop all containers
+make delete                       # Stop all and delete database volume
+make logs                         # Follow container logs
+make restart                      # Full stop + rebuild + start
+```
+
+Services: Frontend (5173), Backend (8080), PostgreSQL (5432), Mailhog SMTP (1025) / Web UI (8025)
 
 ### Frontend
 
@@ -26,9 +40,15 @@ cd frontend
 npm install                    # Install dependencies
 npm run dev                    # Dev server (port 5173, hot reload)
 npm run build                  # Type check + production build
-npm run lint                   # ESLint check
+npm run lint                   # ESLint check (--max-warnings 0)
 npm run lint -- --fix          # ESLint auto-fix
-npx tsc --noEmit               # Type check only (no emit)
+npx tsc --noEmit               # Type check only
+
+# Testing (Vitest)
+npm run test                   # Run tests in watch mode
+npm run test:run               # Run tests once
+npm run test:coverage          # Run tests with coverage
+npx vitest run -t "test name"  # Run specific test by name
 ```
 
 ### Backend
@@ -36,33 +56,28 @@ npx tsc --noEmit               # Type check only (no emit)
 ```bash
 cd backend
 go mod download               # Install dependencies
-air                           # Dev server with hot reload (uses .air.toml)
+air                           # Dev server with hot reload (requires .air.toml)
 go build -o server .          # Build binary
 
-# Run a SINGLE test
-go test -v -run TestRepertoireService_CreateRepertoire ./internal/services/
-go test -v -run TestFindNode ./internal/services/
-go test -v -run "TestName|TestOther" ./internal/...   # Multiple patterns
+# Testing
+go test -v -run TestName ./internal/services/        # Run single test by name
+go test -v -run "TestA|TestB" ./internal/...         # Multiple patterns
+go test -v ./internal/handlers/                      # Run all tests in package
+go test ./...                                        # Run all tests
 
-# Run tests in a specific package
-go test -v ./internal/handlers/
-go test -v ./internal/repository/
-go test ./...                                         # All tests
-
-# Coverage
-go test -coverprofile=coverage.out ./... && go tool cover -html=coverage.out -o coverage.html
-
-# Linting
+# Coverage & Linting
+go test -coverprofile=coverage.out ./... && go tool cover -html=coverage.out
 golangci-lint run ./...
 ```
 
-### Docker
+### Docker (alternative to Make)
 
 ```bash
-docker-compose up --build    # Build and start all services
-docker-compose up -d         # Run in background
-docker-compose logs -f       # Follow logs
-docker-compose down          # Stop all services
+docker-compose up --build     # Build and start all services
+docker-compose up -d          # Run in background
+docker-compose logs -f        # Follow logs
+docker-compose down           # Stop all services
+docker-compose down -v        # Stop and delete database volume
 ```
 
 ---
@@ -77,12 +92,9 @@ docker-compose down          # Stop all services
 import (
     "context"
     "fmt"
-    "net/http"
-    "time"
 
     "github.com/google/uuid"
     "github.com/labstack/echo/v4"
-    "github.com/notnil/chess"
 
     "github.com/treechess/backend/internal/models"
     "github.com/treechess/backend/internal/repository"
@@ -94,20 +106,21 @@ import (
 - Exported: PascalCase (`RepertoireService`, `AddNodeHandler`)
 - Unexported: camelCase (`findNode`, `moveExistsAsChild`)
 - Errors: `Err` prefix as package vars (`ErrNotFound`, `ErrInvalidMove`)
-- Constants: PascalCase for exported, camelCase for unexported
+- Interfaces: Repository interfaces in `internal/repository/interfaces.go`
 
-**Error Handling:** Always wrap errors with context using `%w`:
+**Error Handling:** Wrap errors with context using `%w`:
+
 ```go
 if err := doSomething(); err != nil {
     return nil, fmt.Errorf("failed to do something: %w", err)
 }
 
-// Sentinel errors pattern
-var ErrNotFound = fmt.Errorf("not found")
-if errors.Is(err, ErrNotFound) { ... }
+// Sentinel errors pattern (from repository package)
+if errors.Is(err, repository.ErrRepertoireNotFound) { ... }
 ```
 
 **Types:** Use typed constants and JSON tags:
+
 ```go
 type Color string
 const (
@@ -124,13 +137,13 @@ type RepertoireNode struct {
 }
 ```
 
-**Testing:** Use testify for assertions with mock-based dependency injection:
+**Testing:** Use testify with mock-based dependency injection:
+
 ```go
 func TestExample(t *testing.T) {
-    // Use mocks from internal/repository/mocks/
     mockRepo := &mocks.MockRepertoireRepo{
         GetByIDFunc: func(id string) (*models.Repertoire, error) {
-            return &models.Repertoire{ID: id, Color: "white"}, nil
+            return &models.Repertoire{ID: id}, nil
         },
     }
     svc := NewRepertoireService(mockRepo)
@@ -143,13 +156,14 @@ func TestExample(t *testing.T) {
 ### TypeScript/React (Frontend)
 
 **Imports:** External packages first, then relative imports:
+
 ```typescript
-import { useState, useCallback, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useState, useCallback } from 'react';
+import { useParams } from 'react-router-dom';
 
 import { useGameLoader } from './hooks/useGameLoader';
-import { Button, Loading } from '../../shared/components/UI';
-import type { GameAnalysis, MoveAnalysis } from '../../types';
+import { Button } from '../../shared/components/UI';
+import type { Repertoire } from '../../types';
 ```
 
 **Naming:**
@@ -162,6 +176,7 @@ import type { GameAnalysis, MoveAnalysis } from '../../types';
 **Formatting:** 2-space indent, semicolons required, ~100 char line limit.
 
 **Types:** Prefer `interface` for objects, `type` for unions/primitives:
+
 ```typescript
 interface RepertoireNode {
   id: string;
@@ -171,14 +186,15 @@ interface RepertoireNode {
 }
 
 type Color = 'white' | 'black';
-type ChessColor = 'w' | 'b';
+type ShortColor = 'w' | 'b';
 ```
 
-**React Patterns:** Functional components with explicit typing:
+**React Patterns:** Functional components with hooks:
+
 ```typescript
 export function GameAnalysisPage() {
   const [flipped, setFlipped] = useState(false);
-  const { currentFEN, lastMove } = useFENComputed(game, currentMoveIndex);
+  const { currentFEN } = useFENComputed(game, currentMoveIndex);
   
   const handleAction = useCallback((move: MoveAnalysis) => {
     // handler logic
@@ -194,6 +210,7 @@ export function GameAnalysisPage() {
 
 - **Backend:** Go 1.25, Echo v4, pgx v5, notnil/chess, testify
 - **Frontend:** React 18, TypeScript 5, Vite 5, chess.js, zustand, axios
+- **Testing:** Vitest (frontend), Go testing + testify (backend)
 - **Database:** PostgreSQL 15+ with JSONB for tree storage
 - **Architecture:** Repository pattern (backend), Zustand stores (frontend)
 
@@ -203,16 +220,12 @@ export function GameAnalysisPage() {
 
 - Use `chess.js` (frontend) and `notnil/chess` (backend) for move validation
 - Store full FEN string for each node in the repertoire tree
-- Multiple repertoires per color supported via POST `/api/repertoires`
+- Color values: Backend uses `"white"/"black"`; frontend uses `'w'/'b'` for chess.js
+- Multiple repertoires per color supported via POST `/api/repertoires` (max 50 total)
 - CORS configured for `http://localhost:5173` only
 - All API endpoints return JSON; errors use `{"error": "message"}` format
 - Transpositions are NOT automatically merged in the tree
 - Game analyses require a `repertoireId` parameter to specify which repertoire to check
-- Backend uses dependency injection with interfaces (`RepertoireRepository`, `AnalysisRepository`, `VideoRepository`)
-- Sentinel errors: `repository.ErrRepertoireNotFound`, `repository.ErrAnalysisNotFound`, `repository.ErrVideoImportNotFound`
-- YouTube video import: pipeline `yt-dlp` -> `ffmpeg` -> GoCV recognition (`internal/recognition/`) -> Go tree builder
-- Video import uses SSE (`text/event-stream`) for real-time progress
-- `TreeBuilderService` transforms FEN sequences into repertoire trees with backtracking detection
-- Config fields `YtdlpPath`, `FfmpegPath` for external tool paths (env vars)
-- Frontend feature: `features/video-import/` for preview page, `features/analyse-tab/` for YouTube import UI
-- Frontend route: `/video-import/:id/review` for video repertoire preview
+- Backend uses dependency injection with interfaces (`RepertoireRepository`, `AnalysisRepository`)
+- Sentinel errors: `repository.ErrRepertoireNotFound`, `repository.ErrAnalysisNotFound`, `repository.ErrCategoryNotFound`, `repository.ErrUserNotFound`
+- Game deduplication prevents duplicate imports via fingerprinting

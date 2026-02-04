@@ -4,81 +4,150 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Build and Development Commands
 
+### Makefile (preferred)
+```bash
+make dev                          # Build and start all containers (detached)
+make build                        # Build images without starting
+make stop                         # Stop all containers
+make delete                       # Stop all and delete database volume
+make logs                         # Follow container logs
+make restart                      # Full stop + rebuild + start
+```
+
+Services: Frontend (5173), Backend (8080), PostgreSQL (5432), Mailhog SMTP (1025) / Web UI (8025)
+
 ### Backend (Go)
 ```bash
 cd backend
-go mod download               # Install dependencies
-air                           # Dev server with hot reload
-go build -o server .          # Build binary
-go test ./...                 # Run all tests
+go mod download                   # Install dependencies
+air                               # Dev server with hot reload (requires .air.toml)
+go build -o server .              # Build binary
+go test ./...                     # Run all tests
 go test -v -run TestName ./internal/services/        # Run single test
 go test -v -run "TestA|TestB" ./internal/handlers/   # Multiple patterns
 go test -coverprofile=coverage.out ./...              # Coverage
-golangci-lint run ./...       # Linting
+golangci-lint run ./...           # Linting
 ```
 
 ### Frontend (React/TypeScript)
 ```bash
 cd frontend
-npm install                   # Install dependencies
-npm run dev                   # Dev server (port 5173)
-npm run build                 # Production build (runs tsc first)
-npm run lint                  # ESLint (--max-warnings 0)
-```
+npm install                       # Install dependencies
+npm run dev                       # Dev server (port 5173)
+npm run build                     # Production build (runs tsc first)
+npm run lint                      # ESLint (--max-warnings 0)
+npm run lint -- --fix             # ESLint auto-fix
 
-### Docker (Full Stack)
-```bash
-docker-compose up --build     # Build and start all services
-docker-compose up -d          # Background mode
-docker-compose down           # Stop all
+# Testing (Vitest)
+npm run test                      # Run tests in watch mode
+npm run test:run                  # Run tests once
+npm run test:coverage             # Run tests with coverage
+npx vitest run -t "test name"     # Run specific test by name
 ```
-
-Services: Frontend (5173), Backend (8080), PostgreSQL (5432)
 
 ## Architecture
 
-**Stack:** React 18 + TypeScript + Vite | Go 1.25 + Echo + pgx | PostgreSQL 15+ (JSONB)
+**Stack:** React 18 + TypeScript + Vite | Go 1.25 + Echo v4 + pgx v5 | PostgreSQL 15+ (JSONB)
 
-**Backend Structure** (`backend/`):
-- `main.go` - Entry point, initializes DB, routes, services via dependency injection
-- `internal/handlers/` - HTTP request handlers (return Echo handler functions)
-- `internal/services/` - Business logic (RepertoireService, ImportService, VideoService, TreeBuilderService)
-- `internal/recognition/` - Chess position recognition via GoCV (board detection, template matching, FEN extraction)
-- `internal/repository/` - Database access layer with interfaces for testability
-- `internal/models/` - Data structures (RepertoireNode, Repertoire, VideoImport, VideoPosition)
-- `config/config.go` - Environment-based configuration
+### Backend (`backend/`)
 
-**Frontend Structure** (`frontend/src/`):
-- `App.tsx` - React Router (Dashboard, RepertoireEdit, GameAnalysis, VideoRepertoirePreview)
-- `features/` - Feature modules (repertoire/, game-analysis/, analyse-import/, analyse-tab/, video-import/)
-- `shared/` - Shared components and utilities
-- `stores/` - Zustand state management
-- `services/api.ts` - Axios API client
+**Project structure:**
+```
+backend/
+├── main.go                       # Entry point, dependency wiring
+├── config/                       # Environment-based configuration
+└── internal/
+    ├── handlers/                 # HTTP handlers (return Echo handler functions)
+    ├── middleware/               # JWT auth, rate limiting
+    ├── models/                   # Data structures
+    ├── repository/               # Database access
+    │   ├── interfaces.go         # Repository interfaces for testability
+    │   ├── mocks/                # Mock implementations for testing
+    │   └── errors.go             # Sentinel errors (ErrRepertoireNotFound, etc.)
+    ├── services/                 # Business logic
+    └── testhelpers/              # Test utilities
+```
 
-**Data Flow:**
+**Key services:**
+- `AuthService` - JWT tokens, password hashing
+- `RepertoireService` - Tree operations, node CRUD, merge, extract
+- `ImportService` - PGN parsing, game analysis against repertoires
+- `SyncService` - Auto-sync games from Lichess/Chess.com
+- `LichessService` / `ChesscomService` - External platform APIs
+- `StudyImportService` - Import Lichess studies as repertoires
+- `CategoryService` - Repertoire categorization
+- `EmailService` - SMTP for password resets
+
+**Backend testing:**
+- Dependency injection with interfaces; mocks in `internal/repository/mocks/`
+- Sentinel errors defined in `internal/repository/errors.go`: `ErrRepertoireNotFound`, `ErrAnalysisNotFound`, `ErrCategoryNotFound`, `ErrUserNotFound`
+- Uses testify for assertions (`require.NoError`, `assert.Equal`)
+
+**Code style (Go):**
+- Imports: stdlib, third-party, local packages (separated by blank lines)
+- Naming: PascalCase for exported, camelCase for unexported, `Err` prefix for errors
+- Error handling: Wrap with `fmt.Errorf("...: %w", err)`
+- Check sentinel errors with `errors.Is(err, repository.ErrXxx)`
+
+### Frontend (`frontend/src/`)
+
+**Project structure:**
+```
+src/
+├── features/                     # Feature modules
+│   ├── auth/
+│   ├── dashboard/
+│   ├── game-analysis/
+│   ├── games/
+│   ├── landing/
+│   ├── profile/
+│   └── repertoire/
+├── services/                     # API clients
+├── shared/                       # Shared code
+│   ├── components/               # Reusable components (Layout, UI, Board)
+│   ├── hooks/                    # Custom React hooks
+│   └── utils/                    # Utility functions
+├── stores/                       # Zustand state stores
+├── test/                         # Test setup
+└── types/                        # TypeScript type definitions
+```
+
+**Routes** (defined in `App.tsx`):
+- Public: `/`, `/login`, `/forgot-password`, `/reset-password`
+- Protected: `/dashboard`, `/repertoires`, `/repertoire/:id/edit`, `/games`, `/analyse/:id/game/:gameIdx`, `/profile`
+
+**State management** (Zustand stores in `stores/`):
+- `authStore` - User, token, login/register/logout, OAuth, sync triggers
+- `repertoireStore` - Repertoires list, selected node, tree operations, categories
+- `engineStore` - Engine evaluation state
+- `toastStore` - Notifications
+
+**API client:** `services/api.ts` - Axios with JWT Bearer token injection. Exports `authApi`, `repertoireApi`, `categoryApi`, `analysisApi`, `gameApi`, `importApi`, `studyApi`, `syncApi`.
+
+**Code style (TypeScript/React):**
+- Imports: External packages first, then relative imports
+- Naming: PascalCase for components, camelCase for functions/variables, `use` prefix for hooks
+- Types: Prefer `interface` for objects, `type` for unions
+- Functional components with hooks
+- 2-space indent, semicolons required
+
+### Data Flow
+
 1. Repertoires stored as JSONB tree in PostgreSQL
 2. Frontend fetches via GET `/api/repertoires` or `/api/repertoires/:id`
 3. Moves added via POST `/api/repertoires/:id/nodes`
 4. PGN files analyzed against repertoire via `/api/imports`
-5. YouTube videos imported via `/api/video-imports` (pipeline: yt-dlp -> ffmpeg -> GoCV recognition -> Go tree builder)
+5. Games auto-synced from Lichess/Chess.com via `/api/sync`
+6. Lichess studies imported via `/api/studies/import`
 
-**Video Pipeline Detail:**
-- `internal/recognition/` - Native Go package using GoCV for chess position recognition:
-  - `recognition.go` - Public API: `RecognizeFrames()`, types `Result`, `RecognizedPosition`, `ProgressFunc`
-  - `board_detect.go` - Multi-scale checkerboard detection with refinement
-  - `template.go` - Template extraction from starting position, averaging, variant synthesis
-  - `piece_match.go` - Normalized inverse MSE matching per cell
-  - `change_detect.go` - Frame change detection via `gocv.AbsDiff`
-  - `fen.go` - FEN board parsing and generation
-- `VideoService` uses `Recognizer` interface for testability (inject `gocvRecognizer` or mock)
-- `TreeBuilderService` - Transforms FEN sequences into repertoire trees with backtracking detection
-- `TreeBuilderOptions` - Configures structural FEN filtering (enabled by default), continuity filtering (disabled by default), and closest-move fallback (enabled by default)
-- Filters are best-effort: if all positions are rejected, unfiltered positions are used as fallback
+## Authentication & Middleware
 
-**Backend Testing:**
-- Dependency injection with interfaces; mocks in `internal/repository/mocks/`
-- Sentinel errors: `ErrRepertoireNotFound`, `ErrAnalysisNotFound`, `ErrVideoImportNotFound`
-- Uses testify for assertions (`require.NoError`, `assert.Equal`)
+- **JWT auth:** Stateless, 7-day default expiry. Middleware in `internal/middleware/` extracts `userID` from Bearer token or `token` query param.
+- **Lichess OAuth:** Login flow via `/api/auth/lichess/login` -> callback -> JWT issued
+- **Rate limiting:** 100 req/min global, 10 req/min for auth endpoints
+- **Body limit:** 10MB max request size
+- **CORS:** Configured origins (default `http://localhost:5173`)
+- **Password reset:** Email with token via SMTP (Mailhog in dev)
 
 ## Key Technical Details
 
@@ -87,12 +156,10 @@ Services: Frontend (5173), Backend (8080), PostgreSQL (5432)
 - **Multiple repertoires:** Users can create multiple repertoires per color (max 50 total)
 - **Positions:** Stored as full FEN strings; board-only comparisons use `normalizeBoardFEN()`
 - **Transpositions:** Not merged automatically in trees
-- **CORS:** Only allows `http://localhost:5173`
-- **Video import:** Requires `yt-dlp`, `ffmpeg`, OpenCV (libopencv-dev); paths configurable via env vars (`YTDLP_PATH`, `FFMPEG_PATH`)
-- **SSE:** Video import progress streamed via `GET /api/video-imports/:id/progress` (`text/event-stream`)
 - **API errors:** JSON format `{"error": "message"}` with appropriate HTTP status codes
+- **Game deduplication:** `PostgresFingerprintRepo` prevents duplicate game imports
 
 ## Documentation
 
-- `AGENTS.md` - Code style guidelines, naming conventions, detailed patterns
+- `AGENTS.md` - Build commands, code style guidelines, naming conventions, detailed patterns
 - `SPECIFICATIONS.md` - Full technical and functional specifications
