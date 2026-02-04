@@ -6,7 +6,7 @@ import { TreeEdge } from './components/TreeEdge';
 import { TreeNode } from './components/TreeNode';
 import { TreeControls } from './components/TreeControls';
 import { ChessBoard } from '../../../../../shared/components/Board/ChessBoard';
-import type { LayoutNode } from './utils/types';
+import type { LayoutNode, LayoutMode } from './utils/types';
 import { NODE_RADIUS } from './constants';
 
 interface RepertoireTreeProps {
@@ -41,12 +41,24 @@ export function RepertoireTree({
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
 
+  // Layout mode state - tidy (top-to-bottom) is the default
+  const [layoutMode, setLayoutMode] = useState<LayoutMode>('tidy');
+
+  const handleToggleLayoutMode = useCallback(() => {
+    setLayoutMode((prev) => (prev === 'radial' ? 'tidy' : 'radial'));
+  }, []);
+
   // Calculate collapsed nodes from repertoire data
   const collapsedNodes = useMemo(() => {
     const result = new Set<string>();
     collectCollapsedNodes(repertoire, result);
     return result;
   }, [repertoire]);
+
+  const layout = useMemo(
+    () => calculateLayout(repertoire, collapsedNodes, layoutMode),
+    [repertoire, collapsedNodes, layoutMode]
+  );
 
   const {
     viewBox,
@@ -56,16 +68,17 @@ export function RepertoireTree({
     handleMouseMove,
     handleMouseUp,
     resetView
-  } = usePanZoom(containerRef, svgRef);
+  } = usePanZoom(containerRef, svgRef, layout.width, layout.height, layoutMode);
 
-  const layout = useMemo(() => calculateLayout(repertoire, collapsedNodes), [repertoire, collapsedNodes]);
-
-  const handleNodeDoubleClick = useCallback((node: RepertoireNode) => {
-    if (node.children.length === 0) return;
-    if (onToggleCollapsed) {
-      onToggleCollapsed(node.id);
-    }
-  }, [onToggleCollapsed]);
+  const handleNodeDoubleClick = useCallback(
+    (node: RepertoireNode) => {
+      if (node.children.length === 0) return;
+      if (onToggleCollapsed) {
+        onToggleCollapsed(node.id);
+      }
+    },
+    [onToggleCollapsed]
+  );
 
   const [hoveredNode, setHoveredNode] = useState<LayoutNode | null>(null);
 
@@ -85,6 +98,7 @@ export function RepertoireTree({
     const containerWidth = container.clientWidth;
     const containerHeight = container.clientHeight;
 
+    // Convert from SVG coordinates to screen pixels
     const pixelX = ((hoveredNode.x - viewBox.x) / viewBox.width) * svg.clientWidth;
     const pixelY = ((hoveredNode.y - viewBox.y) / viewBox.height) * svg.clientHeight;
 
@@ -108,12 +122,20 @@ export function RepertoireTree({
 
   return (
     <div className="flex-1 relative overflow-hidden" ref={containerRef}>
-      <TreeControls scale={scale} onReset={resetView} isExpanded={isExpanded} onToggleExpand={onToggleExpand} />
+      <TreeControls
+        scale={scale}
+        onReset={resetView}
+        isExpanded={isExpanded}
+        onToggleExpand={onToggleExpand}
+        layoutMode={layoutMode}
+        onToggleLayoutMode={handleToggleLayoutMode}
+      />
       <svg
         ref={svgRef}
         width="100%"
         height="100%"
         viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.width} ${viewBox.height}`}
+        preserveAspectRatio="none"
         className="tree-svg cursor-grab active:cursor-grabbing"
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
@@ -135,7 +157,7 @@ export function RepertoireTree({
 
         <g>
           {layout.edges.map((edge) => (
-            <TreeEdge key={edge.id} edge={edge} />
+            <TreeEdge key={edge.id} edge={edge} layoutMode={layoutMode} />
           ))}
         </g>
 

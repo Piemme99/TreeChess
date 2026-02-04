@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DndContext, DragEndEvent, DragOverlay, useDraggable, useDroppable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
-import { Button } from '../../../../shared/components/UI';
+import { Button, ConfirmModal } from '../../../../shared/components/UI';
 import { useRepertoireStore } from '../../../../stores/repertoireStore';
 import { toast } from '../../../../stores/toastStore';
 import type { Color, Repertoire, Category } from '../../../../types';
@@ -12,6 +12,7 @@ interface RepertoireSelectorProps {
   color: Color;
   repertoires: Repertoire[];
   categories: Category[];
+  onImportStudy: () => void;
 }
 
 // Draggable repertoire item wrapper
@@ -71,7 +72,7 @@ function DroppableUncategorized({
   );
 }
 
-export function RepertoireSelector({ color, repertoires, categories }: RepertoireSelectorProps) {
+export function RepertoireSelector({ color, repertoires, categories, onImportStudy }: RepertoireSelectorProps) {
   const navigate = useNavigate();
   const {
     createRepertoire,
@@ -94,6 +95,7 @@ export function RepertoireSelector({ color, repertoires, categories }: Repertoir
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isMerging, setIsMerging] = useState(false);
   const [mergeName, setMergeName] = useState('');
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
 
   // Filter categories and repertoires by color
   const colorCategories = useMemo(
@@ -160,17 +162,19 @@ export function RepertoireSelector({ color, repertoires, categories }: Repertoir
     }
   };
 
-  const handleDelete = async (id: string, name: string) => {
-    if (!confirm(`Are you sure you want to delete "${name}"? This cannot be undone.`)) {
-      return;
-    }
+  const handleDelete = (id: string, name: string) => {
+    setDeleteTarget({ id, name });
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
 
     setLoading(true);
     try {
-      await deleteRepertoire(id);
+      await deleteRepertoire(deleteTarget.id);
       setSelectedIds((prev) => {
         const next = new Set(prev);
-        next.delete(id);
+        next.delete(deleteTarget.id);
         return next;
       });
       toast.success('Repertoire deleted');
@@ -178,6 +182,7 @@ export function RepertoireSelector({ color, repertoires, categories }: Repertoir
       toast.error('Failed to delete repertoire');
     } finally {
       setLoading(false);
+      setDeleteTarget(null);
     }
   };
 
@@ -325,11 +330,11 @@ export function RepertoireSelector({ color, repertoires, categories }: Repertoir
               onToggleSelection={toggleSelection}
               editingId={editingId}
               editName={editName}
-              onStartEditing={startEditing}
               onCancelEditing={cancelEditing}
               onRename={handleRename}
               onDelete={handleDelete}
               onEditNameChange={setEditName}
+              onStartEditing={startEditing}
               loading={loading}
             />
           ))}
@@ -339,7 +344,7 @@ export function RepertoireSelector({ color, repertoires, categories }: Repertoir
             {uncategorizedRepertoires.map((rep) => (
               <DraggableRepertoireItem key={rep.id} repertoire={rep}>
                 {(_isDragging, dragAttributes, dragListeners) => (
-                  <div className={`flex items-center justify-between p-4 bg-bg rounded-md gap-4 mb-1${selectedIds.has(rep.id) ? ' outline-2 outline-primary outline-offset-[-2px]' : ''}`}>
+                  <div className={`flex items-center justify-between p-4 bg-bg-card rounded-md gap-4 mb-1${selectedIds.has(rep.id) ? ' outline-2 outline-primary outline-offset-[-2px]' : ''}`}>
                     {editingId === rep.id ? (
                       <div className="flex gap-2 flex-1 items-center">
                         <input
@@ -386,7 +391,12 @@ export function RepertoireSelector({ color, repertoires, categories }: Repertoir
                           />
                         </label>
                         <div className="flex flex-col gap-1 flex-1 min-w-0">
-                          <span className="font-medium whitespace-nowrap overflow-hidden text-ellipsis">{rep.name}</span>
+                          <span
+                            className="font-medium whitespace-nowrap overflow-hidden text-ellipsis cursor-text"
+                            onDoubleClick={() => startEditing(rep.id, rep.name)}
+                          >
+                            {rep.name}
+                          </span>
                           <span className="text-xs text-text-muted">
                             {rep.metadata.totalMoves} moves, depth {rep.metadata.deepestDepth}
                           </span>
@@ -397,23 +407,17 @@ export function RepertoireSelector({ color, repertoires, categories }: Repertoir
                             size="sm"
                             onClick={() => navigate(`/repertoire/${rep.id}/edit`)}
                           >
-                            Edit
+                            Open
                           </Button>
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => startEditing(rep.id, rep.name)}
-                            disabled={loading}
-                          >
-                            Rename
-                          </Button>
-                          <Button
-                            variant="danger"
-                            size="sm"
                             onClick={() => handleDelete(rep.id, rep.name)}
                             disabled={loading}
                           >
-                            Delete
+                            <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5">
+                              <path d="M2 4h12M5.5 4V2.5a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1V4M6.5 7v5M9.5 7v5M3.5 4l.5 9a1.5 1.5 0 0 0 1.5 1.5h5A1.5 1.5 0 0 0 12 13l.5-9" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
                           </Button>
                         </div>
                       </>
@@ -494,14 +498,24 @@ export function RepertoireSelector({ color, repertoires, categories }: Repertoir
             </Button>
           </div>
         ) : (
-          <Button
-            variant="secondary"
-            onClick={() => setIsCreating(true)}
-            disabled={loading}
-            className="w-full text-center"
-          >
-            + Add Repertoire
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="secondary"
+              onClick={() => setIsCreating(true)}
+              disabled={loading}
+              className="flex-1 text-center"
+            >
+              + Add Repertoire
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={onImportStudy}
+              disabled={loading}
+              className="flex-1 text-center"
+            >
+              Import Lichess Study
+            </Button>
+          </div>
         )}
       </div>
 
@@ -516,6 +530,17 @@ export function RepertoireSelector({ color, repertoires, categories }: Repertoir
           </div>
         ) : null}
       </DragOverlay>
+
+      <ConfirmModal
+        isOpen={deleteTarget !== null}
+        title="Delete Repertoire"
+        message={`Are you sure you want to delete "${deleteTarget?.name}"? This cannot be undone.`}
+        variant="danger"
+        confirmText="Delete"
+        loading={loading}
+        onConfirm={confirmDelete}
+        onClose={() => setDeleteTarget(null)}
+      />
     </DndContext>
   );
 }

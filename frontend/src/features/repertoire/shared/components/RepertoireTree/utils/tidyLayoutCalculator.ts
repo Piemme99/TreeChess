@@ -1,9 +1,7 @@
 import * as d3 from 'd3-hierarchy';
 import type { RepertoireNode } from '../../../../../../types';
-import type { LayoutNode, LayoutEdge, TreeLayout, Point, PolarPoint, LayoutMode } from './types';
-import { NODE_RADIUS, MIN_RADIUS, RADIUS_PER_DEPTH } from '../constants';
-import { radialToCartesian } from './radialHelpers';
-import { calculateTidyLayout } from './tidyLayoutCalculator';
+import type { LayoutNode, LayoutEdge, TreeLayout, Point } from './types';
+import { NODE_RADIUS, NODE_SPACING_X, NODE_SPACING_Y, ROOT_OFFSET_X, ROOT_OFFSET_Y } from '../constants';
 
 interface D3Node {
   id: string;
@@ -55,56 +53,57 @@ function getMaxDepth(node: D3Node, currentDepth = 0): number {
 }
 
 /**
- * Calculates the radial layout for a repertoire tree.
- * Uses D3 cluster layout with polar to Cartesian projection.
- * Root is at center (0, 0), branches radiate outward.
+ * Calculates the maximum width (number of leaf nodes) at any level.
  */
-export function calculateRadialLayout(
+function getMaxWidth(root: d3.HierarchyNode<D3Node>): number {
+  let maxWidth = 0;
+  root.each((node) => {
+    if (node.children === undefined || node.children.length === 0) {
+      maxWidth++;
+    }
+  });
+  return Math.max(maxWidth, 1);
+}
+
+/**
+ * Calculates the tidy tree layout (top-to-bottom hierarchy).
+ * Uses D3 tree layout with root at top, children below.
+ */
+export function calculateTidyLayout(
   root: RepertoireNode,
   collapsedNodes?: Set<string>
 ): TreeLayout {
   const d3Root = toD3Hierarchy(root, collapsedNodes);
   const hierarchy = d3.hierarchy(d3Root);
 
-  // Calculate radius based on max depth
   const maxDepth = getMaxDepth(d3Root);
-  const totalRadius = MIN_RADIUS + maxDepth * RADIUS_PER_DEPTH;
+  const maxWidth = getMaxWidth(hierarchy);
 
-  // Create cluster layout
-  // size([angle, radius]) - angle in radians (2*PI for full circle)
-  const cluster = d3.cluster<D3Node>().size([2 * Math.PI, totalRadius]);
+  // Calculate dimensions based on tree size
+  const treeWidth = maxWidth * NODE_SPACING_X;
+  const treeHeight = (maxDepth + 1) * NODE_SPACING_Y;
+
+  // Create tree layout (top-to-bottom)
+  const tree = d3.tree<D3Node>().size([treeWidth, treeHeight]);
 
   // Apply layout
-  const layoutRoot = cluster(hierarchy);
+  const layoutRoot = tree(hierarchy);
 
   const nodes: LayoutNode[] = [];
   const edges: LayoutEdge[] = [];
 
   // Convert D3 nodes to our layout format
+  // D3 tree gives x as horizontal, y as vertical (depth)
   layoutRoot.each((d3Node) => {
-    const depth = d3Node.depth;
-    let x: number, y: number;
-
-    if (depth === 0) {
-      // Root at center
-      x = 0;
-      y = 0;
-    } else {
-      // Convert polar to Cartesian
-      // d3Node.x is angle, d3Node.y is radius in D3 cluster
-      const angle = d3Node.x;
-      const radius = MIN_RADIUS + (depth - 1) * RADIUS_PER_DEPTH;
-      const cartesian = radialToCartesian(angle, radius);
-      x = cartesian.x;
-      y = cartesian.y;
-    }
+    const x = d3Node.x + ROOT_OFFSET_X;
+    const y = d3Node.y + ROOT_OFFSET_Y;
 
     nodes.push({
       id: d3Node.data.id,
       x,
       y,
       node: d3Node.data.node,
-      depth,
+      depth: d3Node.depth,
       hiddenDescendantCount: d3Node.data.hiddenDescendantCount
     });
   });
@@ -119,26 +118,10 @@ export function calculateRadialLayout(
       const childLayout = nodeMap.get(d3Node.data.id);
 
       if (parentLayout && childLayout) {
-        // Calculate polar coordinates for edge path
-        const fromPolar: PolarPoint =
-          d3Node.parent.depth === 0
-            ? { angle: d3Node.x, radius: 0 }
-            : {
-                angle: d3Node.parent.x,
-                radius: MIN_RADIUS + (d3Node.parent.depth - 1) * RADIUS_PER_DEPTH
-              };
-
-        const toPolar: PolarPoint = {
-          angle: d3Node.x,
-          radius: MIN_RADIUS + (d3Node.depth - 1) * RADIUS_PER_DEPTH
-        };
-
         edges.push({
           id: `${parentLayout.id}-${childLayout.id}`,
           from: { x: parentLayout.x, y: parentLayout.y },
           to: { x: childLayout.x, y: childLayout.y },
-          fromPolar,
-          toPolar,
           type: 'parent-child'
         });
       }
@@ -161,52 +144,49 @@ export function calculateRadialLayout(
     }
   }
 
-  // Calculate bounding box (centered at 0,0)
+  // Calculate bounding box (all positive coordinates)
   const padding = NODE_RADIUS * 2 + 50;
-  const dimension = (totalRadius + padding) * 2;
+  const width = treeWidth + ROOT_OFFSET_X * 2 + padding;
+  const height = treeHeight + ROOT_OFFSET_Y * 2 + padding;
 
   return {
     nodes,
     edges,
-    width: dimension,
-    height: dimension
+    width,
+    height
   };
 }
 
 /**
- * Creates a simple straight line path between two points.
- * Offsets from node edges.
+ * Creates a stepped path for tidy tree edges (parent to child).
+ * Uses an elbow-style path going down then across.
  */
-export function createBezierPath(from: Point, to: Point): string {
+export function createTidyPath(from: Point, to: Point): string {
   const dx = to.x - from.x;
   const dy = to.y - from.y;
   const dist = Math.sqrt(dx * dx + dy * dy);
 
   if (dist === 0) return '';
 
-  const ux = dx / dist;
-  const uy = dy / dist;
+  // Start from bottom of parent node
+  const startX = from.x;
+  const startY = from.y + NODE_RADIUS;
 
-  const startX = from.x + ux * NODE_RADIUS;
-  const startY = from.y + uy * NODE_RADIUS;
-  const endX = to.x - ux * NODE_RADIUS;
-  const endY = to.y - uy * NODE_RADIUS;
+  // End at top of child node
+  const endX = to.x;
+  const endY = to.y - NODE_RADIUS;
 
-  // Subtle curve via control point
-  const midX = (startX + endX) / 2;
+  // Mid point for the step
   const midY = (startY + endY) / 2;
-  const curveOffset = Math.min(20, dist * 0.15);
-  const perpX = -uy * curveOffset;
-  const perpY = ux * curveOffset;
 
-  return `M ${startX} ${startY} Q ${midX + perpX} ${midY + perpY} ${endX} ${endY}`;
+  // Create a smooth S-curve path
+  return `M ${startX} ${startY} C ${startX} ${midY} ${endX} ${midY} ${endX} ${endY}`;
 }
 
 /**
- * Creates a curved path for merge/transposition edges.
- * Arcs outward from center to avoid crossing nodes.
+ * Creates a curved path for merge/transposition edges in tidy layout.
  */
-export function createMergePath(from: Point, to: Point): string {
+export function createTidyMergePath(from: Point, to: Point): string {
   const dx = to.x - from.x;
   const dy = to.y - from.y;
   const dist = Math.sqrt(dx * dx + dy * dy);
@@ -221,41 +201,17 @@ export function createMergePath(from: Point, to: Point): string {
   const endX = to.x - ux * NODE_RADIUS;
   const endY = to.y - uy * NODE_RADIUS;
 
-  // Arc outward from center
+  // Curve perpendicular to the line
   const midX = (startX + endX) / 2;
   const midY = (startY + endY) / 2;
-
-  const fromDist = Math.sqrt(from.x * from.x + from.y * from.y);
-  const toDist = Math.sqrt(to.x * to.x + to.y * to.y);
-  const avgDist = (fromDist + toDist) / 2;
 
   const perpX = -uy;
   const perpY = ux;
 
-  const testX = midX + perpX;
-  const testY = midY + perpY;
-  const testDist = Math.sqrt(testX * testX + testY * testY);
-
-  const outwardSign = testDist > avgDist ? 1 : -1;
   const curveAmount = Math.max(30, dist * 0.3);
 
-  const controlX = midX + perpX * curveAmount * outwardSign;
-  const controlY = midY + perpY * curveAmount * outwardSign;
+  const controlX = midX + perpX * curveAmount;
+  const controlY = midY + perpY * curveAmount;
 
   return `M ${startX} ${startY} Q ${controlX} ${controlY} ${endX} ${endY}`;
-}
-
-/**
- * Unified layout calculator that delegates to the appropriate layout function
- * based on the layout mode.
- */
-export function calculateLayout(
-  root: RepertoireNode,
-  collapsedNodes?: Set<string>,
-  mode: LayoutMode = 'radial'
-): TreeLayout {
-  if (mode === 'tidy') {
-    return calculateTidyLayout(root, collapsedNodes);
-  }
-  return calculateRadialLayout(root, collapsedNodes);
 }

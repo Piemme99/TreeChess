@@ -20,20 +20,7 @@ export function RepertoireTab() {
 
   return (
     <div className="max-w-[700px] mx-auto w-full flex flex-col py-8 px-4 gap-6">
-      {/* Header with title and import button */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-text">Repertoires</h1>
-        <button
-          className="flex items-center gap-2 py-2 px-4 bg-bg-card border border-border rounded-lg cursor-pointer transition-all duration-150 font-sans text-sm hover:border-primary hover:bg-bg-card hover:shadow-md focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2"
-          onClick={() => {
-            setShowStudyModal(true);
-            window.open('https://lichess.org/study', '_blank');
-          }}
-        >
-          <span className="text-lg leading-none">&#128218;</span>
-          <span className="font-medium">Import Study</span>
-        </button>
-      </div>
+      <h1 className="text-2xl font-bold text-text">Repertoires</h1>
 
       {/* Tabs */}
       <div className="flex border-b border-border">
@@ -70,9 +57,15 @@ export function RepertoireTab() {
       {/* Tab content */}
       <div className="mt-2">
         {activeTab === 'white' ? (
-          <RepertoireSelector color="white" repertoires={whiteRepertoires} categories={whiteCategories} />
+          <RepertoireSelector color="white" repertoires={whiteRepertoires} categories={whiteCategories} onImportStudy={() => {
+            setShowStudyModal(true);
+            window.open('https://lichess.org/study', '_blank');
+          }} />
         ) : (
-          <RepertoireSelector color="black" repertoires={blackRepertoires} categories={blackCategories} />
+          <RepertoireSelector color="black" repertoires={blackRepertoires} categories={blackCategories} onImportStudy={() => {
+            setShowStudyModal(true);
+            window.open('https://lichess.org/study', '_blank');
+          }} />
         )}
       </div>
 

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { calculateLayout, createBezierPath, createMergePath } from './layoutCalculator';
 import type { RepertoireNode } from '../../../../../../types';
-import { NODE_RADIUS, NODE_SPACING_X, ROOT_OFFSET_X } from '../constants';
+import { NODE_RADIUS, MIN_RADIUS, RADIUS_PER_DEPTH } from '../constants';
 
 function createNode(
   id: string,
@@ -21,15 +21,16 @@ function createNode(
   };
 }
 
-describe('calculateLayout', () => {
+describe('calculateLayout (radial)', () => {
   describe('single root node', () => {
-    it('positions root node correctly', () => {
+    it('positions root node at center (0, 0)', () => {
       const root = createNode('root');
       const layout = calculateLayout(root);
 
       expect(layout.nodes).toHaveLength(1);
       expect(layout.nodes[0].id).toBe('root');
-      expect(layout.nodes[0].x).toBe(ROOT_OFFSET_X);
+      expect(layout.nodes[0].x).toBe(0);
+      expect(layout.nodes[0].y).toBe(0);
       expect(layout.nodes[0].depth).toBe(0);
     });
 
@@ -42,7 +43,7 @@ describe('calculateLayout', () => {
   });
 
   describe('linear tree (no branches)', () => {
-    it('positions nodes at increasing x coordinates', () => {
+    it('positions nodes at increasing distance from center', () => {
       const root = createNode('root', null, [
         createNode('c1', 'e4', [createNode('c2', 'e5', [createNode('c3', 'Nf3')])])
       ]);
@@ -53,10 +54,17 @@ describe('calculateLayout', () => {
 
       const nodeById = (id: string) => layout.nodes.find((n) => n.id === id)!;
 
-      expect(nodeById('root').x).toBe(ROOT_OFFSET_X);
-      expect(nodeById('c1').x).toBe(ROOT_OFFSET_X + NODE_SPACING_X);
-      expect(nodeById('c2').x).toBe(ROOT_OFFSET_X + NODE_SPACING_X * 2);
-      expect(nodeById('c3').x).toBe(ROOT_OFFSET_X + NODE_SPACING_X * 3);
+      // Root at center
+      expect(nodeById('root').x).toBe(0);
+      expect(nodeById('root').y).toBe(0);
+
+      // Children should be at increasing distances from center
+      const distFromCenter = (n: { x: number; y: number }) =>
+        Math.sqrt(n.x * n.x + n.y * n.y);
+
+      expect(distFromCenter(nodeById('c1'))).toBeCloseTo(MIN_RADIUS, 0);
+      expect(distFromCenter(nodeById('c2'))).toBeCloseTo(MIN_RADIUS + RADIUS_PER_DEPTH, 0);
+      expect(distFromCenter(nodeById('c3'))).toBeCloseTo(MIN_RADIUS + 2 * RADIUS_PER_DEPTH, 0);
     });
 
     it('creates edges between consecutive nodes', () => {
@@ -65,25 +73,13 @@ describe('calculateLayout', () => {
       const layout = calculateLayout(root);
 
       expect(layout.edges).toHaveLength(1);
-      expect(layout.edges[0].from.x).toBe(ROOT_OFFSET_X);
-      expect(layout.edges[0].to.x).toBe(ROOT_OFFSET_X + NODE_SPACING_X);
-    });
-
-    it('nodes on same line have same y coordinate', () => {
-      const root = createNode('root', null, [
-        createNode('c1', 'e4', [createNode('c2', 'e5')])
-      ]);
-
-      const layout = calculateLayout(root);
-      const yValues = layout.nodes.map((n) => n.y);
-
-      // All nodes should have the same y since it's a linear tree
-      expect(new Set(yValues).size).toBe(1);
+      expect(layout.edges[0].from.x).toBe(0);
+      expect(layout.edges[0].from.y).toBe(0);
     });
   });
 
   describe('branching tree', () => {
-    it('spreads children vertically', () => {
+    it('spreads children at different angles', () => {
       const root = createNode('root', null, [
         createNode('c1', 'e4'),
         createNode('c2', 'd4')
@@ -94,13 +90,16 @@ describe('calculateLayout', () => {
       const c1 = layout.nodes.find((n) => n.id === 'c1')!;
       const c2 = layout.nodes.find((n) => n.id === 'c2')!;
 
-      // Children should have different y coordinates
-      expect(c1.y).not.toBe(c2.y);
-      // First child should be above second (smaller y)
-      expect(c1.y).toBeLessThan(c2.y);
+      // Children should be at the same distance from center (same depth)
+      const dist1 = Math.sqrt(c1.x * c1.x + c1.y * c1.y);
+      const dist2 = Math.sqrt(c2.x * c2.x + c2.y * c2.y);
+      expect(dist1).toBeCloseTo(dist2, 0);
+
+      // But at different positions (different angles)
+      expect(c1.x !== c2.x || c1.y !== c2.y).toBe(true);
     });
 
-    it('parent is vertically centered between children', () => {
+    it('root stays at center', () => {
       const root = createNode('root', null, [
         createNode('c1', 'e4'),
         createNode('c2', 'd4')
@@ -109,11 +108,8 @@ describe('calculateLayout', () => {
       const layout = calculateLayout(root);
 
       const rootNode = layout.nodes.find((n) => n.id === 'root')!;
-      const c1 = layout.nodes.find((n) => n.id === 'c1')!;
-      const c2 = layout.nodes.find((n) => n.id === 'c2')!;
-
-      const expectedY = (c1.y + c2.y) / 2;
-      expect(rootNode.y).toBe(expectedY);
+      expect(rootNode.x).toBe(0);
+      expect(rootNode.y).toBe(0);
     });
 
     it('creates edges to all children', () => {
@@ -159,62 +155,42 @@ describe('calculateLayout', () => {
   });
 
   describe('layout dimensions', () => {
-    it('calculates width based on deepest node', () => {
+    it('calculates dimensions based on total radius', () => {
       const root = createNode('root', null, [
         createNode('c1', 'e4', [createNode('c2', 'e5')])
       ]);
 
       const layout = calculateLayout(root);
 
-      // Width should accommodate the deepest node plus padding
-      const deepestX = ROOT_OFFSET_X + NODE_SPACING_X * 2;
-      expect(layout.width).toBe(deepestX + NODE_RADIUS + 50);
-    });
-
-    it('calculates height based on spread nodes', () => {
-      const root = createNode('root', null, [
-        createNode('c1', 'e4'),
-        createNode('c2', 'd4')
-      ]);
-
-      const layout = calculateLayout(root);
-
-      const maxY = Math.max(...layout.nodes.map((n) => n.y));
-      expect(layout.height).toBe(maxY + NODE_RADIUS + 50);
+      // Should be a square with dimension based on max depth
+      expect(layout.width).toBe(layout.height);
+      expect(layout.width).toBeGreaterThan(0);
     });
   });
 });
 
 describe('createBezierPath', () => {
   it('creates valid SVG path string', () => {
-    const path = createBezierPath({ x: 0, y: 50 }, { x: 100, y: 50 });
+    const path = createBezierPath({ x: 0, y: 0 }, { x: 100, y: 50 });
 
     expect(path).toContain('M');
-    expect(path).toContain('C');
+    expect(path).toContain('Q');
   });
 
-  it('starts after source node radius', () => {
-    const path = createBezierPath({ x: 60, y: 50 }, { x: 160, y: 50 });
-
-    // Path should start at from.x + NODE_RADIUS
-    expect(path.startsWith(`M ${60 + NODE_RADIUS}`)).toBe(true);
+  it('returns empty string for zero distance', () => {
+    const path = createBezierPath({ x: 50, y: 50 }, { x: 50, y: 50 });
+    expect(path).toBe('');
   });
 
-  it('ends before target node radius', () => {
-    const path = createBezierPath({ x: 60, y: 50 }, { x: 160, y: 100 });
-
-    // Path should end at to.x - NODE_RADIUS
-    expect(path).toContain(`${160 - NODE_RADIUS} 100`);
-  });
-
-  it('uses midpoint for control points', () => {
-    const from = { x: 0, y: 50 };
-    const to = { x: 100, y: 150 };
+  it('offsets start and end by node radius', () => {
+    const from = { x: 0, y: 0 };
+    const to = { x: 100, y: 0 };
     const path = createBezierPath(from, to);
 
-    const midX = (from.x + to.x) / 2;
-    // Control points should use midX
-    expect(path).toContain(`${midX}`);
+    // Should start at from.x + NODE_RADIUS (since direction is positive x)
+    expect(path.startsWith(`M ${NODE_RADIUS}`)).toBe(true);
+    // Should end at to.x - NODE_RADIUS
+    expect(path).toContain(`${100 - NODE_RADIUS} 0`);
   });
 });
 
@@ -277,36 +253,11 @@ describe('createMergePath', () => {
     const path = createMergePath({ x: 100, y: 200 }, { x: 50, y: 100 });
 
     expect(path).toContain('M');
-    expect(path).toContain('C');
+    expect(path).toContain('Q');
   });
 
-  it('always starts from bottom of node', () => {
-    const from = { x: 100, y: 200 };
-    const to = { x: 50, y: 100 };
-    const path = createMergePath(from, to);
-
-    // Should always start at from.y + NODE_RADIUS (bottom of node)
-    expect(path.startsWith(`M ${from.x} ${from.y + NODE_RADIUS}`)).toBe(true);
-  });
-
-  it('ends at target node right edge', () => {
-    const from = { x: 100, y: 200 };
-    const to = { x: 50, y: 100 };
-    const path = createMergePath(from, to);
-
-    // Should end at to.x + NODE_RADIUS
-    expect(path).toContain(`${to.x + NODE_RADIUS} ${to.y}`);
-  });
-
-  it('curves to the right of both nodes', () => {
-    const from = { x: 100, y: 200 };
-    const to = { x: 50, y: 100 };
-    const path = createMergePath(from, to);
-
-    // Control points should be to the right of both nodes
-    const controlPointMatch = path.match(/C (\d+)/);
-    expect(controlPointMatch).not.toBeNull();
-    const controlX = parseInt(controlPointMatch![1]);
-    expect(controlX).toBeGreaterThan(Math.max(from.x, to.x));
+  it('returns empty string for zero distance', () => {
+    const path = createMergePath({ x: 50, y: 50 }, { x: 50, y: 50 });
+    expect(path).toBe('');
   });
 });

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
-import { Button } from '../../../../shared/components/UI';
+import { Button, ConfirmModal } from '../../../../shared/components/UI';
 import { useRepertoireStore } from '../../../../stores/repertoireStore';
 import { toast } from '../../../../stores/toastStore';
 import type { Category, Repertoire } from '../../../../types';
@@ -72,6 +72,7 @@ export function CategorySection({
   const [isEditingCategory, setIsEditingCategory] = useState(false);
   const [categoryName, setCategoryName] = useState(category.name);
   const [categoryLoading, setCategoryLoading] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   // Make category header a drop zone
   const { setNodeRef, isOver } = useDroppable({
@@ -97,15 +98,6 @@ export function CategorySection({
   };
 
   const handleDeleteCategory = async () => {
-    const count = repertoires.length;
-    const message = count > 0
-      ? `Are you sure you want to delete "${category.name}"? This will also delete ${count} repertoire(s) inside. This cannot be undone.`
-      : `Are you sure you want to delete "${category.name}"? This cannot be undone.`;
-
-    if (!confirm(message)) {
-      return;
-    }
-
     setCategoryLoading(true);
     try {
       await deleteCategory(category.id);
@@ -114,6 +106,7 @@ export function CategorySection({
       toast.error('Failed to delete category');
     } finally {
       setCategoryLoading(false);
+      setShowDeleteModal(false);
     }
   };
 
@@ -174,12 +167,14 @@ export function CategorySection({
                 Rename
               </Button>
               <Button
-                variant="danger"
+                variant="ghost"
                 size="sm"
-                onClick={handleDeleteCategory}
+                onClick={() => setShowDeleteModal(true)}
                 disabled={categoryLoading}
               >
-                Delete
+                <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <path d="M2 4h12M5.5 4V2.5a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1V4M6.5 7v5M9.5 7v5M3.5 4l.5 9a1.5 1.5 0 0 0 1.5 1.5h5A1.5 1.5 0 0 0 12 13l.5-9" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
               </Button>
             </div>
           </>
@@ -250,7 +245,10 @@ export function CategorySection({
                           />
                         </label>
                         <div className="flex flex-col gap-0.5 flex-1 min-w-0">
-                          <span className="font-medium text-sm whitespace-nowrap overflow-hidden text-ellipsis">
+                          <span
+                            className="font-medium text-sm whitespace-nowrap overflow-hidden text-ellipsis cursor-text"
+                            onDoubleClick={() => onStartEditing(rep.id, rep.name)}
+                          >
                             {rep.name}
                           </span>
                           <span className="text-xs text-text-muted">
@@ -263,23 +261,17 @@ export function CategorySection({
                             size="sm"
                             onClick={() => navigate(`/repertoire/${rep.id}/edit`)}
                           >
-                            Edit
+                            Open
                           </Button>
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => onStartEditing(rep.id, rep.name)}
-                            disabled={loading}
-                          >
-                            Rename
-                          </Button>
-                          <Button
-                            variant="danger"
-                            size="sm"
                             onClick={() => onDelete(rep.id, rep.name)}
                             disabled={loading}
                           >
-                            Delete
+                            <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5">
+                              <path d="M2 4h12M5.5 4V2.5a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1V4M6.5 7v5M9.5 7v5M3.5 4l.5 9a1.5 1.5 0 0 0 1.5 1.5h5A1.5 1.5 0 0 0 12 13l.5-9" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
                           </Button>
                         </div>
                       </>
@@ -291,6 +283,21 @@ export function CategorySection({
           )}
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={showDeleteModal}
+        title="Delete Category"
+        message={
+          repertoires.length > 0
+            ? `Are you sure you want to delete "${category.name}"? This will also delete ${repertoires.length} repertoire(s) inside. This cannot be undone.`
+            : `Are you sure you want to delete "${category.name}"? This cannot be undone.`
+        }
+        variant="danger"
+        confirmText="Delete"
+        loading={categoryLoading}
+        onConfirm={handleDeleteCategory}
+        onClose={() => setShowDeleteModal(false)}
+      />
     </div>
   );
 }

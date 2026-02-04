@@ -12,7 +12,14 @@ interface TreeNodeProps {
   onMouseLeave?: () => void;
 }
 
-export const TreeNode = memo(function TreeNode({ layoutNode, isSelected, onClick, onDoubleClick, onMouseEnter, onMouseLeave }: TreeNodeProps) {
+export const TreeNode = memo(function TreeNode({
+  layoutNode,
+  isSelected,
+  onClick,
+  onDoubleClick,
+  onMouseEnter,
+  onMouseLeave
+}: TreeNodeProps) {
   const isRoot = layoutNode.node.move === null;
   const isTransposition = !!layoutNode.node.transpositionOf;
   // colorToMove is the color to play AFTER this move
@@ -20,13 +27,23 @@ export const TreeNode = memo(function TreeNode({ layoutNode, isSelected, onClick
   const isWhiteMove = layoutNode.node.colorToMove === 'b';
   const hiddenCount = layoutNode.hiddenDescendantCount;
 
-  const handleClick = useCallback(() => onClick(layoutNode.node), [onClick, layoutNode.node]);
-  const handleDoubleClick = useCallback(() => onDoubleClick?.(layoutNode.node), [onDoubleClick, layoutNode.node]);
-  const handleMouseEnter = useCallback(() => onMouseEnter?.(layoutNode), [onMouseEnter, layoutNode]);
+  const handleClick = useCallback(
+    () => onClick(layoutNode.node),
+    [onClick, layoutNode.node]
+  );
+  const handleDoubleClick = useCallback(
+    () => onDoubleClick?.(layoutNode.node),
+    [onDoubleClick, layoutNode.node]
+  );
+  const handleMouseEnter = useCallback(
+    () => onMouseEnter?.(layoutNode),
+    [onMouseEnter, layoutNode]
+  );
 
   return (
     <g
-      className={`tree-node ${isSelected ? 'selected' : ''}`}
+      className="tree-node"
+      transform={`translate(${layoutNode.x}, ${layoutNode.y})`}
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
       onMouseEnter={handleMouseEnter}
@@ -35,8 +52,8 @@ export const TreeNode = memo(function TreeNode({ layoutNode, isSelected, onClick
     >
       {isRoot ? (
         <rect
-          x={layoutNode.x - NODE_RADIUS}
-          y={layoutNode.y - NODE_RADIUS}
+          x={-NODE_RADIUS}
+          y={-NODE_RADIUS}
           width={NODE_RADIUS * 2}
           height={NODE_RADIUS * 2}
           rx="4"
@@ -46,19 +63,36 @@ export const TreeNode = memo(function TreeNode({ layoutNode, isSelected, onClick
         />
       ) : (
         <circle
-          cx={layoutNode.x}
-          cy={layoutNode.y}
+          cx={0}
+          cy={0}
           r={NODE_RADIUS}
-          fill={isTransposition ? '#ede9fe' : isSelected ? '#E67E22' : isWhiteMove ? '#ffffff' : '#1f2937'}
-          stroke={isTransposition ? '#a78bfa' : isSelected ? '#D4740A' : isWhiteMove ? '#9ca3af' : '#111827'}
+          fill={
+            isTransposition
+              ? '#ede9fe'
+              : isSelected
+                ? '#E67E22'
+                : isWhiteMove
+                  ? '#ffffff'
+                  : '#1f2937'
+          }
+          stroke={
+            isTransposition
+              ? '#a78bfa'
+              : isSelected
+                ? '#D4740A'
+                : isWhiteMove
+                  ? '#9ca3af'
+                  : '#111827'
+          }
           strokeWidth="2"
           strokeDasharray={isTransposition ? '4 2' : undefined}
         />
       )}
+      {/* Branch name label - positioned above node, always horizontal */}
       {layoutNode.node.branchName && (
         <text
-          x={layoutNode.x}
-          y={layoutNode.y - NODE_RADIUS - 20}
+          x={0}
+          y={-NODE_RADIUS - 20}
           textAnchor="middle"
           fontSize="11"
           fontStyle="italic"
@@ -67,27 +101,37 @@ export const TreeNode = memo(function TreeNode({ layoutNode, isSelected, onClick
           {layoutNode.node.branchName}
         </text>
       )}
+      {/* Move text - always horizontal in center of node */}
       <text
-        x={layoutNode.x}
-        y={layoutNode.y + 4}
+        x={0}
+        y={4}
         textAnchor="middle"
         fontSize="11"
         fontWeight="bold"
-        fill={isRoot || isSelected ? '#fff' : isTransposition ? '#6d28d9' : isWhiteMove ? '#333' : '#fff'}
+        fill={
+          isRoot || isSelected
+            ? '#fff'
+            : isTransposition
+              ? '#6d28d9'
+              : isWhiteMove
+                ? '#333'
+                : '#fff'
+        }
       >
         {isRoot ? 'Start' : layoutNode.node.move}
       </text>
+      {/* Hidden descendant count badge */}
       {hiddenCount && hiddenCount > 0 && (
         <g>
           <circle
-            cx={layoutNode.x + NODE_RADIUS - 2}
-            cy={layoutNode.y - NODE_RADIUS + 2}
+            cx={NODE_RADIUS - 2}
+            cy={-NODE_RADIUS + 2}
             r={8}
             fill="#E67E22"
           />
           <text
-            x={layoutNode.x + NODE_RADIUS - 2}
-            y={layoutNode.y - NODE_RADIUS + 5}
+            x={NODE_RADIUS - 2}
+            y={-NODE_RADIUS + 5}
             textAnchor="middle"
             fontSize="8"
             fontWeight="bold"

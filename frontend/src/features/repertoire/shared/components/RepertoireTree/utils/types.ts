@@ -6,6 +6,12 @@ export interface Point {
   y: number;
 }
 
+/** Polar coordinates for radial layout */
+export interface PolarPoint {
+  angle: number;
+  radius: number;
+}
+
 /** A node in the calculated layout */
 export interface LayoutNode {
   id: string;
@@ -24,6 +30,8 @@ export interface LayoutEdge {
   id: string;
   from: Point;
   to: Point;
+  fromPolar?: PolarPoint;
+  toPolar?: PolarPoint;
   type: EdgeType;
 }
 
@@ -35,7 +43,17 @@ export interface TreeLayout {
   height: number;
 }
 
-/** ViewBox state for SVG pan/zoom */
+/** Layout mode for tree visualization */
+export type LayoutMode = 'radial' | 'tidy';
+
+/** D3 Zoom transform state */
+export interface ZoomTransform {
+  x: number;
+  y: number;
+  k: number;
+}
+
+/** ViewBox state for SVG pan/zoom - kept for compatibility */
 export interface ViewBox {
   x: number;
   y: number;
