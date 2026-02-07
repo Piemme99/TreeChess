@@ -1,37 +1,42 @@
 import { Link } from 'react-router-dom';
+import { Crown } from 'lucide-react';
 
 export function Footer() {
-  const currentYear = new Date().getFullYear();
-
   return (
-    <footer className="mt-auto py-8 px-4 border-t border-border bg-bg-sidebar">
-      <div className="max-w-4xl mx-auto">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-          <div>
-            <h2 className="text-xl font-bold text-text">
-              Tree<span className="text-primary">Chess</span>
-            </h2>
-            <p className="text-sm text-text-muted mt-1">
-              Votre outil de répertoire d'ouvertures
-            </p>
+    <footer className="relative z-10 px-6 py-12 border-t border-primary/10">
+      <div className="max-w-6xl mx-auto">
+        <div className="flex flex-col md:flex-row items-center justify-between gap-6 mb-8">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 bg-gradient-to-br from-primary to-primary-hover rounded-xl flex items-center justify-center shadow-sm">
+              <Crown size={16} className="text-white" />
+            </div>
+            <span className="text-lg font-bold text-text tracking-tight font-display">
+              ChessTool
+            </span>
           </div>
+          <p className="text-sm text-text-muted">
+            Build better chess openings, one move at a time.
+          </p>
+        </div>
+
+        <div className="flex flex-col md:flex-row items-center justify-between gap-6 pt-6 border-t border-primary/10">
           <nav className="flex flex-wrap gap-x-6 gap-y-2 text-sm" aria-label="Footer navigation">
             <Link to="/legal" className="text-text-muted hover:text-text transition-colors">
-              Mentions légales
+              Legal
             </Link>
             <Link to="/terms" className="text-text-muted hover:text-text transition-colors">
-              CGU
+              Terms
             </Link>
             <Link to="/privacy" className="text-text-muted hover:text-text transition-colors">
-              Confidentialité
+              Privacy
             </Link>
             <Link to="/contact" className="text-text-muted hover:text-text transition-colors">
               Contact
             </Link>
           </nav>
-        </div>
-        <div className="mt-8 pt-6 border-t border-border text-center text-sm text-text-muted">
-          &copy; {currentYear} TreeChess. Tous droits réservés.
+          <p className="text-xs text-text-light">
+            &copy; {new Date().getFullYear()} ChessTool. All rights reserved.
+          </p>
         </div>
       </div>
     </footer>

@@ -24,6 +24,7 @@
   --color-text-light: #9CA3AF;
 
   /* Backgrounds */
+  --color-bg-landing: #fffbf5;
   --color-bg: #F9FAFB;
   --color-bg-card: #FFFFFF;
   --color-bg-sidebar: #FFFFFF;
@@ -46,6 +47,8 @@
   /* Fonts */
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', 'Fira Code', 'SF Mono', Monaco, monospace;
+  --font-display: 'Fraunces', serif;
+  --font-body: 'DM Sans', sans-serif;
 
   /* Animations */
   --animate-spin: spin 0.6s linear infinite;
