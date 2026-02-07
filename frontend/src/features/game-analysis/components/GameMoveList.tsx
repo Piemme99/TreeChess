@@ -11,6 +11,7 @@ interface GameMoveListProps {
   maxDisplayedIndex: number;
   onMoveClick: (index: number) => void;
   onAddToRepertoire?: (move: MoveAnalysis, moveIndex: number) => void;
+  onOpenInRepertoire?: (move: MoveAnalysis, moveIndex: number) => void;
   onCreateAndAdd?: (repertoireId: string) => void;
   onImportSuccess?: () => void;
   userColor?: Color;
@@ -26,6 +27,7 @@ export function GameMoveList({
   maxDisplayedIndex,
   onMoveClick,
   onAddToRepertoire,
+  onOpenInRepertoire,
   onCreateAndAdd,
   onImportSuccess,
   userColor,
@@ -131,15 +133,35 @@ export function GameMoveList({
     return index === firstActionableIndex && move.status === 'out-of-repertoire' && move.expectedMove;
   };
 
-  // Show add button for any selected move at or after the first actionable index
+  // Find the first out-of-book move index (for extending repertoire when no divergence)
+  const firstOutOfBookIndex = useMemo(() => {
+    return displayedMoves.findIndex(m => m.status === 'out-of-book');
+  }, [displayedMoves]);
+
+  // Show add button for moves at/after divergence, or out-of-book moves when no divergence
   const showAddButton = (index: number) => {
-    return onAddToRepertoire && firstActionableIndex !== -1 && index >= firstActionableIndex;
+    if (!onAddToRepertoire) return false;
+    if (firstActionableIndex !== -1 && index >= firstActionableIndex) return true;
+    if (firstActionableIndex === -1 && displayedMoves[index]?.status === 'out-of-book') return true;
+    return false;
+  };
+
+  // Show "Open in Repertoire" for in-repertoire moves
+  const showOpenButton = (index: number) => {
+    return onOpenInRepertoire && displayedMoves[index]?.status === 'in-repertoire';
   };
 
   // Compute button label: single move vs sequence
   const getAddButtonLabel = (index: number) => {
-    if (firstActionableIndex === -1) return 'Add to Repertoire';
-    const count = index - firstActionableIndex + 1;
+    let startIdx: number;
+    if (firstActionableIndex !== -1) {
+      startIdx = firstActionableIndex;
+    } else if (firstOutOfBookIndex !== -1) {
+      startIdx = firstOutOfBookIndex;
+    } else {
+      return 'Add to Repertoire';
+    }
+    const count = index - startIdx + 1;
     if (count <= 1) return 'Add to Repertoire';
     return `Add ${count} moves to Repertoire`;
   };
@@ -204,6 +226,15 @@ export function GameMoveList({
               <span className="text-text-muted text-sm">Expected:</span>
               <span className="font-mono font-semibold text-danger">{displayedMoves[currentMoveIndex].expectedMove}</span>
             </div>
+          )}
+          {showOpenButton(currentMoveIndex) && onOpenInRepertoire && (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => onOpenInRepertoire(displayedMoves[currentMoveIndex], currentMoveIndex)}
+            >
+              Open in Repertoire
+            </Button>
           )}
           {showAddButton(currentMoveIndex) && onAddToRepertoire && (
             <Button

@@ -96,6 +96,17 @@ export function GameAnalysisPage() {
     engine.analyze(currentFEN);
   }, [currentFEN, engine]);
 
+  const handleOpenInRepertoire = useCallback((_move: MoveAnalysis, clickedIndex: number) => {
+    if (!game?.matchedRepertoire) return;
+
+    const fen = computeFEN(game.moves, clickedIndex);
+    sessionStorage.setItem('pendingNavigateToFen', JSON.stringify({
+      repertoireId: game.matchedRepertoire.id,
+      fen
+    }));
+    navigate(`/repertoire/${game.matchedRepertoire.id}/edit`);
+  }, [game, navigate]);
+
   const handleAddToRepertoire = useCallback((_move: MoveAnalysis, clickedIndex: number) => {
     if (!game || !game.userColor) return;
 
@@ -108,9 +119,17 @@ export function GameAnalysisPage() {
     const divergenceIndex = game.moves.findIndex(
       m => m.status === 'opponent-new' || m.status === 'out-of-repertoire'
     );
-    if (divergenceIndex === -1) return;
 
-    const startIndex = divergenceIndex;
+    let startIndex: number;
+    if (divergenceIndex !== -1) {
+      startIndex = divergenceIndex;
+    } else {
+      // No divergence - find first out-of-book move to extend repertoire
+      const outOfBookIndex = game.moves.findIndex(m => m.status === 'out-of-book');
+      if (outOfBookIndex === -1) return;
+      startIndex = outOfBookIndex;
+    }
+
     const endIndex = clickedIndex;
 
     const gameInfo = `${game.headers.White || '?'} vs ${game.headers.Black || '?'}`;
@@ -254,6 +273,7 @@ export function GameAnalysisPage() {
             maxDisplayedIndex={maxDisplayedMoveIndex}
             onMoveClick={goToMove}
             onAddToRepertoire={game.matchedRepertoire ? handleAddToRepertoire : undefined}
+            onOpenInRepertoire={game.matchedRepertoire ? handleOpenInRepertoire : undefined}
             onCreateAndAdd={handleCreateAndAdd}
             onImportSuccess={handleImportSuccess}
             userColor={game.userColor}

@@ -40,6 +40,7 @@ export function usePendingAddNode(
   setRepertoire: (repertoire: Repertoire) => void
 ) {
   const pendingAddProcessed = useRef(false);
+  const pendingNavProcessed = useRef(false);
   const isProcessingRef = useRef(false);
 
   const addMoveDirectly = useCallback(async (
@@ -234,4 +235,30 @@ export function usePendingAddNode(
       isProcessingRef.current = false;
     }
   }, [repertoire, repertoireId, selectNode, setRepertoire, addMoveDirectly, addMoveSequence]);
+
+  // Handle navigate-to-FEN requests (from game analysis "Open in Repertoire")
+  useEffect(() => {
+    if (!repertoire || !repertoireId) return;
+    if (pendingNavProcessed.current) return;
+
+    const data = sessionStorage.getItem('pendingNavigateToFen');
+    if (!data) return;
+
+    pendingNavProcessed.current = true;
+    sessionStorage.removeItem('pendingNavigateToFen');
+
+    try {
+      const { repertoireId: navRepId, fen } = JSON.parse(data);
+      if (navRepId !== repertoireId) return;
+
+      const targetNode = findNodeByFEN(repertoire.treeData, fen);
+      if (targetNode) {
+        selectNode(targetNode.id);
+      } else {
+        toast.warning('Position not found in repertoire');
+      }
+    } catch {
+      // Silently ignore parse errors
+    }
+  }, [repertoire, repertoireId, selectNode]);
 }

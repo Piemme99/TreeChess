@@ -88,7 +88,7 @@ export function Dashboard() {
       )}
 
       {/* Repertoire strip */}
-      <motion.div variants={fadeUp} custom={hasAnalyzedGames ? 2 : 1}>
+      <motion.div variants={fadeUp} custom={hasAnalyzedGames ? 2 : 1} className="min-w-0">
         <RepertoireOverview repertoires={repertoires} />
       </motion.div>
 

@@ -129,3 +129,19 @@ textarea::placeholder {
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
+
+/* Utility: thin styled scrollbar */
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-primary-light, #e6a97e) transparent;
+}
+.scrollbar-thin::-webkit-scrollbar {
+  height: 4px;
+}
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background-color: var(--color-primary-light, #e6a97e);
+  border-radius: 9999px;
+}
