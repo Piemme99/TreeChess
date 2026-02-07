@@ -19,6 +19,7 @@ import type {
   StudyInfo,
   StudyImportResponse,
   InsightsResponse,
+  DashboardStatsResponse,
   Category,
   CategoryWithRepertoires,
   CreateCategoryRequest,
@@ -360,4 +361,11 @@ export const gamesApi = {
   dismissMistake: async (fen: string, playedMove: string): Promise<void> => {
     await api.post('/games/insights/dismiss', { fen, playedMove });
   }
+};
+
+export const dashboardApi = {
+  stats: async (options?: RequestOptions): Promise<DashboardStatsResponse> => {
+    const response = await api.get('/dashboard/stats', { signal: options?.signal });
+    return response.data;
+  },
 };

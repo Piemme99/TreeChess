@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { Crown } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { OnboardingModal } from './OnboardingModal';
+import { fadeUp, staggerContainer } from '../../shared/utils/animations';
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
@@ -86,29 +89,51 @@ export function LoginPage() {
     }
   };
 
+  const inputClass = "py-2 px-4 border border-border rounded-xl text-[0.9375rem] font-sans transition-all duration-150 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20";
+
   return (
-    <div className="flex items-center justify-center min-h-screen bg-bg p-4 animate-fade-in">
-      <div className="bg-bg-card rounded-xl shadow-lg p-8 w-full max-w-[400px]">
-        <h1 className="text-center text-3xl font-bold mb-1">
-          Tree<span className="text-primary">Chess</span>
+    <div className="flex items-center justify-center min-h-screen bg-bg p-4">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+        className="bg-bg-card rounded-2xl shadow-xl shadow-primary/5 border border-primary/10 p-8 w-full max-w-[400px]"
+      >
+        <div className="flex justify-center mb-2">
+          <div className="w-11 h-11 bg-gradient-to-br from-primary to-primary-hover rounded-xl flex items-center justify-center shadow-md shadow-primary/20">
+            <Crown size={22} className="text-white" />
+          </div>
+        </div>
+        <h1 className="text-center text-2xl font-bold mb-1 font-display tracking-tight">
+          <span className="bg-gradient-to-r from-primary to-primary-hover bg-clip-text text-transparent">TreeChess</span>
         </h1>
-        <h2 className="text-center text-lg text-text-muted mb-8 font-medium">{isRegister ? 'Create Account' : 'Sign In'}</h2>
+        <h2 className="text-center text-base text-text-muted mb-8 font-medium">{isRegister ? 'Create Account' : 'Sign In'}</h2>
 
         {!isRegister && (
           <>
-            <a href={`${API_BASE}/auth/lichess/login`} className="block w-full py-2 px-4 bg-bg border border-border rounded-md text-[0.9375rem] font-medium cursor-pointer transition-all duration-150 font-sans text-center no-underline text-text hover:border-border-dark hover:shadow-sm focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2">
+            <a href={`${API_BASE}/auth/lichess/login`} className="block w-full py-2.5 px-4 bg-bg border border-primary/15 rounded-xl text-[0.9375rem] font-medium cursor-pointer transition-all duration-150 font-sans text-center no-underline text-text hover:border-primary/30 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20">
               Sign in with Lichess
             </a>
-            <div className="flex items-center my-4 text-text-muted text-[0.8125rem] before:content-[''] before:flex-1 before:border-b before:border-border after:content-[''] after:flex-1 after:border-b after:border-border">
+            <div className="flex items-center my-4 text-text-muted text-[0.8125rem] before:content-[''] before:flex-1 before:border-b before:border-primary/10 after:content-[''] after:flex-1 after:border-b after:border-primary/10">
               <span className="px-2">or</span>
             </div>
           </>
         )}
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          {error && <div className="bg-danger-light text-danger py-2 px-4 rounded-md text-sm">{error}</div>}
+        <motion.form
+          onSubmit={handleSubmit}
+          className="flex flex-col gap-4"
+          variants={staggerContainer}
+          initial="hidden"
+          animate="visible"
+        >
+          {error && <div className="bg-danger-light text-danger py-2 px-4 rounded-xl text-sm">{error}</div>}
 
-          <div className="flex flex-col gap-1">
+          <motion.div
+            variants={fadeUp}
+            custom={0}
+            className="flex flex-col gap-1"
+          >
             <label htmlFor="email" className="text-sm font-medium text-text">Email</label>
             <input
               id="email"
@@ -118,12 +143,16 @@ export function LoginPage() {
               placeholder="Enter email"
               autoComplete="email"
               required
-              className="py-2 px-4 border border-border rounded-md text-[0.9375rem] font-sans transition-colors duration-150 focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary-light"
+              className={inputClass}
             />
-          </div>
+          </motion.div>
 
           {isRegister && (
-            <div className="flex flex-col gap-1">
+            <motion.div
+              variants={fadeUp}
+              custom={1}
+              className="flex flex-col gap-1"
+            >
               <label htmlFor="username" className="text-sm font-medium text-text">Username</label>
               <input
                 id="username"
@@ -135,12 +164,16 @@ export function LoginPage() {
                 required
                 minLength={3}
                 maxLength={50}
-                className="py-2 px-4 border border-border rounded-md text-[0.9375rem] font-sans transition-colors duration-150 focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary-light"
+                className={inputClass}
               />
-            </div>
+            </motion.div>
           )}
 
-          <div className="flex flex-col gap-1">
+          <motion.div
+            variants={fadeUp}
+            custom={2}
+            className="flex flex-col gap-1"
+          >
             <div className="flex justify-between items-center">
               <label htmlFor="password" className="text-sm font-medium text-text">Password</label>
               {!isRegister && (
@@ -158,12 +191,16 @@ export function LoginPage() {
               autoComplete={isRegister ? 'new-password' : 'current-password'}
               required
               minLength={8}
-              className="py-2 px-4 border border-border rounded-md text-[0.9375rem] font-sans transition-colors duration-150 focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary-light"
+              className={inputClass}
             />
-          </div>
+          </motion.div>
 
           {isRegister && (
-            <div className="flex flex-col gap-1">
+            <motion.div
+              variants={fadeUp}
+              custom={3}
+              className="flex flex-col gap-1"
+            >
               <label htmlFor="confirmPassword" className="text-sm font-medium text-text">Confirm Password</label>
               <input
                 id="confirmPassword"
@@ -174,23 +211,31 @@ export function LoginPage() {
                 autoComplete="new-password"
                 required
                 minLength={8}
-                className="py-2 px-4 border border-border rounded-md text-[0.9375rem] font-sans transition-colors duration-150 focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary-light"
+                className={inputClass}
               />
-            </div>
+            </motion.div>
           )}
 
-          <button type="submit" className="py-2 px-4 bg-primary text-white border-none rounded-md text-[0.9375rem] font-medium cursor-pointer transition-colors duration-150 font-sans mt-2 hover:not-disabled:bg-primary-hover disabled:opacity-60 disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2" disabled={submitting}>
+          <motion.button
+            variants={fadeUp}
+            custom={4}
+            whileHover={submitting ? undefined : { scale: 1.04, boxShadow: '0 20px 40px -12px rgba(230, 126, 34, 0.3)' }}
+            whileTap={submitting ? undefined : { scale: 0.97 }}
+            type="submit"
+            className="py-2.5 px-4 bg-gradient-to-r from-primary to-primary-hover text-white border-none rounded-xl text-[0.9375rem] font-medium cursor-pointer transition-all duration-150 font-sans mt-2 shadow-md shadow-primary/20 disabled:opacity-60 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+            disabled={submitting}
+          >
             {submitting ? 'Loading...' : isRegister ? 'Create Account' : 'Sign In'}
-          </button>
-        </form>
+          </motion.button>
+        </motion.form>
 
         <div className="text-center mt-6 text-sm text-text-muted">
           {isRegister ? 'Already have an account?' : "Don't have an account?"}{' '}
-          <button type="button" className="bg-transparent border-none text-primary cursor-pointer text-sm font-medium font-sans hover:underline focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 rounded-sm" onClick={toggleMode}>
+          <button type="button" className="bg-transparent border-none text-primary cursor-pointer text-sm font-medium font-sans hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 rounded-sm" onClick={toggleMode}>
             {isRegister ? 'Sign In' : 'Create Account'}
           </button>
         </div>
-      </div>
+      </motion.div>
 
       <OnboardingModal
         isOpen={needsOnboarding}

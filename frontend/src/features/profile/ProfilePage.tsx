@@ -1,8 +1,10 @@
 import { useState, useEffect, useMemo } from 'react';
+import { motion } from 'framer-motion';
 import { useAuthStore } from '../../stores/authStore';
 import { Button } from '../../shared/components/UI';
 import { toast } from '../../stores/toastStore';
 import { authApi } from '../../services/api';
+import { fadeUp, staggerContainer } from '../../shared/utils/animations';
 import type { TimeFormat } from '../../types';
 
 export function ProfilePage() {
@@ -134,9 +136,14 @@ export function ProfilePage() {
 
   return (
     <div className="max-w-[600px] mx-auto w-full">
-      <div className="flex flex-col gap-6">
-        <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-semibold">Profile</h2>
+      <motion.div
+        variants={staggerContainer}
+        initial="hidden"
+        animate="visible"
+        className="flex flex-col gap-6"
+      >
+        <motion.div variants={fadeUp} custom={0} className="flex items-center justify-between">
+          <h2 className="text-2xl font-semibold font-display">Profile</h2>
           <Button
             variant="primary"
             onClick={handleSubmit}
@@ -145,10 +152,10 @@ export function ProfilePage() {
           >
             Save
           </Button>
-        </div>
+        </motion.div>
 
-        <div className="bg-bg-card rounded-lg p-6 border border-border">
-          <h3 className="text-base font-semibold mb-1">Chess Usernames</h3>
+        <motion.div variants={fadeUp} custom={1} className="bg-bg-card rounded-2xl p-6 border border-primary/10 shadow-sm shadow-primary/10">
+          <h3 className="text-base font-semibold font-display mb-1">Chess Usernames</h3>
           <p className="text-sm text-text-muted mb-4">
             Link your accounts to import games easily.
           </p>
@@ -165,7 +172,7 @@ export function ProfilePage() {
                 placeholder="Lichess username"
                 disabled={isLichessOAuth}
                 maxLength={50}
-                className="py-2 px-4 border border-border rounded-md text-[0.9375rem] font-sans focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary-light disabled:opacity-60 disabled:cursor-not-allowed"
+                className="py-2 px-4 border border-border rounded-xl text-[0.9375rem] font-sans focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary-light disabled:opacity-60 disabled:cursor-not-allowed"
               />
               {isLichessOAuth && (
                 <span className="text-xs text-text-muted">Linked via Lichess OAuth</span>
@@ -182,14 +189,14 @@ export function ProfilePage() {
                 onChange={(e) => setChesscomUsername(e.target.value)}
                 placeholder="Chess.com username"
                 maxLength={50}
-                className="py-2 px-4 border border-border rounded-md text-[0.9375rem] font-sans focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary-light"
+                className="py-2 px-4 border border-border rounded-xl text-[0.9375rem] font-sans focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary-light"
               />
             </div>
           </div>
-        </div>
+        </motion.div>
 
-        <div className="bg-bg-card rounded-lg p-6 border border-border">
-          <h3 className="text-base font-semibold mb-1">Time Formats</h3>
+        <motion.div variants={fadeUp} custom={2} className="bg-bg-card rounded-2xl p-6 border border-primary/10 shadow-sm shadow-primary/10">
+          <h3 className="text-base font-semibold font-display mb-1">Time Formats</h3>
           <p className="text-sm text-text-muted mb-4">
             Select which time controls to sync from Lichess/Chess.com.
           </p>
@@ -199,7 +206,7 @@ export function ProfilePage() {
                 key={format}
                 type="button"
                 onClick={() => toggleTimeFormat(format)}
-                className={`py-2 px-4 rounded-md text-sm font-medium transition-all duration-150 border-2 ${
+                className={`py-2 px-4 rounded-xl text-sm font-medium transition-all duration-150 border-2 ${
                   timeFormats.has(format)
                     ? 'border-primary bg-primary text-white'
                     : 'border-border bg-transparent text-text hover:border-primary'
@@ -210,16 +217,16 @@ export function ProfilePage() {
             ))}
           </div>
           <p className="text-xs text-text-muted mt-2">At least one format is required.</p>
-        </div>
+        </motion.div>
 
         {hasPassword && (
-          <div className="bg-bg-card rounded-lg p-6 border border-border">
-            <h3 className="text-base font-semibold mb-1">Change Password</h3>
+          <motion.div variants={fadeUp} custom={3} className="bg-bg-card rounded-2xl p-6 border border-primary/10 shadow-sm shadow-primary/10">
+            <h3 className="text-base font-semibold font-display mb-1">Change Password</h3>
             <p className="text-sm text-text-muted mb-4">
               Update your account password.
             </p>
             {passwordError && (
-              <div className="bg-danger-light text-danger py-2 px-4 rounded-md text-sm mb-4">
+              <div className="bg-danger-light text-danger py-2 px-4 rounded-xl text-sm mb-4">
                 {passwordError}
               </div>
             )}
@@ -235,7 +242,7 @@ export function ProfilePage() {
                   onChange={(e) => setCurrentPassword(e.target.value)}
                   placeholder="Enter current password"
                   autoComplete="current-password"
-                  className="py-2 px-4 border border-border rounded-md text-[0.9375rem] font-sans focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary-light"
+                  className="py-2 px-4 border border-border rounded-xl text-[0.9375rem] font-sans focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary-light"
                 />
               </div>
               <div className="flex flex-col gap-1">
@@ -250,7 +257,7 @@ export function ProfilePage() {
                   placeholder="Enter new password"
                   autoComplete="new-password"
                   minLength={8}
-                  className="py-2 px-4 border border-border rounded-md text-[0.9375rem] font-sans focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary-light"
+                  className="py-2 px-4 border border-border rounded-xl text-[0.9375rem] font-sans focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary-light"
                 />
               </div>
               <div className="flex flex-col gap-1">
@@ -265,7 +272,7 @@ export function ProfilePage() {
                   placeholder="Confirm new password"
                   autoComplete="new-password"
                   minLength={8}
-                  className="py-2 px-4 border border-border rounded-md text-[0.9375rem] font-sans focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary-light"
+                  className="py-2 px-4 border border-border rounded-xl text-[0.9375rem] font-sans focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary-light"
                 />
               </div>
               <Button
@@ -277,9 +284,9 @@ export function ProfilePage() {
                 Change Password
               </Button>
             </div>
-          </div>
+          </motion.div>
         )}
-      </div>
+      </motion.div>
     </div>
   );
 }

@@ -27,7 +27,7 @@ const TABS = [
     id: 'sync',
     label: 'Auto-Sync',
     icon: RefreshCw,
-    description: 'Connect Lichess or Chess.com and let ChessTool auto-import your games. Never miss a deviation again.',
+    description: 'Connect Lichess or Chess.com and let TreeChess auto-import your games. Never miss a deviation again.',
     screen: SyncScreen,
   },
   {
@@ -54,7 +54,7 @@ export function FeatureShowcase() {
             Everything you need to master openings
           </h2>
           <p className="text-text-muted max-w-xl mx-auto leading-relaxed">
-            From importing your games to building complete repertoires, ChessTool
+            From importing your games to building complete repertoires, TreeChess
             gives you the tools to study smarter.
           </p>
         </motion.div>

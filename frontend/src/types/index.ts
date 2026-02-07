@@ -144,7 +144,7 @@ export interface PGNHeaders {
   ECOUrl?: string;
 }
 
-export type MoveStatus = 'in-repertoire' | 'out-of-repertoire' | 'opponent-new';
+export type MoveStatus = 'in-repertoire' | 'out-of-repertoire' | 'opponent-new' | 'out-of-book';
 
 export interface MoveAnalysis {
   plyNumber: number;
@@ -234,6 +234,34 @@ export interface InsightsResponse {
   engineAnalysisDone: boolean;
   engineAnalysisTotal: number;
   engineAnalysisCompleted: number;
+}
+
+// Dashboard types
+export interface RepertoireStats {
+  repertoireId: string;
+  repertoireName: string;
+  color: Color;
+  gameCount: number;
+  coveragePercent: number;
+  winRate: number;
+  winRateInRep: number;
+  winRateOutRep: number;
+  inRepCount: number;
+  outRepCount: number;
+}
+
+export interface DashboardStatsResponse {
+  totalGames: number;
+  wins: number;
+  losses: number;
+  draws: number;
+  overallWinRate: number;
+  overallCoverage: number;
+  winRateInRep: number;
+  winRateOutRep: number;
+  inRepCount: number;
+  outRepCount: number;
+  repertoires: RepertoireStats[];
 }
 
 // API types

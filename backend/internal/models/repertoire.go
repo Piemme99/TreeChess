@@ -317,3 +317,32 @@ type GamesResponse struct {
 	Limit  int           `json:"limit"`
 	Offset int           `json:"offset"`
 }
+
+// RepertoireStats holds per-repertoire dashboard metrics
+type RepertoireStats struct {
+	RepertoireID   string  `json:"repertoireId"`
+	RepertoireName string  `json:"repertoireName"`
+	Color          Color   `json:"color"`
+	GameCount      int     `json:"gameCount"`
+	CoveragePercent float64 `json:"coveragePercent"`
+	WinRate        float64 `json:"winRate"`
+	WinRateInRep   float64 `json:"winRateInRep"`
+	WinRateOutRep  float64 `json:"winRateOutRep"`
+	InRepCount     int     `json:"inRepCount"`
+	OutRepCount    int     `json:"outRepCount"`
+}
+
+// DashboardStatsResponse is the response for GET /api/dashboard/stats
+type DashboardStatsResponse struct {
+	TotalGames      int               `json:"totalGames"`
+	Wins            int               `json:"wins"`
+	Losses          int               `json:"losses"`
+	Draws           int               `json:"draws"`
+	OverallWinRate  float64           `json:"overallWinRate"`
+	OverallCoverage float64           `json:"overallCoverage"`
+	WinRateInRep    float64           `json:"winRateInRep"`
+	WinRateOutRep   float64           `json:"winRateOutRep"`
+	InRepCount      int               `json:"inRepCount"`
+	OutRepCount     int               `json:"outRepCount"`
+	Repertoires     []RepertoireStats `json:"repertoires"`
+}

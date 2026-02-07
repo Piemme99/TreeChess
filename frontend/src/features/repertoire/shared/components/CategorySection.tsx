@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import { Button, ConfirmModal } from '../../../../shared/components/UI';
@@ -113,8 +114,8 @@ export function CategorySection({
   return (
     <div
       ref={setNodeRef}
-      className={`border rounded-md overflow-hidden mb-2 transition-colors ${
-        isOver ? 'border-2 border-primary bg-primary-light' : 'border-border'
+      className={`border rounded-xl overflow-hidden mb-2 transition-colors ${
+        isOver ? 'border-2 border-primary bg-primary-light' : 'border-primary/10'
       }`}
     >
       {/* Category header */}
@@ -134,7 +135,7 @@ export function CategorySection({
               value={categoryName}
               onChange={(e) => setCategoryName(e.target.value)}
               placeholder="Category name"
-              className="flex-1 py-1 px-3 border border-border rounded-md text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary-light"
+              className="flex-1 py-1 px-3 border border-border rounded-xl text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary-light"
               autoFocus
               onKeyDown={(e) => {
                 if (e.key === 'Enter') handleRenameCategory();
@@ -182,107 +183,118 @@ export function CategorySection({
       </div>
 
       {/* Repertoires list */}
-      {isExpanded && (
-        <div className="flex flex-col gap-1 p-2 bg-bg">
-          {repertoires.length === 0 ? (
-            <div className="text-text-muted italic p-2 text-center text-sm">
-              {isOver ? (
-                <span className="text-primary font-medium">Drop here to add</span>
+      <AnimatePresence initial={false}>
+        {isExpanded && (
+          <motion.div
+            key="category-content"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+            style={{ overflow: 'hidden' }}
+          >
+            <div className="flex flex-col gap-1 p-2 bg-bg">
+              {repertoires.length === 0 ? (
+                <div className="text-text-muted italic p-2 text-center text-sm">
+                  {isOver ? (
+                    <span className="text-primary font-medium">Drop here to add</span>
+                  ) : (
+                    'No repertoires in this category'
+                  )}
+                </div>
               ) : (
-                'No repertoires in this category'
+                repertoires.map((rep) => (
+                  <DraggableCategoryItem key={rep.id} repertoire={rep}>
+                    {(dragAttributes, dragListeners) => (
+                      <div
+                        className={`flex items-center justify-between p-3 bg-bg-card rounded-xl gap-3${selectedIds.has(rep.id) ? ' outline-2 outline-primary outline-offset-[-2px]' : ''}`}
+                      >
+                        {editingId === rep.id ? (
+                          <div className="flex gap-2 flex-1 items-center">
+                            <input
+                              type="text"
+                              value={editName}
+                              onChange={(e) => onEditNameChange(e.target.value)}
+                              placeholder="Repertoire name"
+                              className="flex-1 py-1 px-3 border border-border rounded-xl text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary-light"
+                              autoFocus
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') onRename(rep.id);
+                                if (e.key === 'Escape') onCancelEditing();
+                              }}
+                            />
+                            <Button variant="primary" size="sm" onClick={() => onRename(rep.id)} disabled={loading}>
+                              Save
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={onCancelEditing} disabled={loading}>
+                              Cancel
+                            </Button>
+                          </div>
+                        ) : (
+                          <>
+                            <div
+                              className="flex items-center shrink-0 cursor-grab active:cursor-grabbing p-1 text-text-muted hover:text-text"
+                              {...dragAttributes}
+                              {...dragListeners}
+                            >
+                              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                <circle cx="5" cy="4" r="1.5" />
+                                <circle cx="11" cy="4" r="1.5" />
+                                <circle cx="5" cy="8" r="1.5" />
+                                <circle cx="11" cy="8" r="1.5" />
+                                <circle cx="5" cy="12" r="1.5" />
+                                <circle cx="11" cy="12" r="1.5" />
+                              </svg>
+                            </div>
+                            <label className="flex items-center shrink-0 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={selectedIds.has(rep.id)}
+                                onChange={() => onToggleSelection(rep.id)}
+                                className="w-4 h-4 cursor-pointer accent-primary"
+                              />
+                            </label>
+                            <div className="flex flex-col gap-0.5 flex-1 min-w-0">
+                              <span
+                                className="font-medium text-sm whitespace-nowrap overflow-hidden text-ellipsis cursor-text"
+                                onDoubleClick={() => onStartEditing(rep.id, rep.name)}
+                              >
+                                {rep.name}
+                              </span>
+                              <span className="text-xs text-text-muted">
+                                {rep.metadata.totalMoves} moves, depth {rep.metadata.deepestDepth}
+                              </span>
+                            </div>
+                            <div className="flex gap-1 shrink-0">
+                              <Button
+                                variant="primary"
+                                size="sm"
+                                onClick={() => navigate(`/repertoire/${rep.id}/edit`)}
+                              >
+                                Open
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => onDelete(rep.id, rep.name)}
+                                disabled={loading}
+                              >
+                                <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5">
+                                  <path d="M2 4h12M5.5 4V2.5a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1V4M6.5 7v5M9.5 7v5M3.5 4l.5 9a1.5 1.5 0 0 0 1.5 1.5h5A1.5 1.5 0 0 0 12 13l.5-9" strokeLinecap="round" strokeLinejoin="round" />
+                                </svg>
+                              </Button>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </DraggableCategoryItem>
+                ))
               )}
             </div>
-          ) : (
-            repertoires.map((rep) => (
-              <DraggableCategoryItem key={rep.id} repertoire={rep}>
-                {(dragAttributes, dragListeners) => (
-                  <div
-                    className={`flex items-center justify-between p-3 bg-bg-card rounded-md gap-3${selectedIds.has(rep.id) ? ' outline-2 outline-primary outline-offset-[-2px]' : ''}`}
-                  >
-                    {editingId === rep.id ? (
-                      <div className="flex gap-2 flex-1 items-center">
-                        <input
-                          type="text"
-                          value={editName}
-                          onChange={(e) => onEditNameChange(e.target.value)}
-                          placeholder="Repertoire name"
-                          className="flex-1 py-1 px-3 border border-border rounded-md text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary-light"
-                          autoFocus
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') onRename(rep.id);
-                            if (e.key === 'Escape') onCancelEditing();
-                          }}
-                        />
-                        <Button variant="primary" size="sm" onClick={() => onRename(rep.id)} disabled={loading}>
-                          Save
-                        </Button>
-                        <Button variant="ghost" size="sm" onClick={onCancelEditing} disabled={loading}>
-                          Cancel
-                        </Button>
-                      </div>
-                    ) : (
-                      <>
-                        <div
-                          className="flex items-center shrink-0 cursor-grab active:cursor-grabbing p-1 text-text-muted hover:text-text"
-                          {...dragAttributes}
-                          {...dragListeners}
-                        >
-                          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                            <circle cx="5" cy="4" r="1.5" />
-                            <circle cx="11" cy="4" r="1.5" />
-                            <circle cx="5" cy="8" r="1.5" />
-                            <circle cx="11" cy="8" r="1.5" />
-                            <circle cx="5" cy="12" r="1.5" />
-                            <circle cx="11" cy="12" r="1.5" />
-                          </svg>
-                        </div>
-                        <label className="flex items-center shrink-0 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={selectedIds.has(rep.id)}
-                            onChange={() => onToggleSelection(rep.id)}
-                            className="w-4 h-4 cursor-pointer accent-primary"
-                          />
-                        </label>
-                        <div className="flex flex-col gap-0.5 flex-1 min-w-0">
-                          <span
-                            className="font-medium text-sm whitespace-nowrap overflow-hidden text-ellipsis cursor-text"
-                            onDoubleClick={() => onStartEditing(rep.id, rep.name)}
-                          >
-                            {rep.name}
-                          </span>
-                          <span className="text-xs text-text-muted">
-                            {rep.metadata.totalMoves} moves, depth {rep.metadata.deepestDepth}
-                          </span>
-                        </div>
-                        <div className="flex gap-1 shrink-0">
-                          <Button
-                            variant="primary"
-                            size="sm"
-                            onClick={() => navigate(`/repertoire/${rep.id}/edit`)}
-                          >
-                            Open
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => onDelete(rep.id, rep.name)}
-                            disabled={loading}
-                          >
-                            <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5">
-                              <path d="M2 4h12M5.5 4V2.5a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1V4M6.5 7v5M9.5 7v5M3.5 4l.5 9a1.5 1.5 0 0 0 1.5 1.5h5A1.5 1.5 0 0 0 12 13l.5-9" strokeLinecap="round" strokeLinejoin="round" />
-                            </svg>
-                          </Button>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                )}
-              </DraggableCategoryItem>
-            ))
-          )}
-        </div>
-      )}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <ConfirmModal
         isOpen={showDeleteModal}

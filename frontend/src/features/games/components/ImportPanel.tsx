@@ -1,4 +1,5 @@
 import { useRef, useState, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Button, Loading } from '../../../shared/components/UI';
 import type { UseFileUploadReturn } from '../../analyse-tab/hooks/useFileUpload';
 import type { UseLichessImportReturn } from '../../analyse-tab/hooks/useLichessImport';
@@ -72,8 +73,8 @@ export function ImportPanel({ username, onUsernameChange, fileUploadState, liche
     }`;
 
   return (
-    <div className="bg-bg-card rounded-lg shadow-sm overflow-hidden mb-6">
-      <div className="flex border-b border-border">
+    <div className="bg-bg-card rounded-2xl shadow-sm overflow-hidden mb-6">
+      <div className="flex border-b border-primary/10">
         <button className={tabClass('lichess')} onClick={() => setActiveTab('lichess')}>Lichess</button>
         <button className={tabClass('chesscom')} onClick={() => setActiveTab('chesscom')}>Chess.com</button>
         <button className={tabClass('pgn')} onClick={() => setActiveTab('pgn')}>PGN File</button>
@@ -90,7 +91,7 @@ export function ImportPanel({ username, onUsernameChange, fileUploadState, liche
               onChange={(e) => onUsernameChange(e.target.value)}
               placeholder={`Enter your ${activeTab === 'lichess' ? 'Lichess' : 'Chess.com'} username`}
               disabled={isLoading}
-              className="w-full py-2 px-4 border border-border rounded-md text-base font-sans focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary-light"
+              className="w-full py-2 px-4 border border-primary/10 rounded-xl text-base font-sans focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary-light"
             />
           </div>
         )}
@@ -106,45 +107,56 @@ export function ImportPanel({ username, onUsernameChange, fileUploadState, liche
               </Button>
             </div>
 
-            {showLichessOptions && (
-              <div className="mt-4 p-4 bg-bg rounded-md flex flex-col gap-4">
-                <div className="flex items-center gap-4">
-                  <label htmlFor="lichess-max" className="min-w-[140px] font-medium text-text-muted">Number of games:</label>
-                  <input id="lichess-max" type="number" min={1} max={100} value={lichessOptions.max || 20}
-                    onChange={(e) => setLichessOptions({ ...lichessOptions, max: parseInt(e.target.value) || 20 })}
-                    disabled={isLoading}
-                    className="flex-1 py-2 px-4 border border-border rounded-md text-base font-sans max-w-[100px] focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary-light"
-                  />
-                </div>
-                <div className="flex items-center gap-4">
-                  <label htmlFor="lichess-rated" className="min-w-[140px] font-medium text-text-muted">Game type:</label>
-                  <select id="lichess-rated" value={lichessOptions.rated === undefined ? '' : lichessOptions.rated ? 'rated' : 'casual'}
-                    onChange={(e) => setLichessOptions({ ...lichessOptions, rated: e.target.value === '' ? undefined : e.target.value === 'rated' })}
-                    disabled={isLoading}
-                    className="flex-1 py-2 px-4 border border-border rounded-md text-base font-sans focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary-light"
-                  >
-                    <option value="">All games</option>
-                    <option value="rated">Rated only</option>
-                    <option value="casual">Casual only</option>
-                  </select>
-                </div>
-                <div className="flex items-center gap-4">
-                  <label htmlFor="lichess-perf" className="min-w-[140px] font-medium text-text-muted">Time control:</label>
-                  <select id="lichess-perf" value={lichessOptions.perfType || ''}
-                    onChange={(e) => setLichessOptions({ ...lichessOptions, perfType: e.target.value as LichessImportOptions['perfType'] || undefined })}
-                    disabled={isLoading}
-                    className="flex-1 py-2 px-4 border border-border rounded-md text-base font-sans focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary-light"
-                  >
-                    <option value="">All</option>
-                    <option value="bullet">Bullet</option>
-                    <option value="blitz">Blitz</option>
-                    <option value="rapid">Rapid</option>
-                    <option value="classical">Classical</option>
-                  </select>
-                </div>
-                <Button onClick={handleCustomLichess} disabled={isLoading}>Import with options</Button>
-              </div>
-            )}
+            <AnimatePresence initial={false}>
+              {showLichessOptions && (
+                <motion.div
+                  key="lichess-options"
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+                  style={{ overflow: 'hidden' }}
+                >
+                  <div className="mt-4 p-4 bg-bg rounded-xl flex flex-col gap-4">
+                    <div className="flex items-center gap-4">
+                      <label htmlFor="lichess-max" className="min-w-[140px] font-medium text-text-muted">Number of games:</label>
+                      <input id="lichess-max" type="number" min={1} max={100} value={lichessOptions.max || 20}
+                        onChange={(e) => setLichessOptions({ ...lichessOptions, max: parseInt(e.target.value) || 20 })}
+                        disabled={isLoading}
+                        className="flex-1 py-2 px-4 border border-primary/10 rounded-xl text-base font-sans max-w-[100px] focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary-light"
+                      />
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <label htmlFor="lichess-rated" className="min-w-[140px] font-medium text-text-muted">Game type:</label>
+                      <select id="lichess-rated" value={lichessOptions.rated === undefined ? '' : lichessOptions.rated ? 'rated' : 'casual'}
+                        onChange={(e) => setLichessOptions({ ...lichessOptions, rated: e.target.value === '' ? undefined : e.target.value === 'rated' })}
+                        disabled={isLoading}
+                        className="flex-1 py-2 px-4 border border-primary/10 rounded-xl text-base font-sans focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary-light"
+                      >
+                        <option value="">All games</option>
+                        <option value="rated">Rated only</option>
+                        <option value="casual">Casual only</option>
+                      </select>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <label htmlFor="lichess-perf" className="min-w-[140px] font-medium text-text-muted">Time control:</label>
+                      <select id="lichess-perf" value={lichessOptions.perfType || ''}
+                        onChange={(e) => setLichessOptions({ ...lichessOptions, perfType: e.target.value as LichessImportOptions['perfType'] || undefined })}
+                        disabled={isLoading}
+                        className="flex-1 py-2 px-4 border border-primary/10 rounded-xl text-base font-sans focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary-light"
+                      >
+                        <option value="">All</option>
+                        <option value="bullet">Bullet</option>
+                        <option value="blitz">Blitz</option>
+                        <option value="rapid">Rapid</option>
+                        <option value="classical">Classical</option>
+                      </select>
+                    </div>
+                    <Button onClick={handleCustomLichess} disabled={isLoading}>Import with options</Button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         )}
 
@@ -159,40 +171,51 @@ export function ImportPanel({ username, onUsernameChange, fileUploadState, liche
               </Button>
             </div>
 
-            {showChesscomOptions && (
-              <div className="mt-4 p-4 bg-bg rounded-md flex flex-col gap-4">
-                <div className="flex items-center gap-4">
-                  <label htmlFor="chesscom-max" className="min-w-[140px] font-medium text-text-muted">Number of games:</label>
-                  <input id="chesscom-max" type="number" min={1} max={100} value={chesscomOptions.max || 20}
-                    onChange={(e) => setChesscomOptions({ ...chesscomOptions, max: parseInt(e.target.value) || 20 })}
-                    disabled={isLoading}
-                    className="flex-1 py-2 px-4 border border-border rounded-md text-base font-sans max-w-[100px] focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary-light"
-                  />
-                </div>
-                <div className="flex items-center gap-4">
-                  <label htmlFor="chesscom-time" className="min-w-[140px] font-medium text-text-muted">Time control:</label>
-                  <select id="chesscom-time" value={chesscomOptions.timeClass || ''}
-                    onChange={(e) => setChesscomOptions({ ...chesscomOptions, timeClass: e.target.value as ChesscomImportOptions['timeClass'] || undefined })}
-                    disabled={isLoading}
-                    className="flex-1 py-2 px-4 border border-border rounded-md text-base font-sans focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary-light"
-                  >
-                    <option value="">All</option>
-                    <option value="bullet">Bullet</option>
-                    <option value="blitz">Blitz</option>
-                    <option value="rapid">Rapid</option>
-                    <option value="daily">Daily</option>
-                  </select>
-                </div>
-                <Button onClick={handleCustomChesscom} disabled={isLoading}>Import with options</Button>
-              </div>
-            )}
+            <AnimatePresence initial={false}>
+              {showChesscomOptions && (
+                <motion.div
+                  key="chesscom-options"
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+                  style={{ overflow: 'hidden' }}
+                >
+                  <div className="mt-4 p-4 bg-bg rounded-xl flex flex-col gap-4">
+                    <div className="flex items-center gap-4">
+                      <label htmlFor="chesscom-max" className="min-w-[140px] font-medium text-text-muted">Number of games:</label>
+                      <input id="chesscom-max" type="number" min={1} max={100} value={chesscomOptions.max || 20}
+                        onChange={(e) => setChesscomOptions({ ...chesscomOptions, max: parseInt(e.target.value) || 20 })}
+                        disabled={isLoading}
+                        className="flex-1 py-2 px-4 border border-primary/10 rounded-xl text-base font-sans max-w-[100px] focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary-light"
+                      />
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <label htmlFor="chesscom-time" className="min-w-[140px] font-medium text-text-muted">Time control:</label>
+                      <select id="chesscom-time" value={chesscomOptions.timeClass || ''}
+                        onChange={(e) => setChesscomOptions({ ...chesscomOptions, timeClass: e.target.value as ChesscomImportOptions['timeClass'] || undefined })}
+                        disabled={isLoading}
+                        className="flex-1 py-2 px-4 border border-primary/10 rounded-xl text-base font-sans focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary-light"
+                      >
+                        <option value="">All</option>
+                        <option value="bullet">Bullet</option>
+                        <option value="blitz">Blitz</option>
+                        <option value="rapid">Rapid</option>
+                        <option value="daily">Daily</option>
+                      </select>
+                    </div>
+                    <Button onClick={handleCustomChesscom} disabled={isLoading}>Import with options</Button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         )}
 
         {activeTab === 'pgn' && (
           <div
-            className={`border-2 border-dashed rounded-lg p-12 text-center cursor-pointer transition-all duration-150 ${
-              dragOver ? 'border-primary bg-primary-light' : 'border-border'
+            className={`border-2 border-dashed rounded-2xl p-12 text-center cursor-pointer transition-all duration-150 ${
+              dragOver ? 'border-primary bg-primary-light' : 'border-primary/30'
             } ${uploading ? 'pointer-events-none opacity-70' : ''}`}
             onDrop={handleDrop}
             onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}

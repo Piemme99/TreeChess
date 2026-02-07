@@ -1,6 +1,8 @@
 import { useNavigate } from 'react-router-dom';
 import { useState } from 'react';
+import { motion } from 'framer-motion';
 import { Button } from '../../../shared/components/UI';
+import { fadeUp } from '../../../shared/utils/animations';
 import { useRepertoireStore } from '../../../stores/repertoireStore';
 import { toast } from '../../../stores/toastStore';
 import { TemplatePicker } from './TemplatePicker';
@@ -35,11 +37,16 @@ export function EmptyRepertoireState({ onRefresh }: EmptyRepertoireStateProps) {
   };
 
   return (
-    <div className="flex flex-col items-center text-center py-12 px-6 bg-bg-card rounded-lg shadow-sm">
+    <motion.div
+      variants={fadeUp}
+      initial="hidden"
+      animate="visible"
+      className="flex flex-col items-center text-center py-12 px-6 bg-bg-card rounded-2xl shadow-sm border border-primary/10"
+    >
       <div className="text-5xl mb-4 leading-none">
         <span>&#9812;</span>{' '}<span>&#9818;</span>
       </div>
-      <h3 className="text-2xl font-semibold mb-2">Start building your repertoire</h3>
+      <h3 className="text-2xl font-semibold font-display mb-2">Start building your repertoire</h3>
       <p className="text-text-muted mb-6 max-w-[400px]">
         A repertoire is your personal playbook of opening moves.
       </p>
@@ -52,6 +59,6 @@ export function EmptyRepertoireState({ onRefresh }: EmptyRepertoireStateProps) {
         </Button>
       </div>
       <TemplatePicker onDone={handleTemplateDone} />
-    </div>
+    </motion.div>
   );
 }

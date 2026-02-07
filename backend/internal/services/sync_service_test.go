@@ -199,7 +199,7 @@ func TestSyncService_ComputeSince_WithoutLastSync(t *testing.T) {
 
 	since := svc.computeSince(nil, now)
 
-	expected := now.AddDate(0, 0, -syncLookbackDays).UnixMilli()
+	expected := now.AddDate(0, 0, -syncFirstSyncLookbackDays).UnixMilli()
 	assert.Equal(t, expected, since)
 }
 

@@ -89,7 +89,7 @@ export function BoardSection({
   const orientationLabel = color === 'white' ? 'White' : color === 'black' ? 'Black' : '';
 
   return (
-    <div className="flex flex-col items-center justify-center h-full shrink-0 max-md:w-full">
+    <div className="flex flex-col items-center justify-center h-full max-md:w-full">
       <div className="flex items-center justify-center flex-1 min-h-0 w-full">
         <EvalBar score={engineEvaluation?.score} mate={engineEvaluation?.mate} fen={currentFEN} />
         <div className="w-full h-full flex items-center justify-center p-2 aspect-square" ref={wrapperRef}>

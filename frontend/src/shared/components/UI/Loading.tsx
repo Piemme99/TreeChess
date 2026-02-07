@@ -17,7 +17,7 @@ export const Loading = memo(function Loading({ size = 'md', text }: LoadingProps
   return (
     <div className="flex flex-col items-center gap-4 p-8">
       <div
-        className={`${spinnerSizes[size]} border-3 border-border border-t-primary rounded-full animate-spin`}
+        className={`${spinnerSizes[size]} border-3 border-primary/20 border-t-primary rounded-full animate-spin`}
       />
       {text && <span className="text-text-muted">{text}</span>}
     </div>

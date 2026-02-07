@@ -34,6 +34,29 @@ export function RepertoireEdit() {
   const [treeExpanded, setTreeExpanded] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>('tree');
 
+  // Resizable split state
+  const [boardWidthPercent, setBoardWidthPercent] = useState(50);
+  const [isDragging, setIsDragging] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isDragging) return;
+    const handlePointerMove = (e: PointerEvent) => {
+      const container = containerRef.current;
+      if (!container) return;
+      const rect = container.getBoundingClientRect();
+      const percent = ((e.clientX - rect.left) / rect.width) * 100;
+      setBoardWidthPercent(Math.min(75, Math.max(25, percent)));
+    };
+    const handlePointerUp = () => setIsDragging(false);
+    document.addEventListener('pointermove', handlePointerMove);
+    document.addEventListener('pointerup', handlePointerUp);
+    return () => {
+      document.removeEventListener('pointermove', handlePointerMove);
+      document.removeEventListener('pointerup', handlePointerUp);
+    };
+  }, [isDragging]);
+
   const { id, color, repertoire, selectedNodeId, loading, selectNode, setRepertoire } = useRepertoireLoader();
   const engine = useEngine();
   const [commentText, setCommentText] = useState('');
@@ -172,21 +195,31 @@ export function RepertoireEdit() {
           &larr; Back
         </Button>
       </div>
-      <div className="flex-1 flex gap-0 min-h-0 overflow-hidden max-md:flex-col">
-        <BoardSection
-          selectedNode={selectedNode}
-          repertoire={repertoire}
-          currentFEN={currentFEN}
-          color={color}
-          possibleMoves={possibleMoves}
-          setPossibleMoves={setPossibleMoves}
-          onMove={handleBoardMove}
-          engineEvaluation={engine.currentEvaluation}
-        />
+      <div ref={containerRef} className={`flex-1 flex gap-0 min-h-0 overflow-hidden max-md:flex-col${isDragging ? ' select-none' : ''}`}>
+        <div className="h-full max-md:!w-full" style={{ width: `${boardWidthPercent}%` }}>
+          <BoardSection
+            selectedNode={selectedNode}
+            repertoire={repertoire}
+            currentFEN={currentFEN}
+            color={color}
+            possibleMoves={possibleMoves}
+            setPossibleMoves={setPossibleMoves}
+            onMove={handleBoardMove}
+            engineEvaluation={engine.currentEvaluation}
+          />
+        </div>
 
-        <div className={`flex-1 min-w-0 min-h-0 bg-bg-card overflow-hidden flex flex-col border-l border-border${activeTab === 'tree' && treeExpanded ? ' fixed inset-0 w-full h-full z-100' : ''}`}>
+        {/* Resize handle */}
+        <div
+          className="hidden md:flex items-center justify-center w-1.5 cursor-col-resize group shrink-0"
+          onPointerDown={(e) => { e.preventDefault(); setIsDragging(true); }}
+        >
+          <div className="w-0.5 h-8 rounded-full bg-primary/20 group-hover:bg-primary/40 transition-colors" />
+        </div>
+
+        <div className={`min-w-0 min-h-0 bg-bg-card overflow-hidden flex flex-col border-l border-primary/10 max-md:!w-full${activeTab === 'tree' && treeExpanded ? ' fixed inset-0 w-full h-full z-100' : ''}`} style={{ width: `${100 - boardWidthPercent}%` }}>
           {/* Action bar */}
-          <div className="flex items-center justify-between py-2 px-4 border-b border-border gap-2">
+          <div className="flex items-center justify-between py-2 px-4 border-b border-primary/10 gap-2">
             <div className="flex items-center gap-2">
               {selectedNode && (
                 <span className="font-mono text-sm text-text font-medium">
@@ -217,14 +250,14 @@ export function RepertoireEdit() {
             <div className="px-3 py-2 flex flex-col gap-2">
               <input
                 type="text"
-                className="w-full py-1 px-2 text-[0.8rem] font-sans border border-border rounded-sm bg-bg text-text focus:outline-none focus:border-primary placeholder:text-text-muted"
+                className="w-full py-1 px-2 text-[0.8rem] font-sans border border-primary/10 rounded-md bg-bg text-text focus:outline-none focus:border-primary placeholder:text-text-muted"
                 placeholder="Branch name (e.g., Italian Game)"
                 value={branchNameText}
                 onChange={handleBranchNameChange}
                 onBlur={handleBranchNameBlur}
               />
               <textarea
-                className="w-full py-1 px-2 text-[0.8rem] font-sans border border-border rounded-sm bg-bg text-text resize-y min-h-[2.5rem] focus:outline-none focus:border-primary placeholder:text-text-muted"
+                className="w-full py-1 px-2 text-[0.8rem] font-sans border border-primary/10 rounded-md bg-bg text-text resize-y min-h-[2.5rem] focus:outline-none focus:border-primary placeholder:text-text-muted"
                 placeholder="Add a note for this position..."
                 value={commentText}
                 onChange={handleCommentChange}
@@ -235,7 +268,7 @@ export function RepertoireEdit() {
           )}
 
           {/* Tab bar */}
-          <div className="flex border-b border-border px-3">
+          <div className="flex border-b border-primary/10 px-3">
             {TABS.map((tab) => (
               <button
                 key={tab.id}

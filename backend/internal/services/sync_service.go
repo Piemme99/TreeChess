@@ -11,9 +11,10 @@ import (
 )
 
 const (
-	syncLookbackDays      = 10
-	syncMaxGames          = 10
-	syncFirstSyncMaxGames = 50
+	syncLookbackDays           = 10
+	syncFirstSyncLookbackDays  = 90
+	syncMaxGames               = 10
+	syncFirstSyncMaxGames      = 50
 )
 
 type SyncService struct {
@@ -149,5 +150,5 @@ func (s *SyncService) computeSince(lastSync *time.Time, now time.Time) int64 {
 	if lastSync != nil {
 		return lastSync.UnixMilli()
 	}
-	return now.AddDate(0, 0, -syncLookbackDays).UnixMilli()
+	return now.AddDate(0, 0, -syncFirstSyncLookbackDays).UnixMilli()
 }

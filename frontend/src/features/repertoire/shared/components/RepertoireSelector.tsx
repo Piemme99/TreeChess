@@ -287,7 +287,7 @@ export function RepertoireSelector({ color, repertoires, categories, onImportStu
         )}
 
         {isMerging && (
-          <div className="flex flex-col gap-2 p-4 bg-primary-light rounded-md mb-2">
+          <div className="flex flex-col gap-2 p-4 bg-primary-light rounded-xl mb-2">
             <span className="text-[0.85rem] text-text-muted">
               Merging {selectedIds.size} repertoires into a new one. All originals will be deleted.
             </span>
@@ -296,7 +296,7 @@ export function RepertoireSelector({ color, repertoires, categories, onImportStu
               value={mergeName}
               onChange={(e) => setMergeName(e.target.value)}
               placeholder="Name for merged repertoire"
-              className="flex-1 py-2 px-4 border border-border rounded-md text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary-light"
+              className="flex-1 py-2 px-4 border border-border rounded-xl text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary-light"
               autoFocus
               onKeyDown={(e) => {
                 if (e.key === 'Enter') handleMerge();
@@ -344,7 +344,7 @@ export function RepertoireSelector({ color, repertoires, categories, onImportStu
             {uncategorizedRepertoires.map((rep) => (
               <DraggableRepertoireItem key={rep.id} repertoire={rep}>
                 {(_isDragging, dragAttributes, dragListeners) => (
-                  <div className={`flex items-center justify-between p-4 bg-bg-card rounded-md gap-4 mb-1${selectedIds.has(rep.id) ? ' outline-2 outline-primary outline-offset-[-2px]' : ''}`}>
+                  <div className={`flex items-center justify-between p-4 bg-bg-card rounded-xl gap-4 mb-1${selectedIds.has(rep.id) ? ' outline-2 outline-primary outline-offset-[-2px]' : ''}`}>
                     {editingId === rep.id ? (
                       <div className="flex gap-2 flex-1 items-center">
                         <input
@@ -352,7 +352,7 @@ export function RepertoireSelector({ color, repertoires, categories, onImportStu
                           value={editName}
                           onChange={(e) => setEditName(e.target.value)}
                           placeholder="Repertoire name"
-                          className="flex-1 py-2 px-4 border border-border rounded-md text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary-light"
+                          className="flex-1 py-2 px-4 border border-border rounded-xl text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary-light"
                           autoFocus
                           onKeyDown={(e) => {
                             if (e.key === 'Enter') handleRename(rep.id);
@@ -444,7 +444,7 @@ export function RepertoireSelector({ color, repertoires, categories, onImportStu
               value={newCategoryName}
               onChange={(e) => setNewCategoryName(e.target.value)}
               placeholder="Category name"
-              className="flex-1 py-2 px-4 border border-border rounded-md text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary-light"
+              className="flex-1 py-2 px-4 border border-border rounded-xl text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary-light"
               autoFocus
               onKeyDown={(e) => {
                 if (e.key === 'Enter') handleCreateCategory();
@@ -480,7 +480,7 @@ export function RepertoireSelector({ color, repertoires, categories, onImportStu
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               placeholder="Repertoire name"
-              className="flex-1 py-2 px-4 border border-border rounded-md text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary-light"
+              className="flex-1 py-2 px-4 border border-border rounded-xl text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary-light"
               autoFocus
               onKeyDown={(e) => {
                 if (e.key === 'Enter') handleCreate();
@@ -522,7 +522,7 @@ export function RepertoireSelector({ color, repertoires, categories, onImportStu
       {/* Drag overlay for visual feedback */}
       <DragOverlay>
         {draggedRepertoire ? (
-          <div className="flex items-center gap-3 p-4 bg-bg-card rounded-md shadow-lg border-2 border-primary opacity-90">
+          <div className="flex items-center gap-3 p-4 bg-bg-card rounded-xl shadow-lg border-2 border-primary opacity-90">
             <span className="font-medium">{draggedRepertoire.name}</span>
             <span className="text-xs text-text-muted">
               {draggedRepertoire.metadata.totalMoves} moves

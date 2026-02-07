@@ -156,7 +156,7 @@ export function GameMoveList({
             {pair.white && pair.whiteIndex !== undefined ? (
               <div
                 ref={currentMoveIndex === pair.whiteIndex ? selectedRef : null}
-                className={`flex-1 py-1 px-2 rounded-sm cursor-pointer transition-all duration-150 flex items-center font-mono text-[0.9rem] hover:brightness-95 ${getMoveClasses(pair.whiteIndex, pair.white.status)} ${currentMoveIndex === pair.whiteIndex ? 'outline-2 outline-primary outline-offset-1' : ''}`}
+                className={`flex-1 py-1 px-2 rounded-md cursor-pointer transition-all duration-150 flex items-center font-mono text-[0.9rem] hover:brightness-95 ${getMoveClasses(pair.whiteIndex, pair.white.status)} ${currentMoveIndex === pair.whiteIndex ? 'outline-2 outline-primary outline-offset-1' : ''}`}
                 onClick={() => onMoveClick(pair.whiteIndex!)}
               >
                 <span className="font-medium">{pair.white.san}</span>
@@ -168,7 +168,7 @@ export function GameMoveList({
             {pair.black && pair.blackIndex !== undefined ? (
               <div
                 ref={currentMoveIndex === pair.blackIndex ? selectedRef : null}
-                className={`flex-1 py-1 px-2 rounded-sm cursor-pointer transition-all duration-150 flex items-center font-mono text-[0.9rem] hover:brightness-95 ${getMoveClasses(pair.blackIndex, pair.black.status)} ${currentMoveIndex === pair.blackIndex ? 'outline-2 outline-primary outline-offset-1' : ''}`}
+                className={`flex-1 py-1 px-2 rounded-md cursor-pointer transition-all duration-150 flex items-center font-mono text-[0.9rem] hover:brightness-95 ${getMoveClasses(pair.blackIndex, pair.black.status)} ${currentMoveIndex === pair.blackIndex ? 'outline-2 outline-primary outline-offset-1' : ''}`}
                 onClick={() => onMoveClick(pair.blackIndex!)}
               >
                 <span className="font-medium">{pair.black.san}</span>
@@ -182,7 +182,7 @@ export function GameMoveList({
 
       {/* Toggle full game button */}
       {hasMoreMoves && (
-        <div className="flex justify-center py-2 mt-2 border-t border-dashed border-border">
+        <div className="flex justify-center py-2 mt-2 border-t border-dashed border-primary/10">
           <Button
             variant="ghost"
             size="sm"
@@ -198,9 +198,9 @@ export function GameMoveList({
 
       {/* Show error details for selected move (only for first error) */}
       {currentMoveIndex >= 0 && currentMoveIndex < displayedMoves.length && (
-        <div className="mt-4 pt-4 border-t border-border flex flex-col gap-2">
+        <div className="mt-4 pt-4 border-t border-primary/10 flex flex-col gap-2">
           {showExpectedMoveError(currentMoveIndex, displayedMoves[currentMoveIndex]) && (
-            <div className="flex items-center gap-2 p-2 bg-danger-light rounded-sm">
+            <div className="flex items-center gap-2 p-2 bg-danger-light rounded-md">
               <span className="text-text-muted text-sm">Expected:</span>
               <span className="font-mono font-semibold text-danger">{displayedMoves[currentMoveIndex].expectedMove}</span>
             </div>
@@ -215,7 +215,7 @@ export function GameMoveList({
             </Button>
           )}
           {showAddButton(currentMoveIndex) && userColor && (
-            <div className="flex flex-col gap-2 pt-2 border-t border-dashed border-border mt-2">
+            <div className="flex flex-col gap-2 pt-2 border-t border-dashed border-primary/10 mt-2">
               <span className="text-xs text-text-muted">Or add to a new repertoire:</span>
               {isCreating ? (
                 <div className="flex items-center gap-2">
@@ -224,7 +224,7 @@ export function GameMoveList({
                     value={newName}
                     onChange={(e) => setNewName(e.target.value)}
                     placeholder="Repertoire name"
-                    className="flex-1 py-1 px-2 border border-border rounded-sm text-sm bg-bg text-text focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary-light"
+                    className="flex-1 py-1 px-2 border border-primary/10 rounded-md text-sm bg-bg text-text focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary-light"
                     autoFocus
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') handleCreate();

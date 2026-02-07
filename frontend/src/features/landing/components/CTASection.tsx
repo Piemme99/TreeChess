@@ -24,7 +24,7 @@ export function CTASection() {
             Ready to build your repertoire?
           </h2>
           <p className="text-text-muted leading-relaxed mb-8 max-w-md mx-auto relative">
-            Start using ChessTool to study openings more effectively. Free to
+            Start using TreeChess to study openings more effectively. Free to
             start, no credit card required.
           </p>
           <motion.div

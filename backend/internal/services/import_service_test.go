@@ -135,7 +135,7 @@ func TestExtractHeaders_Defaults(t *testing.T) {
 	assert.Equal(t, "*", headers["Result"])
 }
 
-func TestMoveExistsInRepertoire_Found(t *testing.T) {
+func TestFindNodeInRepertoire_Found(t *testing.T) {
 	svc := NewImportService(nil, nil)
 
 	moveE4 := "e4"
@@ -155,12 +155,14 @@ func TestMoveExistsInRepertoire_Found(t *testing.T) {
 	}
 
 	fen := "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -"
-	result := svc.moveExistsInRepertoire(root, fen, "e4")
+	result := svc.findNodeInRepertoire(root, fen)
 
-	assert.True(t, result)
+	require.NotNil(t, result)
+	assert.Equal(t, "root", result.ID)
+	assert.Len(t, result.Children, 1)
 }
 
-func TestMoveExistsInRepertoire_NotFound(t *testing.T) {
+func TestFindNodeInRepertoire_NotFound(t *testing.T) {
 	svc := NewImportService(nil, nil)
 
 	root := models.RepertoireNode{
@@ -170,13 +172,13 @@ func TestMoveExistsInRepertoire_NotFound(t *testing.T) {
 		ColorToMove: models.ChessColorWhite,
 	}
 
-	fen := "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -"
-	result := svc.moveExistsInRepertoire(root, fen, "e4")
+	differentFEN := "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6"
+	result := svc.findNodeInRepertoire(root, differentFEN)
 
-	assert.False(t, result)
+	assert.Nil(t, result)
 }
 
-func TestFindExpectedMove(t *testing.T) {
+func TestFindNodeInRepertoire_ReturnsNodeWithChildren(t *testing.T) {
 	svc := NewImportService(nil, nil)
 
 	moveE4 := "e4"
@@ -193,9 +195,11 @@ func TestFindExpectedMove(t *testing.T) {
 	}
 
 	fen := "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -"
-	result := svc.findExpectedMove(root, fen)
+	result := svc.findNodeInRepertoire(root, fen)
 
-	assert.Equal(t, "e4", result)
+	require.NotNil(t, result)
+	assert.Len(t, result.Children, 2)
+	assert.Equal(t, "e4", *result.Children[0].Move)
 }
 
 func TestPGNWithNewlines(t *testing.T) {
@@ -323,7 +327,7 @@ func TestAnalyzeGame_BlackRepertoire(t *testing.T) {
 
 	assert.Len(t, analysis.Moves, 2)
 	assert.False(t, analysis.Moves[0].IsUserMove)
-	assert.Equal(t, "opponent-new", analysis.Moves[0].Status)
+	assert.Equal(t, "out-of-book", analysis.Moves[0].Status) // Root has no children → out-of-book
 	assert.True(t, analysis.Moves[1].IsUserMove)
 }
 
@@ -349,8 +353,8 @@ func TestAnalyzeGame_NoRepertoire(t *testing.T) {
 	analysis := svc.analyzeGame(0, games[0], root, models.ColorWhite)
 
 	assert.Len(t, analysis.Moves, 2)
-	assert.Equal(t, "out-of-repertoire", analysis.Moves[0].Status)
-	assert.Equal(t, "opponent-new", analysis.Moves[1].Status)
+	assert.Equal(t, "out-of-book", analysis.Moves[0].Status) // Root has no children → out-of-book
+	assert.Equal(t, "out-of-book", analysis.Moves[1].Status) // Still no tree → out-of-book
 }
 
 func strPtr(s string) *string {
@@ -580,7 +584,7 @@ func TestEnsureFullFEN_ShortFEN(t *testing.T) {
 	assert.Contains(t, result, "0 1")
 }
 
-func TestMoveExistsInRepertoire_DeepSearch(t *testing.T) {
+func TestFindNodeInRepertoire_DeepSearch(t *testing.T) {
 	svc := NewImportService(nil, nil)
 
 	moveE4 := "e4"
@@ -618,14 +622,17 @@ func TestMoveExistsInRepertoire_DeepSearch(t *testing.T) {
 		},
 	}
 
-	// Test deep search - should find Nf3 move
+	// Test deep search - should find the node after e4 e5
 	fenAfterE4E5 := "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6"
-	result := svc.moveExistsInRepertoire(root, fenAfterE4E5, "Nf3")
+	result := svc.findNodeInRepertoire(root, fenAfterE4E5)
 
-	assert.True(t, result)
+	require.NotNil(t, result)
+	assert.Equal(t, "e5", result.ID)
+	assert.Len(t, result.Children, 1)
+	assert.Equal(t, "Nf3", *result.Children[0].Move)
 }
 
-func TestMoveExistsInRepertoire_WrongFEN(t *testing.T) {
+func TestFindNodeInRepertoire_WrongFEN(t *testing.T) {
 	svc := NewImportService(nil, nil)
 
 	moveE4 := "e4"
@@ -644,55 +651,17 @@ func TestMoveExistsInRepertoire_WrongFEN(t *testing.T) {
 		},
 	}
 
-	// Search with a different FEN that doesn't match
+	// Search with a FEN that doesn't exist anywhere in the tree
 	differentFEN := "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq -"
-	result := svc.moveExistsInRepertoire(root, differentFEN, "e4")
+	result := svc.findNodeInRepertoire(root, differentFEN)
 
-	assert.False(t, result)
+	assert.Nil(t, result)
 }
 
-func TestFindExpectedMove_NotFound(t *testing.T) {
-	svc := NewImportService(nil, nil)
-
-	root := models.RepertoireNode{
-		ID:          "root",
-		FEN:         "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -",
-		Move:        nil,
-		ColorToMove: models.ChessColorWhite,
-		Children:    nil, // No children
-	}
-
-	// FEN that doesn't match root
-	differentFEN := "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq -"
-	result := svc.findExpectedMove(root, differentFEN)
-
-	assert.Empty(t, result)
-}
-
-func TestFindExpectedMove_NoChildren(t *testing.T) {
-	svc := NewImportService(nil, nil)
-
-	root := models.RepertoireNode{
-		ID:          "root",
-		FEN:         "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -",
-		Move:        nil,
-		ColorToMove: models.ChessColorWhite,
-		Children:    []*models.RepertoireNode{}, // Empty children
-	}
-
-	fen := "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -"
-	result := svc.findExpectedMove(root, fen)
-
-	assert.Empty(t, result)
-}
-
-func TestFindExpectedMove_DeepSearch(t *testing.T) {
+func TestFindNodeInRepertoire_LeafNode(t *testing.T) {
 	svc := NewImportService(nil, nil)
 
 	moveE4 := "e4"
-	moveE5 := "e5"
-	moveNf3 := "Nf3"
-
 	root := models.RepertoireNode{
 		ID:          "root",
 		FEN:         "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -",
@@ -704,30 +673,18 @@ func TestFindExpectedMove_DeepSearch(t *testing.T) {
 				FEN:         "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3",
 				Move:        &moveE4,
 				ColorToMove: models.ChessColorBlack,
-				Children: []*models.RepertoireNode{
-					{
-						ID:          "e5",
-						FEN:         "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6",
-						Move:        &moveE5,
-						ColorToMove: models.ChessColorWhite,
-						Children: []*models.RepertoireNode{
-							{
-								ID:   "Nf3",
-								FEN:  "rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq -",
-								Move: &moveNf3,
-							},
-						},
-					},
-				},
+				Children:    nil, // Leaf node
 			},
 		},
 	}
 
-	// Find expected move from deep position
-	fenAfterE4E5 := "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6"
-	result := svc.findExpectedMove(root, fenAfterE4E5)
+	// Find the leaf node
+	fenAfterE4 := "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3"
+	result := svc.findNodeInRepertoire(root, fenAfterE4)
 
-	assert.Equal(t, "Nf3", result)
+	require.NotNil(t, result)
+	assert.Equal(t, "e4", result.ID)
+	assert.Empty(t, result.Children) // It's a leaf
 }
 
 func TestAnalyzeGame_InRepertoire(t *testing.T) {
@@ -1104,14 +1061,67 @@ func TestGetInsights_WithExplorerStats(t *testing.T) {
 	assert.True(t, insights.EngineAnalysisDone)
 	assert.Equal(t, 1, insights.EngineAnalysisTotal)
 	assert.Equal(t, 1, insights.EngineAnalysisCompleted)
+	// Single-occurrence mistakes are filtered out (need freq >= 2)
+	assert.Len(t, insights.WorstMistakes, 0)
+}
+
+func TestGetInsights_RecurringMistake(t *testing.T) {
+	now := time.Now()
+
+	gameMoves := []models.MoveAnalysis{
+		{PlyNumber: 0, SAN: "d4", FEN: "startFEN w KQkq -", Status: "in-repertoire", IsUserMove: true},
+		{PlyNumber: 4, SAN: "Bf4", FEN: "afterE6 w KQkq -", Status: "out-of-repertoire", IsUserMove: true},
+	}
+
+	analyses := []models.RawAnalysis{
+		makeRawAnalysis("a1", "game1.pgn", now, []models.GameAnalysis{
+			makeGameAnalysis(0, models.PGNHeaders{"White": "A", "Black": "B", "Result": "1-0", "Date": "2024.01.01"}, gameMoves, models.ColorWhite, nil),
+		}),
+		makeRawAnalysis("a2", "game2.pgn", now, []models.GameAnalysis{
+			makeGameAnalysis(0, models.PGNHeaders{"White": "A", "Black": "C", "Result": "0-1", "Date": "2024.01.02"}, gameMoves, models.ColorWhite, nil),
+		}),
+	}
+
+	// Same mistake in two different games
+	engineEvals := []models.EngineEval{
+		{
+			ID: "ee1", UserID: "user-1", AnalysisID: "a1", GameIndex: 0, Status: "done",
+			Evals: []models.ExplorerMoveStats{
+				{PlyNumber: 4, FEN: "afterE6 w KQkq -", PlayedMove: "Bf4", PlayedWinrate: 0.48, BestMove: "Nc3", BestWinrate: 0.56, WinrateDrop: 0.08, TotalGames: 500},
+			},
+		},
+		{
+			ID: "ee2", UserID: "user-1", AnalysisID: "a2", GameIndex: 0, Status: "done",
+			Evals: []models.ExplorerMoveStats{
+				{PlyNumber: 4, FEN: "afterE6 w KQkq -", PlayedMove: "Bf4", PlayedWinrate: 0.48, BestMove: "Nc3", BestWinrate: 0.56, WinrateDrop: 0.08, TotalGames: 500},
+			},
+		},
+	}
+
+	mockAnalysisRepo := &mocks.MockAnalysisRepo{
+		GetAllGamesRawFunc: func(userID string) ([]models.RawAnalysis, error) {
+			return analyses, nil
+		},
+	}
+
+	mockEvalRepo := &mocks.MockEngineEvalRepo{
+		GetByUserFunc: func(userID string) ([]models.EngineEval, error) {
+			return engineEvals, nil
+		},
+	}
+
+	engineSvc := NewEngineService(mockEvalRepo, mockAnalysisRepo)
+	svc := NewImportService(nil, mockAnalysisRepo, WithEngineService(engineSvc))
+
+	insights, err := svc.GetInsights("user-1")
+
+	require.NoError(t, err)
 	assert.Len(t, insights.WorstMistakes, 1)
 	assert.Equal(t, "Bf4", insights.WorstMistakes[0].PlayedMove)
 	assert.Equal(t, "Nc3", insights.WorstMistakes[0].BestMove)
 	assert.InDelta(t, 0.08, insights.WorstMistakes[0].WinrateDrop, 0.001)
-	assert.Equal(t, 1, insights.WorstMistakes[0].Frequency)
-	// Verify the game reference includes the ply number for navigation
-	assert.Len(t, insights.WorstMistakes[0].Games, 1)
-	assert.Equal(t, 4, insights.WorstMistakes[0].Games[0].PlyNumber)
+	assert.Equal(t, 2, insights.WorstMistakes[0].Frequency)
+	assert.Len(t, insights.WorstMistakes[0].Games, 2)
 }
 
 func TestGetInsights_Empty(t *testing.T) {
@@ -1134,4 +1144,149 @@ func TestGetInsights_Empty(t *testing.T) {
 	assert.NotNil(t, insights)
 	assert.Empty(t, insights.WorstMistakes)
 	assert.True(t, insights.EngineAnalysisDone)
+}
+
+func TestAnalyzeGame_RepertoireExhaustion(t *testing.T) {
+	// Game follows all prep, tree runs out, remaining moves are "out-of-book"
+	svc := NewImportService(nil, nil)
+
+	pgnData := `[Event "Test"]
+[White "A"]
+[Black "B"]
+1. e4 e5 2. Nf3 Nc6 1-0`
+
+	games, err := svc.parsePGN(pgnData)
+	require.NoError(t, err)
+	require.Len(t, games, 1)
+
+	// Repertoire covers: root -> e4 -> e5 (leaf)
+	// So after e4 e5, the tree ends. Nf3 and Nc6 should be "out-of-book".
+	moveE4 := "e4"
+	moveE5 := "e5"
+	root := models.RepertoireNode{
+		ID:          "root",
+		FEN:         "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -",
+		Move:        nil,
+		ColorToMove: models.ChessColorWhite,
+		Children: []*models.RepertoireNode{
+			{
+				ID:          "e4",
+				FEN:         "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3",
+				Move:        &moveE4,
+				ColorToMove: models.ChessColorBlack,
+				Children: []*models.RepertoireNode{
+					{
+						ID:          "e5",
+						FEN:         "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6",
+						Move:        &moveE5,
+						ColorToMove: models.ChessColorWhite,
+						// No children — tree ends here
+					},
+				},
+			},
+		},
+	}
+
+	analysis := svc.analyzeGame(0, games[0], root, models.ColorWhite)
+
+	require.Len(t, analysis.Moves, 4)
+	// Move 0 (e4): root has child e4 → in-repertoire
+	assert.Equal(t, "in-repertoire", analysis.Moves[0].Status)
+	// Move 1 (e5): e4-node has child e5 → in-repertoire
+	assert.Equal(t, "in-repertoire", analysis.Moves[1].Status)
+	// Move 2 (Nf3): e5-node is a leaf (no children) → out-of-book
+	assert.Equal(t, "out-of-book", analysis.Moves[2].Status)
+	// Move 3 (Nc6): position not in tree → out-of-book
+	assert.Equal(t, "out-of-book", analysis.Moves[3].Status)
+
+	// Game status should be "ok" because there are no deviations
+	status := gameStatusFromMoves(analysis.Moves)
+	assert.Equal(t, "ok", status)
+}
+
+func TestAnalyzeGame_TrueDeviation(t *testing.T) {
+	// Game deviates where tree has children — true error
+	svc := NewImportService(nil, nil)
+
+	// User plays 1. d4 instead of the repertoire's 1. e4
+	pgnData := `[Event "Test"]
+[White "A"]
+[Black "B"]
+1. d4 d5 1-0`
+
+	games, err := svc.parsePGN(pgnData)
+	require.NoError(t, err)
+	require.Len(t, games, 1)
+
+	moveE4 := "e4"
+	moveE5 := "e5"
+	root := models.RepertoireNode{
+		ID:          "root",
+		FEN:         "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -",
+		Move:        nil,
+		ColorToMove: models.ChessColorWhite,
+		Children: []*models.RepertoireNode{
+			{
+				ID:          "e4",
+				FEN:         "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3",
+				Move:        &moveE4,
+				ColorToMove: models.ChessColorBlack,
+				Children: []*models.RepertoireNode{
+					{
+						ID:   "e5",
+						FEN:  "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6",
+						Move: &moveE5,
+					},
+				},
+			},
+		},
+	}
+
+	analysis := svc.analyzeGame(0, games[0], root, models.ColorWhite)
+
+	require.Len(t, analysis.Moves, 2)
+	// Move 0 (d4): root has children but d4 not among them → out-of-repertoire
+	assert.Equal(t, "out-of-repertoire", analysis.Moves[0].Status)
+	assert.Equal(t, "e4", analysis.Moves[0].ExpectedMove)
+	// Move 1 (d5): position after d4 not in tree → out-of-book
+	assert.Equal(t, "out-of-book", analysis.Moves[1].Status)
+
+	// Game status should be "error" because of the out-of-repertoire move
+	status := gameStatusFromMoves(analysis.Moves)
+	assert.Equal(t, "error", status)
+}
+
+func TestGameStatusFromMoves_IgnoresOutOfBook(t *testing.T) {
+	// Verify that gameStatusFromMoves treats "out-of-book" as benign
+	moves := []models.MoveAnalysis{
+		{Status: "in-repertoire"},
+		{Status: "in-repertoire"},
+		{Status: "out-of-book"},
+		{Status: "out-of-book"},
+	}
+
+	status := gameStatusFromMoves(moves)
+	assert.Equal(t, "ok", status)
+}
+
+func TestGameStatusFromMoves_OutOfRepertoireIsError(t *testing.T) {
+	moves := []models.MoveAnalysis{
+		{Status: "in-repertoire"},
+		{Status: "out-of-repertoire"},
+		{Status: "out-of-book"},
+	}
+
+	status := gameStatusFromMoves(moves)
+	assert.Equal(t, "error", status)
+}
+
+func TestGameStatusFromMoves_OpponentNewIsNewLine(t *testing.T) {
+	moves := []models.MoveAnalysis{
+		{Status: "in-repertoire"},
+		{Status: "opponent-new"},
+		{Status: "out-of-book"},
+	}
+
+	status := gameStatusFromMoves(moves)
+	assert.Equal(t, "new-line", status)
 }

@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { Crown } from 'lucide-react';
 import { authApi } from '../../services/api';
 
 export function ResetPasswordPage() {
@@ -44,14 +46,28 @@ export function ResetPasswordPage() {
     }
   };
 
+  const inputClass = "py-2 px-4 border border-border rounded-xl text-[0.9375rem] font-sans transition-all duration-150 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20";
+  const cardClass = "bg-bg-card rounded-2xl shadow-xl shadow-primary/5 border border-primary/10 p-8 w-full max-w-[400px]";
+  const submitClass = "py-2.5 px-4 bg-gradient-to-r from-primary to-primary-hover text-white border-none rounded-xl text-[0.9375rem] font-medium cursor-pointer transition-all duration-150 font-sans shadow-md shadow-primary/20 hover:not-disabled:shadow-lg hover:not-disabled:shadow-primary/30 disabled:opacity-60 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30";
+
   if (!token) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-bg p-4 animate-fade-in">
-        <div className="bg-bg-card rounded-xl shadow-lg p-8 w-full max-w-[400px] text-center">
-          <h1 className="text-center text-3xl font-bold mb-1">
-            Tree<span className="text-primary">Chess</span>
+      <div className="flex items-center justify-center min-h-screen bg-bg p-4">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+          className={`${cardClass} text-center`}
+        >
+          <div className="flex justify-center mb-2">
+            <div className="w-11 h-11 bg-gradient-to-br from-primary to-primary-hover rounded-xl flex items-center justify-center shadow-md shadow-primary/20">
+              <Crown size={22} className="text-white" />
+            </div>
+          </div>
+          <h1 className="text-center text-2xl font-bold mb-1 font-display tracking-tight">
+            TreeChess
           </h1>
-          <h2 className="text-center text-lg text-text-muted mb-8 font-medium">
+          <h2 className="text-center text-base text-text-muted mb-8 font-medium">
             Invalid Link
           </h2>
           <p className="text-sm text-text-muted mb-6">
@@ -63,29 +79,39 @@ export function ResetPasswordPage() {
           >
             Request a new reset link
           </Link>
-        </div>
+        </motion.div>
       </div>
     );
   }
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-bg p-4 animate-fade-in">
-      <div className="bg-bg-card rounded-xl shadow-lg p-8 w-full max-w-[400px]">
-        <h1 className="text-center text-3xl font-bold mb-1">
-          Tree<span className="text-primary">Chess</span>
+    <div className="flex items-center justify-center min-h-screen bg-bg p-4">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+        className={cardClass}
+      >
+        <div className="flex justify-center mb-2">
+          <div className="w-11 h-11 bg-gradient-to-br from-primary to-primary-hover rounded-xl flex items-center justify-center shadow-md shadow-primary/20">
+            <Crown size={22} className="text-white" />
+          </div>
+        </div>
+        <h1 className="text-center text-2xl font-bold mb-1 font-display tracking-tight">
+          TreeChess
         </h1>
-        <h2 className="text-center text-lg text-text-muted mb-8 font-medium">
+        <h2 className="text-center text-base text-text-muted mb-8 font-medium">
           Set New Password
         </h2>
 
         {success ? (
           <div className="text-center">
-            <div className="bg-success-light text-success py-3 px-4 rounded-md text-sm mb-6">
+            <div className="bg-success-light text-success py-3 px-4 rounded-xl text-sm mb-6">
               Your password has been reset successfully.
             </div>
             <button
               onClick={() => navigate('/login')}
-              className="py-2 px-4 bg-primary text-white border-none rounded-md text-[0.9375rem] font-medium cursor-pointer transition-colors duration-150 font-sans hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2"
+              className={submitClass}
             >
               Sign In
             </button>
@@ -93,12 +119,17 @@ export function ResetPasswordPage() {
         ) : (
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             {error && (
-              <div className="bg-danger-light text-danger py-2 px-4 rounded-md text-sm">
+              <div className="bg-danger-light text-danger py-2 px-4 rounded-xl text-sm">
                 {error}
               </div>
             )}
 
-            <div className="flex flex-col gap-1">
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className="flex flex-col gap-1"
+            >
               <label htmlFor="newPassword" className="text-sm font-medium text-text">
                 New Password
               </label>
@@ -111,11 +142,16 @@ export function ResetPasswordPage() {
                 autoComplete="new-password"
                 required
                 minLength={8}
-                className="py-2 px-4 border border-border rounded-md text-[0.9375rem] font-sans transition-colors duration-150 focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary-light"
+                className={inputClass}
               />
-            </div>
+            </motion.div>
 
-            <div className="flex flex-col gap-1">
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.15 }}
+              className="flex flex-col gap-1"
+            >
               <label htmlFor="confirmPassword" className="text-sm font-medium text-text">
                 Confirm Password
               </label>
@@ -128,20 +164,20 @@ export function ResetPasswordPage() {
                 autoComplete="new-password"
                 required
                 minLength={8}
-                className="py-2 px-4 border border-border rounded-md text-[0.9375rem] font-sans transition-colors duration-150 focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary-light"
+                className={inputClass}
               />
-            </div>
+            </motion.div>
 
             <button
               type="submit"
               disabled={submitting}
-              className="py-2 px-4 bg-primary text-white border-none rounded-md text-[0.9375rem] font-medium cursor-pointer transition-colors duration-150 font-sans mt-2 hover:not-disabled:bg-primary-hover disabled:opacity-60 disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2"
+              className={`${submitClass} mt-2`}
             >
               {submitting ? 'Resetting...' : 'Reset Password'}
             </button>
           </form>
         )}
-      </div>
+      </motion.div>
     </div>
   );
 }

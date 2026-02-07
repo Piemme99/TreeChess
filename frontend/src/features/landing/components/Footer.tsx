@@ -11,7 +11,7 @@ export function Footer() {
               <Crown size={16} className="text-white" />
             </div>
             <span className="text-lg font-bold text-text tracking-tight font-display">
-              ChessTool
+              TreeChess
             </span>
           </div>
           <p className="text-sm text-text-muted">
@@ -35,7 +35,7 @@ export function Footer() {
             </Link>
           </nav>
           <p className="text-xs text-text-light">
-            &copy; {new Date().getFullYear()} ChessTool. All rights reserved.
+            &copy; {new Date().getFullYear()} TreeChess. All rights reserved.
           </p>
         </div>
       </div>

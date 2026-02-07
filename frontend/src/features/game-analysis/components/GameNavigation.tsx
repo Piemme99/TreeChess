@@ -9,7 +9,7 @@ export interface GameNavigationProps {
   goLast: () => void;
 }
 
-const navBtnClass = 'w-9 h-9 flex items-center justify-center rounded-md text-lg text-text-muted bg-transparent border-none cursor-pointer transition-colors duration-150 hover:not-disabled:bg-bg hover:not-disabled:text-text disabled:opacity-30 disabled:cursor-default';
+const navBtnClass = 'w-9 h-9 flex items-center justify-center rounded-xl text-lg text-text-muted bg-transparent border-none cursor-pointer transition-all duration-150 hover:not-disabled:bg-primary-light/50 hover:not-disabled:text-text disabled:opacity-30 disabled:cursor-default';
 
 export const GameNavigation = memo(function GameNavigation({
   currentMoveIndex,

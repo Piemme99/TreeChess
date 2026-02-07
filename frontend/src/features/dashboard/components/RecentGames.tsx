@@ -1,5 +1,7 @@
 import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { Button } from '../../../shared/components/UI';
+import { fadeUp } from '../../../shared/utils/animations';
 import type { GameSummary, Color } from '../../../types';
 
 function gameOutcome(result: string, userColor: Color): 'win' | 'loss' | 'draw' {
@@ -23,7 +25,7 @@ const sourceIcons: Record<string, string> = {
 
 const statusConfig: Record<string, { label: string; className: string }> = {
   ok: { label: 'OK', className: 'py-0.5 px-1.5 rounded-full text-[11px] font-medium bg-success-light text-success' },
-  error: { label: 'Error', className: 'py-0.5 px-1.5 rounded-full text-[11px] font-medium bg-danger-light text-danger' },
+  error: { label: 'Opening error', className: 'py-0.5 px-1.5 rounded-full text-[11px] font-medium bg-danger-light text-danger' },
   'new-line': { label: 'New', className: 'py-0.5 px-1.5 rounded-full text-[11px] font-medium bg-info-light text-info' },
 };
 
@@ -43,9 +45,9 @@ export function RecentGames({ games, loading }: RecentGamesProps) {
   if (loading) return null;
 
   return (
-    <section>
+    <motion.section variants={fadeUp}>
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wide">Recent Games</h2>
+        <h2 className="text-xs font-bold text-text-muted uppercase tracking-widest">Recent Games</h2>
         {games.length > 0 && (
           <Button variant="ghost" size="sm" onClick={() => navigate('/games')}>
             View all
@@ -53,13 +55,13 @@ export function RecentGames({ games, loading }: RecentGamesProps) {
         )}
       </div>
       {games.length === 0 ? (
-        <p className="text-center text-text-muted py-8 px-6 bg-bg-card rounded-lg border border-border">
+        <p className="text-center text-text-muted py-8 px-6 bg-bg-card rounded-2xl border border-primary/10">
           No games imported yet. Import games to compare them to your repertoire.
         </p>
       ) : (
-        <div className="bg-bg-card rounded-lg border border-border overflow-hidden">
+        <div className="bg-bg-card rounded-2xl border border-primary/10 overflow-hidden">
           {/* Table header */}
-          <div className="grid grid-cols-[auto_1fr_auto_auto_auto_auto] items-center gap-x-3 px-4 py-2 border-b border-border text-[11px] font-semibold text-text-light uppercase tracking-wide">
+          <div className="grid grid-cols-[auto_1fr_auto_auto_auto_auto] items-center gap-x-3 px-4 py-2 border-b border-primary/10 text-[11px] font-semibold text-text-light uppercase tracking-wide">
             <span></span>
             <span>Players</span>
             <span>Opening</span>
@@ -73,7 +75,7 @@ export function RecentGames({ games, loading }: RecentGamesProps) {
             return (
               <div
                 key={`${game.analysisId}-${game.gameIndex}`}
-                className="grid grid-cols-[auto_1fr_auto_auto_auto_auto] items-center gap-x-3 px-4 py-2.5 cursor-pointer transition-colors duration-150 hover:bg-bg border-b border-border last:border-b-0"
+                className="grid grid-cols-[auto_1fr_auto_auto_auto_auto] items-center gap-x-3 px-4 py-2.5 cursor-pointer transition-colors duration-150 hover:bg-primary-light/30 border-b border-primary/10 last:border-b-0"
                 onClick={() => navigate(`/analyse/${game.analysisId}/game/${game.gameIndex}`)}
               >
                 {/* Result dot */}
@@ -107,6 +109,6 @@ export function RecentGames({ games, loading }: RecentGamesProps) {
           })}
         </div>
       )}
-    </section>
+    </motion.section>
   );
 }

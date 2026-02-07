@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { useAuthStore } from '../../stores/authStore';
 import { useGames } from '../analyse-tab/hooks/useGames';
 import { useFileUpload } from '../analyse-tab/hooks/useFileUpload';
@@ -13,6 +14,7 @@ import { WorstMistakes } from './components/WorstMistakes';
 import { ConfirmModal, Button, EmptyState } from '../../shared/components/UI';
 import { gamesApi } from '../../services/api';
 import { toast } from '../../stores/toastStore';
+import { fadeUp, staggerContainer } from '../../shared/utils/animations';
 
 const TIME_CLASS_FILTERS = [
   { value: '', label: 'All' },
@@ -37,16 +39,12 @@ export function GamesPage() {
   const [timeClassFilter, setTimeClassFilter] = useState('');
   const [sourceFilter, setSourceFilter] = useState('');
   const [repertoireFilter, setRepertoireFilter] = useState('');
-  const [selectionMode, setSelectionMode] = useState(false);
   const [repertoiresList, setRepertoiresList] = useState<string[]>([]);
-  const [bulkDeleting, setBulkDeleting] = useState(false);
-  const [bulkDeleteTargets, setBulkDeleteTargets] = useState<{ analysisId: string; gameIndex: number }[] | null>(null);
 
   const {
     games,
     loading,
     deleteGame,
-    deleteGames,
     markGameViewed,
     nextPage,
     prevPage,
@@ -98,32 +96,12 @@ export function GamesPage() {
     setDeleteTarget({ analysisId, gameIndex });
   }, [setDeleteTarget]);
 
-  const handleBulkDelete = useCallback((items: { analysisId: string; gameIndex: number }[]) => {
-    setBulkDeleteTargets(items);
-  }, []);
-
-  const confirmBulkDelete = useCallback(async () => {
-    if (!bulkDeleteTargets) return;
-    setBulkDeleting(true);
-    try {
-      const result = await gamesApi.bulkDelete(bulkDeleteTargets);
-      deleteGames(bulkDeleteTargets);
-      toast.success(`${result.deleted} game${result.deleted > 1 ? 's' : ''} deleted`);
-      setBulkDeleteTargets(null);
-      setSelectionMode(false);
-    } catch {
-      toast.error('Failed to delete games');
-    } finally {
-      setBulkDeleting(false);
-    }
-  }, [bulkDeleteTargets, deleteGames]);
-
   const hasGames = games.length > 0 || loading;
 
   return (
     <div className="max-w-[1200px] mx-auto w-full">
-    <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
+    <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="flex flex-col gap-6">
+      <motion.div variants={fadeUp} custom={0} className="flex items-center justify-between">
         <h2 className="text-2xl font-semibold">Games</h2>
         <Button
           variant={showImport ? 'secondary' : 'primary'}
@@ -131,9 +109,10 @@ export function GamesPage() {
         >
           {showImport ? 'Close' : 'Import Games'}
         </Button>
-      </div>
+      </motion.div>
 
       {showImport && (
+        <motion.div variants={fadeUp} custom={1}>
         <ImportPanel
           username={username}
           onUsernameChange={setUsername}
@@ -141,6 +120,7 @@ export function GamesPage() {
           lichessImportState={lichessImportState}
           chesscomImportState={chesscomImportState}
         />
+        </motion.div>
       )}
 
       {insights && (
@@ -153,7 +133,7 @@ export function GamesPage() {
         />
       )}
 
-      <div className="flex items-center gap-4 flex-wrap">
+      <motion.div variants={fadeUp} custom={2} className="flex items-center gap-4 flex-wrap">
         <div className="flex gap-2 flex-wrap">
           {TIME_CLASS_FILTERS.map((filter) => (
             <button
@@ -161,7 +141,7 @@ export function GamesPage() {
               className={`py-1 px-4 rounded-full border text-sm cursor-pointer transition-all duration-150 ${
                 timeClassFilter === filter.value
                   ? 'bg-primary border-primary text-white'
-                  : 'border-border bg-transparent text-text-muted hover:border-primary hover:text-text'
+                  : 'border-primary/15 bg-transparent text-text-muted hover:border-primary hover:text-text'
               }`}
               onClick={() => setTimeClassFilter(filter.value)}
             >
@@ -176,7 +156,7 @@ export function GamesPage() {
               className={`py-1 px-4 rounded-full border text-sm cursor-pointer transition-all duration-150 ${
                 sourceFilter === filter.value
                   ? 'bg-primary border-primary text-white'
-                  : 'border-border bg-transparent text-text-muted hover:border-primary hover:text-text'
+                  : 'border-primary/15 bg-transparent text-text-muted hover:border-primary hover:text-text'
               }`}
               onClick={() => setSourceFilter(filter.value)}
             >
@@ -186,7 +166,7 @@ export function GamesPage() {
         </div>
         <div className="relative flex-1 min-w-[180px] max-w-[300px]">
           <select
-            className="w-full py-2 px-4 border border-border rounded-md text-sm font-sans bg-bg-card text-text cursor-pointer appearance-auto focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary-light/20"
+            className="w-full py-2 px-4 border border-primary/15 rounded-xl text-sm font-sans bg-bg-card text-text cursor-pointer appearance-auto focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary-light/20"
             value={repertoireFilter}
             onChange={(e) => setRepertoireFilter(e.target.value)}
           >
@@ -196,15 +176,14 @@ export function GamesPage() {
             ))}
           </select>
         </div>
-      </div>
+      </motion.div>
 
       {hasGames ? (
-        <section>
+        <motion.section variants={fadeUp} custom={3}>
           <GamesList
             games={games}
             loading={loading}
             onDeleteClick={handleDeleteClick}
-            onBulkDelete={handleBulkDelete}
             onViewClick={handleViewClick}
             hasNextPage={hasNextPage}
             hasPrevPage={hasPrevPage}
@@ -212,11 +191,9 @@ export function GamesPage() {
             totalPages={totalPages}
             onNextPage={nextPage}
             onPrevPage={prevPage}
-            selectionMode={selectionMode}
-            onToggleSelectionMode={() => setSelectionMode((prev) => !prev)}
             onGameReanalyzed={refresh}
           />
-        </section>
+        </motion.section>
       ) : (
         <EmptyState
           icon="&#9823;"
@@ -246,17 +223,7 @@ export function GamesPage() {
         loading={deleting}
       />
 
-      <ConfirmModal
-        isOpen={!!bulkDeleteTargets}
-        onClose={() => setBulkDeleteTargets(null)}
-        onConfirm={confirmBulkDelete}
-        title="Delete Games"
-        message={`Are you sure you want to delete ${bulkDeleteTargets?.length ?? 0} game${(bulkDeleteTargets?.length ?? 0) > 1 ? 's' : ''}? This action cannot be undone.`}
-        confirmText="Delete all"
-        variant="danger"
-        loading={bulkDeleting}
-      />
-    </div>
+    </motion.div>
     </div>
   );
 }

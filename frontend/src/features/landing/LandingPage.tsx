@@ -15,7 +15,7 @@ export function LandingPage() {
 
   return (
     <div
-      className="min-h-screen relative overflow-hidden bg-bg-landing font-body text-text"
+      className="min-h-screen relative overflow-hidden bg-bg font-body text-text"
       style={{ scrollBehavior: 'smooth' }}
     >
       {/* Dot pattern background */}

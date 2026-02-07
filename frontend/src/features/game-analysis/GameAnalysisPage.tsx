@@ -1,5 +1,7 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { fadeUp, staggerContainer } from '../../shared/utils/animations';
 import { useGameLoader } from './hooks/useGameLoader';
 import { useChessNavigation, useToggleFullGame } from './hooks/useChessNavigation';
 import { useFENComputed } from './hooks/useFENComputed';
@@ -207,12 +209,17 @@ export function GameAnalysisPage() {
   const result = game.headers.Result || '*';
 
   return (
-    <div className="max-w-[1400px] mx-auto min-h-full flex flex-col">
-      <div className="flex items-center gap-4 mb-6 pb-4 border-b border-border flex-wrap">
+    <motion.div
+      variants={staggerContainer}
+      initial="hidden"
+      animate="visible"
+      className="max-w-[1400px] mx-auto min-h-full flex flex-col"
+    >
+      <motion.div variants={fadeUp} custom={0} className="flex items-center gap-4 mb-6 pb-4 border-b border-primary/10 flex-wrap">
         <Button variant="ghost" size="sm" onClick={() => navigate('/games')}>
           &larr; Back
         </Button>
-        <span className="text-xl font-semibold">Game {gameIdx + 1}: {opponent}</span>
+        <span className="text-xl font-semibold font-display">Game {gameIdx + 1}: {opponent}</span>
         <span className="font-mono text-text-muted">{result}</span>
         <Button
           variant="danger"
@@ -222,17 +229,19 @@ export function GameAnalysisPage() {
         >
           Delete
         </Button>
-      </div>
+      </motion.div>
 
       {/* Repertoire selector with reanalyze option */}
+      <motion.div variants={fadeUp} custom={1}>
       <RepertoireSelector
         userColor={game.userColor}
         currentRepertoire={game.matchedRepertoire}
         matchScore={game.matchScore}
         onReanalyze={(repertoireId) => reanalyzeGame(gameIdx, repertoireId)}
       />
+      </motion.div>
 
-      <div className="flex gap-6 flex-1 min-h-0 max-md:flex-col">
+      <motion.div variants={fadeUp} custom={2} className="flex gap-6 flex-1 min-h-0 max-md:flex-col">
         <GameBoardSection
           fen={currentFEN}
           orientation={flipped ? 'black' : 'white'}
@@ -241,8 +250,8 @@ export function GameAnalysisPage() {
           engineEvaluation={engine.currentEvaluation}
         />
 
-        <div className="flex-1 min-w-0 bg-bg-card rounded-lg p-4 shadow-sm flex flex-col overflow-hidden">
-          <h3 className="text-base font-semibold text-text-muted mb-4 pb-2 border-b border-border">Opening</h3>
+        <div className="flex-1 min-w-0 bg-bg-card rounded-2xl p-4 shadow-md shadow-primary/5 flex flex-col overflow-hidden">
+          <h3 className="text-base font-semibold font-display text-text-muted mb-4 pb-2 border-b border-primary/10">Opening</h3>
           <GameMoveList
             moves={game.moves}
             currentMoveIndex={currentMoveIndex}
@@ -258,7 +267,7 @@ export function GameAnalysisPage() {
             onToggleFullGame={toggleFullGame}
           />
         </div>
-      </div>
+      </motion.div>
 
       <GameNavigation
         currentMoveIndex={currentMoveIndex}
@@ -278,6 +287,6 @@ export function GameAnalysisPage() {
         variant="danger"
         loading={deleting}
       />
-    </div>
+    </motion.div>
   );
 }

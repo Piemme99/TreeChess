@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import type { OpeningMistake } from '../../../types';
 
 interface WorstMistakesProps {
@@ -37,7 +38,7 @@ function MistakeCard({ mistake, onDismiss }: MistakeCardProps) {
   const dropPct = (mistake.winrateDrop * 100).toFixed(1);
 
   return (
-    <div className="bg-bg-card rounded-lg p-4 border border-border">
+    <div className="bg-bg-card rounded-2xl p-4 border border-primary/10">
       <div className="flex items-start justify-between gap-3 mb-2">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
@@ -53,7 +54,7 @@ function MistakeCard({ mistake, onDismiss }: MistakeCardProps) {
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-bg text-text-muted border border-border">
+          <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-bg text-text-muted border border-primary/10">
             {mistake.frequency} game{mistake.frequency > 1 ? 's' : ''}
           </span>
           <SeverityIndicator winrateDrop={mistake.winrateDrop} />
@@ -80,21 +81,32 @@ function MistakeCard({ mistake, onDismiss }: MistakeCardProps) {
           >
             {expanded ? 'Hide games' : `Show ${mistake.games.length} game${mistake.games.length > 1 ? 's' : ''}`}
           </button>
-          {expanded && (
-            <div className="mt-2 space-y-1">
-              {mistake.games.map((ref) => (
-                <button
-                  key={`${ref.analysisId}-${ref.gameIndex}`}
-                  className="w-full text-left text-sm px-3 py-1.5 rounded bg-bg hover:bg-border transition-colors cursor-pointer border-none"
-                  onClick={() => navigate(`/analyse/${ref.analysisId}/game/${ref.gameIndex}?ply=${ref.plyNumber}`)}
-                >
-                  <span className="text-text">{ref.white} vs {ref.black}</span>
-                  <span className="text-text-muted ml-2">{ref.result}</span>
-                  {ref.date && <span className="text-text-muted ml-2">{ref.date}</span>}
-                </button>
-              ))}
-            </div>
-          )}
+          <AnimatePresence initial={false}>
+            {expanded && (
+              <motion.div
+                key="games-list"
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+                style={{ overflow: 'hidden' }}
+              >
+                <div className="mt-2 space-y-1">
+                  {mistake.games.map((ref) => (
+                    <button
+                      key={`${ref.analysisId}-${ref.gameIndex}`}
+                      className="w-full text-left text-sm px-3 py-1.5 rounded bg-bg hover:bg-border transition-colors cursor-pointer border-none"
+                      onClick={() => navigate(`/analyse/${ref.analysisId}/game/${ref.gameIndex}?ply=${ref.plyNumber}`)}
+                    >
+                      <span className="text-text">{ref.white} vs {ref.black}</span>
+                      <span className="text-text-muted ml-2">{ref.result}</span>
+                      {ref.date && <span className="text-text-muted ml-2">{ref.date}</span>}
+                    </button>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       )}
     </div>
@@ -109,7 +121,7 @@ export function WorstMistakes({ mistakes, engineAnalysisDone, engineAnalysisTota
   return (
     <section>
       <div className="flex items-center gap-3 mb-3">
-        <h3 className="text-lg font-semibold">Worst Opening Mistakes</h3>
+        <h3 className="text-lg font-semibold font-display">Worst Opening Mistakes</h3>
         {!engineAnalysisDone && engineAnalysisTotal > 0 && (
           <span className="text-xs text-text-muted flex items-center gap-2">
             <span className="inline-block w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin" />
@@ -134,7 +146,12 @@ export function WorstMistakes({ mistakes, engineAnalysisDone, engineAnalysisTota
       ) : (
         <div className="space-y-3">
           {mistakes.map((mistake, i) => (
-            <MistakeCard key={`${mistake.fen}-${mistake.playedMove}-${i}`} mistake={mistake} onDismiss={onDismiss} />
+            <motion.div
+              key={`${mistake.fen}-${mistake.playedMove}-${i}`}
+              whileHover={{ scale: 1.02, transition: { duration: 0.2 } }}
+            >
+              <MistakeCard mistake={mistake} onDismiss={onDismiss} />
+            </motion.div>
           ))}
         </div>
       )}

@@ -11,7 +11,7 @@ export function Navbar() {
             <Crown size={18} className="text-white" />
           </div>
           <span className="text-xl font-bold text-text tracking-tight font-display">
-            ChessTool
+            TreeChess
           </span>
         </Link>
         <div className="hidden md:flex items-center gap-8">

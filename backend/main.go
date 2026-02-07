@@ -158,6 +158,10 @@ func main() {
 	protected.PATCH("/api/categories/:id", handlers.UpdateCategoryHandler(categorySvc))
 	protected.DELETE("/api/categories/:id", handlers.DeleteCategoryHandler(categorySvc))
 
+	// Dashboard API
+	dashboardHandler := handlers.NewDashboardHandler(importSvc)
+	protected.GET("/api/dashboard/stats", dashboardHandler.GetStats)
+
 	// Import/Analysis API
 	importHandler := handlers.NewImportHandler(importSvc, lichessSvc, chesscomSvc)
 	protected.POST("/api/imports", importHandler.UploadHandler)

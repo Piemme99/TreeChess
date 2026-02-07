@@ -57,12 +57,12 @@ export function TemplatePicker({ onDone }: TemplatePickerProps) {
       <div className="flex items-center mb-4 text-text-muted text-sm before:content-[''] before:flex-1 before:h-px before:bg-border after:content-[''] after:flex-1 after:h-px after:bg-border">
         <span className="px-4">or start from a template</span>
       </div>
-      {error && <div className="bg-danger-light text-danger py-2 px-4 rounded-md text-sm mb-4">{error}</div>}
+      {error && <div className="bg-danger-light text-danger py-2 px-4 rounded-xl text-sm mb-4">{error}</div>}
       <div className="flex flex-col gap-2">
         {templates.map((tmpl) => (
           <label
             key={tmpl.id}
-            className={`flex items-center gap-4 p-4 border-2 rounded-md cursor-pointer transition-all duration-150 select-none hover:border-primary hover:bg-primary-light ${
+            className={`flex items-center gap-4 p-4 border-2 rounded-xl cursor-pointer transition-all duration-150 select-none hover:border-primary hover:bg-primary-light ${
               selected.has(tmpl.id) ? 'border-primary bg-primary-light' : 'border-border'
             }`}
             onClick={() => toggleTemplate(tmpl.id)}

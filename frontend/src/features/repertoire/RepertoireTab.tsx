@@ -1,8 +1,10 @@
 import { useState } from 'react';
+import { motion } from 'framer-motion';
 import { useRepertoires } from './shared/hooks/useRepertoires';
 import { RepertoireSelector } from './shared/components/RepertoireSelector';
 import { StudyImportModal } from './shared/components/StudyImportModal';
 import { Loading } from '../../shared/components/UI';
+import { fadeUp, staggerContainer } from '../../shared/utils/animations';
 import type { Color } from '../../types';
 
 export function RepertoireTab() {
@@ -19,22 +21,27 @@ export function RepertoireTab() {
   }
 
   return (
-    <div className="max-w-[700px] mx-auto w-full flex flex-col py-8 px-4 gap-6">
-      <h1 className="text-2xl font-bold text-text">Repertoires</h1>
+    <motion.div
+      variants={staggerContainer}
+      initial="hidden"
+      animate="visible"
+      className="max-w-[700px] mx-auto w-full flex flex-col py-8 px-4 gap-6"
+    >
+      <motion.h1 variants={fadeUp} custom={0} className="text-2xl font-bold text-text font-display">Repertoires</motion.h1>
 
       {/* Tabs */}
-      <div className="flex border-b border-border">
+      <motion.div variants={fadeUp} custom={1} className="flex border-b border-primary/10">
         <button
           className={`flex items-center gap-2 px-6 py-3 text-base font-medium transition-colors border-b-2 -mb-px ${
             activeTab === 'white'
               ? 'border-primary text-text'
-              : 'border-transparent text-text-muted hover:text-text hover:border-border'
+              : 'border-transparent text-text-muted hover:text-text hover:border-primary/20'
           }`}
           onClick={() => setActiveTab('white')}
         >
           <span className="text-xl">{'\u2654'}</span>
           <span>White</span>
-          <span className="text-xs bg-bg px-2 py-0.5 rounded-full text-text-muted">
+          <span className="text-xs bg-primary-light text-primary px-2 py-0.5 rounded-full text-text-muted">
             {whiteRepertoires.length}
           </span>
         </button>
@@ -42,20 +49,20 @@ export function RepertoireTab() {
           className={`flex items-center gap-2 px-6 py-3 text-base font-medium transition-colors border-b-2 -mb-px ${
             activeTab === 'black'
               ? 'border-primary text-text'
-              : 'border-transparent text-text-muted hover:text-text hover:border-border'
+              : 'border-transparent text-text-muted hover:text-text hover:border-primary/20'
           }`}
           onClick={() => setActiveTab('black')}
         >
           <span className="text-xl">{'\u265A'}</span>
           <span>Black</span>
-          <span className="text-xs bg-bg px-2 py-0.5 rounded-full text-text-muted">
+          <span className="text-xs bg-primary-light text-primary px-2 py-0.5 rounded-full text-text-muted">
             {blackRepertoires.length}
           </span>
         </button>
-      </div>
+      </motion.div>
 
       {/* Tab content */}
-      <div className="mt-2">
+      <motion.div variants={fadeUp} custom={2} className="mt-2">
         {activeTab === 'white' ? (
           <RepertoireSelector color="white" repertoires={whiteRepertoires} categories={whiteCategories} onImportStudy={() => {
             setShowStudyModal(true);
@@ -67,13 +74,13 @@ export function RepertoireTab() {
             window.open('https://lichess.org/study', '_blank');
           }} />
         )}
-      </div>
+      </motion.div>
 
       <StudyImportModal
         isOpen={showStudyModal}
         onClose={() => setShowStudyModal(false)}
         onSuccess={refresh}
       />
-    </div>
+    </motion.div>
   );
 }

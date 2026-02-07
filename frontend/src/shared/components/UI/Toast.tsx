@@ -40,11 +40,11 @@ function ToastItem({ toast }: { toast: ToastType }) {
   };
 
   return (
-    <div className={`flex items-center gap-2 p-4 bg-bg-card rounded-lg shadow-md animate-slide-in border-l-4 ${
-      toast.type === 'success' ? 'border-l-success' :
-      toast.type === 'error' ? 'border-l-danger' :
-      toast.type === 'warning' ? 'border-l-warning' :
-      'border-l-info'
+    <div className={`flex items-center gap-2 p-4 bg-bg-card/95 backdrop-blur-sm rounded-xl shadow-lg animate-slide-in border-l-4 ${
+      toast.type === 'success' ? 'border-l-success bg-success-light/30' :
+      toast.type === 'error' ? 'border-l-danger bg-danger-light/30' :
+      toast.type === 'warning' ? 'border-l-warning bg-warning-light/30' :
+      'border-l-info bg-info-light/30'
     }`}>
       <span className={toastIcon({ type: toast.type })}>{getIcon(toast.type)}</span>
       <span className="flex-1">{toast.message}</span>

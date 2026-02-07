@@ -80,7 +80,7 @@ export function RepertoireSelector({ userColor, currentRepertoire, matchScore, o
 
   if (loading) {
     return (
-      <div className="flex items-center gap-4 py-2 px-6 bg-primary-light text-text text-sm border-b border-border">
+      <div className="flex items-center gap-4 py-2 px-6 bg-primary-light text-text text-sm border-b border-primary/10">
         <span className="font-medium whitespace-nowrap">Analyzed against:</span>
         <span className="text-text-muted italic">Loading repertoires...</span>
       </div>
@@ -90,7 +90,7 @@ export function RepertoireSelector({ userColor, currentRepertoire, matchScore, o
   if (repertoires.length === 0) {
     return (
       <>
-        <div className="flex items-center gap-4 py-2 px-6 bg-warning-light text-text text-sm border-b border-border">
+        <div className="flex items-center gap-4 py-2 px-6 bg-warning-light text-text text-sm border-b border-primary/10">
           <span className="whitespace-nowrap">No {userColor} repertoire available.</span>
           {isCreating ? (
             <div className="flex items-center gap-2 flex-1">
@@ -144,7 +144,7 @@ export function RepertoireSelector({ userColor, currentRepertoire, matchScore, o
   }
 
   return (
-    <div className="flex items-center gap-4 py-2 px-6 bg-primary-light text-text text-sm border-b border-border">
+    <div className="flex items-center gap-4 py-2 px-6 bg-primary-light text-text text-sm border-b border-primary/10">
       <span className="font-medium whitespace-nowrap">Analyzed against:</span>
       <select
         className="flex-1 max-w-[300px] py-1 px-2 font-sans text-sm border border-border rounded-sm bg-bg-card text-text cursor-pointer focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary-light disabled:opacity-60 disabled:cursor-not-allowed"

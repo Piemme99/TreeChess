@@ -43,7 +43,7 @@ export function HeroSection({ bgY }: HeroSectionProps) {
               custom={2}
               className="text-lg text-text-muted leading-relaxed mb-8 max-w-lg"
             >
-              ChessTool turns your opening study into an interactive, visual
+              TreeChess turns your opening study into an interactive, visual
               experience. Build move trees, import PGNs, and auto-sync your
               games to find exactly where you went wrong.
             </motion.p>

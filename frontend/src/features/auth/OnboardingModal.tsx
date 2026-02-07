@@ -132,7 +132,7 @@ export function OnboardingModal({ isOpen, onClose }: OnboardingModalProps) {
         </div>
       }
     >
-      {error && <div className="bg-danger-light text-danger py-2 px-4 rounded-md text-sm mb-4">{error}</div>}
+      {error && <div className="bg-danger-light text-danger py-2 px-4 rounded-xl text-sm mb-4">{error}</div>}
 
       <div className="mb-6">
         <h3 className="text-base font-semibold mb-1">Chess Usernames</h3>
@@ -148,7 +148,7 @@ export function OnboardingModal({ isOpen, onClose }: OnboardingModalProps) {
               placeholder="Lichess username"
               disabled={isLichessOAuth}
               maxLength={50}
-              className="py-2 px-4 border border-border rounded-md text-[0.9375rem] font-sans focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary-light disabled:opacity-60"
+              className="py-2 px-4 border border-border rounded-xl text-[0.9375rem] font-sans focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary-light disabled:opacity-60"
             />
           </div>
           <div className="flex flex-col gap-1">
@@ -160,7 +160,7 @@ export function OnboardingModal({ isOpen, onClose }: OnboardingModalProps) {
               onChange={(e) => setChesscomUsername(e.target.value)}
               placeholder="Chess.com username"
               maxLength={50}
-              className="py-2 px-4 border border-border rounded-md text-[0.9375rem] font-sans focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary-light"
+              className="py-2 px-4 border border-border rounded-xl text-[0.9375rem] font-sans focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary-light"
             />
           </div>
         </div>
@@ -175,7 +175,7 @@ export function OnboardingModal({ isOpen, onClose }: OnboardingModalProps) {
               key={format}
               type="button"
               onClick={() => toggleTimeFormat(format)}
-              className={`py-2 px-4 rounded-md text-sm font-medium transition-all duration-150 border-2 ${
+              className={`py-2 px-4 rounded-xl text-sm font-medium transition-all duration-150 border-2 ${
                 timeFormats.has(format)
                   ? 'border-primary bg-primary text-white'
                   : 'border-border bg-transparent text-text hover:border-primary'
@@ -194,8 +194,7 @@ export function OnboardingModal({ isOpen, onClose }: OnboardingModalProps) {
           {templates.map((tmpl) => (
             <label
               key={tmpl.id}
-              className={`flex items-center gap-4 p-4 border-2 rounded-md cursor-pointer transition-all duration-150 select-none ${selected.has(tmpl.id) ? 'border-primary bg-primary-light' : 'border-border hover:border-primary hover:bg-primary-light'}`}
-              onClick={() => toggleTemplate(tmpl.id)}
+              className={`flex items-center gap-4 p-4 border-2 rounded-xl cursor-pointer transition-all duration-150 select-none ${selected.has(tmpl.id) ? 'border-primary bg-primary-light' : 'border-border hover:border-primary hover:bg-primary-light'}`}
             >
               <input
                 type="checkbox"

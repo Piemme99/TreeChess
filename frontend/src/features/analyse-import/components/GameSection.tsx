@@ -39,7 +39,7 @@ export function GameSection({ game, gameNumber, importId, onAddToRepertoire }: G
         </div>
         <div className="flex gap-2">
           {firstActionable?.status === 'out-of-repertoire' && (
-            <span className="py-1 px-2 rounded-full text-xs font-medium bg-danger-light text-danger">Error</span>
+            <span className="py-1 px-2 rounded-full text-xs font-medium bg-danger-light text-danger">Opening error</span>
           )}
           {firstActionable?.status === 'opponent-new' && (
             <span className="py-1 px-2 rounded-full text-xs font-medium bg-warning-light text-warning">New line</span>
