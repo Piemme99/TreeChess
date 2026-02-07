@@ -183,7 +183,8 @@ func (s *ImportService) ParseAndAnalyze(filename string, username string, userID
 	return summary, results, nil
 }
 
-// findBestMatchingRepertoire finds the repertoire with the most matching moves
+// findBestMatchingRepertoire finds the repertoire with the most matching moves.
+// Returns nil when no repertoire covers the opponent's first move.
 func (s *ImportService) findBestMatchingRepertoire(game *chess.Game, repertoires []models.Repertoire, userColor models.Color) (*models.Repertoire, int) {
 	if len(repertoires) == 0 {
 		return nil, 0
@@ -200,10 +201,16 @@ func (s *ImportService) findBestMatchingRepertoire(game *chess.Game, repertoires
 		}
 	}
 
+	if bestScore < 0 || bestRepertoire == nil {
+		return nil, 0
+	}
+
 	return bestRepertoire, bestScore
 }
 
-// countMatchingMoves counts how many of the user's moves are in the repertoire
+// countMatchingMoves counts how many of the user's moves are in the repertoire.
+// Returns -1 if the opponent's first move is not covered by the repertoire,
+// signalling that this repertoire should not be matched to this game.
 func (s *ImportService) countMatchingMoves(game *chess.Game, repertoireRoot models.RepertoireNode, userColor models.Color) int {
 	moves := game.Moves()
 	position := chess.StartingPosition()
@@ -214,6 +221,26 @@ func (s *ImportService) countMatchingMoves(game *chess.Game, repertoireRoot mode
 		san := notation.Encode(position, move)
 		currentFEN := normalizeFEN(position.String())
 		isUserMove := (ply%2 == 0 && userColor == models.ColorWhite) || (ply%2 == 1 && userColor == models.ColorBlack)
+
+		// Reject repertoire if the opponent's very first move is not covered.
+		// Black: ply 0 is white's (opponent's) first move.
+		// White: ply 1 is black's (opponent's) first move.
+		isOpponentFirstMove := (ply == 0 && userColor == models.ColorBlack) || (ply == 1 && userColor == models.ColorWhite)
+		if isOpponentFirstMove {
+			node := s.findNodeInRepertoire(repertoireRoot, currentFEN)
+			if node != nil && len(node.Children) > 0 {
+				found := false
+				for _, child := range node.Children {
+					if child.Move != nil && *child.Move == san {
+						found = true
+						break
+					}
+				}
+				if !found {
+					return -1
+				}
+			}
+		}
 
 		if isUserMove {
 			node := s.findNodeInRepertoire(repertoireRoot, currentFEN)
@@ -501,8 +528,8 @@ func (s *ImportService) GetAllGames(userID string, limit, offset int, timeClass,
 	return response, nil
 }
 
-// GetDistinctRepertoires returns a sorted list of distinct repertoire names for a user
-func (s *ImportService) GetDistinctRepertoires(userID string) ([]string, error) {
+// GetDistinctRepertoires returns a sorted list of distinct repertoires for a user
+func (s *ImportService) GetDistinctRepertoires(userID string) ([]models.RepertoireFilterOption, error) {
 	return s.analysisRepo.GetDistinctRepertoires(userID)
 }
 
@@ -628,6 +655,141 @@ func (s *ImportService) reanalyzeGameFromMoves(game *models.GameAnalysis, repert
 	}
 
 	return result
+}
+
+// ReanalyzeAllGames re-analyzes all imported games against the user's current repertoires
+func (s *ImportService) ReanalyzeAllGames(userID string) (int, error) {
+	analyses, err := s.analysisRepo.GetAllGamesRaw(userID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get analyses: %w", err)
+	}
+
+	whiteColor := models.ColorWhite
+	blackColor := models.ColorBlack
+	whiteRepertoires, err := s.repertoireService.ListRepertoires(userID, &whiteColor)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get white repertoires: %w", err)
+	}
+	blackRepertoires, err := s.repertoireService.ListRepertoires(userID, &blackColor)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get black repertoires: %w", err)
+	}
+
+	totalGames := 0
+	for _, a := range analyses {
+		modified := false
+		for i := range a.Results {
+			game := &a.Results[i]
+			totalGames++
+
+			var repertoires []models.Repertoire
+			if game.UserColor == models.ColorWhite {
+				repertoires = whiteRepertoires
+			} else {
+				repertoires = blackRepertoires
+			}
+
+			bestRepertoire, matchScore := s.findBestMatchingRepertoireFromStored(game, repertoires)
+
+			var reperRef *models.RepertoireRef
+			if bestRepertoire != nil {
+				reperRef = &models.RepertoireRef{
+					ID:   bestRepertoire.ID,
+					Name: bestRepertoire.Name,
+				}
+			}
+
+			reanalyzed := s.reanalyzeGameFromMoves(game, &models.Repertoire{
+				TreeData: func() models.RepertoireNode {
+					if bestRepertoire != nil {
+						return bestRepertoire.TreeData
+					}
+					return models.RepertoireNode{}
+				}(),
+			})
+			reanalyzed.MatchedRepertoire = reperRef
+			reanalyzed.MatchScore = matchScore
+
+			a.Results[i] = reanalyzed
+			modified = true
+		}
+
+		if modified {
+			if err := s.analysisRepo.UpdateResults(a.ID, a.Results); err != nil {
+				return 0, fmt.Errorf("failed to update analysis %s: %w", a.ID, err)
+			}
+		}
+	}
+
+	return totalGames, nil
+}
+
+// findBestMatchingRepertoireFromStored finds the best matching repertoire using stored move FENs.
+// Returns nil when no repertoire covers the opponent's first move.
+func (s *ImportService) findBestMatchingRepertoireFromStored(game *models.GameAnalysis, repertoires []models.Repertoire) (*models.Repertoire, int) {
+	if len(repertoires) == 0 {
+		return nil, 0
+	}
+
+	var bestRepertoire *models.Repertoire
+	bestScore := -1
+
+	for i := range repertoires {
+		score := s.countMatchingMovesFromStored(game, repertoires[i].TreeData)
+		if score > bestScore {
+			bestScore = score
+			bestRepertoire = &repertoires[i]
+		}
+	}
+
+	if bestScore < 0 || bestRepertoire == nil {
+		return nil, 0
+	}
+
+	return bestRepertoire, bestScore
+}
+
+// countMatchingMovesFromStored counts matching user moves using stored FENs instead of replaying the game.
+// Returns -1 if the opponent's first move is not covered by the repertoire.
+func (s *ImportService) countMatchingMovesFromStored(game *models.GameAnalysis, repertoireRoot models.RepertoireNode) int {
+	// Check opponent's first move before counting.
+	for _, move := range game.Moves {
+		isOpponentFirstMove := (move.PlyNumber == 0 && game.UserColor == models.ColorBlack) || (move.PlyNumber == 1 && game.UserColor == models.ColorWhite)
+		if !isOpponentFirstMove {
+			continue
+		}
+		node := s.findNodeInRepertoire(repertoireRoot, move.FEN)
+		if node != nil && len(node.Children) > 0 {
+			found := false
+			for _, child := range node.Children {
+				if child.Move != nil && *child.Move == move.SAN {
+					found = true
+					break
+				}
+			}
+			if !found {
+				return -1
+			}
+		}
+		break
+	}
+
+	matchCount := 0
+	for _, move := range game.Moves {
+		if !move.IsUserMove {
+			continue
+		}
+		node := s.findNodeInRepertoire(repertoireRoot, move.FEN)
+		if node != nil {
+			for _, child := range node.Children {
+				if child.Move != nil && *child.Move == move.SAN {
+					matchCount++
+					break
+				}
+			}
+		}
+	}
+	return matchCount
 }
 
 // ComputeFingerprint generates a unique fingerprint for a game.
@@ -895,9 +1057,12 @@ func classifyOutcome(result string, userColor models.Color) string {
 	}
 }
 
-// gameStatusFromMoves replicates the repository.computeGameStatus logic.
-func gameStatusFromMoves(moves []models.MoveAnalysis) string {
-	for _, move := range moves {
+// gameStatusFromGame replicates the repository.computeGameStatus logic.
+func gameStatusFromGame(game models.GameAnalysis) string {
+	if game.MatchedRepertoire == nil && len(game.Moves) > 0 {
+		return "new-opening"
+	}
+	for _, move := range game.Moves {
 		if move.Status == "out-of-repertoire" {
 			return "error"
 		}
@@ -905,7 +1070,7 @@ func gameStatusFromMoves(moves []models.MoveAnalysis) string {
 			return "new-line"
 		}
 	}
-	return "ok"
+	return "in-repertoire"
 }
 
 // GetDashboardStats computes aggregate and per-repertoire stats for the dashboard.
@@ -946,8 +1111,8 @@ func (s *ImportService) GetDashboardStats(userID string) (*models.DashboardStats
 				resp.Draws++
 			}
 
-			status := gameStatusFromMoves(game.Moves)
-			inRep := status == "ok"
+			status := gameStatusFromGame(game)
+			inRep := status == "in-repertoire"
 
 			if inRep {
 				resp.InRepCount++
@@ -1000,7 +1165,7 @@ func (s *ImportService) GetDashboardStats(userID string) (*models.DashboardStats
 		inRepWins := 0
 		for _, a := range analyses {
 			for _, game := range a.Results {
-				if gameStatusFromMoves(game.Moves) == "ok" && classifyOutcome(game.Headers["Result"], game.UserColor) == "win" {
+				if gameStatusFromGame(game) == "in-repertoire" && classifyOutcome(game.Headers["Result"], game.UserColor) == "win" {
 					inRepWins++
 				}
 			}
@@ -1011,7 +1176,7 @@ func (s *ImportService) GetDashboardStats(userID string) (*models.DashboardStats
 		outRepWins := 0
 		for _, a := range analyses {
 			for _, game := range a.Results {
-				if gameStatusFromMoves(game.Moves) != "ok" && classifyOutcome(game.Headers["Result"], game.UserColor) == "win" {
+				if gameStatusFromGame(game) != "in-repertoire" && classifyOutcome(game.Headers["Result"], game.UserColor) == "win" {
 					outRepWins++
 				}
 			}

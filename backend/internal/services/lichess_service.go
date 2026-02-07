@@ -164,6 +164,9 @@ func (s *LichessService) FetchGames(username string, options models.LichessImpor
 		q.Set("perfType", options.PerfType)
 	}
 
+	// Include opening names (ECO + Opening tags) in PGN output
+	q.Set("opening", "true")
+
 	reqURL.RawQuery = q.Encode()
 
 	req, err := http.NewRequest(http.MethodGet, reqURL.String(), nil)

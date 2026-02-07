@@ -20,6 +20,7 @@ export interface LayoutNode {
   node: RepertoireNode;
   depth: number;
   hiddenDescendantCount?: number;
+  branchColor?: string;
 }
 
 /** Type of edge in the tree */
@@ -33,6 +34,8 @@ export interface LayoutEdge {
   fromPolar?: PolarPoint;
   toPolar?: PolarPoint;
   type: EdgeType;
+  isMainLine?: boolean;
+  branchColor?: string;
 }
 
 /** Complete tree layout calculation result */

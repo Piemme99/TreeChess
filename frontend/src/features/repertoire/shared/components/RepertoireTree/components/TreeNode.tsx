@@ -22,6 +22,7 @@ export const TreeNode = memo(function TreeNode({
 }: TreeNodeProps) {
   const isRoot = layoutNode.node.move === null;
   const isTransposition = !!layoutNode.node.transpositionOf;
+  const isMainLine = !!layoutNode.node.isMainLine && !isRoot;
   // colorToMove is the color to play AFTER this move
   // So if colorToMove === 'b', the move that was just played was white's move
   const isWhiteMove = layoutNode.node.colorToMove === 'b';
@@ -50,6 +51,18 @@ export const TreeNode = memo(function TreeNode({
       onMouseLeave={onMouseLeave}
       style={{ cursor: 'pointer' }}
     >
+      {/* Glow ring — branch color overrides main line orange */}
+      {(layoutNode.branchColor || isMainLine) && (
+        <circle
+          cx={0}
+          cy={0}
+          r={NODE_RADIUS + 3}
+          fill="none"
+          stroke={layoutNode.branchColor || '#E67E22'}
+          strokeWidth="1"
+          strokeOpacity={0.7}
+        />
+      )}
       {isRoot ? (
         <rect
           x={-NODE_RADIUS}
@@ -57,9 +70,9 @@ export const TreeNode = memo(function TreeNode({
           width={NODE_RADIUS * 2}
           height={NODE_RADIUS * 2}
           rx="4"
-          fill={isSelected ? '#E67E22' : '#6b7280'}
-          stroke={isSelected ? '#D4740A' : '#4b5563'}
-          strokeWidth="2"
+          fill="#6b7280"
+          stroke={isSelected ? '#E67E22' : '#4b5563'}
+          strokeWidth={isSelected ? 6 : 2}
         />
       ) : (
         <circle
@@ -69,22 +82,20 @@ export const TreeNode = memo(function TreeNode({
           fill={
             isTransposition
               ? '#ede9fe'
-              : isSelected
-                ? '#E67E22'
-                : isWhiteMove
-                  ? '#ffffff'
-                  : '#1f2937'
+              : isWhiteMove
+                ? '#ffffff'
+                : '#1f2937'
           }
           stroke={
             isTransposition
               ? '#a78bfa'
               : isSelected
-                ? '#D4740A'
+                ? '#E67E22'
                 : isWhiteMove
                   ? '#9ca3af'
                   : '#111827'
           }
-          strokeWidth="2"
+          strokeWidth={isSelected ? 6 : 2}
           strokeDasharray={isTransposition ? '4 2' : undefined}
         />
       )}
@@ -92,11 +103,11 @@ export const TreeNode = memo(function TreeNode({
       {layoutNode.node.branchName && (
         <text
           x={0}
-          y={-NODE_RADIUS - 20}
+          y={-NODE_RADIUS - 28}
           textAnchor="middle"
-          fontSize="11"
+          fontSize="22"
           fontStyle="italic"
-          fill="#1f2937"
+          fill={layoutNode.branchColor || '#1f2937'}
         >
           {layoutNode.node.branchName}
         </text>
@@ -109,7 +120,7 @@ export const TreeNode = memo(function TreeNode({
         fontSize="11"
         fontWeight="bold"
         fill={
-          isRoot || isSelected
+          isRoot
             ? '#fff'
             : isTransposition
               ? '#6d28d9'

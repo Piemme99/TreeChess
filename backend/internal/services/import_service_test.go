@@ -1200,8 +1200,9 @@ func TestAnalyzeGame_RepertoireExhaustion(t *testing.T) {
 	assert.Equal(t, "out-of-book", analysis.Moves[3].Status)
 
 	// Game status should be "ok" because there are no deviations
-	status := gameStatusFromMoves(analysis.Moves)
-	assert.Equal(t, "ok", status)
+	analysis.MatchedRepertoire = &models.RepertoireRef{ID: "rep-1", Name: "Test"}
+	status := gameStatusFromGame(analysis)
+	assert.Equal(t, "in-repertoire", status)
 }
 
 func TestAnalyzeGame_TrueDeviation(t *testing.T) {
@@ -1252,41 +1253,447 @@ func TestAnalyzeGame_TrueDeviation(t *testing.T) {
 	assert.Equal(t, "out-of-book", analysis.Moves[1].Status)
 
 	// Game status should be "error" because of the out-of-repertoire move
-	status := gameStatusFromMoves(analysis.Moves)
+	analysis.MatchedRepertoire = &models.RepertoireRef{ID: "rep-1", Name: "Test"}
+	status := gameStatusFromGame(analysis)
 	assert.Equal(t, "error", status)
 }
 
-func TestGameStatusFromMoves_IgnoresOutOfBook(t *testing.T) {
-	// Verify that gameStatusFromMoves treats "out-of-book" as benign
-	moves := []models.MoveAnalysis{
-		{Status: "in-repertoire"},
-		{Status: "in-repertoire"},
-		{Status: "out-of-book"},
-		{Status: "out-of-book"},
+func TestGameStatusFromGame_IgnoresOutOfBook(t *testing.T) {
+	// Verify that gameStatusFromGame treats "out-of-book" as benign
+	game := models.GameAnalysis{
+		MatchedRepertoire: &models.RepertoireRef{ID: "rep-1", Name: "Test"},
+		Moves: []models.MoveAnalysis{
+			{Status: "in-repertoire"},
+			{Status: "in-repertoire"},
+			{Status: "out-of-book"},
+			{Status: "out-of-book"},
+		},
 	}
 
-	status := gameStatusFromMoves(moves)
-	assert.Equal(t, "ok", status)
+	status := gameStatusFromGame(game)
+	assert.Equal(t, "in-repertoire", status)
 }
 
-func TestGameStatusFromMoves_OutOfRepertoireIsError(t *testing.T) {
-	moves := []models.MoveAnalysis{
-		{Status: "in-repertoire"},
-		{Status: "out-of-repertoire"},
-		{Status: "out-of-book"},
+func TestGameStatusFromGame_OutOfRepertoireIsError(t *testing.T) {
+	game := models.GameAnalysis{
+		MatchedRepertoire: &models.RepertoireRef{ID: "rep-1", Name: "Test"},
+		Moves: []models.MoveAnalysis{
+			{Status: "in-repertoire"},
+			{Status: "out-of-repertoire"},
+			{Status: "out-of-book"},
+		},
 	}
 
-	status := gameStatusFromMoves(moves)
+	status := gameStatusFromGame(game)
 	assert.Equal(t, "error", status)
 }
 
-func TestGameStatusFromMoves_OpponentNewIsNewLine(t *testing.T) {
-	moves := []models.MoveAnalysis{
-		{Status: "in-repertoire"},
-		{Status: "opponent-new"},
-		{Status: "out-of-book"},
+func TestGameStatusFromGame_OpponentNewIsNewLine(t *testing.T) {
+	game := models.GameAnalysis{
+		MatchedRepertoire: &models.RepertoireRef{ID: "rep-1", Name: "Test"},
+		Moves: []models.MoveAnalysis{
+			{Status: "in-repertoire"},
+			{Status: "opponent-new"},
+			{Status: "out-of-book"},
+		},
 	}
 
-	status := gameStatusFromMoves(moves)
+	status := gameStatusFromGame(game)
 	assert.Equal(t, "new-line", status)
+}
+
+func TestGameStatusFromGame_NewOpening(t *testing.T) {
+	// No matched repertoire → "new-opening"
+	game := models.GameAnalysis{
+		MatchedRepertoire: nil,
+		Moves: []models.MoveAnalysis{
+			{Status: "out-of-book"},
+			{Status: "out-of-book"},
+		},
+	}
+
+	status := gameStatusFromGame(game)
+	assert.Equal(t, "new-opening", status)
+}
+
+// --- ReanalyzeAllGames tests ---
+
+func TestReanalyzeAllGames_Basic(t *testing.T) {
+	moveE4 := "e4"
+	moveE5 := "e5"
+	whiteRepertoire := models.Repertoire{
+		ID:    "rep-w",
+		Name:  "White Rep",
+		Color: models.ColorWhite,
+		TreeData: models.RepertoireNode{
+			ID:  "root",
+			FEN: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -",
+			Children: []*models.RepertoireNode{
+				{
+					ID:   "e4",
+					FEN:  "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3",
+					Move: &moveE4,
+					Children: []*models.RepertoireNode{
+						{
+							ID:   "e5",
+							FEN:  "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6",
+							Move: &moveE5,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	analyses := []models.RawAnalysis{
+		{
+			ID: "a1",
+			Results: []models.GameAnalysis{
+				{
+					GameIndex: 0,
+					UserColor: models.ColorWhite,
+					Headers:   models.PGNHeaders{"White": "User", "Black": "Opp", "Result": "1-0"},
+					Moves: []models.MoveAnalysis{
+						{PlyNumber: 0, SAN: "e4", FEN: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -", IsUserMove: true, Status: "out-of-book"},
+						{PlyNumber: 1, SAN: "e5", FEN: "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3", IsUserMove: false, Status: "out-of-book"},
+					},
+				},
+			},
+		},
+	}
+
+	var updatedResults []models.GameAnalysis
+	mockAnalysisRepo := &mocks.MockAnalysisRepo{
+		GetAllGamesRawFunc: func(userID string) ([]models.RawAnalysis, error) {
+			return analyses, nil
+		},
+		UpdateResultsFunc: func(analysisID string, results []models.GameAnalysis) error {
+			updatedResults = results
+			return nil
+		},
+	}
+
+	mockRepRepo := &mocks.MockRepertoireRepo{
+		GetByColorFunc: func(userID string, color models.Color) ([]models.Repertoire, error) {
+			if color == models.ColorWhite {
+				return []models.Repertoire{whiteRepertoire}, nil
+			}
+			return nil, nil
+		},
+	}
+
+	repSvc := NewRepertoireService(mockRepRepo)
+	svc := NewImportService(repSvc, mockAnalysisRepo)
+
+	count, err := svc.ReanalyzeAllGames("user-1")
+
+	require.NoError(t, err)
+	assert.Equal(t, 1, count)
+	require.Len(t, updatedResults, 1)
+	assert.Equal(t, "in-repertoire", updatedResults[0].Moves[0].Status) // e4 is in repertoire
+	assert.Equal(t, "in-repertoire", updatedResults[0].Moves[1].Status) // e5 is in repertoire
+	assert.NotNil(t, updatedResults[0].MatchedRepertoire)
+	assert.Equal(t, "rep-w", updatedResults[0].MatchedRepertoire.ID)
+	assert.Equal(t, 1, updatedResults[0].MatchScore) // 1 user move matched (e4)
+}
+
+func TestReanalyzeAllGames_NoRepertoires(t *testing.T) {
+	analyses := []models.RawAnalysis{
+		{
+			ID: "a1",
+			Results: []models.GameAnalysis{
+				{
+					GameIndex: 0,
+					UserColor: models.ColorWhite,
+					Headers:   models.PGNHeaders{"White": "User", "Black": "Opp", "Result": "1-0"},
+					Moves: []models.MoveAnalysis{
+						{PlyNumber: 0, SAN: "e4", FEN: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -", IsUserMove: true, Status: "in-repertoire"},
+					},
+					MatchedRepertoire: &models.RepertoireRef{ID: "old-rep", Name: "Old"},
+					MatchScore:        1,
+				},
+			},
+		},
+	}
+
+	var updatedResults []models.GameAnalysis
+	mockAnalysisRepo := &mocks.MockAnalysisRepo{
+		GetAllGamesRawFunc: func(userID string) ([]models.RawAnalysis, error) {
+			return analyses, nil
+		},
+		UpdateResultsFunc: func(analysisID string, results []models.GameAnalysis) error {
+			updatedResults = results
+			return nil
+		},
+	}
+
+	mockRepRepo := &mocks.MockRepertoireRepo{
+		GetByColorFunc: func(userID string, color models.Color) ([]models.Repertoire, error) {
+			return nil, nil
+		},
+	}
+
+	repSvc := NewRepertoireService(mockRepRepo)
+	svc := NewImportService(repSvc, mockAnalysisRepo)
+
+	count, err := svc.ReanalyzeAllGames("user-1")
+
+	require.NoError(t, err)
+	assert.Equal(t, 1, count)
+	require.Len(t, updatedResults, 1)
+	assert.Nil(t, updatedResults[0].MatchedRepertoire)
+	assert.Equal(t, 0, updatedResults[0].MatchScore)
+	assert.Equal(t, "out-of-book", updatedResults[0].Moves[0].Status)
+}
+
+func TestReanalyzeAllGames_EmptyAnalyses(t *testing.T) {
+	mockAnalysisRepo := &mocks.MockAnalysisRepo{
+		GetAllGamesRawFunc: func(userID string) ([]models.RawAnalysis, error) {
+			return nil, nil
+		},
+	}
+
+	mockRepRepo := &mocks.MockRepertoireRepo{
+		GetByColorFunc: func(userID string, color models.Color) ([]models.Repertoire, error) {
+			return nil, nil
+		},
+	}
+
+	repSvc := NewRepertoireService(mockRepRepo)
+	svc := NewImportService(repSvc, mockAnalysisRepo)
+
+	count, err := svc.ReanalyzeAllGames("user-1")
+
+	require.NoError(t, err)
+	assert.Equal(t, 0, count)
+}
+
+func TestFindBestMatchingRepertoireFromStored(t *testing.T) {
+	svc := NewImportService(nil, nil)
+
+	moveE4 := "e4"
+	moveD4 := "d4"
+	moveE5 := "e5"
+
+	// Repertoire A: e4 only (1 match for e4 game)
+	repA := models.Repertoire{
+		ID: "rep-a", Name: "e4 Rep",
+		TreeData: models.RepertoireNode{
+			FEN: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -",
+			Children: []*models.RepertoireNode{
+				{FEN: "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3", Move: &moveE4},
+			},
+		},
+	}
+
+	// Repertoire B: e4 + e5 response (still 1 user match for e4 game, but also covers e5)
+	repB := models.Repertoire{
+		ID: "rep-b", Name: "Full Rep",
+		TreeData: models.RepertoireNode{
+			FEN: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -",
+			Children: []*models.RepertoireNode{
+				{
+					FEN:  "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3",
+					Move: &moveE4,
+					Children: []*models.RepertoireNode{
+						{FEN: "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6", Move: &moveE5},
+					},
+				},
+			},
+		},
+	}
+
+	// Repertoire C: d4 only (0 matches for an e4 game)
+	repC := models.Repertoire{
+		ID: "rep-c", Name: "d4 Rep",
+		TreeData: models.RepertoireNode{
+			FEN: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -",
+			Children: []*models.RepertoireNode{
+				{FEN: "rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq d3", Move: &moveD4},
+			},
+		},
+	}
+
+	game := &models.GameAnalysis{
+		UserColor: models.ColorWhite,
+		Moves: []models.MoveAnalysis{
+			{SAN: "e4", FEN: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -", IsUserMove: true},
+			{SAN: "e5", FEN: "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3", IsUserMove: false},
+		},
+	}
+
+	best, score := svc.findBestMatchingRepertoireFromStored(game, []models.Repertoire{repA, repB, repC})
+
+	require.NotNil(t, best)
+	// repA and repB both match 1 user move (e4), repA wins by order
+	assert.Equal(t, "rep-a", best.ID)
+	assert.Equal(t, 1, score)
+}
+
+func TestCountMatchingMoves_RejectsUnknownOpponentFirstMove_Black(t *testing.T) {
+	// Black repertoire covers 1.e4, game starts with 1.d4 → reject
+	svc := NewImportService(nil, nil)
+
+	pgnData := `[Event "Test"]
+[White "Opp"]
+[Black "User"]
+1. d4 d5 1-0`
+
+	games, err := svc.parsePGN(pgnData)
+	require.NoError(t, err)
+	require.Len(t, games, 1)
+
+	moveE4 := "e4"
+	moveE5 := "e5"
+	root := models.RepertoireNode{
+		ID:  "root",
+		FEN: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -",
+		Children: []*models.RepertoireNode{
+			{
+				ID:   "e4",
+				FEN:  "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3",
+				Move: &moveE4,
+				Children: []*models.RepertoireNode{
+					{
+						ID:   "e5",
+						FEN:  "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6",
+						Move: &moveE5,
+					},
+				},
+			},
+		},
+	}
+
+	score := svc.countMatchingMoves(games[0], root, models.ColorBlack)
+	assert.Equal(t, -1, score, "should reject when opponent's first move (1.d4) is not in black repertoire covering 1.e4")
+}
+
+func TestCountMatchingMoves_AcceptsKnownOpponentFirstMove_Black(t *testing.T) {
+	// Black repertoire covers 1.e4, game starts with 1.e4 → accept
+	svc := NewImportService(nil, nil)
+
+	pgnData := `[Event "Test"]
+[White "Opp"]
+[Black "User"]
+1. e4 e5 1-0`
+
+	games, err := svc.parsePGN(pgnData)
+	require.NoError(t, err)
+	require.Len(t, games, 1)
+
+	moveE4 := "e4"
+	moveE5 := "e5"
+	root := models.RepertoireNode{
+		ID:  "root",
+		FEN: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -",
+		Children: []*models.RepertoireNode{
+			{
+				ID:   "e4",
+				FEN:  "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3",
+				Move: &moveE4,
+				Children: []*models.RepertoireNode{
+					{
+						ID:   "e5",
+						FEN:  "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6",
+						Move: &moveE5,
+					},
+				},
+			},
+		},
+	}
+
+	score := svc.countMatchingMoves(games[0], root, models.ColorBlack)
+	assert.Equal(t, 1, score, "should accept and count 1 matching user move (e5)")
+}
+
+func TestCountMatchingMoves_RejectsUnknownOpponentFirstMove_White(t *testing.T) {
+	// White repertoire covers 1.e4 e5, game has 1.e4 c5 → reject (c5 not in repertoire)
+	svc := NewImportService(nil, nil)
+
+	pgnData := `[Event "Test"]
+[White "User"]
+[Black "Opp"]
+1. e4 c5 2. Nf3 d6 1-0`
+
+	games, err := svc.parsePGN(pgnData)
+	require.NoError(t, err)
+	require.Len(t, games, 1)
+
+	moveE4 := "e4"
+	moveE5 := "e5"
+	root := models.RepertoireNode{
+		ID:  "root",
+		FEN: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -",
+		Children: []*models.RepertoireNode{
+			{
+				ID:   "e4",
+				FEN:  "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3",
+				Move: &moveE4,
+				Children: []*models.RepertoireNode{
+					{
+						ID:   "e5",
+						FEN:  "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6",
+						Move: &moveE5,
+					},
+				},
+			},
+		},
+	}
+
+	score := svc.countMatchingMoves(games[0], root, models.ColorWhite)
+	assert.Equal(t, -1, score, "should reject when opponent's first response (1...c5) is not in white repertoire covering 1.e4 e5")
+}
+
+func TestFindBestMatchingRepertoireFromStored_RejectsAllUnmatched(t *testing.T) {
+	// All repertoires reject the opponent's first move → nil result
+	svc := NewImportService(nil, nil)
+
+	moveE4 := "e4"
+	moveE5 := "e5"
+
+	repA := models.Repertoire{
+		ID: "rep-e4", Name: "e4 Rep",
+		Color: models.ColorBlack,
+		TreeData: models.RepertoireNode{
+			FEN: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -",
+			Children: []*models.RepertoireNode{
+				{
+					FEN:  "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3",
+					Move: &moveE4,
+					Children: []*models.RepertoireNode{
+						{FEN: "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6", Move: &moveE5},
+					},
+				},
+			},
+		},
+	}
+
+	// Game starts with 1.d4 — not covered by the e4 repertoire
+	game := &models.GameAnalysis{
+		UserColor: models.ColorBlack,
+		Moves: []models.MoveAnalysis{
+			{PlyNumber: 0, SAN: "d4", FEN: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -", IsUserMove: false},
+			{PlyNumber: 1, SAN: "d5", FEN: "rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq d3", IsUserMove: true},
+		},
+	}
+
+	best, score := svc.findBestMatchingRepertoireFromStored(game, []models.Repertoire{repA})
+
+	assert.Nil(t, best, "should not match any repertoire when opponent's first move is not covered")
+	assert.Equal(t, 0, score)
+}
+
+func TestFindBestMatchingRepertoireFromStored_Empty(t *testing.T) {
+	svc := NewImportService(nil, nil)
+
+	game := &models.GameAnalysis{
+		Moves: []models.MoveAnalysis{
+			{SAN: "e4", FEN: "start", IsUserMove: true},
+		},
+	}
+
+	best, score := svc.findBestMatchingRepertoireFromStored(game, nil)
+
+	assert.Nil(t, best)
+	assert.Equal(t, 0, score)
 }

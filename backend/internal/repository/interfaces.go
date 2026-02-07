@@ -75,7 +75,7 @@ type AnalysisRepository interface {
 	DeleteGame(analysisID string, gameIndex int) error
 	UpdateResults(analysisID string, results []models.GameAnalysis) error
 	BelongsToUser(id string, userID string) (bool, error)
-	GetDistinctRepertoires(userID string) ([]string, error)
+	GetDistinctRepertoires(userID string) ([]models.RepertoireFilterOption, error)
 	MarkGameViewed(userID, analysisID string, gameIndex int) error
 	GetViewedGames(userID string) (map[string]bool, error)
 	GetAllGamesRaw(userID string) ([]models.RawAnalysis, error)

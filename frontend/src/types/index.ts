@@ -83,7 +83,9 @@ export interface RepertoireNode {
   parentId: string | null;
   comment?: string | null;
   branchName?: string | null;
+  branchColor?: string | null;
   collapsed?: boolean;
+  isMainLine?: boolean;
   transpositionOf?: string | null;
   children: RepertoireNode[];
 }
@@ -177,7 +179,7 @@ export interface AnalysisDetail extends AnalysisSummary {
 }
 
 // Game list types
-export type GameStatus = 'ok' | 'error' | 'new-line';
+export type GameStatus = 'in-repertoire' | 'error' | 'new-line' | 'new-opening';
 
 export type TimeClass = 'bullet' | 'blitz' | 'rapid' | 'daily';
 
@@ -206,6 +208,12 @@ export interface GamesResponse {
   total: number;
   limit: number;
   offset: number;
+}
+
+export interface RepertoireFilterOption {
+  id: string;
+  name: string;
+  color: Color;
 }
 
 // Insights types

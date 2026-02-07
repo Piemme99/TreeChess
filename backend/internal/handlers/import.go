@@ -236,7 +236,7 @@ func (h *ImportHandler) GetDistinctRepertoiresHandler(c echo.Context) error {
 	}
 
 	if repertoires == nil {
-		repertoires = []string{}
+		repertoires = []models.RepertoireFilterOption{}
 	}
 
 	return c.JSON(http.StatusOK, map[string]interface{}{
@@ -436,6 +436,19 @@ func (h *ImportHandler) DismissMistakeHandler(c echo.Context) error {
 	}
 
 	return c.NoContent(http.StatusNoContent)
+}
+
+func (h *ImportHandler) ReanalyzeAllGamesHandler(c echo.Context) error {
+	userID := c.Get("userID").(string)
+
+	count, err := h.importService.ReanalyzeAllGames(userID)
+	if err != nil {
+		return InternalErrorResponse(c, "failed to reanalyze games")
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"reanalyzed": count,
+	})
 }
 
 func (h *ImportHandler) LichessImportHandler(c echo.Context) error {

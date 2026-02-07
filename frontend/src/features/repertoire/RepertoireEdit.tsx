@@ -17,6 +17,7 @@ import { DeleteModal } from './edit/components/DeleteModal';
 import { ExtractModal } from './edit/components/ExtractModal';
 import { repertoireApi } from '../../services/api';
 import { toast } from '../../stores/toastStore';
+import { BRANCH_COLORS } from './shared/components/RepertoireTree/constants';
 
 type TabId = 'tree' | 'moves' | 'engine';
 
@@ -63,15 +64,17 @@ export function RepertoireEdit() {
   const commentSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [branchNameText, setBranchNameText] = useState('');
   const branchNameSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [branchColorValue, setBranchColorValue] = useState<string | null>(null);
 
   const selectedNode = repertoire && selectedNodeId ? findNode(repertoire.treeData, selectedNodeId) : null;
   const currentFEN = selectedNode?.fen || STARTING_FEN;
 
-  // Sync comment text and branch name when selected node changes
+  // Sync comment text, branch name, and branch color when selected node changes
   useEffect(() => {
     setCommentText(selectedNode?.comment || '');
     setBranchNameText(selectedNode?.branchName || '');
-  }, [selectedNodeId, selectedNode?.comment, selectedNode?.branchName]);
+    setBranchColorValue(selectedNode?.branchColor || null);
+  }, [selectedNodeId, selectedNode?.comment, selectedNode?.branchName, selectedNode?.branchColor]);
 
   useEffect(() => {
     engine.analyze(currentFEN);
@@ -136,6 +139,14 @@ export function RepertoireEdit() {
     saveBranchName(branchNameText);
   }, [saveBranchName, branchNameText]);
 
+  const handleBranchColorChange = useCallback((hex: string | null) => {
+    if (!id || !selectedNodeId) return;
+    setBranchColorValue(hex);
+    repertoireApi.updateNodeBranchColor(id, selectedNodeId, hex || '')
+      .then((updated) => setRepertoire(updated))
+      .catch(() => toast.error('Failed to save branch color'));
+  }, [id, selectedNodeId, setRepertoire]);
+
   const handleNodeClick = useCallback(
     (node: RepertoireNode) => {
       // If clicking a transposition node, navigate to the canonical node
@@ -156,6 +167,41 @@ export function RepertoireEdit() {
       setRepertoire(updated);
     } catch {
       toast.error('Failed to toggle collapsed state');
+    }
+  }, [id, setRepertoire]);
+
+  const [mainLineLoading, setMainLineLoading] = useState(false);
+
+  const hasMainLine = useCallback((node: RepertoireNode): boolean => {
+    if (node.isMainLine) return true;
+    return node.children.some(hasMainLine);
+  }, []);
+
+  const handleSetMainLine = useCallback(async () => {
+    if (!id || !selectedNodeId) return;
+    setMainLineLoading(true);
+    try {
+      const updated = await repertoireApi.setMainLine(id, selectedNodeId);
+      setRepertoire(updated);
+      toast.success('Main line set');
+    } catch {
+      toast.error('Failed to set main line');
+    } finally {
+      setMainLineLoading(false);
+    }
+  }, [id, selectedNodeId, setRepertoire]);
+
+  const handleClearMainLine = useCallback(async () => {
+    if (!id) return;
+    setMainLineLoading(true);
+    try {
+      const updated = await repertoireApi.clearMainLine(id);
+      setRepertoire(updated);
+      toast.success('Main line cleared');
+    } catch {
+      toast.error('Failed to clear main line');
+    } finally {
+      setMainLineLoading(false);
     }
   }, [id, setRepertoire]);
 
@@ -230,6 +276,14 @@ export function RepertoireEdit() {
               )}
             </div>
             <div className="flex items-center gap-1">
+              <Button variant="ghost" size="sm" onClick={handleSetMainLine} disabled={isRootNode || mainLineLoading} title="Set main line to this node">
+                Main Line
+              </Button>
+              {repertoire && hasMainLine(repertoire.treeData) && (
+                <Button variant="ghost" size="sm" onClick={handleClearMainLine} disabled={mainLineLoading} title="Clear main line">
+                  Clear ML
+                </Button>
+              )}
               <Button variant="ghost" size="sm" onClick={handleMergeTranspositions} disabled={mergeLoading} title="Merge transpositions">
                 {mergeLoading ? 'Merging...' : 'Merge'}
               </Button>
@@ -256,6 +310,34 @@ export function RepertoireEdit() {
                 onChange={handleBranchNameChange}
                 onBlur={handleBranchNameBlur}
               />
+              {(branchNameText || branchColorValue) && (
+                <div className="flex items-center gap-1.5">
+                  {BRANCH_COLORS.map((c) => (
+                    <button
+                      key={c.id}
+                      title={c.label}
+                      onClick={() => handleBranchColorChange(branchColorValue === c.hex ? null : c.hex)}
+                      className="rounded-full border-2 transition-transform"
+                      style={{
+                        width: 20,
+                        height: 20,
+                        backgroundColor: c.hex,
+                        borderColor: branchColorValue === c.hex ? c.hex : 'transparent',
+                        transform: branchColorValue === c.hex ? 'scale(1.25)' : 'scale(1)',
+                      }}
+                    />
+                  ))}
+                  {branchColorValue && (
+                    <button
+                      title="Clear color"
+                      onClick={() => handleBranchColorChange(null)}
+                      className="ml-1 text-text-muted hover:text-text text-xs leading-none"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              )}
               <textarea
                 className="w-full py-1 px-2 text-[0.8rem] font-sans border border-primary/10 rounded-md bg-bg text-text resize-y min-h-[2.5rem] focus:outline-none focus:border-primary placeholder:text-text-muted"
                 placeholder="Add a note for this position..."

@@ -1,4 +1,5 @@
 import { useRef, useState, useEffect, useMemo } from 'react';
+import { ExternalLink } from 'lucide-react';
 import { ChessBoard } from '../../../../shared/components/Board/ChessBoard';
 import { useChess } from '../../../../shared/hooks/useChess';
 import { findNode } from '../utils/nodeUtils';
@@ -109,12 +110,23 @@ export function BoardSection({
         <span className="font-mono text-xs text-text-muted truncate max-w-[70%]" title={currentFEN}>
           {truncatedFEN}
         </span>
-        {orientationLabel && (
-          <span className="text-xs text-text-muted flex items-center gap-1">
-            <span className={`inline-block w-2.5 h-2.5 rounded-full border border-border-dark ${color === 'white' ? 'bg-white' : 'bg-gray-800'}`} />
-            {orientationLabel}
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          <a
+            href={`https://lichess.org/analysis/${currentFEN.split(' ').join('_')}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Analyse on Lichess"
+            className="text-text-muted hover:text-text transition-colors"
+          >
+            <ExternalLink className="w-3.5 h-3.5" />
+          </a>
+          {orientationLabel && (
+            <span className="text-xs text-text-muted flex items-center gap-1">
+              <span className={`inline-block w-2.5 h-2.5 rounded-full border border-border-dark ${color === 'white' ? 'bg-white' : 'bg-gray-800'}`} />
+              {orientationLabel}
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );

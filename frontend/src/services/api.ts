@@ -23,7 +23,8 @@ import type {
   Category,
   CategoryWithRepertoires,
   CreateCategoryRequest,
-  UpdateCategoryRequest
+  UpdateCategoryRequest,
+  RepertoireFilterOption
 } from '../types';
 
 const TOKEN_STORAGE_KEY = 'treechess_token';
@@ -181,6 +182,11 @@ export const repertoireApi = {
     return response.data;
   },
 
+  updateNodeBranchColor: async (id: string, nodeId: string, branchColor: string): Promise<Repertoire> => {
+    const response = await api.patch(`/repertoires/${id}/nodes/${nodeId}/branch-color`, { branchColor });
+    return response.data;
+  },
+
   mergeTranspositions: async (id: string): Promise<Repertoire> => {
     const response = await api.post(`/repertoires/${id}/merge-transpositions`);
     return response.data;
@@ -188,6 +194,16 @@ export const repertoireApi = {
 
   toggleNodeCollapsed: async (id: string, nodeId: string): Promise<Repertoire> => {
     const response = await api.post(`/repertoires/${id}/nodes/${nodeId}/toggle-collapsed`);
+    return response.data;
+  },
+
+  setMainLine: async (id: string, nodeId: string): Promise<Repertoire> => {
+    const response = await api.post(`/repertoires/${id}/nodes/${nodeId}/set-main-line`);
+    return response.data;
+  },
+
+  clearMainLine: async (id: string): Promise<Repertoire> => {
+    const response = await api.post(`/repertoires/${id}/clear-main-line`);
     return response.data;
   },
 
@@ -339,7 +355,7 @@ export const gamesApi = {
     return response.data;
   },
 
-  repertoires: async (options?: RequestOptions): Promise<string[]> => {
+  repertoires: async (options?: RequestOptions): Promise<RepertoireFilterOption[]> => {
     const response = await api.get('/games/repertoires', { signal: options?.signal });
     return response.data.repertoires;
   },
@@ -360,6 +376,11 @@ export const gamesApi = {
 
   dismissMistake: async (fen: string, playedMove: string): Promise<void> => {
     await api.post('/games/insights/dismiss', { fen, playedMove });
+  },
+
+  reanalyzeAll: async (): Promise<{ reanalyzed: number }> => {
+    const response = await api.post('/games/reanalyze-all');
+    return response.data;
   }
 };
 

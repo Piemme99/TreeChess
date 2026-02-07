@@ -31,10 +31,12 @@ export function useTreeNavigation(
     if (node.children.length === 0 && node.transpositionOf) {
       const canonicalNode = findNode(treeData, node.transpositionOf);
       if (canonicalNode && canonicalNode.children.length > 0) {
-        selectNode(canonicalNode.children[0].id);
+        const mainLineChild = canonicalNode.children.find(c => c.isMainLine);
+        selectNode((mainLineChild ?? canonicalNode.children[0]).id);
       }
     } else if (node.children.length > 0) {
-      selectNode(node.children[0].id);
+      const mainLineChild = node.children.find(c => c.isMainLine);
+      selectNode((mainLineChild ?? node.children[0]).id);
     }
   }, [treeData, selectedNodeId, selectNode]);
 

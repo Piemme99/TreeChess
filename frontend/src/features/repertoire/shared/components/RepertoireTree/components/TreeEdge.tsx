@@ -10,6 +10,8 @@ interface TreeEdgeProps {
 
 export const TreeEdge = memo(function TreeEdge({ edge, layoutMode }: TreeEdgeProps) {
   const isMerge = edge.type === 'merge';
+  const isMainLine = !!edge.isMainLine;
+  const branchColor = edge.branchColor;
 
   let path: string;
   if (layoutMode === 'tidy') {
@@ -25,16 +27,33 @@ export const TreeEdge = memo(function TreeEdge({ edge, layoutMode }: TreeEdgePro
   // Skip rendering if path is empty (e.g., from === to)
   if (!path) return null;
 
+  // Color priority: merge purple > branchColor > mainLine orange > gray default
+  const strokeColor = isMerge
+    ? '#a78bfa'
+    : branchColor
+      ? branchColor
+      : isMainLine
+        ? '#E67E22'
+        : '#999';
+
+  const markerEnd = isMerge
+    ? undefined
+    : branchColor
+      ? `url(#arrowhead-branch-${branchColor.slice(1)})`
+      : isMainLine
+        ? 'url(#arrowhead-mainline)'
+        : 'url(#arrowhead)';
+
   return (
     <path
       className="tree-edge"
       d={path}
       fill="none"
-      stroke={isMerge ? '#a78bfa' : '#999'}
-      strokeWidth="2"
+      stroke={strokeColor}
+      strokeWidth={branchColor || isMainLine ? 3 : 2}
       strokeDasharray={isMerge ? '5 3' : undefined}
       strokeOpacity={isMerge ? 0.7 : 1}
-      markerEnd={isMerge ? undefined : 'url(#arrowhead)'}
+      markerEnd={markerEnd}
     />
   );
 });

@@ -34,12 +34,24 @@ function toD3Hierarchy(
   const isCollapsed = collapsedNodes?.has(node.id) && node.children.length > 0;
   const hiddenCount = isCollapsed ? countDescendants(node) : undefined;
 
+  const children = isCollapsed
+    ? []
+    : node.children.map((child) => toD3Hierarchy(child, collapsedNodes));
+
+  // Reorder children so the main line child is in the center
+  if (children.length > 1) {
+    const mainLineIdx = children.findIndex((c) => c.node.isMainLine);
+    if (mainLineIdx >= 0) {
+      const [mainLineChild] = children.splice(mainLineIdx, 1);
+      const centerIdx = Math.floor(children.length / 2);
+      children.splice(centerIdx, 0, mainLineChild);
+    }
+  }
+
   return {
     id: node.id,
     node,
-    children: isCollapsed
-      ? []
-      : node.children.map((child) => toD3Hierarchy(child, collapsedNodes)),
+    children,
     hiddenDescendantCount: hiddenCount
   };
 }
@@ -80,6 +92,9 @@ export function calculateRadialLayout(
   const nodes: LayoutNode[] = [];
   const edges: LayoutEdge[] = [];
 
+  // Track resolved branch colors per node (propagated from ancestors)
+  const resolvedBranchColor = new Map<string, string | undefined>();
+
   // Convert D3 nodes to our layout format
   layoutRoot.each((d3Node) => {
     const depth = d3Node.depth;
@@ -99,13 +114,19 @@ export function calculateRadialLayout(
       y = cartesian.y;
     }
 
+    // Resolve branch color: own branchColor overrides parent's
+    const parentColor = d3Node.parent ? resolvedBranchColor.get(d3Node.parent.data.id) : undefined;
+    const effectiveColor = d3Node.data.node.branchColor || parentColor;
+    resolvedBranchColor.set(d3Node.data.id, effectiveColor || undefined);
+
     nodes.push({
       id: d3Node.data.id,
       x,
       y,
       node: d3Node.data.node,
       depth,
-      hiddenDescendantCount: d3Node.data.hiddenDescendantCount
+      hiddenDescendantCount: d3Node.data.hiddenDescendantCount,
+      branchColor: effectiveColor || undefined
     });
   });
 
@@ -133,13 +154,17 @@ export function calculateRadialLayout(
           radius: MIN_RADIUS + (d3Node.depth - 1) * RADIUS_PER_DEPTH
         };
 
+        const isMainLineEdge = !!d3Node.parent.data.node.isMainLine && !!d3Node.data.node.isMainLine;
+
         edges.push({
           id: `${parentLayout.id}-${childLayout.id}`,
           from: { x: parentLayout.x, y: parentLayout.y },
           to: { x: childLayout.x, y: childLayout.y },
           fromPolar,
           toPolar,
-          type: 'parent-child'
+          type: 'parent-child',
+          isMainLine: isMainLineEdge,
+          branchColor: resolvedBranchColor.get(d3Node.data.id)
         });
       }
     }

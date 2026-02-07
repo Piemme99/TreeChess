@@ -8,6 +8,7 @@ import { useLichessImport } from '../analyse-tab/hooks/useLichessImport';
 import { useChesscomImport } from '../analyse-tab/hooks/useChesscomImport';
 import { useDeleteGame } from '../analyse-tab/hooks/useDeleteGame';
 import { useInsights } from './hooks/useInsights';
+import type { RepertoireFilterOption } from '../../types';
 import { GamesList } from '../analyse-tab/components/GamesList';
 import { ImportPanel } from './components/ImportPanel';
 import { WorstMistakes } from './components/WorstMistakes';
@@ -36,10 +37,14 @@ export function GamesPage() {
   const authUser = useAuthStore((s) => s.user);
   const [username, setUsername] = useState(() => authUser?.lichessUsername || authUser?.chesscomUsername || authUser?.username || '');
   const [showImport, setShowImport] = useState(false);
-  const [timeClassFilter, setTimeClassFilter] = useState('');
-  const [sourceFilter, setSourceFilter] = useState('');
-  const [repertoireFilter, setRepertoireFilter] = useState('');
-  const [repertoiresList, setRepertoiresList] = useState<string[]>([]);
+  const [timeClassFilter, setTimeClassFilter] = useState(() => sessionStorage.getItem('games-timeClass') || '');
+  const [sourceFilter, setSourceFilter] = useState(() => sessionStorage.getItem('games-source') || '');
+  const [repertoireFilter, setRepertoireFilter] = useState(() => sessionStorage.getItem('games-repertoireId') || '');
+  const [repertoiresList, setRepertoiresList] = useState<RepertoireFilterOption[]>([]);
+
+  useEffect(() => { sessionStorage.setItem('games-timeClass', timeClassFilter); }, [timeClassFilter]);
+  useEffect(() => { sessionStorage.setItem('games-source', sourceFilter); }, [sourceFilter]);
+  useEffect(() => { sessionStorage.setItem('games-repertoireId', repertoireFilter); }, [repertoireFilter]);
 
   const {
     games,
@@ -95,6 +100,23 @@ export function GamesPage() {
   const handleDeleteClick = useCallback((analysisId: string, gameIndex: number) => {
     setDeleteTarget({ analysisId, gameIndex });
   }, [setDeleteTarget]);
+
+  const [reanalyzingAll, setReanalyzingAll] = useState(false);
+
+  const handleReanalyzeAll = useCallback(async () => {
+    setReanalyzingAll(true);
+    try {
+      const result = await gamesApi.reanalyzeAll();
+      toast.success(`Re-analyzed ${result.reanalyzed} games against current repertoires`);
+      refresh();
+      refreshInsights();
+      gamesApi.repertoires().then(setRepertoiresList).catch(() => {});
+    } catch {
+      toast.error('Failed to re-analyze games');
+    } finally {
+      setReanalyzingAll(false);
+    }
+  }, [refresh, refreshInsights]);
 
   const hasGames = games.length > 0 || loading;
 
@@ -171,10 +193,22 @@ export function GamesPage() {
             onChange={(e) => setRepertoireFilter(e.target.value)}
           >
             <option value="">All repertoires</option>
-            {repertoiresList.map((name) => (
-              <option key={name} value={name}>{name}</option>
+            {repertoiresList.map((rep) => (
+              <option key={rep.id} value={rep.id}>
+                {rep.name} ({rep.color === 'white' ? '♔ White' : '♚ Black'})
+              </option>
             ))}
           </select>
+        </div>
+        <div className="ml-auto">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleReanalyzeAll}
+            disabled={reanalyzingAll || loading}
+          >
+            {reanalyzingAll ? 'Re-analyzing...' : 'Re-analyze all'}
+          </Button>
         </div>
       </motion.div>
 

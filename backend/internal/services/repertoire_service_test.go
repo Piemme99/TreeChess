@@ -1679,3 +1679,263 @@ func TestMergeTranspositions_SameFENDifferentMoveNumber(t *testing.T) {
 	assert.Nil(t, findNode(&savedTree, "n1").TranspositionOf)
 	assert.Nil(t, findNode(&savedTree, "n2").TranspositionOf)
 }
+
+// --- SetMainLine tests ---
+
+func TestRepertoireService_SetMainLine_Success(t *testing.T) {
+	mockRepo := &mocks.MockRepertoireRepo{
+		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+			return &models.Repertoire{
+				ID: id,
+				TreeData: models.RepertoireNode{
+					ID:  "root",
+					FEN: "start",
+					Children: []*models.RepertoireNode{
+						{
+							ID:  "node-a",
+							FEN: "fen-a",
+							Children: []*models.RepertoireNode{
+								{ID: "node-a1", FEN: "fen-a1", Children: []*models.RepertoireNode{}},
+							},
+						},
+						{
+							ID:       "node-b",
+							FEN:      "fen-b",
+							Children: []*models.RepertoireNode{},
+						},
+					},
+				},
+			}, nil
+		},
+		SaveFunc: func(id string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
+			return &models.Repertoire{ID: id, TreeData: treeData}, nil
+		},
+	}
+	svc := NewRepertoireService(mockRepo)
+
+	rep, err := svc.SetMainLine("rep-1", "node-a1")
+
+	require.NoError(t, err)
+	// Path: root -> node-a -> node-a1 should all be main line
+	assert.True(t, rep.TreeData.IsMainLine)
+	assert.True(t, findNode(&rep.TreeData, "node-a").IsMainLine)
+	assert.True(t, findNode(&rep.TreeData, "node-a1").IsMainLine)
+	// node-b should NOT be main line
+	assert.False(t, findNode(&rep.TreeData, "node-b").IsMainLine)
+}
+
+func TestRepertoireService_SetMainLine_OverwritesPrevious(t *testing.T) {
+	mockRepo := &mocks.MockRepertoireRepo{
+		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+			return &models.Repertoire{
+				ID: id,
+				TreeData: models.RepertoireNode{
+					ID:         "root",
+					FEN:        "start",
+					IsMainLine: true,
+					Children: []*models.RepertoireNode{
+						{
+							ID:         "node-a",
+							FEN:        "fen-a",
+							IsMainLine: true,
+							Children:   []*models.RepertoireNode{},
+						},
+						{
+							ID:       "node-b",
+							FEN:      "fen-b",
+							Children: []*models.RepertoireNode{},
+						},
+					},
+				},
+			}, nil
+		},
+		SaveFunc: func(id string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
+			return &models.Repertoire{ID: id, TreeData: treeData}, nil
+		},
+	}
+	svc := NewRepertoireService(mockRepo)
+
+	// Set main line to node-b instead of node-a
+	rep, err := svc.SetMainLine("rep-1", "node-b")
+
+	require.NoError(t, err)
+	assert.True(t, rep.TreeData.IsMainLine)
+	assert.False(t, findNode(&rep.TreeData, "node-a").IsMainLine)
+	assert.True(t, findNode(&rep.TreeData, "node-b").IsMainLine)
+}
+
+func TestRepertoireService_SetMainLine_NodeNotFound(t *testing.T) {
+	mockRepo := &mocks.MockRepertoireRepo{
+		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+			return &models.Repertoire{
+				ID:       id,
+				TreeData: models.RepertoireNode{ID: "root", Children: []*models.RepertoireNode{}},
+			}, nil
+		},
+	}
+	svc := NewRepertoireService(mockRepo)
+
+	_, err := svc.SetMainLine("rep-1", "nonexistent")
+
+	assert.ErrorIs(t, err, ErrNodeNotFound)
+}
+
+func TestRepertoireService_SetMainLine_RepertoireNotFound(t *testing.T) {
+	mockRepo := &mocks.MockRepertoireRepo{
+		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+			return nil, repository.ErrRepertoireNotFound
+		},
+	}
+	svc := NewRepertoireService(mockRepo)
+
+	_, err := svc.SetMainLine("nonexistent", "node")
+
+	assert.ErrorIs(t, err, ErrNotFound)
+}
+
+func TestRepertoireService_ClearMainLine_Success(t *testing.T) {
+	mockRepo := &mocks.MockRepertoireRepo{
+		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+			return &models.Repertoire{
+				ID: id,
+				TreeData: models.RepertoireNode{
+					ID:         "root",
+					FEN:        "start",
+					IsMainLine: true,
+					Children: []*models.RepertoireNode{
+						{
+							ID:         "node-a",
+							FEN:        "fen-a",
+							IsMainLine: true,
+							Children: []*models.RepertoireNode{
+								{ID: "node-a1", FEN: "fen-a1", IsMainLine: true, Children: []*models.RepertoireNode{}},
+							},
+						},
+					},
+				},
+			}, nil
+		},
+		SaveFunc: func(id string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
+			return &models.Repertoire{ID: id, TreeData: treeData}, nil
+		},
+	}
+	svc := NewRepertoireService(mockRepo)
+
+	rep, err := svc.ClearMainLine("rep-1")
+
+	require.NoError(t, err)
+	assert.False(t, rep.TreeData.IsMainLine)
+	assert.False(t, findNode(&rep.TreeData, "node-a").IsMainLine)
+	assert.False(t, findNode(&rep.TreeData, "node-a1").IsMainLine)
+}
+
+// --- UpdateNodeBranchColor tests ---
+
+func TestRepertoireService_UpdateNodeBranchColor_Set(t *testing.T) {
+	mockRepo := &mocks.MockRepertoireRepo{
+		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+			return &models.Repertoire{
+				ID: id,
+				TreeData: models.RepertoireNode{
+					ID:  "root",
+					FEN: "start",
+					Children: []*models.RepertoireNode{
+						{ID: "node-1", FEN: "fen1", Children: []*models.RepertoireNode{}},
+					},
+				},
+			}, nil
+		},
+		SaveFunc: func(id string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
+			return &models.Repertoire{ID: id, TreeData: treeData}, nil
+		},
+	}
+	svc := NewRepertoireService(mockRepo)
+
+	rep, err := svc.UpdateNodeBranchColor("rep-1", "node-1", "#E74C3C")
+
+	require.NoError(t, err)
+	node := findNode(&rep.TreeData, "node-1")
+	require.NotNil(t, node)
+	require.NotNil(t, node.BranchColor)
+	assert.Equal(t, "#E74C3C", *node.BranchColor)
+}
+
+func TestRepertoireService_UpdateNodeBranchColor_Clear(t *testing.T) {
+	color := "#E74C3C"
+	mockRepo := &mocks.MockRepertoireRepo{
+		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+			return &models.Repertoire{
+				ID: id,
+				TreeData: models.RepertoireNode{
+					ID:  "root",
+					FEN: "start",
+					Children: []*models.RepertoireNode{
+						{ID: "node-1", FEN: "fen1", BranchColor: &color, Children: []*models.RepertoireNode{}},
+					},
+				},
+			}, nil
+		},
+		SaveFunc: func(id string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
+			return &models.Repertoire{ID: id, TreeData: treeData}, nil
+		},
+	}
+	svc := NewRepertoireService(mockRepo)
+
+	rep, err := svc.UpdateNodeBranchColor("rep-1", "node-1", "")
+
+	require.NoError(t, err)
+	node := findNode(&rep.TreeData, "node-1")
+	require.NotNil(t, node)
+	assert.Nil(t, node.BranchColor)
+}
+
+func TestRepertoireService_UpdateNodeBranchColor_InvalidColor(t *testing.T) {
+	mockRepo := &mocks.MockRepertoireRepo{}
+	svc := NewRepertoireService(mockRepo)
+
+	_, err := svc.UpdateNodeBranchColor("rep-1", "node-1", "#FFFFFF")
+
+	assert.ErrorIs(t, err, ErrInvalidBranchColor)
+}
+
+func TestRepertoireService_UpdateNodeBranchColor_NodeNotFound(t *testing.T) {
+	mockRepo := &mocks.MockRepertoireRepo{
+		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+			return &models.Repertoire{
+				ID:       id,
+				TreeData: models.RepertoireNode{ID: "root", Children: []*models.RepertoireNode{}},
+			}, nil
+		},
+	}
+	svc := NewRepertoireService(mockRepo)
+
+	_, err := svc.UpdateNodeBranchColor("rep-1", "nonexistent", "#E74C3C")
+
+	assert.ErrorIs(t, err, ErrNodeNotFound)
+}
+
+func TestRepertoireService_UpdateNodeBranchColor_RepertoireNotFound(t *testing.T) {
+	mockRepo := &mocks.MockRepertoireRepo{
+		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+			return nil, repository.ErrRepertoireNotFound
+		},
+	}
+	svc := NewRepertoireService(mockRepo)
+
+	_, err := svc.UpdateNodeBranchColor("nonexistent", "node", "#E74C3C")
+
+	assert.ErrorIs(t, err, ErrNotFound)
+}
+
+func TestRepertoireService_ClearMainLine_RepertoireNotFound(t *testing.T) {
+	mockRepo := &mocks.MockRepertoireRepo{
+		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+			return nil, repository.ErrRepertoireNotFound
+		},
+	}
+	svc := NewRepertoireService(mockRepo)
+
+	_, err := svc.ClearMainLine("nonexistent")
+
+	assert.ErrorIs(t, err, ErrNotFound)
+}

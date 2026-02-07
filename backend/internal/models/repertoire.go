@@ -32,7 +32,9 @@ type RepertoireNode struct {
 	ParentID        *string           `json:"parentId,omitempty"`
 	Comment         *string           `json:"comment,omitempty"`
 	BranchName      *string           `json:"branchName,omitempty"`
+	BranchColor     *string           `json:"branchColor,omitempty"`
 	Collapsed       bool              `json:"collapsed,omitempty"`
+	IsMainLine      bool              `json:"isMainLine,omitempty"`
 	TranspositionOf *string           `json:"transpositionOf,omitempty"`
 	Children        []*RepertoireNode `json:"children"`
 }
@@ -69,6 +71,13 @@ type UpdateRepertoireRequest struct {
 type RepertoireRef struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
+}
+
+// RepertoireFilterOption represents a repertoire in the games filter dropdown
+type RepertoireFilterOption struct {
+	ID    string `json:"id"`
+	Name  string `json:"name"`
+	Color Color  `json:"color"`
 }
 
 // MergeRepertoiresRequest represents a request to merge multiple repertoires into a new one
@@ -203,7 +212,7 @@ type GameSummary struct {
 	Result         string    `json:"result"`
 	Date           string    `json:"date"`
 	UserColor      Color     `json:"userColor"`
-	Status         string    `json:"status"` // "ok", "error", "new-line"
+	Status         string    `json:"status"` // "in-repertoire", "error", "new-line"
 	TimeClass      string    `json:"timeClass,omitempty"`
 	Opening        string    `json:"opening,omitempty"`
 	ImportedAt     time.Time `json:"importedAt"`

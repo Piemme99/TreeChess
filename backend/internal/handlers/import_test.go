@@ -824,7 +824,7 @@ func TestGetGamesHandler_WithGames(t *testing.T) {
 						Black:      "Player2",
 						Result:     "1-0",
 						UserColor:  models.ColorWhite,
-						Status:     "ok",
+						Status:     "in-repertoire",
 					},
 				},
 				Total:  1,

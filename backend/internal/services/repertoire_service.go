@@ -495,7 +495,9 @@ func deepCloneSubtree(node *models.RepertoireNode, parentID *string) *models.Rep
 		ParentID:        parentID,
 		Comment:         node.Comment,
 		BranchName:      node.BranchName,
+		BranchColor:     node.BranchColor,
 		Collapsed:       node.Collapsed,
+		IsMainLine:      node.IsMainLine,
 		TranspositionOf: node.TranspositionOf,
 		Children:        make([]*models.RepertoireNode, 0, len(node.Children)),
 	}
@@ -808,6 +810,53 @@ func (s *RepertoireService) UpdateNodeBranchName(repertoireID, nodeID, branchNam
 	return s.repo.Save(repertoireID, rep.TreeData, metadata)
 }
 
+// allowedBranchColors is the whitelist of valid branch color hex values
+var allowedBranchColors = map[string]bool{
+	"#E74C3C": true,
+	"#E67E22": true,
+	"#F1C40F": true,
+	"#27AE60": true,
+	"#1ABC9C": true,
+	"#3498DB": true,
+	"#9B59B6": true,
+	"#E91E8F": true,
+}
+
+// ErrInvalidBranchColor is returned when an invalid branch color is provided
+var ErrInvalidBranchColor = fmt.Errorf("invalid branch color")
+
+// UpdateNodeBranchColor updates the branch color on a specific node in a repertoire
+func (s *RepertoireService) UpdateNodeBranchColor(repertoireID, nodeID, branchColor string) (*models.Repertoire, error) {
+	branchColor = strings.TrimSpace(branchColor)
+
+	// Validate color if not clearing
+	if branchColor != "" && !allowedBranchColors[branchColor] {
+		return nil, ErrInvalidBranchColor
+	}
+
+	rep, err := s.repo.GetByID(repertoireID)
+	if err != nil {
+		if errors.Is(err, repository.ErrRepertoireNotFound) {
+			return nil, fmt.Errorf("%w: %w", ErrNotFound, err)
+		}
+		return nil, err
+	}
+
+	node := findNode(&rep.TreeData, nodeID)
+	if node == nil {
+		return nil, fmt.Errorf("%w: %s", ErrNodeNotFound, nodeID)
+	}
+
+	if branchColor == "" {
+		node.BranchColor = nil
+	} else {
+		node.BranchColor = &branchColor
+	}
+
+	metadata := calculateMetadata(rep.TreeData)
+	return s.repo.Save(repertoireID, rep.TreeData, metadata)
+}
+
 // ToggleNodeCollapsed toggles the collapsed state on a specific node in a repertoire
 func (s *RepertoireService) ToggleNodeCollapsed(repertoireID, nodeID string) (*models.Repertoire, error) {
 	rep, err := s.repo.GetByID(repertoireID)
@@ -827,6 +876,61 @@ func (s *RepertoireService) ToggleNodeCollapsed(repertoireID, nodeID string) (*m
 
 	metadata := calculateMetadata(rep.TreeData)
 	return s.repo.Save(repertoireID, rep.TreeData, metadata)
+}
+
+// SetMainLine marks the path from root to the target node as the main line.
+// All other nodes have their IsMainLine flag cleared.
+func (s *RepertoireService) SetMainLine(repertoireID, nodeID string) (*models.Repertoire, error) {
+	rep, err := s.repo.GetByID(repertoireID)
+	if err != nil {
+		if errors.Is(err, repository.ErrRepertoireNotFound) {
+			return nil, fmt.Errorf("%w: %w", ErrNotFound, err)
+		}
+		return nil, err
+	}
+
+	// Find path from root to target node
+	path := findPathToNode(&rep.TreeData, nodeID)
+	if path == nil {
+		return nil, fmt.Errorf("%w: %s", ErrNodeNotFound, nodeID)
+	}
+
+	// Build set of node IDs in the path for fast lookup
+	pathIDs := make(map[string]bool, len(path))
+	for _, n := range path {
+		pathIDs[n.ID] = true
+	}
+
+	// Walk entire tree: set IsMainLine based on path membership
+	clearAndSetMainLine(&rep.TreeData, pathIDs)
+
+	metadata := calculateMetadata(rep.TreeData)
+	return s.repo.Save(repertoireID, rep.TreeData, metadata)
+}
+
+// ClearMainLine removes the main line flag from all nodes in a repertoire.
+func (s *RepertoireService) ClearMainLine(repertoireID string) (*models.Repertoire, error) {
+	rep, err := s.repo.GetByID(repertoireID)
+	if err != nil {
+		if errors.Is(err, repository.ErrRepertoireNotFound) {
+			return nil, fmt.Errorf("%w: %w", ErrNotFound, err)
+		}
+		return nil, err
+	}
+
+	clearAndSetMainLine(&rep.TreeData, nil)
+
+	metadata := calculateMetadata(rep.TreeData)
+	return s.repo.Save(repertoireID, rep.TreeData, metadata)
+}
+
+// clearAndSetMainLine walks the entire tree, setting IsMainLine = true for nodes
+// whose ID is in pathIDs, and false for all others. If pathIDs is nil, clears all.
+func clearAndSetMainLine(node *models.RepertoireNode, pathIDs map[string]bool) {
+	node.IsMainLine = pathIDs != nil && pathIDs[node.ID]
+	for _, child := range node.Children {
+		clearAndSetMainLine(child, pathIDs)
+	}
 }
 
 func walkTree(node *models.RepertoireNode, currentDepth int, totalNodes, totalMoves, maxDepth *int) {

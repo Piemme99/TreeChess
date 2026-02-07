@@ -142,13 +142,9 @@ export function GameAnalysisPage() {
   const handleCreateAndAdd = useCallback((repertoireId: string) => {
     if (!game || !game.userColor) return;
 
-    // Find the divergence index: first non-in-repertoire move
-    const divergenceIndex = game.moves.findIndex(
-      m => m.status === 'opponent-new' || m.status === 'out-of-repertoire'
-    );
-
-    // If no divergence, start from current move
-    const startIndex = divergenceIndex === -1 ? currentMoveIndex : divergenceIndex;
+    // New repertoire is empty (only root node), so always start from move 0
+    // to build the full move sequence up to the current position
+    const startIndex = 0;
     const endIndex = currentMoveIndex;
 
     const gameInfo = `${game.headers.White || '?'} vs ${game.headers.Black || '?'}`;

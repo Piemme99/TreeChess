@@ -163,9 +163,12 @@ func TestGameAnalysis_MultipleGames(t *testing.T) {
 
 // Tests for computeGameStatus function
 
+var testRepRef = &models.RepertoireRef{ID: "rep-1", Name: "Test Rep"}
+
 func TestComputeGameStatus_AllInRepertoire(t *testing.T) {
 	game := models.GameAnalysis{
-		GameIndex: 0,
+		GameIndex:         0,
+		MatchedRepertoire: testRepRef,
 		Moves: []models.MoveAnalysis{
 			{PlyNumber: 0, Status: "in-repertoire", IsUserMove: true},
 			{PlyNumber: 1, Status: "in-repertoire", IsUserMove: false},
@@ -176,12 +179,13 @@ func TestComputeGameStatus_AllInRepertoire(t *testing.T) {
 
 	status := computeGameStatus(game)
 
-	assert.Equal(t, "ok", status)
+	assert.Equal(t, "in-repertoire", status)
 }
 
 func TestComputeGameStatus_OutOfRepertoire(t *testing.T) {
 	game := models.GameAnalysis{
-		GameIndex: 0,
+		GameIndex:         0,
+		MatchedRepertoire: testRepRef,
 		Moves: []models.MoveAnalysis{
 			{PlyNumber: 0, Status: "in-repertoire", IsUserMove: true},
 			{PlyNumber: 1, Status: "in-repertoire", IsUserMove: false},
@@ -197,7 +201,8 @@ func TestComputeGameStatus_OutOfRepertoire(t *testing.T) {
 
 func TestComputeGameStatus_OpponentNew(t *testing.T) {
 	game := models.GameAnalysis{
-		GameIndex: 0,
+		GameIndex:         0,
+		MatchedRepertoire: testRepRef,
 		Moves: []models.MoveAnalysis{
 			{PlyNumber: 0, Status: "in-repertoire", IsUserMove: true},
 			{PlyNumber: 1, Status: "opponent-new", IsUserMove: false}, // Opponent plays new move
@@ -218,13 +223,30 @@ func TestComputeGameStatus_EmptyMoves(t *testing.T) {
 
 	status := computeGameStatus(game)
 
-	assert.Equal(t, "ok", status)
+	assert.Equal(t, "in-repertoire", status)
+}
+
+func TestComputeGameStatus_NewOpening(t *testing.T) {
+	// No matched repertoire with moves → "new-opening"
+	game := models.GameAnalysis{
+		GameIndex:         0,
+		MatchedRepertoire: nil,
+		Moves: []models.MoveAnalysis{
+			{PlyNumber: 0, Status: "out-of-book", IsUserMove: true},
+			{PlyNumber: 1, Status: "out-of-book", IsUserMove: false},
+		},
+	}
+
+	status := computeGameStatus(game)
+
+	assert.Equal(t, "new-opening", status)
 }
 
 func TestComputeGameStatus_OutOfRepertoireFirst(t *testing.T) {
 	// Test that out-of-repertoire takes precedence when it appears first
 	game := models.GameAnalysis{
-		GameIndex: 0,
+		GameIndex:         0,
+		MatchedRepertoire: testRepRef,
 		Moves: []models.MoveAnalysis{
 			{PlyNumber: 0, Status: "out-of-repertoire", IsUserMove: true}, // Out first
 			{PlyNumber: 1, Status: "opponent-new", IsUserMove: false},
@@ -239,7 +261,8 @@ func TestComputeGameStatus_OutOfRepertoireFirst(t *testing.T) {
 func TestComputeGameStatus_OpponentNewFirst(t *testing.T) {
 	// Test when opponent-new appears before out-of-repertoire
 	game := models.GameAnalysis{
-		GameIndex: 0,
+		GameIndex:         0,
+		MatchedRepertoire: testRepRef,
 		Moves: []models.MoveAnalysis{
 			{PlyNumber: 0, Status: "opponent-new", IsUserMove: false}, // Opponent new first
 			{PlyNumber: 1, Status: "out-of-repertoire", IsUserMove: true},
@@ -257,7 +280,7 @@ func TestComputeGameStatus_SingleMove(t *testing.T) {
 		status   string
 		expected string
 	}{
-		{"in-repertoire move", "in-repertoire", "ok"},
+		{"in-repertoire move", "in-repertoire", "in-repertoire"},
 		{"out-of-repertoire move", "out-of-repertoire", "error"},
 		{"opponent-new move", "opponent-new", "new-line"},
 	}
@@ -265,7 +288,8 @@ func TestComputeGameStatus_SingleMove(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			game := models.GameAnalysis{
-				GameIndex: 0,
+				GameIndex:         0,
+				MatchedRepertoire: testRepRef,
 				Moves: []models.MoveAnalysis{
 					{PlyNumber: 0, Status: tt.status, IsUserMove: true},
 				},
@@ -296,8 +320,9 @@ func TestComputeGameStatus_LongGame(t *testing.T) {
 	}
 
 	game := models.GameAnalysis{
-		GameIndex: 0,
-		Moves:     moves,
+		GameIndex:         0,
+		MatchedRepertoire: testRepRef,
+		Moves:             moves,
 	}
 
 	status := computeGameStatus(game)
@@ -316,7 +341,7 @@ func TestGameSummary_JSON(t *testing.T) {
 		Result:     "1-0",
 		Date:       "2024.01.01",
 		UserColor:  models.ColorWhite,
-		Status:     "ok",
+		Status:     "in-repertoire",
 	}
 
 	data, err := json.Marshal(summary)

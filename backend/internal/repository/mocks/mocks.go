@@ -319,7 +319,7 @@ type MockAnalysisRepo struct {
 	DeleteGameFunc         func(analysisID string, gameIndex int) error
 	UpdateResultsFunc      func(analysisID string, results []models.GameAnalysis) error
 	BelongsToUserFunc      func(id string, userID string) (bool, error)
-	GetDistinctRepertoiresFunc func(userID string) ([]string, error)
+	GetDistinctRepertoiresFunc func(userID string) ([]models.RepertoireFilterOption, error)
 	MarkGameViewedFunc         func(userID, analysisID string, gameIndex int) error
 	GetViewedGamesFunc         func(userID string) (map[string]bool, error)
 	GetAllGamesRawFunc         func(userID string) ([]models.RawAnalysis, error)
@@ -381,7 +381,7 @@ func (m *MockAnalysisRepo) BelongsToUser(id string, userID string) (bool, error)
 	return true, nil
 }
 
-func (m *MockAnalysisRepo) GetDistinctRepertoires(userID string) ([]string, error) {
+func (m *MockAnalysisRepo) GetDistinctRepertoires(userID string) ([]models.RepertoireFilterOption, error) {
 	if m.GetDistinctRepertoiresFunc != nil {
 		return m.GetDistinctRepertoiresFunc(userID)
 	}

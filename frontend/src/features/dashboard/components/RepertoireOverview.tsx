@@ -44,20 +44,6 @@ function RepertoireCard({ repertoire, index }: { repertoire: Repertoire; index: 
   );
 }
 
-function AddRepertoireCard() {
-  const navigate = useNavigate();
-
-  return (
-    <button
-      className="flex-shrink-0 w-48 bg-bg-card border border-dashed border-primary/30 rounded-2xl p-4 cursor-pointer transition-all duration-150 font-sans hover:border-primary hover:bg-primary-light flex flex-col items-center justify-center gap-2"
-      onClick={() => navigate('/repertoires')}
-    >
-      <span className="text-2xl text-text-muted leading-none">+</span>
-      <span className="text-sm text-text-muted font-medium">New Repertoire</span>
-    </button>
-  );
-}
-
 export function RepertoireOverview({ repertoires }: RepertoireOverviewProps) {
   return (
     <motion.section variants={staggerContainer} initial="hidden" animate="visible">
@@ -66,7 +52,6 @@ export function RepertoireOverview({ repertoires }: RepertoireOverviewProps) {
         {repertoires.map((rep, i) => (
           <RepertoireCard key={rep.id} repertoire={rep} index={i} />
         ))}
-        <AddRepertoireCard />
       </div>
     </motion.section>
   );

@@ -636,6 +636,67 @@ func UpdateNodeBranchNameHandler(svc *services.RepertoireService) echo.HandlerFu
 	}
 }
 
+// UpdateNodeBranchColorHandler updates the branch color on a specific node
+// PATCH /api/repertoires/:id/nodes/:nodeId/branch-color
+func UpdateNodeBranchColorHandler(svc *services.RepertoireService) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		userID := c.Get("userID").(string)
+		idParam := c.Param("id")
+		nodeID := c.Param("nodeId")
+
+		// Validate repertoire ID is a valid UUID
+		if _, err := uuid.Parse(idParam); err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{
+				"error": "repertoire id must be a valid UUID",
+			})
+		}
+
+		// Validate nodeId is a valid UUID
+		if _, err := uuid.Parse(nodeID); err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{
+				"error": "node id must be a valid UUID",
+			})
+		}
+
+		if err := svc.CheckOwnership(idParam, userID); err != nil {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "repertoire not found"})
+		}
+
+		var req struct {
+			BranchColor string `json:"branchColor"`
+		}
+		if err := c.Bind(&req); err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{
+				"error": "invalid request body",
+			})
+		}
+
+		rep, err := svc.UpdateNodeBranchColor(idParam, nodeID, req.BranchColor)
+		if err != nil {
+			if errors.Is(err, services.ErrNotFound) {
+				return c.JSON(http.StatusNotFound, map[string]string{
+					"error": "repertoire not found",
+				})
+			}
+			if errors.Is(err, services.ErrNodeNotFound) {
+				return c.JSON(http.StatusNotFound, map[string]string{
+					"error": "node not found",
+				})
+			}
+			if errors.Is(err, services.ErrInvalidBranchColor) {
+				return c.JSON(http.StatusBadRequest, map[string]string{
+					"error": "invalid branch color",
+				})
+			}
+			return c.JSON(http.StatusInternalServerError, map[string]string{
+				"error": "failed to update branch color",
+			})
+		}
+
+		return c.JSON(http.StatusOK, rep)
+	}
+}
+
 // ToggleNodeCollapsedHandler toggles the collapsed state on a specific node
 // POST /api/repertoires/:id/nodes/:nodeId/toggle-collapsed
 func ToggleNodeCollapsedHandler(svc *services.RepertoireService) echo.HandlerFunc {
@@ -676,6 +737,87 @@ func ToggleNodeCollapsedHandler(svc *services.RepertoireService) echo.HandlerFun
 			}
 			return c.JSON(http.StatusInternalServerError, map[string]string{
 				"error": "failed to toggle collapsed state",
+			})
+		}
+
+		return c.JSON(http.StatusOK, rep)
+	}
+}
+
+// SetMainLineHandler marks the path from root to the given node as the main line
+// POST /api/repertoires/:id/nodes/:nodeId/set-main-line
+func SetMainLineHandler(svc *services.RepertoireService) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		userID := c.Get("userID").(string)
+		idParam := c.Param("id")
+		nodeID := c.Param("nodeId")
+
+		// Validate repertoire ID is a valid UUID
+		if _, err := uuid.Parse(idParam); err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{
+				"error": "repertoire id must be a valid UUID",
+			})
+		}
+
+		// Validate nodeId is a valid UUID
+		if _, err := uuid.Parse(nodeID); err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{
+				"error": "node id must be a valid UUID",
+			})
+		}
+
+		if err := svc.CheckOwnership(idParam, userID); err != nil {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "repertoire not found"})
+		}
+
+		rep, err := svc.SetMainLine(idParam, nodeID)
+		if err != nil {
+			if errors.Is(err, services.ErrNotFound) {
+				return c.JSON(http.StatusNotFound, map[string]string{
+					"error": "repertoire not found",
+				})
+			}
+			if errors.Is(err, services.ErrNodeNotFound) {
+				return c.JSON(http.StatusNotFound, map[string]string{
+					"error": "node not found",
+				})
+			}
+			return c.JSON(http.StatusInternalServerError, map[string]string{
+				"error": "failed to set main line",
+			})
+		}
+
+		return c.JSON(http.StatusOK, rep)
+	}
+}
+
+// ClearMainLineHandler clears the main line from all nodes in a repertoire
+// POST /api/repertoires/:id/clear-main-line
+func ClearMainLineHandler(svc *services.RepertoireService) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		userID := c.Get("userID").(string)
+		idParam := c.Param("id")
+
+		// Validate repertoire ID is a valid UUID
+		if _, err := uuid.Parse(idParam); err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{
+				"error": "repertoire id must be a valid UUID",
+			})
+		}
+
+		if err := svc.CheckOwnership(idParam, userID); err != nil {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "repertoire not found"})
+		}
+
+		rep, err := svc.ClearMainLine(idParam)
+		if err != nil {
+			if errors.Is(err, services.ErrNotFound) {
+				return c.JSON(http.StatusNotFound, map[string]string{
+					"error": "repertoire not found",
+				})
+			}
+			return c.JSON(http.StatusInternalServerError, map[string]string{
+				"error": "failed to clear main line",
 			})
 		}
 

@@ -7,7 +7,7 @@ import { TreeNode } from './components/TreeNode';
 import { TreeControls } from './components/TreeControls';
 import { ChessBoard } from '../../../../../shared/components/Board/ChessBoard';
 import type { LayoutNode, LayoutMode } from './utils/types';
-import { NODE_RADIUS } from './constants';
+import { NODE_RADIUS, BRANCH_COLORS } from './constants';
 
 interface RepertoireTreeProps {
   repertoire: RepertoireNode;
@@ -153,6 +153,29 @@ export function RepertoireTree({
           >
             <polygon points="0 0, 10 3.5, 0 7" fill="#999" />
           </marker>
+          <marker
+            id="arrowhead-mainline"
+            markerWidth="10"
+            markerHeight="7"
+            refX="9"
+            refY="3.5"
+            orient="auto"
+          >
+            <polygon points="0 0, 10 3.5, 0 7" fill="#E67E22" />
+          </marker>
+          {BRANCH_COLORS.map((c) => (
+            <marker
+              key={c.id}
+              id={`arrowhead-branch-${c.hex.slice(1)}`}
+              markerWidth="10"
+              markerHeight="7"
+              refX="9"
+              refY="3.5"
+              orient="auto"
+            >
+              <polygon points="0 0, 10 3.5, 0 7" fill={c.hex} />
+            </marker>
+          ))}
         </defs>
 
         <g>

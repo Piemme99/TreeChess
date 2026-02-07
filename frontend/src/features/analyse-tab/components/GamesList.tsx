@@ -34,16 +34,19 @@ export interface GamesListProps {
 
 function StatusBadge({ status }: { status: GameStatus }) {
   const config: Record<GameStatus, { label: string; className: string }> = {
-    'ok': { label: 'OK', className: 'py-1 px-2 rounded-full text-xs font-medium bg-success-light text-success' },
+    'in-repertoire': { label: 'In repertoire', className: 'py-1 px-2 rounded-full text-xs font-medium bg-success-light text-success' },
     'error': { label: 'Opening error', className: 'py-1 px-2 rounded-full text-xs font-medium bg-danger-light text-danger' },
-    'new-line': { label: 'New line', className: 'py-1 px-2 rounded-full text-xs font-medium bg-info-light text-info' }
+    'new-line': { label: 'New line', className: 'py-1 px-2 rounded-full text-xs font-medium bg-info-light text-info' },
+    'new-opening': { label: 'New opening', className: 'py-1 px-2 rounded-full text-xs font-medium bg-warning-light text-warning' }
   };
 
   const { label, className } = config[status];
   return <span className={className}>{label}</span>;
 }
 
-function GameCard({ game, onViewClick, onDeleteClick, onReanalyze, reanalyzing, showNewBadge }: {
+const gridCols = 'grid grid-cols-[16px_1fr_150px_100px_80px_70px_66px] items-center gap-x-3 px-4';
+
+function GameRow({ game, onViewClick, onDeleteClick, onReanalyze, reanalyzing, showNewBadge }: {
   game: GameSummary;
   onViewClick: (analysisId: string, gameIndex: number) => void;
   onDeleteClick: (analysisId: string, gameIndex: number) => void;
@@ -56,24 +59,39 @@ function GameCard({ game, onViewClick, onDeleteClick, onReanalyze, reanalyzing, 
 
   return (
     <div
-      className="flex items-center gap-4 py-3 px-4 bg-bg-card border-b border-primary/10 transition-colors duration-150 hover:bg-primary-light/30 cursor-pointer"
+      className={`${gridCols} py-2.5 cursor-pointer transition-colors duration-150 hover:bg-primary-light/30 border-b border-primary/10 last:border-b-0`}
       onClick={() => onViewClick(game.analysisId, game.gameIndex)}
     >
-      <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${dotColor}`} />
-      <span className="font-mono text-sm font-medium w-16 shrink-0">{game.result}</span>
-      <div className="flex items-center gap-1 min-w-0 shrink-0">
+      {/* Result dot */}
+      <span className={`w-2.5 h-2.5 rounded-full ${dotColor}`} title={outcome} />
+
+      {/* Players */}
+      <div className="flex items-center gap-1.5 text-sm min-w-0">
         <span className="font-medium truncate">{game.white}</span>
-        <span className="text-text-muted text-sm">vs</span>
+        <span className="text-text-light text-xs">vs</span>
         <span className="font-medium truncate">{game.black}</span>
+        <span className="font-mono text-xs text-text-muted ml-1">{game.result}</span>
         {showNewBadge && <span className="inline-block py-px px-2 rounded-sm bg-primary text-white text-[0.6875rem] font-semibold uppercase tracking-wide ml-1">New</span>}
       </div>
-      <span className="text-sm text-text-muted truncate max-w-[200px] hidden lg:inline">{game.opening || ''}</span>
-      <div className="flex items-center gap-2 ml-auto shrink-0">
+
+      {/* Repertoire */}
+      <span className="text-xs text-text-muted truncate">
+        {game.repertoireName || '-'}
+      </span>
+
+      {/* Status */}
+      <div className="flex justify-center">
         <StatusBadge status={game.status} />
-        <span className="text-sm text-text-muted whitespace-nowrap hidden sm:inline">{game.date || ''}</span>
-        <span className="text-xs text-text-light whitespace-nowrap hidden md:inline">{formatSource(game.source)}</span>
       </div>
-      <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+
+      {/* Date */}
+      <span className="text-xs text-text-muted whitespace-nowrap">{game.date || '-'}</span>
+
+      {/* Source */}
+      <span className="text-xs text-text-muted">{formatSource(game.source)}</span>
+
+      {/* Actions */}
+      <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
         {game.repertoireId && (
           <button
             className={`flex items-center justify-center w-7 h-7 p-0 border-none rounded-sm bg-transparent text-text-muted cursor-pointer transition-colors duration-150 hover:not-disabled:text-primary hover:not-disabled:bg-bg disabled:cursor-default ${reanalyzing ? '[&_svg]:animate-spin' : ''}`}
@@ -157,10 +175,20 @@ export function GamesList({
 
   const renderGrid = (list: GameSummary[], showNew: boolean) => (
     <div className="rounded-2xl border border-primary/10 overflow-hidden">
+      {/* Table header */}
+      <div className={`${gridCols} py-2 border-b border-primary/10 text-[11px] font-semibold text-text-light uppercase tracking-wide`}>
+        <span></span>
+        <span>Players</span>
+        <span>Repertoire</span>
+        <span className="text-center">Status</span>
+        <span>Date</span>
+        <span>Source</span>
+        <span></span>
+      </div>
       {list.map((game) => {
         const key = toKey(game.analysisId, game.gameIndex);
         return (
-          <GameCard
+          <GameRow
             key={key}
             game={game}
             onViewClick={onViewClick}

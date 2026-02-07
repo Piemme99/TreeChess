@@ -24,9 +24,10 @@ const sourceIcons: Record<string, string> = {
 };
 
 const statusConfig: Record<string, { label: string; className: string }> = {
-  ok: { label: 'OK', className: 'py-0.5 px-1.5 rounded-full text-[11px] font-medium bg-success-light text-success' },
+  'in-repertoire': { label: 'In repertoire', className: 'py-0.5 px-1.5 rounded-full text-[11px] font-medium bg-success-light text-success' },
   error: { label: 'Opening error', className: 'py-0.5 px-1.5 rounded-full text-[11px] font-medium bg-danger-light text-danger' },
   'new-line': { label: 'New', className: 'py-0.5 px-1.5 rounded-full text-[11px] font-medium bg-info-light text-info' },
+  'new-opening': { label: 'New opening', className: 'py-0.5 px-1.5 rounded-full text-[11px] font-medium bg-warning-light text-warning' },
 };
 
 function StatusBadge({ status }: { status: string }) {
@@ -61,11 +62,11 @@ export function RecentGames({ games, loading }: RecentGamesProps) {
       ) : (
         <div className="bg-bg-card rounded-2xl border border-primary/10 overflow-hidden">
           {/* Table header */}
-          <div className="grid grid-cols-[auto_1fr_auto_auto_auto_auto] items-center gap-x-3 px-4 py-2 border-b border-primary/10 text-[11px] font-semibold text-text-light uppercase tracking-wide">
+          <div className="grid grid-cols-[16px_1fr_150px_100px_80px_50px] items-center gap-x-3 px-4 py-2 border-b border-primary/10 text-[11px] font-semibold text-text-light uppercase tracking-wide">
             <span></span>
             <span>Players</span>
-            <span>Opening</span>
-            <span>Status</span>
+            <span>Repertoire</span>
+            <span className="text-center">Status</span>
             <span>Date</span>
             <span>Source</span>
           </div>
@@ -75,7 +76,7 @@ export function RecentGames({ games, loading }: RecentGamesProps) {
             return (
               <div
                 key={`${game.analysisId}-${game.gameIndex}`}
-                className="grid grid-cols-[auto_1fr_auto_auto_auto_auto] items-center gap-x-3 px-4 py-2.5 cursor-pointer transition-colors duration-150 hover:bg-primary-light/30 border-b border-primary/10 last:border-b-0"
+                className="grid grid-cols-[16px_1fr_150px_100px_80px_50px] items-center gap-x-3 px-4 py-2.5 cursor-pointer transition-colors duration-150 hover:bg-primary-light/30 border-b border-primary/10 last:border-b-0"
                 onClick={() => navigate(`/analyse/${game.analysisId}/game/${game.gameIndex}`)}
               >
                 {/* Result dot */}
@@ -90,12 +91,14 @@ export function RecentGames({ games, loading }: RecentGamesProps) {
                 </div>
 
                 {/* Opening */}
-                <span className="text-xs text-text-muted max-w-[160px] truncate">
-                  {game.opening || '-'}
+                <span className="text-xs text-text-muted truncate">
+                  {game.repertoireName || '-'}
                 </span>
 
                 {/* Status */}
-                <StatusBadge status={game.status} />
+                <div className="flex justify-center">
+                  <StatusBadge status={game.status} />
+                </div>
 
                 {/* Date */}
                 <span className="text-xs text-text-muted whitespace-nowrap">{game.date || '-'}</span>

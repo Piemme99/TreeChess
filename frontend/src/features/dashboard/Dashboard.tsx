@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useRepertoires } from '../repertoire/shared/hooks/useRepertoires';
 import { useGames } from '../analyse-tab/hooks/useGames';
-import { Loading, Button } from '../../shared/components/UI';
+import { Loading } from '../../shared/components/UI';
 import { useAuthStore } from '../../stores/authStore';
 import { EmptyRepertoireState } from './components/EmptyRepertoireState';
 import { RepertoireOverview } from './components/RepertoireOverview';
@@ -16,7 +15,6 @@ import { useInsights } from '../games/hooks/useInsights';
 import { fadeUp, staggerContainer } from '../../shared/utils/animations';
 
 export function Dashboard() {
-  const navigate = useNavigate();
   const { user, syncing, lastSyncResult } = useAuthStore();
   const { repertoires, loading: repLoading } = useRepertoires();
   const { games, loading: gamesLoading } = useGames();
@@ -76,18 +74,10 @@ export function Dashboard() {
       )}
 
       {/* Header row */}
-      <motion.div variants={fadeUp} custom={0} className="flex items-center justify-between flex-wrap gap-4">
+      <motion.div variants={fadeUp} custom={0}>
         <h1 className="text-xl font-semibold text-text font-display">
           Welcome back{user?.username ? <>, <span className="bg-gradient-to-r from-primary to-primary-hover bg-clip-text text-transparent">{user.username}</span></> : ''}
         </h1>
-        <div className="flex items-center gap-3">
-          <Button variant="primary" size="sm" onClick={() => navigate('/repertoires')}>
-            New Repertoire
-          </Button>
-          <Button variant="primary" size="sm" onClick={() => navigate('/games')}>
-            Import Games
-          </Button>
-        </div>
       </motion.div>
 
       {/* Stats summary */}

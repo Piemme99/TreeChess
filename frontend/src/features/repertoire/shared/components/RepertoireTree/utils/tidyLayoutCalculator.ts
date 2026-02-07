@@ -32,12 +32,24 @@ function toD3Hierarchy(
   const isCollapsed = collapsedNodes?.has(node.id) && node.children.length > 0;
   const hiddenCount = isCollapsed ? countDescendants(node) : undefined;
 
+  const children = isCollapsed
+    ? []
+    : node.children.map((child) => toD3Hierarchy(child, collapsedNodes));
+
+  // Reorder children so the main line child is in the center
+  if (children.length > 1) {
+    const mainLineIdx = children.findIndex((c) => c.node.isMainLine);
+    if (mainLineIdx >= 0) {
+      const [mainLineChild] = children.splice(mainLineIdx, 1);
+      const centerIdx = Math.floor(children.length / 2);
+      children.splice(centerIdx, 0, mainLineChild);
+    }
+  }
+
   return {
     id: node.id,
     node,
-    children: isCollapsed
-      ? []
-      : node.children.map((child) => toD3Hierarchy(child, collapsedNodes)),
+    children,
     hiddenDescendantCount: hiddenCount
   };
 }
@@ -53,19 +65,6 @@ function getMaxDepth(node: D3Node, currentDepth = 0): number {
 }
 
 /**
- * Calculates the maximum width (number of leaf nodes) at any level.
- */
-function getMaxWidth(root: d3.HierarchyNode<D3Node>): number {
-  let maxWidth = 0;
-  root.each((node) => {
-    if (node.children === undefined || node.children.length === 0) {
-      maxWidth++;
-    }
-  });
-  return Math.max(maxWidth, 1);
-}
-
-/**
  * Calculates the tidy tree layout (top-to-bottom hierarchy).
  * Uses D3 tree layout with root at top, children below.
  */
@@ -77,26 +76,54 @@ export function calculateTidyLayout(
   const hierarchy = d3.hierarchy(d3Root);
 
   const maxDepth = getMaxDepth(d3Root);
-  const maxWidth = getMaxWidth(hierarchy);
 
-  // Calculate dimensions based on tree size
-  const treeWidth = maxWidth * NODE_SPACING_X;
-  const treeHeight = (maxDepth + 1) * NODE_SPACING_Y;
+  // Create tree layout with per-node sizing for branch-name-aware spacing
+  const BRANCH_CHAR_WIDTH = 11; // approximate px per character at fontSize 22
+  const BRANCH_GAP = 20; // minimum gap between adjacent branch name labels
 
-  // Create tree layout (top-to-bottom)
-  const tree = d3.tree<D3Node>().size([treeWidth, treeHeight]);
+  const tree = d3.tree<D3Node>()
+    .nodeSize([NODE_SPACING_X, NODE_SPACING_Y])
+    .separation((a, b) => {
+      const aName = a.data.node.branchName;
+      const bName = b.data.node.branchName;
+      const baseSep = a.parent === b.parent ? 1 : 2;
+
+      if (aName || bName) {
+        const aHalf = aName ? (aName.length * BRANCH_CHAR_WIDTH) / 2 : NODE_SPACING_X / 2;
+        const bHalf = bName ? (bName.length * BRANCH_CHAR_WIDTH) / 2 : NODE_SPACING_X / 2;
+        return Math.max(baseSep, (aHalf + bHalf + BRANCH_GAP) / NODE_SPACING_X);
+      }
+
+      return baseSep;
+    });
 
   // Apply layout
   const layoutRoot = tree(hierarchy);
 
+  // Compute actual horizontal bounds (nodeSize centers root at x=0)
+  let minX = 0, maxX = 0;
+  layoutRoot.each((d3Node) => {
+    if (d3Node.x < minX) minX = d3Node.x;
+    if (d3Node.x > maxX) maxX = d3Node.x;
+  });
+
+  const xShift = -minX + ROOT_OFFSET_X;
+
   const nodes: LayoutNode[] = [];
   const edges: LayoutEdge[] = [];
 
+  // Track resolved branch colors per node (propagated from ancestors)
+  const resolvedBranchColor = new Map<string, string | undefined>();
+
   // Convert D3 nodes to our layout format
-  // D3 tree gives x as horizontal, y as vertical (depth)
   layoutRoot.each((d3Node) => {
-    const x = d3Node.x + ROOT_OFFSET_X;
+    const x = d3Node.x + xShift;
     const y = d3Node.y + ROOT_OFFSET_Y;
+
+    // Resolve branch color: own branchColor overrides parent's
+    const parentColor = d3Node.parent ? resolvedBranchColor.get(d3Node.parent.data.id) : undefined;
+    const effectiveColor = d3Node.data.node.branchColor || parentColor;
+    resolvedBranchColor.set(d3Node.data.id, effectiveColor || undefined);
 
     nodes.push({
       id: d3Node.data.id,
@@ -104,7 +131,8 @@ export function calculateTidyLayout(
       y,
       node: d3Node.data.node,
       depth: d3Node.depth,
-      hiddenDescendantCount: d3Node.data.hiddenDescendantCount
+      hiddenDescendantCount: d3Node.data.hiddenDescendantCount,
+      branchColor: effectiveColor || undefined
     });
   });
 
@@ -118,11 +146,15 @@ export function calculateTidyLayout(
       const childLayout = nodeMap.get(d3Node.data.id);
 
       if (parentLayout && childLayout) {
+        const isMainLineEdge = !!d3Node.parent.data.node.isMainLine && !!d3Node.data.node.isMainLine;
+
         edges.push({
           id: `${parentLayout.id}-${childLayout.id}`,
           from: { x: parentLayout.x, y: parentLayout.y },
           to: { x: childLayout.x, y: childLayout.y },
-          type: 'parent-child'
+          type: 'parent-child',
+          isMainLine: isMainLineEdge,
+          branchColor: resolvedBranchColor.get(d3Node.data.id)
         });
       }
     }
@@ -146,7 +178,9 @@ export function calculateTidyLayout(
 
   // Calculate bounding box (all positive coordinates)
   const padding = NODE_RADIUS * 2 + 50;
-  const width = treeWidth + ROOT_OFFSET_X * 2 + padding;
+  const actualWidth = maxX - minX;
+  const treeHeight = maxDepth * NODE_SPACING_Y;
+  const width = actualWidth + ROOT_OFFSET_X * 2 + padding;
   const height = treeHeight + ROOT_OFFSET_Y * 2 + padding;
 
   return {

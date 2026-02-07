@@ -16,7 +16,19 @@ export const DEFAULT_HEIGHT = 400;
 
 /** Zoom limits */
 export const MIN_ZOOM = 0.2;
-export const MAX_ZOOM = 3;
+export const MAX_ZOOM = 10;
+
+/** Branch color palette for visual distinction */
+export const BRANCH_COLORS = [
+  { id: 'red',    hex: '#E74C3C', label: 'Red' },
+  { id: 'orange', hex: '#E67E22', label: 'Orange' },
+  { id: 'yellow', hex: '#F1C40F', label: 'Yellow' },
+  { id: 'green',  hex: '#27AE60', label: 'Green' },
+  { id: 'teal',   hex: '#1ABC9C', label: 'Teal' },
+  { id: 'blue',   hex: '#3498DB', label: 'Blue' },
+  { id: 'purple', hex: '#9B59B6', label: 'Purple' },
+  { id: 'pink',   hex: '#E91E8F', label: 'Pink' },
+] as const;
 
 /** Tidy tree (top-to-bottom) constants */
 export const NODE_SPACING_X = 80;  // Horizontal spacing between siblings

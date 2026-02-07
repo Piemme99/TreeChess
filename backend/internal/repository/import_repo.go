@@ -219,11 +219,11 @@ func (r *PostgresAnalysisRepo) GetAllGames(userID string, limit, offset int, tim
 				continue
 			}
 			gameOpening := game.Headers["Opening"]
-			gameRepertoire := ""
+			gameRepertoireID := ""
 			if game.MatchedRepertoire != nil {
-				gameRepertoire = game.MatchedRepertoire.Name
+				gameRepertoireID = game.MatchedRepertoire.ID
 			}
-			if repertoire != "" && gameRepertoire != repertoire {
+			if repertoire != "" && gameRepertoireID != repertoire {
 				continue
 			}
 			summary := models.GameSummary{
@@ -367,8 +367,8 @@ func (r *PostgresAnalysisRepo) BelongsToUser(id string, userID string) (bool, er
 	return belongs, nil
 }
 
-// GetDistinctRepertoires returns a sorted list of distinct repertoire names for a user
-func (r *PostgresAnalysisRepo) GetDistinctRepertoires(userID string) ([]string, error) {
+// GetDistinctRepertoires returns a sorted list of distinct repertoires (id, name, color) for a user
+func (r *PostgresAnalysisRepo) GetDistinctRepertoires(userID string) ([]models.RepertoireFilterOption, error) {
 	ctx, cancel := dbContext()
 	defer cancel()
 
@@ -378,7 +378,7 @@ func (r *PostgresAnalysisRepo) GetDistinctRepertoires(userID string) ([]string, 
 	}
 	defer rows.Close()
 
-	seen := make(map[string]struct{})
+	seen := make(map[string]models.RepertoireFilterOption)
 
 	for rows.Next() {
 		var analysisID string
@@ -396,8 +396,14 @@ func (r *PostgresAnalysisRepo) GetDistinctRepertoires(userID string) ([]string, 
 		}
 
 		for _, game := range games {
-			if game.MatchedRepertoire != nil && game.MatchedRepertoire.Name != "" {
-				seen[game.MatchedRepertoire.Name] = struct{}{}
+			if game.MatchedRepertoire != nil && game.MatchedRepertoire.ID != "" {
+				if _, exists := seen[game.MatchedRepertoire.ID]; !exists {
+					seen[game.MatchedRepertoire.ID] = models.RepertoireFilterOption{
+						ID:    game.MatchedRepertoire.ID,
+						Name:  game.MatchedRepertoire.Name,
+						Color: game.UserColor,
+					}
+				}
 			}
 		}
 	}
@@ -406,11 +412,16 @@ func (r *PostgresAnalysisRepo) GetDistinctRepertoires(userID string) ([]string, 
 		return nil, fmt.Errorf("error iterating analyses: %w", err)
 	}
 
-	repertoires := make([]string, 0, len(seen))
-	for r := range seen {
+	repertoires := make([]models.RepertoireFilterOption, 0, len(seen))
+	for _, r := range seen {
 		repertoires = append(repertoires, r)
 	}
-	sort.Strings(repertoires)
+	sort.Slice(repertoires, func(i, j int) bool {
+		if repertoires[i].Name != repertoires[j].Name {
+			return repertoires[i].Name < repertoires[j].Name
+		}
+		return repertoires[i].Color < repertoires[j].Color
+	})
 
 	return repertoires, nil
 }
@@ -508,6 +519,9 @@ func isSynced(filename string) bool {
 
 // computeGameStatus determines the overall status of a game based on the first actionable move
 func computeGameStatus(game models.GameAnalysis) string {
+	if game.MatchedRepertoire == nil && len(game.Moves) > 0 {
+		return "new-opening"
+	}
 	for _, move := range game.Moves {
 		if move.Status == "out-of-repertoire" {
 			return "error"
@@ -516,5 +530,5 @@ func computeGameStatus(game models.GameAnalysis) string {
 			return "new-line"
 		}
 	}
-	return "ok"
+	return "in-repertoire"
 }
