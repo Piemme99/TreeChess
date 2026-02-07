@@ -126,7 +126,7 @@ type StudyImportResult struct {
 
 // ImportStudyChapters imports selected chapters from a Lichess study as new repertoires.
 func (s *StudyImportService) ImportStudyChapters(userID, studyID, authToken string, chapterIndices []int) ([]models.Repertoire, error) {
-	result, err := s.ImportStudyChaptersWithCategory(userID, studyID, authToken, chapterIndices, false, "")
+	result, err := s.ImportStudyChaptersWithCategory(userID, studyID, authToken, chapterIndices, false, "", false, true)
 	if err != nil {
 		return nil, err
 	}
@@ -136,7 +136,7 @@ func (s *StudyImportService) ImportStudyChapters(userID, studyID, authToken stri
 // ImportStudyChaptersWithCategory imports selected chapters with optional category creation.
 // When createCategory is true and chapters are not being merged, it creates a category
 // and assigns all imported repertoires to it.
-func (s *StudyImportService) ImportStudyChaptersWithCategory(userID, studyID, authToken string, chapterIndices []int, createCategory bool, categoryName string) (*StudyImportResult, error) {
+func (s *StudyImportService) ImportStudyChaptersWithCategory(userID, studyID, authToken string, chapterIndices []int, createCategory bool, categoryName string, includeComments, includeHints bool) (*StudyImportResult, error) {
 	pgnData, err := s.lichessService.FetchStudyPGN(studyID, authToken)
 	if err != nil {
 		return nil, err
@@ -224,6 +224,8 @@ func (s *StudyImportService) ImportStudyChaptersWithCategory(userID, studyID, au
 			return nil, fmt.Errorf("failed to parse chapter %d: %w", i, err)
 		}
 
+		stripTreeAnnotations(&root, includeComments, includeHints)
+
 		// Determine chapter name
 		name := headers["Event"]
 		if name == "" {
@@ -270,7 +272,7 @@ func (s *StudyImportService) ImportStudyChaptersWithCategory(userID, studyID, au
 var ErrMixedColors = fmt.Errorf("cannot merge chapters with different colors")
 
 // ImportStudyChaptersMerged imports selected chapters from a Lichess study and merges them into a single repertoire.
-func (s *StudyImportService) ImportStudyChaptersMerged(userID, studyID, authToken string, chapterIndices []int, mergeName string) (*models.Repertoire, error) {
+func (s *StudyImportService) ImportStudyChaptersMerged(userID, studyID, authToken string, chapterIndices []int, mergeName string, includeComments, includeHints bool) (*models.Repertoire, error) {
 	pgnData, err := s.lichessService.FetchStudyPGN(studyID, authToken)
 	if err != nil {
 		return nil, err
@@ -304,6 +306,8 @@ func (s *StudyImportService) ImportStudyChaptersMerged(userID, studyID, authToke
 			}
 			return nil, fmt.Errorf("failed to parse chapter %d: %w", i, err)
 		}
+
+		stripTreeAnnotations(&root, includeComments, includeHints)
 
 		// Extract study name for fallback
 		name := headers["Event"]
@@ -363,6 +367,21 @@ func (s *StudyImportService) ImportStudyChaptersMerged(userID, studyID, authToke
 	}
 
 	return saved, nil
+}
+
+// stripTreeAnnotations recursively removes comments and/or hints (arrows, highlights)
+// from a parsed tree based on the given flags.
+func stripTreeAnnotations(node *models.RepertoireNode, keepComments, keepHints bool) {
+	if !keepComments {
+		node.Comment = nil
+	}
+	if !keepHints {
+		node.Arrows = nil
+		node.Highlights = nil
+	}
+	for _, child := range node.Children {
+		stripTreeAnnotations(child, keepComments, keepHints)
+	}
 }
 
 // GetLichessTokenForUser retrieves the stored Lichess access token for a user.

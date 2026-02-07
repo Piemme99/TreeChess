@@ -23,6 +23,17 @@ const (
 	ChessColorBlack ChessColor = "b"
 )
 
+type Arrow struct {
+	From  string `json:"from"`
+	To    string `json:"to"`
+	Color string `json:"color"`
+}
+
+type SquareHighlight struct {
+	Square string `json:"square"`
+	Color  string `json:"color"`
+}
+
 type RepertoireNode struct {
 	ID              string            `json:"id"`
 	FEN             string            `json:"fen"`
@@ -31,6 +42,8 @@ type RepertoireNode struct {
 	ColorToMove     ChessColor        `json:"colorToMove"`
 	ParentID        *string           `json:"parentId,omitempty"`
 	Comment         *string           `json:"comment,omitempty"`
+	Arrows          []Arrow           `json:"arrows,omitempty"`
+	Highlights      []SquareHighlight `json:"highlights,omitempty"`
 	BranchName      *string           `json:"branchName,omitempty"`
 	BranchColor     *string           `json:"branchColor,omitempty"`
 	Collapsed       bool              `json:"collapsed,omitempty"`
@@ -195,12 +208,14 @@ type StudyInfo struct {
 
 // StudyImportRequest represents a request to import chapters from a Lichess study
 type StudyImportRequest struct {
-	StudyURL       string `json:"studyUrl"`
-	ChapterIndices []int  `json:"chapters"`
-	MergeAsOne     bool   `json:"mergeAsOne"`
-	MergeName      string `json:"mergeName,omitempty"`
-	CreateCategory bool   `json:"createCategory,omitempty"`
-	CategoryName   string `json:"categoryName,omitempty"`
+	StudyURL        string `json:"studyUrl"`
+	ChapterIndices  []int  `json:"chapters"`
+	MergeAsOne      bool   `json:"mergeAsOne"`
+	MergeName       string `json:"mergeName,omitempty"`
+	CreateCategory  bool   `json:"createCategory,omitempty"`
+	CategoryName    string `json:"categoryName,omitempty"`
+	IncludeComments bool   `json:"includeComments,omitempty"`
+	IncludeHints    bool   `json:"includeHints,omitempty"`
 }
 
 // GameSummary represents a single game for the games list

@@ -2,6 +2,7 @@ package services
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 	"unicode"
 
@@ -10,6 +11,76 @@ import (
 
 	"github.com/treechess/backend/internal/models"
 )
+
+var (
+	calRegex = regexp.MustCompile(`\[%cal\s+([A-Za-z0-9,]+)\]`)
+	cslRegex = regexp.MustCompile(`\[%csl\s+([A-Za-z0-9,]+)\]`)
+)
+
+// annotationColorMap maps Lichess single-char color codes to hex colors.
+var annotationColorMap = map[byte]string{
+	'G': "#15781B",
+	'R': "#882020",
+	'B': "#003088",
+	'Y': "#e68f00",
+}
+
+// parseAnnotations extracts [%cal ...] arrows and [%csl ...] square highlights
+// from a PGN comment string. Returns cleaned comment text, arrows, and highlights.
+func parseAnnotations(comment string) (string, []models.Arrow, []models.SquareHighlight) {
+	var arrows []models.Arrow
+	var highlights []models.SquareHighlight
+
+	// Extract arrows from [%cal Gb4e1,Ra1h8]
+	comment = calRegex.ReplaceAllStringFunc(comment, func(match string) string {
+		sub := calRegex.FindStringSubmatch(match)
+		if len(sub) < 2 {
+			return match
+		}
+		for _, entry := range strings.Split(sub[1], ",") {
+			entry = strings.TrimSpace(entry)
+			if len(entry) < 5 {
+				continue
+			}
+			colorChar := entry[0]
+			hexColor, ok := annotationColorMap[colorChar]
+			if !ok {
+				hexColor = "#15781B" // default green
+			}
+			from := entry[1:3]
+			to := entry[3:5]
+			arrows = append(arrows, models.Arrow{From: from, To: to, Color: hexColor})
+		}
+		return ""
+	})
+
+	// Extract highlights from [%csl Rb4,Gb2]
+	comment = cslRegex.ReplaceAllStringFunc(comment, func(match string) string {
+		sub := cslRegex.FindStringSubmatch(match)
+		if len(sub) < 2 {
+			return match
+		}
+		for _, entry := range strings.Split(sub[1], ",") {
+			entry = strings.TrimSpace(entry)
+			if len(entry) < 3 {
+				continue
+			}
+			colorChar := entry[0]
+			hexColor, ok := annotationColorMap[colorChar]
+			if !ok {
+				hexColor = "#15781B"
+			}
+			square := entry[1:3]
+			highlights = append(highlights, models.SquareHighlight{Square: square, Color: hexColor})
+		}
+		return ""
+	})
+
+	// Collapse leftover whitespace
+	cleaned := strings.Join(strings.Fields(comment), " ")
+
+	return cleaned, arrows, highlights
+}
 
 // PGN token types
 type pgnTokenType int
@@ -219,7 +290,16 @@ func ParsePGNToTree(pgnText string) (models.RepertoireNode, map[string]string, e
 			if commentText != "" && len(stack) > 0 {
 				top := stack[len(stack)-1]
 				if top.node.Move != nil {
-					top.node.Comment = &commentText
+					cleaned, arrows, highlights := parseAnnotations(commentText)
+					if cleaned != "" {
+						top.node.Comment = &cleaned
+					}
+					if len(arrows) > 0 {
+						top.node.Arrows = arrows
+					}
+					if len(highlights) > 0 {
+						top.node.Highlights = highlights
+					}
 				}
 			}
 			pos++

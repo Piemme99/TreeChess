@@ -42,12 +42,31 @@ export function BoardSection({
     return () => obs.disconnect();
   }, []);
 
+  const annotationArrows = useMemo<[string, string, string?][]>(() => {
+    if (!selectedNode?.arrows?.length) return [];
+    return selectedNode.arrows.map((a) => [a.from, a.to, a.color] as [string, string, string]);
+  }, [selectedNode?.arrows]);
+
+  const annotationSquareStyles = useMemo<Record<string, React.CSSProperties>>(() => {
+    if (!selectedNode?.highlights?.length) return {};
+    const styles: Record<string, React.CSSProperties> = {};
+    for (const h of selectedNode.highlights) {
+      styles[h.square] = { backgroundColor: h.color + '80' };
+    }
+    return styles;
+  }, [selectedNode?.highlights]);
+
   const bestMoveArrow = useMemo<[string, string, string?][]>(() => {
     if (engineEvaluation?.bestMoveFrom && engineEvaluation?.bestMoveTo) {
       return [[engineEvaluation.bestMoveFrom, engineEvaluation.bestMoveTo, 'rgba(230, 126, 34, 0.6)']];
     }
     return [];
   }, [engineEvaluation?.bestMoveFrom, engineEvaluation?.bestMoveTo]);
+
+  const allArrows = useMemo<[string, string, string?][]>(
+    () => [...annotationArrows, ...bestMoveArrow],
+    [annotationArrows, bestMoveArrow]
+  );
 
   const handleSquareClick = (square: string) => {
     if (!color || !selectedNode) return;
@@ -102,7 +121,8 @@ export function BoardSection({
             highlightSquares={possibleMoves}
             interactive={true}
             width={boardSize}
-            customArrows={bestMoveArrow}
+            customArrows={allArrows}
+            annotationSquareStyles={annotationSquareStyles}
           />
         </div>
       </div>

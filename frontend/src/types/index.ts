@@ -73,6 +73,18 @@ export interface AssignCategoryRequest {
   categoryId: string | null;
 }
 
+// Annotation types (Lichess study visual annotations)
+export interface ArrowAnnotation {
+  from: string;
+  to: string;
+  color: string;
+}
+
+export interface SquareHighlightAnnotation {
+  square: string;
+  color: string;
+}
+
 // Repertoire types
 export interface RepertoireNode {
   id: string;
@@ -82,6 +94,8 @@ export interface RepertoireNode {
   colorToMove: ShortColor;
   parentId: string | null;
   comment?: string | null;
+  arrows?: ArrowAnnotation[];
+  highlights?: SquareHighlightAnnotation[];
   branchName?: string | null;
   branchColor?: string | null;
   collapsed?: boolean;
@@ -324,6 +338,8 @@ export interface StudyImportRequest {
   mergeName?: string;
   createCategory?: boolean;
   categoryName?: string;
+  includeComments?: boolean;
+  includeHints?: boolean;
 }
 
 export interface StudyImportResponse {

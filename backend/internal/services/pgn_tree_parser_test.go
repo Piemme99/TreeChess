@@ -407,3 +407,103 @@ func TestParsePGNToTree_CommentsAttached(t *testing.T) {
 	nf3 := e5.Children[0]
 	assert.Nil(t, nf3.Comment)
 }
+
+func TestParseAnnotations(t *testing.T) {
+	t.Run("single arrow", func(t *testing.T) {
+		cleaned, arrows, highlights := parseAnnotations("[%cal Gb4e1]")
+		assert.Equal(t, "", cleaned)
+		require.Len(t, arrows, 1)
+		assert.Equal(t, models.Arrow{From: "b4", To: "e1", Color: "#15781B"}, arrows[0])
+		assert.Len(t, highlights, 0)
+	})
+
+	t.Run("multiple arrows", func(t *testing.T) {
+		cleaned, arrows, highlights := parseAnnotations("[%cal Gb4e1,Ra1h8]")
+		assert.Equal(t, "", cleaned)
+		require.Len(t, arrows, 2)
+		assert.Equal(t, models.Arrow{From: "b4", To: "e1", Color: "#15781B"}, arrows[0])
+		assert.Equal(t, models.Arrow{From: "a1", To: "h8", Color: "#882020"}, arrows[1])
+		assert.Len(t, highlights, 0)
+	})
+
+	t.Run("single highlight", func(t *testing.T) {
+		cleaned, arrows, highlights := parseAnnotations("[%csl Rb4]")
+		assert.Equal(t, "", cleaned)
+		assert.Len(t, arrows, 0)
+		require.Len(t, highlights, 1)
+		assert.Equal(t, models.SquareHighlight{Square: "b4", Color: "#882020"}, highlights[0])
+	})
+
+	t.Run("multiple highlights", func(t *testing.T) {
+		cleaned, arrows, highlights := parseAnnotations("[%csl Rb4,Gb2]")
+		assert.Equal(t, "", cleaned)
+		assert.Len(t, arrows, 0)
+		require.Len(t, highlights, 2)
+		assert.Equal(t, models.SquareHighlight{Square: "b4", Color: "#882020"}, highlights[0])
+		assert.Equal(t, models.SquareHighlight{Square: "b2", Color: "#15781B"}, highlights[1])
+	})
+
+	t.Run("mixed cal and csl", func(t *testing.T) {
+		cleaned, arrows, highlights := parseAnnotations("Good move [%cal Ge2e4] [%csl Ye4]")
+		assert.Equal(t, "Good move", cleaned)
+		require.Len(t, arrows, 1)
+		assert.Equal(t, models.Arrow{From: "e2", To: "e4", Color: "#15781B"}, arrows[0])
+		require.Len(t, highlights, 1)
+		assert.Equal(t, models.SquareHighlight{Square: "e4", Color: "#e68f00"}, highlights[0])
+	})
+
+	t.Run("no annotations", func(t *testing.T) {
+		cleaned, arrows, highlights := parseAnnotations("Just a normal comment")
+		assert.Equal(t, "Just a normal comment", cleaned)
+		assert.Len(t, arrows, 0)
+		assert.Len(t, highlights, 0)
+	})
+
+	t.Run("all four colors", func(t *testing.T) {
+		cleaned, arrows, _ := parseAnnotations("[%cal Ga1b1,Ra2b2,Ba3b3,Ya4b4]")
+		assert.Equal(t, "", cleaned)
+		require.Len(t, arrows, 4)
+		assert.Equal(t, "#15781B", arrows[0].Color) // Green
+		assert.Equal(t, "#882020", arrows[1].Color) // Red
+		assert.Equal(t, "#003088", arrows[2].Color) // Blue
+		assert.Equal(t, "#e68f00", arrows[3].Color) // Yellow
+	})
+
+	t.Run("annotation only comment produces empty cleaned text", func(t *testing.T) {
+		cleaned, arrows, highlights := parseAnnotations("[%cal Ge2e4] [%csl Re4]")
+		assert.Equal(t, "", cleaned)
+		assert.Len(t, arrows, 1)
+		assert.Len(t, highlights, 1)
+	})
+}
+
+func TestParsePGNToTree_Annotations(t *testing.T) {
+	pgn := `[Event "Test"]
+
+1. e4 {Good first move [%cal Ge2e4] [%csl Ye4]} e5 {[%cal Ra7a5,Gb7b5]} 2. Nf3 *`
+
+	root, _, err := ParsePGNToTree(pgn)
+	require.NoError(t, err)
+
+	// e4 node: comment cleaned, arrow + highlight present
+	e4 := root.Children[0]
+	require.NotNil(t, e4.Comment)
+	assert.Equal(t, "Good first move", *e4.Comment)
+	require.Len(t, e4.Arrows, 1)
+	assert.Equal(t, models.Arrow{From: "e2", To: "e4", Color: "#15781B"}, e4.Arrows[0])
+	require.Len(t, e4.Highlights, 1)
+	assert.Equal(t, models.SquareHighlight{Square: "e4", Color: "#e68f00"}, e4.Highlights[0])
+
+	// e5 node: annotation-only comment, so Comment should be nil
+	e5 := e4.Children[0]
+	assert.Nil(t, e5.Comment)
+	require.Len(t, e5.Arrows, 2)
+	assert.Equal(t, models.Arrow{From: "a7", To: "a5", Color: "#882020"}, e5.Arrows[0])
+	assert.Equal(t, models.Arrow{From: "b7", To: "b5", Color: "#15781B"}, e5.Arrows[1])
+
+	// Nf3 node: no annotations
+	nf3 := e5.Children[0]
+	assert.Nil(t, nf3.Comment)
+	assert.Len(t, nf3.Arrows, 0)
+	assert.Len(t, nf3.Highlights, 0)
+}

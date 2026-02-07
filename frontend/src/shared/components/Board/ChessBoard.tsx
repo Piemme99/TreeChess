@@ -15,6 +15,7 @@ interface ChessBoardProps {
   bestMoveFrom?: string;
   bestMoveTo?: string;
   customArrows?: [string, string, string?][];
+  annotationSquareStyles?: Record<string, React.CSSProperties>;
 }
 
 export function ChessBoard({
@@ -28,7 +29,8 @@ export function ChessBoard({
   width = 400,
   bestMoveFrom,
   bestMoveTo,
-  customArrows = []
+  customArrows = [],
+  annotationSquareStyles
 }: ChessBoardProps) {
   const [game, setGame] = useState(() => {
     try {
@@ -132,6 +134,11 @@ export function ChessBoard({
   const customSquareStyles = useMemo(() => {
     const styles: Record<string, React.CSSProperties> = {};
 
+    // Annotation highlights go first so interactive styles render on top
+    if (annotationSquareStyles) {
+      Object.assign(styles, annotationSquareStyles);
+    }
+
     if (internalSelectedSquare) {
       styles[internalSelectedSquare] = {
         backgroundColor: 'rgba(255, 255, 0, 0.5)'
@@ -179,7 +186,7 @@ export function ChessBoard({
     }
 
     return styles;
-  }, [game, internalSelectedSquare, highlightSquares, lastMove, bestMoveFrom, bestMoveTo]);
+  }, [game, internalSelectedSquare, highlightSquares, lastMove, bestMoveFrom, bestMoveTo, annotationSquareStyles]);
 
   return (
     <div className="chessboard-wrapper" style={{ width }}>

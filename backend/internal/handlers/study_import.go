@@ -80,7 +80,7 @@ func (h *StudyImportHandler) ImportStudyHandler(c echo.Context) error {
 	authToken := h.studyImportService.GetLichessTokenForUser(userID)
 
 	if req.MergeAsOne {
-		merged, err := h.studyImportService.ImportStudyChaptersMerged(userID, studyID, authToken, req.ChapterIndices, req.MergeName)
+		merged, err := h.studyImportService.ImportStudyChaptersMerged(userID, studyID, authToken, req.ChapterIndices, req.MergeName, req.IncludeComments, req.IncludeHints)
 		if err != nil {
 			if errors.Is(err, services.ErrLichessStudyNotFound) {
 				return NotFoundResponse(c, "Lichess study")
@@ -107,7 +107,7 @@ func (h *StudyImportHandler) ImportStudyHandler(c echo.Context) error {
 		})
 	}
 
-	result, err := h.studyImportService.ImportStudyChaptersWithCategory(userID, studyID, authToken, req.ChapterIndices, req.CreateCategory, req.CategoryName)
+	result, err := h.studyImportService.ImportStudyChaptersWithCategory(userID, studyID, authToken, req.ChapterIndices, req.CreateCategory, req.CategoryName, req.IncludeComments, req.IncludeHints)
 	if err != nil {
 		if errors.Is(err, services.ErrLichessStudyNotFound) {
 			return NotFoundResponse(c, "Lichess study")

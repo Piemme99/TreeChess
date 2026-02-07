@@ -494,6 +494,8 @@ func deepCloneSubtree(node *models.RepertoireNode, parentID *string) *models.Rep
 		ColorToMove:     node.ColorToMove,
 		ParentID:        parentID,
 		Comment:         node.Comment,
+		Arrows:          node.Arrows,
+		Highlights:      node.Highlights,
 		BranchName:      node.BranchName,
 		BranchColor:     node.BranchColor,
 		Collapsed:       node.Collapsed,
@@ -529,6 +531,8 @@ func buildSpineWithSubtree(path []*models.RepertoireNode) models.RepertoireNode 
 			ColorToMove: node.ColorToMove,
 			ParentID:    parentID,
 			Comment:     node.Comment,
+			Arrows:      node.Arrows,
+			Highlights:  node.Highlights,
 			Children:    []*models.RepertoireNode{},
 		}
 	}
@@ -713,6 +717,12 @@ func mergeTranspositionsInTree(root *models.RepertoireNode) {
 				if canonical.Comment == nil && dup.Comment != nil {
 					canonical.Comment = dup.Comment
 				}
+				if len(canonical.Arrows) == 0 && len(dup.Arrows) > 0 {
+					canonical.Arrows = dup.Arrows
+				}
+				if len(canonical.Highlights) == 0 && len(dup.Highlights) > 0 {
+					canonical.Highlights = dup.Highlights
+				}
 			}
 		}
 
@@ -738,6 +748,12 @@ func mergeNodes(target, source *models.RepertoireNode) {
 			// Preserve comment: keep target's comment, but fill in from source if target has none
 			if matched.Comment == nil && srcChild.Comment != nil {
 				matched.Comment = srcChild.Comment
+			}
+			if len(matched.Arrows) == 0 && len(srcChild.Arrows) > 0 {
+				matched.Arrows = srcChild.Arrows
+			}
+			if len(matched.Highlights) == 0 && len(srcChild.Highlights) > 0 {
+				matched.Highlights = srcChild.Highlights
 			}
 			mergeNodes(matched, srcChild)
 		} else {

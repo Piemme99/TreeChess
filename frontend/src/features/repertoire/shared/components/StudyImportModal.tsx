@@ -16,6 +16,8 @@ export function StudyImportModal({ isOpen, onClose, onSuccess }: StudyImportModa
   const [mergeAsOne, setMergeAsOne] = useState(false);
   const [mergeName, setMergeName] = useState('');
   const [createCategory, setCreateCategory] = useState(true);
+  const [includeHints, setIncludeHints] = useState(true);
+  const [includeComments, setIncludeComments] = useState(false);
   const addCategory = useRepertoireStore((state) => state.addCategory);
 
   const { previewing, importing, studyInfo, previewError, handlePreview, handleImport, reset } = useStudyImport(onSuccess);
@@ -26,6 +28,8 @@ export function StudyImportModal({ isOpen, onClose, onSuccess }: StudyImportModa
     setMergeAsOne(false);
     setMergeName('');
     setCreateCategory(true);
+    setIncludeHints(true);
+    setIncludeComments(false);
     reset();
     onClose();
   }, [onClose, reset]);
@@ -37,6 +41,8 @@ export function StudyImportModal({ isOpen, onClose, onSuccess }: StudyImportModa
       setMergeAsOne(false);
       setMergeName('');
       setCreateCategory(true);
+      setIncludeHints(true);
+      setIncludeComments(false);
     }
   }, [url, handlePreview]);
 
@@ -52,7 +58,9 @@ export function StudyImportModal({ isOpen, onClose, onSuccess }: StudyImportModa
       mergeAsOne,
       mergeAsOne ? (mergeName || studyInfo?.studyName) : undefined,
       !mergeAsOne && createCategory,
-      !mergeAsOne && createCategory ? studyInfo?.studyName : undefined
+      !mergeAsOne && createCategory ? studyInfo?.studyName : undefined,
+      includeComments,
+      includeHints
     );
     if (result) {
       // Add the created category to the store
@@ -61,7 +69,7 @@ export function StudyImportModal({ isOpen, onClose, onSuccess }: StudyImportModa
       }
       handleClose();
     }
-  }, [url, selectedChapters, studyInfo, mergeAsOne, mergeName, createCategory, handleImport, handleClose, addCategory]);
+  }, [url, selectedChapters, studyInfo, mergeAsOne, mergeName, createCategory, includeComments, includeHints, handleImport, handleClose, addCategory]);
 
   const toggleChapter = (index: number) => {
     setSelectedChapters(prev => {
@@ -193,6 +201,25 @@ export function StudyImportModal({ isOpen, onClose, onSuccess }: StudyImportModa
                 </span>
               </label>
             )}
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <label className="flex items-center gap-2 cursor-pointer text-[0.9rem]">
+              <input
+                type="checkbox"
+                checked={includeHints}
+                onChange={(e) => setIncludeHints(e.target.checked)}
+              />
+              <span>Import hints (arrows & highlights)</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer text-[0.9rem]">
+              <input
+                type="checkbox"
+                checked={includeComments}
+                onChange={(e) => setIncludeComments(e.target.checked)}
+              />
+              <span>Import comments</span>
+            </label>
           </div>
 
           <div className="flex justify-end gap-2">
