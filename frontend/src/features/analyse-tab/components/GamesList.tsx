@@ -44,7 +44,7 @@ function StatusBadge({ status }: { status: GameStatus }) {
   return <span className={className}>{label}</span>;
 }
 
-const gridCols = 'grid grid-cols-[16px_1fr_150px_100px_80px_70px_66px] items-center gap-x-3 px-4';
+const gridCols = 'grid grid-cols-[16px_1fr_80px_70px_66px] md:grid-cols-[16px_1fr_150px_100px_80px_70px_66px] items-center gap-x-3 px-4';
 
 function GameRow({ game, onViewClick, onDeleteClick, onReanalyze, reanalyzing, showNewBadge }: {
   game: GameSummary;
@@ -75,12 +75,12 @@ function GameRow({ game, onViewClick, onDeleteClick, onReanalyze, reanalyzing, s
       </div>
 
       {/* Repertoire */}
-      <span className="text-xs text-text-muted truncate">
+      <span className="hidden md:block text-xs text-text-muted truncate">
         {game.repertoireName || '-'}
       </span>
 
       {/* Status */}
-      <div className="flex justify-center">
+      <div className="hidden md:flex justify-center">
         <StatusBadge status={game.status} />
       </div>
 
@@ -174,13 +174,13 @@ export function GamesList({
   }
 
   const renderGrid = (list: GameSummary[], showNew: boolean) => (
-    <div className="rounded-2xl border border-primary/10 overflow-hidden">
+    <div className="rounded-2xl border border-primary/10 overflow-x-auto">
       {/* Table header */}
       <div className={`${gridCols} py-2 border-b border-primary/10 text-[11px] font-semibold text-text-light uppercase tracking-wide`}>
         <span></span>
         <span>Players</span>
-        <span>Repertoire</span>
-        <span className="text-center">Status</span>
+        <span className="hidden md:block">Repertoire</span>
+        <span className="hidden md:block text-center">Status</span>
         <span>Date</span>
         <span>Source</span>
         <span></span>

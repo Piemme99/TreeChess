@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"log/slog"
 	"regexp"
 	"time"
 
@@ -137,6 +138,20 @@ func (s *AuthService) ValidateToken(tokenStr string) (string, error) {
 		return "", ErrUnauthorized
 	}
 
+	// Check if the token was issued before the last password change
+	if iat, ok := claims["iat"].(float64); ok {
+		user, err := s.userRepo.GetByID(sub)
+		if err != nil {
+			return "", ErrUnauthorized
+		}
+		if user.PasswordChangedAt != nil {
+			issuedAt := time.Unix(int64(iat), 0)
+			if issuedAt.Before(*user.PasswordChangedAt) {
+				return "", ErrUnauthorized
+			}
+		}
+	}
+
 	return sub, nil
 }
 
@@ -149,10 +164,12 @@ func (s *AuthService) UpdateProfile(userID string, req models.UpdateProfileReque
 }
 
 func (s *AuthService) generateToken(user *models.User) (string, error) {
+	now := time.Now()
 	claims := jwt.MapClaims{
 		"sub":      user.ID,
 		"username": user.Username,
-		"exp":      time.Now().Add(s.jwtExpiry).Unix(),
+		"iat":      now.Unix(),
+		"exp":      now.Add(s.jwtExpiry).Unix(),
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
@@ -251,7 +268,7 @@ func (s *AuthService) ResetPassword(rawToken, newPassword string) error {
 	// Mark token as used
 	if err := s.resetRepo.MarkUsed(resetToken.ID); err != nil {
 		// Non-critical error, log but don't fail
-		fmt.Printf("failed to mark reset token as used: %v\n", err)
+		slog.Error("failed to mark reset token as used", "token_id", resetToken.ID, "error", err)
 	}
 
 	// Delete all reset tokens for this user (invalidate any other pending resets)

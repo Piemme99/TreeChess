@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type { Repertoire, RepertoireNode, Color, ApiError, Category } from '../types';
 import { repertoireApi, categoryApi } from '../services/api';
 import { findNode as findNodeInTree } from '../features/repertoire/edit/utils/nodeUtils';
+import { toast } from './toastStore';
 
 interface RepertoireState {
   // Dynamic list of all repertoires
@@ -81,8 +82,8 @@ export const useRepertoireStore = create<RepertoireState>((set, get) => ({
     try {
       const categories = await categoryApi.list();
       set({ categories });
-    } catch (err) {
-      console.error('Failed to fetch categories:', err);
+    } catch {
+      toast.error('Failed to load categories');
     }
   },
 

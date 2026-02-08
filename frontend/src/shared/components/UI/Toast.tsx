@@ -40,7 +40,7 @@ function ToastItem({ toast }: { toast: ToastType }) {
   };
 
   return (
-    <div className={`flex items-center gap-2 p-4 bg-bg-card/95 backdrop-blur-sm rounded-xl shadow-lg animate-slide-in border-l-4 ${
+    <div role="alert" className={`flex items-center gap-2 p-4 bg-bg-card/95 backdrop-blur-sm rounded-xl shadow-lg animate-slide-in border-l-4 ${
       toast.type === 'success' ? 'border-l-success bg-success-light/30' :
       toast.type === 'error' ? 'border-l-danger bg-danger-light/30' :
       toast.type === 'warning' ? 'border-l-warning bg-warning-light/30' :
@@ -51,6 +51,7 @@ function ToastItem({ toast }: { toast: ToastType }) {
       <button
         className="bg-transparent border-none text-xl text-text-muted cursor-pointer"
         onClick={() => removeToast(toast.id)}
+        aria-label="Dismiss notification"
       >
         &times;
       </button>
@@ -64,7 +65,7 @@ export function ToastContainer() {
   if (toasts.length === 0) return null;
 
   return (
-    <div className="fixed bottom-6 right-6 flex flex-col gap-2 z-[1100] max-w-[400px]">
+    <div role="region" aria-label="Notifications" aria-live="polite" className="fixed bottom-6 right-6 flex flex-col gap-2 z-[1100] max-w-[400px]">
       {toasts.map((toast) => (
         <ToastItem key={toast.id} toast={toast} />
       ))}

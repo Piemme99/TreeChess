@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	userColumns = `id, username, email, password_hash, oauth_provider, oauth_id, lichess_username, chesscom_username, lichess_access_token, last_lichess_sync_at, last_chesscom_sync_at, time_format_prefs, created_at`
+	userColumns = `id, username, email, password_hash, oauth_provider, oauth_id, lichess_username, chesscom_username, lichess_access_token, last_lichess_sync_at, last_chesscom_sync_at, time_format_prefs, password_changed_at, created_at`
 
 	createUserSQL = `
 		INSERT INTO users (id, username, email, password_hash)
@@ -63,7 +63,7 @@ const (
 	`
 
 	updatePasswordSQL = `
-		UPDATE users SET password_hash = $2
+		UPDATE users SET password_hash = $2, password_changed_at = NOW()
 		WHERE id = $1
 	`
 )
@@ -82,7 +82,8 @@ func scanUser(scan func(dest ...any) error) (*models.User, error) {
 	err := scan(
 		&user.ID, &user.Username, &user.Email, &passwordHash, &user.OAuthProvider, &user.OAuthID,
 		&user.LichessUsername, &user.ChesscomUsername, &user.LichessAccessToken,
-		&user.LastLichessSyncAt, &user.LastChesscomSyncAt, &user.TimeFormatPrefs, &user.CreatedAt,
+		&user.LastLichessSyncAt, &user.LastChesscomSyncAt, &user.TimeFormatPrefs,
+		&user.PasswordChangedAt, &user.CreatedAt,
 	)
 	if err != nil {
 		return nil, err

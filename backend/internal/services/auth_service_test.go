@@ -192,7 +192,11 @@ func TestAuthService_Login_OAuthOnly(t *testing.T) {
 }
 
 func TestAuthService_ValidateToken_Roundtrip(t *testing.T) {
-	mockRepo := &mocks.MockUserRepo{}
+	mockRepo := &mocks.MockUserRepo{
+		GetByIDFunc: func(id string) (*models.User, error) {
+			return &models.User{ID: id, Username: "testuser"}, nil
+		},
+	}
 	svc := newTestAuthService(mockRepo)
 
 	user := &models.User{ID: "user-123", Username: "testuser"}

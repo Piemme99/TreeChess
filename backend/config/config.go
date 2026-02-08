@@ -12,6 +12,7 @@ import (
 
 // Config holds application configuration
 type Config struct {
+	Environment              string
 	DatabaseURL              string
 	Port                     int
 	AllowedOrigins           []string
@@ -34,6 +35,11 @@ type Config struct {
 func MustLoad() Config {
 	// Load .env file if present (won't override existing env vars)
 	_ = godotenv.Load("../.env")
+
+	env := os.Getenv("ENVIRONMENT")
+	if env == "" {
+		env = "development"
+	}
 
 	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {
@@ -113,6 +119,7 @@ func MustLoad() Config {
 	}
 
 	return Config{
+		Environment:              env,
 		DatabaseURL:              dbURL,
 		Port:                     port,
 		AllowedOrigins:           allowedOrigins,

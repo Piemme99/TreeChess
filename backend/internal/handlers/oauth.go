@@ -11,7 +11,8 @@ import (
 	"net/http"
 	"net/url"
 
-	"log"
+	"log/slog"
+
 	"github.com/labstack/echo/v4"
 
 	"github.com/treechess/backend/internal/repository"
@@ -119,7 +120,7 @@ func (h *OAuthHandler) Callback(c echo.Context) error {
 	// Store the Lichess access token for API access (e.g. private studies)
 	if accessToken != "" {
 		if err := h.userRepo.UpdateLichessToken(resp.User.ID, accessToken); err != nil {
-			log.Printf("Failed to store Lichess token for user %s: %v", resp.User.ID, err)
+			slog.Error("failed to store lichess token", "user_id", resp.User.ID, "error", err)
 		}
 	}
 

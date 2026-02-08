@@ -18,6 +18,7 @@ import { ExtractModal } from './edit/components/ExtractModal';
 import { repertoireApi } from '../../services/api';
 import { toast } from '../../stores/toastStore';
 import { BRANCH_COLORS } from './shared/components/RepertoireTree/constants';
+import { usePageTitle } from '../../shared/hooks/usePageTitle';
 
 type TabId = 'tree' | 'moves' | 'engine';
 
@@ -28,6 +29,7 @@ const TABS: { id: TabId; label: string }[] = [
 ];
 
 export function RepertoireEdit() {
+  usePageTitle('Edit Repertoire');
   // All hooks must be called first, before any conditions
   const navigate = useNavigate();
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);

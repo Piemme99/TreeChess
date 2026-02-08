@@ -36,6 +36,8 @@ export function useRepertoireLoader() {
 
   // Effect to load repertoire data and select initial node
   useEffect(() => {
+    let cancelled = false;
+
     const loadRepertoire = async () => {
       if (!id || initializedRef.current) return;
 
@@ -43,6 +45,7 @@ export function useRepertoireLoader() {
         setLoading(true);
         try {
           const data = await fetchRepertoire(id);
+          if (cancelled) return;
           if (data) {
             selectNode(data.treeData.id);
             initializedRef.current = true;
@@ -51,10 +54,11 @@ export function useRepertoireLoader() {
             navigate('/');
           }
         } catch {
+          if (cancelled) return;
           toast.error('Failed to load repertoire');
           navigate('/');
         } finally {
-          setLoading(false);
+          if (!cancelled) setLoading(false);
         }
       } else if (!selectedNodeId) {
         selectNode(repertoire.treeData.id);
@@ -65,6 +69,7 @@ export function useRepertoireLoader() {
     };
 
     loadRepertoire();
+    return () => { cancelled = true; };
   }, [id, repertoire, selectedNodeId, fetchRepertoire, selectNode, setLoading, navigate]);
 
   // Fallback: ensure root node is always selected when repertoire is loaded

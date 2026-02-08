@@ -24,7 +24,9 @@ import type {
   CategoryWithRepertoires,
   CreateCategoryRequest,
   UpdateCategoryRequest,
-  RepertoireFilterOption
+  RepertoireFilterOption,
+  LichessStudySearchResponse,
+  LichessTopicsResponse
 } from '../types';
 
 const TOKEN_STORAGE_KEY = 'treechess_token';
@@ -60,12 +62,8 @@ api.interceptors.response.use(
     if (error.code !== 'ERR_CANCELED') {
       if (error.response?.status === 401) {
         localStorage.removeItem(TOKEN_STORAGE_KEY);
-        // Only redirect if not already on login page
-        if (window.location.pathname !== '/login') {
-          window.location.href = '/login';
-        }
+        window.dispatchEvent(new Event('auth:unauthorized'));
       }
-      console.error('API Error:', error.response?.data || error.message);
     }
     return Promise.reject(error);
   }
@@ -302,6 +300,16 @@ export const healthApi = {
 export const studyApi = {
   preview: async (url: string): Promise<StudyInfo> => {
     const response = await api.get('/studies/preview', { params: { url }, timeout: 120000 });
+    return response.data;
+  },
+
+  browse: async (params: { q?: string; topic?: string; order?: string; page?: number }): Promise<LichessStudySearchResponse> => {
+    const response = await api.get('/studies/browse', { params });
+    return response.data;
+  },
+
+  topics: async (): Promise<LichessTopicsResponse> => {
+    const response = await api.get('/studies/topics');
     return response.data;
   },
 

@@ -65,14 +65,18 @@ export function Modal({
       <div
         className={modal({ size })}
         onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modal-title"
       >
         <div className="flex items-center justify-between px-6 py-4 border-b border-primary/10">
-          <h2 className="text-xl font-semibold font-display">{title}</h2>
+          <h2 id="modal-title" className="text-xl font-semibold font-display">{title}</h2>
           <motion.button
             className="bg-transparent border-none text-2xl text-text-muted cursor-pointer p-1 leading-none hover:text-text"
             onClick={onClose}
             whileHover={{ rotate: 90 }}
             transition={{ duration: 0.2 }}
+            aria-label="Close"
           >
             &times;
           </motion.button>

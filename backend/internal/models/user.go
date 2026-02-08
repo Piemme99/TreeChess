@@ -15,6 +15,7 @@ type User struct {
 	LastLichessSyncAt  *time.Time `json:"lastLichessSyncAt,omitempty"`
 	LastChesscomSyncAt *time.Time `json:"lastChesscomSyncAt,omitempty"`
 	TimeFormatPrefs    []string   `json:"timeFormatPrefs,omitempty"`
+	PasswordChangedAt  *time.Time `json:"-"`
 	CreatedAt          time.Time  `json:"createdAt"`
 }
 

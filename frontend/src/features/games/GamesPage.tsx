@@ -16,6 +16,7 @@ import { ConfirmModal, Button, EmptyState } from '../../shared/components/UI';
 import { gamesApi } from '../../services/api';
 import { toast } from '../../stores/toastStore';
 import { fadeUp, staggerContainer } from '../../shared/utils/animations';
+import { usePageTitle } from '../../shared/hooks/usePageTitle';
 
 const TIME_CLASS_FILTERS = [
   { value: '', label: 'All' },
@@ -33,6 +34,7 @@ const SOURCE_FILTERS = [
 ] as const;
 
 export function GamesPage() {
+  usePageTitle('Games');
   const navigate = useNavigate();
   const authUser = useAuthStore((s) => s.user);
   const [username, setUsername] = useState(() => authUser?.lichessUsername || authUser?.chesscomUsername || authUser?.username || '');
@@ -66,7 +68,9 @@ export function GamesPage() {
     const controller = new AbortController();
     gamesApi.repertoires({ signal: controller.signal })
       .then(setRepertoiresList)
-      .catch(() => {});
+      .catch((err) => {
+        if (err?.code !== 'ERR_CANCELED') toast.error('Failed to load repertoire filters');
+      });
     return () => controller.abort();
   }, []);
 
@@ -74,7 +78,7 @@ export function GamesPage() {
     refresh();
     refreshInsights();
     setShowImport(false);
-    gamesApi.repertoires().then(setRepertoiresList).catch(() => {});
+    gamesApi.repertoires().then(setRepertoiresList).catch(() => toast.error('Failed to refresh repertoire filters'));
   }, [refresh, refreshInsights]);
 
   const handleDismissMistake = useCallback(async (fen: string, playedMove: string) => {
@@ -93,7 +97,7 @@ export function GamesPage() {
 
   const handleViewClick = useCallback((analysisId: string, gameIndex: number) => {
     markGameViewed(analysisId, gameIndex);
-    gamesApi.markViewed(analysisId, gameIndex).catch(() => {});
+    gamesApi.markViewed(analysisId, gameIndex).catch(() => { /* non-critical */ });
     navigate(`/analyse/${analysisId}/game/${gameIndex}`);
   }, [navigate, markGameViewed]);
 
@@ -110,7 +114,7 @@ export function GamesPage() {
       toast.success(`Re-analyzed ${result.reanalyzed} games against current repertoires`);
       refresh();
       refreshInsights();
-      gamesApi.repertoires().then(setRepertoiresList).catch(() => {});
+      gamesApi.repertoires().then(setRepertoiresList).catch(() => toast.error('Failed to refresh repertoire filters'));
     } catch {
       toast.error('Failed to re-analyze games');
     } finally {

@@ -5,9 +5,11 @@ import { RepertoireSelector } from './shared/components/RepertoireSelector';
 import { StudyImportModal } from './shared/components/StudyImportModal';
 import { Loading } from '../../shared/components/UI';
 import { fadeUp, staggerContainer } from '../../shared/utils/animations';
+import { usePageTitle } from '../../shared/hooks/usePageTitle';
 import type { Color } from '../../types';
 
 export function RepertoireTab() {
+  usePageTitle('Repertoires');
   const { whiteRepertoires, blackRepertoires, whiteCategories, blackCategories, loading, repertoires, categories, refresh } = useRepertoires();
   const [showStudyModal, setShowStudyModal] = useState(false);
   const [activeTab, setActiveTab] = useState<Color>('white');
@@ -66,12 +68,10 @@ export function RepertoireTab() {
         {activeTab === 'white' ? (
           <RepertoireSelector color="white" repertoires={whiteRepertoires} categories={whiteCategories} onImportStudy={() => {
             setShowStudyModal(true);
-            window.open('https://lichess.org/study', '_blank');
           }} />
         ) : (
           <RepertoireSelector color="black" repertoires={blackRepertoires} categories={blackCategories} onImportStudy={() => {
             setShowStudyModal(true);
-            window.open('https://lichess.org/study', '_blank');
           }} />
         )}
       </motion.div>

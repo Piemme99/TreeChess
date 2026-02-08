@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"sync"
@@ -65,20 +65,26 @@ func NewEngineService(evalRepo repository.EngineEvalRepository, analysisRepo rep
 // EnqueueAnalysis creates pending eval rows for all games in an analysis
 func (s *EngineService) EnqueueAnalysis(userID, analysisID string, gameCount int) {
 	if err := s.evalRepo.CreatePendingBatch(userID, analysisID, gameCount); err != nil {
-		log.Printf("opening-analysis: failed to enqueue analysis %s: %v", analysisID, err)
+		slog.Error("failed to enqueue analysis", "component", "opening-analysis", "analysis_id", analysisID, "error", err)
 	}
 }
 
 // RunWorker polls for pending evals and processes them via the Lichess Explorer API
 func (s *EngineService) RunWorker(ctx context.Context) {
-	log.Println("opening-analysis: worker started")
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("opening-analysis worker panicked", "panic", r)
+		}
+	}()
+
+	slog.Info("opening-analysis worker started")
 	ticker := time.NewTicker(pollInterval)
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-ctx.Done():
-			log.Println("opening-analysis: worker stopped")
+			slog.Info("opening-analysis worker stopped")
 			return
 		case <-ticker.C:
 			s.processPending()
@@ -89,25 +95,25 @@ func (s *EngineService) RunWorker(ctx context.Context) {
 func (s *EngineService) processPending() {
 	pending, err := s.evalRepo.GetPending(5)
 	if err != nil {
-		log.Printf("opening-analysis: failed to get pending evals: %v", err)
+		slog.Error("failed to get pending evals", "component", "opening-analysis", "error", err)
 		return
 	}
 
 	for _, eval := range pending {
 		if err := s.evalRepo.MarkProcessing(eval.ID); err != nil {
-			log.Printf("opening-analysis: failed to mark processing %s: %v", eval.ID, err)
+			slog.Error("failed to mark processing", "component", "opening-analysis", "eval_id", eval.ID, "error", err)
 			continue
 		}
 
 		stats, err := s.analyzeGameOpenings(eval.AnalysisID, eval.GameIndex)
 		if err != nil {
-			log.Printf("opening-analysis: failed to analyze game %s/%d: %v", eval.AnalysisID, eval.GameIndex, err)
+			slog.Error("failed to analyze game", "component", "opening-analysis", "analysis_id", eval.AnalysisID, "game_index", eval.GameIndex, "error", err)
 			_ = s.evalRepo.MarkFailed(eval.ID)
 			continue
 		}
 
 		if err := s.evalRepo.SaveEvals(eval.ID, stats); err != nil {
-			log.Printf("opening-analysis: failed to save evals %s: %v", eval.ID, err)
+			slog.Error("failed to save evals", "component", "opening-analysis", "eval_id", eval.ID, "error", err)
 			_ = s.evalRepo.MarkFailed(eval.ID)
 			continue
 		}
@@ -146,7 +152,7 @@ func (s *EngineService) analyzeGameOpenings(analysisID string, gameIndex int) ([
 		fen := ensureFullFEN(move.FEN)
 		resp, err := s.fetchExplorer(fen)
 		if err != nil {
-			log.Printf("opening-analysis: explorer error at ply %d: %v", i, err)
+			slog.Warn("explorer error", "component", "opening-analysis", "ply", i, "error", err)
 			continue
 		}
 

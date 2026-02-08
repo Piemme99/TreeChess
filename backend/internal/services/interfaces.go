@@ -8,6 +8,10 @@ import (
 type LichessGameFetcher interface {
 	FetchGames(username string, options models.LichessImportOptions) (string, error)
 	FetchStudyPGN(studyID, authToken string) (string, error)
+	SearchStudies(query, order string, page int, authToken string) (*models.LichessStudySearchResponse, error)
+	BrowseStudiesByTopic(topic, sort string, page int, authToken string) (*models.LichessStudySearchResponse, error)
+	BrowseAllStudies(sort string, page int, authToken string) (*models.LichessStudySearchResponse, error)
+	GetPopularTopics() (*models.LichessTopicsResponse, error)
 }
 
 // ChesscomGameFetcher abstracts the Chess.com API for fetching games.

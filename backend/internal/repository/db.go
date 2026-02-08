@@ -3,7 +3,7 @@ package repository
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -52,9 +52,29 @@ func dbContext() (context.Context, context.CancelFunc) {
 	return context.WithTimeout(context.Background(), config.DefaultDBTimeout)
 }
 
+// migrationLockID is an arbitrary constant used as the PostgreSQL advisory lock key.
+// This ensures only one instance runs migrations at a time.
+const migrationLockID = 1001
+
 func (db *DB) runMigrations() error {
 	ctx, cancel := context.WithTimeout(context.Background(), config.MigrationDBTimeout)
 	defer cancel()
+
+	// Acquire advisory lock to prevent concurrent migrations.
+	// We use a dedicated connection (not from pool) so the lock is held for
+	// the duration of migrations and released when the connection closes.
+	conn, err := db.Pool.Acquire(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to acquire connection for migrations: %w", err)
+	}
+	defer conn.Release()
+
+	if _, err := conn.Exec(ctx, "SELECT pg_advisory_lock($1)", migrationLockID); err != nil {
+		return fmt.Errorf("failed to acquire migration lock: %w", err)
+	}
+	defer func() {
+		_, _ = conn.Exec(ctx, "SELECT pg_advisory_unlock($1)", migrationLockID)
+	}()
 
 	schema := `
 		-- Create users table
@@ -119,8 +139,7 @@ func (db *DB) runMigrations() error {
 			FOR EACH ROW EXECUTE FUNCTION check_repertoire_limit();
 	`
 
-	_, err := db.Pool.Exec(ctx, schema)
-	if err != nil {
+	if _, err := conn.Exec(ctx, schema); err != nil {
 		return fmt.Errorf("failed to execute schema: %w", err)
 	}
 
@@ -197,13 +216,15 @@ func (db *DB) runMigrations() error {
 		// Add category_id to repertoires with cascade delete
 		`ALTER TABLE repertoires ADD COLUMN IF NOT EXISTS category_id UUID REFERENCES categories(id) ON DELETE CASCADE`,
 		`CREATE INDEX IF NOT EXISTS idx_repertoires_category ON repertoires(category_id)`,
+		// Track when password was last changed for JWT invalidation
+		`ALTER TABLE users ADD COLUMN IF NOT EXISTS password_changed_at TIMESTAMP WITH TIME ZONE`,
 	}
 	for _, m := range migrations {
-		if _, err := db.Pool.Exec(ctx, m); err != nil {
+		if _, err := conn.Exec(ctx, m); err != nil {
 			return fmt.Errorf("failed to run migration: %w", err)
 		}
 	}
 
-	log.Println("Database migrations completed successfully")
+	slog.Info("database migrations completed")
 	return nil
 }

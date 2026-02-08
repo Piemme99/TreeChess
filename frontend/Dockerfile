@@ -27,14 +27,15 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-FROM node:20-slim AS prod
+FROM nginx:1.27-alpine AS prod
 
-RUN npm install -g serve && \
-    groupadd -r appuser && useradd -r -g appuser appuser
+RUN rm /etc/nginx/conf.d/default.conf
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=builder /app/dist /usr/share/nginx/html
 
-COPY --from=builder /app/dist /app/dist
+EXPOSE 80
 
-USER appuser
-EXPOSE 3000
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD wget -qO- http://localhost/health || exit 1
 
-CMD ["serve", "-s", "/app/dist", "-l", "3000"]
+CMD ["nginx", "-g", "daemon off;"]

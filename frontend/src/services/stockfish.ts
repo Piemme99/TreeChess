@@ -18,13 +18,10 @@ class StockfishService {
 
   initialize(): void {
     if (this.worker) {
-      console.log('[Stockfish] Already initialized');
       return;
     }
 
     try {
-      console.log('[Stockfish] Creating worker...');
-      
       // stockfish.wasm.js is designed to run as a Web Worker
       // It's a self-contained script that sets up its own onmessage handler
       this.worker = new Worker('/stockfish.js');
@@ -34,7 +31,6 @@ class StockfishService {
       };
 
       this.worker.onerror = (error: ErrorEvent) => {
-        console.error('[Stockfish] Worker error:', error);
         this.callbacks.onError?.(`Worker error: ${error.message}`);
       };
 
@@ -42,7 +38,6 @@ class StockfishService {
       this.sendCommand('uci');
       
     } catch (error) {
-      console.error('[Stockfish] Failed to create worker:', error);
       this.callbacks.onError?.(`Failed to initialize: ${error}`);
     }
   }
@@ -54,13 +49,7 @@ class StockfishService {
   }
 
   analyzePosition(fen: string, depth: number = 12): void {
-    if (!this.worker) {
-      console.warn('[Stockfish] Worker not initialized');
-      return;
-    }
-
-    if (!this.isReady) {
-      console.warn('[Stockfish] Engine not ready, ignoring analyzePosition request');
+    if (!this.worker || !this.isReady) {
       return;
     }
 
@@ -95,10 +84,8 @@ class StockfishService {
     if (typeof line !== 'string') return;
 
     if (line === 'uciok') {
-      console.log('[Stockfish] UCI ready');
       this.sendCommand('isready');
     } else if (line === 'readyok') {
-      console.log('[Stockfish] Engine ready');
       this.isReady = true;
       this.callbacks.onReady?.();
     } else if (line.startsWith('info depth')) {

@@ -33,8 +33,12 @@ func (m *MockEmailService) Enabled() bool {
 
 // MockLichessService implements services.LichessGameFetcher for testing
 type MockLichessService struct {
-	FetchGamesFunc    func(username string, options models.LichessImportOptions) (string, error)
-	FetchStudyPGNFunc func(studyID, authToken string) (string, error)
+	FetchGamesFunc           func(username string, options models.LichessImportOptions) (string, error)
+	FetchStudyPGNFunc        func(studyID, authToken string) (string, error)
+	SearchStudiesFunc        func(query, order string, page int, authToken string) (*models.LichessStudySearchResponse, error)
+	BrowseStudiesByTopicFunc func(topic, sort string, page int, authToken string) (*models.LichessStudySearchResponse, error)
+	BrowseAllStudiesFunc     func(sort string, page int, authToken string) (*models.LichessStudySearchResponse, error)
+	GetPopularTopicsFunc     func() (*models.LichessTopicsResponse, error)
 }
 
 func (m *MockLichessService) FetchGames(username string, options models.LichessImportOptions) (string, error) {
@@ -49,6 +53,34 @@ func (m *MockLichessService) FetchStudyPGN(studyID, authToken string) (string, e
 		return m.FetchStudyPGNFunc(studyID, authToken)
 	}
 	return "", nil
+}
+
+func (m *MockLichessService) SearchStudies(query, order string, page int, authToken string) (*models.LichessStudySearchResponse, error) {
+	if m.SearchStudiesFunc != nil {
+		return m.SearchStudiesFunc(query, order, page, authToken)
+	}
+	return nil, nil
+}
+
+func (m *MockLichessService) BrowseStudiesByTopic(topic, sort string, page int, authToken string) (*models.LichessStudySearchResponse, error) {
+	if m.BrowseStudiesByTopicFunc != nil {
+		return m.BrowseStudiesByTopicFunc(topic, sort, page, authToken)
+	}
+	return nil, nil
+}
+
+func (m *MockLichessService) BrowseAllStudies(sort string, page int, authToken string) (*models.LichessStudySearchResponse, error) {
+	if m.BrowseAllStudiesFunc != nil {
+		return m.BrowseAllStudiesFunc(sort, page, authToken)
+	}
+	return nil, nil
+}
+
+func (m *MockLichessService) GetPopularTopics() (*models.LichessTopicsResponse, error) {
+	if m.GetPopularTopicsFunc != nil {
+		return m.GetPopularTopicsFunc()
+	}
+	return nil, nil
 }
 
 // MockChesscomService implements services.ChesscomGameFetcher for testing

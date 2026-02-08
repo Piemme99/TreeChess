@@ -36,15 +36,17 @@ func TestHealthHandler(t *testing.T) {
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
-	err := HealthHandler(c)
+	handler := HealthHandler(nil)
+	err := handler(c)
 
 	require.NoError(t, err)
-	assert.Equal(t, http.StatusOK, rec.Code)
+	// Without a DB pool, health check returns degraded
+	assert.Equal(t, http.StatusServiceUnavailable, rec.Code)
 
 	var response map[string]string
 	err = json.Unmarshal(rec.Body.Bytes(), &response)
 	require.NoError(t, err)
-	assert.Equal(t, "ok", response["status"])
+	assert.Equal(t, "degraded", response["status"])
 }
 
 func TestListRepertoiresHandler_InvalidColor(t *testing.T) {
@@ -415,16 +417,17 @@ func TestHealthHandler_ResponseFormat(t *testing.T) {
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
-	err := HealthHandler(c)
+	handler := HealthHandler(nil)
+	err := handler(c)
 
 	require.NoError(t, err)
-	assert.Equal(t, http.StatusOK, rec.Code)
 
 	var response map[string]string
 	err = json.Unmarshal(rec.Body.Bytes(), &response)
 	require.NoError(t, err)
-	assert.Equal(t, "ok", response["status"])
 	assert.Contains(t, rec.Header().Get("Content-Type"), "application/json")
+	_, hasStatus := response["status"]
+	assert.True(t, hasStatus)
 }
 
 // Tests using mocks instead of database

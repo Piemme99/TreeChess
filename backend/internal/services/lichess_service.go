@@ -1,6 +1,7 @@
 package services
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -206,4 +207,109 @@ func (s *LichessService) FetchGames(username string, options models.LichessImpor
 	}
 
 	return pgnData, nil
+}
+
+// SearchStudies searches Lichess studies by query string.
+func (s *LichessService) SearchStudies(query, order string, page int, authToken string) (*models.LichessStudySearchResponse, error) {
+	if query == "" {
+		return nil, fmt.Errorf("search query is required")
+	}
+
+	reqURL := fmt.Sprintf("%s/study/search?q=%s&order=%s&page=%d",
+		lichessBaseURL, url.QueryEscape(query), url.QueryEscape(order), page)
+
+	return s.fetchStudyBrowseJSON(reqURL, authToken)
+}
+
+// BrowseStudiesByTopic fetches studies for a given topic from Lichess.
+func (s *LichessService) BrowseStudiesByTopic(topic, sort string, page int, authToken string) (*models.LichessStudySearchResponse, error) {
+	if topic == "" {
+		return nil, fmt.Errorf("topic is required")
+	}
+
+	reqURL := fmt.Sprintf("%s/study/topic/%s/%s?page=%d",
+		lichessBaseURL, url.PathEscape(topic), url.PathEscape(sort), page)
+
+	return s.fetchStudyBrowseJSON(reqURL, authToken)
+}
+
+// BrowseAllStudies fetches all studies sorted by the given sort order from Lichess.
+func (s *LichessService) BrowseAllStudies(sort string, page int, authToken string) (*models.LichessStudySearchResponse, error) {
+	reqURL := fmt.Sprintf("%s/study/all/%s?page=%d",
+		lichessBaseURL, url.PathEscape(sort), page)
+
+	return s.fetchStudyBrowseJSON(reqURL, authToken)
+}
+
+// GetPopularTopics fetches the list of popular study topics from Lichess.
+func (s *LichessService) GetPopularTopics() (*models.LichessTopicsResponse, error) {
+	reqURL := fmt.Sprintf("%s/study/topic", lichessBaseURL)
+
+	req, err := http.NewRequest(http.MethodGet, reqURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Accept", "application/json")
+
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch topics from Lichess: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusTooManyRequests {
+		return nil, ErrLichessRateLimited
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("Lichess API error: %s", resp.Status)
+	}
+
+	var result models.LichessTopicsResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to decode topics response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// fetchStudyBrowseJSON is a shared helper for study search/browse endpoints.
+func (s *LichessService) fetchStudyBrowseJSON(reqURL, authToken string) (*models.LichessStudySearchResponse, error) {
+	req, err := http.NewRequest(http.MethodGet, reqURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Accept", "application/json")
+	if authToken != "" {
+		req.Header.Set("Authorization", "Bearer "+authToken)
+	}
+
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch studies from Lichess: %w", err)
+	}
+	defer resp.Body.Close()
+
+	switch resp.StatusCode {
+	case http.StatusOK:
+		// continue
+	case http.StatusNotFound:
+		return nil, ErrLichessStudyNotFound
+	case http.StatusForbidden:
+		return nil, ErrLichessStudyForbidden
+	case http.StatusTooManyRequests:
+		return nil, ErrLichessRateLimited
+	default:
+		return nil, fmt.Errorf("Lichess API error: %s", resp.Status)
+	}
+
+	var result models.LichessStudySearchResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to decode study search response: %w", err)
+	}
+
+	return &result, nil
 }

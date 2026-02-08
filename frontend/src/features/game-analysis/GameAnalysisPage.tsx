@@ -14,9 +14,11 @@ import { GameMoveList } from './components/GameMoveList';
 import { useDeleteGame } from '../analyse-tab/hooks/useDeleteGame';
 import { useEngine } from '../repertoire/edit/hooks/useEngine';
 import { toast } from '../../stores/toastStore';
+import { usePageTitle } from '../../shared/hooks/usePageTitle';
 import type { GameAnalysis, MoveAnalysis } from '../../types';
 
 export function GameAnalysisPage() {
+  usePageTitle('Game Analysis');
   const { gameIndex } = useParams<{ id: string; gameIndex: string }>();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();

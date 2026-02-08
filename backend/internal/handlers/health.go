@@ -1,13 +1,34 @@
 package handlers
 
 import (
+	"context"
 	"net/http"
+	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/labstack/echo/v4"
 )
 
-func HealthHandler(c echo.Context) error {
-	return c.JSON(http.StatusOK, map[string]string{
-		"status": "ok",
-	})
+func HealthHandler(pool *pgxpool.Pool) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		status := "ok"
+		httpStatus := http.StatusOK
+
+		if pool != nil {
+			ctx, cancel := context.WithTimeout(c.Request().Context(), 2*time.Second)
+			defer cancel()
+
+			if err := pool.Ping(ctx); err != nil {
+				status = "degraded"
+				httpStatus = http.StatusServiceUnavailable
+			}
+		} else {
+			status = "degraded"
+			httpStatus = http.StatusServiceUnavailable
+		}
+
+		return c.JSON(httpStatus, map[string]string{
+			"status": status,
+		})
+	}
 }

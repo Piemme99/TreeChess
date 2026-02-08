@@ -29,7 +29,7 @@ export function RepertoireSelector({ userColor, currentRepertoire, matchScore, o
       const data = await repertoireApi.list(userColor);
       setRepertoires(data);
     } catch {
-      console.error('Failed to load repertoires');
+      toast.error('Failed to load repertoires');
     } finally {
       setLoading(false);
     }

@@ -5,9 +5,11 @@ import { Button } from '../../shared/components/UI';
 import { toast } from '../../stores/toastStore';
 import { authApi } from '../../services/api';
 import { fadeUp, staggerContainer } from '../../shared/utils/animations';
+import { usePageTitle } from '../../shared/hooks/usePageTitle';
 import type { TimeFormat } from '../../types';
 
 export function ProfilePage() {
+  usePageTitle('Profile');
   const user = useAuthStore((s) => s.user);
   const updateProfile = useAuthStore((s) => s.updateProfile);
   const triggerSync = useAuthStore((s) => s.triggerSync);
@@ -33,7 +35,7 @@ export function ProfilePage() {
   useEffect(() => {
     authApi.hasPassword()
       .then(({ hasPassword }) => setHasPassword(hasPassword))
-      .catch(() => setHasPassword(false));
+      .catch(() => setHasPassword(false)); // Default to hiding password section on error
   }, []);
 
   // Initialize form from user data

@@ -3,6 +3,7 @@ package services
 import (
 	"crypto/sha256"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"github.com/notnil/chess"
@@ -171,7 +172,7 @@ func (s *ImportService) ParseAndAnalyze(filename string, username string, userID
 		}
 		if err := s.fingerprintRepo.SaveBatch(userID, summary.ID, entries); err != nil {
 			// Log but don't fail the import
-			fmt.Printf("warning: failed to save fingerprints: %v\n", err)
+			slog.Warn("failed to save fingerprints", "analysis_id", summary.ID, "error", err)
 		}
 	}
 
@@ -554,7 +555,7 @@ func (s *ImportService) CheckOwnership(id string, userID string) error {
 func (s *ImportService) DeleteGame(analysisID string, gameIndex int) error {
 	if s.fingerprintRepo != nil {
 		if err := s.fingerprintRepo.DeleteByAnalysisAndIndex(analysisID, gameIndex); err != nil {
-			fmt.Printf("warning: failed to delete fingerprint: %v\n", err)
+			slog.Warn("failed to delete fingerprint", "analysis_id", analysisID, "game_index", gameIndex, "error", err)
 		}
 	}
 	return s.analysisRepo.DeleteGame(analysisID, gameIndex)

@@ -1,13 +1,7 @@
-import { useEffect } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { useEffect, lazy, Suspense } from 'react';
+import { Routes, Route } from 'react-router-dom';
 import { MainLayout } from './shared/components/Layout/MainLayout';
-import { Dashboard } from './features/dashboard';
-import { RepertoireTab } from './features/repertoire/RepertoireTab';
-import { GamesPage } from './features/games';
-import { ProfilePage } from './features/profile';
-import { GameAnalysisPage } from './features/game-analysis';
-import { RepertoireEdit } from './features/repertoire/RepertoireEdit';
-import { ToastContainer } from './shared/components/UI';
+import { ToastContainer, Loading } from './shared/components/UI';
 import { LoginPage } from './features/auth/LoginPage';
 import { ForgotPasswordPage } from './features/auth/ForgotPasswordPage';
 import { ResetPasswordPage } from './features/auth/ResetPasswordPage';
@@ -16,12 +10,28 @@ import { ProtectedRoute } from './shared/components/ProtectedRoute';
 import { PublicRoute } from './shared/components/PublicRoute';
 import { useAuthStore } from './stores/authStore';
 
+const Dashboard = lazy(() => import('./features/dashboard/Dashboard').then(m => ({ default: m.Dashboard })));
+const RepertoireTab = lazy(() => import('./features/repertoire/RepertoireTab').then(m => ({ default: m.RepertoireTab })));
+const GamesPage = lazy(() => import('./features/games').then(m => ({ default: m.GamesPage })));
+const ProfilePage = lazy(() => import('./features/profile').then(m => ({ default: m.ProfilePage })));
+const GameAnalysisPage = lazy(() => import('./features/game-analysis').then(m => ({ default: m.GameAnalysisPage })));
+const RepertoireEdit = lazy(() => import('./features/repertoire/RepertoireEdit').then(m => ({ default: m.RepertoireEdit })));
+const NotFoundPage = lazy(() => import('./features/not-found/NotFoundPage').then(m => ({ default: m.NotFoundPage })));
+
 function App() {
   const checkAuth = useAuthStore((s) => s.checkAuth);
 
   useEffect(() => {
     checkAuth();
   }, [checkAuth]);
+
+  useEffect(() => {
+    const handleUnauthorized = () => {
+      useAuthStore.getState().logout();
+    };
+    window.addEventListener('auth:unauthorized', handleUnauthorized);
+    return () => window.removeEventListener('auth:unauthorized', handleUnauthorized);
+  }, []);
 
   return (
     <div className="app animate-fade-in">
@@ -37,14 +47,14 @@ function App() {
             </ProtectedRoute>
           }
         >
-          <Route path="dashboard" element={<Dashboard />} />
-          <Route path="repertoires" element={<RepertoireTab />} />
-          <Route path="games" element={<GamesPage />} />
-          <Route path="profile" element={<ProfilePage />} />
-          <Route path="analyse/:id/game/:gameIndex" element={<GameAnalysisPage />} />
-          <Route path="repertoire/:id/edit" element={<RepertoireEdit />} />
+          <Route path="dashboard" element={<Suspense fallback={<Loading size="lg" />}><Dashboard /></Suspense>} />
+          <Route path="repertoires" element={<Suspense fallback={<Loading size="lg" />}><RepertoireTab /></Suspense>} />
+          <Route path="games" element={<Suspense fallback={<Loading size="lg" />}><GamesPage /></Suspense>} />
+          <Route path="profile" element={<Suspense fallback={<Loading size="lg" />}><ProfilePage /></Suspense>} />
+          <Route path="analyse/:id/game/:gameIndex" element={<Suspense fallback={<Loading size="lg" />}><GameAnalysisPage /></Suspense>} />
+          <Route path="repertoire/:id/edit" element={<Suspense fallback={<Loading size="lg" />}><RepertoireEdit /></Suspense>} />
         </Route>
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<Suspense fallback={<Loading size="lg" />}><NotFoundPage /></Suspense>} />
       </Routes>
       <ToastContainer />
     </div>

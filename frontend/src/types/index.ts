@@ -348,6 +348,44 @@ export interface StudyImportResponse {
   category?: Category;
 }
 
+// Lichess Study Browser types
+export interface LichessStudyOwner {
+  id: string;
+  name: string;
+}
+
+export interface LichessStudyResult {
+  id: string;
+  name: string;
+  liked: boolean;
+  likes: number;
+  owner: LichessStudyOwner;
+  chapters: unknown[];
+  topics: string[];
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface LichessStudyPaginator {
+  currentPage: number;
+  maxPerPage: number;
+  currentPageResults: LichessStudyResult[];
+  nbResults: number;
+  nbPages: number;
+  previousPage: number | null;
+  nextPage: number | null;
+}
+
+export interface LichessStudySearchResponse {
+  paginator: LichessStudyPaginator;
+}
+
+export interface LichessTopicsResponse {
+  popular: string[];
+}
+
+export type StudyBrowseOrder = 'hot' | 'popular' | 'newest';
+
 // Toast types
 export type ToastType = 'success' | 'error' | 'warning' | 'info';
 

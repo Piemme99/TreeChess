@@ -2,7 +2,7 @@ package services
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 	"net/smtp"
 
 	"github.com/treechess/backend/config"
@@ -17,6 +17,7 @@ type EmailService struct {
 	fromAddress string
 	frontendURL string
 	enabled     bool
+	devMode     bool
 }
 
 // EmailSender is the interface for email sending
@@ -36,6 +37,7 @@ func NewEmailService(cfg config.Config) *EmailService {
 		fromAddress: cfg.SMTPFromAddress,
 		frontendURL: cfg.FrontendURL,
 		enabled:     enabled,
+		devMode:     cfg.Environment != "production",
 	}
 }
 
@@ -47,8 +49,13 @@ func (s *EmailService) Enabled() bool {
 // SendPasswordResetEmail sends a password reset email with the given token
 func (s *EmailService) SendPasswordResetEmail(toEmail, token string) error {
 	if !s.enabled {
-		log.Printf("[EMAIL] SMTP not configured. Password reset token for %s: %s", toEmail, token)
-		log.Printf("[EMAIL] Reset URL: %s/reset-password?token=%s", s.frontendURL, token)
+		if s.devMode {
+			slog.Warn("SMTP not configured, logging reset URL for development only",
+				"email", toEmail,
+				"reset_url", fmt.Sprintf("%s/reset-password?token=%s", s.frontendURL, token))
+		} else {
+			slog.Error("SMTP not configured, cannot send password reset email", "email", toEmail)
+		}
 		return nil
 	}
 
@@ -83,6 +90,6 @@ If you did not request this password reset, you can safely ignore this email.
 		return fmt.Errorf("failed to send email: %w", err)
 	}
 
-	log.Printf("[EMAIL] Password reset email sent to %s", toEmail)
+	slog.Info("password reset email sent", "email", toEmail)
 	return nil
 }

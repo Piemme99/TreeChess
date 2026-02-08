@@ -18,21 +18,26 @@ import (
 const testJWTSecret = "test-secret-key-32-chars-long!!!"
 
 func newTestAuthService() *services.AuthService {
-	return services.NewAuthService(&mocks.MockUserRepo{}, testJWTSecret, 24*time.Hour)
+	mockRepo := &mocks.MockUserRepo{
+		GetByIDFunc: func(id string) (*models.User, error) {
+			return &models.User{ID: id, Username: "testuser"}, nil
+		},
+	}
+	return services.NewAuthService(mockRepo, testJWTSecret, 24*time.Hour)
 }
 
 func generateTestToken(t *testing.T) string {
-	authSvc := newTestAuthService()
-	// Register a user to get a valid token
 	mockRepo := &mocks.MockUserRepo{
 		CreateFunc: func(email, username, passwordHash string) (*models.User, error) {
 			return &models.User{ID: "user-123", Username: username, Email: &email}, nil
+		},
+		GetByIDFunc: func(id string) (*models.User, error) {
+			return &models.User{ID: id, Username: "testuser"}, nil
 		},
 	}
 	svc := services.NewAuthService(mockRepo, testJWTSecret, 24*time.Hour)
 	resp, err := svc.Register("test@example.com", "testuser", "password123")
 	require.NoError(t, err)
-	_ = authSvc
 	return resp.Token
 }
 

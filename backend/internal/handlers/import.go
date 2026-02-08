@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -76,7 +76,7 @@ func (h *ImportHandler) UploadHandler(c echo.Context) error {
 		if errors.Is(err, services.ErrAllGamesDuplicate) {
 			return ErrorResponse(c, http.StatusConflict, "all games have already been imported")
 		}
-		log.Printf("PGN parse error for user %s: %v", userID, err)
+		slog.Error("PGN parse failed", "user_id", userID, "error", err)
 		return BadRequestResponse(c, "failed to parse PGN file")
 	}
 
@@ -174,7 +174,7 @@ func (h *ImportHandler) ValidatePGNHandler(c echo.Context) error {
 
 	err = h.importService.ValidatePGN(string(pgnData))
 	if err != nil {
-		log.Printf("PGN validation error: %v", err)
+		slog.Warn("PGN validation error", "error", err)
 		return BadRequestResponse(c, "invalid PGN format")
 	}
 
@@ -472,7 +472,7 @@ func (h *ImportHandler) LichessImportHandler(c echo.Context) error {
 		if errors.Is(err, services.ErrLichessRateLimited) {
 			return ErrorResponse(c, http.StatusTooManyRequests, "Lichess rate limit exceeded, try again later")
 		}
-		log.Printf("Lichess fetch error for %s: %v", req.Username, err)
+		slog.Error("lichess fetch failed", "username", req.Username, "error", err)
 		return BadRequestResponse(c, "failed to fetch games from Lichess")
 	}
 
@@ -488,7 +488,7 @@ func (h *ImportHandler) LichessImportHandler(c echo.Context) error {
 		if errors.Is(err, services.ErrAllGamesDuplicate) {
 			return ErrorResponse(c, http.StatusConflict, "all games have already been imported")
 		}
-		log.Printf("Lichess import parse error for user %s: %v", userID, err)
+		slog.Error("lichess import parse failed", "user_id", userID, "error", err)
 		return BadRequestResponse(c, "failed to parse imported games")
 	}
 
@@ -523,7 +523,7 @@ func (h *ImportHandler) ChesscomImportHandler(c echo.Context) error {
 		if errors.Is(err, services.ErrChesscomRateLimited) {
 			return ErrorResponse(c, http.StatusTooManyRequests, "Chess.com rate limit exceeded, try again later")
 		}
-		log.Printf("Chess.com fetch error for %s: %v", req.Username, err)
+		slog.Error("chess.com fetch failed", "username", req.Username, "error", err)
 		return BadRequestResponse(c, "failed to fetch games from Chess.com")
 	}
 
@@ -539,7 +539,7 @@ func (h *ImportHandler) ChesscomImportHandler(c echo.Context) error {
 		if errors.Is(err, services.ErrAllGamesDuplicate) {
 			return ErrorResponse(c, http.StatusConflict, "all games have already been imported")
 		}
-		log.Printf("Chess.com import parse error for user %s: %v", userID, err)
+		slog.Error("chess.com import parse failed", "user_id", userID, "error", err)
 		return BadRequestResponse(c, "failed to parse imported games")
 	}
 

@@ -3,9 +3,14 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
+	"github.com/labstack/echo-contrib/echoprometheus"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"golang.org/x/time/rate"
@@ -20,10 +25,20 @@ import (
 func main() {
 	cfg := config.MustLoad()
 
+	// Set up structured logging
+	var logHandler slog.Handler
+	if cfg.Environment == "production" {
+		logHandler = slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo})
+	} else {
+		logHandler = slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug})
+	}
+	slog.SetDefault(slog.New(logHandler))
+
 	// Initialize database
 	db, err := repository.NewDB(cfg)
 	if err != nil {
-		log.Fatalf("Failed to initialize database: %v", err)
+		slog.Error("failed to initialize database", "error", err)
+		os.Exit(1)
 	}
 	defer db.Close()
 
@@ -76,6 +91,9 @@ func main() {
 		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
 	}))
 
+	// Prometheus metrics
+	e.Use(echoprometheus.NewMiddleware("treechess"))
+
 	// Security headers
 	e.Use(securityHeaders)
 
@@ -99,7 +117,8 @@ func main() {
 	}))
 
 	// Public routes (no auth required)
-	e.GET("/api/health", handlers.HealthHandler)
+	e.GET("/api/health", handlers.HealthHandler(db.Pool))
+	e.GET("/metrics", echoprometheus.NewHandler())
 
 	// Stricter rate limit for auth endpoints: 10 requests/minute per IP
 	authGroup := e.Group("")
@@ -180,6 +199,8 @@ func main() {
 	// Study Import API
 	protected.GET("/api/studies/preview", studyImportHandler.PreviewStudyHandler)
 	protected.POST("/api/studies/import", studyImportHandler.ImportStudyHandler)
+	protected.GET("/api/studies/browse", studyImportHandler.BrowseStudiesHandler)
+	protected.GET("/api/studies/topics", studyImportHandler.StudyTopicsHandler)
 
 	// Sync API
 	protected.POST("/api/sync", syncHandler.HandleSync)
@@ -196,23 +217,50 @@ func main() {
 	protected.POST("/api/games/:analysisId/:gameIndex/view", importHandler.MarkGameViewedHandler)
 
 	// Start opening analysis worker
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	go engineSvc.RunWorker(ctx)
+	workerCtx, workerCancel := context.WithCancel(context.Background())
+	go engineSvc.RunWorker(workerCtx)
 
-	log.Printf("Starting server on :%d", cfg.Port)
-	if err := e.Start(fmt.Sprintf(":%d", cfg.Port)); err != nil {
-		log.Fatal(err)
+	// Start server in a goroutine
+	go func() {
+		addr := fmt.Sprintf(":%d", cfg.Port)
+		slog.Info("starting server", "addr", addr)
+		if err := e.Start(addr); err != nil && err != http.ErrServerClosed {
+			slog.Error("server error", "error", err)
+		}
+	}()
+
+	// Wait for interrupt signal for graceful shutdown
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+
+	slog.Info("shutting down server")
+
+	// Stop the engine worker
+	workerCancel()
+
+	// Graceful shutdown with 10s timeout
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer shutdownCancel()
+	if err := e.Shutdown(shutdownCtx); err != nil {
+		slog.Error("server forced to shutdown", "error", err)
 	}
+
+	// Close DB after server is shut down
+	db.Close()
+	slog.Info("server stopped")
 }
 
 // securityHeaders adds standard security headers to all responses.
 func securityHeaders(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		c.Response().Header().Set("X-Content-Type-Options", "nosniff")
-		c.Response().Header().Set("X-Frame-Options", "DENY")
-		c.Response().Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
-		c.Response().Header().Set("X-XSS-Protection", "1; mode=block")
+		h := c.Response().Header()
+		h.Set("X-Content-Type-Options", "nosniff")
+		h.Set("X-Frame-Options", "DENY")
+		h.Set("Referrer-Policy", "strict-origin-when-cross-origin")
+		h.Set("X-XSS-Protection", "1; mode=block")
+		h.Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+		h.Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'")
 		return next(c)
 	}
 }

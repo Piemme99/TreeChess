@@ -3,7 +3,7 @@ package services
 import (
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"regexp"
 	"strings"
 
@@ -218,7 +218,7 @@ func (s *StudyImportService) ImportStudyChaptersWithCategory(userID, studyID, au
 		root, headers, err := ParsePGNToTree(chapterPGN)
 		if err != nil {
 			if errors.Is(err, ErrCustomStartingPosition) {
-				log.Printf("Skipping chapter %d: custom starting position", i)
+				slog.Debug("skipping chapter with custom starting position", "chapter_index", i)
 				continue
 			}
 			return nil, fmt.Errorf("failed to parse chapter %d: %w", i, err)
@@ -301,7 +301,7 @@ func (s *StudyImportService) ImportStudyChaptersMerged(userID, studyID, authToke
 		root, headers, err := ParsePGNToTree(chapterPGN)
 		if err != nil {
 			if errors.Is(err, ErrCustomStartingPosition) {
-				log.Printf("Skipping chapter %d: custom starting position", i)
+				slog.Debug("skipping chapter with custom starting position", "chapter_index", i)
 				continue
 			}
 			return nil, fmt.Errorf("failed to parse chapter %d: %w", i, err)
@@ -382,6 +382,26 @@ func stripTreeAnnotations(node *models.RepertoireNode, keepComments, keepHints b
 	for _, child := range node.Children {
 		stripTreeAnnotations(child, keepComments, keepHints)
 	}
+}
+
+// SearchStudies searches Lichess studies by query.
+func (s *StudyImportService) SearchStudies(query, order string, page int, authToken string) (*models.LichessStudySearchResponse, error) {
+	return s.lichessService.SearchStudies(query, order, page, authToken)
+}
+
+// BrowseStudiesByTopic fetches studies for a given topic.
+func (s *StudyImportService) BrowseStudiesByTopic(topic, sort string, page int, authToken string) (*models.LichessStudySearchResponse, error) {
+	return s.lichessService.BrowseStudiesByTopic(topic, sort, page, authToken)
+}
+
+// BrowseAllStudies fetches all studies with a sort order.
+func (s *StudyImportService) BrowseAllStudies(sort string, page int, authToken string) (*models.LichessStudySearchResponse, error) {
+	return s.lichessService.BrowseAllStudies(sort, page, authToken)
+}
+
+// GetPopularTopics fetches popular study topics from Lichess.
+func (s *StudyImportService) GetPopularTopics() (*models.LichessTopicsResponse, error) {
+	return s.lichessService.GetPopularTopics()
 }
 
 // GetLichessTokenForUser retrieves the stored Lichess access token for a user.

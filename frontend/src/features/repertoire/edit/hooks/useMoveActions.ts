@@ -18,9 +18,7 @@ export function useMoveActions(
   const { makeMove, getShortFEN, isValidMove } = useChess();
 
   const handleBoardMove = useCallback(async (move: { san: string }) => {
-    console.log('[useMoveActions] handleBoardMove called:', { move, repertoireId, selectedNode: selectedNode?.id, currentFEN });
     if (!repertoireId || !selectedNode) {
-      console.log('[useMoveActions] Early return - missing:', { repertoireId: !repertoireId, selectedNode: !selectedNode });
       return;
     }
 

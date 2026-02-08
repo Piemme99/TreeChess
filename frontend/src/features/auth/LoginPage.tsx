@@ -5,11 +5,20 @@ import { Crown } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { OnboardingModal } from './OnboardingModal';
 import { fadeUp, staggerContainer } from '../../shared/utils/animations';
+import { usePageTitle } from '../../shared/hooks/usePageTitle';
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
+const OAUTH_ERROR_MESSAGES: Record<string, string> = {
+  'access_denied': 'Access was denied. Please try again.',
+  'invalid_request': 'Invalid authentication request. Please try again.',
+  'server_error': 'The authentication server encountered an error. Please try again later.',
+  'temporarily_unavailable': 'The authentication service is temporarily unavailable. Please try again later.',
+};
+
 export function LoginPage() {
   const [isRegister, setIsRegister] = useState(false);
+  usePageTitle(isRegister ? 'Create Account' : 'Sign In');
   const [email, setEmail] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -48,7 +57,7 @@ export function LoginPage() {
         });
     } else if (oauthError) {
       setSearchParams({}, { replace: true });
-      setError(oauthError);
+      setError(OAUTH_ERROR_MESSAGES[oauthError] || 'Authentication failed. Please try again.');
     }
   }, [searchParams, setSearchParams, handleOAuthToken, navigate]);
 

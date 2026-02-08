@@ -49,7 +49,7 @@ export function ChessBoard({
       setInternalSelectedSquare(null);
       setLegalMoves([]);
     } catch {
-      console.error('Invalid FEN:', fen);
+      // Invalid FEN - keep previous game state
     }
   }, [fen]);
 

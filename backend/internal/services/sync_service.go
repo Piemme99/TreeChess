@@ -2,7 +2,7 @@ package services
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -45,12 +45,12 @@ func (s *SyncService) Sync(userID string) (*models.SyncResult, error) {
 	if user.LichessUsername != nil && *user.LichessUsername != "" {
 		imported, err := s.syncLichess(user, now)
 		if err != nil {
-			log.Printf("Lichess sync error for user %s: %v", userID, err)
+			slog.Error("lichess sync failed", "user_id", userID, "error", err)
 			result.LichessError = err.Error()
 		} else {
 			result.LichessGamesImported = imported
 			if err := s.userRepo.UpdateSyncTimestamps(userID, &now, nil); err != nil {
-				log.Printf("Failed to update Lichess sync timestamp for user %s: %v", userID, err)
+				slog.Error("failed to update lichess sync timestamp", "user_id", userID, "error", err)
 			}
 		}
 	}
@@ -58,12 +58,12 @@ func (s *SyncService) Sync(userID string) (*models.SyncResult, error) {
 	if user.ChesscomUsername != nil && *user.ChesscomUsername != "" {
 		imported, err := s.syncChesscom(user, now)
 		if err != nil {
-			log.Printf("Chess.com sync error for user %s: %v", userID, err)
+			slog.Error("chess.com sync failed", "user_id", userID, "error", err)
 			result.ChesscomError = err.Error()
 		} else {
 			result.ChesscomGamesImported = imported
 			if err := s.userRepo.UpdateSyncTimestamps(userID, nil, &now); err != nil {
-				log.Printf("Failed to update Chess.com sync timestamp for user %s: %v", userID, err)
+				slog.Error("failed to update chess.com sync timestamp", "user_id", userID, "error", err)
 			}
 		}
 	}
@@ -127,7 +127,7 @@ func (s *SyncService) syncChesscom(user *models.User, now time.Time) (int, error
 
 		pgnData, err := s.chesscomService.FetchGames(*user.ChesscomUsername, options)
 		if err != nil {
-			log.Printf("Chess.com sync error for time class %s: %v", tc, err)
+			slog.Warn("chess.com sync error for time class", "time_class", tc, "error", err)
 			continue
 		}
 		allPgnData.WriteString(pgnData)

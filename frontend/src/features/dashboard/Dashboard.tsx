@@ -13,8 +13,10 @@ import { WeakSpots } from './components/WeakSpots';
 import { useDashboardStats } from './hooks/useDashboardStats';
 import { useInsights } from '../games/hooks/useInsights';
 import { fadeUp, staggerContainer } from '../../shared/utils/animations';
+import { usePageTitle } from '../../shared/hooks/usePageTitle';
 
 export function Dashboard() {
+  usePageTitle('Dashboard');
   const { user, syncing, lastSyncResult } = useAuthStore();
   const { repertoires, loading: repLoading } = useRepertoires();
   const { games, loading: gamesLoading } = useGames();

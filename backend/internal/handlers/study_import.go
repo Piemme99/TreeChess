@@ -2,8 +2,9 @@ package handlers
 
 import (
 	"errors"
-	"log"
+	"log/slog"
 	"net/http"
+	"strconv"
 
 	"github.com/labstack/echo/v4"
 
@@ -49,7 +50,7 @@ func (h *StudyImportHandler) PreviewStudyHandler(c echo.Context) error {
 		if errors.Is(err, services.ErrLichessRateLimited) {
 			return ErrorResponse(c, http.StatusTooManyRequests, "Lichess rate limit exceeded, try again later")
 		}
-		log.Printf("Study preview error for user %s: %v", userID, err)
+		slog.Error("study preview failed", "user_id", userID, "error", err)
 		return BadRequestResponse(c, "failed to fetch study from Lichess")
 	}
 
@@ -97,7 +98,7 @@ func (h *StudyImportHandler) ImportStudyHandler(c echo.Context) error {
 			if errors.Is(err, services.ErrMixedColors) {
 				return BadRequestResponse(c, "cannot merge chapters with different colors (white/black)")
 			}
-			log.Printf("Study merged import error for user %s: %v", userID, err)
+			slog.Error("study merged import failed", "user_id", userID, "error", err)
 			return BadRequestResponse(c, "failed to import study")
 		}
 
@@ -121,7 +122,7 @@ func (h *StudyImportHandler) ImportStudyHandler(c echo.Context) error {
 		if errors.Is(err, services.ErrLimitReached) {
 			return BadRequestResponse(c, "maximum repertoire limit reached")
 		}
-		log.Printf("Study import error for user %s: %v", userID, err)
+		slog.Error("study import failed", "user_id", userID, "error", err)
 		return BadRequestResponse(c, "failed to import study")
 	}
 
@@ -133,4 +134,61 @@ func (h *StudyImportHandler) ImportStudyHandler(c echo.Context) error {
 		response["category"] = result.Category
 	}
 	return c.JSON(http.StatusCreated, response)
+}
+
+// BrowseStudiesHandler handles GET /api/studies/browse?q=&topic=&order=&page=
+func (h *StudyImportHandler) BrowseStudiesHandler(c echo.Context) error {
+	query := c.QueryParam("q")
+	topic := c.QueryParam("topic")
+	order := c.QueryParam("order")
+	pageStr := c.QueryParam("page")
+
+	if order == "" {
+		order = "hot"
+	}
+
+	page := 1
+	if pageStr != "" {
+		if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
+			page = p
+		}
+	}
+
+	userID := c.Get("userID").(string)
+	authToken := h.studyImportService.GetLichessTokenForUser(userID)
+
+	var result *models.LichessStudySearchResponse
+	var err error
+
+	if query != "" {
+		result, err = h.studyImportService.SearchStudies(query, order, page, authToken)
+	} else if topic != "" {
+		result, err = h.studyImportService.BrowseStudiesByTopic(topic, order, page, authToken)
+	} else {
+		result, err = h.studyImportService.BrowseAllStudies(order, page, authToken)
+	}
+
+	if err != nil {
+		if errors.Is(err, services.ErrLichessRateLimited) {
+			return ErrorResponse(c, http.StatusTooManyRequests, "Lichess rate limit exceeded, try again later")
+		}
+		slog.Error("study browse failed", "user_id", userID, "error", err)
+		return BadRequestResponse(c, "failed to browse studies from Lichess")
+	}
+
+	return c.JSON(http.StatusOK, result)
+}
+
+// StudyTopicsHandler handles GET /api/studies/topics
+func (h *StudyImportHandler) StudyTopicsHandler(c echo.Context) error {
+	result, err := h.studyImportService.GetPopularTopics()
+	if err != nil {
+		if errors.Is(err, services.ErrLichessRateLimited) {
+			return ErrorResponse(c, http.StatusTooManyRequests, "Lichess rate limit exceeded, try again later")
+		}
+		slog.Error("study topics fetch failed", "error", err)
+		return BadRequestResponse(c, "failed to fetch study topics from Lichess")
+	}
+
+	return c.JSON(http.StatusOK, result)
 }

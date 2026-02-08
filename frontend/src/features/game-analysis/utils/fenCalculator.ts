@@ -13,7 +13,6 @@ export function computeFEN(moves: MoveAnalysis[], upToIndex: number): string {
     try {
       chess.move(moves[i].san);
     } catch {
-      console.error('Invalid move:', moves[i].san);
       break;
     }
   }

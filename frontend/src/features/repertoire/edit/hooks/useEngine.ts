@@ -33,11 +33,10 @@ export function useEngine() {
         setEvaluation(evaluation);
       },
       onError: (err) => {
-        console.error('[useEngine] Stockfish error:', err);
         setError(err);
       },
       onReady: () => {
-        console.log('[useEngine] Stockfish ready');
+        // engine ready
       }
     });
 
