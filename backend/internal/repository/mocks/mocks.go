@@ -143,8 +143,8 @@ func (m *MockRepertoireService) SaveTree(repertoireID string, treeData models.Re
 
 // MockFingerprintRepo is a mock implementation of GameFingerprintRepository for testing
 type MockFingerprintRepo struct {
-	CheckExistingFunc           func(userID string, fingerprints []string) (map[string]bool, error)
-	SaveBatchFunc               func(userID, analysisID string, entries []repository.FingerprintEntry) error
+	CheckExistingFunc            func(userID string, fingerprints []string) (map[string]bool, error)
+	SaveBatchFunc                func(userID, analysisID string, entries []repository.FingerprintEntry) error
 	DeleteByAnalysisAndIndexFunc func(analysisID string, gameIndex int) error
 }
 
@@ -223,20 +223,20 @@ func (m *MockEngineEvalRepo) GetByUser(userID string) ([]models.EngineEval, erro
 
 // MockRepertoireRepo is a mock implementation of RepertoireRepository for testing
 type MockRepertoireRepo struct {
-	GetByIDFunc             func(id string) (*models.Repertoire, error)
-	GetByColorFunc          func(userID string, color models.Color) ([]models.Repertoire, error)
-	GetAllFunc              func(userID string) ([]models.Repertoire, error)
-	CreateFunc              func(userID string, name string, color models.Color) (*models.Repertoire, error)
-	CreateWithCategoryFunc  func(userID, name string, color models.Color, categoryID *string) (*models.Repertoire, error)
-	SaveFunc                func(id string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error)
-	UpdateNameFunc          func(id string, name string) (*models.Repertoire, error)
-	UpdateCategoryFunc      func(id string, categoryID *string) (*models.Repertoire, error)
-	DeleteFunc              func(id string) error
-	CountFunc               func(userID string) (int, error)
-	ExistsFunc              func(id string) (bool, error)
-	BelongsToUserFunc       func(id string, userID string) (bool, error)
-	GetByCategoryFunc       func(categoryID string) ([]models.Repertoire, error)
-	GetUncategorizedFunc    func(userID string, color models.Color) ([]models.Repertoire, error)
+	GetByIDFunc            func(id string) (*models.Repertoire, error)
+	GetByColorFunc         func(userID string, color models.Color) ([]models.Repertoire, error)
+	GetAllFunc             func(userID string) ([]models.Repertoire, error)
+	CreateFunc             func(userID string, name string, color models.Color) (*models.Repertoire, error)
+	CreateWithCategoryFunc func(userID, name string, color models.Color, categoryID *string) (*models.Repertoire, error)
+	SaveFunc               func(id string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error)
+	UpdateNameFunc         func(id string, name string) (*models.Repertoire, error)
+	UpdateCategoryFunc     func(id string, categoryID *string) (*models.Repertoire, error)
+	DeleteFunc             func(id string) error
+	CountFunc              func(userID string) (int, error)
+	ExistsFunc             func(id string) (bool, error)
+	BelongsToUserFunc      func(id string, userID string) (bool, error)
+	GetByCategoryFunc      func(categoryID string) ([]models.Repertoire, error)
+	GetUncategorizedFunc   func(userID string, color models.Color) ([]models.Repertoire, error)
 }
 
 func (m *MockRepertoireRepo) GetByID(id string) (*models.Repertoire, error) {
@@ -343,14 +343,14 @@ func (m *MockRepertoireRepo) GetUncategorized(userID string, color models.Color)
 
 // MockAnalysisRepo is a mock implementation of AnalysisRepository for testing
 type MockAnalysisRepo struct {
-	SaveFunc               func(userID string, username, filename string, gameCount int, results []models.GameAnalysis) (*models.AnalysisSummary, error)
-	GetAllFunc             func(userID string) ([]models.AnalysisSummary, error)
-	GetByIDFunc            func(id string) (*models.AnalysisDetail, error)
-	DeleteFunc             func(id string) error
-	GetAllGamesFunc        func(userID string, limit, offset int, timeClass, opening, source string) (*models.GamesResponse, error)
-	DeleteGameFunc         func(analysisID string, gameIndex int) error
-	UpdateResultsFunc      func(analysisID string, results []models.GameAnalysis) error
-	BelongsToUserFunc      func(id string, userID string) (bool, error)
+	SaveFunc                   func(userID string, username, filename string, gameCount int, results []models.GameAnalysis) (*models.AnalysisSummary, error)
+	GetAllFunc                 func(userID string) ([]models.AnalysisSummary, error)
+	GetByIDFunc                func(id string) (*models.AnalysisDetail, error)
+	DeleteFunc                 func(id string) error
+	GetAllGamesFunc            func(userID string, limit, offset int, timeClass, opening, source string) (*models.GamesResponse, error)
+	DeleteGameFunc             func(analysisID string, gameIndex int) error
+	UpdateResultsFunc          func(analysisID string, results []models.GameAnalysis) error
+	BelongsToUserFunc          func(id string, userID string) (bool, error)
 	GetDistinctRepertoiresFunc func(userID string) ([]models.RepertoireFilterOption, error)
 	MarkGameViewedFunc         func(userID, analysisID string, gameIndex int) error
 	GetViewedGamesFunc         func(userID string) (map[string]bool, error)
@@ -455,6 +455,7 @@ type MockUserRepo struct {
 	UpdateSyncTimestampsFunc func(userID string, lichessSyncAt, chesscomSyncAt *time.Time) error
 	UpdateLichessTokenFunc   func(userID, token string) error
 	UpdatePasswordFunc       func(userID, passwordHash string) error
+	DeleteFunc               func(id string) error
 }
 
 func (m *MockUserRepo) Create(email, username, passwordHash string) (*models.User, error) {
@@ -541,17 +542,24 @@ func (m *MockUserRepo) UpdatePassword(userID, passwordHash string) error {
 	return nil
 }
 
+func (m *MockUserRepo) Delete(id string) error {
+	if m.DeleteFunc != nil {
+		return m.DeleteFunc(id)
+	}
+	return nil
+}
+
 // MockCategoryRepo is a mock implementation of CategoryRepository for testing
 type MockCategoryRepo struct {
-	GetByIDFunc            func(id string) (*models.Category, error)
-	GetByUserAndColorFunc  func(userID string, color models.Color) ([]models.Category, error)
-	GetAllFunc             func(userID string) ([]models.Category, error)
-	CreateFunc             func(userID, name string, color models.Color) (*models.Category, error)
-	UpdateNameFunc         func(id, name string) (*models.Category, error)
-	DeleteFunc             func(id string) error
-	BelongsToUserFunc      func(id, userID string) (bool, error)
-	ExistsFunc             func(id string) (bool, error)
-	CountFunc              func(userID string) (int, error)
+	GetByIDFunc           func(id string) (*models.Category, error)
+	GetByUserAndColorFunc func(userID string, color models.Color) ([]models.Category, error)
+	GetAllFunc            func(userID string) ([]models.Category, error)
+	CreateFunc            func(userID, name string, color models.Color) (*models.Category, error)
+	UpdateNameFunc        func(id, name string) (*models.Category, error)
+	DeleteFunc            func(id string) error
+	BelongsToUserFunc     func(id, userID string) (bool, error)
+	ExistsFunc            func(id string) (bool, error)
+	CountFunc             func(userID string) (int, error)
 }
 
 func (m *MockCategoryRepo) GetByID(id string) (*models.Category, error) {

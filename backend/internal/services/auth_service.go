@@ -35,13 +35,13 @@ var (
 )
 
 type AuthService struct {
-	userRepo          repository.UserRepository
-	resetRepo         repository.PasswordResetRepository
-	emailService      EmailSender
-	jwtSecret         []byte
-	jwtExpiry         time.Duration
-	resetTokenExpiry  time.Duration
-	maxResetPerHour   int
+	userRepo         repository.UserRepository
+	resetRepo        repository.PasswordResetRepository
+	emailService     EmailSender
+	jwtSecret        []byte
+	jwtExpiry        time.Duration
+	resetTokenExpiry time.Duration
+	maxResetPerHour  int
 }
 
 func NewAuthService(userRepo repository.UserRepository, jwtSecret string, jwtExpiry time.Duration) *AuthService {
@@ -324,6 +324,39 @@ func (s *AuthService) HasPassword(userID string) (bool, error) {
 		return false, err
 	}
 	return user.PasswordHash != "", nil
+}
+
+// DeleteAccount verifies the user's identity and deletes all associated data.
+// For password-based accounts, the password must be provided.
+// For OAuth-only accounts, the username must be provided for confirmation.
+func (s *AuthService) DeleteAccount(userID, password, username string) error {
+	user, err := s.userRepo.GetByID(userID)
+	if err != nil {
+		return err
+	}
+
+	// Determine verification method based on account type
+	if user.PasswordHash != "" {
+		// Password-based account: verify password
+		if password == "" {
+			return ErrIncorrectPassword
+		}
+		if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
+			return ErrIncorrectPassword
+		}
+	} else {
+		// OAuth-only account: verify username
+		if username == "" || username != user.Username {
+			return ErrInvalidCredentials
+		}
+	}
+
+	// Delete user and all associated data
+	if err := s.userRepo.Delete(userID); err != nil {
+		return fmt.Errorf("failed to delete account: %w", err)
+	}
+
+	return nil
 }
 
 // generateSecureToken generates a cryptographically secure random token

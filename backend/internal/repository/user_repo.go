@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -254,6 +255,53 @@ func (r *PostgresUserRepo) UpdatePassword(userID, passwordHash string) error {
 	if err != nil {
 		return fmt.Errorf("failed to update password: %w", err)
 	}
+	return nil
+}
+
+func (r *PostgresUserRepo) Delete(id string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	// Delete in order respecting FK constraints (no ON DELETE CASCADE on user_id)
+	// 1. dismissed_mistakes (leaf table, only references users)
+	if _, err := tx.Exec(ctx, `DELETE FROM dismissed_mistakes WHERE user_id = $1`, id); err != nil {
+		return fmt.Errorf("failed to delete dismissed_mistakes: %w", err)
+	}
+
+	// 2. analyses (cascades to game_fingerprints, viewed_games, engine_evals via analysis_id FK)
+	if _, err := tx.Exec(ctx, `DELETE FROM analyses WHERE user_id = $1`, id); err != nil {
+		return fmt.Errorf("failed to delete analyses: %w", err)
+	}
+
+	// 3. repertoires (references users and categories)
+	if _, err := tx.Exec(ctx, `DELETE FROM repertoires WHERE user_id = $1`, id); err != nil {
+		return fmt.Errorf("failed to delete repertoires: %w", err)
+	}
+
+	// 4. categories (references users; repertoires already deleted)
+	if _, err := tx.Exec(ctx, `DELETE FROM categories WHERE user_id = $1`, id); err != nil {
+		return fmt.Errorf("failed to delete categories: %w", err)
+	}
+
+	// 5. user row (password_reset_tokens cascade automatically via ON DELETE CASCADE)
+	result, err := tx.Exec(ctx, `DELETE FROM users WHERE id = $1`, id)
+	if err != nil {
+		return fmt.Errorf("failed to delete user: %w", err)
+	}
+	if result.RowsAffected() == 0 {
+		return ErrUserNotFound
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
 	return nil
 }
 

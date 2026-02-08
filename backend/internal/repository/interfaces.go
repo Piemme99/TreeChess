@@ -26,6 +26,7 @@ type UserRepository interface {
 	UpdateSyncTimestamps(userID string, lichessSyncAt, chesscomSyncAt *time.Time) error
 	UpdateLichessToken(userID, token string) error
 	UpdatePassword(userID, passwordHash string) error
+	Delete(id string) error
 }
 
 // RepertoireRepository defines the interface for repertoire data operations

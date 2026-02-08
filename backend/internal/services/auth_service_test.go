@@ -609,6 +609,144 @@ func TestAuthService_RequestPasswordReset_UserNotFound(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestAuthService_DeleteAccount_PasswordUser_Success(t *testing.T) {
+	hash, _ := bcrypt.GenerateFromPassword([]byte("password123"), bcrypt.MinCost)
+	deleted := false
+	mockUserRepo := &mocks.MockUserRepo{
+		GetByIDFunc: func(id string) (*models.User, error) {
+			return &models.User{
+				ID:           "user-123",
+				Username:     "testuser",
+				PasswordHash: string(hash),
+			}, nil
+		},
+		DeleteFunc: func(id string) error {
+			assert.Equal(t, "user-123", id)
+			deleted = true
+			return nil
+		},
+	}
+	svc := newTestAuthService(mockUserRepo)
+
+	err := svc.DeleteAccount("user-123", "password123", "")
+
+	require.NoError(t, err)
+	assert.True(t, deleted)
+}
+
+func TestAuthService_DeleteAccount_PasswordUser_WrongPassword(t *testing.T) {
+	hash, _ := bcrypt.GenerateFromPassword([]byte("correctpassword"), bcrypt.MinCost)
+	mockUserRepo := &mocks.MockUserRepo{
+		GetByIDFunc: func(id string) (*models.User, error) {
+			return &models.User{
+				ID:           "user-123",
+				Username:     "testuser",
+				PasswordHash: string(hash),
+			}, nil
+		},
+	}
+	svc := newTestAuthService(mockUserRepo)
+
+	err := svc.DeleteAccount("user-123", "wrongpassword", "")
+
+	assert.ErrorIs(t, err, ErrIncorrectPassword)
+}
+
+func TestAuthService_DeleteAccount_PasswordUser_EmptyPassword(t *testing.T) {
+	hash, _ := bcrypt.GenerateFromPassword([]byte("password123"), bcrypt.MinCost)
+	mockUserRepo := &mocks.MockUserRepo{
+		GetByIDFunc: func(id string) (*models.User, error) {
+			return &models.User{
+				ID:           "user-123",
+				Username:     "testuser",
+				PasswordHash: string(hash),
+			}, nil
+		},
+	}
+	svc := newTestAuthService(mockUserRepo)
+
+	err := svc.DeleteAccount("user-123", "", "")
+
+	assert.ErrorIs(t, err, ErrIncorrectPassword)
+}
+
+func TestAuthService_DeleteAccount_OAuthUser_Success(t *testing.T) {
+	provider := "lichess"
+	deleted := false
+	mockUserRepo := &mocks.MockUserRepo{
+		GetByIDFunc: func(id string) (*models.User, error) {
+			return &models.User{
+				ID:            "user-123",
+				Username:      "lichessuser",
+				PasswordHash:  "",
+				OAuthProvider: &provider,
+			}, nil
+		},
+		DeleteFunc: func(id string) error {
+			assert.Equal(t, "user-123", id)
+			deleted = true
+			return nil
+		},
+	}
+	svc := newTestAuthService(mockUserRepo)
+
+	err := svc.DeleteAccount("user-123", "", "lichessuser")
+
+	require.NoError(t, err)
+	assert.True(t, deleted)
+}
+
+func TestAuthService_DeleteAccount_OAuthUser_WrongUsername(t *testing.T) {
+	provider := "lichess"
+	mockUserRepo := &mocks.MockUserRepo{
+		GetByIDFunc: func(id string) (*models.User, error) {
+			return &models.User{
+				ID:            "user-123",
+				Username:      "lichessuser",
+				PasswordHash:  "",
+				OAuthProvider: &provider,
+			}, nil
+		},
+	}
+	svc := newTestAuthService(mockUserRepo)
+
+	err := svc.DeleteAccount("user-123", "", "wrongusername")
+
+	assert.ErrorIs(t, err, ErrInvalidCredentials)
+}
+
+func TestAuthService_DeleteAccount_OAuthUser_EmptyUsername(t *testing.T) {
+	provider := "lichess"
+	mockUserRepo := &mocks.MockUserRepo{
+		GetByIDFunc: func(id string) (*models.User, error) {
+			return &models.User{
+				ID:            "user-123",
+				Username:      "lichessuser",
+				PasswordHash:  "",
+				OAuthProvider: &provider,
+			}, nil
+		},
+	}
+	svc := newTestAuthService(mockUserRepo)
+
+	err := svc.DeleteAccount("user-123", "", "")
+
+	assert.ErrorIs(t, err, ErrInvalidCredentials)
+}
+
+func TestAuthService_DeleteAccount_UserNotFound(t *testing.T) {
+	mockUserRepo := &mocks.MockUserRepo{
+		GetByIDFunc: func(id string) (*models.User, error) {
+			return nil, repository.ErrUserNotFound
+		},
+	}
+	svc := newTestAuthService(mockUserRepo)
+
+	err := svc.DeleteAccount("nonexistent", "password123", "")
+
+	assert.ErrorIs(t, err, repository.ErrUserNotFound)
+}
+
 func TestAuthService_RequestPasswordReset_OAuthOnly(t *testing.T) {
 	email := "oauth@example.com"
 	provider := "lichess"

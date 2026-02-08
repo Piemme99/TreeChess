@@ -151,6 +151,7 @@ func main() {
 	protected.PUT("/api/auth/profile", authHandler.UpdateProfileHandler)
 	protected.POST("/api/auth/change-password", authHandler.ChangePasswordHandler)
 	protected.GET("/api/auth/has-password", authHandler.HasPasswordHandler)
+	protected.DELETE("/api/auth/account", authHandler.DeleteAccountHandler)
 
 	// Repertoire API
 	protected.GET("/api/repertoires/templates", handlers.ListTemplatesHandler())

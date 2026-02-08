@@ -220,6 +220,31 @@ func (h *AuthHandler) ChangePasswordHandler(c echo.Context) error {
 	})
 }
 
+func (h *AuthHandler) DeleteAccountHandler(c echo.Context) error {
+	userID := c.Get("userID").(string)
+
+	var req models.DeleteAccountRequest
+	if err := c.Bind(&req); err != nil {
+		return BadRequestResponse(c, "invalid request body")
+	}
+
+	err := h.authService.DeleteAccount(userID, req.Password, req.Username)
+	if err != nil {
+		if errors.Is(err, services.ErrIncorrectPassword) {
+			return BadRequestResponse(c, "incorrect password")
+		}
+		if errors.Is(err, services.ErrInvalidCredentials) {
+			return BadRequestResponse(c, "incorrect username confirmation")
+		}
+		if errors.Is(err, repository.ErrUserNotFound) {
+			return ErrorResponse(c, http.StatusUnauthorized, "user not found")
+		}
+		return InternalErrorResponse(c, "failed to delete account")
+	}
+
+	return c.NoContent(http.StatusNoContent)
+}
+
 func (h *AuthHandler) HasPasswordHandler(c echo.Context) error {
 	userID := c.Get("userID").(string)
 

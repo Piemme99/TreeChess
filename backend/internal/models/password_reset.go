@@ -28,3 +28,8 @@ type ChangePasswordRequest struct {
 type HasPasswordResponse struct {
 	HasPassword bool `json:"hasPassword"`
 }
+
+type DeleteAccountRequest struct {
+	Password string `json:"password"`
+	Username string `json:"username"`
+}
