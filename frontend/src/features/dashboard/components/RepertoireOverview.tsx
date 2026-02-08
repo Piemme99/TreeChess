@@ -47,7 +47,7 @@ export function RepertoireOverview({ repertoires }: RepertoireOverviewProps) {
   return (
     <motion.section variants={staggerContainer} initial="hidden" animate="visible" className="min-w-0">
       <h2 className="text-xs font-bold text-text-muted uppercase tracking-widest mb-3">Your Repertoires</h2>
-      <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-thin">
+      <div className="flex gap-4 overflow-x-auto py-2 px-1 scrollbar-thin">
         {repertoires.map((rep, i) => (
           <RepertoireCard key={rep.id} repertoire={rep} index={i} />
         ))}

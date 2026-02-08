@@ -16,8 +16,8 @@ func JWTAuth(authSvc *services.AuthService) echo.MiddlewareFunc {
 
 			// Try Authorization header first
 			authHeader := c.Request().Header.Get("Authorization")
-			if strings.HasPrefix(authHeader, "Bearer ") {
-				tokenStr = strings.TrimPrefix(authHeader, "Bearer ")
+			if after, ok := strings.CutPrefix(authHeader, "Bearer "); ok {
+				tokenStr = after
 			}
 
 			// Fallback to query param (for SSE/EventSource)
