@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
-import { Loading } from '../../../../shared/components/UI';
+import { Loading, ColorDot } from '../../../../shared/components/UI';
 import type { Color } from '../../../../types';
 
 interface FileUploaderProps {
@@ -71,13 +71,13 @@ export function FileUploader({
             className={`flex-1 flex items-center justify-center gap-2 p-4 bg-bg border-2 rounded-md text-base cursor-pointer transition-all duration-150 ${selectedColor === 'white' ? 'border-primary bg-primary-light' : 'border-border hover:border-primary'}`}
             onClick={() => onColorChange('white')}
           >
-            <span className="text-2xl">{'\u2654'}</span> White
+            <ColorDot color="white" size="lg" /> White
           </button>
           <button
             className={`flex-1 flex items-center justify-center gap-2 p-4 bg-bg border-2 rounded-md text-base cursor-pointer transition-all duration-150 ${selectedColor === 'black' ? 'border-primary bg-primary-light' : 'border-border hover:border-primary'}`}
             onClick={() => onColorChange('black')}
           >
-            <span className="text-2xl">{'\u265A'}</span> Black
+            <ColorDot color="black" size="lg" /> Black
           </button>
         </div>
       </div>

@@ -110,6 +110,10 @@ export const authApi = {
     const response = await api.get('/auth/has-password');
     return response.data;
   },
+
+  deleteAccount: async (password?: string, username?: string): Promise<void> => {
+    await api.delete('/auth/account', { data: { password, username } });
+  },
 };
 
 // Repertoire API

@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { useRepertoires } from './shared/hooks/useRepertoires';
 import { RepertoireSelector } from './shared/components/RepertoireSelector';
 import { StudyImportModal } from './shared/components/StudyImportModal';
-import { Loading } from '../../shared/components/UI';
+import { Loading, ColorDot } from '../../shared/components/UI';
 import { fadeUp, staggerContainer } from '../../shared/utils/animations';
 import { usePageTitle } from '../../shared/hooks/usePageTitle';
 import type { Color } from '../../types';
@@ -41,7 +41,7 @@ export function RepertoireTab() {
           }`}
           onClick={() => setActiveTab('white')}
         >
-          <span className="text-xl">{'\u2654'}</span>
+          <ColorDot color="white" size="md" />
           <span>White</span>
           <span className="text-xs bg-primary-light text-primary px-2 py-0.5 rounded-full text-text-muted">
             {whiteRepertoires.length}
@@ -55,7 +55,7 @@ export function RepertoireTab() {
           }`}
           onClick={() => setActiveTab('black')}
         >
-          <span className="text-xl">{'\u265A'}</span>
+          <ColorDot color="black" size="md" />
           <span>Black</span>
           <span className="text-xs bg-primary-light text-primary px-2 py-0.5 rounded-full text-text-muted">
             {blackRepertoires.length}

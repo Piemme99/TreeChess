@@ -23,6 +23,7 @@ interface AuthState {
   updateProfile: (data: UpdateProfileRequest) => Promise<void>;
   clearOnboarding: () => void;
   triggerSync: () => Promise<void>;
+  deleteAccount: (password?: string, username?: string) => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -155,6 +156,20 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   clearOnboarding: () => set({ needsOnboarding: false }),
+
+  deleteAccount: async (password?: string, username?: string) => {
+    await authApi.deleteAccount(password, username);
+    // Clean up exactly like logout
+    localStorage.removeItem(TOKEN_STORAGE_KEY);
+    useRepertoireStore.getState().clearAll();
+    set({
+      user: null,
+      token: null,
+      isAuthenticated: false,
+      loading: false,
+      error: null,
+    });
+  },
 
   triggerSync: async () => {
     if (useAuthStore.getState().syncing) {

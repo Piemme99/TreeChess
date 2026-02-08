@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { Button } from '../../../../shared/components/UI';
+import { Button, ColorDot } from '../../../../shared/components/UI';
 import type { Color } from '../../../../types';
 
 export interface RepertoireCardProps {
@@ -15,8 +15,8 @@ export const RepertoireCard = memo(function RepertoireCard({ color, totalMoves, 
 
   return (
     <div className={`bg-bg-card rounded-lg p-8 shadow-md text-center transition-transform duration-200 hover:-translate-y-1 hover:shadow-lg ${isWhite ? 'border-t-4 border-t-[#f5f5f5]' : 'border-t-4 border-t-[#333]'}`}>
-      <div className="text-5xl mb-4">
-        {isWhite ? '\u2654' : '\u265A'}
+      <div className="flex justify-center mb-4">
+        <ColorDot color={color} size="xl" />
       </div>
       <h3 className="text-2xl font-semibold mb-4">
         {isWhite ? 'White' : 'Black'} Repertoire

@@ -199,7 +199,7 @@ export function GamesPage() {
             <option value="">All repertoires</option>
             {repertoiresList.map((rep) => (
               <option key={rep.id} value={rep.id}>
-                {rep.name} ({rep.color === 'white' ? '♔ White' : '♚ Black'})
+                {rep.name} ({rep.color === 'white' ? 'White' : 'Black'})
               </option>
             ))}
           </select>

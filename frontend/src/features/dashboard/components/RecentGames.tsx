@@ -19,7 +19,7 @@ const outcomeDot: Record<string, string> = {
 
 const sourceIcons: Record<string, string> = {
   lichess: '\u265E',
-  chesscom: '\u265E',
+  chesscom: '\u265F',
   pgn: '\uD83D\uDCC4',
 };
 
@@ -65,10 +65,10 @@ export function RecentGames({ games, loading }: RecentGamesProps) {
           <div className="grid grid-cols-[16px_1fr_150px_100px_80px_50px] items-center gap-x-3 px-4 py-2 border-b border-primary/10 text-[11px] font-semibold text-text-light uppercase tracking-wide">
             <span></span>
             <span>Players</span>
-            <span>Repertoire</span>
+            <span className="text-center">Repertoire</span>
             <span className="text-center">Status</span>
-            <span>Date</span>
-            <span>Source</span>
+            <span className="text-center">Date</span>
+            <span className="text-center">Source</span>
           </div>
           {/* Game rows */}
           {games.slice(0, 8).map((game) => {
@@ -91,7 +91,7 @@ export function RecentGames({ games, loading }: RecentGamesProps) {
                 </div>
 
                 {/* Opening */}
-                <span className="text-xs text-text-muted truncate">
+                <span className="text-xs text-text-muted truncate text-center">
                   {game.repertoireName || '-'}
                 </span>
 
@@ -101,10 +101,10 @@ export function RecentGames({ games, loading }: RecentGamesProps) {
                 </div>
 
                 {/* Date */}
-                <span className="text-xs text-text-muted whitespace-nowrap">{game.date || '-'}</span>
+                <span className="text-xs text-text-muted whitespace-nowrap text-center">{game.date || '-'}</span>
 
                 {/* Source */}
-                <span className="text-xs text-text-muted" title={game.source}>
+                <span className="text-xs text-text-muted text-center" title={game.source}>
                   {sourceIcons[game.source] || game.source}
                 </span>
               </div>

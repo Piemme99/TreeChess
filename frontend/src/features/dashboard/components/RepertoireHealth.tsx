@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import { fadeUp } from '../../../shared/utils/animations';
+import { ColorDot } from '../../../shared/components/UI';
 import type { RepertoireStats } from '../../../types';
 
 interface RepertoireHealthProps {
@@ -13,7 +14,6 @@ function coverageColor(pct: number): string {
 }
 
 function HealthCard({ rep, index }: { rep: RepertoireStats; index: number }) {
-  const isWhite = rep.color === 'white';
   const winPct = Math.round(rep.winRate * 100);
   const inRepPct = Math.round(rep.winRateInRep * 100);
   const outRepPct = Math.round(rep.winRateOutRep * 100);
@@ -27,7 +27,7 @@ function HealthCard({ rep, index }: { rep: RepertoireStats; index: number }) {
     >
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="text-lg leading-none">{isWhite ? '\u2654' : '\u265A'}</span>
+          <ColorDot color={rep.color} size="md" />
           <span className="font-semibold text-sm text-text truncate">{rep.repertoireName}</span>
         </div>
         <span className="text-xs text-text-muted shrink-0">

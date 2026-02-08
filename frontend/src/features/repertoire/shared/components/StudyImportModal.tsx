@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { Modal } from '../../../../shared/components/UI/Modal';
 import { Button } from '../../../../shared/components/UI/Button';
+import { ColorDot } from '../../../../shared/components/UI';
 import { useStudyImport } from '../hooks/useStudyImport';
 import { useRepertoireStore } from '../../../../stores/repertoireStore';
 import { StudyBrowser } from './StudyBrowser';
@@ -215,9 +216,7 @@ export function StudyImportModal({ isOpen, onClose, onSuccess }: StudyImportModa
                   checked={noneSelected || selectedChapters.has(ch.index)}
                   onChange={() => toggleChapter(ch.index)}
                 />
-                <span className="text-base shrink-0">
-                  {ch.orientation === 'white' ? '\u2654' : '\u265A'}
-                </span>
+                <ColorDot color={ch.orientation as 'white' | 'black'} size="sm" />
                 <span className="flex-1 overflow-hidden text-ellipsis whitespace-nowrap">{ch.name}</span>
                 <span className="text-text-muted text-[0.8rem] whitespace-nowrap">{ch.moveCount} moves</span>
               </label>

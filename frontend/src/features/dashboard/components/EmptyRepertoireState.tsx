@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Button } from '../../../shared/components/UI';
+import { Button, ColorDot } from '../../../shared/components/UI';
 import { fadeUp } from '../../../shared/utils/animations';
 import { useRepertoireStore } from '../../../stores/repertoireStore';
 import { toast } from '../../../stores/toastStore';
@@ -43,8 +43,9 @@ export function EmptyRepertoireState({ onRefresh }: EmptyRepertoireStateProps) {
       animate="visible"
       className="flex flex-col items-center text-center py-12 px-6 bg-bg-card rounded-2xl shadow-sm border border-primary/10"
     >
-      <div className="text-5xl mb-4 leading-none">
-        <span>&#9812;</span>{' '}<span>&#9818;</span>
+      <div className="flex gap-3 mb-4">
+        <ColorDot color="white" size="xl" />
+        <ColorDot color="black" size="xl" />
       </div>
       <h3 className="text-2xl font-semibold font-display mb-2">Start building your repertoire</h3>
       <p className="text-text-muted mb-6 max-w-[400px]">

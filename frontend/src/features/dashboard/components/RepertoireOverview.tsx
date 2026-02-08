@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { fadeUp, staggerContainer } from '../../../shared/utils/animations';
+import { ColorDot } from '../../../shared/components/UI';
 import type { Repertoire } from '../../../types';
 
 interface RepertoireOverviewProps {
@@ -21,8 +22,6 @@ function formatDate(iso: string): string {
 
 function RepertoireCard({ repertoire, index }: { repertoire: Repertoire; index: number }) {
   const navigate = useNavigate();
-  const isWhite = repertoire.color === 'white';
-
   return (
     <motion.button
       variants={fadeUp}
@@ -33,7 +32,7 @@ function RepertoireCard({ repertoire, index }: { repertoire: Repertoire; index: 
       onClick={() => navigate(`/repertoire/${repertoire.id}/edit`)}
     >
       <div className="flex items-center gap-2 mb-2">
-        <span className="text-xl leading-none">{isWhite ? '\u2654' : '\u265A'}</span>
+        <ColorDot color={repertoire.color} size="md" />
         <span className="font-semibold text-sm text-text truncate">{repertoire.name}</span>
       </div>
       <div className="flex items-center justify-between text-xs text-text-muted">

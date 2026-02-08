@@ -1,5 +1,6 @@
-import { useState, useEffect, useMemo } from 'react';
-import { motion } from 'framer-motion';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { Button } from '../../shared/components/UI';
 import { toast } from '../../stores/toastStore';
@@ -10,9 +11,11 @@ import type { TimeFormat } from '../../types';
 
 export function ProfilePage() {
   usePageTitle('Profile');
+  const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const updateProfile = useAuthStore((s) => s.updateProfile);
   const triggerSync = useAuthStore((s) => s.triggerSync);
+  const deleteAccount = useAuthStore((s) => s.deleteAccount);
 
   const isLichessOAuth = user?.oauthProvider === 'lichess';
 
@@ -30,6 +33,42 @@ export function ProfilePage() {
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [passwordError, setPasswordError] = useState('');
+
+  // Delete account state
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [deleteConfirmation, setDeleteConfirmation] = useState('');
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
+
+  // For password accounts, confirmation = password; for OAuth, confirmation = username
+  const isOAuthOnly = hasPassword === false;
+  const deleteConfirmationValid = isOAuthOnly
+    ? deleteConfirmation === user?.username
+    : deleteConfirmation.length >= 8;
+
+  const handleDeleteAccount = useCallback(async () => {
+    if (!deleteConfirmationValid) return;
+    setDeleteError('');
+    setDeleteLoading(true);
+    try {
+      if (isOAuthOnly) {
+        await deleteAccount(undefined, deleteConfirmation);
+      } else {
+        await deleteAccount(deleteConfirmation);
+      }
+      toast.success('Your account has been deleted.');
+      navigate('/');
+    } catch (err) {
+      if (err instanceof Error && 'response' in err) {
+        const axiosError = err as { response?: { data?: { error?: string } } };
+        setDeleteError(axiosError.response?.data?.error || 'Failed to delete account');
+      } else {
+        setDeleteError('Failed to delete account');
+      }
+    } finally {
+      setDeleteLoading(false);
+    }
+  }, [deleteConfirmation, deleteConfirmationValid, isOAuthOnly, deleteAccount, navigate]);
 
   // Check if user has a password set
   useEffect(() => {
@@ -221,7 +260,7 @@ export function ProfilePage() {
           <p className="text-xs text-text-muted mt-2">At least one format is required.</p>
         </motion.div>
 
-        {hasPassword && (
+        {hasPassword !== null && hasPassword && (
           <motion.div variants={fadeUp} custom={3} className="bg-bg-card rounded-2xl p-6 border border-primary/10 shadow-sm shadow-primary/10">
             <h3 className="text-base font-semibold font-display mb-1">Change Password</h3>
             <p className="text-sm text-text-muted mb-4">
@@ -288,7 +327,101 @@ export function ProfilePage() {
             </div>
           </motion.div>
         )}
+        {/* Danger Zone */}
+        <motion.div variants={fadeUp} custom={4} className="bg-bg-card rounded-2xl p-6 border border-danger/20 shadow-sm text-center">
+          <h3 className="text-base font-semibold font-display mb-1 text-danger">Danger Zone</h3>
+          <p className="text-sm text-text-muted mb-4">
+            Permanently delete your account and all associated data. This action cannot be undone.
+          </p>
+          <Button
+            variant="danger"
+            onClick={() => {
+              setShowDeleteDialog(true);
+              setDeleteConfirmation('');
+              setDeleteError('');
+            }}
+          >
+            Delete my account
+          </Button>
+        </motion.div>
       </motion.div>
+
+      {/* Delete account confirmation dialog */}
+      <AnimatePresence>
+        {showDeleteDialog && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+            onClick={() => !deleteLoading && setShowDeleteDialog(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-bg-card rounded-2xl p-6 border border-danger/20 shadow-xl max-w-md w-full"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="text-lg font-semibold font-display text-danger mb-2">
+                Delete your account?
+              </h3>
+              <p className="text-sm text-text-muted mb-2">
+                This will permanently delete:
+              </p>
+              <ul className="text-sm text-text-muted mb-4 list-disc list-inside space-y-1">
+                <li>Your profile and credentials</li>
+                <li>All your repertoires and categories</li>
+                <li>All your imported games and analyses</li>
+                <li>All your preferences and settings</li>
+              </ul>
+              <p className="text-sm text-text mb-4 font-medium">
+                {isOAuthOnly
+                  ? <>Type your username <span className="font-mono text-danger">{user?.username}</span> to confirm:</>
+                  : 'Enter your password to confirm:'}
+              </p>
+
+              {deleteError && (
+                <div className="bg-danger-light text-danger py-2 px-4 rounded-xl text-sm mb-4">
+                  {deleteError}
+                </div>
+              )}
+
+              <input
+                type={isOAuthOnly ? 'text' : 'password'}
+                value={deleteConfirmation}
+                onChange={(e) => setDeleteConfirmation(e.target.value)}
+                placeholder={isOAuthOnly ? 'Type your username' : 'Enter your password'}
+                autoComplete={isOAuthOnly ? 'off' : 'current-password'}
+                className="w-full py-2 px-4 border border-border rounded-xl text-[0.9375rem] font-sans focus:outline-none focus:border-danger focus:ring-3 focus:ring-danger/20 mb-4"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && deleteConfirmationValid) {
+                    handleDeleteAccount();
+                  }
+                }}
+              />
+
+              <div className="flex gap-3 justify-end">
+                <Button
+                  variant="secondary"
+                  onClick={() => setShowDeleteDialog(false)}
+                  disabled={deleteLoading}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="danger"
+                  onClick={handleDeleteAccount}
+                  loading={deleteLoading}
+                  disabled={!deleteConfirmationValid}
+                >
+                  Delete permanently
+                </Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
