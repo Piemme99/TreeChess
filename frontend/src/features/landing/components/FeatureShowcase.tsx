@@ -85,13 +85,13 @@ export function FeatureShowcase() {
                       <Icon size={20} />
                     </div>
                     <div>
-                      <h4
+                      <h3
                         className={`text-base font-semibold mb-1 transition-colors duration-300 font-body ${
                           isActive ? 'text-text' : 'text-text-muted'
                         }`}
                       >
                         {tab.label}
-                      </h4>
+                      </h3>
                       <AnimatePresence mode="wait">
                         {isActive && (
                           <motion.p

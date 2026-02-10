@@ -16,6 +16,7 @@ interface UsePanZoomResult {
   handleMouseMove: (e: React.MouseEvent) => void;
   handleMouseUp: () => void;
   resetView: () => void;
+  focusOnNode: (nodeX: number, nodeY: number) => void;
 }
 
 /**
@@ -211,6 +212,19 @@ export function usePanZoom(
     baseHeightRef.current = newViewBox.height;
   }, [layoutWidth, layoutHeight, layoutMode, dimensions]);
 
+  const focusOnNode = useCallback((nodeX: number, nodeY: number) => {
+    const targetScale = 2.5;
+    const newWidth = baseWidthRef.current / targetScale;
+    const newHeight = baseHeightRef.current / targetScale;
+    setViewBox({
+      x: nodeX - newWidth / 2,
+      y: nodeY - newHeight / 2,
+      width: newWidth,
+      height: newHeight
+    });
+    setScale(targetScale);
+  }, []);
+
   return {
     dimensions,
     viewBox,
@@ -219,6 +233,7 @@ export function usePanZoom(
     handleMouseDown,
     handleMouseMove,
     handleMouseUp,
-    resetView
+    resetView,
+    focusOnNode
   };
 }

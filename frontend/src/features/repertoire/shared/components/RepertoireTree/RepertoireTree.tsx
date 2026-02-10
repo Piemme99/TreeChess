@@ -67,7 +67,8 @@ export function RepertoireTree({
     handleMouseDown,
     handleMouseMove,
     handleMouseUp,
-    resetView
+    resetView,
+    focusOnNode
   } = usePanZoom(containerRef, svgRef, layout.width, layout.height, layoutMode);
 
   const handleNodeDoubleClick = useCallback(
@@ -79,6 +80,14 @@ export function RepertoireTree({
     },
     [onToggleCollapsed]
   );
+
+  const handleFocusSelected = useCallback(() => {
+    if (!selectedNodeId) return;
+    const selectedLayout = layout.nodes.find((n) => n.id === selectedNodeId);
+    if (selectedLayout) {
+      focusOnNode(selectedLayout.x, selectedLayout.y);
+    }
+  }, [selectedNodeId, layout.nodes, focusOnNode]);
 
   const [hoveredNode, setHoveredNode] = useState<LayoutNode | null>(null);
 
@@ -129,6 +138,7 @@ export function RepertoireTree({
         onToggleExpand={onToggleExpand}
         layoutMode={layoutMode}
         onToggleLayoutMode={handleToggleLayoutMode}
+        onFocusSelected={selectedNodeId ? handleFocusSelected : undefined}
       />
       <svg
         ref={svgRef}

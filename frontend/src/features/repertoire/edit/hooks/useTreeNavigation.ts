@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import type { RepertoireNode } from '../../../../types';
 import { findNode } from '../utils/nodeUtils';
 
@@ -16,10 +16,15 @@ export function useTreeNavigation(
   selectedNodeId: string | null,
   selectNode: (id: string) => void
 ) {
+  const forwardStackRef = useRef<string[]>([]);
+
   const goToParent = useCallback(() => {
     if (!treeData || !selectedNodeId) return;
     const parent = findParent(treeData, selectedNodeId);
-    if (parent) selectNode(parent.id);
+    if (parent) {
+      forwardStackRef.current.push(selectedNodeId);
+      selectNode(parent.id);
+    }
   }, [treeData, selectedNodeId, selectNode]);
 
   const goToFirstChild = useCallback(() => {
@@ -27,17 +32,31 @@ export function useTreeNavigation(
     const node = findNode(treeData, selectedNodeId);
     if (!node) return;
 
-    // If this is a transposition node with no children, follow to canonical node's children
-    if (node.children.length === 0 && node.transpositionOf) {
+    const stack = forwardStackRef.current;
+
+    // Determine the effective children (follow transposition if needed)
+    let children = node.children;
+    if (children.length === 0 && node.transpositionOf) {
       const canonicalNode = findNode(treeData, node.transpositionOf);
-      if (canonicalNode && canonicalNode.children.length > 0) {
-        const mainLineChild = canonicalNode.children.find(c => c.isMainLine);
-        selectNode((mainLineChild ?? canonicalNode.children[0]).id);
-      }
-    } else if (node.children.length > 0) {
-      const mainLineChild = node.children.find(c => c.isMainLine);
-      selectNode((mainLineChild ?? node.children[0]).id);
+      if (canonicalNode) children = canonicalNode.children;
     }
+
+    if (children.length === 0) return;
+
+    // Check if the forward stack has a valid child to follow
+    if (stack.length > 0) {
+      const candidate = stack[stack.length - 1];
+      if (children.some(c => c.id === candidate)) {
+        stack.pop();
+        selectNode(candidate);
+        return;
+      }
+      // Stack is stale — clear it
+      stack.length = 0;
+    }
+
+    const mainLineChild = children.find(c => c.isMainLine);
+    selectNode((mainLineChild ?? children[0]).id);
   }, [treeData, selectedNodeId, selectNode]);
 
   const goToSibling = useCallback((direction: 1 | -1) => {
@@ -48,6 +67,7 @@ export function useTreeNavigation(
     const idx = siblings.findIndex(c => c.id === selectedNodeId);
     const nextIdx = idx + direction;
     if (nextIdx >= 0 && nextIdx < siblings.length) {
+      forwardStackRef.current.length = 0;
       selectNode(siblings[nextIdx].id);
     }
   }, [treeData, selectedNodeId, selectNode]);

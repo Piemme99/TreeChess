@@ -7,6 +7,7 @@ interface TreeControlsProps {
   onToggleExpand?: () => void;
   layoutMode: LayoutMode;
   onToggleLayoutMode: () => void;
+  onFocusSelected?: () => void;
 }
 
 export function TreeControls({
@@ -15,7 +16,8 @@ export function TreeControls({
   isExpanded,
   onToggleExpand,
   layoutMode,
-  onToggleLayoutMode
+  onToggleLayoutMode,
+  onFocusSelected
 }: TreeControlsProps) {
   return (
     <div className="absolute top-2 right-2 flex gap-2 items-center z-10">
@@ -33,6 +35,15 @@ export function TreeControls({
           title={isExpanded ? 'Collapse' : 'Expand fullscreen'}
         >
           {isExpanded ? '\u2715' : '\u26F6'}
+        </button>
+      )}
+      {onFocusSelected && (
+        <button
+          className="py-1 px-2 bg-bg border border-border rounded-sm text-xs cursor-pointer hover:bg-border focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2"
+          onClick={onFocusSelected}
+          title="Focus on selected node"
+        >
+          ⌖
         </button>
       )}
       <button

@@ -35,12 +35,14 @@ export function LandingPage() {
       <FloatingPiece piece={'\u2659'} className="top-[85%] left-[8%] hidden lg:block" />
 
       <Navbar />
-      <HeroSection bgY={bgY} />
-      <FeatureShowcase />
-      <HowItWorksSection />
-      <IntegrationsSection />
-      <OrganizationSection />
-      <CTASection />
+      <main>
+        <HeroSection bgY={bgY} />
+        <FeatureShowcase />
+        <HowItWorksSection />
+        <IntegrationsSection />
+        <OrganizationSection />
+        <CTASection />
+      </main>
       <Footer />
     </div>
   );
