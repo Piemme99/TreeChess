@@ -39,6 +39,7 @@ COPY --from=builder /build/server /usr/local/bin/server
 
 USER appuser
 EXPOSE 8080
+EXPOSE 9090
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
   CMD wget -qO- http://localhost:8080/api/health || exit 1

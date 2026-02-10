@@ -32,6 +32,7 @@ services:
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:-treechess}:${POSTGRES_PASSWORD}@postgres:5432/treechess?sslmode=disable
       PORT: "8080"
+      METRICS_PORT: "9090"
       JWT_SECRET: ${JWT_SECRET}
       SMTP_HOST: mailhog
       SMTP_PORT: "1025"
@@ -63,5 +64,32 @@ services:
       - "8025:8025"   # Web UI
     restart: unless-stopped
 
+  prometheus:
+    image: prom/prometheus:v3.2.1
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "9091:9090"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.5.2
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
 volumes:
   postgres_data:
+  prometheus_data:
+  grafana_data:
