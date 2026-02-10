@@ -9,6 +9,27 @@ export function findNode(node: RepertoireNode, id: string): RepertoireNode | nul
   return null;
 }
 
+export function findPathToNode(
+  root: RepertoireNode,
+  targetId: string,
+  path: RepertoireNode[] = []
+): RepertoireNode[] | null {
+  const currentPath = [...path, root];
+
+  if (root.id === targetId) {
+    return currentPath;
+  }
+
+  for (const child of root.children) {
+    const result = findPathToNode(child, targetId, currentPath);
+    if (result) {
+      return result;
+    }
+  }
+
+  return null;
+}
+
 export function findNodeByFEN(node: RepertoireNode, targetFEN: string): RepertoireNode | null {
   const nodePosition = node.fen.split(' ')[0];
   const targetPosition = targetFEN.split(' ')[0];

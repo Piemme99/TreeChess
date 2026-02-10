@@ -744,6 +744,53 @@ func ToggleNodeCollapsedHandler(svc *services.RepertoireService) echo.HandlerFun
 	}
 }
 
+// ExpandToNodeHandler expands all collapsed ancestors so the node becomes visible
+// POST /api/repertoires/:id/nodes/:nodeId/expand-to
+func ExpandToNodeHandler(svc *services.RepertoireService) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		userID := c.Get("userID").(string)
+		idParam := c.Param("id")
+		nodeID := c.Param("nodeId")
+
+		// Validate repertoire ID is a valid UUID
+		if _, err := uuid.Parse(idParam); err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{
+				"error": "repertoire id must be a valid UUID",
+			})
+		}
+
+		// Validate nodeId is a valid UUID
+		if _, err := uuid.Parse(nodeID); err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{
+				"error": "node id must be a valid UUID",
+			})
+		}
+
+		if err := svc.CheckOwnership(idParam, userID); err != nil {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "repertoire not found"})
+		}
+
+		rep, err := svc.ExpandToNode(idParam, nodeID)
+		if err != nil {
+			if errors.Is(err, services.ErrNotFound) {
+				return c.JSON(http.StatusNotFound, map[string]string{
+					"error": "repertoire not found",
+				})
+			}
+			if errors.Is(err, services.ErrNodeNotFound) {
+				return c.JSON(http.StatusNotFound, map[string]string{
+					"error": "node not found",
+				})
+			}
+			return c.JSON(http.StatusInternalServerError, map[string]string{
+				"error": "failed to expand to node",
+			})
+		}
+
+		return c.JSON(http.StatusOK, rep)
+	}
+}
+
 // SetMainLineHandler marks the path from root to the given node as the main line
 // POST /api/repertoires/:id/nodes/:nodeId/set-main-line
 func SetMainLineHandler(svc *services.RepertoireService) echo.HandlerFunc {

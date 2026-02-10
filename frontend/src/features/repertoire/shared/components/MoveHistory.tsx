@@ -1,32 +1,9 @@
 import type { RepertoireNode } from '../../../../types';
+import { findPathToNode } from '../../edit/utils/nodeUtils';
 
 interface MoveHistoryProps {
   rootNode: RepertoireNode;
   selectedNodeId: string | null;
-}
-
-/**
- * Finds the path from root to a specific node
- */
-function findPathToNode(
-  root: RepertoireNode,
-  targetId: string,
-  path: RepertoireNode[] = []
-): RepertoireNode[] | null {
-  const currentPath = [...path, root];
-
-  if (root.id === targetId) {
-    return currentPath;
-  }
-
-  for (const child of root.children) {
-    const result = findPathToNode(child, targetId, currentPath);
-    if (result) {
-      return result;
-    }
-  }
-
-  return null;
 }
 
 /**

@@ -204,6 +204,12 @@ export function RepertoireEdit() {
     }
   }, [id, setRepertoire]);
 
+  const handleExpandToNode = useCallback(async (nodeId: string) => {
+    if (!id) return;
+    const updated = await repertoireApi.expandToNode(id, nodeId);
+    setRepertoire(updated);
+  }, [id, setRepertoire]);
+
   const [mainLineLoading, setMainLineLoading] = useState(false);
 
   const hasMainLine = useCallback((node: RepertoireNode): boolean => {
@@ -412,6 +418,7 @@ export function RepertoireEdit() {
                 isExpanded={treeExpanded}
                 onToggleExpand={() => setTreeExpanded((prev) => !prev)}
                 onToggleCollapsed={handleToggleCollapsed}
+                onExpandToNode={handleExpandToNode}
               />
             )}
             {activeTab === 'moves' && (

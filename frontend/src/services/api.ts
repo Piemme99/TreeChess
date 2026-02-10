@@ -199,6 +199,11 @@ export const repertoireApi = {
     return response.data;
   },
 
+  expandToNode: async (id: string, nodeId: string): Promise<Repertoire> => {
+    const response = await api.post(`/repertoires/${id}/nodes/${nodeId}/expand-to`);
+    return response.data;
+  },
+
   setMainLine: async (id: string, nodeId: string): Promise<Repertoire> => {
     const response = await api.post(`/repertoires/${id}/nodes/${nodeId}/set-main-line`);
     return response.data;

@@ -11,9 +11,9 @@ export function TrainingPage() {
   usePageTitle('Training');
   const { repertoires, loading } = useRepertoires();
   const {
-    phase, fen, lastMove, orientation, feedbackMessage,
+    phase, fen, lastMove, orientation, feedbackMessage, correctMoveArrow,
     totalMistakes, currentLineIndex, totalLines, isInteractive,
-    startSession, handleUserMove, reset,
+    startSession, handleUserMove, retryLine, reset,
   } = useTrainingSession();
 
   if (loading && repertoires.length === 0) {
@@ -61,12 +61,14 @@ export function TrainingPage() {
         orientation={orientation}
         interactive={isInteractive}
         lastMove={lastMove}
+        correctMoveArrow={correctMoveArrow}
         feedbackMessage={feedbackMessage}
         phase={phase}
         currentLineIndex={currentLineIndex}
         totalLines={totalLines}
         totalMistakes={totalMistakes}
         onMove={handleUserMove}
+        onRetry={retryLine}
         onBack={reset}
       />
     </motion.div>

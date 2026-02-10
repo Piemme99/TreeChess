@@ -1,4 +1,4 @@
-import { useRef, useMemo, useState, useCallback } from 'react';
+import { useRef, useMemo, useState, useCallback, useEffect } from 'react';
 import type { RepertoireNode, Color } from '../../../../../types';
 import { calculateLayout } from './utils/layoutCalculator';
 import { usePanZoom } from './hooks/usePanZoom';
@@ -17,6 +17,7 @@ interface RepertoireTreeProps {
   isExpanded?: boolean;
   onToggleExpand?: () => void;
   onToggleCollapsed?: (nodeId: string) => void;
+  onExpandToNode?: (nodeId: string) => Promise<void>;
 }
 
 // Helper to collect collapsed node IDs from tree
@@ -36,7 +37,8 @@ export function RepertoireTree({
   color,
   isExpanded,
   onToggleExpand,
-  onToggleCollapsed
+  onToggleCollapsed,
+  onExpandToNode
 }: RepertoireTreeProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -81,13 +83,36 @@ export function RepertoireTree({
     [onToggleCollapsed]
   );
 
+  const pendingFocusRef = useRef<string | null>(null);
+
   const handleFocusSelected = useCallback(() => {
     if (!selectedNodeId) return;
     const selectedLayout = layout.nodes.find((n) => n.id === selectedNodeId);
     if (selectedLayout) {
       focusOnNode(selectedLayout.x, selectedLayout.y);
+    } else if (onExpandToNode) {
+      pendingFocusRef.current = selectedNodeId;
+      onExpandToNode(selectedNodeId);
     }
-  }, [selectedNodeId, layout.nodes, focusOnNode]);
+  }, [selectedNodeId, layout.nodes, focusOnNode, onExpandToNode]);
+
+  // When layout updates and a pending focus node appears, focus on it
+  useEffect(() => {
+    const pendingId = pendingFocusRef.current;
+    if (!pendingId) return;
+    const node = layout.nodes.find((n) => n.id === pendingId);
+    if (node) {
+      pendingFocusRef.current = null;
+      focusOnNode(node.x, node.y);
+    }
+  }, [layout.nodes, focusOnNode]);
+
+  // Clear pending focus if selected node changes
+  useEffect(() => {
+    if (pendingFocusRef.current && pendingFocusRef.current !== selectedNodeId) {
+      pendingFocusRef.current = null;
+    }
+  }, [selectedNodeId]);
 
   const [hoveredNode, setHoveredNode] = useState<LayoutNode | null>(null);
 

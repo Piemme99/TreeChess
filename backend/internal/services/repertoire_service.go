@@ -894,6 +894,38 @@ func (s *RepertoireService) ToggleNodeCollapsed(repertoireID, nodeID string) (*m
 	return s.repo.Save(repertoireID, rep.TreeData, metadata)
 }
 
+// ExpandToNode expands all collapsed ancestors of a node so it becomes visible in the tree.
+func (s *RepertoireService) ExpandToNode(repertoireID, nodeID string) (*models.Repertoire, error) {
+	rep, err := s.repo.GetByID(repertoireID)
+	if err != nil {
+		if errors.Is(err, repository.ErrRepertoireNotFound) {
+			return nil, fmt.Errorf("%w: %w", ErrNotFound, err)
+		}
+		return nil, err
+	}
+
+	path := findPathToNode(&rep.TreeData, nodeID)
+	if path == nil {
+		return nil, fmt.Errorf("%w: %s", ErrNodeNotFound, nodeID)
+	}
+
+	// Uncollapse all ancestors (skip the target node itself)
+	changed := false
+	for _, node := range path[:len(path)-1] {
+		if node.Collapsed {
+			node.Collapsed = false
+			changed = true
+		}
+	}
+
+	if !changed {
+		return rep, nil
+	}
+
+	metadata := calculateMetadata(rep.TreeData)
+	return s.repo.Save(repertoireID, rep.TreeData, metadata)
+}
+
 // SetMainLine marks the path from root to the target node as the main line.
 // All other nodes have their IsMainLine flag cleared.
 func (s *RepertoireService) SetMainLine(repertoireID, nodeID string) (*models.Repertoire, error) {

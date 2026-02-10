@@ -20,6 +20,11 @@ interface LastMove {
   to: string;
 }
 
+interface CorrectMoveArrow {
+  from: string;
+  to: string;
+}
+
 interface TrainingState {
   phase: Phase;
   lines: TrainingLine[];
@@ -30,6 +35,7 @@ interface TrainingState {
   totalMistakes: number;
   lineMistakes: number;
   correctMoveSan: string | null;
+  correctMoveArrow: CorrectMoveArrow | null;
   orientation: 'white' | 'black';
   userColor: 'w' | 'b';
   feedbackMessage: string | null;
@@ -53,6 +59,7 @@ const initialState: TrainingState = {
   totalMistakes: 0,
   lineMistakes: 0,
   correctMoveSan: null,
+  correctMoveArrow: null,
   orientation: 'white',
   userColor: 'w',
   feedbackMessage: null,
@@ -94,7 +101,7 @@ function reducer(state: TrainingState, action: Action): TrainingState {
         fen: STARTING_FEN,
         orientation: action.orientation,
         userColor: action.userColor,
-        feedbackMessage: 'Your move',
+        feedbackMessage: null,
       };
     }
 
@@ -139,17 +146,29 @@ function reducer(state: TrainingState, action: Action): TrainingState {
           currentMoveIndex: nextIndex,
           fen: expectedMove.resultFen,
           lastMove,
-          feedbackMessage: 'Your move',
+          feedbackMessage: null,
         };
       }
 
-      // Wrong move
+      // Wrong move — compute arrow for the correct move
+      let correctMoveArrow: CorrectMoveArrow | null = null;
+      try {
+        const chess = new Chess(expectedMove.fen);
+        const correctMove = chess.move(expectedMove.san);
+        if (correctMove) {
+          correctMoveArrow = { from: correctMove.from, to: correctMove.to };
+        }
+      } catch {
+        // fallback — no arrow
+      }
+
       return {
         ...state,
         phase: 'wrong_move',
         totalMistakes: state.totalMistakes + 1,
         lineMistakes: state.lineMistakes + 1,
         correctMoveSan: expectedMove.san,
+        correctMoveArrow,
         feedbackMessage: `Wrong! The correct move was ${expectedMove.san}`,
       };
     }
@@ -189,7 +208,7 @@ function reducer(state: TrainingState, action: Action): TrainingState {
         currentMoveIndex: nextIndex,
         fen: opponentMove.resultFen,
         lastMove,
-        feedbackMessage: 'Your move',
+        feedbackMessage: null,
       };
     }
 
@@ -206,7 +225,8 @@ function reducer(state: TrainingState, action: Action): TrainingState {
           lastMove: null,
           lineMistakes: 0,
           correctMoveSan: null,
-          feedbackMessage: 'Restarting line...',
+          correctMoveArrow: null,
+          feedbackMessage: null,
         };
       }
 
@@ -218,7 +238,8 @@ function reducer(state: TrainingState, action: Action): TrainingState {
         lastMove: null,
         lineMistakes: 0,
         correctMoveSan: null,
-        feedbackMessage: 'Try again!',
+        correctMoveArrow: null,
+        feedbackMessage: null,
       };
     }
 
@@ -245,6 +266,7 @@ function reducer(state: TrainingState, action: Action): TrainingState {
           lastMove: null,
           lineMistakes: 0,
           correctMoveSan: null,
+          correctMoveArrow: null,
           feedbackMessage: null,
         };
       }
@@ -258,7 +280,8 @@ function reducer(state: TrainingState, action: Action): TrainingState {
         lastMove: null,
         lineMistakes: 0,
         correctMoveSan: null,
-        feedbackMessage: 'Your move',
+        correctMoveArrow: null,
+        feedbackMessage: null,
       };
     }
 
@@ -302,6 +325,10 @@ export function useTrainingSession() {
     dispatch({ type: 'USER_MOVE', san, from, to });
   }, []);
 
+  const retryLine = useCallback(() => {
+    dispatch({ type: 'LINE_RESTART' });
+  }, []);
+
   const reset = useCallback(() => {
     timersRef.current.forEach(clearTimeout);
     timersRef.current = [];
@@ -314,12 +341,6 @@ export function useTrainingSession() {
       addTimer(() => {
         dispatch({ type: 'OPPONENT_MOVE_DONE' });
       }, 500);
-    }
-
-    if (state.phase === 'wrong_move') {
-      addTimer(() => {
-        dispatch({ type: 'LINE_RESTART' });
-      }, 1500);
     }
 
     if (state.phase === 'line_complete') {
@@ -336,12 +357,14 @@ export function useTrainingSession() {
     orientation: state.orientation,
     feedbackMessage: state.feedbackMessage,
     correctMoveSan: state.correctMoveSan,
+    correctMoveArrow: state.correctMoveArrow,
     totalMistakes: state.totalMistakes,
     currentLineIndex: state.currentLineIndex,
     totalLines: state.lines.length,
     isInteractive: state.phase === 'playing',
     startSession,
     handleUserMove,
+    retryLine,
     reset,
   };
 }
