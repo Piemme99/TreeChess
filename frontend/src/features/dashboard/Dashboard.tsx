@@ -95,31 +95,31 @@ export function Dashboard() {
         <RepertoireOverview repertoires={repertoires} />
       </motion.div>
 
+      {/* Recent games table */}
+      <motion.div variants={fadeUp} custom={hasAnalyzedGames ? 3 : 2}>
+        <RecentGames games={games} loading={gamesLoading} />
+      </motion.div>
+
       {/* Opponent gaps (replaces Repertoire Health) */}
       {hasAnalyzedGames && stats.opponentGaps && stats.opponentGaps.length > 0 && (
-        <motion.div variants={fadeUp} custom={3}>
+        <motion.div variants={fadeUp} custom={4}>
           <OpponentGaps gaps={stats.opponentGaps} />
         </motion.div>
       )}
 
       {/* Branch performance */}
       {hasAnalyzedGames && stats.branchStats && stats.branchStats.length > 0 && (
-        <motion.div variants={fadeUp} custom={4}>
+        <motion.div variants={fadeUp} custom={5}>
           <BranchPerformance branches={stats.branchStats} />
         </motion.div>
       )}
 
       {/* Weak spots */}
       {hasAnalyzedGames && insights && (
-        <motion.div variants={fadeUp} custom={5}>
+        <motion.div variants={fadeUp} custom={6}>
           <WeakSpots insights={insights} />
         </motion.div>
       )}
-
-      {/* Recent games table */}
-      <motion.div variants={fadeUp} custom={hasAnalyzedGames ? 6 : 2}>
-        <RecentGames games={games} loading={gamesLoading} />
-      </motion.div>
     </motion.div>
   );
 }

@@ -72,7 +72,7 @@ export function RecentGames({ games, loading }: RecentGamesProps) {
             <span className="text-center">Source</span>
           </div>
           {/* Game rows */}
-          {games.slice(0, 8).map((game) => {
+          {games.slice(0, 4).map((game) => {
             const outcome = gameOutcome(game.result, game.userColor);
             return (
               <div
