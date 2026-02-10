@@ -15,6 +15,7 @@ interface BoardSectionProps {
   setPossibleMoves: (moves: string[]) => void;
   onMove: (move: { san: string }) => void;
   engineEvaluation?: EngineEvaluation | null;
+  pendingMoveArrow?: [string, string, string][];
 }
 
 export function BoardSection({
@@ -25,7 +26,8 @@ export function BoardSection({
   possibleMoves,
   setPossibleMoves,
   onMove,
-  engineEvaluation
+  engineEvaluation,
+  pendingMoveArrow = []
 }: BoardSectionProps) {
   const { getLegalMoves } = useChess();
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -64,8 +66,8 @@ export function BoardSection({
   }, [engineEvaluation?.bestMoveFrom, engineEvaluation?.bestMoveTo]);
 
   const allArrows = useMemo<[string, string, string?][]>(
-    () => [...annotationArrows, ...bestMoveArrow],
-    [annotationArrows, bestMoveArrow]
+    () => [...annotationArrows, ...bestMoveArrow, ...pendingMoveArrow],
+    [annotationArrows, bestMoveArrow, pendingMoveArrow]
   );
 
   const handleSquareClick = (square: string) => {

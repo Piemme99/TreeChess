@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { fadeUp, staggerContainer } from '../../../shared/utils/animations';
 import { ColorDot } from '../../../shared/components/UI';
@@ -22,6 +22,7 @@ function formatDate(iso: string): string {
 
 function RepertoireCard({ repertoire, index }: { repertoire: Repertoire; index: number }) {
   const navigate = useNavigate();
+  const location = useLocation();
   return (
     <motion.button
       variants={fadeUp}
@@ -29,7 +30,7 @@ function RepertoireCard({ repertoire, index }: { repertoire: Repertoire; index: 
       whileHover={{ scale: 1.04, boxShadow: '0 12px 24px -8px rgba(230,126,34,0.2)' }}
       whileTap={{ scale: 0.97 }}
       className="flex-shrink-0 w-48 bg-bg-card border border-primary/10 rounded-2xl p-4 cursor-pointer transition-colors duration-150 text-left font-sans hover:border-primary/30 group"
-      onClick={() => navigate(`/repertoire/${repertoire.id}/edit`)}
+      onClick={() => navigate(`/repertoire/${repertoire.id}/edit`, { state: { from: location.pathname } })}
     >
       <div className="flex items-center gap-2 mb-2">
         <ColorDot color={repertoire.color} size="md" />

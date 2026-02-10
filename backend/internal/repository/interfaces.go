@@ -67,6 +67,12 @@ type DismissedMistakeRepository interface {
 	GetDismissed(userID string) (map[string]bool, error)
 }
 
+// DismissedGapRepository defines the interface for dismissed gap operations
+type DismissedGapRepository interface {
+	Dismiss(userID, fen, opponentMove, repertoireID string) error
+	GetDismissed(userID string) (map[string]bool, error)
+}
+
 // AnalysisRepository defines the interface for analysis data operations
 type AnalysisRepository interface {
 	Save(userID string, username, filename string, gameCount int, results []models.GameAnalysis) (*models.AnalysisSummary, error)

@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { useGames } from './hooks/useGames';
 import { useFileUpload } from './hooks/useFileUpload';
@@ -12,6 +12,7 @@ import { ConfirmModal } from '../../shared/components/UI';
 
 export function AnalyseTab() {
   const navigate = useNavigate();
+  const location = useLocation();
   const authUser = useAuthStore((s) => s.user);
   const [username, setUsername] = useState(() => authUser?.username || '');
 
@@ -34,8 +35,8 @@ export function AnalyseTab() {
   const { deleteTarget, setDeleteTarget, deleting, handleDelete } = useDeleteGame(deleteGame);
 
   const handleViewClick = useCallback((analysisId: string, gameIndex: number) => {
-    navigate(`/analyse/${analysisId}/game/${gameIndex}`);
-  }, [navigate]);
+    navigate(`/analyse/${analysisId}/game/${gameIndex}`, { state: { from: location.pathname } });
+  }, [navigate, location]);
 
   const handleDeleteClick = useCallback((analysisId: string, gameIndex: number) => {
     setDeleteTarget({ analysisId, gameIndex });

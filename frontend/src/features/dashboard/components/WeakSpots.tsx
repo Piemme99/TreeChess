@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { fadeUp } from '../../../shared/utils/animations';
 import type { InsightsResponse } from '../../../types';
@@ -9,6 +9,7 @@ interface WeakSpotsProps {
 
 export function WeakSpots({ insights }: WeakSpotsProps) {
   const navigate = useNavigate();
+  const location = useLocation();
   const mistakes = insights.worstMistakes.slice(0, 3);
   const { engineAnalysisDone, engineAnalysisTotal, engineAnalysisCompleted } = insights;
   const progressPct = engineAnalysisTotal > 0 ? Math.round((engineAnalysisCompleted / engineAnalysisTotal) * 100) : 0;
@@ -72,7 +73,7 @@ export function WeakSpots({ insights }: WeakSpotsProps) {
                 className="w-full bg-bg-card border border-primary/10 rounded-2xl px-4 py-3 cursor-pointer transition-colors hover:border-primary/30 text-left font-sans"
                 onClick={() => {
                   if (firstGame) {
-                    navigate(`/analyse/${firstGame.analysisId}/game/${firstGame.gameIndex}?ply=${firstGame.plyNumber}`);
+                    navigate(`/analyse/${firstGame.analysisId}/game/${firstGame.gameIndex}?ply=${firstGame.plyNumber}`, { state: { from: location.pathname } });
                   }
                 }}
               >

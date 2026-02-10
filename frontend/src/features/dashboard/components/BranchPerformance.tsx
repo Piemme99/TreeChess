@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { fadeUp } from '../../../shared/utils/animations';
 import { ColorDot } from '../../../shared/components/UI';
@@ -22,6 +22,7 @@ function errorRateColor(rate: number): string {
 
 export function BranchPerformance({ branches }: BranchPerformanceProps) {
   const navigate = useNavigate();
+  const location = useLocation();
 
   if (branches.length === 0) return null;
 
@@ -53,7 +54,7 @@ export function BranchPerformance({ branches }: BranchPerformanceProps) {
             <div
               key={`${branch.branchName}-${branch.repertoireId}`}
               className="grid grid-cols-[1fr_60px_100px_70px] gap-2 px-4 py-3 border-b border-primary/5 last:border-b-0 hover:bg-primary/5 cursor-pointer transition-colors items-center"
-              onClick={() => navigate(`/repertoire/${branch.repertoireId}/edit`)}
+              onClick={() => navigate(`/repertoire/${branch.repertoireId}/edit`, { state: { from: location.pathname } })}
             >
               {/* Branch name + repertoire */}
               <div className="flex items-center gap-2 min-w-0">

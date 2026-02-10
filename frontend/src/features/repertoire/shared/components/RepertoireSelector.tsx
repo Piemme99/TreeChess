@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { DndContext, DragEndEvent, DragOverlay, useDraggable, useDroppable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import { Button, ConfirmModal } from '../../../../shared/components/UI';
@@ -74,6 +74,7 @@ function DroppableUncategorized({
 
 export function RepertoireSelector({ color, repertoires, categories, onImportStudy }: RepertoireSelectorProps) {
   const navigate = useNavigate();
+  const location = useLocation();
   const {
     createRepertoire,
     deleteRepertoire,
@@ -135,7 +136,7 @@ export function RepertoireSelector({ color, repertoires, categories, onImportStu
       const rep = await createRepertoire(newName.trim(), color);
       setNewName('');
       setIsCreating(false);
-      navigate(`/repertoire/${rep.id}/edit`);
+      navigate(`/repertoire/${rep.id}/edit`, { state: { from: location.pathname } });
     } catch {
       toast.error('Failed to create repertoire');
     } finally {
@@ -405,7 +406,7 @@ export function RepertoireSelector({ color, repertoires, categories, onImportStu
                           <Button
                             variant="primary"
                             size="sm"
-                            onClick={() => navigate(`/repertoire/${rep.id}/edit`)}
+                            onClick={() => navigate(`/repertoire/${rep.id}/edit`, { state: { from: location.pathname } })}
                           >
                             Open
                           </Button>

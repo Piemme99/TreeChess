@@ -50,6 +50,7 @@ func main() {
 	fingerprintRepo := repository.NewPostgresFingerprintRepo(db.Pool)
 	engineEvalRepo := repository.NewPostgresEngineEvalRepo(db.Pool)
 	dismissedMistakeRepo := repository.NewDismissedMistakeRepo(db.Pool)
+	dismissedGapRepo := repository.NewDismissedGapRepo(db.Pool)
 	passwordResetRepo := repository.NewPostgresPasswordResetRepo(db.Pool)
 
 	// Initialize opening analysis service (uses Lichess Explorer API)
@@ -66,6 +67,7 @@ func main() {
 		services.WithFingerprintRepo(fingerprintRepo),
 		services.WithEngineService(engineSvc),
 		services.WithDismissedMistakeRepo(dismissedMistakeRepo),
+		services.WithDismissedGapRepo(dismissedGapRepo),
 	)
 	lichessSvc := services.NewLichessService()
 	chesscomSvc := services.NewChesscomService()
@@ -183,6 +185,7 @@ func main() {
 	// Dashboard API
 	dashboardHandler := handlers.NewDashboardHandler(importSvc)
 	protected.GET("/api/dashboard/stats", dashboardHandler.GetStats)
+	protected.POST("/api/dashboard/gaps/dismiss", dashboardHandler.DismissGap)
 
 	// Import/Analysis API
 	importHandler := handlers.NewImportHandler(importSvc, lichessSvc, chesscomSvc)

@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Button, ColorDot } from '../../../shared/components/UI';
@@ -13,6 +13,7 @@ interface EmptyRepertoireStateProps {
 
 export function EmptyRepertoireState({ onRefresh }: EmptyRepertoireStateProps) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { createRepertoire } = useRepertoireStore();
   const [creating, setCreating] = useState(false);
 
@@ -23,7 +24,7 @@ export function EmptyRepertoireState({ onRefresh }: EmptyRepertoireStateProps) {
       const rep = await createRepertoire(name, color);
       toast.success('Repertoire created');
       if (rep) {
-        navigate(`/repertoire/${rep.id}/edit`);
+        navigate(`/repertoire/${rep.id}/edit`, { state: { from: location.pathname } });
       }
     } catch {
       toast.error('Failed to create repertoire');

@@ -34,8 +34,9 @@ export function useInsights() {
   }, [fetchInsights]);
 
   // Auto-poll while analysis is in progress
+  const analysisDone = insights?.engineAnalysisDone;
   useEffect(() => {
-    if (insights && !insights.engineAnalysisDone) {
+    if (analysisDone === false) {
       intervalRef.current = setInterval(() => {
         fetchInsights();
       }, POLL_INTERVAL);
@@ -47,7 +48,7 @@ export function useInsights() {
         intervalRef.current = null;
       }
     };
-  }, [insights?.engineAnalysisDone, fetchInsights]);
+  }, [analysisDone, fetchInsights]);
 
   const refresh = useCallback(() => {
     setLoading(true);

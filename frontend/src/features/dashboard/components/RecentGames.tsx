@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Button } from '../../../shared/components/UI';
 import { fadeUp } from '../../../shared/utils/animations';
@@ -42,6 +42,7 @@ interface RecentGamesProps {
 
 export function RecentGames({ games, loading }: RecentGamesProps) {
   const navigate = useNavigate();
+  const location = useLocation();
 
   if (loading) return null;
 
@@ -77,7 +78,7 @@ export function RecentGames({ games, loading }: RecentGamesProps) {
               <div
                 key={`${game.analysisId}-${game.gameIndex}`}
                 className="grid grid-cols-[16px_1fr_150px_100px_80px_50px] items-center gap-x-3 px-4 py-2.5 cursor-pointer transition-colors duration-150 hover:bg-primary-light/30 border-b border-primary/10 last:border-b-0"
-                onClick={() => navigate(`/analyse/${game.analysisId}/game/${game.gameIndex}`)}
+                onClick={() => navigate(`/analyse/${game.analysisId}/game/${game.gameIndex}`, { state: { from: location.pathname } })}
               >
                 {/* Result dot */}
                 <span className={`w-2.5 h-2.5 rounded-full ${outcomeDot[outcome]}`} title={outcome} />

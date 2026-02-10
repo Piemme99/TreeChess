@@ -16,6 +16,7 @@ const GamesPage = lazy(() => import('./features/games').then(m => ({ default: m.
 const ProfilePage = lazy(() => import('./features/profile').then(m => ({ default: m.ProfilePage })));
 const GameAnalysisPage = lazy(() => import('./features/game-analysis').then(m => ({ default: m.GameAnalysisPage })));
 const RepertoireEdit = lazy(() => import('./features/repertoire/RepertoireEdit').then(m => ({ default: m.RepertoireEdit })));
+const TrainingPage = lazy(() => import('./features/training').then(m => ({ default: m.TrainingPage })));
 const NotFoundPage = lazy(() => import('./features/not-found/NotFoundPage').then(m => ({ default: m.NotFoundPage })));
 
 function App() {
@@ -49,6 +50,7 @@ function App() {
         >
           <Route path="dashboard" element={<Suspense fallback={<Loading size="lg" />}><Dashboard /></Suspense>} />
           <Route path="repertoires" element={<Suspense fallback={<Loading size="lg" />}><RepertoireTab /></Suspense>} />
+          <Route path="training" element={<Suspense fallback={<Loading size="lg" />}><TrainingPage /></Suspense>} />
           <Route path="games" element={<Suspense fallback={<Loading size="lg" />}><GamesPage /></Suspense>} />
           <Route path="profile" element={<Suspense fallback={<Loading size="lg" />}><ProfilePage /></Suspense>} />
           <Route path="analyse/:id/game/:gameIndex" element={<Suspense fallback={<Loading size="lg" />}><GameAnalysisPage /></Suspense>} />

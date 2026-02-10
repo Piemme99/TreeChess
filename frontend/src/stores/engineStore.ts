@@ -18,6 +18,7 @@ export const useEngineStore = create<EngineStoreState>((set) => ({
     set((state) => ({
       isAnalyzing: analyzing,
       currentFEN: fen ?? state.currentFEN,
+      currentEvaluation: fen && fen !== state.currentFEN ? null : state.currentEvaluation,
       error: null
     }));
   },

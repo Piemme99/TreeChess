@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuthStore } from '../../stores/authStore';
 import { useGames } from '../analyse-tab/hooks/useGames';
@@ -36,6 +36,7 @@ const SOURCE_FILTERS = [
 export function GamesPage() {
   usePageTitle('Games');
   const navigate = useNavigate();
+  const location = useLocation();
   const authUser = useAuthStore((s) => s.user);
   const [username, setUsername] = useState(() => authUser?.lichessUsername || authUser?.chesscomUsername || authUser?.username || '');
   const [showImport, setShowImport] = useState(false);
@@ -98,8 +99,8 @@ export function GamesPage() {
   const handleViewClick = useCallback((analysisId: string, gameIndex: number) => {
     markGameViewed(analysisId, gameIndex);
     gamesApi.markViewed(analysisId, gameIndex).catch(() => { /* non-critical */ });
-    navigate(`/analyse/${analysisId}/game/${gameIndex}`);
-  }, [navigate, markGameViewed]);
+    navigate(`/analyse/${analysisId}/game/${gameIndex}`, { state: { from: location.pathname } });
+  }, [navigate, markGameViewed, location]);
 
   const handleDeleteClick = useCallback((analysisId: string, gameIndex: number) => {
     setDeleteTarget({ analysisId, gameIndex });

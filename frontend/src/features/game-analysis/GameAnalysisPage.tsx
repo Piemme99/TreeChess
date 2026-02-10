@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { fadeUp, staggerContainer } from '../../shared/utils/animations';
 import { useGameLoader } from './hooks/useGameLoader';
@@ -21,6 +21,7 @@ export function GameAnalysisPage() {
   usePageTitle('Game Analysis');
   const { gameIndex } = useParams<{ id: string; gameIndex: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
 
   const { analysis, loading, reanalyzeGame } = useGameLoader();
@@ -106,8 +107,8 @@ export function GameAnalysisPage() {
       repertoireId: game.matchedRepertoire.id,
       fen
     }));
-    navigate(`/repertoire/${game.matchedRepertoire.id}/edit`);
-  }, [game, navigate]);
+    navigate(`/repertoire/${game.matchedRepertoire.id}/edit`, { state: { from: location.pathname + location.search } });
+  }, [game, navigate, location]);
 
   const handleAddToRepertoire = useCallback((_move: MoveAnalysis, clickedIndex: number) => {
     if (!game || !game.userColor) return;
@@ -156,8 +157,8 @@ export function GameAnalysisPage() {
     };
     sessionStorage.setItem('pendingAddNode', JSON.stringify(context));
 
-    navigate(`/repertoire/${game.matchedRepertoire.id}/edit`);
-  }, [game, navigate]);
+    navigate(`/repertoire/${game.matchedRepertoire.id}/edit`, { state: { from: location.pathname + location.search } });
+  }, [game, navigate, location]);
 
   // Handle creating a new repertoire and adding the current moves to it
   const handleCreateAndAdd = useCallback((repertoireId: string) => {
@@ -190,8 +191,8 @@ export function GameAnalysisPage() {
     };
     sessionStorage.setItem('pendingAddNode', JSON.stringify(context));
 
-    navigate(`/repertoire/${repertoireId}/edit`);
-  }, [game, currentMoveIndex, navigate]);
+    navigate(`/repertoire/${repertoireId}/edit`, { state: { from: location.pathname + location.search } });
+  }, [game, currentMoveIndex, navigate, location]);
 
   // Refresh repertoire data after import - reanalyze with new repertoires available
   const handleImportSuccess = useCallback(() => {
@@ -233,7 +234,7 @@ export function GameAnalysisPage() {
       className="max-w-[1400px] mx-auto min-h-full flex flex-col"
     >
       <motion.div variants={fadeUp} custom={0} className="flex items-center gap-4 mb-6 pb-4 border-b border-primary/10 flex-wrap">
-        <Button variant="ghost" size="sm" onClick={() => navigate('/games')}>
+        <Button variant="ghost" size="sm" onClick={() => navigate(location.state?.from || '/games')}>
           &larr; Back
         </Button>
         <span className="text-xl font-semibold font-display">Game {gameIdx + 1}: {opponent}</span>

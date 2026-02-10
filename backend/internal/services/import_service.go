@@ -22,6 +22,7 @@ type ImportService struct {
 	fingerprintRepo      repository.GameFingerprintRepository
 	engineService        *EngineService
 	dismissedMistakeRepo repository.DismissedMistakeRepository
+	dismissedGapRepo     repository.DismissedGapRepository
 }
 
 // NewImportService creates a new import service with the given dependencies
@@ -57,6 +58,13 @@ func WithEngineService(svc *EngineService) ImportServiceOption {
 func WithDismissedMistakeRepo(repo repository.DismissedMistakeRepository) ImportServiceOption {
 	return func(s *ImportService) {
 		s.dismissedMistakeRepo = repo
+	}
+}
+
+// WithDismissedGapRepo sets the dismissed gap repository on the ImportService
+func WithDismissedGapRepo(repo repository.DismissedGapRepository) ImportServiceOption {
+	return func(s *ImportService) {
+		s.dismissedGapRepo = repo
 	}
 }
 
@@ -843,6 +851,14 @@ func (s *ImportService) DismissMistake(userID, fen, playedMove string) error {
 	return s.dismissedMistakeRepo.Dismiss(userID, fen, playedMove)
 }
 
+// DismissGap marks an opponent gap as dismissed for a user
+func (s *ImportService) DismissGap(userID, fen, opponentMove, repertoireID string) error {
+	if s.dismissedGapRepo == nil {
+		return fmt.Errorf("dismissed gap repository not configured")
+	}
+	return s.dismissedGapRepo.Dismiss(userID, fen, opponentMove, repertoireID)
+}
+
 // collectRepertoireMoves extracts all parent FEN + child move combinations from a repertoire tree
 // The key format is "parentFEN|childMove" to identify moves that exist in the repertoire
 func collectRepertoireMoves(node *models.RepertoireNode, moves map[string]bool) {
@@ -1388,10 +1404,25 @@ func (s *ImportService) GetDashboardStats(userID string) (*models.DashboardStats
 	}
 
 	// --- Build opponent gaps sorted by frequency desc, top 10 ---
+	// Fetch dismissed gaps to filter them out
+	var dismissedGaps map[string]bool
+	if s.dismissedGapRepo != nil {
+		var err error
+		dismissedGaps, err = s.dismissedGapRepo.GetDismissed(userID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get dismissed gaps: %w", err)
+		}
+	}
+
 	// Only include gaps that appeared in at least 2 games
 	for _, acc := range gapMap {
 		total := acc.wins + acc.losses + acc.draws
 		if total < 2 {
+			continue
+		}
+		// Skip dismissed gaps
+		gapDismissKey := acc.fen + "|" + acc.opponentMove + "|" + acc.repertoireID
+		if dismissedGaps[gapDismissKey] {
 			continue
 		}
 		gap := models.OpponentGap{

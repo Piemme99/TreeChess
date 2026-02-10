@@ -14,6 +14,7 @@ interface EngineAPI {
 
 export function useEngine() {
   const isInitializedRef = useRef(false);
+  const latestFenRef = useRef<string>('');
   const {
     isAnalyzing,
     currentEvaluation,
@@ -36,7 +37,11 @@ export function useEngine() {
         setError(err);
       },
       onReady: () => {
-        // engine ready
+        // Worker just became ready — replay the latest analysis request
+        // that may have been silently dropped before init completed
+        if (latestFenRef.current) {
+          stockfishService.analyzePosition(latestFenRef.current, 16);
+        }
       }
     });
 
@@ -51,6 +56,7 @@ export function useEngine() {
 
   const analyze = useCallback((fen: string) => {
     if (!fen) return;
+    latestFenRef.current = fen;
     setAnalyzing(true, fen);
     stockfishService.analyzePosition(fen, 16);
   }, [setAnalyzing]);

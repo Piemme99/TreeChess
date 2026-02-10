@@ -218,6 +218,16 @@ func (db *DB) runMigrations() error {
 		`CREATE INDEX IF NOT EXISTS idx_repertoires_category ON repertoires(category_id)`,
 		// Track when password was last changed for JWT invalidation
 		`ALTER TABLE users ADD COLUMN IF NOT EXISTS password_changed_at TIMESTAMP WITH TIME ZONE`,
+		// Dismissed opponent gaps
+		`CREATE TABLE IF NOT EXISTS dismissed_gaps (
+			user_id UUID NOT NULL REFERENCES users(id),
+			fen TEXT NOT NULL,
+			opponent_move VARCHAR(10) NOT NULL,
+			repertoire_id UUID NOT NULL,
+			dismissed_at TIMESTAMPTZ DEFAULT NOW(),
+			PRIMARY KEY (user_id, fen, opponent_move, repertoire_id)
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_dismissed_gaps_user ON dismissed_gaps(user_id)`,
 	}
 	for _, m := range migrations {
 		if _, err := conn.Exec(ctx, m); err != nil {

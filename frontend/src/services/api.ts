@@ -405,4 +405,7 @@ export const dashboardApi = {
     const response = await api.get('/dashboard/stats', { signal: options?.signal });
     return response.data;
   },
+  dismissGap: async (fen: string, opponentMove: string, repertoireId: string): Promise<void> => {
+    await api.post('/dashboard/gaps/dismiss', { fen, opponentMove, repertoireId });
+  },
 };

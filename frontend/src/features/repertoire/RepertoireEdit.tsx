@@ -1,5 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Chess } from 'chess.js';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { ensureFullFEN } from '../../shared/utils/chess';
 import { Button, Loading } from '../../shared/components/UI';
 import { RepertoireTree } from './shared/components/RepertoireTree';
 import { MoveHistory } from './shared/components/MoveHistory';
@@ -32,6 +34,7 @@ export function RepertoireEdit() {
   usePageTitle('Edit Repertoire');
   // All hooks must be called first, before any conditions
   const navigate = useNavigate();
+  const location = useLocation();
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [extractConfirmOpen, setExtractConfirmOpen] = useState(false);
   const [treeExpanded, setTreeExpanded] = useState(false);
@@ -82,6 +85,35 @@ export function RepertoireEdit() {
     engine.analyze(currentFEN);
   }, [currentFEN, engine]);
   const isRootNode = selectedNode?.id === repertoire?.treeData?.id;
+
+  // Read pending move arrow from sessionStorage synchronously at mount.
+  // This avoids timing issues with effects and React batching.
+  const pendingArrowFenRef = useRef<string | null>(null);
+  const [pendingMoveArrow, setPendingMoveArrow] = useState<[string, string, string][]>(() => {
+    const raw = sessionStorage.getItem('pendingAddNode');
+    if (!raw) return [];
+    try {
+      const data = JSON.parse(raw);
+      if ('moves' in data) return [];
+      const chess = new Chess(ensureFullFEN(data.parentFEN));
+      const move = chess.move(data.moveSAN);
+      if (!move) return [];
+      pendingArrowFenRef.current = data.parentFEN.split(' ')[0];
+      return [[move.from, move.to, 'rgba(220, 53, 69, 0.8)']];
+    } catch {
+      return [];
+    }
+  });
+
+  // Clear the pending arrow once the board moves away from the parent position
+  useEffect(() => {
+    if (!pendingArrowFenRef.current || pendingMoveArrow.length === 0) return;
+    const currentBoard = currentFEN.split(' ')[0];
+    if (currentBoard !== pendingArrowFenRef.current && currentBoard !== STARTING_FEN.split(' ')[0]) {
+      pendingArrowFenRef.current = null;
+      setPendingMoveArrow([]);
+    }
+  }, [currentFEN, pendingMoveArrow.length]);
 
   usePendingAddNode(repertoire, id, selectNode, setRepertoire);
   useTreeNavigation(repertoire?.treeData, selectedNodeId, selectNode);
@@ -239,7 +271,7 @@ export function RepertoireEdit() {
   return (
     <div className="h-full flex flex-col overflow-hidden">
       <div className="py-1 px-4">
-        <Button variant="ghost" size="sm" onClick={() => navigate('/repertoires')}>
+        <Button variant="ghost" size="sm" onClick={() => navigate(location.state?.from || '/repertoires')}>
           &larr; Back
         </Button>
       </div>
@@ -254,6 +286,7 @@ export function RepertoireEdit() {
             setPossibleMoves={setPossibleMoves}
             onMove={handleBoardMove}
             engineEvaluation={engine.currentEvaluation}
+            pendingMoveArrow={pendingMoveArrow}
           />
         </div>
 

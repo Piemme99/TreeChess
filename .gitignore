@@ -40,3 +40,6 @@ tmp/
 # Generated files
 *.generated.*
 games.pgn
+
+# Lighthouse reports
+lighthouse-report*

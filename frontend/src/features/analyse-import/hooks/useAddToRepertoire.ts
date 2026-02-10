@@ -1,11 +1,12 @@
 import { useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from '../../../stores/toastStore';
 import { computeParentFEN } from '../utils/fenUtils';
 import type { GameAnalysis, MoveAnalysis } from '../../../types';
 
 export function useAddToRepertoire() {
   const navigate = useNavigate();
+  const location = useLocation();
 
   const handleAddToRepertoire = useCallback((move: MoveAnalysis, game: GameAnalysis) => {
     if (!game.userColor) return;
@@ -26,8 +27,8 @@ export function useAddToRepertoire() {
     };
     sessionStorage.setItem('pendingAddNode', JSON.stringify(context));
 
-    navigate(`/repertoire/${game.matchedRepertoire.id}/edit`);
-  }, [navigate]);
+    navigate(`/repertoire/${game.matchedRepertoire.id}/edit`, { state: { from: location.pathname } });
+  }, [navigate, location]);
 
   return { handleAddToRepertoire };
 }

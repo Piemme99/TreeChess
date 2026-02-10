@@ -16,6 +16,14 @@ export function createPositionFromFEN(fen: string): Chess | null {
   }
 }
 
+/** Ensures a FEN has all 6 parts (appends "0 1" if only 4 parts). */
+export function ensureFullFEN(fen: string): string {
+  const parts = fen.split(' ');
+  if (parts.length >= 6) return fen;
+  if (parts.length >= 4) return fen + ' 0 1';
+  return fen;
+}
+
 export function getShortFEN(fullFEN: string): string {
   const parts = fullFEN.split(' ');
   if (parts.length >= 4) {

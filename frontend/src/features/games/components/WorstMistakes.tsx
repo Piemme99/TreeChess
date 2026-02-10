@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { OpeningMistake } from '../../../types';
 
@@ -35,6 +35,7 @@ interface MistakeCardProps {
 function MistakeCard({ mistake, onDismiss }: MistakeCardProps) {
   const [expanded, setExpanded] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const dropPct = (mistake.winrateDrop * 100).toFixed(1);
 
   return (
@@ -96,7 +97,7 @@ function MistakeCard({ mistake, onDismiss }: MistakeCardProps) {
                     <button
                       key={`${ref.analysisId}-${ref.gameIndex}`}
                       className="w-full text-left text-sm px-3 py-1.5 rounded bg-bg hover:bg-border transition-colors cursor-pointer border-none"
-                      onClick={() => navigate(`/analyse/${ref.analysisId}/game/${ref.gameIndex}?ply=${ref.plyNumber}`)}
+                      onClick={() => navigate(`/analyse/${ref.analysisId}/game/${ref.gameIndex}?ply=${ref.plyNumber}`, { state: { from: location.pathname } })}
                     >
                       <span className="text-text">{ref.white} vs {ref.black}</span>
                       <span className="text-text-muted ml-2">{ref.result}</span>

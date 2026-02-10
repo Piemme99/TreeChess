@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '../../../shared/components/UI';
 import { getFirstActionableMove } from '../utils/gameAnalysisUtils';
 import type { GameAnalysis, MoveAnalysis } from '../../../types';
@@ -14,6 +14,7 @@ export interface GameSectionProps {
 export function GameSection({ game, gameNumber, importId, onAddToRepertoire }: GameSectionProps) {
   const [expanded, setExpanded] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
 
   const firstActionable = getFirstActionableMove(game);
   const hasIssues = firstActionable !== null;
@@ -54,7 +55,7 @@ export function GameSection({ game, gameNumber, importId, onAddToRepertoire }: G
           className="ml-auto mr-2"
           onClick={(e) => {
             e.stopPropagation();
-            navigate(`/analyse/${importId}/game/${gameNumber - 1}`);
+            navigate(`/analyse/${importId}/game/${gameNumber - 1}`, { state: { from: location.pathname } });
           }}
         >
           Analyze

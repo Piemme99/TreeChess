@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
@@ -69,6 +69,7 @@ export function CategorySection({
   loading
 }: CategorySectionProps) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { renameCategory, deleteCategory } = useRepertoireStore();
   const [isEditingCategory, setIsEditingCategory] = useState(false);
   const [categoryName, setCategoryName] = useState(category.name);
@@ -269,7 +270,7 @@ export function CategorySection({
                               <Button
                                 variant="primary"
                                 size="sm"
-                                onClick={() => navigate(`/repertoire/${rep.id}/edit`)}
+                                onClick={() => navigate(`/repertoire/${rep.id}/edit`, { state: { from: location.pathname } })}
                               >
                                 Open
                               </Button>
