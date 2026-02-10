@@ -213,6 +213,9 @@ export function ProfilePage() {
                 placeholder="Lichess username"
                 disabled={isLichessOAuth}
                 maxLength={50}
+                autoComplete="off"
+                data-form-type="other"
+                data-lpignore="true"
                 className="py-2 px-4 border border-border rounded-xl text-[0.9375rem] font-sans focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary-light disabled:opacity-60 disabled:cursor-not-allowed"
               />
               {isLichessOAuth && (
@@ -230,6 +233,9 @@ export function ProfilePage() {
                 onChange={(e) => setChesscomUsername(e.target.value)}
                 placeholder="Chess.com username"
                 maxLength={50}
+                autoComplete="off"
+                data-form-type="other"
+                data-lpignore="true"
                 className="py-2 px-4 border border-border rounded-xl text-[0.9375rem] font-sans focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary-light"
               />
             </div>
@@ -393,6 +399,8 @@ export function ProfilePage() {
                 onChange={(e) => setDeleteConfirmation(e.target.value)}
                 placeholder={isOAuthOnly ? 'Type your username' : 'Enter your password'}
                 autoComplete={isOAuthOnly ? 'off' : 'current-password'}
+                data-form-type="other"
+                data-lpignore="true"
                 className="w-full py-2 px-4 border border-border rounded-xl text-[0.9375rem] font-sans focus:outline-none focus:border-danger focus:ring-3 focus:ring-danger/20 mb-4"
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && deleteConfirmationValid) {
