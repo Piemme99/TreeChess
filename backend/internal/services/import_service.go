@@ -1074,6 +1074,51 @@ func gameStatusFromGame(game models.GameAnalysis) string {
 	return "in-repertoire"
 }
 
+// findBranchForGame follows the game's moves through the repertoire tree and returns
+// the BranchName of the deepest named ancestor node along the game's path.
+// It replays the game path through the tree until the game deviates or the tree ends.
+func findBranchForGame(root *models.RepertoireNode, moves []models.MoveAnalysis) string {
+	branchName := ""
+	currentNode := root
+
+	// Check root node
+	if currentNode.BranchName != nil && *currentNode.BranchName != "" {
+		branchName = *currentNode.BranchName
+	}
+
+	for _, move := range moves {
+		if move.Status != "in-repertoire" {
+			break
+		}
+
+		// Find the child node matching this move
+		var nextNode *models.RepertoireNode
+		for _, child := range currentNode.Children {
+			if child != nil && child.Move != nil && *child.Move == move.SAN {
+				nextNode = child
+				break
+			}
+		}
+
+		if nextNode == nil {
+			break
+		}
+
+		// Check if this node has a branch name
+		if nextNode.BranchName != nil && *nextNode.BranchName != "" {
+			branchName = *nextNode.BranchName
+		}
+
+		// The next move in the game will be played from nextNode's position,
+		// so we need to find the child matching the FEN of the next move.
+		// But since we match by SAN against children, we just continue
+		// from the node we found.
+		currentNode = nextNode
+	}
+
+	return branchName
+}
+
 // GetDashboardStats computes aggregate and per-repertoire stats for the dashboard.
 func (s *ImportService) GetDashboardStats(userID string) (*models.DashboardStatsResponse, error) {
 	analyses, err := s.analysisRepo.GetAllGamesRaw(userID)
@@ -1082,21 +1127,55 @@ func (s *ImportService) GetDashboardStats(userID string) (*models.DashboardStats
 	}
 
 	resp := &models.DashboardStatsResponse{
-		Repertoires: []models.RepertoireStats{},
+		Repertoires:  []models.RepertoireStats{},
+		OpponentGaps: []models.OpponentGap{},
+		BranchStats:  []models.BranchStats{},
 	}
 
 	// Per-repertoire accumulators
 	type repAccum struct {
-		name       string
-		color      models.Color
-		gameCount  int
-		wins       int
-		inRepCount int
-		inRepWins  int
+		name        string
+		color       models.Color
+		gameCount   int
+		wins        int
+		inRepCount  int
+		inRepWins   int
 		outRepCount int
 		outRepWins  int
 	}
 	repMap := make(map[string]*repAccum)
+
+	// Opponent gap accumulator: keyed by "FEN|SAN|repertoireID"
+	type gapAccum struct {
+		fen            string
+		opponentMove   string
+		repertoireID   string
+		repertoireName string
+		color          models.Color
+		moveNumber     int
+		contextMove    string // last in-rep move before the gap
+		wins           int
+		losses         int
+		draws          int
+	}
+	gapMap := make(map[string]*gapAccum)
+
+	// Branch stats accumulator: keyed by "branchName|repertoireID"
+	type branchAccum struct {
+		branchName     string
+		repertoireID   string
+		repertoireName string
+		color          models.Color
+		gameCount      int
+		wins           int
+		losses         int
+		draws          int
+		errorCount     int
+	}
+	branchMap := make(map[string]*branchAccum)
+
+	// Cache loaded repertoire trees for branch lookups
+	repTreeCache := make(map[string]*models.RepertoireNode)
 
 	for _, a := range analyses {
 		for _, game := range a.Results {
@@ -1117,15 +1196,21 @@ func (s *ImportService) GetDashboardStats(userID string) (*models.DashboardStats
 
 			if inRep {
 				resp.InRepCount++
-				if outcome == "win" {
-					// counted below per-repertoire too
-				}
 			} else {
 				resp.OutRepCount++
 			}
 
+			// Track matched games for opening error rate
+			hasMatchedRep := game.MatchedRepertoire != nil
+			if hasMatchedRep {
+				resp.MatchedGamesCount++
+				if status == "error" {
+					resp.OpeningErrorCount++
+				}
+			}
+
 			// Per-repertoire tracking
-			if game.MatchedRepertoire != nil {
+			if hasMatchedRep {
 				repID := game.MatchedRepertoire.ID
 				acc, ok := repMap[repID]
 				if !ok {
@@ -1151,10 +1236,95 @@ func (s *ImportService) GetDashboardStats(userID string) (*models.DashboardStats
 					}
 				}
 			}
+
+			// --- Opponent Gaps: find the first opponent-new move in each game ---
+			if hasMatchedRep {
+				lastInRepMove := ""
+				for _, move := range game.Moves {
+					if move.Status == "in-repertoire" {
+						lastInRepMove = move.SAN
+					}
+					if move.Status == "opponent-new" {
+						gapKey := move.FEN + "|" + move.SAN + "|" + game.MatchedRepertoire.ID
+						acc, ok := gapMap[gapKey]
+						if !ok {
+							moveNum := (move.PlyNumber / 2) + 1
+							acc = &gapAccum{
+								fen:            move.FEN,
+								opponentMove:   move.SAN,
+								repertoireID:   game.MatchedRepertoire.ID,
+								repertoireName: game.MatchedRepertoire.Name,
+								color:          game.UserColor,
+								moveNumber:     moveNum,
+								contextMove:    lastInRepMove,
+							}
+							gapMap[gapKey] = acc
+						}
+						switch outcome {
+						case "win":
+							acc.wins++
+						case "loss":
+							acc.losses++
+						case "draw":
+							acc.draws++
+						}
+						break // Only count the first opponent-new per game
+					}
+					if move.Status == "out-of-repertoire" {
+						break // User deviated first, no opponent gap for this game
+					}
+				}
+			}
+
+			// --- Branch Stats: determine which named branch this game fell into ---
+			if hasMatchedRep {
+				repID := game.MatchedRepertoire.ID
+
+				// Lazy-load repertoire tree
+				if _, cached := repTreeCache[repID]; !cached {
+					rep, err := s.repertoireService.GetRepertoire(repID)
+					if err != nil {
+						// Repertoire may have been deleted; skip branch stats
+						repTreeCache[repID] = nil
+					} else {
+						repTreeCache[repID] = &rep.TreeData
+					}
+				}
+
+				repTree := repTreeCache[repID]
+				if repTree != nil {
+					branchName := findBranchForGame(repTree, game.Moves)
+					if branchName != "" {
+						branchKey := branchName + "|" + repID
+						bacc, ok := branchMap[branchKey]
+						if !ok {
+							bacc = &branchAccum{
+								branchName:     branchName,
+								repertoireID:   repID,
+								repertoireName: game.MatchedRepertoire.Name,
+								color:          game.UserColor,
+							}
+							branchMap[branchKey] = bacc
+						}
+						bacc.gameCount++
+						switch outcome {
+						case "win":
+							bacc.wins++
+						case "loss":
+							bacc.losses++
+						case "draw":
+							bacc.draws++
+						}
+						if status == "error" {
+							bacc.errorCount++
+						}
+					}
+				}
+			}
 		}
 	}
 
-	// Aggregate win rates
+	// --- Compute aggregate rates ---
 	if resp.TotalGames > 0 {
 		resp.OverallWinRate = float64(resp.Wins) / float64(resp.TotalGames)
 	}
@@ -1162,7 +1332,6 @@ func (s *ImportService) GetDashboardStats(userID string) (*models.DashboardStats
 		resp.OverallCoverage = float64(resp.InRepCount) / float64(resp.InRepCount+resp.OutRepCount)
 	}
 	if resp.InRepCount > 0 {
-		// Count in-rep wins across all games
 		inRepWins := 0
 		for _, a := range analyses {
 			for _, game := range a.Results {
@@ -1185,7 +1354,12 @@ func (s *ImportService) GetDashboardStats(userID string) (*models.DashboardStats
 		resp.WinRateOutRep = float64(outRepWins) / float64(resp.OutRepCount)
 	}
 
-	// Build per-repertoire stats sorted by gameCount desc
+	// Opening error rate
+	if resp.MatchedGamesCount > 0 {
+		resp.OpeningErrorRate = float64(resp.OpeningErrorCount) / float64(resp.MatchedGamesCount)
+	}
+
+	// --- Build per-repertoire stats sorted by gameCount desc ---
 	for repID, acc := range repMap {
 		rs := models.RepertoireStats{
 			RepertoireID:   repID,
@@ -1207,11 +1381,70 @@ func (s *ImportService) GetDashboardStats(userID string) (*models.DashboardStats
 		}
 		resp.Repertoires = append(resp.Repertoires, rs)
 	}
-
-	// Sort by gameCount desc
 	for i := 1; i < len(resp.Repertoires); i++ {
 		for j := i; j > 0 && resp.Repertoires[j].GameCount > resp.Repertoires[j-1].GameCount; j-- {
 			resp.Repertoires[j], resp.Repertoires[j-1] = resp.Repertoires[j-1], resp.Repertoires[j]
+		}
+	}
+
+	// --- Build opponent gaps sorted by frequency desc, top 10 ---
+	// Only include gaps that appeared in at least 2 games
+	for _, acc := range gapMap {
+		total := acc.wins + acc.losses + acc.draws
+		if total < 2 {
+			continue
+		}
+		gap := models.OpponentGap{
+			FEN:            acc.fen,
+			OpponentMove:   acc.opponentMove,
+			Frequency:      total,
+			Wins:           acc.wins,
+			Losses:         acc.losses,
+			Draws:          acc.draws,
+			RepertoireID:   acc.repertoireID,
+			RepertoireName: acc.repertoireName,
+			Color:          acc.color,
+			MoveNumber:     acc.moveNumber,
+			ContextMove:    acc.contextMove,
+		}
+		if total > 0 {
+			gap.WinRate = float64(acc.wins) / float64(total)
+		}
+		resp.OpponentGaps = append(resp.OpponentGaps, gap)
+	}
+	// Sort by frequency desc
+	for i := 1; i < len(resp.OpponentGaps); i++ {
+		for j := i; j > 0 && resp.OpponentGaps[j].Frequency > resp.OpponentGaps[j-1].Frequency; j-- {
+			resp.OpponentGaps[j], resp.OpponentGaps[j-1] = resp.OpponentGaps[j-1], resp.OpponentGaps[j]
+		}
+	}
+	// Keep top 10
+	if len(resp.OpponentGaps) > 10 {
+		resp.OpponentGaps = resp.OpponentGaps[:10]
+	}
+
+	// --- Build branch stats sorted by gameCount desc ---
+	for _, acc := range branchMap {
+		bs := models.BranchStats{
+			BranchName:     acc.branchName,
+			RepertoireID:   acc.repertoireID,
+			RepertoireName: acc.repertoireName,
+			Color:          acc.color,
+			GameCount:      acc.gameCount,
+			Wins:           acc.wins,
+			Losses:         acc.losses,
+			Draws:          acc.draws,
+			ErrorCount:     acc.errorCount,
+		}
+		if acc.gameCount > 0 {
+			bs.WinRate = float64(acc.wins) / float64(acc.gameCount)
+			bs.ErrorRate = float64(acc.errorCount) / float64(acc.gameCount)
+		}
+		resp.BranchStats = append(resp.BranchStats, bs)
+	}
+	for i := 1; i < len(resp.BranchStats); i++ {
+		for j := i; j > 0 && resp.BranchStats[j].GameCount > resp.BranchStats[j-1].GameCount; j-- {
+			resp.BranchStats[j], resp.BranchStats[j-1] = resp.BranchStats[j-1], resp.BranchStats[j]
 		}
 	}
 

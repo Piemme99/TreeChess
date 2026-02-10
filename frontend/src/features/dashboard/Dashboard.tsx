@@ -8,7 +8,8 @@ import { EmptyRepertoireState } from './components/EmptyRepertoireState';
 import { RepertoireOverview } from './components/RepertoireOverview';
 import { RecentGames } from './components/RecentGames';
 import { StatsSummary } from './components/StatsSummary';
-import { RepertoireHealth } from './components/RepertoireHealth';
+import { OpponentGaps } from './components/OpponentGaps';
+import { BranchPerformance } from './components/BranchPerformance';
 import { WeakSpots } from './components/WeakSpots';
 import { useDashboardStats } from './hooks/useDashboardStats';
 import { useInsights } from '../games/hooks/useInsights';
@@ -94,22 +95,29 @@ export function Dashboard() {
         <RepertoireOverview repertoires={repertoires} />
       </motion.div>
 
-      {/* Repertoire health */}
-      {hasAnalyzedGames && stats.repertoires.length > 0 && (
+      {/* Opponent gaps (replaces Repertoire Health) */}
+      {hasAnalyzedGames && stats.opponentGaps && stats.opponentGaps.length > 0 && (
         <motion.div variants={fadeUp} custom={3}>
-          <RepertoireHealth repertoires={stats.repertoires} />
+          <OpponentGaps gaps={stats.opponentGaps} />
+        </motion.div>
+      )}
+
+      {/* Branch performance */}
+      {hasAnalyzedGames && stats.branchStats && stats.branchStats.length > 0 && (
+        <motion.div variants={fadeUp} custom={4}>
+          <BranchPerformance branches={stats.branchStats} />
         </motion.div>
       )}
 
       {/* Weak spots */}
       {hasAnalyzedGames && insights && (
-        <motion.div variants={fadeUp} custom={4}>
+        <motion.div variants={fadeUp} custom={5}>
           <WeakSpots insights={insights} />
         </motion.div>
       )}
 
       {/* Recent games table */}
-      <motion.div variants={fadeUp} custom={hasAnalyzedGames ? 5 : 2}>
+      <motion.div variants={fadeUp} custom={hasAnalyzedGames ? 6 : 2}>
         <RecentGames games={games} loading={gamesLoading} />
       </motion.div>
     </motion.div>

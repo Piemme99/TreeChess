@@ -118,7 +118,6 @@ func main() {
 
 	// Public routes (no auth required)
 	e.GET("/api/health", handlers.HealthHandler(db.Pool))
-	e.GET("/metrics", echoprometheus.NewHandler())
 
 	// Stricter rate limit for auth endpoints: 10 requests/minute per IP
 	authGroup := e.Group("")
@@ -217,9 +216,23 @@ func main() {
 	protected.POST("/api/games/:analysisId/:gameIndex/reanalyze", importHandler.ReanalyzeGameHandler)
 	protected.POST("/api/games/:analysisId/:gameIndex/view", importHandler.MarkGameViewedHandler)
 
+	// Internal metrics server (separate port, not publicly exposed)
+	metrics := echo.New()
+	metrics.HideBanner = true
+	metrics.GET("/metrics", echoprometheus.NewHandler())
+
 	// Start opening analysis worker
 	workerCtx, workerCancel := context.WithCancel(context.Background())
 	go engineSvc.RunWorker(workerCtx)
+
+	// Start metrics server in a goroutine
+	go func() {
+		metricsAddr := fmt.Sprintf(":%d", cfg.MetricsPort)
+		slog.Info("starting metrics server", "addr", metricsAddr)
+		if err := metrics.Start(metricsAddr); err != nil && err != http.ErrServerClosed {
+			slog.Error("metrics server error", "error", err)
+		}
+	}()
 
 	// Start server in a goroutine
 	go func() {
@@ -243,6 +256,9 @@ func main() {
 	// Graceful shutdown with 10s timeout
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutdownCancel()
+	if err := metrics.Shutdown(shutdownCtx); err != nil {
+		slog.Error("metrics server forced to shutdown", "error", err)
+	}
 	if err := e.Shutdown(shutdownCtx); err != nil {
 		slog.Error("server forced to shutdown", "error", err)
 	}

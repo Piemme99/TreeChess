@@ -272,6 +272,35 @@ export interface RepertoireStats {
   outRepCount: number;
 }
 
+export interface OpponentGap {
+  fen: string;
+  opponentMove: string;
+  frequency: number;
+  winRate: number;
+  wins: number;
+  losses: number;
+  draws: number;
+  repertoireId: string;
+  repertoireName: string;
+  color: Color;
+  moveNumber: number;
+  contextMove: string;
+}
+
+export interface BranchStats {
+  branchName: string;
+  repertoireId: string;
+  repertoireName: string;
+  color: Color;
+  gameCount: number;
+  winRate: number;
+  wins: number;
+  losses: number;
+  draws: number;
+  errorRate: number;
+  errorCount: number;
+}
+
 export interface DashboardStatsResponse {
   totalGames: number;
   wins: number;
@@ -284,6 +313,11 @@ export interface DashboardStatsResponse {
   inRepCount: number;
   outRepCount: number;
   repertoires: RepertoireStats[];
+  openingErrorRate: number;
+  openingErrorCount: number;
+  matchedGamesCount: number;
+  opponentGaps: OpponentGap[];
+  branchStats: BranchStats[];
 }
 
 // API types

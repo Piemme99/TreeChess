@@ -28,6 +28,7 @@ type Config struct {
 	SMTPPassword             string
 	SMTPFromAddress          string
 	PasswordResetExpiryHours int
+	MetricsPort              int
 }
 
 // MustLoad loads configuration from environment variables
@@ -109,6 +110,15 @@ func MustLoad() Config {
 	smtpPassword := os.Getenv("SMTP_PASSWORD")
 	smtpFromAddress := os.Getenv("SMTP_FROM_ADDRESS")
 
+	metricsPort := 9090
+	if metricsPortStr := os.Getenv("METRICS_PORT"); metricsPortStr != "" {
+		p, err := strconv.Atoi(metricsPortStr)
+		if err != nil {
+			panic(fmt.Sprintf("Invalid METRICS_PORT value: %s", metricsPortStr))
+		}
+		metricsPort = p
+	}
+
 	passwordResetExpiryHours := 1
 	if expiryStr := os.Getenv("PASSWORD_RESET_EXPIRY_HOURS"); expiryStr != "" {
 		hours, err := strconv.Atoi(expiryStr)
@@ -135,5 +145,6 @@ func MustLoad() Config {
 		SMTPPassword:             smtpPassword,
 		SMTPFromAddress:          smtpFromAddress,
 		PasswordResetExpiryHours: passwordResetExpiryHours,
+		MetricsPort:              metricsPort,
 	}
 }

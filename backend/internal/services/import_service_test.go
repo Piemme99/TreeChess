@@ -1697,3 +1697,315 @@ func TestFindBestMatchingRepertoireFromStored_Empty(t *testing.T) {
 	assert.Nil(t, best)
 	assert.Equal(t, 0, score)
 }
+
+// --- GetDashboardStats tests ---
+
+func TestGetDashboardStats_OpeningErrorRate(t *testing.T) {
+	repRef := &models.RepertoireRef{ID: "rep-1", Name: "My White"}
+
+	analyses := []models.RawAnalysis{
+		makeRawAnalysis("a1", "games.pgn", time.Now(), []models.GameAnalysis{
+			// Game 1: in-repertoire (win)
+			makeGameAnalysis(0, models.PGNHeaders{"Result": "1-0"}, []models.MoveAnalysis{
+				{PlyNumber: 0, SAN: "e4", Status: "in-repertoire", IsUserMove: true},
+				{PlyNumber: 1, SAN: "e5", Status: "in-repertoire", IsUserMove: false},
+				{PlyNumber: 2, SAN: "Nf3", Status: "out-of-book", IsUserMove: true},
+			}, models.ColorWhite, repRef),
+			// Game 2: error - user deviated (loss)
+			makeGameAnalysis(1, models.PGNHeaders{"Result": "0-1"}, []models.MoveAnalysis{
+				{PlyNumber: 0, SAN: "d4", Status: "out-of-repertoire", IsUserMove: true, ExpectedMove: "e4"},
+				{PlyNumber: 1, SAN: "d5", Status: "out-of-book", IsUserMove: false},
+			}, models.ColorWhite, repRef),
+			// Game 3: new-line - opponent novelty (draw)
+			makeGameAnalysis(2, models.PGNHeaders{"Result": "1/2-1/2"}, []models.MoveAnalysis{
+				{PlyNumber: 0, SAN: "e4", Status: "in-repertoire", IsUserMove: true},
+				{PlyNumber: 1, SAN: "c5", Status: "opponent-new", IsUserMove: false},
+				{PlyNumber: 2, SAN: "Nf3", Status: "out-of-book", IsUserMove: true},
+			}, models.ColorWhite, repRef),
+			// Game 4: no matched repertoire
+			makeGameAnalysis(3, models.PGNHeaders{"Result": "1-0"}, []models.MoveAnalysis{
+				{PlyNumber: 0, SAN: "d4", Status: "out-of-book", IsUserMove: true},
+			}, models.ColorWhite, nil),
+		}),
+	}
+
+	mockAnalysisRepo := &mocks.MockAnalysisRepo{
+		GetAllGamesRawFunc: func(userID string) ([]models.RawAnalysis, error) {
+			return analyses, nil
+		},
+	}
+
+	mockRepRepo := &mocks.MockRepertoireRepo{
+		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+			return &models.Repertoire{
+				ID: "rep-1", Name: "My White", Color: models.ColorWhite,
+				TreeData: models.RepertoireNode{FEN: "start"},
+			}, nil
+		},
+	}
+
+	repSvc := NewRepertoireService(mockRepRepo)
+	svc := NewImportService(repSvc, mockAnalysisRepo)
+
+	stats, err := svc.GetDashboardStats("user-1")
+	require.NoError(t, err)
+
+	// 4 total games
+	assert.Equal(t, 4, stats.TotalGames)
+	assert.Equal(t, 2, stats.Wins)   // game 0 + game 3
+	assert.Equal(t, 1, stats.Losses) // game 1
+	assert.Equal(t, 1, stats.Draws)  // game 2
+
+	// 3 matched games (games 0, 1, 2 have repRef; game 3 does not)
+	assert.Equal(t, 3, stats.MatchedGamesCount)
+	// 1 error (game 1)
+	assert.Equal(t, 1, stats.OpeningErrorCount)
+	// Error rate: 1/3
+	assert.InDelta(t, 1.0/3.0, stats.OpeningErrorRate, 0.001)
+}
+
+func TestGetDashboardStats_OpponentGaps(t *testing.T) {
+	repRef := &models.RepertoireRef{ID: "rep-1", Name: "My White"}
+
+	analyses := []models.RawAnalysis{
+		makeRawAnalysis("a1", "games.pgn", time.Now(), []models.GameAnalysis{
+			// Game 1: opponent plays c5 (new line), user wins
+			makeGameAnalysis(0, models.PGNHeaders{"Result": "1-0"}, []models.MoveAnalysis{
+				{PlyNumber: 0, SAN: "e4", FEN: "fen-start", Status: "in-repertoire", IsUserMove: true},
+				{PlyNumber: 1, SAN: "c5", FEN: "fen-after-e4", Status: "opponent-new", IsUserMove: false},
+			}, models.ColorWhite, repRef),
+			// Game 2: opponent plays c5 again (same gap), user loses
+			makeGameAnalysis(1, models.PGNHeaders{"Result": "0-1"}, []models.MoveAnalysis{
+				{PlyNumber: 0, SAN: "e4", FEN: "fen-start", Status: "in-repertoire", IsUserMove: true},
+				{PlyNumber: 1, SAN: "c5", FEN: "fen-after-e4", Status: "opponent-new", IsUserMove: false},
+			}, models.ColorWhite, repRef),
+			// Game 3: opponent plays d5 (different gap), draw
+			makeGameAnalysis(2, models.PGNHeaders{"Result": "1/2-1/2"}, []models.MoveAnalysis{
+				{PlyNumber: 0, SAN: "e4", FEN: "fen-start", Status: "in-repertoire", IsUserMove: true},
+				{PlyNumber: 1, SAN: "d5", FEN: "fen-after-e4", Status: "opponent-new", IsUserMove: false},
+			}, models.ColorWhite, repRef),
+			// Game 4: user deviated first, then opponent new — should not count as gap
+			makeGameAnalysis(3, models.PGNHeaders{"Result": "1-0"}, []models.MoveAnalysis{
+				{PlyNumber: 0, SAN: "d4", FEN: "fen-start", Status: "out-of-repertoire", IsUserMove: true},
+				{PlyNumber: 1, SAN: "d5", FEN: "fen-after-d4", Status: "opponent-new", IsUserMove: false},
+			}, models.ColorWhite, repRef),
+		}),
+	}
+
+	mockAnalysisRepo := &mocks.MockAnalysisRepo{
+		GetAllGamesRawFunc: func(userID string) ([]models.RawAnalysis, error) {
+			return analyses, nil
+		},
+	}
+
+	mockRepRepo := &mocks.MockRepertoireRepo{
+		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+			return &models.Repertoire{
+				ID: "rep-1", Name: "My White", Color: models.ColorWhite,
+				TreeData: models.RepertoireNode{FEN: "start"},
+			}, nil
+		},
+	}
+
+	repSvc := NewRepertoireService(mockRepRepo)
+	svc := NewImportService(repSvc, mockAnalysisRepo)
+
+	stats, err := svc.GetDashboardStats("user-1")
+	require.NoError(t, err)
+
+	// Should have 1 gap: c5 (freq 2). d5 (freq 1) is filtered out (min frequency = 2)
+	require.Len(t, stats.OpponentGaps, 1)
+
+	assert.Equal(t, "c5", stats.OpponentGaps[0].OpponentMove)
+	assert.Equal(t, 2, stats.OpponentGaps[0].Frequency)
+	assert.Equal(t, 1, stats.OpponentGaps[0].Wins)
+	assert.Equal(t, 1, stats.OpponentGaps[0].Losses)
+	assert.Equal(t, 0, stats.OpponentGaps[0].Draws)
+	assert.InDelta(t, 0.5, stats.OpponentGaps[0].WinRate, 0.001)
+	assert.Equal(t, "e4", stats.OpponentGaps[0].ContextMove)
+}
+
+func TestGetDashboardStats_BranchStats(t *testing.T) {
+	repRef := &models.RepertoireRef{ID: "rep-1", Name: "My White"}
+	branchName := "Sicilian"
+
+	moveE4 := "e4"
+	moveC5 := "c5"
+	moveE5 := "e5"
+
+	repTree := models.RepertoireNode{
+		ID:  "root",
+		FEN: "fen-start",
+		Children: []*models.RepertoireNode{
+			{
+				ID:   "e4",
+				FEN:  "fen-after-e4",
+				Move: &moveE4,
+				Children: []*models.RepertoireNode{
+					{
+						ID:         "c5",
+						FEN:        "fen-after-c5",
+						Move:       &moveC5,
+						BranchName: &branchName,
+						Children:   []*models.RepertoireNode{},
+					},
+					{
+						ID:       "e5",
+						FEN:      "fen-after-e5",
+						Move:     &moveE5,
+						Children: []*models.RepertoireNode{},
+					},
+				},
+			},
+		},
+	}
+
+	analyses := []models.RawAnalysis{
+		makeRawAnalysis("a1", "games.pgn", time.Now(), []models.GameAnalysis{
+			// Game 1: enters Sicilian branch, stays in-rep (win)
+			makeGameAnalysis(0, models.PGNHeaders{"Result": "1-0"}, []models.MoveAnalysis{
+				{PlyNumber: 0, SAN: "e4", FEN: "fen-start", Status: "in-repertoire", IsUserMove: true},
+				{PlyNumber: 1, SAN: "c5", FEN: "fen-after-e4", Status: "in-repertoire", IsUserMove: false},
+				{PlyNumber: 2, SAN: "Nf3", FEN: "fen-after-c5", Status: "out-of-book", IsUserMove: true},
+			}, models.ColorWhite, repRef),
+			// Game 2: enters Sicilian branch, error (loss)
+			makeGameAnalysis(1, models.PGNHeaders{"Result": "0-1"}, []models.MoveAnalysis{
+				{PlyNumber: 0, SAN: "e4", FEN: "fen-start", Status: "in-repertoire", IsUserMove: true},
+				{PlyNumber: 1, SAN: "c5", FEN: "fen-after-e4", Status: "in-repertoire", IsUserMove: false},
+				{PlyNumber: 2, SAN: "d4", FEN: "fen-after-c5", Status: "out-of-repertoire", IsUserMove: true},
+			}, models.ColorWhite, repRef),
+			// Game 3: enters e5 line (no branch name) — should not appear in branch stats
+			makeGameAnalysis(2, models.PGNHeaders{"Result": "1/2-1/2"}, []models.MoveAnalysis{
+				{PlyNumber: 0, SAN: "e4", FEN: "fen-start", Status: "in-repertoire", IsUserMove: true},
+				{PlyNumber: 1, SAN: "e5", FEN: "fen-after-e4", Status: "in-repertoire", IsUserMove: false},
+				{PlyNumber: 2, SAN: "Nf3", FEN: "fen-after-e5", Status: "out-of-book", IsUserMove: true},
+			}, models.ColorWhite, repRef),
+		}),
+	}
+
+	mockAnalysisRepo := &mocks.MockAnalysisRepo{
+		GetAllGamesRawFunc: func(userID string) ([]models.RawAnalysis, error) {
+			return analyses, nil
+		},
+	}
+
+	mockRepRepo := &mocks.MockRepertoireRepo{
+		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+			return &models.Repertoire{
+				ID: "rep-1", Name: "My White", Color: models.ColorWhite,
+				TreeData: repTree,
+			}, nil
+		},
+	}
+
+	repSvc := NewRepertoireService(mockRepRepo)
+	svc := NewImportService(repSvc, mockAnalysisRepo)
+
+	stats, err := svc.GetDashboardStats("user-1")
+	require.NoError(t, err)
+
+	// Only 1 branch (Sicilian) with 2 games (games 0 and 1)
+	// Game 2 (e5 line) has no branch name, so excluded
+	require.Len(t, stats.BranchStats, 1)
+	assert.Equal(t, "Sicilian", stats.BranchStats[0].BranchName)
+	assert.Equal(t, 2, stats.BranchStats[0].GameCount)
+	assert.Equal(t, 1, stats.BranchStats[0].Wins)
+	assert.Equal(t, 1, stats.BranchStats[0].Losses)
+	assert.Equal(t, 0, stats.BranchStats[0].Draws)
+	assert.InDelta(t, 0.5, stats.BranchStats[0].WinRate, 0.001)
+	assert.Equal(t, 1, stats.BranchStats[0].ErrorCount)
+	assert.InDelta(t, 0.5, stats.BranchStats[0].ErrorRate, 0.001)
+}
+
+func TestFindBranchForGame_FindsDeepestBranch(t *testing.T) {
+	branchA := "Sicilian"
+	branchB := "Najdorf"
+	moveE4 := "e4"
+	moveC5 := "c5"
+	moveNf3 := "Nf3"
+	moveD6 := "d6"
+
+	root := &models.RepertoireNode{
+		ID:  "root",
+		FEN: "fen-start",
+		Children: []*models.RepertoireNode{
+			{
+				ID:         "e4",
+				FEN:        "fen-after-e4",
+				Move:       &moveE4,
+				BranchName: nil,
+				Children: []*models.RepertoireNode{
+					{
+						ID:         "c5",
+						FEN:        "fen-after-c5",
+						Move:       &moveC5,
+						BranchName: &branchA, // "Sicilian"
+						Children: []*models.RepertoireNode{
+							{
+								ID:   "Nf3",
+								FEN:  "fen-after-Nf3",
+								Move: &moveNf3,
+								Children: []*models.RepertoireNode{
+									{
+										ID:         "d6",
+										FEN:        "fen-after-d6",
+										Move:       &moveD6,
+										BranchName: &branchB, // "Najdorf"
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	// Game goes e4 c5 Nf3 d6 → should find "Najdorf" (deepest branch)
+	moves1 := []models.MoveAnalysis{
+		{SAN: "e4", Status: "in-repertoire"},
+		{SAN: "c5", Status: "in-repertoire"},
+		{SAN: "Nf3", Status: "in-repertoire"},
+		{SAN: "d6", Status: "in-repertoire"},
+	}
+	assert.Equal(t, "Najdorf", findBranchForGame(root, moves1))
+
+	// Game goes e4 c5 Nf3 then out-of-book → should find "Sicilian"
+	moves2 := []models.MoveAnalysis{
+		{SAN: "e4", Status: "in-repertoire"},
+		{SAN: "c5", Status: "in-repertoire"},
+		{SAN: "Nf3", Status: "in-repertoire"},
+		{SAN: "Be7", Status: "out-of-book"},
+	}
+	assert.Equal(t, "Sicilian", findBranchForGame(root, moves2))
+
+	// Game goes e4 then opponent-new → no branch found (e4 node has no branch name)
+	moves3 := []models.MoveAnalysis{
+		{SAN: "e4", Status: "in-repertoire"},
+		{SAN: "d5", Status: "opponent-new"},
+	}
+	assert.Equal(t, "", findBranchForGame(root, moves3))
+
+	// Empty moves → no branch
+	assert.Equal(t, "", findBranchForGame(root, nil))
+}
+
+func TestGetDashboardStats_EmptyData(t *testing.T) {
+	mockAnalysisRepo := &mocks.MockAnalysisRepo{
+		GetAllGamesRawFunc: func(userID string) ([]models.RawAnalysis, error) {
+			return nil, nil
+		},
+	}
+
+	svc := NewImportService(nil, mockAnalysisRepo)
+
+	stats, err := svc.GetDashboardStats("user-1")
+	require.NoError(t, err)
+
+	assert.Equal(t, 0, stats.TotalGames)
+	assert.Equal(t, 0, stats.OpeningErrorCount)
+	assert.Equal(t, 0, stats.MatchedGamesCount)
+	assert.InDelta(t, 0.0, stats.OpeningErrorRate, 0.001)
+	assert.Empty(t, stats.OpponentGaps)
+	assert.Empty(t, stats.BranchStats)
+}

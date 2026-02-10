@@ -20,15 +20,16 @@ function StatCard({ label, value, subtext, index }: { label: string; value: stri
   );
 }
 
+function errorRateColor(pct: number): string {
+  if (pct <= 15) return 'text-success';
+  if (pct <= 30) return 'text-warning';
+  return 'text-danger';
+}
+
 export function StatsSummary({ stats }: StatsSummaryProps) {
   const winRatePct = Math.round(stats.overallWinRate * 100);
   const coveragePct = Math.round(stats.overallCoverage * 100);
-  const liftPct = Math.round((stats.winRateInRep - stats.winRateOutRep) * 100);
-  const inRepPct = Math.round(stats.winRateInRep * 100);
-  const outRepPct = Math.round(stats.winRateOutRep * 100);
-
-  const liftSign = liftPct > 0 ? '+' : '';
-  const liftColor = liftPct > 0 ? 'text-success' : liftPct < 0 ? 'text-danger' : 'text-text-muted';
+  const errorPct = Math.round(stats.openingErrorRate * 100);
 
   return (
     <div className="flex flex-wrap gap-4">
@@ -54,13 +55,13 @@ export function StatsSummary({ stats }: StatsSummaryProps) {
         custom={3}
         className="flex-1 min-w-[140px] bg-bg-card border border-primary/10 rounded-2xl p-4"
       >
-        <p className="text-xs font-bold text-text-muted uppercase tracking-widest mb-1">Win Rate Lift</p>
-        <p className={`text-2xl font-semibold font-display ${liftColor}`}>
-          {stats.inRepCount > 0 || stats.outRepCount > 0 ? `${liftSign}${liftPct}%` : '—'}
+        <p className="text-xs font-bold text-text-muted uppercase tracking-widest mb-1">Opening Errors</p>
+        <p className={`text-2xl font-semibold font-display ${stats.matchedGamesCount > 0 ? errorRateColor(errorPct) : 'text-text-muted'}`}>
+          {stats.matchedGamesCount > 0 ? `${errorPct}%` : '\u2014'}
         </p>
-        {(stats.inRepCount > 0 || stats.outRepCount > 0) && (
+        {stats.matchedGamesCount > 0 && (
           <p className="text-xs text-text-muted mt-1">
-            {inRepPct}% in-rep vs {outRepPct}% out
+            {stats.openingErrorCount} error{stats.openingErrorCount !== 1 ? 's' : ''} in {stats.matchedGamesCount} game{stats.matchedGamesCount !== 1 ? 's' : ''}
           </p>
         )}
       </motion.div>
