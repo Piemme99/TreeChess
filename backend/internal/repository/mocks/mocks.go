@@ -453,6 +453,7 @@ type MockUserRepo struct {
 	CreateOAuthFunc          func(provider, oauthID, username string) (*models.User, error)
 	UpdateProfileFunc        func(userID string, lichess, chesscom *string, timeFormatPrefs []string) (*models.User, error)
 	UpdateSyncTimestampsFunc func(userID string, lichessSyncAt, chesscomSyncAt *time.Time) error
+	ResetSyncTimestampsFunc  func(userID string) error
 	UpdateLichessTokenFunc   func(userID, token string) error
 	UpdatePasswordFunc       func(userID, passwordHash string) error
 	DeleteFunc               func(id string) error
@@ -524,6 +525,13 @@ func (m *MockUserRepo) UpdateProfile(userID string, lichess, chesscom *string, t
 func (m *MockUserRepo) UpdateSyncTimestamps(userID string, lichessSyncAt, chesscomSyncAt *time.Time) error {
 	if m.UpdateSyncTimestampsFunc != nil {
 		return m.UpdateSyncTimestampsFunc(userID, lichessSyncAt, chesscomSyncAt)
+	}
+	return nil
+}
+
+func (m *MockUserRepo) ResetSyncTimestamps(userID string) error {
+	if m.ResetSyncTimestampsFunc != nil {
+		return m.ResetSyncTimestampsFunc(userID)
 	}
 	return nil
 }

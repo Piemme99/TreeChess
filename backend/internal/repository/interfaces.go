@@ -24,6 +24,7 @@ type UserRepository interface {
 	CreateOAuth(provider, oauthID, username string) (*models.User, error)
 	UpdateProfile(userID string, lichess, chesscom *string, timeFormatPrefs []string) (*models.User, error)
 	UpdateSyncTimestamps(userID string, lichessSyncAt, chesscomSyncAt *time.Time) error
+	ResetSyncTimestamps(userID string) error
 	UpdateLichessToken(userID, token string) error
 	UpdatePassword(userID, passwordHash string) error
 	Delete(id string) error

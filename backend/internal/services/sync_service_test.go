@@ -16,13 +16,13 @@ func TestSyncService_Sync_BothPlatforms(t *testing.T) {
 	lichessUser := "lichessplayer"
 	chesscomUser := "chesscomuser"
 	user := &models.User{
-		ID:              "user-1",
+		ID:               "user-1",
 		LichessUsername:  &lichessUser,
 		ChesscomUsername: &chesscomUser,
 	}
 
 	mockUserRepo := &mocks.MockUserRepo{
-		GetByIDFunc: func(id string) (*models.User, error) { return user, nil },
+		GetByIDFunc:              func(id string) (*models.User, error) { return user, nil },
 		UpdateSyncTimestampsFunc: func(userID string, l, c *time.Time) error { return nil },
 	}
 	mockLichess := &mocks.MockLichessService{
@@ -54,13 +54,13 @@ func TestSyncService_Sync_BothPlatforms(t *testing.T) {
 func TestSyncService_Sync_LichessOnly(t *testing.T) {
 	lichessUser := "lichessplayer"
 	user := &models.User{
-		ID:              "user-1",
+		ID:               "user-1",
 		LichessUsername:  &lichessUser,
 		ChesscomUsername: nil,
 	}
 
 	mockUserRepo := &mocks.MockUserRepo{
-		GetByIDFunc: func(id string) (*models.User, error) { return user, nil },
+		GetByIDFunc:              func(id string) (*models.User, error) { return user, nil },
 		UpdateSyncTimestampsFunc: func(userID string, l, c *time.Time) error { return nil },
 	}
 	mockImport := &mocks.MockImportService{
@@ -85,13 +85,13 @@ func TestSyncService_Sync_LichessOnly(t *testing.T) {
 func TestSyncService_Sync_ChesscomOnly(t *testing.T) {
 	chesscomUser := "chesscomuser"
 	user := &models.User{
-		ID:              "user-1",
+		ID:               "user-1",
 		LichessUsername:  nil,
 		ChesscomUsername: &chesscomUser,
 	}
 
 	mockUserRepo := &mocks.MockUserRepo{
-		GetByIDFunc: func(id string) (*models.User, error) { return user, nil },
+		GetByIDFunc:              func(id string) (*models.User, error) { return user, nil },
 		UpdateSyncTimestampsFunc: func(userID string, l, c *time.Time) error { return nil },
 	}
 	mockImport := &mocks.MockImportService{
@@ -115,7 +115,7 @@ func TestSyncService_Sync_ChesscomOnly(t *testing.T) {
 
 func TestSyncService_Sync_NeitherPlatform(t *testing.T) {
 	user := &models.User{
-		ID:              "user-1",
+		ID:               "user-1",
 		LichessUsername:  nil,
 		ChesscomUsername: nil,
 	}
@@ -136,13 +136,13 @@ func TestSyncService_Sync_LichessError_ChesscomStillRuns(t *testing.T) {
 	lichessUser := "lichessplayer"
 	chesscomUser := "chesscomuser"
 	user := &models.User{
-		ID:              "user-1",
+		ID:               "user-1",
 		LichessUsername:  &lichessUser,
 		ChesscomUsername: &chesscomUser,
 	}
 
 	mockUserRepo := &mocks.MockUserRepo{
-		GetByIDFunc: func(id string) (*models.User, error) { return user, nil },
+		GetByIDFunc:              func(id string) (*models.User, error) { return user, nil },
 		UpdateSyncTimestampsFunc: func(userID string, l, c *time.Time) error { return nil },
 	}
 	mockLichess := &mocks.MockLichessService{
@@ -203,14 +203,14 @@ func TestSyncService_ComputeSince_WithoutLastSync(t *testing.T) {
 	assert.Equal(t, expected, since)
 }
 
-func TestSyncService_FirstSync_Uses50Games(t *testing.T) {
+func TestSyncService_FirstSync_Uses100Games(t *testing.T) {
 	lichessUser := "lichessplayer"
 	chesscomUser := "chesscomuser"
 	user := &models.User{
-		ID:               "user-1",
-		LichessUsername:   &lichessUser,
-		ChesscomUsername:  &chesscomUser,
-		LastLichessSyncAt: nil,
+		ID:                 "user-1",
+		LichessUsername:    &lichessUser,
+		ChesscomUsername:   &chesscomUser,
+		LastLichessSyncAt:  nil,
 		LastChesscomSyncAt: nil,
 	}
 
@@ -218,7 +218,7 @@ func TestSyncService_FirstSync_Uses50Games(t *testing.T) {
 	var capturedChesscomMax int
 
 	mockUserRepo := &mocks.MockUserRepo{
-		GetByIDFunc: func(id string) (*models.User, error) { return user, nil },
+		GetByIDFunc:              func(id string) (*models.User, error) { return user, nil },
 		UpdateSyncTimestampsFunc: func(userID string, l, c *time.Time) error { return nil },
 	}
 	mockLichess := &mocks.MockLichessService{
@@ -243,8 +243,8 @@ func TestSyncService_FirstSync_Uses50Games(t *testing.T) {
 	_, err := svc.Sync("user-1")
 
 	require.NoError(t, err)
-	assert.Equal(t, 50, capturedLichessMax, "first Lichess sync should request 50 games")
-	assert.Equal(t, 50, capturedChesscomMax, "first Chess.com sync should request 50 games")
+	assert.Equal(t, 100, capturedLichessMax, "first Lichess sync should request 100 games")
+	assert.Equal(t, 100, capturedChesscomMax, "first Chess.com sync should request 100 games")
 }
 
 func TestSyncService_SubsequentSync_Uses10Games(t *testing.T) {
@@ -263,7 +263,7 @@ func TestSyncService_SubsequentSync_Uses10Games(t *testing.T) {
 	var capturedChesscomMax int
 
 	mockUserRepo := &mocks.MockUserRepo{
-		GetByIDFunc: func(id string) (*models.User, error) { return user, nil },
+		GetByIDFunc:              func(id string) (*models.User, error) { return user, nil },
 		UpdateSyncTimestampsFunc: func(userID string, l, c *time.Time) error { return nil },
 	}
 	mockLichess := &mocks.MockLichessService{
@@ -296,7 +296,7 @@ func TestSyncService_Sync_EmptyUsername(t *testing.T) {
 	emptyLichess := ""
 	emptyChesscom := ""
 	user := &models.User{
-		ID:              "user-1",
+		ID:               "user-1",
 		LichessUsername:  &emptyLichess,
 		ChesscomUsername: &emptyChesscom,
 	}

@@ -160,7 +160,32 @@ func (s *AuthService) GetUserByID(id string) (*models.User, error) {
 }
 
 func (s *AuthService) UpdateProfile(userID string, req models.UpdateProfileRequest) (*models.User, error) {
+	// Check if new time formats were added — if so, reset sync timestamps
+	// so the next sync does a full re-fetch with the expanded format list
+	if len(req.TimeFormatPrefs) > 0 {
+		currentUser, err := s.userRepo.GetByID(userID)
+		if err == nil && hasNewTimeFormats(currentUser.TimeFormatPrefs, req.TimeFormatPrefs) {
+			if err := s.userRepo.ResetSyncTimestamps(userID); err != nil {
+				slog.Error("failed to reset sync timestamps after time format change", "user_id", userID, "error", err)
+			}
+		}
+	}
+
 	return s.userRepo.UpdateProfile(userID, req.LichessUsername, req.ChesscomUsername, req.TimeFormatPrefs)
+}
+
+// hasNewTimeFormats returns true if newPrefs contains formats not present in oldPrefs.
+func hasNewTimeFormats(oldPrefs, newPrefs []string) bool {
+	old := make(map[string]bool, len(oldPrefs))
+	for _, f := range oldPrefs {
+		old[f] = true
+	}
+	for _, f := range newPrefs {
+		if !old[f] {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *AuthService) generateToken(user *models.User) (string, error) {

@@ -122,16 +122,20 @@ export function ProfilePage() {
         lichessUsername !== (user?.lichessUsername || '') ||
         chesscomUsername !== (user?.chesscomUsername || '');
 
+      const currentPrefs = new Set(user?.timeFormatPrefs || []);
+      const newFormats = Array.from(timeFormats);
+      const timeFormatsAdded = newFormats.some((f) => !currentPrefs.has(f));
+
       await updateProfile({
         lichessUsername: lichessUsername || undefined,
         chesscomUsername: chesscomUsername || undefined,
-        timeFormatPrefs: Array.from(timeFormats),
+        timeFormatPrefs: newFormats,
       });
 
       toast.success('Profile updated');
 
-      // Trigger sync if usernames changed and at least one is set
-      if (usernamesChanged && (lichessUsername || chesscomUsername)) {
+      // Trigger sync if usernames or time formats changed and at least one username is set
+      if ((usernamesChanged || timeFormatsAdded) && (lichessUsername || chesscomUsername)) {
         triggerSync();
       }
     } catch {

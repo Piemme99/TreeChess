@@ -58,6 +58,11 @@ const (
 		UPDATE users SET last_lichess_sync_at = COALESCE($2, last_lichess_sync_at), last_chesscom_sync_at = COALESCE($3, last_chesscom_sync_at)
 		WHERE id = $1
 	`
+	resetSyncTimestampsSQL = `
+		UPDATE users SET last_lichess_sync_at = NULL, last_chesscom_sync_at = NULL
+		WHERE id = $1
+	`
+
 	updateLichessTokenSQL = `
 		UPDATE users SET lichess_access_token = $2
 		WHERE id = $1
@@ -208,6 +213,17 @@ func (r *PostgresUserRepo) UpdateSyncTimestamps(userID string, lichessSyncAt, ch
 	_, err := r.pool.Exec(ctx, updateSyncTimestampsSQL, userID, lichessSyncAt, chesscomSyncAt)
 	if err != nil {
 		return fmt.Errorf("failed to update sync timestamps: %w", err)
+	}
+	return nil
+}
+
+func (r *PostgresUserRepo) ResetSyncTimestamps(userID string) error {
+	ctx, cancel := dbContext()
+	defer cancel()
+
+	_, err := r.pool.Exec(ctx, resetSyncTimestampsSQL, userID)
+	if err != nil {
+		return fmt.Errorf("failed to reset sync timestamps: %w", err)
 	}
 	return nil
 }

@@ -280,6 +280,137 @@ func TestAuthService_UpdateProfile(t *testing.T) {
 	assert.Equal(t, &lichess, user.LichessUsername)
 }
 
+func TestAuthService_UpdateProfile_ResetsSync_WhenNewFormatsAdded(t *testing.T) {
+	lichess := "lichessuser"
+	var resetCalled bool
+
+	mockRepo := &mocks.MockUserRepo{
+		GetByIDFunc: func(id string) (*models.User, error) {
+			return &models.User{
+				ID:              id,
+				Username:        "testuser",
+				TimeFormatPrefs: []string{"rapid"},
+			}, nil
+		},
+		ResetSyncTimestampsFunc: func(userID string) error {
+			resetCalled = true
+			return nil
+		},
+		UpdateProfileFunc: func(userID string, l, c *string, timeFormatPrefs []string) (*models.User, error) {
+			return &models.User{
+				ID:              userID,
+				Username:        "testuser",
+				LichessUsername: l,
+				TimeFormatPrefs: timeFormatPrefs,
+			}, nil
+		},
+	}
+	svc := newTestAuthService(mockRepo)
+
+	_, err := svc.UpdateProfile("user-123", models.UpdateProfileRequest{
+		LichessUsername: &lichess,
+		TimeFormatPrefs: []string{"rapid", "blitz"},
+	})
+
+	require.NoError(t, err)
+	assert.True(t, resetCalled, "sync timestamps should be reset when new time formats are added")
+}
+
+func TestAuthService_UpdateProfile_NoReset_WhenFormatsUnchanged(t *testing.T) {
+	lichess := "lichessuser"
+	var resetCalled bool
+
+	mockRepo := &mocks.MockUserRepo{
+		GetByIDFunc: func(id string) (*models.User, error) {
+			return &models.User{
+				ID:              id,
+				Username:        "testuser",
+				TimeFormatPrefs: []string{"rapid", "blitz"},
+			}, nil
+		},
+		ResetSyncTimestampsFunc: func(userID string) error {
+			resetCalled = true
+			return nil
+		},
+		UpdateProfileFunc: func(userID string, l, c *string, timeFormatPrefs []string) (*models.User, error) {
+			return &models.User{
+				ID:              userID,
+				Username:        "testuser",
+				LichessUsername: l,
+				TimeFormatPrefs: timeFormatPrefs,
+			}, nil
+		},
+	}
+	svc := newTestAuthService(mockRepo)
+
+	_, err := svc.UpdateProfile("user-123", models.UpdateProfileRequest{
+		LichessUsername: &lichess,
+		TimeFormatPrefs: []string{"rapid", "blitz"},
+	})
+
+	require.NoError(t, err)
+	assert.False(t, resetCalled, "sync timestamps should NOT be reset when formats are unchanged")
+}
+
+func TestAuthService_UpdateProfile_NoReset_WhenFormatsRemoved(t *testing.T) {
+	lichess := "lichessuser"
+	var resetCalled bool
+
+	mockRepo := &mocks.MockUserRepo{
+		GetByIDFunc: func(id string) (*models.User, error) {
+			return &models.User{
+				ID:              id,
+				Username:        "testuser",
+				TimeFormatPrefs: []string{"rapid", "blitz", "bullet"},
+			}, nil
+		},
+		ResetSyncTimestampsFunc: func(userID string) error {
+			resetCalled = true
+			return nil
+		},
+		UpdateProfileFunc: func(userID string, l, c *string, timeFormatPrefs []string) (*models.User, error) {
+			return &models.User{
+				ID:              userID,
+				Username:        "testuser",
+				LichessUsername: l,
+				TimeFormatPrefs: timeFormatPrefs,
+			}, nil
+		},
+	}
+	svc := newTestAuthService(mockRepo)
+
+	_, err := svc.UpdateProfile("user-123", models.UpdateProfileRequest{
+		LichessUsername: &lichess,
+		TimeFormatPrefs: []string{"rapid"},
+	})
+
+	require.NoError(t, err)
+	assert.False(t, resetCalled, "sync timestamps should NOT be reset when formats are only removed")
+}
+
+func TestHasNewTimeFormats(t *testing.T) {
+	tests := []struct {
+		name     string
+		old      []string
+		new      []string
+		expected bool
+	}{
+		{"add blitz", []string{"rapid"}, []string{"rapid", "blitz"}, true},
+		{"add bullet", []string{"rapid", "blitz"}, []string{"rapid", "blitz", "bullet"}, true},
+		{"no change", []string{"rapid", "blitz"}, []string{"rapid", "blitz"}, false},
+		{"remove only", []string{"rapid", "blitz"}, []string{"rapid"}, false},
+		{"from empty", []string{}, []string{"rapid"}, true},
+		{"both empty", []string{}, []string{}, false},
+		{"same reordered", []string{"blitz", "rapid"}, []string{"rapid", "blitz"}, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, hasNewTimeFormats(tt.old, tt.new))
+		})
+	}
+}
+
 func TestAuthService_Register_ValidUsernames(t *testing.T) {
 	mockRepo := &mocks.MockUserRepo{
 		CreateFunc: func(email, username, passwordHash string) (*models.User, error) {
