@@ -11,10 +11,10 @@ import (
 )
 
 const (
-	syncLookbackDays           = 10
-	syncFirstSyncLookbackDays  = 90
-	syncMaxGames               = 10
-	syncFirstSyncMaxGames      = 50
+	syncLookbackDays          = 10
+	syncFirstSyncLookbackDays = 90
+	syncMaxGames              = 10
+	syncFirstSyncMaxGames     = 100
 )
 
 type SyncService struct {
