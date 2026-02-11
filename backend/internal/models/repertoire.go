@@ -62,17 +62,20 @@ type Repertoire struct {
 	ID         string         `json:"id"`
 	Name       string         `json:"name"`
 	Color      Color          `json:"color"`
+	IsPublic   bool           `json:"isPublic"`
 	CategoryID *string        `json:"categoryId,omitempty"`
 	TreeData   RepertoireNode `json:"treeData"`
 	Metadata   Metadata       `json:"metadata"`
+	AuthorName string         `json:"authorName,omitempty"`
 	CreatedAt  time.Time      `json:"createdAt"`
 	UpdatedAt  time.Time      `json:"updatedAt"`
 }
 
 // CreateRepertoireRequest represents a request to create a new repertoire
 type CreateRepertoireRequest struct {
-	Name  string `json:"name"`
-	Color Color  `json:"color"`
+	Name     string `json:"name"`
+	Color    Color  `json:"color"`
+	IsPublic *bool  `json:"isPublic,omitempty"` // defaults to true if not provided
 }
 
 // UpdateRepertoireRequest represents a request to update a repertoire (rename)
@@ -324,6 +327,19 @@ type InsightsResponse struct {
 	EngineAnalysisDone      bool             `json:"engineAnalysisDone"`
 	EngineAnalysisTotal     int              `json:"engineAnalysisTotal"`
 	EngineAnalysisCompleted int              `json:"engineAnalysisCompleted"`
+}
+
+// TrainingAnalyzeRequest represents a request to analyze a sequence of moves from explorer training
+type TrainingAnalyzeRequest struct {
+	Moves     []string `json:"moves"`     // SAN moves in order (e.g. ["e4", "e5", "Nf3"])
+	UserColor Color    `json:"userColor"` // "white" or "black"
+}
+
+// TrainingAnalyzeResponse returns the best matching repertoire and per-move analysis
+type TrainingAnalyzeResponse struct {
+	MatchedRepertoire *RepertoireRef `json:"matchedRepertoire"` // nil if no match
+	MatchScore        int            `json:"matchScore"`        // Number of user moves matched
+	Moves             []MoveAnalysis `json:"moves"`             // Per-ply analysis
 }
 
 // RawAnalysis represents a full analysis with all game data, used for insights computation

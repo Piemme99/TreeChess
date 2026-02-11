@@ -97,6 +97,7 @@ export function RepertoireSelector({ color, repertoires, categories, onImportStu
   const [isMerging, setIsMerging] = useState(false);
   const [mergeName, setMergeName] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [newIsPublic, setNewIsPublic] = useState(true);
 
   // Filter categories and repertoires by color
   const colorCategories = useMemo(
@@ -133,8 +134,9 @@ export function RepertoireSelector({ color, repertoires, categories, onImportStu
 
     setLoading(true);
     try {
-      const rep = await createRepertoire(newName.trim(), color);
+      const rep = await createRepertoire(newName.trim(), color, newIsPublic);
       setNewName('');
+      setNewIsPublic(true);
       setIsCreating(false);
       navigate(`/repertoire/${rep.id}/edit`, { state: { from: location.pathname } });
     } catch {
@@ -475,28 +477,40 @@ export function RepertoireSelector({ color, repertoires, categories, onImportStu
 
         {/* Create repertoire input */}
         {isCreating ? (
-          <div className="flex gap-2 items-center">
-            <input
-              type="text"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              placeholder="Repertoire name"
-              className="flex-1 py-2 px-4 border border-border rounded-xl text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary-light"
-              autoFocus
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleCreate();
-                if (e.key === 'Escape') {
-                  setIsCreating(false);
-                  setNewName('');
-                }
-              }}
-            />
-            <Button variant="primary" onClick={handleCreate} disabled={loading}>
-              Create
-            </Button>
-            <Button variant="ghost" onClick={() => { setIsCreating(false); setNewName(''); }} disabled={loading}>
-              Cancel
-            </Button>
+          <div className="flex flex-col gap-2">
+            <div className="flex gap-2 items-center">
+              <input
+                type="text"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="Repertoire name"
+                className="flex-1 py-2 px-4 border border-border rounded-xl text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary-light"
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleCreate();
+                  if (e.key === 'Escape') {
+                    setIsCreating(false);
+                    setNewName('');
+                    setNewIsPublic(true);
+                  }
+                }}
+              />
+              <Button variant="primary" onClick={handleCreate} disabled={loading}>
+                Create
+              </Button>
+              <Button variant="ghost" onClick={() => { setIsCreating(false); setNewName(''); setNewIsPublic(true); }} disabled={loading}>
+                Cancel
+              </Button>
+            </div>
+            <label className="flex items-center gap-2 text-xs text-text-muted cursor-pointer select-none pl-1">
+              <input
+                type="checkbox"
+                checked={newIsPublic}
+                onChange={(e) => setNewIsPublic(e.target.checked)}
+                className="accent-primary w-3.5 h-3.5"
+              />
+              Public (visible in Explore)
+            </label>
           </div>
         ) : (
           <div className="flex gap-2">

@@ -60,7 +60,7 @@ export function Button({
       {loading && (
         <span className="absolute w-4 h-4 border-2 border-text-muted border-t-transparent rounded-full animate-spin" />
       )}
-      <span className={loading ? 'invisible' : ''}>{children}</span>
+      <span className={`inline-flex items-center justify-center gap-2 ${loading ? 'invisible' : ''}`}>{children}</span>
     </motion.button>
   );
 }

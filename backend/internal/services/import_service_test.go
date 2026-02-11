@@ -2009,3 +2009,258 @@ func TestGetDashboardStats_EmptyData(t *testing.T) {
 	assert.Empty(t, stats.OpponentGaps)
 	assert.Empty(t, stats.BranchStats)
 }
+
+// --- AnalyzeTrainingMoves tests ---
+
+func TestAnalyzeTrainingMoves_MatchesRepertoire(t *testing.T) {
+	moveE4 := "e4"
+	moveE5 := "e5"
+	moveNf3 := "Nf3"
+
+	whiteRep := models.Repertoire{
+		ID:    "rep-w",
+		Name:  "Italian",
+		Color: models.ColorWhite,
+		TreeData: models.RepertoireNode{
+			ID:          "root",
+			FEN:         "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -",
+			ColorToMove: models.ChessColorWhite,
+			Children: []*models.RepertoireNode{
+				{
+					ID:          "e4-node",
+					FEN:         "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3",
+					Move:        &moveE4,
+					ColorToMove: models.ChessColorBlack,
+					Children: []*models.RepertoireNode{
+						{
+							ID:          "e5-node",
+							FEN:         "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6",
+							Move:        &moveE5,
+							ColorToMove: models.ChessColorWhite,
+							Children: []*models.RepertoireNode{
+								{
+									ID:          "nf3-node",
+									FEN:         "rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq -",
+									Move:        &moveNf3,
+									ColorToMove: models.ChessColorBlack,
+									Children:    []*models.RepertoireNode{},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	mockRepRepo := &mocks.MockRepertoireRepo{
+		GetByColorFunc: func(userID string, color models.Color) ([]models.Repertoire, error) {
+			if color == models.ColorWhite {
+				return []models.Repertoire{whiteRep}, nil
+			}
+			return nil, nil
+		},
+	}
+
+	repSvc := NewRepertoireService(mockRepRepo)
+	svc := NewImportService(repSvc, nil)
+
+	resp, err := svc.AnalyzeTrainingMoves("user-1", []string{"e4", "e5", "Nf3", "Nc6"}, models.ColorWhite)
+
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	require.NotNil(t, resp.MatchedRepertoire)
+	assert.Equal(t, "rep-w", resp.MatchedRepertoire.ID)
+	assert.Equal(t, "Italian", resp.MatchedRepertoire.Name)
+	assert.Equal(t, 2, resp.MatchScore) // e4 and Nf3 are user moves that matched
+
+	require.Len(t, resp.Moves, 4)
+	// e4 -> in-repertoire (user move)
+	assert.Equal(t, "e4", resp.Moves[0].SAN)
+	assert.Equal(t, "in-repertoire", resp.Moves[0].Status)
+	assert.True(t, resp.Moves[0].IsUserMove)
+	// e5 -> in-repertoire (opponent)
+	assert.Equal(t, "e5", resp.Moves[1].SAN)
+	assert.Equal(t, "in-repertoire", resp.Moves[1].Status)
+	assert.False(t, resp.Moves[1].IsUserMove)
+	// Nf3 -> in-repertoire (user move)
+	assert.Equal(t, "Nf3", resp.Moves[2].SAN)
+	assert.Equal(t, "in-repertoire", resp.Moves[2].Status)
+	assert.True(t, resp.Moves[2].IsUserMove)
+	// Nc6 -> out-of-book (leaf, no children)
+	assert.Equal(t, "Nc6", resp.Moves[3].SAN)
+	assert.Equal(t, "out-of-book", resp.Moves[3].Status)
+	assert.False(t, resp.Moves[3].IsUserMove)
+}
+
+func TestAnalyzeTrainingMoves_NoMatchingRepertoire(t *testing.T) {
+	mockRepRepo := &mocks.MockRepertoireRepo{
+		GetByColorFunc: func(userID string, color models.Color) ([]models.Repertoire, error) {
+			return nil, nil
+		},
+	}
+
+	repSvc := NewRepertoireService(mockRepRepo)
+	svc := NewImportService(repSvc, nil)
+
+	resp, err := svc.AnalyzeTrainingMoves("user-1", []string{"e4", "e5"}, models.ColorWhite)
+
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	assert.Nil(t, resp.MatchedRepertoire)
+	assert.Equal(t, 0, resp.MatchScore)
+	require.Len(t, resp.Moves, 2)
+	assert.Equal(t, "out-of-book", resp.Moves[0].Status)
+	assert.Equal(t, "out-of-book", resp.Moves[1].Status)
+}
+
+func TestAnalyzeTrainingMoves_DetectsOutOfRepertoire(t *testing.T) {
+	moveE4 := "e4"
+	moveE5 := "e5"
+	moveNf3 := "Nf3"
+
+	// Repertoire expects e4 e5 Nf3, but user will play d4 instead of Nf3
+	whiteRep := models.Repertoire{
+		ID:    "rep-w",
+		Name:  "Kings Pawn",
+		Color: models.ColorWhite,
+		TreeData: models.RepertoireNode{
+			ID:          "root",
+			FEN:         "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -",
+			ColorToMove: models.ChessColorWhite,
+			Children: []*models.RepertoireNode{
+				{
+					ID:          "e4-node",
+					FEN:         "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3",
+					Move:        &moveE4,
+					ColorToMove: models.ChessColorBlack,
+					Children: []*models.RepertoireNode{
+						{
+							ID:          "e5-node",
+							FEN:         "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6",
+							Move:        &moveE5,
+							ColorToMove: models.ChessColorWhite,
+							Children: []*models.RepertoireNode{
+								{
+									ID:          "nf3-node",
+									FEN:         "rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq -",
+									Move:        &moveNf3,
+									ColorToMove: models.ChessColorBlack,
+									Children:    []*models.RepertoireNode{},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	mockRepRepo := &mocks.MockRepertoireRepo{
+		GetByColorFunc: func(userID string, color models.Color) ([]models.Repertoire, error) {
+			if color == models.ColorWhite {
+				return []models.Repertoire{whiteRep}, nil
+			}
+			return nil, nil
+		},
+	}
+
+	repSvc := NewRepertoireService(mockRepRepo)
+	svc := NewImportService(repSvc, nil)
+
+	// User plays Bc4 instead of Nf3
+	resp, err := svc.AnalyzeTrainingMoves("user-1", []string{"e4", "e5", "Bc4"}, models.ColorWhite)
+
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	require.NotNil(t, resp.MatchedRepertoire)
+	assert.Equal(t, "rep-w", resp.MatchedRepertoire.ID)
+	assert.Equal(t, 1, resp.MatchScore) // only e4 matched
+
+	require.Len(t, resp.Moves, 3)
+	assert.Equal(t, "in-repertoire", resp.Moves[0].Status)     // e4
+	assert.Equal(t, "in-repertoire", resp.Moves[1].Status)     // e5
+	assert.Equal(t, "out-of-repertoire", resp.Moves[2].Status) // Bc4 (expected Nf3)
+	assert.Equal(t, "Nf3", resp.Moves[2].ExpectedMove)
+	assert.True(t, resp.Moves[2].IsUserMove)
+}
+
+func TestAnalyzeTrainingMoves_InvalidMove(t *testing.T) {
+	mockRepRepo := &mocks.MockRepertoireRepo{
+		GetByColorFunc: func(userID string, color models.Color) ([]models.Repertoire, error) {
+			return nil, nil
+		},
+	}
+
+	repSvc := NewRepertoireService(mockRepRepo)
+	svc := NewImportService(repSvc, nil)
+
+	_, err := svc.AnalyzeTrainingMoves("user-1", []string{"e4", "e5", "INVALID"}, models.ColorWhite)
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid move")
+}
+
+func TestAnalyzeTrainingMoves_BlackRepertoire(t *testing.T) {
+	moveE4 := "e4"
+	moveE5 := "e5"
+
+	blackRep := models.Repertoire{
+		ID:    "rep-b",
+		Name:  "Sicilian",
+		Color: models.ColorBlack,
+		TreeData: models.RepertoireNode{
+			ID:          "root",
+			FEN:         "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -",
+			ColorToMove: models.ChessColorWhite,
+			Children: []*models.RepertoireNode{
+				{
+					ID:          "e4-node",
+					FEN:         "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3",
+					Move:        &moveE4,
+					ColorToMove: models.ChessColorBlack,
+					Children: []*models.RepertoireNode{
+						{
+							ID:          "e5-node",
+							FEN:         "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6",
+							Move:        &moveE5,
+							ColorToMove: models.ChessColorWhite,
+							Children:    []*models.RepertoireNode{},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	mockRepRepo := &mocks.MockRepertoireRepo{
+		GetByColorFunc: func(userID string, color models.Color) ([]models.Repertoire, error) {
+			if color == models.ColorBlack {
+				return []models.Repertoire{blackRep}, nil
+			}
+			return nil, nil
+		},
+	}
+
+	repSvc := NewRepertoireService(mockRepRepo)
+	svc := NewImportService(repSvc, nil)
+
+	resp, err := svc.AnalyzeTrainingMoves("user-1", []string{"e4", "e5", "Nf3"}, models.ColorBlack)
+
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	require.NotNil(t, resp.MatchedRepertoire)
+	assert.Equal(t, "rep-b", resp.MatchedRepertoire.ID)
+	assert.Equal(t, 1, resp.MatchScore) // e5 is the only black user move that matched
+
+	require.Len(t, resp.Moves, 3)
+	// e4 -> in-repertoire (opponent move for black user)
+	assert.Equal(t, "in-repertoire", resp.Moves[0].Status)
+	assert.False(t, resp.Moves[0].IsUserMove)
+	// e5 -> in-repertoire (user move)
+	assert.Equal(t, "in-repertoire", resp.Moves[1].Status)
+	assert.True(t, resp.Moves[1].IsUserMove)
+	// Nf3 -> out-of-book (leaf)
+	assert.Equal(t, "out-of-book", resp.Moves[2].Status)
+	assert.False(t, resp.Moves[2].IsUserMove)
+}

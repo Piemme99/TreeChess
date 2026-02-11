@@ -85,3 +85,9 @@ treechess/
 - **Frontend:** React 18, TypeScript 5, Vite 5, chess.js, Zustand
 - **Backend:** Go 1.25, Echo v4, pgx v5, notnil/chess
 - **Database:** PostgreSQL 15+ with JSONB storage
+
+## License
+
+TreeChess is licensed under the [GNU Affero General Public License v3.0](LICENSE).
+
+This means you are free to use, modify, and distribute this software, provided that any modified version you deploy as a network service also makes its source code available under the same license. See [LICENSE](LICENSE) for the full text.

@@ -10,7 +10,7 @@ import { RecentGames } from './components/RecentGames';
 import { StatsSummary } from './components/StatsSummary';
 import { OpponentGaps } from './components/OpponentGaps';
 import { BranchPerformance } from './components/BranchPerformance';
-import { WeakSpots } from './components/WeakSpots';
+import { MistakesList } from '../../shared/components/MistakesList';
 import { useDashboardStats } from './hooks/useDashboardStats';
 import { useInsights } from '../games/hooks/useInsights';
 import { fadeUp, staggerContainer } from '../../shared/utils/animations';
@@ -117,7 +117,7 @@ export function Dashboard() {
       {/* Weak spots */}
       {hasAnalyzedGames && insights && (
         <motion.div variants={fadeUp} custom={6}>
-          <WeakSpots insights={insights} />
+          <MistakesList insights={insights} limit={4} title="Weak Spots" viewAllPath="/games" />
         </motion.div>
       )}
     </motion.div>

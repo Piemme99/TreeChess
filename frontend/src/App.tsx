@@ -17,6 +17,7 @@ const ProfilePage = lazy(() => import('./features/profile').then(m => ({ default
 const GameAnalysisPage = lazy(() => import('./features/game-analysis').then(m => ({ default: m.GameAnalysisPage })));
 const RepertoireEdit = lazy(() => import('./features/repertoire/RepertoireEdit').then(m => ({ default: m.RepertoireEdit })));
 const TrainingPage = lazy(() => import('./features/training').then(m => ({ default: m.TrainingPage })));
+const ExplorePage = lazy(() => import('./features/explore').then(m => ({ default: m.ExplorePage })));
 const NotFoundPage = lazy(() => import('./features/not-found/NotFoundPage').then(m => ({ default: m.NotFoundPage })));
 
 function App() {
@@ -55,6 +56,8 @@ function App() {
           <Route path="profile" element={<Suspense fallback={<Loading size="lg" />}><ProfilePage /></Suspense>} />
           <Route path="analyse/:id/game/:gameIndex" element={<Suspense fallback={<Loading size="lg" />}><GameAnalysisPage /></Suspense>} />
           <Route path="repertoire/:id/edit" element={<Suspense fallback={<Loading size="lg" />}><RepertoireEdit /></Suspense>} />
+          <Route path="explore" element={<Suspense fallback={<Loading size="lg" />}><ExplorePage /></Suspense>} />
+          <Route path="explore/repertoire/:id" element={<Suspense fallback={<Loading size="lg" />}><RepertoireEdit /></Suspense>} />
         </Route>
         <Route path="*" element={<Suspense fallback={<Loading size="lg" />}><NotFoundPage /></Suspense>} />
       </Routes>

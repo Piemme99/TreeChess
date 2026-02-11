@@ -509,6 +509,124 @@ func (s *ImportService) GetLegalMoves(fen string) ([]string, error) {
 	return sanMoves, nil
 }
 
+// AnalyzeTrainingMoves takes a sequence of SAN moves from an explorer training session,
+// finds the best matching repertoire for the user, and returns per-move analysis.
+func (s *ImportService) AnalyzeTrainingMoves(userID string, moves []string, userColor models.Color) (*models.TrainingAnalyzeResponse, error) {
+	// Load repertoires for the user's color
+	repertoires, err := s.repertoireService.ListRepertoires(userID, &userColor)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load repertoires: %w", err)
+	}
+
+	// Replay the moves to build FENs
+	game := chess.NewGame()
+	for _, san := range moves {
+		if err := game.MoveStr(san); err != nil {
+			return nil, fmt.Errorf("invalid move %s: %w", san, err)
+		}
+	}
+
+	// Find the best matching repertoire using scoring logic
+	bestRepertoire, bestScore := s.findBestMatchingRepertoireFromSANs(game, repertoires, userColor)
+
+	// Build per-move analysis
+	moveAnalyses := s.analyzeGameFromChess(game, bestRepertoire, userColor)
+
+	resp := &models.TrainingAnalyzeResponse{
+		MatchScore: bestScore,
+		Moves:      moveAnalyses,
+	}
+	if bestRepertoire != nil {
+		resp.MatchedRepertoire = &models.RepertoireRef{
+			ID:   bestRepertoire.ID,
+			Name: bestRepertoire.Name,
+		}
+	}
+
+	return resp, nil
+}
+
+// findBestMatchingRepertoireFromSANs scores each repertoire against a chess.Game and returns the best match.
+func (s *ImportService) findBestMatchingRepertoireFromSANs(game *chess.Game, repertoires []models.Repertoire, userColor models.Color) (*models.Repertoire, int) {
+	if len(repertoires) == 0 {
+		return nil, 0
+	}
+
+	var bestRepertoire *models.Repertoire
+	bestScore := -1
+
+	for i := range repertoires {
+		score := s.countMatchingMoves(game, repertoires[i].TreeData, userColor)
+		if score > bestScore {
+			bestScore = score
+			bestRepertoire = &repertoires[i]
+		}
+	}
+
+	if bestScore < 0 || bestRepertoire == nil {
+		return nil, 0
+	}
+
+	return bestRepertoire, bestScore
+}
+
+// analyzeGameFromChess produces per-move MoveAnalysis from a chess.Game against a repertoire (or nil repertoire).
+func (s *ImportService) analyzeGameFromChess(game *chess.Game, repertoire *models.Repertoire, userColor models.Color) []models.MoveAnalysis {
+	chessMovs := game.Moves()
+	position := chess.StartingPosition()
+	notation := chess.AlgebraicNotation{}
+	result := make([]models.MoveAnalysis, 0, len(chessMovs))
+
+	for ply, move := range chessMovs {
+		san := notation.Encode(position, move)
+		currentFEN := normalizeFEN(position.String())
+		isUserMove := (ply%2 == 0 && userColor == models.ColorWhite) || (ply%2 == 1 && userColor == models.ColorBlack)
+
+		var status string
+		var expectedMove string
+
+		if repertoire == nil {
+			status = "out-of-book"
+		} else {
+			node := s.findNodeInRepertoire(repertoire.TreeData, currentFEN)
+			if node == nil || len(node.Children) == 0 {
+				status = "out-of-book"
+			} else {
+				found := false
+				for _, child := range node.Children {
+					if child.Move != nil && *child.Move == san {
+						found = true
+						break
+					}
+				}
+				if found {
+					status = "in-repertoire"
+				} else if isUserMove {
+					status = "out-of-repertoire"
+					if len(node.Children) > 0 && node.Children[0].Move != nil {
+						expectedMove = *node.Children[0].Move
+					}
+				} else {
+					status = "opponent-new"
+				}
+			}
+		}
+
+		result = append(result, models.MoveAnalysis{
+			PlyNumber:    ply,
+			SAN:          san,
+			FEN:          currentFEN,
+			Status:       status,
+			ExpectedMove: expectedMove,
+			IsUserMove:   isUserMove,
+		})
+
+		position = position.Update(move)
+	}
+
+	return result
+}
+
 // GetAnalyses returns all analyses summaries for a user
 func (s *ImportService) GetAnalyses(userID string) ([]models.AnalysisSummary, error) {
 	analyses, err := s.analysisRepo.GetAll(userID)

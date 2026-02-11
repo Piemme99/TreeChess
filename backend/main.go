@@ -79,6 +79,7 @@ func main() {
 	oauthHandler := handlers.NewOAuthHandler(oauthSvc, userRepo, cfg.FrontendURL, cfg.JWTSecret, cfg.SecureCookies)
 	syncHandler := handlers.NewSyncHandler(syncSvc)
 	studyImportHandler := handlers.NewStudyImportHandler(studyImportSvc)
+	trainingHandler := handlers.NewTrainingHandler(importSvc)
 
 	// Initialize Echo
 	e := echo.New()
@@ -175,6 +176,12 @@ func main() {
 	protected.POST("/api/repertoires/:id/extract", handlers.ExtractSubtreeHandler(repertoireSvc))
 	protected.POST("/api/repertoires/:id/merge-transpositions", handlers.MergeTranspositionsHandler(repertoireSvc))
 	protected.PATCH("/api/repertoires/:id/category", handlers.AssignCategoryHandler(repertoireSvc, categorySvc))
+	protected.PATCH("/api/repertoires/:id/visibility", handlers.UpdateVisibilityHandler(repertoireSvc))
+
+	// Explore API (public repertoires)
+	protected.GET("/api/explore/repertoires", handlers.ListPublicRepertoiresHandler(repertoireSvc))
+	protected.GET("/api/explore/repertoires/:id", handlers.GetPublicRepertoireHandler(repertoireSvc))
+	protected.POST("/api/explore/repertoires/:id/import", handlers.ImportRepertoireHandler(repertoireSvc))
 
 	// Category API
 	protected.GET("/api/categories", handlers.ListCategoriesHandler(categorySvc))
@@ -205,6 +212,9 @@ func main() {
 	protected.POST("/api/studies/import", studyImportHandler.ImportStudyHandler)
 	protected.GET("/api/studies/browse", studyImportHandler.BrowseStudiesHandler)
 	protected.GET("/api/studies/topics", studyImportHandler.StudyTopicsHandler)
+
+	// Training API
+	protected.POST("/api/training/analyze", trainingHandler.AnalyzeHandler)
 
 	// Sync API
 	protected.POST("/api/sync", syncHandler.HandleSync)

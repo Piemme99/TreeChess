@@ -70,7 +70,13 @@ func CreateRepertoireHandler(svc *services.RepertoireService) echo.HandlerFunc {
 			})
 		}
 
-		rep, err := svc.CreateRepertoire(userID, req.Name, req.Color)
+		// Default isPublic to true if not provided
+		isPublic := true
+		if req.IsPublic != nil {
+			isPublic = *req.IsPublic
+		}
+
+		rep, err := svc.CreateRepertoireWithVisibility(userID, req.Name, req.Color, isPublic)
 		if err != nil {
 			if errors.Is(err, services.ErrLimitReached) {
 				return c.JSON(http.StatusConflict, map[string]string{
@@ -917,6 +923,48 @@ func DeleteNodeHandler(svc *services.RepertoireService) echo.HandlerFunc {
 			}
 			return c.JSON(http.StatusInternalServerError, map[string]string{
 				"error": "failed to delete node",
+			})
+		}
+
+		return c.JSON(http.StatusOK, rep)
+	}
+}
+
+// UpdateVisibilityHandler updates the public/private visibility of a repertoire
+// PATCH /api/repertoires/:id/visibility
+func UpdateVisibilityHandler(svc *services.RepertoireService) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		userID := c.Get("userID").(string)
+		idParam := c.Param("id")
+
+		if _, err := uuid.Parse(idParam); err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{
+				"error": "id must be a valid UUID",
+			})
+		}
+
+		if err := svc.CheckOwnership(idParam, userID); err != nil {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "repertoire not found"})
+		}
+
+		var req struct {
+			IsPublic bool `json:"isPublic"`
+		}
+		if err := c.Bind(&req); err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{
+				"error": "invalid request body",
+			})
+		}
+
+		rep, err := svc.UpdateVisibility(userID, idParam, req.IsPublic)
+		if err != nil {
+			if errors.Is(err, services.ErrNotFound) {
+				return c.JSON(http.StatusNotFound, map[string]string{
+					"error": "repertoire not found",
+				})
+			}
+			return c.JSON(http.StatusInternalServerError, map[string]string{
+				"error": "failed to update visibility",
 			})
 		}
 

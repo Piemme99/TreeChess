@@ -1,7 +1,7 @@
 import { useCallback, useRef, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChessBoard } from '../../../shared/components/Board/ChessBoard';
-import { ArrowLeft, Check, RotateCcw } from 'lucide-react';
+import { ArrowLeft, Check } from 'lucide-react';
 
 interface TrainingBoardProps {
   fen: string;
@@ -11,11 +11,11 @@ interface TrainingBoardProps {
   correctMoveArrow: { from: string; to: string } | null;
   feedbackMessage: string | null;
   phase: string;
-  currentLineIndex: number;
+  completedLines: number;
   totalLines: number;
   totalMistakes: number;
+  boardKey: number;
   onMove: (san: string, from: string, to: string) => void;
-  onRetry: () => void;
   onBack: () => void;
 }
 
@@ -27,11 +27,11 @@ export function TrainingBoard({
   correctMoveArrow,
   feedbackMessage,
   phase,
-  currentLineIndex,
+  completedLines,
   totalLines,
   totalMistakes,
+  boardKey,
   onMove,
-  onRetry,
   onBack,
 }: TrainingBoardProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -56,24 +56,27 @@ export function TrainingBoard({
     [onMove]
   );
 
-  const completedLines = phase === 'line_complete'
-    ? currentLineIndex + 1
-    : currentLineIndex;
-  const progressPercent = totalLines > 0 ? (completedLines / totalLines) * 100 : 0;
+  const displayedCompleted = phase === 'line_complete'
+    ? completedLines + 1
+    : completedLines;
+  const progressPercent = totalLines > 0 ? (displayedCompleted / totalLines) * 100 : 0;
 
   const isLineComplete = phase === 'line_complete';
   const isWrongMove = phase === 'wrong_move';
+  const isRetryMove = phase === 'retry_move';
 
   const arrows: [string, string, string?][] = isWrongMove && correctMoveArrow
     ? [[correctMoveArrow.from, correctMoveArrow.to, 'rgb(220, 38, 38)']]
     : [];
 
   const feedbackColor =
-    phase === 'wrong_move'
+    isWrongMove
       ? 'bg-danger/10 text-danger border-danger/20'
-      : phase === 'line_complete'
-        ? 'bg-success/10 text-success border-success/20'
-        : 'bg-primary/10 text-primary border-primary/20';
+      : isRetryMove
+        ? 'bg-amber-500/10 text-amber-600 border-amber-500/20'
+        : phase === 'line_complete'
+          ? 'bg-success/10 text-success border-success/20'
+          : 'bg-primary/10 text-primary border-primary/20';
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -89,7 +92,7 @@ export function TrainingBoard({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-3 text-sm text-text-muted">
             <span>
-              Line {Math.min(currentLineIndex + 1, totalLines)} / {totalLines}
+              Line {Math.min(completedLines + 1, totalLines)} / {totalLines}
             </span>
             <span className="text-text-muted/40">|</span>
             <span>
@@ -111,6 +114,7 @@ export function TrainingBoard({
       {/* Board with overlay */}
       <div ref={containerRef} className="relative flex justify-center mb-4">
         <ChessBoard
+          key={boardKey}
           fen={fen}
           onMove={handleMove}
           interactive={interactive}
@@ -156,11 +160,11 @@ export function TrainingBoard({
         </AnimatePresence>
       </div>
 
-      {/* Feedback (hidden during line_complete since the overlay handles it) */}
+      {/* Feedback messages */}
       <AnimatePresence mode="wait">
-        {feedbackMessage && !isLineComplete && !isWrongMove && (
+        {feedbackMessage && !isLineComplete && (
           <motion.div
-            key={feedbackMessage}
+            key={`${phase}-${feedbackMessage}`}
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
@@ -168,30 +172,6 @@ export function TrainingBoard({
             className={`text-center py-2.5 px-4 rounded-xl border text-sm font-medium ${feedbackColor}`}
           >
             {feedbackMessage}
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Wrong move: feedback + retry button */}
-      <AnimatePresence>
-        {isWrongMove && (
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.2 }}
-            className="flex flex-col items-center gap-3"
-          >
-            <div className="text-center py-2.5 px-4 rounded-xl border text-sm font-medium bg-danger/10 text-danger border-danger/20 w-full">
-              {feedbackMessage}
-            </div>
-            <button
-              onClick={onRetry}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-danger text-white font-medium text-sm shadow-md shadow-danger/20 hover:bg-danger/90 transition-all duration-150 cursor-pointer"
-            >
-              <RotateCcw className="w-4 h-4" />
-              Retry
-            </button>
           </motion.div>
         )}
       </AnimatePresence>

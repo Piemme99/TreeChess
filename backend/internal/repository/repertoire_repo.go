@@ -15,61 +15,82 @@ import (
 
 const (
 	getRepertoireByIDSQL = `
-		SELECT id, name, color, category_id, tree_data, metadata, created_at, updated_at
+		SELECT id, name, color, is_public, category_id, tree_data, metadata, created_at, updated_at
 		FROM repertoires
 		WHERE id = $1
 	`
 	getRepertoiresByColorSQL = `
-		SELECT id, name, color, category_id, tree_data, metadata, created_at, updated_at
+		SELECT id, name, color, is_public, category_id, tree_data, metadata, created_at, updated_at
 		FROM repertoires
 		WHERE user_id = $1 AND color = $2
 		ORDER BY updated_at DESC
 	`
 	getAllRepertoiresSQL = `
-		SELECT id, name, color, category_id, tree_data, metadata, created_at, updated_at
+		SELECT id, name, color, is_public, category_id, tree_data, metadata, created_at, updated_at
 		FROM repertoires
 		WHERE user_id = $1
 		ORDER BY color, updated_at DESC
 	`
 	getRepertoiresByCategorySQL = `
-		SELECT id, name, color, category_id, tree_data, metadata, created_at, updated_at
+		SELECT id, name, color, is_public, category_id, tree_data, metadata, created_at, updated_at
 		FROM repertoires
 		WHERE category_id = $1
 		ORDER BY updated_at DESC
 	`
 	getUncategorizedRepertoiresSQL = `
-		SELECT id, name, color, category_id, tree_data, metadata, created_at, updated_at
+		SELECT id, name, color, is_public, category_id, tree_data, metadata, created_at, updated_at
 		FROM repertoires
 		WHERE user_id = $1 AND color = $2 AND category_id IS NULL
 		ORDER BY updated_at DESC
 	`
 	createRepertoireSQL = `
-		INSERT INTO repertoires (id, user_id, name, color, tree_data, metadata)
-		VALUES ($1, $2, $3, $4, $5, $6)
-		RETURNING id, name, color, category_id, tree_data, metadata, created_at, updated_at
+		INSERT INTO repertoires (id, user_id, name, color, is_public, tree_data, metadata)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		RETURNING id, name, color, is_public, category_id, tree_data, metadata, created_at, updated_at
 	`
 	createRepertoireWithCategorySQL = `
-		INSERT INTO repertoires (id, user_id, name, color, category_id, tree_data, metadata)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
-		RETURNING id, name, color, category_id, tree_data, metadata, created_at, updated_at
+		INSERT INTO repertoires (id, user_id, name, color, is_public, category_id, tree_data, metadata)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		RETURNING id, name, color, is_public, category_id, tree_data, metadata, created_at, updated_at
 	`
 	updateRepertoireByIDSQL = `
 		UPDATE repertoires
 		SET tree_data = $2, metadata = $3, updated_at = NOW()
 		WHERE id = $1
-		RETURNING id, name, color, category_id, tree_data, metadata, created_at, updated_at
+		RETURNING id, name, color, is_public, category_id, tree_data, metadata, created_at, updated_at
 	`
 	updateRepertoireNameSQL = `
 		UPDATE repertoires
 		SET name = $2, updated_at = NOW()
 		WHERE id = $1
-		RETURNING id, name, color, category_id, tree_data, metadata, created_at, updated_at
+		RETURNING id, name, color, is_public, category_id, tree_data, metadata, created_at, updated_at
 	`
 	updateRepertoireCategorySQL = `
 		UPDATE repertoires
 		SET category_id = $2, updated_at = NOW()
 		WHERE id = $1
-		RETURNING id, name, color, category_id, tree_data, metadata, created_at, updated_at
+		RETURNING id, name, color, is_public, category_id, tree_data, metadata, created_at, updated_at
+	`
+	updateRepertoireVisibilitySQL = `
+		UPDATE repertoires
+		SET is_public = $2, updated_at = NOW()
+		WHERE id = $1
+		RETURNING id, name, color, is_public, category_id, tree_data, metadata, created_at, updated_at
+	`
+	getAllPublicRepertoiresSQL = `
+		SELECT r.id, r.name, r.color, r.is_public, r.category_id, r.tree_data, r.metadata, r.created_at, r.updated_at,
+		       u.username
+		FROM repertoires r
+		JOIN users u ON r.user_id = u.id
+		WHERE r.is_public = true
+		ORDER BY r.updated_at DESC
+	`
+	getPublicRepertoireByIDSQL = `
+		SELECT r.id, r.name, r.color, r.is_public, r.category_id, r.tree_data, r.metadata, r.created_at, r.updated_at,
+		       u.username
+		FROM repertoires r
+		JOIN users u ON r.user_id = u.id
+		WHERE r.id = $1 AND r.is_public = true
 	`
 	deleteRepertoireSQL = `
 		DELETE FROM repertoires WHERE id = $1
@@ -107,6 +128,7 @@ func (r *PostgresRepertoireRepo) GetByID(id string) (*models.Repertoire, error) 
 		&rep.ID,
 		&rep.Name,
 		&rep.Color,
+		&rep.IsPublic,
 		&rep.CategoryID,
 		&treeDataJSON,
 		&metadataJSON,
@@ -164,8 +186,18 @@ func (r *PostgresRepertoireRepo) Create(userID string, name string, color models
 	return r.CreateWithCategory(userID, name, color, nil)
 }
 
+// CreateWithIsPublic creates a new repertoire with explicit visibility
+func (r *PostgresRepertoireRepo) CreateWithIsPublic(userID string, name string, color models.Color, isPublic bool) (*models.Repertoire, error) {
+	return r.createRepertoire(userID, name, color, nil, isPublic)
+}
+
 // CreateWithCategory creates a new repertoire with a name, color, and optional category for a user
 func (r *PostgresRepertoireRepo) CreateWithCategory(userID string, name string, color models.Color, categoryID *string) (*models.Repertoire, error) {
+	return r.createRepertoire(userID, name, color, categoryID, true)
+}
+
+// createRepertoire is the internal implementation for creating repertoires
+func (r *PostgresRepertoireRepo) createRepertoire(userID string, name string, color models.Color, categoryID *string, isPublic bool) (*models.Repertoire, error) {
 	ctx, cancel := dbContext()
 	defer cancel()
 
@@ -199,6 +231,7 @@ func (r *PostgresRepertoireRepo) CreateWithCategory(userID string, name string, 
 		ID:         uuid.New().String(),
 		Name:       name,
 		Color:      color,
+		IsPublic:   isPublic,
 		CategoryID: categoryID,
 		TreeData:   rootNode,
 		Metadata:   metadata,
@@ -211,16 +244,17 @@ func (r *PostgresRepertoireRepo) CreateWithCategory(userID string, name string, 
 
 	if categoryID != nil {
 		query = createRepertoireWithCategorySQL
-		args = []interface{}{rep.ID, userID, rep.Name, string(rep.Color), *categoryID, treeDataJSON, metadataJSON}
+		args = []interface{}{rep.ID, userID, rep.Name, string(rep.Color), isPublic, *categoryID, treeDataJSON, metadataJSON}
 	} else {
 		query = createRepertoireSQL
-		args = []interface{}{rep.ID, userID, rep.Name, string(rep.Color), treeDataJSON, metadataJSON}
+		args = []interface{}{rep.ID, userID, rep.Name, string(rep.Color), isPublic, treeDataJSON, metadataJSON}
 	}
 
 	err = r.pool.QueryRow(ctx, query, args...).Scan(
 		&rep.ID,
 		&rep.Name,
 		&rep.Color,
+		&rep.IsPublic,
 		&rep.CategoryID,
 		&treeDataJSON,
 		&metadataJSON,
@@ -268,6 +302,7 @@ func (r *PostgresRepertoireRepo) Save(id string, treeData models.RepertoireNode,
 		&rep.ID,
 		&rep.Name,
 		&rep.Color,
+		&rep.IsPublic,
 		&rep.CategoryID,
 		&newTreeDataJSON,
 		&newMetadataJSON,
@@ -301,6 +336,7 @@ func (r *PostgresRepertoireRepo) UpdateName(id string, name string) (*models.Rep
 		&rep.ID,
 		&rep.Name,
 		&rep.Color,
+		&rep.IsPublic,
 		&rep.CategoryID,
 		&treeDataJSON,
 		&metadataJSON,
@@ -334,6 +370,7 @@ func (r *PostgresRepertoireRepo) UpdateCategory(id string, categoryID *string) (
 		&rep.ID,
 		&rep.Name,
 		&rep.Color,
+		&rep.IsPublic,
 		&rep.CategoryID,
 		&treeDataJSON,
 		&metadataJSON,
@@ -459,11 +496,163 @@ func (r *PostgresRepertoireRepo) scanRepertoires(rows interface {
 			&rep.ID,
 			&rep.Name,
 			&rep.Color,
+			&rep.IsPublic,
 			&rep.CategoryID,
 			&treeDataJSON,
 			&metadataJSON,
 			&rep.CreatedAt,
 			&rep.UpdatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan repertoire: %w", err)
+		}
+
+		if err := json.Unmarshal(treeDataJSON, &rep.TreeData); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal tree_data: %w", err)
+		}
+
+		if err := json.Unmarshal(metadataJSON, &rep.Metadata); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal metadata: %w", err)
+		}
+
+		repertoires = append(repertoires, rep)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating repertoires: %w", err)
+	}
+
+	return repertoires, nil
+}
+
+// UpdateVisibility updates the is_public flag of a repertoire
+func (r *PostgresRepertoireRepo) UpdateVisibility(id string, isPublic bool) (*models.Repertoire, error) {
+	ctx, cancel := dbContext()
+	defer cancel()
+
+	var rep models.Repertoire
+	var treeDataJSON, metadataJSON []byte
+
+	err := r.pool.QueryRow(ctx, updateRepertoireVisibilitySQL, id, isPublic).Scan(
+		&rep.ID,
+		&rep.Name,
+		&rep.Color,
+		&rep.IsPublic,
+		&rep.CategoryID,
+		&treeDataJSON,
+		&metadataJSON,
+		&rep.CreatedAt,
+		&rep.UpdatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrRepertoireNotFound
+		}
+		return nil, fmt.Errorf("failed to update repertoire visibility: %w", err)
+	}
+
+	if err := json.Unmarshal(treeDataJSON, &rep.TreeData); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal tree_data: %w", err)
+	}
+
+	if err := json.Unmarshal(metadataJSON, &rep.Metadata); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal metadata: %w", err)
+	}
+
+	return &rep, nil
+}
+
+// GetAllPublic retrieves all public repertoires with author usernames
+func (r *PostgresRepertoireRepo) GetAllPublic() ([]models.Repertoire, error) {
+	ctx, cancel := dbContext()
+	defer cancel()
+
+	rows, err := r.pool.Query(ctx, getAllPublicRepertoiresSQL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query public repertoires: %w", err)
+	}
+	defer rows.Close()
+
+	return r.scanRepertoiresWithAuthor(rows)
+}
+
+// GetPublicByID retrieves a single public repertoire by ID with author username
+func (r *PostgresRepertoireRepo) GetPublicByID(id string) (*models.Repertoire, error) {
+	ctx, cancel := dbContext()
+	defer cancel()
+
+	var rep models.Repertoire
+	var treeDataJSON, metadataJSON []byte
+
+	err := r.pool.QueryRow(ctx, getPublicRepertoireByIDSQL, id).Scan(
+		&rep.ID,
+		&rep.Name,
+		&rep.Color,
+		&rep.IsPublic,
+		&rep.CategoryID,
+		&treeDataJSON,
+		&metadataJSON,
+		&rep.CreatedAt,
+		&rep.UpdatedAt,
+		&rep.AuthorName,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrRepertoireNotFound
+		}
+		return nil, fmt.Errorf("failed to get public repertoire: %w", err)
+	}
+
+	if err := json.Unmarshal(treeDataJSON, &rep.TreeData); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal tree_data: %w", err)
+	}
+
+	if err := json.Unmarshal(metadataJSON, &rep.Metadata); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal metadata: %w", err)
+	}
+
+	return &rep, nil
+}
+
+// GetOwnerID returns the user_id of a repertoire
+func (r *PostgresRepertoireRepo) GetOwnerID(id string) (string, error) {
+	ctx, cancel := dbContext()
+	defer cancel()
+
+	var ownerID string
+	err := r.pool.QueryRow(ctx, `SELECT user_id FROM repertoires WHERE id = $1`, id).Scan(&ownerID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", ErrRepertoireNotFound
+		}
+		return "", fmt.Errorf("failed to get repertoire owner: %w", err)
+	}
+	return ownerID, nil
+}
+
+// scanRepertoiresWithAuthor scans repertoire rows that include a username column
+func (r *PostgresRepertoireRepo) scanRepertoiresWithAuthor(rows interface {
+	Next() bool
+	Scan(...interface{}) error
+	Err() error
+}) ([]models.Repertoire, error) {
+	var repertoires []models.Repertoire
+
+	for rows.Next() {
+		var rep models.Repertoire
+		var treeDataJSON, metadataJSON []byte
+
+		err := rows.Scan(
+			&rep.ID,
+			&rep.Name,
+			&rep.Color,
+			&rep.IsPublic,
+			&rep.CategoryID,
+			&treeDataJSON,
+			&metadataJSON,
+			&rep.CreatedAt,
+			&rep.UpdatedAt,
+			&rep.AuthorName,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan repertoire: %w", err)

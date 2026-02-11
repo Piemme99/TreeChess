@@ -23,7 +23,7 @@ interface RepertoireState {
   fetchCategories: () => Promise<void>;
 
   // Actions - repertoire management
-  createRepertoire: (name: string, color: Color) => Promise<Repertoire>;
+  createRepertoire: (name: string, color: Color, isPublic?: boolean) => Promise<Repertoire>;
   renameRepertoire: (id: string, name: string) => Promise<void>;
   deleteRepertoire: (id: string) => Promise<void>;
   mergeRepertoires: (ids: string[], name: string) => Promise<Repertoire>;
@@ -107,10 +107,10 @@ export const useRepertoireStore = create<RepertoireState>((set, get) => ({
     }
   },
 
-  createRepertoire: async (name: string, color: Color) => {
+  createRepertoire: async (name: string, color: Color, isPublic?: boolean) => {
     set({ loading: true, error: null });
     try {
-      const repertoire = await repertoireApi.create({ name, color });
+      const repertoire = await repertoireApi.create({ name, color, isPublic });
       set((state) => ({
         repertoires: [...state.repertoires, repertoire],
         loading: false

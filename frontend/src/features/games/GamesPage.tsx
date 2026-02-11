@@ -11,7 +11,7 @@ import { useInsights } from './hooks/useInsights';
 import type { RepertoireFilterOption } from '../../types';
 import { GamesList } from '../analyse-tab/components/GamesList';
 import { ImportPanel } from './components/ImportPanel';
-import { WorstMistakes } from './components/WorstMistakes';
+import { MistakesList } from '../../shared/components/MistakesList';
 import { ConfirmModal, Button, EmptyState } from '../../shared/components/UI';
 import { gamesApi } from '../../services/api';
 import { toast } from '../../stores/toastStore';
@@ -151,11 +151,9 @@ export function GamesPage() {
       )}
 
       {insights && (
-        <WorstMistakes
-          mistakes={insights.worstMistakes}
-          engineAnalysisDone={insights.engineAnalysisDone}
-          engineAnalysisTotal={insights.engineAnalysisTotal}
-          engineAnalysisCompleted={insights.engineAnalysisCompleted}
+        <MistakesList
+          insights={insights}
+          title="Worst Opening Mistakes"
           onDismiss={handleDismissMistake}
         />
       )}

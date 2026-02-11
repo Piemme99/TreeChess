@@ -1939,3 +1939,464 @@ func TestRepertoireService_ClearMainLine_RepertoireNotFound(t *testing.T) {
 
 	assert.ErrorIs(t, err, ErrNotFound)
 }
+
+// --- UpdateVisibility tests ---
+
+func TestRepertoireService_UpdateVisibility_Success(t *testing.T) {
+	mockRepo := &mocks.MockRepertoireRepo{
+		BelongsToUserFunc: func(id, userID string) (bool, error) { return true, nil },
+		UpdateVisibilityFunc: func(id string, isPublic bool) (*models.Repertoire, error) {
+			return &models.Repertoire{ID: id, IsPublic: isPublic}, nil
+		},
+	}
+	svc := NewRepertoireService(mockRepo)
+
+	rep, err := svc.UpdateVisibility("user-1", "rep-1", false)
+
+	require.NoError(t, err)
+	assert.Equal(t, "rep-1", rep.ID)
+	assert.False(t, rep.IsPublic)
+}
+
+func TestRepertoireService_UpdateVisibility_MakePublic(t *testing.T) {
+	mockRepo := &mocks.MockRepertoireRepo{
+		BelongsToUserFunc: func(id, userID string) (bool, error) { return true, nil },
+		UpdateVisibilityFunc: func(id string, isPublic bool) (*models.Repertoire, error) {
+			return &models.Repertoire{ID: id, IsPublic: isPublic}, nil
+		},
+	}
+	svc := NewRepertoireService(mockRepo)
+
+	rep, err := svc.UpdateVisibility("user-1", "rep-1", true)
+
+	require.NoError(t, err)
+	assert.True(t, rep.IsPublic)
+}
+
+func TestRepertoireService_UpdateVisibility_NotOwner(t *testing.T) {
+	mockRepo := &mocks.MockRepertoireRepo{
+		BelongsToUserFunc: func(id, userID string) (bool, error) { return false, nil },
+	}
+	svc := NewRepertoireService(mockRepo)
+
+	_, err := svc.UpdateVisibility("other-user", "rep-1", true)
+
+	assert.ErrorIs(t, err, ErrNotFound)
+}
+
+func TestRepertoireService_UpdateVisibility_OwnershipCheckError(t *testing.T) {
+	mockRepo := &mocks.MockRepertoireRepo{
+		BelongsToUserFunc: func(id, userID string) (bool, error) {
+			return false, assert.AnError
+		},
+	}
+	svc := NewRepertoireService(mockRepo)
+
+	_, err := svc.UpdateVisibility("user-1", "rep-1", true)
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to check ownership")
+}
+
+// --- ListPublicRepertoires tests ---
+
+func TestRepertoireService_ListPublicRepertoires_Success(t *testing.T) {
+	mockRepo := &mocks.MockRepertoireRepo{
+		GetAllPublicFunc: func() ([]models.Repertoire, error) {
+			return []models.Repertoire{
+				{ID: "rep-1", Name: "Sicilian Defense", IsPublic: true, AuthorName: "alice"},
+				{ID: "rep-2", Name: "French Defense", IsPublic: true, AuthorName: "bob"},
+			}, nil
+		},
+	}
+	svc := NewRepertoireService(mockRepo)
+
+	reps, err := svc.ListPublicRepertoires()
+
+	require.NoError(t, err)
+	assert.Len(t, reps, 2)
+	assert.Equal(t, "alice", reps[0].AuthorName)
+	assert.Equal(t, "bob", reps[1].AuthorName)
+}
+
+func TestRepertoireService_ListPublicRepertoires_Empty(t *testing.T) {
+	mockRepo := &mocks.MockRepertoireRepo{
+		GetAllPublicFunc: func() ([]models.Repertoire, error) {
+			return []models.Repertoire{}, nil
+		},
+	}
+	svc := NewRepertoireService(mockRepo)
+
+	reps, err := svc.ListPublicRepertoires()
+
+	require.NoError(t, err)
+	assert.Empty(t, reps)
+}
+
+func TestRepertoireService_ListPublicRepertoires_RepoError(t *testing.T) {
+	mockRepo := &mocks.MockRepertoireRepo{
+		GetAllPublicFunc: func() ([]models.Repertoire, error) {
+			return nil, assert.AnError
+		},
+	}
+	svc := NewRepertoireService(mockRepo)
+
+	_, err := svc.ListPublicRepertoires()
+
+	assert.Error(t, err)
+	assert.ErrorIs(t, err, assert.AnError)
+}
+
+// --- GetPublicRepertoire tests ---
+
+func TestRepertoireService_GetPublicRepertoire_Success(t *testing.T) {
+	mockRepo := &mocks.MockRepertoireRepo{
+		GetPublicByIDFunc: func(id string) (*models.Repertoire, error) {
+			return &models.Repertoire{
+				ID:         id,
+				Name:       "Sicilian Defense",
+				IsPublic:   true,
+				AuthorName: "alice",
+				TreeData: models.RepertoireNode{
+					ID:  "root",
+					FEN: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -",
+				},
+			}, nil
+		},
+	}
+	svc := NewRepertoireService(mockRepo)
+
+	rep, err := svc.GetPublicRepertoire("rep-1")
+
+	require.NoError(t, err)
+	assert.Equal(t, "rep-1", rep.ID)
+	assert.Equal(t, "Sicilian Defense", rep.Name)
+	assert.True(t, rep.IsPublic)
+	assert.Equal(t, "alice", rep.AuthorName)
+}
+
+func TestRepertoireService_GetPublicRepertoire_NotFound(t *testing.T) {
+	mockRepo := &mocks.MockRepertoireRepo{
+		GetPublicByIDFunc: func(id string) (*models.Repertoire, error) {
+			return nil, repository.ErrRepertoireNotFound
+		},
+	}
+	svc := NewRepertoireService(mockRepo)
+
+	_, err := svc.GetPublicRepertoire("nonexistent")
+
+	assert.Error(t, err)
+	assert.ErrorIs(t, err, ErrNotFound)
+}
+
+func TestRepertoireService_GetPublicRepertoire_PrivateRepertoireNotFound(t *testing.T) {
+	// A private repertoire should not be returned by GetPublicRepertoire
+	mockRepo := &mocks.MockRepertoireRepo{
+		GetPublicByIDFunc: func(id string) (*models.Repertoire, error) {
+			return nil, repository.ErrRepertoireNotFound
+		},
+	}
+	svc := NewRepertoireService(mockRepo)
+
+	_, err := svc.GetPublicRepertoire("private-rep")
+
+	assert.ErrorIs(t, err, ErrNotFound)
+}
+
+func TestRepertoireService_GetPublicRepertoire_RepoError(t *testing.T) {
+	mockRepo := &mocks.MockRepertoireRepo{
+		GetPublicByIDFunc: func(id string) (*models.Repertoire, error) {
+			return nil, assert.AnError
+		},
+	}
+	svc := NewRepertoireService(mockRepo)
+
+	_, err := svc.GetPublicRepertoire("rep-1")
+
+	assert.Error(t, err)
+	assert.ErrorIs(t, err, assert.AnError)
+}
+
+// --- ImportRepertoire tests ---
+
+func TestRepertoireService_ImportRepertoire_Success(t *testing.T) {
+	move := "e4"
+	sourceTree := models.RepertoireNode{
+		ID:  "source-root",
+		FEN: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -",
+		Children: []*models.RepertoireNode{
+			{
+				ID:       "source-child",
+				FEN:      "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq -",
+				Move:     &move,
+				Children: []*models.RepertoireNode{},
+			},
+		},
+	}
+
+	var savedTree models.RepertoireNode
+	mockRepo := &mocks.MockRepertoireRepo{
+		GetPublicByIDFunc: func(id string) (*models.Repertoire, error) {
+			return &models.Repertoire{
+				ID:       "source-rep",
+				Name:     "Sicilian Defense",
+				Color:    models.ColorWhite,
+				IsPublic: true,
+				TreeData: sourceTree,
+			}, nil
+		},
+		GetOwnerIDFunc: func(id string) (string, error) {
+			return "other-user", nil
+		},
+		CountFunc: func(userID string) (int, error) { return 5, nil },
+		CreateWithIsPublicFunc: func(userID, name string, color models.Color, isPublic bool) (*models.Repertoire, error) {
+			return &models.Repertoire{
+				ID:       "new-rep",
+				Name:     name,
+				Color:    color,
+				IsPublic: isPublic,
+			}, nil
+		},
+		SaveFunc: func(id string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
+			savedTree = treeData
+			return &models.Repertoire{
+				ID:       id,
+				Name:     "Sicilian Defense",
+				Color:    models.ColorWhite,
+				TreeData: treeData,
+				Metadata: metadata,
+			}, nil
+		},
+	}
+	svc := NewRepertoireService(mockRepo)
+
+	rep, err := svc.ImportRepertoire("user-1", "source-rep")
+
+	require.NoError(t, err)
+	assert.Equal(t, "new-rep", rep.ID)
+	assert.Equal(t, "Sicilian Defense", rep.Name)
+
+	// The cloned tree should have the same structure but different IDs
+	assert.NotEqual(t, "source-root", savedTree.ID)
+	assert.Len(t, savedTree.Children, 1)
+	assert.NotEqual(t, "source-child", savedTree.Children[0].ID)
+	assert.Equal(t, "e4", *savedTree.Children[0].Move)
+}
+
+func TestRepertoireService_ImportRepertoire_DeepClone(t *testing.T) {
+	// Verify that importing creates a deep clone with new UUIDs at all levels
+	move1 := "e4"
+	move2 := "e5"
+	move3 := "Nf3"
+	sourceTree := models.RepertoireNode{
+		ID:  "root",
+		FEN: "start",
+		Children: []*models.RepertoireNode{
+			{
+				ID:   "l1",
+				Move: &move1,
+				FEN:  "fen1",
+				Children: []*models.RepertoireNode{
+					{
+						ID:   "l2",
+						Move: &move2,
+						FEN:  "fen2",
+						Children: []*models.RepertoireNode{
+							{ID: "l3", Move: &move3, FEN: "fen3", Children: []*models.RepertoireNode{}},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	var savedTree models.RepertoireNode
+	mockRepo := &mocks.MockRepertoireRepo{
+		GetPublicByIDFunc: func(id string) (*models.Repertoire, error) {
+			return &models.Repertoire{
+				ID: "source", Name: "Deep", Color: models.ColorWhite,
+				IsPublic: true, TreeData: sourceTree,
+			}, nil
+		},
+		GetOwnerIDFunc: func(id string) (string, error) { return "other-user", nil },
+		CountFunc:      func(userID string) (int, error) { return 0, nil },
+		CreateWithIsPublicFunc: func(userID, name string, color models.Color, isPublic bool) (*models.Repertoire, error) {
+			assert.False(t, isPublic, "Imported repertoire should be private")
+			return &models.Repertoire{ID: "new", Name: name, Color: color, IsPublic: isPublic}, nil
+		},
+		SaveFunc: func(id string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
+			savedTree = treeData
+			return &models.Repertoire{ID: id, TreeData: treeData, Metadata: metadata}, nil
+		},
+	}
+	svc := NewRepertoireService(mockRepo)
+
+	_, err := svc.ImportRepertoire("user-1", "source")
+
+	require.NoError(t, err)
+
+	// Verify all IDs are different from source
+	assert.NotEqual(t, "root", savedTree.ID)
+	child := savedTree.Children[0]
+	assert.NotEqual(t, "l1", child.ID)
+	assert.Equal(t, "e4", *child.Move)
+	grandchild := child.Children[0]
+	assert.NotEqual(t, "l2", grandchild.ID)
+	assert.Equal(t, "e5", *grandchild.Move)
+	greatGrandchild := grandchild.Children[0]
+	assert.NotEqual(t, "l3", greatGrandchild.ID)
+	assert.Equal(t, "Nf3", *greatGrandchild.Move)
+}
+
+func TestRepertoireService_ImportRepertoire_CannotImportOwn(t *testing.T) {
+	mockRepo := &mocks.MockRepertoireRepo{
+		GetPublicByIDFunc: func(id string) (*models.Repertoire, error) {
+			return &models.Repertoire{
+				ID: id, Name: "My Rep", Color: models.ColorWhite,
+				IsPublic: true, TreeData: models.RepertoireNode{ID: "root"},
+			}, nil
+		},
+		GetOwnerIDFunc: func(id string) (string, error) {
+			return "user-1", nil // Same as the requesting user
+		},
+	}
+	svc := NewRepertoireService(mockRepo)
+
+	_, err := svc.ImportRepertoire("user-1", "rep-1")
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "cannot import your own repertoire")
+}
+
+func TestRepertoireService_ImportRepertoire_SourceNotPublic(t *testing.T) {
+	mockRepo := &mocks.MockRepertoireRepo{
+		GetPublicByIDFunc: func(id string) (*models.Repertoire, error) {
+			return nil, repository.ErrRepertoireNotFound
+		},
+	}
+	svc := NewRepertoireService(mockRepo)
+
+	_, err := svc.ImportRepertoire("user-1", "private-rep")
+
+	assert.ErrorIs(t, err, ErrNotFound)
+}
+
+func TestRepertoireService_ImportRepertoire_LimitReached(t *testing.T) {
+	mockRepo := &mocks.MockRepertoireRepo{
+		GetPublicByIDFunc: func(id string) (*models.Repertoire, error) {
+			return &models.Repertoire{
+				ID: id, Name: "Rep", Color: models.ColorWhite,
+				IsPublic: true, TreeData: models.RepertoireNode{ID: "root"},
+			}, nil
+		},
+		GetOwnerIDFunc: func(id string) (string, error) { return "other-user", nil },
+		CountFunc:      func(userID string) (int, error) { return 50, nil },
+	}
+	svc := NewRepertoireService(mockRepo)
+
+	_, err := svc.ImportRepertoire("user-1", "rep-1")
+
+	assert.ErrorIs(t, err, ErrLimitReached)
+}
+
+func TestRepertoireService_ImportRepertoire_OwnerLookupError(t *testing.T) {
+	mockRepo := &mocks.MockRepertoireRepo{
+		GetPublicByIDFunc: func(id string) (*models.Repertoire, error) {
+			return &models.Repertoire{
+				ID: id, Name: "Rep", Color: models.ColorWhite,
+				IsPublic: true, TreeData: models.RepertoireNode{ID: "root"},
+			}, nil
+		},
+		GetOwnerIDFunc: func(id string) (string, error) {
+			return "", assert.AnError
+		},
+	}
+	svc := NewRepertoireService(mockRepo)
+
+	_, err := svc.ImportRepertoire("user-1", "rep-1")
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to get owner")
+}
+
+// --- CreateRepertoireWithVisibility tests ---
+
+func TestRepertoireService_CreateRepertoireWithVisibility_Public(t *testing.T) {
+	mockRepo := &mocks.MockRepertoireRepo{
+		CountFunc: func(userID string) (int, error) { return 0, nil },
+		CreateWithIsPublicFunc: func(userID, name string, color models.Color, isPublic bool) (*models.Repertoire, error) {
+			return &models.Repertoire{ID: "new-rep", Name: name, Color: color, IsPublic: isPublic}, nil
+		},
+	}
+	svc := NewRepertoireService(mockRepo)
+
+	rep, err := svc.CreateRepertoireWithVisibility("user-1", "My Public Rep", models.ColorWhite, true)
+
+	require.NoError(t, err)
+	assert.True(t, rep.IsPublic)
+	assert.Equal(t, "My Public Rep", rep.Name)
+}
+
+func TestRepertoireService_CreateRepertoireWithVisibility_Private(t *testing.T) {
+	mockRepo := &mocks.MockRepertoireRepo{
+		CountFunc: func(userID string) (int, error) { return 0, nil },
+		CreateWithIsPublicFunc: func(userID, name string, color models.Color, isPublic bool) (*models.Repertoire, error) {
+			return &models.Repertoire{ID: "new-rep", Name: name, Color: color, IsPublic: isPublic}, nil
+		},
+	}
+	svc := NewRepertoireService(mockRepo)
+
+	rep, err := svc.CreateRepertoireWithVisibility("user-1", "My Private Rep", models.ColorBlack, false)
+
+	require.NoError(t, err)
+	assert.False(t, rep.IsPublic)
+}
+
+func TestRepertoireService_CreateRepertoireWithVisibility_InvalidColor(t *testing.T) {
+	mockRepo := &mocks.MockRepertoireRepo{}
+	svc := NewRepertoireService(mockRepo)
+
+	_, err := svc.CreateRepertoireWithVisibility("user-1", "Rep", models.Color("invalid"), true)
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid color")
+}
+
+func TestRepertoireService_CreateRepertoireWithVisibility_EmptyName(t *testing.T) {
+	mockRepo := &mocks.MockRepertoireRepo{}
+	svc := NewRepertoireService(mockRepo)
+
+	_, err := svc.CreateRepertoireWithVisibility("user-1", "", models.ColorWhite, true)
+
+	assert.ErrorIs(t, err, ErrNameRequired)
+}
+
+func TestRepertoireService_CreateRepertoireWithVisibility_LimitReached(t *testing.T) {
+	mockRepo := &mocks.MockRepertoireRepo{
+		CountFunc: func(userID string) (int, error) { return 50, nil },
+	}
+	svc := NewRepertoireService(mockRepo)
+
+	_, err := svc.CreateRepertoireWithVisibility("user-1", "Rep", models.ColorWhite, true)
+
+	assert.ErrorIs(t, err, ErrLimitReached)
+}
+
+// --- CreateRepertoire delegates to CreateRepertoireWithVisibility ---
+
+func TestRepertoireService_CreateRepertoire_DefaultsToPublic(t *testing.T) {
+	var receivedIsPublic bool
+	mockRepo := &mocks.MockRepertoireRepo{
+		CountFunc: func(userID string) (int, error) { return 0, nil },
+		CreateWithIsPublicFunc: func(userID, name string, color models.Color, isPublic bool) (*models.Repertoire, error) {
+			receivedIsPublic = isPublic
+			return &models.Repertoire{ID: "new-rep", Name: name, Color: color, IsPublic: isPublic}, nil
+		},
+	}
+	svc := NewRepertoireService(mockRepo)
+
+	_, err := svc.CreateRepertoire("user-1", "Test", models.ColorWhite)
+
+	require.NoError(t, err)
+	assert.True(t, receivedIsPublic, "CreateRepertoire should default to public (isPublic=true)")
+}

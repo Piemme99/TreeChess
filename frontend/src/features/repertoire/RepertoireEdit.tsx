@@ -18,9 +18,11 @@ import { BoardSection } from './edit/components/BoardSection';
 import { DeleteModal } from './edit/components/DeleteModal';
 import { ExtractModal } from './edit/components/ExtractModal';
 import { repertoireApi } from '../../services/api';
+import { useExploreStore } from '../../stores/exploreStore';
 import { toast } from '../../stores/toastStore';
 import { BRANCH_COLORS } from './shared/components/RepertoireTree/constants';
 import { usePageTitle } from '../../shared/hooks/usePageTitle';
+import { Download, Globe, Lock } from 'lucide-react';
 
 type TabId = 'tree' | 'moves' | 'engine';
 
@@ -30,8 +32,12 @@ const TABS: { id: TabId; label: string }[] = [
   { id: 'engine', label: 'Engine' },
 ];
 
+const READ_ONLY_TABS: { id: TabId; label: string }[] = [
+  { id: 'tree', label: 'Tree' },
+  { id: 'moves', label: 'Moves' },
+];
+
 export function RepertoireEdit() {
-  usePageTitle('Edit Repertoire');
   // All hooks must be called first, before any conditions
   const navigate = useNavigate();
   const location = useLocation();
@@ -63,8 +69,10 @@ export function RepertoireEdit() {
     };
   }, [isDragging]);
 
-  const { id, color, repertoire, selectedNodeId, loading, selectNode, setRepertoire } = useRepertoireLoader();
+  const { id, color, repertoire, selectedNodeId, loading, selectNode, setRepertoire, readOnly } = useRepertoireLoader();
+  usePageTitle(readOnly ? 'View Repertoire' : 'Edit Repertoire');
   const engine = useEngine();
+  const [importingFromView, setImportingFromView] = useState(false);
   const [commentText, setCommentText] = useState('');
   const commentSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [branchNameText, setBranchNameText] = useState('');
@@ -115,7 +123,8 @@ export function RepertoireEdit() {
     }
   }, [currentFEN, pendingMoveArrow.length]);
 
-  usePendingAddNode(repertoire, id, selectNode, setRepertoire);
+  // Only use pending add node and edit-specific hooks when not in read-only mode
+  usePendingAddNode(readOnly ? null : repertoire, readOnly ? undefined : id, selectNode, setRepertoire);
   useTreeNavigation(repertoire?.treeData, selectedNodeId, selectNode);
 
   const { actionLoading, possibleMoves, setPossibleMoves, handleBoardMove, handleDeleteBranch, handleExtractBranch } =
@@ -276,10 +285,56 @@ export function RepertoireEdit() {
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
-      <div className="py-1 px-4">
-        <Button variant="ghost" size="sm" onClick={() => navigate(location.state?.from || '/repertoires')}>
-          &larr; Back
-        </Button>
+      <div className="py-1 px-4 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="sm" onClick={() => navigate(readOnly ? '/explore' : (location.state?.from || '/repertoires'))}>
+            &larr; Back
+          </Button>
+          {!readOnly && repertoire && (
+            <button
+              className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg border border-primary/10 hover:border-primary/30 transition-colors cursor-pointer bg-transparent text-text-muted hover:text-text"
+              title={repertoire.isPublic ? 'Public - click to make private' : 'Private - click to make public'}
+              onClick={async () => {
+                if (!id) return;
+                try {
+                  const updated = await repertoireApi.updateVisibility(id, !repertoire.isPublic);
+                  setRepertoire(updated);
+                  toast.success(updated.isPublic ? 'Repertoire is now public' : 'Repertoire is now private');
+                } catch {
+                  toast.error('Failed to update visibility');
+                }
+              }}
+            >
+              {repertoire.isPublic ? <Globe className="w-3.5 h-3.5 text-primary" /> : <Lock className="w-3.5 h-3.5" />}
+              <span>{repertoire.isPublic ? 'Public' : 'Private'}</span>
+            </button>
+          )}
+        </div>
+        {readOnly && repertoire && (
+          <div className="flex items-center gap-3">
+            <div className="text-sm text-text-muted">
+              <span className="font-semibold text-text">{repertoire.name}</span>
+              {repertoire.authorName && <span className="ml-2">by {repertoire.authorName}</span>}
+            </div>
+            <Button
+              variant="primary"
+              size="sm"
+              disabled={importingFromView}
+              onClick={async () => {
+                if (!id) return;
+                setImportingFromView(true);
+                try {
+                  await useExploreStore.getState().importRepertoire(id);
+                } finally {
+                  setImportingFromView(false);
+                }
+              }}
+            >
+              <Download className="w-3.5 h-3.5 mr-1" />
+              {importingFromView ? 'Importing...' : 'Import'}
+            </Button>
+          </div>
+        )}
       </div>
       <div ref={containerRef} className={`flex-1 flex gap-0 min-h-0 overflow-hidden max-md:flex-col${isDragging ? ' select-none' : ''}`}>
         <div className="h-full max-md:!w-full" style={{ width: `${boardWidthPercent}%` }}>
@@ -288,11 +343,11 @@ export function RepertoireEdit() {
             repertoire={repertoire}
             currentFEN={currentFEN}
             color={color}
-            possibleMoves={possibleMoves}
-            setPossibleMoves={setPossibleMoves}
-            onMove={handleBoardMove}
-            engineEvaluation={engine.currentEvaluation}
-            pendingMoveArrow={pendingMoveArrow}
+            possibleMoves={readOnly ? [] : possibleMoves}
+            setPossibleMoves={readOnly ? (() => {}) : setPossibleMoves}
+            onMove={readOnly ? (() => {}) : handleBoardMove}
+            engineEvaluation={readOnly ? null : engine.currentEvaluation}
+            pendingMoveArrow={readOnly ? [] : pendingMoveArrow}
           />
         </div>
 
@@ -316,32 +371,39 @@ export function RepertoireEdit() {
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-1">
-              <Button variant="ghost" size="sm" onClick={handleSetMainLine} disabled={isRootNode || mainLineLoading} title="Set main line to this node">
-                Main Line
-              </Button>
-              {repertoire && hasMainLine(repertoire.treeData) && (
-                <Button variant="ghost" size="sm" onClick={handleClearMainLine} disabled={mainLineLoading} title="Clear main line">
-                  Clear ML
+            {!readOnly && (
+              <div className="flex items-center gap-1">
+                <Button variant="ghost" size="sm" onClick={handleSetMainLine} disabled={isRootNode || mainLineLoading} title="Set main line to this node">
+                  Main Line
                 </Button>
-              )}
-              <Button variant="ghost" size="sm" onClick={handleMergeTranspositions} disabled={mergeLoading} title="Merge transpositions">
-                {mergeLoading ? 'Merging...' : 'Merge'}
-              </Button>
-              <Button variant="ghost" size="sm" onClick={() => setExtractConfirmOpen(true)} disabled={isRootNode || actionLoading} title="Extract branch into new repertoire">
-                Extract
-              </Button>
-              <Button variant="ghost" size="sm" onClick={() => setDeleteConfirmOpen(true)} disabled={isRootNode || actionLoading} title="Delete this branch">
-                <span className="text-danger">Delete</span>
-              </Button>
+                {repertoire && hasMainLine(repertoire.treeData) && (
+                  <Button variant="ghost" size="sm" onClick={handleClearMainLine} disabled={mainLineLoading} title="Clear main line">
+                    Clear ML
+                  </Button>
+                )}
+                <Button variant="ghost" size="sm" onClick={handleMergeTranspositions} disabled={mergeLoading} title="Merge transpositions">
+                  {mergeLoading ? 'Merging...' : 'Merge'}
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => setExtractConfirmOpen(true)} disabled={isRootNode || actionLoading} title="Extract branch into new repertoire">
+                  Extract
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => setDeleteConfirmOpen(true)} disabled={isRootNode || actionLoading} title="Delete this branch">
+                  <span className="text-danger">Delete</span>
+                </Button>
+                <Button variant="ghost" size="sm" onClick={goToRoot} title="Go to starting position">
+                  Root
+                </Button>
+              </div>
+            )}
+            {readOnly && (
               <Button variant="ghost" size="sm" onClick={goToRoot} title="Go to starting position">
                 Root
               </Button>
-            </div>
+            )}
           </div>
 
           {/* Branch name and comment */}
-          {selectedNode && (
+          {selectedNode && !readOnly && (
             <div className="px-3 py-2 flex flex-col gap-2">
               <input
                 type="text"
@@ -390,9 +452,26 @@ export function RepertoireEdit() {
             </div>
           )}
 
+          {/* Read-only: show comment and branch name (non-editable) */}
+          {selectedNode && readOnly && (selectedNode.branchName || selectedNode.comment) && (
+            <div className="px-3 py-2 flex flex-col gap-1.5">
+              {selectedNode.branchName && (
+                <div className="flex items-center gap-1.5">
+                  {selectedNode.branchColor && (
+                    <span className="inline-block w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: selectedNode.branchColor }} />
+                  )}
+                  <span className="text-xs font-semibold text-text">{selectedNode.branchName}</span>
+                </div>
+              )}
+              {selectedNode.comment && (
+                <p className="text-xs text-text-muted whitespace-pre-wrap m-0">{selectedNode.comment}</p>
+              )}
+            </div>
+          )}
+
           {/* Tab bar */}
           <div className="flex border-b border-primary/10 px-3">
-            {TABS.map((tab) => (
+            {(readOnly ? READ_ONLY_TABS : TABS).map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
@@ -441,21 +520,25 @@ export function RepertoireEdit() {
         </div>
       </div>
 
-      <DeleteModal
-        isOpen={deleteConfirmOpen}
-        onClose={() => setDeleteConfirmOpen(false)}
-        onConfirm={handleDeleteBranch}
-        moveName={selectedNode?.move}
-        actionLoading={actionLoading}
-      />
+      {!readOnly && (
+        <>
+          <DeleteModal
+            isOpen={deleteConfirmOpen}
+            onClose={() => setDeleteConfirmOpen(false)}
+            onConfirm={handleDeleteBranch}
+            moveName={selectedNode?.move}
+            actionLoading={actionLoading}
+          />
 
-      <ExtractModal
-        isOpen={extractConfirmOpen}
-        onClose={() => setExtractConfirmOpen(false)}
-        onConfirm={handleExtractBranch}
-        defaultName={`${repertoire.name} - ${selectedNode?.move || ''}`}
-        actionLoading={actionLoading}
-      />
+          <ExtractModal
+            isOpen={extractConfirmOpen}
+            onClose={() => setExtractConfirmOpen(false)}
+            onConfirm={handleExtractBranch}
+            defaultName={`${repertoire.name} - ${selectedNode?.move || ''}`}
+            actionLoading={actionLoading}
+          />
+        </>
+      )}
 
     </div>
   );

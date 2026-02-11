@@ -228,6 +228,9 @@ func (db *DB) runMigrations() error {
 			PRIMARY KEY (user_id, fen, opponent_move, repertoire_id)
 		)`,
 		`CREATE INDEX IF NOT EXISTS idx_dismissed_gaps_user ON dismissed_gaps(user_id)`,
+		// Add is_public column to repertoires (default true for explore feature)
+		`ALTER TABLE repertoires ADD COLUMN IF NOT EXISTS is_public BOOLEAN NOT NULL DEFAULT true`,
+		`CREATE INDEX IF NOT EXISTS idx_repertoires_is_public ON repertoires(is_public) WHERE is_public = true`,
 	}
 	for _, m := range migrations {
 		if _, err := conn.Exec(ctx, m); err != nil {

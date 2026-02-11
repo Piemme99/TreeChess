@@ -228,15 +228,20 @@ type MockRepertoireRepo struct {
 	GetAllFunc             func(userID string) ([]models.Repertoire, error)
 	CreateFunc             func(userID string, name string, color models.Color) (*models.Repertoire, error)
 	CreateWithCategoryFunc func(userID, name string, color models.Color, categoryID *string) (*models.Repertoire, error)
+	CreateWithIsPublicFunc func(userID, name string, color models.Color, isPublic bool) (*models.Repertoire, error)
 	SaveFunc               func(id string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error)
 	UpdateNameFunc         func(id string, name string) (*models.Repertoire, error)
 	UpdateCategoryFunc     func(id string, categoryID *string) (*models.Repertoire, error)
+	UpdateVisibilityFunc   func(id string, isPublic bool) (*models.Repertoire, error)
 	DeleteFunc             func(id string) error
 	CountFunc              func(userID string) (int, error)
 	ExistsFunc             func(id string) (bool, error)
 	BelongsToUserFunc      func(id string, userID string) (bool, error)
 	GetByCategoryFunc      func(categoryID string) ([]models.Repertoire, error)
 	GetUncategorizedFunc   func(userID string, color models.Color) ([]models.Repertoire, error)
+	GetAllPublicFunc       func() ([]models.Repertoire, error)
+	GetPublicByIDFunc      func(id string) (*models.Repertoire, error)
+	GetOwnerIDFunc         func(id string) (string, error)
 }
 
 func (m *MockRepertoireRepo) GetByID(id string) (*models.Repertoire, error) {
@@ -339,6 +344,44 @@ func (m *MockRepertoireRepo) GetUncategorized(userID string, color models.Color)
 		return m.GetUncategorizedFunc(userID, color)
 	}
 	return nil, nil
+}
+
+func (m *MockRepertoireRepo) CreateWithIsPublic(userID, name string, color models.Color, isPublic bool) (*models.Repertoire, error) {
+	if m.CreateWithIsPublicFunc != nil {
+		return m.CreateWithIsPublicFunc(userID, name, color, isPublic)
+	}
+	if m.CreateFunc != nil {
+		return m.CreateFunc(userID, name, color)
+	}
+	return nil, nil
+}
+
+func (m *MockRepertoireRepo) UpdateVisibility(id string, isPublic bool) (*models.Repertoire, error) {
+	if m.UpdateVisibilityFunc != nil {
+		return m.UpdateVisibilityFunc(id, isPublic)
+	}
+	return nil, nil
+}
+
+func (m *MockRepertoireRepo) GetAllPublic() ([]models.Repertoire, error) {
+	if m.GetAllPublicFunc != nil {
+		return m.GetAllPublicFunc()
+	}
+	return nil, nil
+}
+
+func (m *MockRepertoireRepo) GetPublicByID(id string) (*models.Repertoire, error) {
+	if m.GetPublicByIDFunc != nil {
+		return m.GetPublicByIDFunc(id)
+	}
+	return nil, nil
+}
+
+func (m *MockRepertoireRepo) GetOwnerID(id string) (string, error) {
+	if m.GetOwnerIDFunc != nil {
+		return m.GetOwnerIDFunc(id)
+	}
+	return "", nil
 }
 
 // MockAnalysisRepo is a mock implementation of AnalysisRepository for testing

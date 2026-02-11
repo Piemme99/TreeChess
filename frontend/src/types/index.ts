@@ -114,9 +114,11 @@ export interface Repertoire {
   id: string;
   name: string;
   color: Color;
+  isPublic: boolean;
   categoryId?: string | null;
   treeData: RepertoireNode;
   metadata: RepertoireMetadata;
+  authorName?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -125,6 +127,7 @@ export interface Repertoire {
 export interface CreateRepertoireRequest {
   name: string;
   color: Color;
+  isPublic?: boolean;
 }
 
 export interface UpdateRepertoireRequest {
@@ -144,6 +147,18 @@ export interface AddNodeRequest {
   fen: string;
   moveNumber: number;
   colorToMove: ShortColor;
+}
+
+// Training analysis types
+export interface TrainingAnalyzeRequest {
+  moves: string[];
+  userColor: Color;
+}
+
+export interface TrainingAnalyzeResponse {
+  matchedRepertoire: RepertoireRef | null;
+  matchScore: number;
+  moves: MoveAnalysis[];
 }
 
 // Analysis types

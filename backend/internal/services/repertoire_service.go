@@ -56,9 +56,14 @@ var (
 type RepertoireRepository interface {
 	repository.RepertoireRepository
 	CreateWithCategory(userID, name string, color models.Color, categoryID *string) (*models.Repertoire, error)
+	CreateWithIsPublic(userID, name string, color models.Color, isPublic bool) (*models.Repertoire, error)
 	UpdateCategory(id string, categoryID *string) (*models.Repertoire, error)
+	UpdateVisibility(id string, isPublic bool) (*models.Repertoire, error)
 	GetByCategory(categoryID string) ([]models.Repertoire, error)
 	GetUncategorized(userID string, color models.Color) ([]models.Repertoire, error)
+	GetAllPublic() ([]models.Repertoire, error)
+	GetPublicByID(id string) (*models.Repertoire, error)
+	GetOwnerID(id string) (string, error)
 }
 
 // RepertoireService handles repertoire business logic
@@ -73,6 +78,11 @@ func NewRepertoireService(repo RepertoireRepository) *RepertoireService {
 
 // CreateRepertoire creates a new repertoire with the given name and color for a user
 func (s *RepertoireService) CreateRepertoire(userID string, name string, color models.Color) (*models.Repertoire, error) {
+	return s.CreateRepertoireWithVisibility(userID, name, color, true)
+}
+
+// CreateRepertoireWithVisibility creates a new repertoire with explicit public/private visibility
+func (s *RepertoireService) CreateRepertoireWithVisibility(userID string, name string, color models.Color, isPublic bool) (*models.Repertoire, error) {
 	if color != models.ColorWhite && color != models.ColorBlack {
 		return nil, fmt.Errorf("%w: %s", ErrInvalidColor, color)
 	}
@@ -94,7 +104,7 @@ func (s *RepertoireService) CreateRepertoire(userID string, name string, color m
 		return nil, ErrLimitReached
 	}
 
-	return s.repo.Create(userID, name, color)
+	return s.repo.CreateWithIsPublic(userID, name, color, isPublic)
 }
 
 // CreateRepertoireWithCategory creates a new repertoire with the given name, color, and optional category
@@ -993,4 +1003,82 @@ func walkTree(node *models.RepertoireNode, currentDepth int, totalNodes, totalMo
 	for _, child := range node.Children {
 		walkTree(child, currentDepth+1, totalNodes, totalMoves, maxDepth)
 	}
+}
+
+// UpdateVisibility changes the public/private visibility of a repertoire
+func (s *RepertoireService) UpdateVisibility(userID, repertoireID string, isPublic bool) (*models.Repertoire, error) {
+	belongs, err := s.repo.BelongsToUser(repertoireID, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check ownership: %w", err)
+	}
+	if !belongs {
+		return nil, ErrNotFound
+	}
+
+	return s.repo.UpdateVisibility(repertoireID, isPublic)
+}
+
+// ListPublicRepertoires returns all public repertoires with author info
+func (s *RepertoireService) ListPublicRepertoires() ([]models.Repertoire, error) {
+	return s.repo.GetAllPublic()
+}
+
+// GetPublicRepertoire retrieves a single public repertoire by ID
+func (s *RepertoireService) GetPublicRepertoire(id string) (*models.Repertoire, error) {
+	rep, err := s.repo.GetPublicByID(id)
+	if err != nil {
+		if errors.Is(err, repository.ErrRepertoireNotFound) {
+			return nil, fmt.Errorf("%w: %w", ErrNotFound, err)
+		}
+		return nil, err
+	}
+	return rep, nil
+}
+
+// ImportRepertoire creates a deep clone of a public repertoire for the given user
+func (s *RepertoireService) ImportRepertoire(userID, sourceRepertoireID string) (*models.Repertoire, error) {
+	// Verify the source repertoire is public
+	source, err := s.repo.GetPublicByID(sourceRepertoireID)
+	if err != nil {
+		if errors.Is(err, repository.ErrRepertoireNotFound) {
+			return nil, fmt.Errorf("%w: %w", ErrNotFound, err)
+		}
+		return nil, err
+	}
+
+	// Check the user isn't importing their own repertoire
+	ownerID, err := s.repo.GetOwnerID(sourceRepertoireID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get owner: %w", err)
+	}
+	if ownerID == userID {
+		return nil, fmt.Errorf("cannot import your own repertoire")
+	}
+
+	// Check repertoire limit
+	count, err := s.repo.Count(userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check repertoire count: %w", err)
+	}
+	if count >= config.MaxRepertoires {
+		return nil, ErrLimitReached
+	}
+
+	// Create a new repertoire for the user (private by default when importing)
+	newRep, err := s.repo.CreateWithIsPublic(userID, source.Name, source.Color, false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create imported repertoire: %w", err)
+	}
+
+	// Deep clone the source tree
+	clonedTree := deepCloneSubtree(&source.TreeData, nil)
+
+	// Save the cloned tree
+	metadata := calculateMetadata(*clonedTree)
+	saved, err := s.repo.Save(newRep.ID, *clonedTree, metadata)
+	if err != nil {
+		return nil, fmt.Errorf("failed to save imported repertoire: %w", err)
+	}
+
+	return saved, nil
 }

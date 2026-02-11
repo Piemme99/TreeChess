@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
-import { Crown, LayoutDashboard, BookOpen, GraduationCap, User, LogOut, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Crown, LayoutDashboard, BookOpen, GraduationCap, User, LogOut, ChevronLeft, ChevronRight, Compass } from 'lucide-react';
 
 function PawnIcon({ className }: { className?: string }) {
   return (
@@ -19,6 +19,7 @@ const SIDEBAR_COLLAPSED_KEY = 'treechess-sidebar-collapsed';
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', Icon: LayoutDashboard, end: true },
   { to: '/repertoires', label: 'Repertoires', Icon: BookOpen, end: false },
+  { to: '/explore', label: 'Explore', Icon: Compass, end: false },
   { to: '/training', label: 'Training', Icon: GraduationCap, end: false },
   { to: '/games', label: 'Games', Icon: PawnIcon, end: false },
   { to: '/profile', label: 'Profile', Icon: User, end: false },
@@ -41,7 +42,7 @@ function useMediaQuery(query: string) {
 export function MainLayout() {
   const { user, logout } = useAuthStore();
   const location = useLocation();
-  const isRepertoireEdit = /^\/repertoire\/[^/]+\/edit/.test(location.pathname);
+  const isRepertoireEdit = /^\/repertoire\/[^/]+\/edit/.test(location.pathname) || /^\/explore\/repertoire\/[^/]+/.test(location.pathname);
 
   // Responsive breakpoints
   const isXl = useMediaQuery('(min-width: 1280px)');

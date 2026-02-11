@@ -26,7 +26,8 @@ import type {
   UpdateCategoryRequest,
   RepertoireFilterOption,
   LichessStudySearchResponse,
-  LichessTopicsResponse
+  LichessTopicsResponse,
+  TrainingAnalyzeResponse
 } from '../types';
 
 const TOKEN_STORAGE_KEY = 'treechess_token';
@@ -217,6 +218,29 @@ export const repertoireApi = {
   assignCategory: async (id: string, categoryId: string | null): Promise<Repertoire> => {
     const response = await api.patch(`/repertoires/${id}/category`, { categoryId });
     return response.data;
+  },
+
+  updateVisibility: async (id: string, isPublic: boolean): Promise<Repertoire> => {
+    const response = await api.patch(`/repertoires/${id}/visibility`, { isPublic });
+    return response.data;
+  }
+};
+
+// Explore API (public repertoires)
+export const exploreApi = {
+  listPublic: async (): Promise<Repertoire[]> => {
+    const response = await api.get('/explore/repertoires');
+    return response.data;
+  },
+
+  getPublic: async (id: string): Promise<Repertoire> => {
+    const response = await api.get(`/explore/repertoires/${id}`);
+    return response.data;
+  },
+
+  importRepertoire: async (id: string): Promise<Repertoire> => {
+    const response = await api.post(`/explore/repertoires/${id}/import`);
+    return response.data;
   }
 };
 
@@ -403,6 +427,13 @@ export const gamesApi = {
     const response = await api.post('/games/reanalyze-all');
     return response.data;
   }
+};
+
+export const trainingApi = {
+  analyze: async (moves: string[], userColor: 'white' | 'black'): Promise<TrainingAnalyzeResponse> => {
+    const response = await api.post('/training/analyze', { moves, userColor });
+    return response.data;
+  },
 };
 
 export const dashboardApi = {

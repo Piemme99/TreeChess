@@ -55,10 +55,100 @@ export function generateTrainingLines(
   walk(root, []);
 
   // Shuffle lines for randomized training order
-  for (let i = lines.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [lines[i], lines[j]] = [lines[j], lines[i]];
-  }
+  shuffleArray(lines);
 
   return lines;
+}
+
+/**
+ * Select a random subset of lines from all generated lines.
+ * If count >= lines.length, returns all lines (already shuffled).
+ */
+export function selectRandomLines(lines: TrainingLine[], count: number): TrainingLine[] {
+  if (count >= lines.length) {
+    return lines;
+  }
+  return lines.slice(0, count);
+}
+
+/**
+ * Build a lookup map from node ID to RepertoireNode for fast access
+ * when the user plays an alternative move from the repertoire.
+ */
+export function buildNodeMap(root: RepertoireNode): Map<string, RepertoireNode> {
+  const map = new Map<string, RepertoireNode>();
+
+  function walk(node: RepertoireNode): void {
+    map.set(node.id, node);
+    for (const child of node.children) {
+      walk(child);
+    }
+  }
+
+  walk(root);
+  return map;
+}
+
+/**
+ * Given a node in the repertoire tree, generate a random continuation
+ * (sequence of TrainingMoves) from that node down to a random leaf.
+ *
+ * This is used when the user plays an alternative move from the repertoire
+ * that wasn't in the pre-selected line — we dynamically generate the rest
+ * of the line by walking randomly through the subtree.
+ */
+export function generateContinuationFromNode(
+  node: RepertoireNode,
+  userColor: ShortColor
+): TrainingMove[] {
+  const moves: TrainingMove[] = [];
+  let current = node;
+
+  while (current.children.length > 0) {
+    // Stop at transposition stubs
+    if (current.transpositionOf != null && current.children.length === 0) {
+      break;
+    }
+
+    const isUserMove = current.colorToMove === userColor;
+
+    // Pick a random child to follow
+    const child = current.children[Math.floor(Math.random() * current.children.length)];
+
+    moves.push({
+      nodeId: child.id,
+      fen: current.fen,
+      san: child.move!,
+      resultFen: child.fen,
+      isUserMove,
+    });
+
+    current = child;
+  }
+
+  return moves;
+}
+
+/**
+ * Find a child node of a given parent node that matches the played SAN move.
+ * Returns the child node if found, null otherwise.
+ */
+export function findChildBySan(
+  parentNode: RepertoireNode,
+  san: string
+): RepertoireNode | null {
+  for (const child of parentNode.children) {
+    if (child.move === san) {
+      return child;
+    }
+  }
+  return null;
+}
+
+/** Fisher-Yates shuffle (in-place). */
+function shuffleArray<T>(arr: T[]): void {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
 }
