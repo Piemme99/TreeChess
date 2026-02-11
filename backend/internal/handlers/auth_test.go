@@ -17,6 +17,7 @@ import (
 	"github.com/treechess/backend/internal/repository"
 	"github.com/treechess/backend/internal/repository/mocks"
 	"github.com/treechess/backend/internal/services"
+	smocks "github.com/treechess/backend/internal/services/mocks"
 )
 
 const testJWTSecret = "test-secret-key-32-chars-long!!!"
@@ -387,7 +388,7 @@ func TestForgotPasswordHandler_Success(t *testing.T) {
 			return &models.PasswordResetToken{ID: "reset-123"}, nil
 		},
 	}
-	mockEmailSvc := &mocks.MockEmailService{}
+	mockEmailSvc := &smocks.MockEmailService{}
 
 	handler := newTestAuthHandlerWithPasswordReset(mockUserRepo, mockResetRepo, mockEmailSvc)
 
@@ -416,7 +417,7 @@ func TestForgotPasswordHandler_NonexistentEmail(t *testing.T) {
 		},
 	}
 	mockResetRepo := &mocks.MockPasswordResetRepo{}
-	mockEmailSvc := &mocks.MockEmailService{}
+	mockEmailSvc := &smocks.MockEmailService{}
 
 	handler := newTestAuthHandlerWithPasswordReset(mockUserRepo, mockResetRepo, mockEmailSvc)
 
@@ -473,7 +474,7 @@ func TestResetPasswordHandler_Success(t *testing.T) {
 			return nil
 		},
 	}
-	mockEmailSvc := &mocks.MockEmailService{}
+	mockEmailSvc := &smocks.MockEmailService{}
 
 	handler := newTestAuthHandlerWithPasswordReset(mockUserRepo, mockResetRepo, mockEmailSvc)
 
@@ -501,7 +502,7 @@ func TestResetPasswordHandler_InvalidToken(t *testing.T) {
 			return nil, repository.ErrResetTokenNotFound
 		},
 	}
-	mockEmailSvc := &mocks.MockEmailService{}
+	mockEmailSvc := &smocks.MockEmailService{}
 
 	handler := newTestAuthHandlerWithPasswordReset(mockUserRepo, mockResetRepo, mockEmailSvc)
 
@@ -534,7 +535,7 @@ func TestResetPasswordHandler_ExpiredToken(t *testing.T) {
 			}, nil
 		},
 	}
-	mockEmailSvc := &mocks.MockEmailService{}
+	mockEmailSvc := &smocks.MockEmailService{}
 
 	handler := newTestAuthHandlerWithPasswordReset(mockUserRepo, mockResetRepo, mockEmailSvc)
 
@@ -568,7 +569,7 @@ func TestResetPasswordHandler_UsedToken(t *testing.T) {
 			}, nil
 		},
 	}
-	mockEmailSvc := &mocks.MockEmailService{}
+	mockEmailSvc := &smocks.MockEmailService{}
 
 	handler := newTestAuthHandlerWithPasswordReset(mockUserRepo, mockResetRepo, mockEmailSvc)
 
@@ -601,7 +602,7 @@ func TestResetPasswordHandler_ShortPassword(t *testing.T) {
 			}, nil
 		},
 	}
-	mockEmailSvc := &mocks.MockEmailService{}
+	mockEmailSvc := &smocks.MockEmailService{}
 
 	handler := newTestAuthHandlerWithPasswordReset(mockUserRepo, mockResetRepo, mockEmailSvc)
 

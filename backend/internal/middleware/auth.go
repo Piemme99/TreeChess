@@ -5,11 +5,14 @@ import (
 	"strings"
 
 	"github.com/labstack/echo/v4"
-
-	"github.com/treechess/backend/internal/services"
 )
 
-func JWTAuth(authSvc *services.AuthService) echo.MiddlewareFunc {
+// TokenValidator validates JWT tokens and returns the associated user ID.
+type TokenValidator interface {
+	ValidateToken(token string) (string, error)
+}
+
+func JWTAuth(validator TokenValidator) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			var tokenStr string
@@ -29,7 +32,7 @@ func JWTAuth(authSvc *services.AuthService) echo.MiddlewareFunc {
 				return c.JSON(http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
 			}
 
-			userID, err := authSvc.ValidateToken(tokenStr)
+			userID, err := validator.ValidateToken(tokenStr)
 			if err != nil {
 				return c.JSON(http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
 			}

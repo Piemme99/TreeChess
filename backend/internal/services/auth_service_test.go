@@ -11,6 +11,7 @@ import (
 	"github.com/treechess/backend/internal/models"
 	"github.com/treechess/backend/internal/repository"
 	"github.com/treechess/backend/internal/repository/mocks"
+	smocks "github.com/treechess/backend/internal/services/mocks"
 )
 
 const testJWTSecret = "test-secret-key-32-chars-long!!!"
@@ -591,7 +592,7 @@ func TestAuthService_ResetPassword_Success(t *testing.T) {
 			return nil
 		},
 	}
-	mockEmailSvc := &mocks.MockEmailService{}
+	mockEmailSvc := &smocks.MockEmailService{}
 
 	svc := newTestAuthService(mockUserRepo)
 	svc.WithPasswordReset(mockResetRepo, mockEmailSvc, 1)
@@ -620,7 +621,7 @@ func TestAuthService_ResetPassword_Expired(t *testing.T) {
 			return nil, repository.ErrResetTokenNotFound
 		},
 	}
-	mockEmailSvc := &mocks.MockEmailService{}
+	mockEmailSvc := &smocks.MockEmailService{}
 
 	svc := newTestAuthService(mockUserRepo)
 	svc.WithPasswordReset(mockResetRepo, mockEmailSvc, 1)
@@ -650,7 +651,7 @@ func TestAuthService_ResetPassword_AlreadyUsed(t *testing.T) {
 			return nil, repository.ErrResetTokenNotFound
 		},
 	}
-	mockEmailSvc := &mocks.MockEmailService{}
+	mockEmailSvc := &smocks.MockEmailService{}
 
 	svc := newTestAuthService(mockUserRepo)
 	svc.WithPasswordReset(mockResetRepo, mockEmailSvc, 1)
@@ -667,7 +668,7 @@ func TestAuthService_ResetPassword_Invalid(t *testing.T) {
 			return nil, repository.ErrResetTokenNotFound
 		},
 	}
-	mockEmailSvc := &mocks.MockEmailService{}
+	mockEmailSvc := &smocks.MockEmailService{}
 
 	svc := newTestAuthService(mockUserRepo)
 	svc.WithPasswordReset(mockResetRepo, mockEmailSvc, 1)
@@ -704,7 +705,7 @@ func TestAuthService_RequestPasswordReset_Success(t *testing.T) {
 			}, nil
 		},
 	}
-	mockEmailSvc := &mocks.MockEmailService{
+	mockEmailSvc := &smocks.MockEmailService{
 		SendPasswordResetEmailFunc: func(toEmail, token string) error {
 			emailSent = true
 			assert.Equal(t, email, toEmail)
@@ -729,7 +730,7 @@ func TestAuthService_RequestPasswordReset_UserNotFound(t *testing.T) {
 		},
 	}
 	mockResetRepo := &mocks.MockPasswordResetRepo{}
-	mockEmailSvc := &mocks.MockEmailService{}
+	mockEmailSvc := &smocks.MockEmailService{}
 
 	svc := newTestAuthService(mockUserRepo)
 	svc.WithPasswordReset(mockResetRepo, mockEmailSvc, 1)
@@ -894,7 +895,7 @@ func TestAuthService_RequestPasswordReset_OAuthOnly(t *testing.T) {
 		},
 	}
 	mockResetRepo := &mocks.MockPasswordResetRepo{}
-	mockEmailSvc := &mocks.MockEmailService{}
+	mockEmailSvc := &smocks.MockEmailService{}
 
 	svc := newTestAuthService(mockUserRepo)
 	svc.WithPasswordReset(mockResetRepo, mockEmailSvc, 1)

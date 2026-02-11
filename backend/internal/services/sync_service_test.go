@@ -10,6 +10,7 @@ import (
 
 	"github.com/treechess/backend/internal/models"
 	"github.com/treechess/backend/internal/repository/mocks"
+	smocks "github.com/treechess/backend/internal/services/mocks"
 )
 
 func TestSyncService_Sync_BothPlatforms(t *testing.T) {
@@ -25,17 +26,17 @@ func TestSyncService_Sync_BothPlatforms(t *testing.T) {
 		GetByIDFunc:              func(id string) (*models.User, error) { return user, nil },
 		UpdateSyncTimestampsFunc: func(userID string, l, c *time.Time) error { return nil },
 	}
-	mockLichess := &mocks.MockLichessService{
+	mockLichess := &smocks.MockLichessService{
 		FetchGamesFunc: func(username string, opts models.LichessImportOptions) (string, error) {
 			return "[Event \"Test\"]\n\n1. e4 e5 1-0\n", nil
 		},
 	}
-	mockChesscom := &mocks.MockChesscomService{
+	mockChesscom := &smocks.MockChesscomService{
 		FetchGamesFunc: func(username string, opts models.ChesscomImportOptions) (string, error) {
 			return "[Event \"Test\"]\n\n1. d4 d5 0-1\n", nil
 		},
 	}
-	mockImport := &mocks.MockImportService{
+	mockImport := &smocks.MockImportService{
 		ParseAndAnalyzeFunc: func(filename, username, userID, pgnData string) (*models.AnalysisSummary, []models.GameAnalysis, error) {
 			return &models.AnalysisSummary{GameCount: 1}, nil, nil
 		},
@@ -63,18 +64,18 @@ func TestSyncService_Sync_LichessOnly(t *testing.T) {
 		GetByIDFunc:              func(id string) (*models.User, error) { return user, nil },
 		UpdateSyncTimestampsFunc: func(userID string, l, c *time.Time) error { return nil },
 	}
-	mockImport := &mocks.MockImportService{
+	mockImport := &smocks.MockImportService{
 		ParseAndAnalyzeFunc: func(filename, username, userID, pgnData string) (*models.AnalysisSummary, []models.GameAnalysis, error) {
 			return &models.AnalysisSummary{GameCount: 3}, nil, nil
 		},
 	}
-	mockLichess := &mocks.MockLichessService{
+	mockLichess := &smocks.MockLichessService{
 		FetchGamesFunc: func(username string, opts models.LichessImportOptions) (string, error) {
 			return "pgn data", nil
 		},
 	}
 
-	svc := NewSyncService(mockUserRepo, mockImport, mockLichess, &mocks.MockChesscomService{})
+	svc := NewSyncService(mockUserRepo, mockImport, mockLichess, &smocks.MockChesscomService{})
 	result, err := svc.Sync("user-1")
 
 	require.NoError(t, err)
@@ -94,18 +95,18 @@ func TestSyncService_Sync_ChesscomOnly(t *testing.T) {
 		GetByIDFunc:              func(id string) (*models.User, error) { return user, nil },
 		UpdateSyncTimestampsFunc: func(userID string, l, c *time.Time) error { return nil },
 	}
-	mockImport := &mocks.MockImportService{
+	mockImport := &smocks.MockImportService{
 		ParseAndAnalyzeFunc: func(filename, username, userID, pgnData string) (*models.AnalysisSummary, []models.GameAnalysis, error) {
 			return &models.AnalysisSummary{GameCount: 2}, nil, nil
 		},
 	}
-	mockChesscom := &mocks.MockChesscomService{
+	mockChesscom := &smocks.MockChesscomService{
 		FetchGamesFunc: func(username string, opts models.ChesscomImportOptions) (string, error) {
 			return "pgn data", nil
 		},
 	}
 
-	svc := NewSyncService(mockUserRepo, mockImport, &mocks.MockLichessService{}, mockChesscom)
+	svc := NewSyncService(mockUserRepo, mockImport, &smocks.MockLichessService{}, mockChesscom)
 	result, err := svc.Sync("user-1")
 
 	require.NoError(t, err)
@@ -124,7 +125,7 @@ func TestSyncService_Sync_NeitherPlatform(t *testing.T) {
 		GetByIDFunc: func(id string) (*models.User, error) { return user, nil },
 	}
 
-	svc := NewSyncService(mockUserRepo, &mocks.MockImportService{}, &mocks.MockLichessService{}, &mocks.MockChesscomService{})
+	svc := NewSyncService(mockUserRepo, &smocks.MockImportService{}, &smocks.MockLichessService{}, &smocks.MockChesscomService{})
 	result, err := svc.Sync("user-1")
 
 	require.NoError(t, err)
@@ -145,17 +146,17 @@ func TestSyncService_Sync_LichessError_ChesscomStillRuns(t *testing.T) {
 		GetByIDFunc:              func(id string) (*models.User, error) { return user, nil },
 		UpdateSyncTimestampsFunc: func(userID string, l, c *time.Time) error { return nil },
 	}
-	mockLichess := &mocks.MockLichessService{
+	mockLichess := &smocks.MockLichessService{
 		FetchGamesFunc: func(username string, opts models.LichessImportOptions) (string, error) {
 			return "", fmt.Errorf("lichess API error")
 		},
 	}
-	mockChesscom := &mocks.MockChesscomService{
+	mockChesscom := &smocks.MockChesscomService{
 		FetchGamesFunc: func(username string, opts models.ChesscomImportOptions) (string, error) {
 			return "pgn data", nil
 		},
 	}
-	mockImport := &mocks.MockImportService{
+	mockImport := &smocks.MockImportService{
 		ParseAndAnalyzeFunc: func(filename, username, userID, pgnData string) (*models.AnalysisSummary, []models.GameAnalysis, error) {
 			return &models.AnalysisSummary{GameCount: 1}, nil, nil
 		},
@@ -176,7 +177,7 @@ func TestSyncService_Sync_UserNotFound(t *testing.T) {
 		},
 	}
 
-	svc := NewSyncService(mockUserRepo, &mocks.MockImportService{}, &mocks.MockLichessService{}, &mocks.MockChesscomService{})
+	svc := NewSyncService(mockUserRepo, &smocks.MockImportService{}, &smocks.MockLichessService{}, &smocks.MockChesscomService{})
 	_, err := svc.Sync("nonexistent")
 
 	assert.Error(t, err)
@@ -221,19 +222,19 @@ func TestSyncService_FirstSync_Uses100Games(t *testing.T) {
 		GetByIDFunc:              func(id string) (*models.User, error) { return user, nil },
 		UpdateSyncTimestampsFunc: func(userID string, l, c *time.Time) error { return nil },
 	}
-	mockLichess := &mocks.MockLichessService{
+	mockLichess := &smocks.MockLichessService{
 		FetchGamesFunc: func(username string, opts models.LichessImportOptions) (string, error) {
 			capturedLichessMax = opts.Max
 			return "[Event \"Test\"]\n\n1. e4 e5 1-0\n", nil
 		},
 	}
-	mockChesscom := &mocks.MockChesscomService{
+	mockChesscom := &smocks.MockChesscomService{
 		FetchGamesFunc: func(username string, opts models.ChesscomImportOptions) (string, error) {
 			capturedChesscomMax = opts.Max
 			return "[Event \"Test\"]\n\n1. d4 d5 0-1\n", nil
 		},
 	}
-	mockImport := &mocks.MockImportService{
+	mockImport := &smocks.MockImportService{
 		ParseAndAnalyzeFunc: func(filename, username, userID, pgnData string) (*models.AnalysisSummary, []models.GameAnalysis, error) {
 			return &models.AnalysisSummary{GameCount: 1}, nil, nil
 		},
@@ -266,19 +267,19 @@ func TestSyncService_SubsequentSync_Uses10Games(t *testing.T) {
 		GetByIDFunc:              func(id string) (*models.User, error) { return user, nil },
 		UpdateSyncTimestampsFunc: func(userID string, l, c *time.Time) error { return nil },
 	}
-	mockLichess := &mocks.MockLichessService{
+	mockLichess := &smocks.MockLichessService{
 		FetchGamesFunc: func(username string, opts models.LichessImportOptions) (string, error) {
 			capturedLichessMax = opts.Max
 			return "[Event \"Test\"]\n\n1. e4 e5 1-0\n", nil
 		},
 	}
-	mockChesscom := &mocks.MockChesscomService{
+	mockChesscom := &smocks.MockChesscomService{
 		FetchGamesFunc: func(username string, opts models.ChesscomImportOptions) (string, error) {
 			capturedChesscomMax = opts.Max
 			return "[Event \"Test\"]\n\n1. d4 d5 0-1\n", nil
 		},
 	}
-	mockImport := &mocks.MockImportService{
+	mockImport := &smocks.MockImportService{
 		ParseAndAnalyzeFunc: func(filename, username, userID, pgnData string) (*models.AnalysisSummary, []models.GameAnalysis, error) {
 			return &models.AnalysisSummary{GameCount: 1}, nil, nil
 		},
@@ -305,7 +306,7 @@ func TestSyncService_Sync_EmptyUsername(t *testing.T) {
 		GetByIDFunc: func(id string) (*models.User, error) { return user, nil },
 	}
 
-	svc := NewSyncService(mockUserRepo, &mocks.MockImportService{}, &mocks.MockLichessService{}, &mocks.MockChesscomService{})
+	svc := NewSyncService(mockUserRepo, &smocks.MockImportService{}, &smocks.MockLichessService{}, &smocks.MockChesscomService{})
 	result, err := svc.Sync("user-1")
 
 	require.NoError(t, err)

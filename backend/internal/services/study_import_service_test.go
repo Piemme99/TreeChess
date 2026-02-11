@@ -9,6 +9,7 @@ import (
 
 	"github.com/treechess/backend/internal/models"
 	"github.com/treechess/backend/internal/repository/mocks"
+	smocks "github.com/treechess/backend/internal/services/mocks"
 )
 
 // --- ParseStudyURL tests ---
@@ -65,12 +66,12 @@ func TestStudyImportService_PreviewStudy_Success(t *testing.T) {
 
 1. d4 d5 *
 `
-	mockLichess := &mocks.MockLichessService{
+	mockLichess := &smocks.MockLichessService{
 		FetchStudyPGNFunc: func(studyID, authToken string) (string, error) {
 			return pgnData, nil
 		},
 	}
-	svc := NewStudyImportService(mockLichess, &mocks.MockRepertoireService{}, nil, &mocks.MockUserRepo{})
+	svc := NewStudyImportService(mockLichess, &smocks.MockRepertoireService{}, nil, &mocks.MockUserRepo{})
 
 	info, err := svc.PreviewStudy("testid01", "")
 
@@ -86,12 +87,12 @@ func TestStudyImportService_PreviewStudy_Success(t *testing.T) {
 }
 
 func TestStudyImportService_PreviewStudy_FetchError(t *testing.T) {
-	mockLichess := &mocks.MockLichessService{
+	mockLichess := &smocks.MockLichessService{
 		FetchStudyPGNFunc: func(studyID, authToken string) (string, error) {
 			return "", ErrLichessStudyNotFound
 		},
 	}
-	svc := NewStudyImportService(mockLichess, &mocks.MockRepertoireService{}, nil, &mocks.MockUserRepo{})
+	svc := NewStudyImportService(mockLichess, &smocks.MockRepertoireService{}, nil, &mocks.MockUserRepo{})
 
 	_, err := svc.PreviewStudy("testid01", "")
 
@@ -99,12 +100,12 @@ func TestStudyImportService_PreviewStudy_FetchError(t *testing.T) {
 }
 
 func TestStudyImportService_PreviewStudy_EmptyPGN(t *testing.T) {
-	mockLichess := &mocks.MockLichessService{
+	mockLichess := &smocks.MockLichessService{
 		FetchStudyPGNFunc: func(studyID, authToken string) (string, error) {
 			return "", nil
 		},
 	}
-	svc := NewStudyImportService(mockLichess, &mocks.MockRepertoireService{}, nil, &mocks.MockUserRepo{})
+	svc := NewStudyImportService(mockLichess, &smocks.MockRepertoireService{}, nil, &mocks.MockUserRepo{})
 
 	_, err := svc.PreviewStudy("testid01", "")
 
@@ -130,14 +131,14 @@ func TestStudyImportService_ImportStudyChapters_Success(t *testing.T) {
 
 1. e4 c6 *
 `
-	mockLichess := &mocks.MockLichessService{
+	mockLichess := &smocks.MockLichessService{
 		FetchStudyPGNFunc: func(studyID, authToken string) (string, error) {
 			return pgnData, nil
 		},
 	}
 
 	createdCount := 0
-	mockRepSvc := &mocks.MockRepertoireService{
+	mockRepSvc := &smocks.MockRepertoireService{
 		CreateRepertoireFunc: func(userID, name string, color models.Color) (*models.Repertoire, error) {
 			createdCount++
 			return &models.Repertoire{
@@ -163,12 +164,12 @@ func TestStudyImportService_ImportStudyChapters_Success(t *testing.T) {
 }
 
 func TestStudyImportService_ImportStudyChapters_FetchError(t *testing.T) {
-	mockLichess := &mocks.MockLichessService{
+	mockLichess := &smocks.MockLichessService{
 		FetchStudyPGNFunc: func(studyID, authToken string) (string, error) {
 			return "", ErrLichessStudyForbidden
 		},
 	}
-	svc := NewStudyImportService(mockLichess, &mocks.MockRepertoireService{}, nil, &mocks.MockUserRepo{})
+	svc := NewStudyImportService(mockLichess, &smocks.MockRepertoireService{}, nil, &mocks.MockUserRepo{})
 
 	_, err := svc.ImportStudyChapters("user-1", "testid01", "", []int{0})
 
@@ -176,12 +177,12 @@ func TestStudyImportService_ImportStudyChapters_FetchError(t *testing.T) {
 }
 
 func TestStudyImportService_ImportStudyChapters_EmptyChapters(t *testing.T) {
-	mockLichess := &mocks.MockLichessService{
+	mockLichess := &smocks.MockLichessService{
 		FetchStudyPGNFunc: func(studyID, authToken string) (string, error) {
 			return "", nil
 		},
 	}
-	svc := NewStudyImportService(mockLichess, &mocks.MockRepertoireService{}, nil, &mocks.MockUserRepo{})
+	svc := NewStudyImportService(mockLichess, &smocks.MockRepertoireService{}, nil, &mocks.MockUserRepo{})
 
 	_, err := svc.ImportStudyChapters("user-1", "testid01", "", []int{0})
 
@@ -201,7 +202,7 @@ func TestStudyImportService_GetLichessTokenForUser_Found(t *testing.T) {
 			}, nil
 		},
 	}
-	svc := NewStudyImportService(&mocks.MockLichessService{}, &mocks.MockRepertoireService{}, nil, mockUserRepo)
+	svc := NewStudyImportService(&smocks.MockLichessService{}, &smocks.MockRepertoireService{}, nil, mockUserRepo)
 
 	result := svc.GetLichessTokenForUser("user-1")
 
@@ -217,7 +218,7 @@ func TestStudyImportService_GetLichessTokenForUser_NoToken(t *testing.T) {
 			}, nil
 		},
 	}
-	svc := NewStudyImportService(&mocks.MockLichessService{}, &mocks.MockRepertoireService{}, nil, mockUserRepo)
+	svc := NewStudyImportService(&smocks.MockLichessService{}, &smocks.MockRepertoireService{}, nil, mockUserRepo)
 
 	result := svc.GetLichessTokenForUser("user-1")
 
@@ -230,7 +231,7 @@ func TestStudyImportService_GetLichessTokenForUser_UserNotFound(t *testing.T) {
 			return nil, fmt.Errorf("not found")
 		},
 	}
-	svc := NewStudyImportService(&mocks.MockLichessService{}, &mocks.MockRepertoireService{}, nil, mockUserRepo)
+	svc := NewStudyImportService(&smocks.MockLichessService{}, &smocks.MockRepertoireService{}, nil, mockUserRepo)
 
 	result := svc.GetLichessTokenForUser("nonexistent")
 
@@ -243,12 +244,12 @@ func TestStudyImportService_ImportStudyChapters_CreateError(t *testing.T) {
 
 1. e4 e5 *
 `
-	mockLichess := &mocks.MockLichessService{
+	mockLichess := &smocks.MockLichessService{
 		FetchStudyPGNFunc: func(studyID, authToken string) (string, error) {
 			return pgnData, nil
 		},
 	}
-	mockRepSvc := &mocks.MockRepertoireService{
+	mockRepSvc := &smocks.MockRepertoireService{
 		CreateRepertoireFunc: func(userID, name string, color models.Color) (*models.Repertoire, error) {
 			return nil, ErrLimitReached
 		},

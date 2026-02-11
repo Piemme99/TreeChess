@@ -15,31 +15,32 @@ import (
 	"github.com/treechess/backend/internal/models"
 	"github.com/treechess/backend/internal/repository/mocks"
 	"github.com/treechess/backend/internal/services"
+	smocks "github.com/treechess/backend/internal/services/mocks"
 )
 
 func TestHandleSync_Success(t *testing.T) {
 	lichessUser := "lichessplayer"
 	user := &models.User{
-		ID:             "user-1",
+		ID:              "user-1",
 		LichessUsername: &lichessUser,
 	}
 
 	mockUserRepo := &mocks.MockUserRepo{
-		GetByIDFunc: func(id string) (*models.User, error) { return user, nil },
+		GetByIDFunc:              func(id string) (*models.User, error) { return user, nil },
 		UpdateSyncTimestampsFunc: func(userID string, l, c *time.Time) error { return nil },
 	}
-	mockLichess := &mocks.MockLichessService{
+	mockLichess := &smocks.MockLichessService{
 		FetchGamesFunc: func(username string, opts models.LichessImportOptions) (string, error) {
 			return "pgn data", nil
 		},
 	}
-	mockImport := &mocks.MockImportService{
+	mockImport := &smocks.MockImportService{
 		ParseAndAnalyzeFunc: func(filename, username, userID, pgnData string) (*models.AnalysisSummary, []models.GameAnalysis, error) {
 			return &models.AnalysisSummary{GameCount: 5}, nil, nil
 		},
 	}
 
-	syncSvc := services.NewSyncService(mockUserRepo, mockImport, mockLichess, &mocks.MockChesscomService{})
+	syncSvc := services.NewSyncService(mockUserRepo, mockImport, mockLichess, &smocks.MockChesscomService{})
 	handler := NewSyncHandler(syncSvc)
 
 	e := echo.New()
@@ -65,7 +66,7 @@ func TestHandleSync_Error(t *testing.T) {
 		},
 	}
 
-	syncSvc := services.NewSyncService(mockUserRepo, &mocks.MockImportService{}, &mocks.MockLichessService{}, &mocks.MockChesscomService{})
+	syncSvc := services.NewSyncService(mockUserRepo, &smocks.MockImportService{}, &smocks.MockLichessService{}, &smocks.MockChesscomService{})
 	handler := NewSyncHandler(syncSvc)
 
 	e := echo.New()

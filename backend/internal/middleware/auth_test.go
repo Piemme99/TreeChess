@@ -1,57 +1,46 @@
 package middleware
 
 import (
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/treechess/backend/internal/models"
-	"github.com/treechess/backend/internal/repository/mocks"
-	"github.com/treechess/backend/internal/services"
 )
 
-const testJWTSecret = "test-secret-key-32-chars-long!!!"
-
-func newTestAuthService() *services.AuthService {
-	mockRepo := &mocks.MockUserRepo{
-		GetByIDFunc: func(id string) (*models.User, error) {
-			return &models.User{ID: id, Username: "testuser"}, nil
-		},
-	}
-	return services.NewAuthService(mockRepo, testJWTSecret, 24*time.Hour)
+// mockTokenValidator is a lightweight mock for testing JWTAuth middleware.
+type mockTokenValidator struct {
+	validateFunc func(token string) (string, error)
 }
 
-func generateTestToken(t *testing.T) string {
-	mockRepo := &mocks.MockUserRepo{
-		CreateFunc: func(email, username, passwordHash string) (*models.User, error) {
-			return &models.User{ID: "user-123", Username: username, Email: &email}, nil
-		},
-		GetByIDFunc: func(id string) (*models.User, error) {
-			return &models.User{ID: id, Username: "testuser"}, nil
+func (m *mockTokenValidator) ValidateToken(token string) (string, error) {
+	return m.validateFunc(token)
+}
+
+func validValidator() *mockTokenValidator {
+	return &mockTokenValidator{
+		validateFunc: func(token string) (string, error) {
+			if token == "valid-token" {
+				return "user-123", nil
+			}
+			return "", errors.New("invalid token")
 		},
 	}
-	svc := services.NewAuthService(mockRepo, testJWTSecret, 24*time.Hour)
-	resp, err := svc.Register("test@example.com", "testuser", "password123")
-	require.NoError(t, err)
-	return resp.Token
 }
 
 func TestJWTAuth_ValidToken(t *testing.T) {
-	token := generateTestToken(t)
-	authSvc := newTestAuthService()
+	validator := validValidator()
 
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodGet, "/api/test", nil)
-	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Authorization", "Bearer valid-token")
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
-	middleware := JWTAuth(authSvc)
+	middleware := JWTAuth(validator)
 	handler := middleware(func(c echo.Context) error {
 		userID := c.Get("userID").(string)
 		assert.Equal(t, "user-123", userID)
@@ -65,14 +54,14 @@ func TestJWTAuth_ValidToken(t *testing.T) {
 }
 
 func TestJWTAuth_MissingToken(t *testing.T) {
-	authSvc := newTestAuthService()
+	validator := validValidator()
 
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodGet, "/api/test", nil)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
-	middleware := JWTAuth(authSvc)
+	middleware := JWTAuth(validator)
 	handler := middleware(func(c echo.Context) error {
 		t.Fatal("should not reach handler")
 		return nil
@@ -85,7 +74,7 @@ func TestJWTAuth_MissingToken(t *testing.T) {
 }
 
 func TestJWTAuth_InvalidToken(t *testing.T) {
-	authSvc := newTestAuthService()
+	validator := validValidator()
 
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodGet, "/api/test", nil)
@@ -93,7 +82,7 @@ func TestJWTAuth_InvalidToken(t *testing.T) {
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
-	middleware := JWTAuth(authSvc)
+	middleware := JWTAuth(validator)
 	handler := middleware(func(c echo.Context) error {
 		t.Fatal("should not reach handler")
 		return nil
@@ -106,15 +95,14 @@ func TestJWTAuth_InvalidToken(t *testing.T) {
 }
 
 func TestJWTAuth_QueryParamFallback(t *testing.T) {
-	token := generateTestToken(t)
-	authSvc := newTestAuthService()
+	validator := validValidator()
 
 	e := echo.New()
-	req := httptest.NewRequest(http.MethodGet, "/api/test?token="+token, nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/test?token=valid-token", nil)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
-	middleware := JWTAuth(authSvc)
+	middleware := JWTAuth(validator)
 	handler := middleware(func(c echo.Context) error {
 		userID := c.Get("userID").(string)
 		assert.Equal(t, "user-123", userID)
@@ -128,16 +116,15 @@ func TestJWTAuth_QueryParamFallback(t *testing.T) {
 }
 
 func TestJWTAuth_BearerPrefixStripping(t *testing.T) {
-	token := generateTestToken(t)
-	authSvc := newTestAuthService()
+	validator := validValidator()
 
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodGet, "/api/test", nil)
-	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Authorization", "Bearer valid-token")
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
-	mw := JWTAuth(authSvc)
+	mw := JWTAuth(validator)
 	handler := mw(func(c echo.Context) error {
 		return c.String(http.StatusOK, "ok")
 	})

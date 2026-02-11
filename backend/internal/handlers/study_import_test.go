@@ -15,9 +15,10 @@ import (
 	"github.com/treechess/backend/internal/models"
 	"github.com/treechess/backend/internal/repository/mocks"
 	"github.com/treechess/backend/internal/services"
+	smocks "github.com/treechess/backend/internal/services/mocks"
 )
 
-func newTestStudyImportHandler(lichess *mocks.MockLichessService, repSvc *mocks.MockRepertoireService, userRepo *mocks.MockUserRepo) *StudyImportHandler {
+func newTestStudyImportHandler(lichess *smocks.MockLichessService, repSvc *smocks.MockRepertoireService, userRepo *mocks.MockUserRepo) *StudyImportHandler {
 	svc := services.NewStudyImportService(lichess, repSvc, nil, userRepo)
 	return NewStudyImportHandler(svc)
 }
@@ -28,12 +29,12 @@ func TestPreviewStudyHandler_Success(t *testing.T) {
 
 1. e4 e5 *
 `
-	mockLichess := &mocks.MockLichessService{
+	mockLichess := &smocks.MockLichessService{
 		FetchStudyPGNFunc: func(studyID, authToken string) (string, error) {
 			return pgnData, nil
 		},
 	}
-	handler := newTestStudyImportHandler(mockLichess, &mocks.MockRepertoireService{}, &mocks.MockUserRepo{})
+	handler := newTestStudyImportHandler(mockLichess, &smocks.MockRepertoireService{}, &mocks.MockUserRepo{})
 
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodGet, "/api/studies/preview?url=https://lichess.org/study/abcdefgh", nil)
@@ -53,7 +54,7 @@ func TestPreviewStudyHandler_Success(t *testing.T) {
 }
 
 func TestPreviewStudyHandler_MissingURL(t *testing.T) {
-	handler := newTestStudyImportHandler(&mocks.MockLichessService{}, &mocks.MockRepertoireService{}, &mocks.MockUserRepo{})
+	handler := newTestStudyImportHandler(&smocks.MockLichessService{}, &smocks.MockRepertoireService{}, &mocks.MockUserRepo{})
 
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodGet, "/api/studies/preview", nil)
@@ -67,7 +68,7 @@ func TestPreviewStudyHandler_MissingURL(t *testing.T) {
 }
 
 func TestPreviewStudyHandler_InvalidURL(t *testing.T) {
-	handler := newTestStudyImportHandler(&mocks.MockLichessService{}, &mocks.MockRepertoireService{}, &mocks.MockUserRepo{})
+	handler := newTestStudyImportHandler(&smocks.MockLichessService{}, &smocks.MockRepertoireService{}, &mocks.MockUserRepo{})
 
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodGet, "/api/studies/preview?url=not-a-valid-url", nil)
@@ -81,12 +82,12 @@ func TestPreviewStudyHandler_InvalidURL(t *testing.T) {
 }
 
 func TestPreviewStudyHandler_NotFound(t *testing.T) {
-	mockLichess := &mocks.MockLichessService{
+	mockLichess := &smocks.MockLichessService{
 		FetchStudyPGNFunc: func(studyID, authToken string) (string, error) {
 			return "", services.ErrLichessStudyNotFound
 		},
 	}
-	handler := newTestStudyImportHandler(mockLichess, &mocks.MockRepertoireService{}, &mocks.MockUserRepo{})
+	handler := newTestStudyImportHandler(mockLichess, &smocks.MockRepertoireService{}, &mocks.MockUserRepo{})
 
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodGet, "/api/studies/preview?url=https://lichess.org/study/abcdefgh", nil)
@@ -100,12 +101,12 @@ func TestPreviewStudyHandler_NotFound(t *testing.T) {
 }
 
 func TestPreviewStudyHandler_Forbidden(t *testing.T) {
-	mockLichess := &mocks.MockLichessService{
+	mockLichess := &smocks.MockLichessService{
 		FetchStudyPGNFunc: func(studyID, authToken string) (string, error) {
 			return "", services.ErrLichessStudyForbidden
 		},
 	}
-	handler := newTestStudyImportHandler(mockLichess, &mocks.MockRepertoireService{}, &mocks.MockUserRepo{})
+	handler := newTestStudyImportHandler(mockLichess, &smocks.MockRepertoireService{}, &mocks.MockUserRepo{})
 
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodGet, "/api/studies/preview?url=https://lichess.org/study/abcdefgh", nil)
@@ -119,12 +120,12 @@ func TestPreviewStudyHandler_Forbidden(t *testing.T) {
 }
 
 func TestPreviewStudyHandler_RateLimited(t *testing.T) {
-	mockLichess := &mocks.MockLichessService{
+	mockLichess := &smocks.MockLichessService{
 		FetchStudyPGNFunc: func(studyID, authToken string) (string, error) {
 			return "", services.ErrLichessRateLimited
 		},
 	}
-	handler := newTestStudyImportHandler(mockLichess, &mocks.MockRepertoireService{}, &mocks.MockUserRepo{})
+	handler := newTestStudyImportHandler(mockLichess, &smocks.MockRepertoireService{}, &mocks.MockUserRepo{})
 
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodGet, "/api/studies/preview?url=https://lichess.org/study/abcdefgh", nil)
@@ -143,12 +144,12 @@ func TestImportStudyHandler_Success(t *testing.T) {
 
 1. e4 e5 *
 `
-	mockLichess := &mocks.MockLichessService{
+	mockLichess := &smocks.MockLichessService{
 		FetchStudyPGNFunc: func(studyID, authToken string) (string, error) {
 			return pgnData, nil
 		},
 	}
-	mockRepSvc := &mocks.MockRepertoireService{
+	mockRepSvc := &smocks.MockRepertoireService{
 		CreateRepertoireFunc: func(userID, name string, color models.Color) (*models.Repertoire, error) {
 			return &models.Repertoire{ID: "rep-1", Name: name, Color: color}, nil
 		},
@@ -173,7 +174,7 @@ func TestImportStudyHandler_Success(t *testing.T) {
 }
 
 func TestImportStudyHandler_MissingURL(t *testing.T) {
-	handler := newTestStudyImportHandler(&mocks.MockLichessService{}, &mocks.MockRepertoireService{}, &mocks.MockUserRepo{})
+	handler := newTestStudyImportHandler(&smocks.MockLichessService{}, &smocks.MockRepertoireService{}, &mocks.MockUserRepo{})
 
 	e := echo.New()
 	body := `{"chapters":[0]}`
@@ -189,7 +190,7 @@ func TestImportStudyHandler_MissingURL(t *testing.T) {
 }
 
 func TestImportStudyHandler_NoChapters(t *testing.T) {
-	handler := newTestStudyImportHandler(&mocks.MockLichessService{}, &mocks.MockRepertoireService{}, &mocks.MockUserRepo{})
+	handler := newTestStudyImportHandler(&smocks.MockLichessService{}, &smocks.MockRepertoireService{}, &mocks.MockUserRepo{})
 
 	e := echo.New()
 	body := `{"studyUrl":"https://lichess.org/study/abcdefgh","chapters":[]}`
@@ -210,12 +211,12 @@ func TestImportStudyHandler_LimitReached(t *testing.T) {
 
 1. e4 e5 *
 `
-	mockLichess := &mocks.MockLichessService{
+	mockLichess := &smocks.MockLichessService{
 		FetchStudyPGNFunc: func(studyID, authToken string) (string, error) {
 			return pgnData, nil
 		},
 	}
-	mockRepSvc := &mocks.MockRepertoireService{
+	mockRepSvc := &smocks.MockRepertoireService{
 		CreateRepertoireFunc: func(userID, name string, color models.Color) (*models.Repertoire, error) {
 			return nil, fmt.Errorf("failed to create repertoire for chapter 0: %w", services.ErrLimitReached)
 		},
