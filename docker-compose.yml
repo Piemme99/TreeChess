@@ -7,7 +7,9 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-treechess}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: treechess
+    command: postgres -c config_file=/etc/postgresql/postgresql.conf
     volumes:
+      - ./postgres/postgresql.conf:/etc/postgresql/postgresql.conf:ro
       - postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"

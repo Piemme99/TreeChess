@@ -18,7 +18,7 @@ func TestNewDB_InvalidURL(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.Nil(t, db)
-	assert.Contains(t, err.Error(), "failed to create connection pool")
+	assert.Contains(t, err.Error(), "failed to parse database URL")
 }
 
 func TestDB_Close_NilPool(t *testing.T) {

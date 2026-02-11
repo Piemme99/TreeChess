@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -17,10 +18,34 @@ type DB struct {
 
 // NewDB creates a new database connection and runs migrations
 func NewDB(cfg config.Config) (*DB, error) {
-	pool, err := pgxpool.New(context.Background(), cfg.DatabaseURL)
+	poolConfig, err := pgxpool.ParseConfig(cfg.DatabaseURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse database URL: %w", err)
+	}
+
+	// Connection pool tuning.
+	// These values are sensible defaults for a small-to-medium workload.
+	// They can still be overridden via DATABASE_URL query parameters
+	// (e.g. ?pool_max_conns=10) since ParseConfig applies those first,
+	// but explicit code values take precedence for clarity.
+	poolConfig.MaxConns = 20                        // Default pgx: max(4, NumCPU). 20 gives headroom for concurrent requests.
+	poolConfig.MinConns = 2                         // Default pgx: 0. Pre-warm 2 connections to avoid cold-start latency.
+	poolConfig.MaxConnLifetime = 1 * time.Hour      // Default pgx: 1h. Recycle connections to pick up server config changes.
+	poolConfig.MaxConnIdleTime = 15 * time.Minute   // Default pgx: 30m. Release idle connections faster to save server RAM.
+	poolConfig.HealthCheckPeriod = 30 * time.Second // Default pgx: 1m. Detect broken connections sooner.
+
+	pool, err := pgxpool.NewWithConfig(context.Background(), poolConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create connection pool: %w", err)
 	}
+
+	slog.Info("database pool configured",
+		"max_conns", poolConfig.MaxConns,
+		"min_conns", poolConfig.MinConns,
+		"max_conn_lifetime", poolConfig.MaxConnLifetime,
+		"max_conn_idle_time", poolConfig.MaxConnIdleTime,
+		"health_check_period", poolConfig.HealthCheckPeriod,
+	)
 
 	ctx, cancel := context.WithTimeout(context.Background(), config.DefaultDBTimeout)
 	defer cancel()

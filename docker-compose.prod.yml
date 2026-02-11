@@ -7,7 +7,9 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-treechess}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: treechess
+    command: postgres -c config_file=/etc/postgresql/postgresql.conf
     volumes:
+      - ./postgres/postgresql.conf:/etc/postgresql/postgresql.conf:ro
       - postgres_data:/var/lib/postgresql/data
     networks:
       - backend-net
@@ -39,7 +41,7 @@ services:
     env_file:
       - .env.production
     environment:
-      DATABASE_URL: postgres://${POSTGRES_USER:-treechess}:${POSTGRES_PASSWORD}@postgres:5432/treechess?sslmode=disable&pool_max_conns=20&pool_min_conns=2&pool_max_conn_lifetime=1h
+      DATABASE_URL: postgres://${POSTGRES_USER:-treechess}:${POSTGRES_PASSWORD}@postgres:5432/treechess?sslmode=disable
       PORT: "8080"
       METRICS_PORT: "9090"
       JWT_SECRET: ${JWT_SECRET}
