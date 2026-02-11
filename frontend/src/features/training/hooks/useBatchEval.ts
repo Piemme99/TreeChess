@@ -142,10 +142,13 @@ export function useBatchEval(
       } else if (line.startsWith('bestmove')) {
         if (abortedRef.current) return;
 
+        // Stockfish reports scores from the side-to-move's perspective.
+        // Normalize to white's perspective so cpLoss deltas are correct.
+        const sideToMove = fens[currentIndex].split(' ')[1]; // 'w' or 'b'
         const evalResult: PositionEval = {
           fen: fens[currentIndex],
-          score: pendingScore,
-          mate: pendingMate,
+          score: pendingScore !== null && sideToMove === 'b' ? -pendingScore : pendingScore,
+          mate: pendingMate !== null && sideToMove === 'b' ? -pendingMate : pendingMate,
         };
         positionEvals.push(evalResult);
         pendingScore = null;

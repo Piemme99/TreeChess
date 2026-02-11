@@ -11,6 +11,12 @@ build/
 .env.local
 .env.*.local
 
+# Let's Encrypt certificates (generated on VPS)
+certbot/
+
+# Database backups (generated on VPS)
+backups/
+
 # IDE
 .idea/
 .vscode/

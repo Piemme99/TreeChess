@@ -1,4 +1,4 @@
-.PHONY: dev build stop delete logs restart prod prod-stop prod-logs prod-restart
+.PHONY: dev build stop delete logs restart prod prod-stop prod-logs prod-restart prod-init-ssl prod-renew-ssl prod-backup prod-install-backup-cron
 
 dev:
 	docker-compose up --build -d
@@ -33,3 +33,17 @@ prod-logs:
 prod-restart:
 	docker compose -f docker-compose.prod.yml down
 	docker compose -f docker-compose.prod.yml up --build -d
+
+prod-init-ssl:
+	@echo "Usage: make prod-init-ssl DOMAIN=yourdomain.com EMAIL=you@email.com"
+	@test -n "$(DOMAIN)" || (echo "ERROR: DOMAIN is required" && exit 1)
+	./scripts/init-letsencrypt.sh $(DOMAIN) $(EMAIL)
+
+prod-renew-ssl:
+	docker compose -f docker-compose.prod.yml run --rm certbot renew --dry-run
+
+prod-backup:
+	./scripts/backup.sh
+
+prod-install-backup-cron:
+	./scripts/backup.sh --install-cron

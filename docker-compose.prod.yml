@@ -9,6 +9,8 @@ services:
       POSTGRES_DB: treechess
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    networks:
+      - backend-net
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-treechess} -d treechess"]
@@ -37,7 +39,7 @@ services:
     env_file:
       - .env.production
     environment:
-      DATABASE_URL: postgres://${POSTGRES_USER:-treechess}:${POSTGRES_PASSWORD}@postgres:5432/treechess?sslmode=disable
+      DATABASE_URL: postgres://${POSTGRES_USER:-treechess}:${POSTGRES_PASSWORD}@postgres:5432/treechess?sslmode=disable&pool_max_conns=20&pool_min_conns=2&pool_max_conn_lifetime=1h
       PORT: "8080"
       METRICS_PORT: "9090"
       JWT_SECRET: ${JWT_SECRET}
@@ -47,9 +49,15 @@ services:
       SMTP_PASSWORD: ${SMTP_PASSWORD}
       SMTP_FROM_ADDRESS: ${SMTP_FROM_ADDRESS}
       SECURE_COOKIES: ${SECURE_COOKIES:-true}
+      ENVIRONMENT: production
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
       FRONTEND_URL: ${FRONTEND_URL}
       OAUTH_CALLBACK_URL: ${OAUTH_CALLBACK_URL}
+      LICHESS_CLIENT_ID: ${LICHESS_CLIENT_ID}
+    networks:
+      - backend-net
+      - frontend-net
+      - monitor-net
     depends_on:
       postgres:
         condition: service_healthy
@@ -72,6 +80,16 @@ services:
       target: prod
     ports:
       - "80:80"
+      - "443:443"
+    volumes:
+      # Mount the production nginx config (with TLS) over the default one
+      - ./frontend/nginx.prod.conf:/etc/nginx/conf.d/default.conf:ro
+      # Let's Encrypt certificates (managed by certbot)
+      - ./certbot/conf:/etc/letsencrypt:ro
+      # ACME challenge files (certbot writes here, nginx serves them)
+      - ./certbot/www:/var/www/certbot:ro
+    networks:
+      - frontend-net
     depends_on:
       backend:
         condition: service_healthy
@@ -81,6 +99,29 @@ services:
         limits:
           memory: 256M
           cpus: '0.5'
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  certbot:
+    image: certbot/certbot:latest
+    volumes:
+      # Certbot stores certificates here
+      - ./certbot/conf:/etc/letsencrypt
+      # Certbot writes ACME challenge files here
+      - ./certbot/www:/var/www/certbot
+    # Check for renewal every 12 hours, reload nginx on success
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew --quiet; sleep 12h & wait $${!}; done;'"
+    networks:
+      - frontend-net
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.25'
     logging:
       driver: json-file
       options:
@@ -97,6 +138,8 @@ services:
       - '--storage.tsdb.retention.time=30d'
     expose:
       - "9090"
+    networks:
+      - monitor-net
     depends_on:
       backend:
         condition: service_healthy
@@ -124,10 +167,12 @@ services:
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
       - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     environment:
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
       GF_USERS_ALLOW_SIGN_UP: "false"
+    networks:
+      - monitor-net
     depends_on:
       prometheus:
         condition: service_healthy
@@ -152,3 +197,11 @@ volumes:
   postgres_data:
   prometheus_data:
   grafana_data:
+
+networks:
+  frontend-net:
+    # frontend <-> backend, certbot
+  backend-net:
+    # backend <-> postgres (isolated from frontend/monitoring)
+  monitor-net:
+    # backend <-> prometheus <-> grafana
