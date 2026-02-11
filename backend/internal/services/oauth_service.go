@@ -148,5 +148,13 @@ func (s *OAuthService) FindOrCreateUser(provider, oauthID, username string) (res
 		return nil, false, fmt.Errorf("failed to generate token: %w", err)
 	}
 
-	return &models.AuthResponse{Token: token, User: *user}, isNew, nil
+	resp = &models.AuthResponse{Token: token, User: *user}
+
+	// Generate refresh token if configured
+	rawRefresh, refreshErr := s.authService.CreateRefreshTokenForUser(user.ID)
+	if refreshErr == nil && rawRefresh != "" {
+		resp.RefreshToken = rawRefresh
+	}
+
+	return resp, isNew, nil
 }

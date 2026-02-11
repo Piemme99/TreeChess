@@ -84,7 +84,7 @@ func ImportRepertoireHandler(svc *services.RepertoireService) echo.HandlerFunc {
 				})
 			}
 			return c.JSON(http.StatusBadRequest, map[string]string{
-				"error": err.Error(),
+				"error": "failed to import repertoire",
 			})
 		}
 

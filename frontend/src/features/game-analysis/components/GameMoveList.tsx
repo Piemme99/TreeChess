@@ -285,7 +285,7 @@ export function GameMoveList({
                       const lichessUrl = openingName
                         ? `https://lichess.org/study/search?q=${encodeURIComponent(openingName)}`
                         : 'https://lichess.org/study';
-                      window.open(lichessUrl, '_blank');
+                      window.open(lichessUrl, '_blank', 'noopener,noreferrer');
                     }}
                   >
                     Import from Lichess

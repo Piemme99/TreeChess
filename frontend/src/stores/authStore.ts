@@ -1,13 +1,10 @@
 import { create } from 'zustand';
-import { authApi, syncApi } from '../services/api';
+import { authApi, syncApi, setAccessToken, getAccessToken } from '../services/api';
 import { useRepertoireStore } from './repertoireStore';
 import type { User, UpdateProfileRequest, SyncResult } from '../types';
 
-const TOKEN_STORAGE_KEY = 'treechess_token';
-
 interface AuthState {
   user: User | null;
-  token: string | null;
   isAuthenticated: boolean;
   loading: boolean;
   error: string | null;
@@ -17,7 +14,7 @@ interface AuthState {
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, username: string, password: string) => Promise<void>;
   handleOAuthToken: (token: string, isNew?: boolean) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   checkAuth: () => Promise<void>;
   clearError: () => void;
   updateProfile: (data: UpdateProfileRequest) => Promise<void>;
@@ -28,7 +25,6 @@ interface AuthState {
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
-  token: localStorage.getItem(TOKEN_STORAGE_KEY),
   isAuthenticated: false,
   loading: true,
   error: null,
@@ -40,10 +36,10 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ error: null });
     try {
       const response = await authApi.login(email, password);
-      localStorage.setItem(TOKEN_STORAGE_KEY, response.token);
+      // Store access token in memory only (never localStorage)
+      setAccessToken(response.token);
       set({
         user: response.user,
-        token: response.token,
         isAuthenticated: true,
         error: null,
       });
@@ -62,10 +58,10 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ error: null });
     try {
       const response = await authApi.register(email, username, password);
-      localStorage.setItem(TOKEN_STORAGE_KEY, response.token);
+      // Store access token in memory only (never localStorage)
+      setAccessToken(response.token);
       set({
         user: response.user,
-        token: response.token,
         isAuthenticated: true,
         needsOnboarding: true,
         error: null,
@@ -78,13 +74,14 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   handleOAuthToken: async (token: string, isNew = false) => {
-    localStorage.setItem(TOKEN_STORAGE_KEY, token);
-    set({ token, error: null });
+    // OAuth callback provides the access token via URL parameter
+    // The refresh token was already set as an httpOnly cookie by the backend
+    setAccessToken(token);
+    set({ error: null });
     try {
       const user = await authApi.me();
       set({
         user,
-        token,
         isAuthenticated: true,
         needsOnboarding: isNew,
         loading: false,
@@ -94,10 +91,9 @@ export const useAuthStore = create<AuthState>((set) => ({
         useAuthStore.getState().triggerSync();
       }
     } catch {
-      localStorage.removeItem(TOKEN_STORAGE_KEY);
+      setAccessToken(null);
       set({
         user: null,
-        token: null,
         isAuthenticated: false,
         loading: false,
         error: 'Failed to verify OAuth token',
@@ -106,13 +102,14 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
   },
 
-  logout: () => {
-    localStorage.removeItem(TOKEN_STORAGE_KEY);
+  logout: async () => {
+    // Call backend to revoke the refresh token and clear the httpOnly cookie
+    await authApi.logout();
+    setAccessToken(null);
     // Clear cached data from other stores to prevent data leaking between accounts
     useRepertoireStore.getState().clearAll();
     set({
       user: null,
-      token: null,
       isAuthenticated: false,
       loading: false,
       error: null,
@@ -120,28 +117,42 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   checkAuth: async () => {
-    const token = localStorage.getItem(TOKEN_STORAGE_KEY);
-    if (!token) {
-      set({ loading: false, isAuthenticated: false });
-      return;
+    // First try to use an existing in-memory access token
+    const existingToken = getAccessToken();
+    if (existingToken) {
+      try {
+        const user = await authApi.me();
+        set({
+          user,
+          isAuthenticated: true,
+          loading: false,
+        });
+        if (user.lichessUsername || user.chesscomUsername) {
+          useAuthStore.getState().triggerSync();
+        }
+        return;
+      } catch {
+        // Access token expired or invalid — try refreshing below
+      }
     }
+
+    // Try to get a new access token using the refresh token cookie
     try {
-      const user = await authApi.me();
+      const response = await authApi.refresh();
+      setAccessToken(response.token);
       set({
-        user,
-        token,
+        user: response.user,
         isAuthenticated: true,
         loading: false,
       });
-      // Fire-and-forget sync if user has a platform username configured
-      if (user.lichessUsername || user.chesscomUsername) {
+      if (response.user.lichessUsername || response.user.chesscomUsername) {
         useAuthStore.getState().triggerSync();
       }
     } catch {
-      localStorage.removeItem(TOKEN_STORAGE_KEY);
+      // No valid refresh token — user is not authenticated
+      setAccessToken(null);
       set({
         user: null,
-        token: null,
         isAuthenticated: false,
         loading: false,
       });
@@ -160,11 +171,10 @@ export const useAuthStore = create<AuthState>((set) => ({
   deleteAccount: async (password?: string, username?: string) => {
     await authApi.deleteAccount(password, username);
     // Clean up exactly like logout
-    localStorage.removeItem(TOKEN_STORAGE_KEY);
+    setAccessToken(null);
     useRepertoireStore.getState().clearAll();
     set({
       user: null,
-      token: null,
       isAuthenticated: false,
       loading: false,
       error: null,

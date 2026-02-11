@@ -1,4 +1,5 @@
 import axios from 'axios';
+import type { AxiosRequestConfig } from 'axios';
 import type {
   Repertoire,
   AddNodeRequest,
@@ -30,8 +31,6 @@ import type {
   TrainingAnalyzeResponse
 } from '../types';
 
-const TOKEN_STORAGE_KEY = 'treechess_token';
-
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
 /** Options for API requests that support cancellation */
@@ -39,33 +38,112 @@ export interface RequestOptions {
   signal?: AbortSignal;
 }
 
+// --- In-memory access token management ---
+// The access token is stored ONLY in memory (never in localStorage)
+// to prevent XSS-based token theft. The refresh token is stored
+// in an httpOnly cookie managed by the browser automatically.
+let accessToken: string | null = null;
+
+export function setAccessToken(token: string | null) {
+  accessToken = token;
+}
+
+export function getAccessToken(): string | null {
+  return accessToken;
+}
+
 const api = axios.create({
   baseURL: API_BASE,
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json'
-  }
+  },
+  withCredentials: true, // Send httpOnly cookies (refresh_token) with every request
 });
 
-// Request interceptor - inject auth token
+// --- Token refresh logic ---
+let isRefreshing = false;
+let refreshSubscribers: Array<(token: string) => void> = [];
+
+function onRefreshed(token: string) {
+  refreshSubscribers.forEach((cb) => cb(token));
+  refreshSubscribers = [];
+}
+
+function addRefreshSubscriber(cb: (token: string) => void) {
+  refreshSubscribers.push(cb);
+}
+
+// Request interceptor - inject access token from memory
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem(TOKEN_STORAGE_KEY);
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+  if (accessToken) {
+    config.headers.Authorization = `Bearer ${accessToken}`;
   }
   return config;
 });
 
-// Response interceptor - handle 401
+// Response interceptor - handle 401 with automatic token refresh
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
-    if (error.code !== 'ERR_CANCELED') {
-      if (error.response?.status === 401) {
-        localStorage.removeItem(TOKEN_STORAGE_KEY);
+  async (error) => {
+    if (error.code === 'ERR_CANCELED') {
+      return Promise.reject(error);
+    }
+
+    const originalRequest = error.config as AxiosRequestConfig & { _retry?: boolean };
+
+    // If we get a 401 and haven't already retried this request
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      // Don't try to refresh if the failing request IS the refresh endpoint
+      if (originalRequest.url === '/auth/refresh') {
+        accessToken = null;
         window.dispatchEvent(new Event('auth:unauthorized'));
+        return Promise.reject(error);
+      }
+
+      originalRequest._retry = true;
+
+      if (!isRefreshing) {
+        isRefreshing = true;
+
+        try {
+          // Call refresh endpoint — the browser sends the httpOnly cookie automatically
+          const response = await axios.post(`${API_BASE}/auth/refresh`, null, {
+            withCredentials: true,
+          });
+
+          const newAccessToken = response.data.token;
+          accessToken = newAccessToken;
+          isRefreshing = false;
+          onRefreshed(newAccessToken);
+
+          // Retry the original request with the new token
+          originalRequest.headers = {
+            ...originalRequest.headers,
+            Authorization: `Bearer ${newAccessToken}`,
+          };
+          return api(originalRequest);
+        } catch {
+          isRefreshing = false;
+          accessToken = null;
+          refreshSubscribers = [];
+          window.dispatchEvent(new Event('auth:unauthorized'));
+          return Promise.reject(error);
+        }
+      } else {
+        // Another request is already refreshing — queue this one
+        return new Promise((resolve) => {
+          addRefreshSubscriber((newToken: string) => {
+            originalRequest.headers = {
+              ...originalRequest.headers,
+              Authorization: `Bearer ${newToken}`,
+            };
+            resolve(api(originalRequest));
+          });
+        });
       }
     }
+
     return Promise.reject(error);
   }
 );
@@ -114,6 +192,19 @@ export const authApi = {
 
   deleteAccount: async (password?: string, username?: string): Promise<void> => {
     await api.delete('/auth/account', { data: { password, username } });
+  },
+
+  logout: async (): Promise<void> => {
+    try {
+      await api.post('/auth/logout');
+    } catch {
+      // Ignore errors — we clear local state regardless
+    }
+  },
+
+  refresh: async (): Promise<AuthResponse> => {
+    const response = await api.post('/auth/refresh');
+    return response.data;
   },
 };
 

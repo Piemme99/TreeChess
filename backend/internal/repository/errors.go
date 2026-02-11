@@ -21,4 +21,7 @@ var (
 
 	// Password reset errors
 	ErrResetTokenNotFound = fmt.Errorf("reset token not found")
+
+	// Refresh token errors
+	ErrRefreshTokenNotFound = fmt.Errorf("refresh token not found")
 )

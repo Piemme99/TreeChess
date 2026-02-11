@@ -126,7 +126,7 @@ export function RepertoireSelector({ userColor, currentRepertoire, matchScore, o
                 size="sm"
                 onClick={() => {
                   setShowStudyModal(true);
-                  window.open('https://lichess.org/study', '_blank');
+                  window.open('https://lichess.org/study', '_blank', 'noopener,noreferrer');
                 }}
               >
                 Import from Lichess

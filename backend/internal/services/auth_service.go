@@ -35,23 +35,31 @@ var (
 )
 
 type AuthService struct {
-	userRepo         repository.UserRepository
-	resetRepo        repository.PasswordResetRepository
-	emailService     EmailSender
-	jwtSecret        []byte
-	jwtExpiry        time.Duration
-	resetTokenExpiry time.Duration
-	maxResetPerHour  int
+	userRepo           repository.UserRepository
+	resetRepo          repository.PasswordResetRepository
+	refreshTokenRepo   repository.RefreshTokenRepository
+	emailService       EmailSender
+	jwtSecret          []byte
+	jwtExpiry          time.Duration
+	refreshTokenExpiry time.Duration
+	resetTokenExpiry   time.Duration
+	maxResetPerHour    int
 }
 
 func NewAuthService(userRepo repository.UserRepository, jwtSecret string, jwtExpiry time.Duration) *AuthService {
 	return &AuthService{
-		userRepo:         userRepo,
-		jwtSecret:        []byte(jwtSecret),
-		jwtExpiry:        jwtExpiry,
-		resetTokenExpiry: 1 * time.Hour,
-		maxResetPerHour:  3,
+		userRepo:           userRepo,
+		jwtSecret:          []byte(jwtSecret),
+		jwtExpiry:          jwtExpiry,
+		refreshTokenExpiry: 30 * 24 * time.Hour, // 30 days
+		resetTokenExpiry:   1 * time.Hour,
+		maxResetPerHour:    3,
 	}
+}
+
+// WithRefreshTokens sets up refresh token dependencies
+func (s *AuthService) WithRefreshTokens(repo repository.RefreshTokenRepository) {
+	s.refreshTokenRepo = repo
 }
 
 // WithPasswordReset sets up password reset dependencies
@@ -89,7 +97,19 @@ func (s *AuthService) Register(email, username, password string) (*models.AuthRe
 		return nil, err
 	}
 
-	return &models.AuthResponse{Token: token, User: *user}, nil
+	resp := &models.AuthResponse{Token: token, User: *user}
+
+	// Generate refresh token if the repository is configured
+	if s.refreshTokenRepo != nil {
+		rawRefresh, err := s.createRefreshToken(user.ID)
+		if err != nil {
+			slog.Error("failed to create refresh token during register", "user_id", user.ID, "error", err)
+		} else {
+			resp.RefreshToken = rawRefresh
+		}
+	}
+
+	return resp, nil
 }
 
 func (s *AuthService) Login(email, password string) (*models.AuthResponse, error) {
@@ -114,7 +134,19 @@ func (s *AuthService) Login(email, password string) (*models.AuthResponse, error
 		return nil, err
 	}
 
-	return &models.AuthResponse{Token: token, User: *user}, nil
+	resp := &models.AuthResponse{Token: token, User: *user}
+
+	// Generate refresh token if the repository is configured
+	if s.refreshTokenRepo != nil {
+		rawRefresh, err := s.createRefreshToken(user.ID)
+		if err != nil {
+			slog.Error("failed to create refresh token during login", "user_id", user.ID, "error", err)
+		} else {
+			resp.RefreshToken = rawRefresh
+		}
+	}
+
+	return resp, nil
 }
 
 func (s *AuthService) ValidateToken(tokenStr string) (string, error) {
@@ -299,6 +331,9 @@ func (s *AuthService) ResetPassword(rawToken, newPassword string) error {
 	// Delete all reset tokens for this user (invalidate any other pending resets)
 	_ = s.resetRepo.DeleteByUserID(resetToken.UserID)
 
+	// Revoke all refresh tokens to force re-login on all devices
+	_ = s.RevokeAllRefreshTokens(resetToken.UserID)
+
 	return nil
 }
 
@@ -338,6 +373,9 @@ func (s *AuthService) ChangePassword(userID, currentPassword, newPassword string
 	if s.resetRepo != nil {
 		_ = s.resetRepo.DeleteByUserID(userID)
 	}
+
+	// Revoke all refresh tokens to force re-login on all devices
+	_ = s.RevokeAllRefreshTokens(userID)
 
 	return nil
 }
@@ -382,6 +420,110 @@ func (s *AuthService) DeleteAccount(userID, password, username string) error {
 	}
 
 	return nil
+}
+
+// RefreshTokens validates a refresh token, rotates it, and returns a new token pair.
+// The old refresh token is consumed (deleted) and a new one is issued.
+// If the old token is not found, it may indicate token theft — all user tokens are revoked.
+func (s *AuthService) RefreshTokens(rawRefreshToken string) (*models.AuthResponse, error) {
+	if s.refreshTokenRepo == nil {
+		return nil, ErrUnauthorized
+	}
+
+	tokenHash := hashToken(rawRefreshToken)
+	storedToken, err := s.refreshTokenRepo.GetByTokenHash(tokenHash)
+	if err != nil {
+		// Token not found — possible theft. We cannot determine the user here,
+		// so we just return unauthorized.
+		return nil, ErrUnauthorized
+	}
+
+	// Check expiry
+	if time.Now().After(storedToken.ExpiresAt) {
+		// Clean up the expired token
+		_ = s.refreshTokenRepo.Delete(storedToken.ID)
+		return nil, ErrUnauthorized
+	}
+
+	// Delete the old refresh token (single-use rotation)
+	if err := s.refreshTokenRepo.Delete(storedToken.ID); err != nil {
+		return nil, fmt.Errorf("failed to rotate refresh token: %w", err)
+	}
+
+	// Fetch user
+	user, err := s.userRepo.GetByID(storedToken.UserID)
+	if err != nil {
+		return nil, ErrUnauthorized
+	}
+
+	// Generate new access token
+	accessToken, err := s.generateToken(user)
+	if err != nil {
+		return nil, err
+	}
+
+	// Generate new refresh token
+	newRawRefresh, err := s.createRefreshToken(user.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create new refresh token: %w", err)
+	}
+
+	return &models.AuthResponse{
+		Token:        accessToken,
+		RefreshToken: newRawRefresh,
+		User:         *user,
+	}, nil
+}
+
+// RevokeRefreshToken revokes a single refresh token (used during logout)
+func (s *AuthService) RevokeRefreshToken(rawRefreshToken string) error {
+	if s.refreshTokenRepo == nil {
+		return nil
+	}
+
+	tokenHash := hashToken(rawRefreshToken)
+	storedToken, err := s.refreshTokenRepo.GetByTokenHash(tokenHash)
+	if err != nil {
+		return nil // Token already gone or invalid, that's fine
+	}
+
+	return s.refreshTokenRepo.Delete(storedToken.ID)
+}
+
+// RevokeAllRefreshTokens revokes all refresh tokens for a user (used on password change)
+func (s *AuthService) RevokeAllRefreshTokens(userID string) error {
+	if s.refreshTokenRepo == nil {
+		return nil
+	}
+	return s.refreshTokenRepo.DeleteByUserID(userID)
+}
+
+// CreateRefreshTokenForUser generates a new refresh token for the given user.
+// Returns the raw token string (to be sent to the client) or an error.
+// Returns empty string with nil error if refresh tokens are not configured.
+func (s *AuthService) CreateRefreshTokenForUser(userID string) (string, error) {
+	if s.refreshTokenRepo == nil {
+		return "", nil
+	}
+	return s.createRefreshToken(userID)
+}
+
+// createRefreshToken generates a new refresh token, stores its hash, and returns the raw token
+func (s *AuthService) createRefreshToken(userID string) (string, error) {
+	rawToken, err := generateSecureToken(32)
+	if err != nil {
+		return "", fmt.Errorf("failed to generate refresh token: %w", err)
+	}
+
+	tokenHash := hashToken(rawToken)
+	expiresAt := time.Now().Add(s.refreshTokenExpiry)
+
+	_, err = s.refreshTokenRepo.Create(userID, tokenHash, expiresAt)
+	if err != nil {
+		return "", fmt.Errorf("failed to store refresh token: %w", err)
+	}
+
+	return rawToken, nil
 }
 
 // generateSecureToken generates a cryptographically secure random token

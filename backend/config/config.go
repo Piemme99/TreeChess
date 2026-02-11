@@ -72,9 +72,14 @@ func MustLoad() Config {
 		panic("JWT_SECRET environment variable is required")
 	}
 
-	jwtExpiry := 168 * time.Hour // default 7 days
-	jwtExpiryStr := os.Getenv("JWT_EXPIRY_HOURS")
-	if jwtExpiryStr != "" {
+	jwtExpiry := 15 * time.Minute // default 15 minutes (short-lived, refresh token used for renewal)
+	if jwtExpiryMinStr := os.Getenv("JWT_EXPIRY_MINUTES"); jwtExpiryMinStr != "" {
+		mins, err := strconv.Atoi(jwtExpiryMinStr)
+		if err != nil {
+			panic(fmt.Sprintf("Invalid JWT_EXPIRY_MINUTES value: %s", jwtExpiryMinStr))
+		}
+		jwtExpiry = time.Duration(mins) * time.Minute
+	} else if jwtExpiryStr := os.Getenv("JWT_EXPIRY_HOURS"); jwtExpiryStr != "" {
 		hours, err := strconv.Atoi(jwtExpiryStr)
 		if err != nil {
 			panic(fmt.Sprintf("Invalid JWT_EXPIRY_HOURS value: %s", jwtExpiryStr))

@@ -256,6 +256,17 @@ func (db *DB) runMigrations() error {
 		// Add is_public column to repertoires (default true for explore feature)
 		`ALTER TABLE repertoires ADD COLUMN IF NOT EXISTS is_public BOOLEAN NOT NULL DEFAULT true`,
 		`CREATE INDEX IF NOT EXISTS idx_repertoires_is_public ON repertoires(is_public) WHERE is_public = true`,
+		// Refresh tokens table for token rotation
+		`CREATE TABLE IF NOT EXISTS refresh_tokens (
+			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+			user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+			token_hash VARCHAR(64) NOT NULL UNIQUE,
+			expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+			created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user ON refresh_tokens(user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_refresh_tokens_hash ON refresh_tokens(token_hash)`,
+		`CREATE INDEX IF NOT EXISTS idx_refresh_tokens_expires ON refresh_tokens(expires_at)`,
 	}
 	for _, m := range migrations {
 		if _, err := conn.Exec(ctx, m); err != nil {

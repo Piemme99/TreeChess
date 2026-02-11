@@ -4,6 +4,7 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -14,13 +15,14 @@ import (
 	"log/slog"
 
 	"github.com/labstack/echo/v4"
+	"golang.org/x/crypto/hkdf"
 
 	"github.com/treechess/backend/internal/repository"
 	"github.com/treechess/backend/internal/services"
 )
 
 const (
-	oauthCookieName = "oauth_state"
+	oauthCookieName   = "oauth_state"
 	oauthCookieMaxAge = 600 // 10 minutes
 )
 
@@ -33,9 +35,13 @@ type OAuthHandler struct {
 }
 
 func NewOAuthHandler(oauthSvc *services.OAuthService, userRepo repository.UserRepository, frontendURL, jwtSecret string, secureCookies bool) *OAuthHandler {
-	// Derive a 32-byte key from the JWT secret for cookie encryption
+	// Derive a 32-byte key from the JWT secret using HKDF (RFC 5869)
+	// This ensures proper key separation between JWT signing and cookie encryption
+	hkdfReader := hkdf.New(sha256.New, []byte(jwtSecret), nil, []byte("oauth-cookie-encryption"))
 	key := make([]byte, 32)
-	copy(key, []byte(jwtSecret))
+	if _, err := io.ReadFull(hkdfReader, key); err != nil {
+		panic("failed to derive OAuth cookie encryption key: " + err.Error())
+	}
 	return &OAuthHandler{
 		oauthService:  oauthSvc,
 		userRepo:      userRepo,
@@ -122,6 +128,19 @@ func (h *OAuthHandler) Callback(c echo.Context) error {
 		if err := h.userRepo.UpdateLichessToken(resp.User.ID, accessToken); err != nil {
 			slog.Error("failed to store lichess token", "user_id", resp.User.ID, "error", err)
 		}
+	}
+
+	// Set refresh token as httpOnly cookie (if available)
+	if resp.RefreshToken != "" {
+		c.SetCookie(&http.Cookie{
+			Name:     "refresh_token",
+			Value:    resp.RefreshToken,
+			Path:     "/api/auth",
+			MaxAge:   30 * 24 * 60 * 60, // 30 days
+			HttpOnly: true,
+			Secure:   h.secureCookies,
+			SameSite: http.SameSiteStrictMode,
+		})
 	}
 
 	redirectURL := fmt.Sprintf("%s/login?token=%s", h.frontendURL, url.QueryEscape(resp.Token))

@@ -89,6 +89,16 @@ type AnalysisRepository interface {
 	GetAllGamesRaw(userID string) ([]models.RawAnalysis, error)
 }
 
+// RefreshTokenRepository defines the interface for refresh token operations
+type RefreshTokenRepository interface {
+	Create(userID, tokenHash string, expiresAt time.Time) (*models.RefreshToken, error)
+	GetByTokenHash(tokenHash string) (*models.RefreshToken, error)
+	Delete(id string) error
+	DeleteByUserID(userID string) error
+	DeleteExpired() error
+	CountByUserID(userID string) (int, error)
+}
+
 // PasswordResetRepository defines the interface for password reset token operations
 type PasswordResetRepository interface {
 	Create(userID, tokenHash string, expiresAt time.Time) (*models.PasswordResetToken, error)

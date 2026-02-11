@@ -24,7 +24,7 @@ const testJWTSecret = "test-secret-key-32-chars-long!!!"
 
 func newTestAuthHandler(userRepo repository.UserRepository) *AuthHandler {
 	authSvc := services.NewAuthService(userRepo, testJWTSecret, 24*time.Hour)
-	return NewAuthHandler(authSvc)
+	return NewAuthHandler(authSvc, false)
 }
 
 func TestRegisterHandler_Success(t *testing.T) {
@@ -363,7 +363,7 @@ func newTestAuthHandlerWithPasswordReset(
 ) *AuthHandler {
 	authSvc := services.NewAuthService(userRepo, testJWTSecret, 24*time.Hour)
 	authSvc.WithPasswordReset(resetRepo, emailSvc, 1)
-	return NewAuthHandler(authSvc)
+	return NewAuthHandler(authSvc, false)
 }
 
 // --- ForgotPasswordHandler Tests ---

@@ -52,12 +52,14 @@ func main() {
 	dismissedMistakeRepo := repository.NewDismissedMistakeRepo(db.Pool)
 	dismissedGapRepo := repository.NewDismissedGapRepo(db.Pool)
 	passwordResetRepo := repository.NewPostgresPasswordResetRepo(db.Pool)
+	refreshTokenRepo := repository.NewPostgresRefreshTokenRepo(db.Pool)
 
 	// Initialize opening analysis service (uses Lichess Explorer API)
 	engineSvc := services.NewEngineService(engineEvalRepo, analysisRepo)
 
 	// Initialize services
 	authSvc := services.NewAuthService(userRepo, cfg.JWTSecret, cfg.JWTExpiry)
+	authSvc.WithRefreshTokens(refreshTokenRepo)
 	emailSvc := services.NewEmailService(cfg)
 	authSvc.WithPasswordReset(passwordResetRepo, emailSvc, cfg.PasswordResetExpiryHours)
 	oauthSvc := services.NewOAuthService(userRepo, authSvc, cfg.LichessClientID, cfg.OAuthCallbackURL)
@@ -75,7 +77,7 @@ func main() {
 	studyImportSvc := services.NewStudyImportService(lichessSvc, repertoireSvc, categoryRepo, userRepo)
 
 	// Initialize handlers
-	authHandler := handlers.NewAuthHandler(authSvc)
+	authHandler := handlers.NewAuthHandler(authSvc, cfg.SecureCookies)
 	oauthHandler := handlers.NewOAuthHandler(oauthSvc, userRepo, cfg.FrontendURL, cfg.JWTSecret, cfg.SecureCookies)
 	syncHandler := handlers.NewSyncHandler(syncSvc)
 	studyImportHandler := handlers.NewStudyImportHandler(studyImportSvc)
@@ -89,9 +91,10 @@ func main() {
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-		AllowOrigins: cfg.AllowedOrigins,
-		AllowMethods: []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete},
-		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
+		AllowOrigins:     cfg.AllowedOrigins,
+		AllowMethods:     []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete},
+		AllowHeaders:     []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
+		AllowCredentials: true,
 	}))
 
 	// Prometheus metrics
@@ -142,8 +145,13 @@ func main() {
 	authGroup.POST("/api/auth/login", authHandler.LoginHandler)
 	authGroup.POST("/api/auth/forgot-password", authHandler.ForgotPasswordHandler)
 	authGroup.POST("/api/auth/reset-password", authHandler.ResetPasswordHandler)
-	e.GET("/api/auth/lichess/login", oauthHandler.LoginRedirect)
-	e.GET("/api/auth/lichess/callback", oauthHandler.Callback)
+	authGroup.GET("/api/auth/lichess/login", oauthHandler.LoginRedirect)
+	authGroup.GET("/api/auth/lichess/callback", oauthHandler.Callback)
+
+	// Token refresh (public — uses httpOnly cookie, not Authorization header)
+	e.POST("/api/auth/refresh", authHandler.RefreshHandler)
+	// Logout (public — revokes refresh token)
+	e.POST("/api/auth/logout", authHandler.LogoutHandler)
 
 	// Protected routes (auth required)
 	protected := e.Group("", appMiddleware.JWTAuth(authSvc))
@@ -292,6 +300,7 @@ func securityHeaders(next echo.HandlerFunc) echo.HandlerFunc {
 		h.Set("X-XSS-Protection", "1; mode=block")
 		h.Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
 		h.Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'")
+		h.Set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()")
 		return next(c)
 	}
 }

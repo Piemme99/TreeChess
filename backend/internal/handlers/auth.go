@@ -11,12 +11,45 @@ import (
 	"github.com/treechess/backend/internal/services"
 )
 
+const (
+	refreshTokenCookieName = "refresh_token"
+	refreshTokenCookiePath = "/api/auth"
+	refreshTokenMaxAge     = 30 * 24 * 60 * 60 // 30 days in seconds
+)
+
 type AuthHandler struct {
-	authService *services.AuthService
+	authService   *services.AuthService
+	secureCookies bool
 }
 
-func NewAuthHandler(authSvc *services.AuthService) *AuthHandler {
-	return &AuthHandler{authService: authSvc}
+func NewAuthHandler(authSvc *services.AuthService, secureCookies bool) *AuthHandler {
+	return &AuthHandler{authService: authSvc, secureCookies: secureCookies}
+}
+
+// setRefreshTokenCookie sets the refresh token as an httpOnly cookie
+func (h *AuthHandler) setRefreshTokenCookie(c echo.Context, rawToken string) {
+	c.SetCookie(&http.Cookie{
+		Name:     refreshTokenCookieName,
+		Value:    rawToken,
+		Path:     refreshTokenCookiePath,
+		MaxAge:   refreshTokenMaxAge,
+		HttpOnly: true,
+		Secure:   h.secureCookies,
+		SameSite: http.SameSiteStrictMode,
+	})
+}
+
+// clearRefreshTokenCookie removes the refresh token cookie
+func (h *AuthHandler) clearRefreshTokenCookie(c echo.Context) {
+	c.SetCookie(&http.Cookie{
+		Name:     refreshTokenCookieName,
+		Value:    "",
+		Path:     refreshTokenCookiePath,
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   h.secureCookies,
+		SameSite: http.SameSiteStrictMode,
+	})
 }
 
 func (h *AuthHandler) RegisterHandler(c echo.Context) error {
@@ -55,6 +88,12 @@ func (h *AuthHandler) RegisterHandler(c echo.Context) error {
 		return InternalErrorResponse(c, "failed to register")
 	}
 
+	// Set refresh token as httpOnly cookie
+	if resp.RefreshToken != "" {
+		h.setRefreshTokenCookie(c, resp.RefreshToken)
+		resp.RefreshToken = "" // Don't send in JSON body
+	}
+
 	return c.JSON(http.StatusCreated, resp)
 }
 
@@ -80,6 +119,12 @@ func (h *AuthHandler) LoginHandler(c echo.Context) error {
 			return BadRequestResponse(c, err.Error())
 		}
 		return InternalErrorResponse(c, "failed to login")
+	}
+
+	// Set refresh token as httpOnly cookie
+	if resp.RefreshToken != "" {
+		h.setRefreshTokenCookie(c, resp.RefreshToken)
+		resp.RefreshToken = "" // Don't send in JSON body
 	}
 
 	return c.JSON(http.StatusOK, resp)
@@ -257,4 +302,38 @@ func (h *AuthHandler) HasPasswordHandler(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, models.HasPasswordResponse{HasPassword: hasPassword})
+}
+
+// RefreshHandler exchanges a valid refresh token for a new access token + refresh token pair.
+// The refresh token is read from the httpOnly cookie.
+func (h *AuthHandler) RefreshHandler(c echo.Context) error {
+	cookie, err := c.Cookie(refreshTokenCookieName)
+	if err != nil || cookie.Value == "" {
+		return ErrorResponse(c, http.StatusUnauthorized, "no refresh token")
+	}
+
+	resp, err := h.authService.RefreshTokens(cookie.Value)
+	if err != nil {
+		h.clearRefreshTokenCookie(c)
+		return ErrorResponse(c, http.StatusUnauthorized, "invalid refresh token")
+	}
+
+	// Set new refresh token cookie
+	if resp.RefreshToken != "" {
+		h.setRefreshTokenCookie(c, resp.RefreshToken)
+		resp.RefreshToken = "" // Don't send in JSON body
+	}
+
+	return c.JSON(http.StatusOK, resp)
+}
+
+// LogoutHandler revokes the refresh token and clears the cookie.
+func (h *AuthHandler) LogoutHandler(c echo.Context) error {
+	cookie, err := c.Cookie(refreshTokenCookieName)
+	if err == nil && cookie.Value != "" {
+		_ = h.authService.RevokeRefreshToken(cookie.Value)
+	}
+
+	h.clearRefreshTokenCookie(c)
+	return c.JSON(http.StatusOK, map[string]string{"message": "logged out"})
 }
