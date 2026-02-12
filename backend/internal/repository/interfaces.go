@@ -60,6 +60,7 @@ type EngineEvalRepository interface {
 	SaveEvals(id string, evals []models.ExplorerMoveStats) error
 	MarkFailed(id string) error
 	GetByUser(userID string) ([]models.EngineEval, error)
+	ResetStaleProcessing() (int, error)
 }
 
 // DismissedMistakeRepository defines the interface for dismissed mistake operations

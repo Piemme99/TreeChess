@@ -39,12 +39,13 @@ func (m *MockFingerprintRepo) DeleteByAnalysisAndIndex(analysisID string, gameIn
 
 // MockEngineEvalRepo is a mock implementation of EngineEvalRepository for testing
 type MockEngineEvalRepo struct {
-	CreatePendingBatchFunc func(userID, analysisID string, gameCount int) error
-	GetPendingFunc         func(limit int) ([]models.EngineEval, error)
-	MarkProcessingFunc     func(id string) error
-	SaveEvalsFunc          func(id string, evals []models.ExplorerMoveStats) error
-	MarkFailedFunc         func(id string) error
-	GetByUserFunc          func(userID string) ([]models.EngineEval, error)
+	CreatePendingBatchFunc   func(userID, analysisID string, gameCount int) error
+	GetPendingFunc           func(limit int) ([]models.EngineEval, error)
+	MarkProcessingFunc       func(id string) error
+	SaveEvalsFunc            func(id string, evals []models.ExplorerMoveStats) error
+	MarkFailedFunc           func(id string) error
+	GetByUserFunc            func(userID string) ([]models.EngineEval, error)
+	ResetStaleProcessingFunc func() (int, error)
 }
 
 func (m *MockEngineEvalRepo) CreatePendingBatch(userID, analysisID string, gameCount int) error {
@@ -87,6 +88,13 @@ func (m *MockEngineEvalRepo) GetByUser(userID string) ([]models.EngineEval, erro
 		return m.GetByUserFunc(userID)
 	}
 	return nil, nil
+}
+
+func (m *MockEngineEvalRepo) ResetStaleProcessing() (int, error) {
+	if m.ResetStaleProcessingFunc != nil {
+		return m.ResetStaleProcessingFunc()
+	}
+	return 0, nil
 }
 
 // MockRepertoireRepo is a mock implementation of RepertoireRepository for testing

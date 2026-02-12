@@ -78,6 +78,14 @@ func (s *EngineService) RunWorker(ctx context.Context) {
 	}()
 
 	slog.Info("opening-analysis worker started")
+
+	// Recover any evals stuck in 'processing' from a previous crash/restart
+	if count, err := s.evalRepo.ResetStaleProcessing(); err != nil {
+		slog.Error("failed to reset stale processing evals", "component", "opening-analysis", "error", err)
+	} else if count > 0 {
+		slog.Info("reset stale processing evals back to pending", "component", "opening-analysis", "count", count)
+	}
+
 	ticker := time.NewTicker(pollInterval)
 	defer ticker.Stop()
 

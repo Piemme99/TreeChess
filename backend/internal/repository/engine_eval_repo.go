@@ -109,6 +109,23 @@ func (r *PostgresEngineEvalRepo) MarkFailed(id string) error {
 	return err
 }
 
+// ResetStaleProcessing resets any evals stuck in 'processing' back to 'pending'.
+// This recovers from server crashes/restarts that interrupted in-flight evaluations.
+// Returns the number of rows reset.
+func (r *PostgresEngineEvalRepo) ResetStaleProcessing() (int, error) {
+	ctx, cancel := dbContext()
+	defer cancel()
+
+	tag, err := r.pool.Exec(ctx,
+		`UPDATE engine_evals SET status = 'pending', updated_at = $1 WHERE status = 'processing'`,
+		time.Now(),
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to reset stale processing evals: %w", err)
+	}
+	return int(tag.RowsAffected()), nil
+}
+
 // GetByUser returns all engine evals for a user
 func (r *PostgresEngineEvalRepo) GetByUser(userID string) ([]models.EngineEval, error) {
 	ctx, cancel := dbContext()
