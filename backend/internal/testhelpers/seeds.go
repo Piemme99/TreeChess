@@ -17,7 +17,8 @@ func SeedUser(t *testing.T, repos *Repos, username, password string) *models.Use
 	if err != nil {
 		t.Fatalf("SeedUser: bcrypt: %v", err)
 	}
-	user, err := repos.User.Create(username, string(hash))
+	email := username + "@test.com"
+	user, err := repos.User.Create(email, username, string(hash))
 	if err != nil {
 		t.Fatalf("SeedUser: %v", err)
 	}

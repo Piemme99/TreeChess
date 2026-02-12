@@ -20,7 +20,7 @@ func TestAuth_RegisterAndLogin(t *testing.T) {
 	ts := testhelpers.SetupTestServer(t, repos)
 
 	// Register
-	regBody, _ := json.Marshal(models.RegisterRequest{Username: "authuser", Password: "password123"})
+	regBody, _ := json.Marshal(models.RegisterRequest{Email: "authuser@test.com", Username: "authuser", Password: "password123"})
 	req := testhelpers.AuthRequest(http.MethodPost, "/api/auth/register", regBody, "")
 	rec := ts.DoRequest(req)
 	require.Equal(t, http.StatusCreated, rec.Code)
@@ -32,7 +32,7 @@ func TestAuth_RegisterAndLogin(t *testing.T) {
 	assert.Equal(t, "authuser", regResp.User.Username)
 
 	// Login with same credentials
-	loginBody, _ := json.Marshal(models.LoginRequest{Username: "authuser", Password: "password123"})
+	loginBody, _ := json.Marshal(models.LoginRequest{Email: "authuser@test.com", Password: "password123"})
 	req = testhelpers.AuthRequest(http.MethodPost, "/api/auth/login", loginBody, "")
 	rec = ts.DoRequest(req)
 	require.Equal(t, http.StatusOK, rec.Code)
@@ -53,7 +53,7 @@ func TestAuth_DuplicateUsername(t *testing.T) {
 	repos := testDB.Repos()
 	ts := testhelpers.SetupTestServer(t, repos)
 
-	regBody, _ := json.Marshal(models.RegisterRequest{Username: "dupname", Password: "password123"})
+	regBody, _ := json.Marshal(models.RegisterRequest{Email: "dupname@test.com", Username: "dupname", Password: "password123"})
 
 	// First registration succeeds
 	req := testhelpers.AuthRequest(http.MethodPost, "/api/auth/register", regBody, "")
@@ -72,12 +72,12 @@ func TestAuth_InvalidCredentials(t *testing.T) {
 	ts := testhelpers.SetupTestServer(t, repos)
 
 	// Register
-	regBody, _ := json.Marshal(models.RegisterRequest{Username: "logintest", Password: "password123"})
+	regBody, _ := json.Marshal(models.RegisterRequest{Email: "logintest@test.com", Username: "logintest", Password: "password123"})
 	req := testhelpers.AuthRequest(http.MethodPost, "/api/auth/register", regBody, "")
 	ts.DoRequest(req)
 
 	// Login with wrong password
-	loginBody, _ := json.Marshal(models.LoginRequest{Username: "logintest", Password: "wrongpassword"})
+	loginBody, _ := json.Marshal(models.LoginRequest{Email: "logintest@test.com", Password: "wrongpassword"})
 	req = testhelpers.AuthRequest(http.MethodPost, "/api/auth/login", loginBody, "")
 	rec := ts.DoRequest(req)
 	assert.Equal(t, http.StatusUnauthorized, rec.Code)
@@ -147,7 +147,8 @@ func TestUserIsolation_RepertoireAccess(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, rec.Code)
 
 	// User B cannot update it
-	updateBody, _ := json.Marshal(models.UpdateRepertoireRequest{Name: "Hacked"})
+	hackedName := "Hacked"
+	updateBody, _ := json.Marshal(models.UpdateRepertoireRequest{Name: &hackedName})
 	req = testhelpers.AuthRequest(http.MethodPatch, "/api/repertoires/"+rep.ID, updateBody, tokenB)
 	rec = ts.DoRequest(req)
 	assert.Equal(t, http.StatusNotFound, rec.Code)

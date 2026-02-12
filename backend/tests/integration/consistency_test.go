@@ -121,7 +121,7 @@ func TestConcurrentRepertoireWrites(t *testing.T) {
 	rootID := rep.TreeData.ID
 
 	// Add e4 first (shared parent)
-	rep, err = svc.AddNode(rep.ID, models.AddNodeRequest{ParentID: rootID, Move: "e4", MoveNumber: 1})
+	rep, err = svc.AddNode(user.ID, rep.ID, models.AddNodeRequest{ParentID: rootID, Move: "e4", MoveNumber: 1})
 	require.NoError(t, err)
 	e4ID := rep.TreeData.Children[0].ID
 
@@ -134,7 +134,7 @@ func TestConcurrentRepertoireWrites(t *testing.T) {
 		wg.Add(1)
 		go func(m string) {
 			defer wg.Done()
-			_, err := svc.AddNode(rep.ID, models.AddNodeRequest{ParentID: e4ID, Move: m, MoveNumber: 1})
+			_, err := svc.AddNode(user.ID, rep.ID, models.AddNodeRequest{ParentID: e4ID, Move: m, MoveNumber: 1})
 			if err != nil {
 				errCh <- err
 			}

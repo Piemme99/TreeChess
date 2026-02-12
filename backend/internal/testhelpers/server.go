@@ -41,7 +41,7 @@ func SetupTestServer(t *testing.T, repos *Repos) *TestServer {
 	e := echo.New()
 	e.HideBanner = true
 
-	authHandler := handlers.NewAuthHandler(authSvc)
+	authHandler := handlers.NewAuthHandler(authSvc, false)
 
 	// Public routes
 	e.POST("/api/auth/register", authHandler.RegisterHandler)
@@ -89,7 +89,8 @@ func SetupTestServer(t *testing.T, repos *Repos) *TestServer {
 // AuthToken registers a user via the auth service and returns a JWT token.
 func (ts *TestServer) AuthToken(t *testing.T, username, password string) string {
 	t.Helper()
-	resp, err := ts.AuthSvc.Register(username, password)
+	email := username + "@test.com"
+	resp, err := ts.AuthSvc.Register(email, username, password)
 	if err != nil {
 		t.Fatalf("AuthToken: %v", err)
 	}

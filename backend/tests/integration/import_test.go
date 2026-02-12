@@ -34,11 +34,11 @@ func TestImportPipeline_FullCycle(t *testing.T) {
 
 	// Create white repertoire with e4 -> e5 -> Nf3
 	rep, _ := repertoireSvc.CreateRepertoire(user.ID, "White e4", models.ColorWhite)
-	rep, _ = repertoireSvc.AddNode(rep.ID, models.AddNodeRequest{ParentID: rep.TreeData.ID, Move: "e4", MoveNumber: 1})
+	rep, _ = repertoireSvc.AddNode(user.ID, rep.ID, models.AddNodeRequest{ParentID: rep.TreeData.ID, Move: "e4", MoveNumber: 1})
 	e4ID := rep.TreeData.Children[0].ID
-	rep, _ = repertoireSvc.AddNode(rep.ID, models.AddNodeRequest{ParentID: e4ID, Move: "e5", MoveNumber: 1})
+	rep, _ = repertoireSvc.AddNode(user.ID, rep.ID, models.AddNodeRequest{ParentID: e4ID, Move: "e5", MoveNumber: 1})
 	e5ID := rep.TreeData.Children[0].Children[0].ID
-	_, _ = repertoireSvc.AddNode(rep.ID, models.AddNodeRequest{ParentID: e5ID, Move: "Nf3", MoveNumber: 2})
+	_, _ = repertoireSvc.AddNode(user.ID, rep.ID, models.AddNodeRequest{ParentID: e5ID, Move: "Nf3", MoveNumber: 2})
 
 	pgn := testhelpers.SimplePGN("importuser", "opponent")
 	summary, results, err := importSvc.ParseAndAnalyze("test.pgn", "importuser", user.ID, pgn)
@@ -93,9 +93,9 @@ func TestImportPipeline_AsBlack(t *testing.T) {
 
 	// Create a black repertoire with e4 -> e5
 	rep, _ := repertoireSvc.CreateRepertoire(user.ID, "Black vs e4", models.ColorBlack)
-	rep, _ = repertoireSvc.AddNode(rep.ID, models.AddNodeRequest{ParentID: rep.TreeData.ID, Move: "e4", MoveNumber: 1})
+	rep, _ = repertoireSvc.AddNode(user.ID, rep.ID, models.AddNodeRequest{ParentID: rep.TreeData.ID, Move: "e4", MoveNumber: 1})
 	e4ID := rep.TreeData.Children[0].ID
-	_, _ = repertoireSvc.AddNode(rep.ID, models.AddNodeRequest{ParentID: e4ID, Move: "e5", MoveNumber: 1})
+	_, _ = repertoireSvc.AddNode(user.ID, rep.ID, models.AddNodeRequest{ParentID: e4ID, Move: "e5", MoveNumber: 1})
 
 	// Import a game where user plays as black
 	pgn := `[Event "Test"]
@@ -347,7 +347,7 @@ func TestImportPipeline_MatchesBestRepertoire(t *testing.T) {
 
 	// Create e4 repertoire
 	e4Rep, _ := repertoireSvc.CreateRepertoire(user.ID, "e4 Rep", models.ColorWhite)
-	e4Rep, _ = repertoireSvc.AddNode(e4Rep.ID, models.AddNodeRequest{ParentID: e4Rep.TreeData.ID, Move: "e4", MoveNumber: 1})
+	e4Rep, _ = repertoireSvc.AddNode(user.ID, e4Rep.ID, models.AddNodeRequest{ParentID: e4Rep.TreeData.ID, Move: "e4", MoveNumber: 1})
 
 	// Create d4 repertoire
 	_, _ = repertoireSvc.CreateRepertoire(user.ID, "d4 Rep", models.ColorWhite)
