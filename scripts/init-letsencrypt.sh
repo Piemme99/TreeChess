@@ -41,6 +41,7 @@ mkdir -p ./certbot/www
 # --- Step 2: Generate temporary self-signed certificate ---
 # Nginx needs a certificate to start on port 443. We create a temporary one,
 # then replace it with the real Let's Encrypt certificate.
+# Note: nginx-unprivileged runs as UID 101, so certs must be world-readable.
 if [ ! -d "$CERT_PATH" ]; then
     echo ">>> Generating temporary self-signed certificate..."
     mkdir -p "$CERT_PATH"
@@ -49,6 +50,11 @@ if [ ! -d "$CERT_PATH" ]; then
         -out "$CERT_PATH/fullchain.pem" \
         -subj "/CN=$DOMAIN" \
         2>/dev/null
+    # Make certs readable by nginx-unprivileged (UID 101)
+    chmod 644 "$CERT_PATH/privkey.pem" "$CERT_PATH/fullchain.pem"
+    chmod 755 "$CERT_PATH"
+    chmod 755 "$(dirname "$CERT_PATH")"
+    chmod 755 ./certbot/conf
     echo "    Temporary certificate created."
 else
     echo ">>> Certificate directory already exists, skipping temporary cert."
@@ -58,13 +64,16 @@ fi
 echo ">>> Starting frontend (nginx)..."
 docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" up -d frontend
 echo "    Waiting for nginx to be ready..."
-sleep 5
+sleep 10
 
-# --- Step 4: Delete temporary certificate ---
-echo ">>> Removing temporary certificate..."
-rm -rf "$CERT_PATH"
+# Verify nginx is actually running before proceeding
+if ! docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" ps frontend | grep -q "Up"; then
+    echo "ERROR: Frontend (nginx) failed to start. Check logs with:"
+    echo "  docker logs treechess-frontend-1"
+    exit 1
+fi
 
-# --- Step 5: Request real certificate from Let's Encrypt ---
+# --- Step 4: Request real certificate from Let's Encrypt ---
 echo ">>> Requesting Let's Encrypt certificate..."
 
 STAGING_FLAG=""
@@ -88,7 +97,9 @@ docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" run --rm certbot certon
     --cert-name kumquat \
     -d "$DOMAIN"
 
-# --- Step 6: Reload nginx with real certificate ---
+# --- Step 5: Reload nginx with the real certificate ---
+# Certbot has replaced the temporary certificate with the real one at the same path.
+# We just need to tell nginx to reload and pick up the new certificate.
 echo ">>> Reloading nginx with the real certificate..."
 docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" exec frontend nginx -s reload
 
