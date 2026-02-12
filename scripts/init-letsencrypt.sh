@@ -73,7 +73,11 @@ if ! docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" ps frontend | grep
     exit 1
 fi
 
-# --- Step 4: Request real certificate from Let's Encrypt ---
+# --- Step 4: Remove temporary certificate and request real one ---
+# Certbot refuses to write if the live directory already exists (from the temp cert).
+echo ">>> Removing temporary certificate..."
+rm -rf "$CERT_PATH"
+
 echo ">>> Requesting Let's Encrypt certificate..."
 
 STAGING_FLAG=""
