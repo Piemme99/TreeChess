@@ -160,11 +160,12 @@ func (h *StudyImportHandler) BrowseStudiesHandler(c echo.Context) error {
 	var result *models.LichessStudySearchResponse
 	var err error
 
-	if query != "" {
+	switch {
+	case query != "":
 		result, err = h.studyImportService.SearchStudies(query, order, page, authToken)
-	} else if topic != "" {
+	case topic != "":
 		result, err = h.studyImportService.BrowseStudiesByTopic(topic, order, page, authToken)
-	} else {
+	default:
 		result, err = h.studyImportService.BrowseAllStudies(order, page, authToken)
 	}
 

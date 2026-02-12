@@ -242,8 +242,7 @@ func (s *AuthService) RequestPasswordReset(email string) error {
 
 	user, err := s.userRepo.GetByEmail(email)
 	if err != nil {
-		// Don't reveal whether the email exists
-		return nil
+		return nil //nolint:nilerr // intentional: don't reveal whether the email exists
 	}
 
 	// Check if user has a password (OAuth-only users can't reset password)
@@ -255,7 +254,7 @@ func (s *AuthService) RequestPasswordReset(email string) error {
 	since := time.Now().Add(-1 * time.Hour)
 	count, err := s.resetRepo.CountRecentByUserID(user.ID, since)
 	if err != nil {
-		return nil // Silent fail
+		return nil //nolint:nilerr // intentional: silent fail for rate-limit check
 	}
 	if count >= s.maxResetPerHour {
 		return nil // Silent fail to prevent enumeration
@@ -264,7 +263,7 @@ func (s *AuthService) RequestPasswordReset(email string) error {
 	// Generate secure token
 	rawToken, err := generateSecureToken(32)
 	if err != nil {
-		return nil
+		return nil //nolint:nilerr // intentional: silent fail to avoid leaking internal errors
 	}
 
 	// Hash the token for storage
@@ -274,7 +273,7 @@ func (s *AuthService) RequestPasswordReset(email string) error {
 	// Store the hashed token
 	_, err = s.resetRepo.Create(user.ID, tokenHash, expiresAt)
 	if err != nil {
-		return nil
+		return nil //nolint:nilerr // intentional: silent fail to avoid leaking internal errors
 	}
 
 	// Send email with the raw token
@@ -407,11 +406,9 @@ func (s *AuthService) DeleteAccount(userID, password, username string) error {
 		if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
 			return ErrIncorrectPassword
 		}
-	} else {
+	} else if username == "" || username != user.Username {
 		// OAuth-only account: verify username
-		if username == "" || username != user.Username {
-			return ErrInvalidCredentials
-		}
+		return ErrInvalidCredentials
 	}
 
 	// Delete user and all associated data
@@ -484,7 +481,7 @@ func (s *AuthService) RevokeRefreshToken(rawRefreshToken string) error {
 	tokenHash := hashToken(rawRefreshToken)
 	storedToken, err := s.refreshTokenRepo.GetByTokenHash(tokenHash)
 	if err != nil {
-		return nil // Token already gone or invalid, that's fine
+		return nil //nolint:nilerr // intentional: token already gone or invalid, that's fine
 	}
 
 	return s.refreshTokenRepo.Delete(storedToken.ID)

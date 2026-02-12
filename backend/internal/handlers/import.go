@@ -60,7 +60,7 @@ func (h *ImportHandler) UploadHandler(c echo.Context) error {
 	if err != nil {
 		return InternalErrorResponse(c, "failed to read file")
 	}
-	defer src.Close()
+	defer func() { _ = src.Close() }()
 
 	limitedReader := io.LimitReader(src, config.MaxPGNFileSize+1)
 	pgnData, err := io.ReadAll(limitedReader)

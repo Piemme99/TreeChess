@@ -73,7 +73,7 @@ func TestRegisterHandler_MissingFields(t *testing.T) {
 			rec := httptest.NewRecorder()
 			c := e.NewContext(req, rec)
 
-			handler.RegisterHandler(c)
+			_ = handler.RegisterHandler(c)
 
 			assert.Equal(t, http.StatusBadRequest, rec.Code)
 		})
@@ -90,7 +90,7 @@ func TestRegisterHandler_InvalidUsername(t *testing.T) {
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
-	handler.RegisterHandler(c)
+	_ = handler.RegisterHandler(c)
 
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 }
@@ -105,7 +105,7 @@ func TestRegisterHandler_InvalidEmail(t *testing.T) {
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
-	handler.RegisterHandler(c)
+	_ = handler.RegisterHandler(c)
 
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 }
@@ -207,7 +207,7 @@ func TestLoginHandler_InvalidCredentials(t *testing.T) {
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
-	handler.LoginHandler(c)
+	_ = handler.LoginHandler(c)
 
 	assert.Equal(t, http.StatusUnauthorized, rec.Code)
 }
@@ -231,7 +231,7 @@ func TestLoginHandler_MissingFields(t *testing.T) {
 			rec := httptest.NewRecorder()
 			c := e.NewContext(req, rec)
 
-			handler.LoginHandler(c)
+			_ = handler.LoginHandler(c)
 
 			assert.Equal(t, http.StatusBadRequest, rec.Code)
 		})
@@ -259,7 +259,7 @@ func TestLoginHandler_OAuthOnly(t *testing.T) {
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
-	handler.LoginHandler(c)
+	_ = handler.LoginHandler(c)
 
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 }
@@ -302,7 +302,7 @@ func TestMeHandler_NotFound(t *testing.T) {
 	c := e.NewContext(req, rec)
 	c.Set("userID", "nonexistent")
 
-	handler.MeHandler(c)
+	_ = handler.MeHandler(c)
 
 	assert.Equal(t, http.StatusUnauthorized, rec.Code)
 }
@@ -350,7 +350,7 @@ func TestUpdateProfileHandler_NotFound(t *testing.T) {
 	c := e.NewContext(req, rec)
 	c.Set("userID", "nonexistent")
 
-	handler.UpdateProfileHandler(c)
+	_ = handler.UpdateProfileHandler(c)
 
 	assert.Equal(t, http.StatusUnauthorized, rec.Code)
 }
@@ -444,7 +444,7 @@ func TestForgotPasswordHandler_MissingEmail(t *testing.T) {
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
-	handler.ForgotPasswordHandler(c)
+	_ = handler.ForgotPasswordHandler(c)
 
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 }
@@ -513,7 +513,7 @@ func TestResetPasswordHandler_InvalidToken(t *testing.T) {
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
-	handler.ResetPasswordHandler(c)
+	_ = handler.ResetPasswordHandler(c)
 
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 
@@ -546,7 +546,7 @@ func TestResetPasswordHandler_ExpiredToken(t *testing.T) {
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
-	handler.ResetPasswordHandler(c)
+	_ = handler.ResetPasswordHandler(c)
 
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 
@@ -580,7 +580,7 @@ func TestResetPasswordHandler_UsedToken(t *testing.T) {
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
-	handler.ResetPasswordHandler(c)
+	_ = handler.ResetPasswordHandler(c)
 
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 
@@ -705,7 +705,7 @@ func TestChangePasswordHandler_IncorrectCurrent(t *testing.T) {
 	c := e.NewContext(req, rec)
 	c.Set("userID", "user-123")
 
-	handler.ChangePasswordHandler(c)
+	_ = handler.ChangePasswordHandler(c)
 
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 
@@ -736,7 +736,7 @@ func TestChangePasswordHandler_NoPassword(t *testing.T) {
 	c := e.NewContext(req, rec)
 	c.Set("userID", "user-123")
 
-	handler.ChangePasswordHandler(c)
+	_ = handler.ChangePasswordHandler(c)
 
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 
@@ -766,7 +766,7 @@ func TestChangePasswordHandler_ShortNewPassword(t *testing.T) {
 	c := e.NewContext(req, rec)
 	c.Set("userID", "user-123")
 
-	handler.ChangePasswordHandler(c)
+	_ = handler.ChangePasswordHandler(c)
 
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 
@@ -897,7 +897,7 @@ func TestHasPasswordHandler_UserNotFound(t *testing.T) {
 	c := e.NewContext(req, rec)
 	c.Set("userID", "nonexistent")
 
-	handler.HasPasswordHandler(c)
+	_ = handler.HasPasswordHandler(c)
 
 	assert.Equal(t, http.StatusUnauthorized, rec.Code)
 }

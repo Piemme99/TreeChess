@@ -436,7 +436,7 @@ func cloneGame(g *chess.Game) *chess.Game {
 	moves := g.Moves()
 	newGame := chess.NewGame()
 	for _, m := range moves {
-		newGame.Move(m)
+		_ = newGame.Move(m)
 	}
 	return newGame
 }

@@ -44,7 +44,7 @@ func TestLichessService_FetchGames_Success(t *testing.T) {
 		assert.Equal(t, "20", r.URL.Query().Get("max"))
 
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(expectedPGN))
+		_, _ = w.Write([]byte(expectedPGN))
 	}))
 	defer server.Close()
 
@@ -177,7 +177,7 @@ func TestLichessServiceHTTPMocking(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(tt.statusCode)
-				w.Write([]byte(tt.responseBody))
+				_, _ = w.Write([]byte(tt.responseBody))
 			}))
 			defer server.Close()
 

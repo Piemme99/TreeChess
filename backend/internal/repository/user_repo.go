@@ -282,7 +282,7 @@ func (r *PostgresUserRepo) Delete(id string) error {
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	// Delete in order respecting FK constraints (no ON DELETE CASCADE on user_id)
 	// 1. dismissed_mistakes (leaf table, only references users)

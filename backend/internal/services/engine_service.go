@@ -20,16 +20,16 @@ const (
 	explorerBaseURL  = "https://explorer.lichess.ovh/lichess"
 	explorerSpeeds   = "blitz,rapid,classical"
 	explorerRatings  = "1600,1800,2000,2200,2500"
-	minExplorerGames = 50  // minimum games for reliable stats
+	minExplorerGames = 50 // minimum games for reliable stats
 	apiDelay         = 200 * time.Millisecond
 )
 
 // explorerResponse represents the Lichess Explorer API response
 type explorerResponse struct {
-	White int             `json:"white"`
-	Draws int             `json:"draws"`
-	Black int             `json:"black"`
-	Moves []explorerMove  `json:"moves"`
+	White int            `json:"white"`
+	Draws int            `json:"draws"`
+	Black int            `json:"black"`
+	Moves []explorerMove `json:"moves"`
 }
 
 type explorerMove struct {
@@ -251,7 +251,7 @@ func (s *EngineService) fetchExplorer(fen string) (*explorerResponse, error) {
 	if err != nil {
 		return nil, fmt.Errorf("explorer request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode == http.StatusTooManyRequests {
 		// Back off and retry once
@@ -260,7 +260,7 @@ func (s *EngineService) fetchExplorer(fen string) (*explorerResponse, error) {
 		if err != nil {
 			return nil, fmt.Errorf("explorer retry failed: %w", err)
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 	}
 
 	if resp.StatusCode != http.StatusOK {

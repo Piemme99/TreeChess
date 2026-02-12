@@ -275,7 +275,7 @@ func TestImportPipeline_ListGames_Pagination(t *testing.T) {
 	// Import 3 batches of 3 games each
 	for i := 0; i < 3; i++ {
 		pgn := testhelpers.ThreeGamePGN(
-			fmt.Sprintf("paginuser"),
+			"paginuser",
 			fmt.Sprintf("opp%d", i),
 		)
 		_, _, err := importSvc.ParseAndAnalyze(fmt.Sprintf("batch%d.pgn", i), "paginuser", user.ID, pgn)

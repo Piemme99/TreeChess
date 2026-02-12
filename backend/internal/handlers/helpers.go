@@ -38,7 +38,7 @@ func ConflictResponse(c echo.Context, message string) error {
 func ValidateUUIDParam(c echo.Context, paramName string) (string, bool) {
 	value := c.Param(paramName)
 	if _, err := uuid.Parse(value); err != nil {
-		BadRequestResponse(c, paramName+" must be a valid UUID")
+		_ = BadRequestResponse(c, paramName+" must be a valid UUID")
 		return "", false
 	}
 	return value, true
@@ -48,7 +48,7 @@ func ValidateUUIDParam(c echo.Context, paramName string) (string, bool) {
 // Returns true if valid, or sends an error response and returns false
 func ValidateUUIDField(c echo.Context, fieldName, value string) bool {
 	if _, err := uuid.Parse(value); err != nil {
-		BadRequestResponse(c, fieldName+" must be a valid UUID")
+		_ = BadRequestResponse(c, fieldName+" must be a valid UUID")
 		return false
 	}
 	return true
@@ -60,7 +60,7 @@ func ParseIntParam(c echo.Context, paramName string, minValue int) (int, bool) {
 	valueStr := c.Param(paramName)
 	value, err := strconv.Atoi(valueStr)
 	if err != nil || value < minValue {
-		BadRequestResponse(c, paramName+" must be a valid integer >= "+strconv.Itoa(minValue))
+		_ = BadRequestResponse(c, paramName+" must be a valid integer >= "+strconv.Itoa(minValue))
 		return 0, false
 	}
 	return value, true

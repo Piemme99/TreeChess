@@ -383,15 +383,16 @@ func (s *ImportService) analyzeGame(gameIndex int, game *chess.Game, repertoireR
 					break
 				}
 			}
-			if found {
+			switch {
+			case found:
 				status = "in-repertoire"
-			} else if isUserMove {
+			case isUserMove:
 				status = "out-of-repertoire"
 				// Expected move is the first child's move
 				if len(node.Children) > 0 && node.Children[0].Move != nil {
 					expectedMove = *node.Children[0].Move
 				}
-			} else {
+			default:
 				status = "opponent-new"
 			}
 		}
@@ -599,14 +600,15 @@ func (s *ImportService) analyzeGameFromChess(game *chess.Game, repertoire *model
 						break
 					}
 				}
-				if found {
+				switch {
+				case found:
 					status = "in-repertoire"
-				} else if isUserMove {
+				case isUserMove:
 					status = "out-of-repertoire"
 					if len(node.Children) > 0 && node.Children[0].Move != nil {
 						expectedMove = *node.Children[0].Move
 					}
-				} else {
+				default:
 					status = "opponent-new"
 				}
 			}

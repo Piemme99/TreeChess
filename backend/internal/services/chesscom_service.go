@@ -52,7 +52,7 @@ func (s *ChesscomService) FetchGames(username string, options models.ChesscomImp
 	if err != nil {
 		return "", err
 	}
-	defer archivesResp.Body.Close()
+	defer func() { _ = archivesResp.Body.Close() }()
 
 	switch archivesResp.StatusCode {
 	case http.StatusOK:
@@ -140,7 +140,7 @@ func (s *ChesscomService) fetchMonthPGN(pgnURL string, timeClass string) (string
 	if err != nil {
 		return "", fmt.Errorf("failed to fetch PGN: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode == http.StatusTooManyRequests {
 		return "", ErrChesscomRateLimited

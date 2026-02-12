@@ -120,7 +120,7 @@ func TestReanalyzeGame(t *testing.T) {
 
 	// Create e4 repertoire
 	e4Rep, _ := repertoireSvc.CreateRepertoire(user.ID, "e4", "white")
-	e4Rep, _ = repertoireSvc.AddNode(user.ID, e4Rep.ID, models.AddNodeRequest{ParentID: e4Rep.TreeData.ID, Move: "e4", MoveNumber: 1})
+	_, _ = repertoireSvc.AddNode(user.ID, e4Rep.ID, models.AddNodeRequest{ParentID: e4Rep.TreeData.ID, Move: "e4", MoveNumber: 1})
 
 	// Create d4 repertoire
 	d4Rep, _ := repertoireSvc.CreateRepertoire(user.ID, "d4", "white")

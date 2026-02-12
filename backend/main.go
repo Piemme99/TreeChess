@@ -88,7 +88,7 @@ func main() {
 	e.HideBanner = true
 
 	// Middleware
-	e.Use(middleware.Logger())
+	e.Use(middleware.Logger()) //nolint:staticcheck // TODO: migrate to middleware.RequestLoggerWithConfig
 	e.Use(middleware.Recover())
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins:     cfg.AllowedOrigins,

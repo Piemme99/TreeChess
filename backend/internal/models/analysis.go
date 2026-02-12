@@ -93,7 +93,7 @@ func ClassifyTimeControl(tc string) string {
 
 	var increment int
 	if len(parts) > 1 {
-		fmt.Sscanf(parts[1], "%d", &increment)
+		_, _ = fmt.Sscanf(parts[1], "%d", &increment)
 	}
 	totalEstimate := baseSeconds + increment*40
 

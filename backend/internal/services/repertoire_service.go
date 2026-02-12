@@ -38,12 +38,12 @@ var (
 	ErrColorMismatch = fmt.Errorf("repertoire color does not match user color in game")
 
 	// Lichess errors
-	ErrLichessUserNotFound = fmt.Errorf("Lichess user not found")
-	ErrLichessRateLimited  = fmt.Errorf("Lichess API rate limited, try again later")
+	ErrLichessUserNotFound = fmt.Errorf("lichess user not found")
+	ErrLichessRateLimited  = fmt.Errorf("lichess API rate limited, try again later")
 
 	// Chess.com errors
-	ErrChesscomUserNotFound = fmt.Errorf("Chess.com user not found")
-	ErrChesscomRateLimited  = fmt.Errorf("Chess.com API rate limited, try again later")
+	ErrChesscomUserNotFound = fmt.Errorf("chess.com user not found")
+	ErrChesscomRateLimited  = fmt.Errorf("chess.com API rate limited, try again later")
 
 	// PGN parsing errors
 	ErrCustomStartingPosition = fmt.Errorf("chapter uses a custom starting position and cannot be imported as a repertoire")

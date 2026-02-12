@@ -62,7 +62,7 @@ func TestPreviewStudyHandler_MissingURL(t *testing.T) {
 	c := e.NewContext(req, rec)
 	c.Set("userID", testUserID)
 
-	handler.PreviewStudyHandler(c)
+	_ = handler.PreviewStudyHandler(c)
 
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 }
@@ -76,7 +76,7 @@ func TestPreviewStudyHandler_InvalidURL(t *testing.T) {
 	c := e.NewContext(req, rec)
 	c.Set("userID", testUserID)
 
-	handler.PreviewStudyHandler(c)
+	_ = handler.PreviewStudyHandler(c)
 
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 }
@@ -95,7 +95,7 @@ func TestPreviewStudyHandler_NotFound(t *testing.T) {
 	c := e.NewContext(req, rec)
 	c.Set("userID", testUserID)
 
-	handler.PreviewStudyHandler(c)
+	_ = handler.PreviewStudyHandler(c)
 
 	assert.Equal(t, http.StatusNotFound, rec.Code)
 }
@@ -184,7 +184,7 @@ func TestImportStudyHandler_MissingURL(t *testing.T) {
 	c := e.NewContext(req, rec)
 	c.Set("userID", testUserID)
 
-	handler.ImportStudyHandler(c)
+	_ = handler.ImportStudyHandler(c)
 
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 }
@@ -200,7 +200,7 @@ func TestImportStudyHandler_NoChapters(t *testing.T) {
 	c := e.NewContext(req, rec)
 	c.Set("userID", testUserID)
 
-	handler.ImportStudyHandler(c)
+	_ = handler.ImportStudyHandler(c)
 
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 }
@@ -231,7 +231,7 @@ func TestImportStudyHandler_LimitReached(t *testing.T) {
 	c := e.NewContext(req, rec)
 	c.Set("userID", testUserID)
 
-	handler.ImportStudyHandler(c)
+	_ = handler.ImportStudyHandler(c)
 
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 }

@@ -75,7 +75,7 @@ func TestHandleSync_Error(t *testing.T) {
 	c := e.NewContext(req, rec)
 	c.Set("userID", "user-1")
 
-	handler.HandleSync(c)
+	_ = handler.HandleSync(c)
 
 	assert.Equal(t, http.StatusInternalServerError, rec.Code)
 }

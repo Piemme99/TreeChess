@@ -25,8 +25,8 @@ func TestUploadHandler_MissingFile(t *testing.T) {
 
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
-	writer.WriteField("username", "testuser")
-	writer.Close()
+	_ = writer.WriteField("username", "testuser")
+	_ = writer.Close()
 
 	req := httptest.NewRequest(http.MethodPost, "/api/imports", body)
 	req.Header.Set(echo.HeaderContentType, writer.FormDataContentType())
@@ -53,10 +53,10 @@ func TestUploadHandler_EmptyUsername(t *testing.T) {
 
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
-	writer.WriteField("username", "")
+	_ = writer.WriteField("username", "")
 	part, _ := writer.CreateFormFile("file", "test.pgn")
-	part.Write([]byte("1. e4 e5 1-0"))
-	writer.Close()
+	_, _ = part.Write([]byte("1. e4 e5 1-0"))
+	_ = writer.Close()
 
 	req := httptest.NewRequest(http.MethodPost, "/api/imports", body)
 	req.Header.Set(echo.HeaderContentType, writer.FormDataContentType())
@@ -83,10 +83,10 @@ func TestUploadHandler_InvalidFileExtension(t *testing.T) {
 
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
-	writer.WriteField("username", "testuser")
+	_ = writer.WriteField("username", "testuser")
 	part, _ := writer.CreateFormFile("file", "test.txt")
-	part.Write([]byte("some text"))
-	writer.Close()
+	_, _ = part.Write([]byte("some text"))
+	_ = writer.Close()
 
 	req := httptest.NewRequest(http.MethodPost, "/api/imports", body)
 	req.Header.Set(echo.HeaderContentType, writer.FormDataContentType())
@@ -451,8 +451,8 @@ func TestUploadHandler_MissingUsername(t *testing.T) {
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
 	part, _ := writer.CreateFormFile("file", "test.pgn")
-	part.Write([]byte("1. e4 e5 1-0"))
-	writer.Close()
+	_, _ = part.Write([]byte("1. e4 e5 1-0"))
+	_ = writer.Close()
 
 	req := httptest.NewRequest(http.MethodPost, "/api/imports", body)
 	req.Header.Set(echo.HeaderContentType, writer.FormDataContentType())
