@@ -99,7 +99,8 @@ docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" run --rm --entrypoint "
     --agree-tos \
     --no-eff-email \
     --cert-name kumquat \
-    -d "$DOMAIN"
+    -d "$DOMAIN" \
+    -d "www.$DOMAIN"
 
 # --- Step 5: Fix permissions and reload nginx with the real certificate ---
 # Certbot creates certs as root with restrictive permissions.
