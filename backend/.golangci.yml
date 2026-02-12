@@ -6,9 +6,8 @@ linters:
     - errcheck      # Check unchecked errors
     - govet         # Reports suspicious constructs
     - ineffassign   # Detects unused variable assignments
-    - staticcheck   # Advanced static analysis
+    - staticcheck   # Advanced static analysis (includes gosimple)
     - unused        # Finds unused code
-    - gosimple      # Suggests code simplifications
     - gocritic      # Opinionated linter with useful checks
     - revive        # Fast, configurable linter (golint replacement)
     - misspell      # Finds commonly misspelled English words
