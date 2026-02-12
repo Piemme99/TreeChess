@@ -87,7 +87,7 @@ if [ -n "$EMAIL" ]; then
     EMAIL_FLAG="--email $EMAIL"
 fi
 
-docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" run --rm certbot certonly \
+docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" run --rm --entrypoint "" certbot certbot certonly \
     --webroot \
     --webroot-path=/var/www/certbot \
     $STAGING_FLAG \
