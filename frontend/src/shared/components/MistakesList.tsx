@@ -4,7 +4,7 @@ import { Chess } from 'chess.js';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 import { fadeUp } from '../utils/animations';
-import { ChessBoard } from './Board/ChessBoard';
+import { StaticBoard } from './Board/StaticBoard';
 import { ensureFullFEN } from '../utils/chess';
 import type { InsightsResponse, OpeningMistake } from '../../types';
 
@@ -105,13 +105,13 @@ function MistakeCard({ mistake, index, onDismiss }: MistakeCardProps) {
             }
           }}
         >
-          <ChessBoard
-            fen={mistake.fen}
-            interactive={false}
-            orientation={orientation}
-            width={120}
-            customArrows={arrows}
-          />
+          <div className="w-[120px] h-[120px]">
+            <StaticBoard
+              fen={mistake.fen}
+              orientation={orientation}
+              arrows={arrows}
+            />
+          </div>
         </div>
 
         <div className="flex flex-col justify-between min-w-0 flex-1">

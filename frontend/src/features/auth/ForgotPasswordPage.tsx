@@ -40,7 +40,7 @@ export function ForgotPasswordPage() {
           </div>
         </div>
         <h1 className="text-center text-2xl font-bold mb-1 font-display tracking-tight">
-          TreeChess
+          Kumquat
         </h1>
         <h2 className="text-center text-base text-text-muted mb-8 font-medium">Reset Password</h2>
 

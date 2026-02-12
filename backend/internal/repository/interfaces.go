@@ -3,7 +3,7 @@ package repository
 import (
 	"time"
 
-	"github.com/treechess/backend/internal/models"
+	"github.com/kumquat/backend/internal/models"
 )
 
 // FingerprintEntry represents a single fingerprint to save

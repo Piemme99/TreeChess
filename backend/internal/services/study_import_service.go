@@ -7,8 +7,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/treechess/backend/internal/models"
-	"github.com/treechess/backend/internal/repository"
+	"github.com/kumquat/backend/internal/models"
+	"github.com/kumquat/backend/internal/repository"
 )
 
 // StudyImportService handles importing Lichess studies as repertoires.

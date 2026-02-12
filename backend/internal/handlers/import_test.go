@@ -14,10 +14,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/treechess/backend/internal/models"
-	"github.com/treechess/backend/internal/repository"
-	"github.com/treechess/backend/internal/repository/mocks"
-	"github.com/treechess/backend/internal/services"
+	"github.com/kumquat/backend/internal/models"
+	"github.com/kumquat/backend/internal/repository"
+	"github.com/kumquat/backend/internal/repository/mocks"
+	"github.com/kumquat/backend/internal/services"
 )
 
 func TestUploadHandler_MissingFile(t *testing.T) {

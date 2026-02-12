@@ -8,8 +8,8 @@ import (
 
 	"github.com/notnil/chess"
 
-	"github.com/treechess/backend/internal/models"
-	"github.com/treechess/backend/internal/repository"
+	"github.com/kumquat/backend/internal/models"
+	"github.com/kumquat/backend/internal/repository"
 )
 
 // ErrAllGamesDuplicate is returned when all games in an import already exist

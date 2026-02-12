@@ -5,7 +5,7 @@ import { usePanZoom } from './hooks/usePanZoom';
 import { TreeEdge } from './components/TreeEdge';
 import { TreeNode } from './components/TreeNode';
 import { TreeControls } from './components/TreeControls';
-import { ChessBoard } from '../../../../../shared/components/Board/ChessBoard';
+import { StaticBoard } from '../../../../../shared/components/Board/StaticBoard';
 import type { LayoutNode, LayoutMode } from './utils/types';
 import { NODE_RADIUS, BRANCH_COLORS } from './constants';
 
@@ -247,12 +247,12 @@ export function RepertoireTree({
               {hoveredNode.node.comment}
             </div>
           )}
-          <ChessBoard
-            fen={hoveredNode.node.fen}
-            width={150}
-            interactive={false}
-            orientation={color}
-          />
+          <div className="w-[150px] h-[150px]">
+            <StaticBoard
+              fen={hoveredNode.node.fen}
+              orientation={color}
+            />
+          </div>
         </div>
       )}
     </div>

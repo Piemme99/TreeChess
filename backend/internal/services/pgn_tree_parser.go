@@ -9,7 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/notnil/chess"
 
-	"github.com/treechess/backend/internal/models"
+	"github.com/kumquat/backend/internal/models"
 )
 
 var (

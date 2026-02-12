@@ -1,4 +1,4 @@
-# TreeChess - Technical and Functional Specifications
+# Kumquat - Technical and Functional Specifications
 
 **Version:** 9.0
 **Date:** February 4, 2026
@@ -14,7 +14,7 @@ Amateur chess players (below 2000 ELO) face significant challenges in learning a
 
 ### 1.2 Proposed Solution
 
-TreeChess is a web application that enables players to create, visualize, and enrich their opening repertoire as an interactive tree. The user builds their repertoire move by move, then imports games to identify gaps and automatically complete missing branches.
+Kumquat is a web application that enables players to create, visualize, and enrich their opening repertoire as an interactive tree. The user builds their repertoire move by move, then imports games to identify gaps and automatically complete missing branches.
 
 ### 1.3 Value Proposition
 
@@ -29,7 +29,7 @@ TreeChess is a web application that enables players to create, visualize, and en
 
 ### 2.1 Current State
 
-TreeChess is a multi-user web application allowing players to create, visualize, and enrich their opening repertoires. The following is implemented:
+Kumquat is a multi-user web application allowing players to create, visualize, and enrich their opening repertoires. The following is implemented:
 
 - **Authentication**: Local registration + OAuth Lichess
 - **Multiple repertoires**: Up to 50 per user, multiple per color
@@ -934,7 +934,7 @@ function computeTreeLayout(root: RepertoireNode): TreeLayout {
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│  TreeChess                                                      │
+│  Kumquat                                                      │
 ├─────────────────────────────────────────────────────────────────┤
 │  Your repertoires:                                              │
 │  ┌───────────────────────────────┐  ┌───────────────────────────┐│
@@ -1141,7 +1141,7 @@ All colors defined as CSS custom properties in `tailwind.css`.
 
 - **Width:** 220px (desktop), collapsible icon-only mode at 60px
 - **Background:** White with a subtle right border
-- **Logo:** "TreeChess" in Inter Bold, with a small orange tree icon
+- **Logo:** "Kumquat" in Inter Bold, with a small orange tree icon
 - **Nav items:**
   - Icon + label, vertically stacked
   - Active state: orange left border (3px) + `--primary-light` background + orange text
@@ -1483,10 +1483,10 @@ Both paths lead to the same position but are stored as separate branches.
 
 ```bash
 # Create database
-createdb treechess
+createdb kumquat
 
 # Apply migrations
-psql -d treechess -f migrations/001_init.sql
+psql -d kumquat -f migrations/001_init.sql
 ```
 
 ### 12.3 Run Backend
@@ -1519,7 +1519,7 @@ npm run dev
 See `.env.example` for a full template. Required variables:
 
 ```env
-DATABASE_URL=postgres://treechess:password@localhost:5432/treechess?sslmode=disable
+DATABASE_URL=postgres://kumquat:password@localhost:5432/kumquat?sslmode=disable
 JWT_SECRET=your-random-secret
 ```
 
@@ -1532,7 +1532,7 @@ See section 19.3 for the complete environment variables reference.
 #### File Structure
 
 ```
-treechess/
+kumquat/
 ├── docker-compose.yml            # Dev orchestration
 ├── .env                          # Secrets (not in git)
 ├── .env.example                  # Template
@@ -1546,7 +1546,7 @@ treechess/
 
 Both Dockerfiles have `dev` and `prod` stages. The `docker-compose.yml` targets `dev` for local development (hot reload via `air` for backend, Vite HMR for frontend).
 
-For production builds: `docker build --target prod -t treechess-backend ./backend`
+For production builds: `docker build --target prod -t kumquat-backend ./backend`
 
 #### Docker Commands
 
@@ -1704,7 +1704,7 @@ func Log(level, message string, fields map[string]interface{}) {
         Timestamp: time.Now().UTC().Format(time.RFC3339),
         Level:     level,
         Message:   message,
-        Service:   "treechess",
+        Service:   "kumquat",
     }
 
     // Merge fields into JSON
@@ -1782,7 +1782,7 @@ For schema changes, add idempotent SQL to the `runMigrations()` function in `rep
 The README should reflect the actual project structure:
 
 ```
-treechess/
+kumquat/
 ├── backend/              # Go backend (Echo + pgx)
 ├── frontend/             # React frontend (Vite + TypeScript)
 ├── migrations/           # PostgreSQL migrations (legacy, now inline)
@@ -1924,4 +1924,4 @@ This section lists security items that **must be addressed before production dep
 
 ---
 
-*Document generated for TreeChess - Chess opening training web app*
+*Document generated for Kumquat - Chess opening training web app*

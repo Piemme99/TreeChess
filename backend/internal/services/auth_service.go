@@ -12,8 +12,8 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/treechess/backend/internal/models"
-	"github.com/treechess/backend/internal/repository"
+	"github.com/kumquat/backend/internal/models"
+	"github.com/kumquat/backend/internal/repository"
 )
 
 var usernamePattern = regexp.MustCompile(`^[a-zA-Z0-9_-]{3,50}$`)

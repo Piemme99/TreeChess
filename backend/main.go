@@ -15,11 +15,11 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	"golang.org/x/time/rate"
 
-	"github.com/treechess/backend/config"
-	"github.com/treechess/backend/internal/handlers"
-	appMiddleware "github.com/treechess/backend/internal/middleware"
-	"github.com/treechess/backend/internal/repository"
-	"github.com/treechess/backend/internal/services"
+	"github.com/kumquat/backend/config"
+	"github.com/kumquat/backend/internal/handlers"
+	appMiddleware "github.com/kumquat/backend/internal/middleware"
+	"github.com/kumquat/backend/internal/repository"
+	"github.com/kumquat/backend/internal/services"
 )
 
 func main() {
@@ -98,7 +98,7 @@ func main() {
 	}))
 
 	// Prometheus metrics
-	e.Use(echoprometheus.NewMiddleware("treechess"))
+	e.Use(echoprometheus.NewMiddleware("kumquat"))
 
 	// Security headers
 	e.Use(securityHeaders)

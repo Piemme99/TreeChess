@@ -1,6 +1,6 @@
-# TreeChess Test Data
+# Kumquat Test Data
 
-This directory contains mock data for manual testing of TreeChess features.
+This directory contains mock data for manual testing of Kumquat features.
 
 ## Quick Start
 

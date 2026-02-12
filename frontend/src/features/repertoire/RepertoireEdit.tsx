@@ -11,6 +11,9 @@ import { usePendingAddNode } from './edit/hooks/usePendingAddNode';
 import { useMoveActions } from './edit/hooks/useMoveActions';
 import { useEngine } from './edit/hooks/useEngine';
 import { useTreeNavigation } from './edit/hooks/useTreeNavigation';
+import { useResizableSplit } from './edit/hooks/useResizableSplit';
+import { useNodeAnnotation } from './edit/hooks/useNodeAnnotation';
+import { useMainLineActions } from './edit/hooks/useMainLineActions';
 import { findNode } from './edit/utils/nodeUtils';
 import { STARTING_FEN } from './edit/utils/constants';
 import type { RepertoireNode } from '../../types';
@@ -49,28 +52,8 @@ export function RepertoireEdit() {
   const [treeExpanded, setTreeExpanded] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>('tree');
 
-  // Resizable split state
-  const [boardWidthPercent, setBoardWidthPercent] = useState(50);
-  const [isDragging, setIsDragging] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!isDragging) return;
-    const handlePointerMove = (e: PointerEvent) => {
-      const container = containerRef.current;
-      if (!container) return;
-      const rect = container.getBoundingClientRect();
-      const percent = ((e.clientX - rect.left) / rect.width) * 100;
-      setBoardWidthPercent(Math.min(75, Math.max(25, percent)));
-    };
-    const handlePointerUp = () => setIsDragging(false);
-    document.addEventListener('pointermove', handlePointerMove);
-    document.addEventListener('pointerup', handlePointerUp);
-    return () => {
-      document.removeEventListener('pointermove', handlePointerMove);
-      document.removeEventListener('pointerup', handlePointerUp);
-    };
-  }, [isDragging]);
+  // Resizable split (extracted hook)
+  const { boardWidthPercent, isDragging, containerRef, startDragging } = useResizableSplit(50);
 
   // Close settings panel on outside click
   useEffect(() => {
@@ -88,21 +71,17 @@ export function RepertoireEdit() {
   usePageTitle(readOnly ? 'View Repertoire' : 'Edit Repertoire');
   const engine = useEngine();
   const [importingFromView, setImportingFromView] = useState(false);
-  const [commentText, setCommentText] = useState('');
-  const commentSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [branchNameText, setBranchNameText] = useState('');
-  const branchNameSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [branchColorValue, setBranchColorValue] = useState<string | null>(null);
 
   const selectedNode = repertoire && selectedNodeId ? findNode(repertoire.treeData, selectedNodeId) : null;
   const currentFEN = selectedNode?.fen || STARTING_FEN;
 
-  // Sync comment text, branch name, and branch color when selected node changes
-  useEffect(() => {
-    setCommentText(selectedNode?.comment || '');
-    setBranchNameText(selectedNode?.branchName || '');
-    setBranchColorValue(selectedNode?.branchColor || null);
-  }, [selectedNodeId, selectedNode?.comment, selectedNode?.branchName, selectedNode?.branchColor]);
+  // Node annotation (extracted hook)
+  const {
+    commentText, branchNameText, branchColorValue,
+    handleCommentChange, handleCommentBlur,
+    handleBranchNameChange, handleBranchNameBlur,
+    handleBranchColorChange,
+  } = useNodeAnnotation(id, selectedNodeId, selectedNode, setRepertoire);
 
   useEffect(() => {
     engine.analyze(currentFEN);
@@ -145,65 +124,11 @@ export function RepertoireEdit() {
   const { actionLoading, possibleMoves, setPossibleMoves, handleBoardMove, handleDeleteBranch, handleExtractBranch } =
     useMoveActions(selectedNode, currentFEN, id, setRepertoire, selectNode);
 
-  const saveComment = useCallback((text: string) => {
-    if (!id || !selectedNodeId) return;
-    // Only save if the comment actually changed
-    const currentComment = selectedNode?.comment || '';
-    if (text === currentComment) return;
-
-    repertoireApi.updateNodeComment(id, selectedNodeId, text)
-      .then((updated) => setRepertoire(updated))
-      .catch(() => toast.error('Failed to save note'));
-  }, [id, selectedNodeId, selectedNode?.comment, setRepertoire]);
-
-  const handleCommentChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const text = e.target.value;
-    setCommentText(text);
-    // Debounce save
-    if (commentSaveTimer.current) clearTimeout(commentSaveTimer.current);
-    commentSaveTimer.current = setTimeout(() => saveComment(text), 800);
-  }, [saveComment]);
-
-  const handleCommentBlur = useCallback(() => {
-    if (commentSaveTimer.current) {
-      clearTimeout(commentSaveTimer.current);
-      commentSaveTimer.current = null;
-    }
-    saveComment(commentText);
-  }, [saveComment, commentText]);
-
-  const saveBranchName = useCallback((text: string) => {
-    if (!id || !selectedNodeId) return;
-    const currentBranchName = selectedNode?.branchName || '';
-    if (text === currentBranchName) return;
-
-    repertoireApi.updateNodeBranchName(id, selectedNodeId, text)
-      .then((updated) => setRepertoire(updated))
-      .catch(() => toast.error('Failed to save branch name'));
-  }, [id, selectedNodeId, selectedNode?.branchName, setRepertoire]);
-
-  const handleBranchNameChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const text = e.target.value;
-    setBranchNameText(text);
-    if (branchNameSaveTimer.current) clearTimeout(branchNameSaveTimer.current);
-    branchNameSaveTimer.current = setTimeout(() => saveBranchName(text), 800);
-  }, [saveBranchName]);
-
-  const handleBranchNameBlur = useCallback(() => {
-    if (branchNameSaveTimer.current) {
-      clearTimeout(branchNameSaveTimer.current);
-      branchNameSaveTimer.current = null;
-    }
-    saveBranchName(branchNameText);
-  }, [saveBranchName, branchNameText]);
-
-  const handleBranchColorChange = useCallback((hex: string | null) => {
-    if (!id || !selectedNodeId) return;
-    setBranchColorValue(hex);
-    repertoireApi.updateNodeBranchColor(id, selectedNodeId, hex || '')
-      .then((updated) => setRepertoire(updated))
-      .catch(() => toast.error('Failed to save branch color'));
-  }, [id, selectedNodeId, setRepertoire]);
+  // Main line actions (extracted hook)
+  const {
+    mainLineLoading, mergeLoading, hasMainLine,
+    handleSetMainLine, handleClearMainLine, handleMergeTranspositions,
+  } = useMainLineActions(id, selectedNodeId, setRepertoire);
 
   const handleNodeClick = useCallback(
     (node: RepertoireNode) => {
@@ -232,56 +157,6 @@ export function RepertoireEdit() {
     if (!id) return;
     const updated = await repertoireApi.expandToNode(id, nodeId);
     setRepertoire(updated);
-  }, [id, setRepertoire]);
-
-  const [mainLineLoading, setMainLineLoading] = useState(false);
-
-  const hasMainLine = useCallback((node: RepertoireNode): boolean => {
-    if (node.isMainLine) return true;
-    return node.children.some(hasMainLine);
-  }, []);
-
-  const handleSetMainLine = useCallback(async () => {
-    if (!id || !selectedNodeId) return;
-    setMainLineLoading(true);
-    try {
-      const updated = await repertoireApi.setMainLine(id, selectedNodeId);
-      setRepertoire(updated);
-      toast.success('Main line set');
-    } catch {
-      toast.error('Failed to set main line');
-    } finally {
-      setMainLineLoading(false);
-    }
-  }, [id, selectedNodeId, setRepertoire]);
-
-  const handleClearMainLine = useCallback(async () => {
-    if (!id) return;
-    setMainLineLoading(true);
-    try {
-      const updated = await repertoireApi.clearMainLine(id);
-      setRepertoire(updated);
-      toast.success('Main line cleared');
-    } catch {
-      toast.error('Failed to clear main line');
-    } finally {
-      setMainLineLoading(false);
-    }
-  }, [id, setRepertoire]);
-
-  const [mergeLoading, setMergeLoading] = useState(false);
-  const handleMergeTranspositions = useCallback(async () => {
-    if (!id) return;
-    setMergeLoading(true);
-    try {
-      const updated = await repertoireApi.mergeTranspositions(id);
-      setRepertoire(updated);
-      toast.success('Transpositions merged');
-    } catch {
-      toast.error('Failed to merge transpositions');
-    } finally {
-      setMergeLoading(false);
-    }
   }, [id, setRepertoire]);
 
   const goToRoot = useCallback(() => {
@@ -371,7 +246,7 @@ export function RepertoireEdit() {
         {/* Resize handle */}
         <div
           className="hidden md:flex items-center justify-center w-1.5 cursor-col-resize group shrink-0"
-          onPointerDown={(e) => { e.preventDefault(); setIsDragging(true); }}
+          onPointerDown={(e) => { e.preventDefault(); startDragging(); }}
         >
           <div className="w-0.5 h-8 rounded-full bg-primary/20 group-hover:bg-primary/40 transition-colors" />
         </div>

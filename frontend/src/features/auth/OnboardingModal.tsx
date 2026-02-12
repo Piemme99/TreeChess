@@ -117,7 +117,7 @@ export function OnboardingModal({ isOpen, onClose }: OnboardingModalProps) {
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Welcome to TreeChess"
+      title="Welcome to Kumquat"
       size="lg"
       footer={
         <div className="flex gap-2">

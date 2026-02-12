@@ -5,7 +5,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 
-	"github.com/treechess/backend/internal/services"
+	"github.com/kumquat/backend/internal/services"
 )
 
 type DashboardHandler struct {

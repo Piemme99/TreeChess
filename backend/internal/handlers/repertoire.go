@@ -7,8 +7,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 
-	"github.com/treechess/backend/internal/models"
-	"github.com/treechess/backend/internal/services"
+	"github.com/kumquat/backend/internal/models"
+	"github.com/kumquat/backend/internal/services"
 )
 
 // ListRepertoiresHandler returns all repertoires, optionally filtered by color

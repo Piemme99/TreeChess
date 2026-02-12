@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/treechess/backend/internal/models"
+	"github.com/kumquat/backend/internal/models"
 )
 
 const (

@@ -7,9 +7,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/treechess/backend/internal/models"
-	"github.com/treechess/backend/internal/repository/mocks"
-	smocks "github.com/treechess/backend/internal/services/mocks"
+	"github.com/kumquat/backend/internal/models"
+	"github.com/kumquat/backend/internal/repository/mocks"
+	smocks "github.com/kumquat/backend/internal/services/mocks"
 )
 
 // --- ParseStudyURL tests ---

@@ -1,4 +1,4 @@
-module github.com/treechess/backend
+module github.com/kumquat/backend
 
 go 1.25.0
 

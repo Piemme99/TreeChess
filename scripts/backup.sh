@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# TreeChess — PostgreSQL Backup Script
+# Kumquat — PostgreSQL Backup Script
 # =============================================================================
 # Usage:
 #   ./scripts/backup.sh                  # Manual backup
@@ -31,7 +31,7 @@ WEEKLY_RETENTION_DAYS=28
 # --- Functions ---
 
 do_backup() {
-    echo "=== TreeChess PostgreSQL Backup ==="
+    echo "=== Kumquat PostgreSQL Backup ==="
     echo "Timestamp: $TIMESTAMP"
 
     # Create backup directory

@@ -1,7 +1,7 @@
 package mocks
 
 import (
-	"github.com/treechess/backend/internal/models"
+	"github.com/kumquat/backend/internal/models"
 )
 
 // --- Email service mock ---

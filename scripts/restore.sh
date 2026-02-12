@@ -1,11 +1,11 @@
 #!/bin/bash
 # =============================================================================
-# TreeChess — PostgreSQL Restore Script
+# Kumquat — PostgreSQL Restore Script
 # =============================================================================
 # Usage: ./scripts/restore.sh <backup_file.sql.gz>
 #
 # Example:
-#   ./scripts/restore.sh ./backups/daily/treechess_2026-02-10_03-00-00.sql.gz
+#   ./scripts/restore.sh ./backups/daily/kumquat_2026-02-10_03-00-00.sql.gz
 #
 # WARNING: This will REPLACE all data in the database with the backup contents.
 # The database container must be running.
@@ -24,7 +24,7 @@ if [ ! -f "$BACKUP_FILE" ]; then
     exit 1
 fi
 
-echo "=== TreeChess PostgreSQL Restore ==="
+echo "=== Kumquat PostgreSQL Restore ==="
 echo "Backup file: $BACKUP_FILE"
 echo ""
 echo "WARNING: This will REPLACE all data in the database!"

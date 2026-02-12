@@ -18,7 +18,7 @@ const steps = [
   {
     step: 3,
     title: 'Find deviations',
-    desc: 'TreeChess compares your actual games against your repertoire and highlights where you went off-book.',
+    desc: 'Kumquat compares your actual games against your repertoire and highlights where you went off-book.',
   },
 ];
 

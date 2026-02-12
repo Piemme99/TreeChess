@@ -5,7 +5,7 @@ export function usePageTitle(title: string) {
 
   useEffect(() => {
     const prev = previousTitle.current;
-    document.title = `${title} - TreeChess`;
+    document.title = `${title} - Kumquat`;
     return () => {
       document.title = prev;
     };

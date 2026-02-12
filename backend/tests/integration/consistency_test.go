@@ -10,10 +10,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/treechess/backend/internal/models"
-	"github.com/treechess/backend/internal/repository"
-	"github.com/treechess/backend/internal/services"
-	"github.com/treechess/backend/internal/testhelpers"
+	"github.com/kumquat/backend/internal/models"
+	"github.com/kumquat/backend/internal/repository"
+	"github.com/kumquat/backend/internal/services"
+	"github.com/kumquat/backend/internal/testhelpers"
 )
 
 func TestCascadeDelete_Analysis(t *testing.T) {

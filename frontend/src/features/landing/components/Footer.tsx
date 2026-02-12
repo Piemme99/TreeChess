@@ -1,5 +1,4 @@
 import { Link } from 'react-router-dom';
-import { Crown } from 'lucide-react';
 
 export function Footer() {
   return (
@@ -7,11 +6,15 @@ export function Footer() {
       <div className="max-w-6xl mx-auto">
         <div className="flex flex-col md:flex-row items-center justify-between gap-6 mb-8">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 bg-gradient-to-br from-primary to-primary-hover rounded-xl flex items-center justify-center shadow-sm">
-              <Crown size={16} className="text-white" />
+            <div className="w-7 h-7 rounded-lg shadow-sm overflow-hidden">
+              <img 
+                src="/logo.png" 
+                alt="Kumquat" 
+                className="w-full h-full object-cover"
+              />
             </div>
             <span className="text-lg font-bold text-text tracking-tight font-display">
-              TreeChess
+              Kumquat
             </span>
           </div>
           <p className="text-sm text-text-muted">
@@ -35,7 +38,7 @@ export function Footer() {
             </Link>
           </nav>
           <p className="text-xs text-text-light">
-            &copy; {new Date().getFullYear()} TreeChess. All rights reserved.
+            &copy; {new Date().getFullYear()} Kumquat. All rights reserved.
           </p>
         </div>
       </div>

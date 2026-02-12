@@ -13,8 +13,8 @@ import (
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
 	"github.com/testcontainers/testcontainers-go/wait"
 
-	"github.com/treechess/backend/config"
-	"github.com/treechess/backend/internal/repository"
+	"github.com/kumquat/backend/config"
+	"github.com/kumquat/backend/internal/repository"
 )
 
 // Repos holds all real repository implementations for integration tests.
@@ -60,7 +60,7 @@ func setupTestDB() (*TestDB, error) {
 
 	pgContainer, err := postgres.Run(ctx,
 		"postgres:17-alpine",
-		postgres.WithDatabase("treechess_test"),
+		postgres.WithDatabase("kumquat_test"),
 		postgres.WithUsername("test"),
 		postgres.WithPassword("test"),
 		testcontainers.WithWaitStrategy(

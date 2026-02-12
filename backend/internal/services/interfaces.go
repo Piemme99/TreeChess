@@ -1,7 +1,7 @@
 package services
 
 import (
-	"github.com/treechess/backend/internal/models"
+	"github.com/kumquat/backend/internal/models"
 )
 
 // LichessGameFetcher abstracts the Lichess API for fetching games and studies.

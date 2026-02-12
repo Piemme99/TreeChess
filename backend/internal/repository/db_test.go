@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/treechess/backend/config"
+	"github.com/kumquat/backend/config"
 )
 
 func TestNewDB_InvalidURL(t *testing.T) {

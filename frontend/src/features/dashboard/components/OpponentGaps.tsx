@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import { X } from 'lucide-react';
 import { fadeUp } from '../../../shared/utils/animations';
 import { ColorDot } from '../../../shared/components/UI';
-import { ChessBoard } from '../../../shared/components/Board/ChessBoard';
+import { StaticBoard } from '../../../shared/components/Board/StaticBoard';
 import { ensureFullFEN } from '../../../shared/utils/chess';
 import { dashboardApi } from '../../../services/api';
 import type { OpponentGap } from '../../../types';
@@ -67,13 +67,11 @@ function GapCard({ gap, index, onDismiss }: { gap: OpponentGap; index: number; o
       </div>
 
       <div className="flex gap-3">
-        <div className="shrink-0">
-          <ChessBoard
+        <div className="shrink-0 w-[120px] h-[120px]">
+          <StaticBoard
             fen={gap.fen}
-            interactive={false}
             orientation={gap.color}
-            width={120}
-            customArrows={arrows}
+            arrows={arrows}
           />
         </div>
 

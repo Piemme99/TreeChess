@@ -184,7 +184,7 @@ src/
 - **CORS:** Configurable origins via `CORS_ALLOWED_ORIGINS` env var (default `http://localhost:5173`)
 - **Password reset:** Email with token via SMTP (Mailhog in dev). All refresh tokens revoked on password change/reset.
 - **Security headers:** `Permissions-Policy`, `X-Content-Type-Options`, `X-Frame-Options`, `X-XSS-Protection`, `Referrer-Policy`, `HSTS`, `CSP`
-- **Metrics:** Prometheus endpoint on port 9090 (separate from main API on 8080), prefix: `treechess`
+- **Metrics:** Prometheus endpoint on port 9090 (separate from main API on 8080), prefix: `kumquat`
 
 ## Key Technical Details
 

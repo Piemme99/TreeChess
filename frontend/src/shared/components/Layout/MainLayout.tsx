@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
-import { Crown, LayoutDashboard, BookOpen, GraduationCap, User, LogOut, ChevronLeft, ChevronRight, Compass } from 'lucide-react';
+import { LayoutDashboard, BookOpen, GraduationCap, User, LogOut, ChevronLeft, ChevronRight, Compass } from 'lucide-react';
 
 function PawnIcon({ className }: { className?: string }) {
   return (
@@ -14,7 +14,7 @@ function PawnIcon({ className }: { className?: string }) {
 
 import { useAuthStore } from '../../../stores/authStore';
 
-const SIDEBAR_COLLAPSED_KEY = 'treechess-sidebar-collapsed';
+const SIDEBAR_COLLAPSED_KEY = 'kumquat-sidebar-collapsed';
 
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', Icon: LayoutDashboard, end: true },
@@ -92,12 +92,16 @@ export function MainLayout() {
           {/* Logo */}
           <div className={`flex items-center mb-6 ${isCollapsed ? 'justify-center px-0' : 'px-4'}`}>
             <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 bg-gradient-to-br from-primary to-primary-hover rounded-xl flex items-center justify-center shadow-md shadow-primary/20 shrink-0">
-                <Crown size={18} className="text-white" />
+              <div className="w-8 h-8 rounded-lg shadow-md shadow-primary/20 shrink-0 overflow-hidden">
+                <img 
+                  src="/logo.png" 
+                  alt="Kumquat" 
+                  className="w-full h-full object-cover"
+                />
               </div>
               {!isCollapsed && (
                 <span className="text-xl font-bold text-text tracking-tight font-display whitespace-nowrap">
-                  TreeChess
+                  Kumquat
                 </span>
               )}
             </div>

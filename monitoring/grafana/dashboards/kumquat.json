@@ -27,7 +27,7 @@
       },
       "targets": [
         {
-          "expr": "sum(rate(treechess_requests_total[5m])) by (method, url)",
+          "expr": "sum(rate(kumquat_requests_total[5m])) by (method, url)",
           "legendFormat": "{{method}} {{url}}",
           "refId": "A"
         }
@@ -53,17 +53,17 @@
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.50, sum(rate(treechess_request_duration_seconds_bucket[5m])) by (le))",
+          "expr": "histogram_quantile(0.50, sum(rate(kumquat_request_duration_seconds_bucket[5m])) by (le))",
           "legendFormat": "p50",
           "refId": "A"
         },
         {
-          "expr": "histogram_quantile(0.95, sum(rate(treechess_request_duration_seconds_bucket[5m])) by (le))",
+          "expr": "histogram_quantile(0.95, sum(rate(kumquat_request_duration_seconds_bucket[5m])) by (le))",
           "legendFormat": "p95",
           "refId": "B"
         },
         {
-          "expr": "histogram_quantile(0.99, sum(rate(treechess_request_duration_seconds_bucket[5m])) by (le))",
+          "expr": "histogram_quantile(0.99, sum(rate(kumquat_request_duration_seconds_bucket[5m])) by (le))",
           "legendFormat": "p99",
           "refId": "C"
         }
@@ -91,12 +91,12 @@
       },
       "targets": [
         {
-          "expr": "sum(rate(treechess_requests_total{code=~\"4..\"}[5m])) / sum(rate(treechess_requests_total[5m]))",
+          "expr": "sum(rate(kumquat_requests_total{code=~\"4..\"}[5m])) / sum(rate(kumquat_requests_total[5m]))",
           "legendFormat": "4xx rate",
           "refId": "A"
         },
         {
-          "expr": "sum(rate(treechess_requests_total{code=~\"5..\"}[5m])) / sum(rate(treechess_requests_total[5m]))",
+          "expr": "sum(rate(kumquat_requests_total{code=~\"5..\"}[5m])) / sum(rate(kumquat_requests_total[5m]))",
           "legendFormat": "5xx rate",
           "refId": "B"
         }
@@ -122,17 +122,17 @@
       },
       "targets": [
         {
-          "expr": "go_memstats_alloc_bytes{job=\"treechess_backend\"}",
+          "expr": "go_memstats_alloc_bytes{job=\"kumquat_backend\"}",
           "legendFormat": "Alloc",
           "refId": "A"
         },
         {
-          "expr": "go_memstats_heap_alloc_bytes{job=\"treechess_backend\"}",
+          "expr": "go_memstats_heap_alloc_bytes{job=\"kumquat_backend\"}",
           "legendFormat": "Heap Alloc",
           "refId": "B"
         },
         {
-          "expr": "go_memstats_sys_bytes{job=\"treechess_backend\"}",
+          "expr": "go_memstats_sys_bytes{job=\"kumquat_backend\"}",
           "legendFormat": "Sys",
           "refId": "C"
         }
@@ -158,7 +158,7 @@
       },
       "targets": [
         {
-          "expr": "go_goroutines{job=\"treechess_backend\"}",
+          "expr": "go_goroutines{job=\"kumquat_backend\"}",
           "legendFormat": "Goroutines",
           "refId": "A"
         }
@@ -184,7 +184,7 @@
       },
       "targets": [
         {
-          "expr": "rate(go_gc_duration_seconds_sum{job=\"treechess_backend\"}[5m])",
+          "expr": "rate(go_gc_duration_seconds_sum{job=\"kumquat_backend\"}[5m])",
           "legendFormat": "GC Duration Rate",
           "refId": "A"
         }
@@ -192,12 +192,12 @@
     }
   ],
   "schemaVersion": 39,
-  "tags": ["treechess", "backend"],
+  "tags": ["kumquat", "backend"],
   "templating": { "list": [] },
   "time": { "from": "now-1h", "to": "now" },
   "timepicker": {},
   "timezone": "browser",
-  "title": "TreeChess Backend",
-  "uid": "treechess-backend",
+  "title": "Kumquat Backend",
+  "uid": "kumquat-backend",
   "version": 1
 }

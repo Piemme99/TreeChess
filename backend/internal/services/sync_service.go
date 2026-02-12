@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/treechess/backend/internal/models"
-	"github.com/treechess/backend/internal/repository"
+	"github.com/kumquat/backend/internal/models"
+	"github.com/kumquat/backend/internal/repository"
 )
 
 const (

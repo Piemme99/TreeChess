@@ -8,7 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/treechess/backend/config"
+	"github.com/kumquat/backend/config"
 )
 
 // DB wraps the database connection pool

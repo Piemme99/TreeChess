@@ -1,9 +1,9 @@
-# TreeChess - Guide for Coding Agents
+# Kumquat - Guide for Coding Agents
 
 ## Project Structure
 
 ```
-treechess/
+kumquat/
 ├── backend/          # Go 1.25 + Echo v4 + pgx v5
 │   ├── main.go
 │   ├── config/       # Environment config + application limits
@@ -120,8 +120,8 @@ import (
     "github.com/google/uuid"
     "github.com/labstack/echo/v4"
 
-    "github.com/treechess/backend/internal/models"
-    "github.com/treechess/backend/internal/repository"
+    "github.com/kumquat/backend/internal/models"
+    "github.com/kumquat/backend/internal/repository"
 )
 ```
 

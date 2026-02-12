@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# TreeChess Test Data Seeding Script
+# Kumquat Test Data Seeding Script
 # 
 # This script creates test repertoires and imports test games
 # for manual testing of the application.

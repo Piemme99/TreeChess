@@ -8,8 +8,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/notnil/chess"
-	"github.com/treechess/backend/internal/models"
-	"github.com/treechess/backend/internal/repository/mocks"
+	"github.com/kumquat/backend/internal/models"
+	"github.com/kumquat/backend/internal/repository/mocks"
 )
 
 func TestImportService_ParsePGN(t *testing.T) {

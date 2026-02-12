@@ -85,6 +85,12 @@ function getInitialViewBox(
  * Hook for pan and zoom functionality on an SVG element.
  * Handles mouse drag for panning and wheel events for zooming.
  * ViewBox centering depends on layout mode.
+ *
+ * Performance note: viewBox, scale, isDragging, and dragStart are stored in
+ * refs so that event handlers (wheel, mousemove) don't need to be recreated
+ * on every frame. The viewBox state is kept in sync for React re-renders
+ * (SVG viewBox attribute), while refs are used inside handlers to avoid
+ * tearing down and re-attaching listeners on every zoom/pan tick.
  */
 export function usePanZoom(
   containerRef: RefObject<HTMLDivElement | null>,
@@ -101,12 +107,19 @@ export function usePanZoom(
   const [viewBox, setViewBox] = useState<ViewBox>(() =>
     getInitialViewBox(layoutWidth, layoutHeight, DEFAULT_WIDTH, DEFAULT_HEIGHT, layoutMode)
   );
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-  const [scale, setScale] = useState(1);
 
+  // Refs for values read inside event handlers — avoids listener re-subscription
+  const viewBoxRef = useRef(viewBox);
+  const scaleRef = useRef(1);
+  const isDraggingRef = useRef(false);
+  const dragStartRef = useRef({ x: 0, y: 0 });
   const baseWidthRef = useRef(viewBox.width);
   const baseHeightRef = useRef(viewBox.height);
+
+  // Keep viewBoxRef in sync with state (for event handlers to read latest value)
+  useEffect(() => {
+    viewBoxRef.current = viewBox;
+  }, [viewBox]);
 
   // Update viewBox when layout size, mode, or container dimensions change
   useEffect(() => {
@@ -114,7 +127,8 @@ export function usePanZoom(
       layoutWidth, layoutHeight, dimensions.width, dimensions.height, layoutMode
     );
     setViewBox(newViewBox);
-    setScale(1);
+    viewBoxRef.current = newViewBox;
+    scaleRef.current = 1;
     baseWidthRef.current = newViewBox.width;
     baseHeightRef.current = newViewBox.height;
   }, [layoutWidth, layoutHeight, layoutMode, dimensions.width, dimensions.height]);
@@ -137,23 +151,26 @@ export function usePanZoom(
     return () => resizeObserver.disconnect();
   }, [containerRef]);
 
-  // Native wheel event listener for zooming
+  // Native wheel event listener for zooming — attached once (deps: [svgRef] only)
   useEffect(() => {
     const svg = svgRef.current;
     if (!svg) return;
 
     const handleWheel = (e: WheelEvent) => {
       e.preventDefault();
+      const currentScale = scaleRef.current;
+      const currentViewBox = viewBoxRef.current;
+
       const delta = e.deltaY > 0 ? 0.9 : 1.1;
-      const newScale = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, scale * delta));
+      const newScale = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, currentScale * delta));
 
       const rect = svg.getBoundingClientRect();
       const mouseX = e.clientX - rect.left;
       const mouseY = e.clientY - rect.top;
 
       // Convert mouse position to SVG coordinates
-      const svgX = viewBox.x + (mouseX / rect.width) * viewBox.width;
-      const svgY = viewBox.y + (mouseY / rect.height) * viewBox.height;
+      const svgX = currentViewBox.x + (mouseX / rect.width) * currentViewBox.width;
+      const svgY = currentViewBox.y + (mouseY / rect.height) * currentViewBox.height;
 
       // Calculate new viewBox dimensions
       const newWidth = baseWidthRef.current / newScale;
@@ -163,73 +180,83 @@ export function usePanZoom(
       const newX = svgX - (mouseX / rect.width) * newWidth;
       const newY = svgY - (mouseY / rect.height) * newHeight;
 
-      setViewBox({ x: newX, y: newY, width: newWidth, height: newHeight });
-      setScale(newScale);
+      const newViewBox = { x: newX, y: newY, width: newWidth, height: newHeight };
+      viewBoxRef.current = newViewBox;
+      scaleRef.current = newScale;
+      setViewBox(newViewBox);
     };
 
     svg.addEventListener('wheel', handleWheel, { passive: false });
     return () => svg.removeEventListener('wheel', handleWheel);
-  }, [svgRef, scale, viewBox]);
+  }, [svgRef]);
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if (e.button === 0) {
-      setIsDragging(true);
-      setDragStart({ x: e.clientX, y: e.clientY });
+      isDraggingRef.current = true;
+      dragStartRef.current = { x: e.clientX, y: e.clientY };
     }
   }, []);
 
   const handleMouseMove = useCallback(
     (e: React.MouseEvent) => {
-      if (!isDragging) return;
+      if (!isDraggingRef.current) return;
 
       const rect = svgRef.current?.getBoundingClientRect();
       if (!rect) return;
 
-      const dx = ((e.clientX - dragStart.x) / rect.width) * viewBox.width;
-      const dy = ((e.clientY - dragStart.y) / rect.height) * viewBox.height;
+      const currentViewBox = viewBoxRef.current;
+      const currentDragStart = dragStartRef.current;
 
-      setViewBox((prev) => ({
-        ...prev,
-        x: prev.x - dx,
-        y: prev.y - dy
-      }));
-      setDragStart({ x: e.clientX, y: e.clientY });
+      const dx = ((e.clientX - currentDragStart.x) / rect.width) * currentViewBox.width;
+      const dy = ((e.clientY - currentDragStart.y) / rect.height) * currentViewBox.height;
+
+      const newViewBox = {
+        ...currentViewBox,
+        x: currentViewBox.x - dx,
+        y: currentViewBox.y - dy
+      };
+      viewBoxRef.current = newViewBox;
+      dragStartRef.current = { x: e.clientX, y: e.clientY };
+      setViewBox(newViewBox);
     },
-    [svgRef, isDragging, dragStart, viewBox]
+    [svgRef]
   );
 
   const handleMouseUp = useCallback(() => {
-    setIsDragging(false);
+    isDraggingRef.current = false;
   }, []);
 
   const resetView = useCallback(() => {
     const newViewBox = getInitialViewBox(
       layoutWidth, layoutHeight, dimensions.width, dimensions.height, layoutMode
     );
-    setViewBox(newViewBox);
-    setScale(1);
+    viewBoxRef.current = newViewBox;
+    scaleRef.current = 1;
     baseWidthRef.current = newViewBox.width;
     baseHeightRef.current = newViewBox.height;
+    setViewBox(newViewBox);
   }, [layoutWidth, layoutHeight, layoutMode, dimensions]);
 
   const focusOnNode = useCallback((nodeX: number, nodeY: number) => {
     const targetScale = 2.5;
     const newWidth = baseWidthRef.current / targetScale;
     const newHeight = baseHeightRef.current / targetScale;
-    setViewBox({
+    const newViewBox = {
       x: nodeX - newWidth / 2,
       y: nodeY - newHeight / 2,
       width: newWidth,
       height: newHeight
-    });
-    setScale(targetScale);
+    };
+    viewBoxRef.current = newViewBox;
+    scaleRef.current = targetScale;
+    setViewBox(newViewBox);
   }, []);
 
   return {
     dimensions,
     viewBox,
-    scale,
-    isDragging,
+    scale: scaleRef.current,
+    isDragging: isDraggingRef.current,
     handleMouseDown,
     handleMouseMove,
     handleMouseUp,

@@ -17,8 +17,8 @@ import (
 	"github.com/labstack/echo/v4"
 	"golang.org/x/crypto/hkdf"
 
-	"github.com/treechess/backend/internal/repository"
-	"github.com/treechess/backend/internal/services"
+	"github.com/kumquat/backend/internal/repository"
+	"github.com/kumquat/backend/internal/services"
 )
 
 const (

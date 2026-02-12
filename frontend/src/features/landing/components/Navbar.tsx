@@ -1,17 +1,20 @@
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Crown } from 'lucide-react';
 
 export function Navbar() {
   return (
     <nav className="relative z-30 px-6 py-5">
       <div className="max-w-6xl mx-auto flex items-center justify-between">
         <Link to="/" className="flex items-center gap-2.5 group">
-          <div className="w-9 h-9 bg-gradient-to-br from-primary to-primary-hover rounded-xl flex items-center justify-center shadow-md shadow-primary/20 group-hover:shadow-lg group-hover:shadow-primary/30 transition-shadow">
-            <Crown size={18} className="text-white" />
+          <div className="w-8 h-8 rounded-lg shadow-md shadow-primary/20 group-hover:shadow-lg group-hover:shadow-primary/30 transition-shadow overflow-hidden">
+            <img 
+              src="/logo.png" 
+              alt="Kumquat" 
+              className="w-full h-full object-cover"
+            />
           </div>
           <span className="text-xl font-bold text-text tracking-tight font-display">
-            TreeChess
+            Kumquat
           </span>
         </Link>
         <div className="hidden md:flex items-center gap-8">

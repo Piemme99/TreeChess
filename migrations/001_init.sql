@@ -1,5 +1,5 @@
 -- Migration: 001_init.sql
--- Description: Initial database schema for TreeChess
+-- Description: Initial database schema for Kumquat
 -- Date: 2026-01-19
 
 -- Create repertoires table

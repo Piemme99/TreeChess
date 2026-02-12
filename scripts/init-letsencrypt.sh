@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# TreeChess — Let's Encrypt certificate initialization
+# Kumquat — Let's Encrypt certificate initialization
 # =============================================================================
 # Usage: ./scripts/init-letsencrypt.sh yourdomain.com [your@email.com]
 #
@@ -21,12 +21,12 @@ set -euo pipefail
 DOMAIN="${1:?Usage: $0 <domain> [email]}"
 EMAIL="${2:-}"
 COMPOSE_FILE="docker-compose.prod.yml"
-CERT_PATH="./certbot/conf/live/treechess"
+CERT_PATH="./certbot/conf/live/kumquat"
 
 # Use staging for testing (set to 1 to avoid rate limits during testing)
 STAGING="${STAGING:-0}"
 
-echo "=== TreeChess Let's Encrypt Initialization ==="
+echo "=== Kumquat Let's Encrypt Initialization ==="
 echo "Domain: $DOMAIN"
 echo "Email:  ${EMAIL:-not provided (will use --register-unsafely-without-email)}"
 echo "Staging: $STAGING"
@@ -84,7 +84,7 @@ docker compose -f "$COMPOSE_FILE" run --rm certbot certonly \
     $EMAIL_FLAG \
     --agree-tos \
     --no-eff-email \
-    --cert-name treechess \
+    --cert-name kumquat \
     -d "$DOMAIN"
 
 # --- Step 6: Reload nginx with real certificate ---

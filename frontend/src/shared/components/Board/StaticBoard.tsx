@@ -46,6 +46,70 @@ interface StaticBoardProps {
   fen: string;
   orientation?: 'white' | 'black';
   className?: string;
+  /** Arrows to draw on the board: [fromSquare, toSquare, color?][] */
+  arrows?: [string, string, string?][];
+}
+
+const DEFAULT_ARROW_COLOR = 'rgb(255,170,0)';
+
+// Board dimensions in the viewBox coordinate system
+const BOARD_SIZE = 360;
+const SQUARE_SIZE = 45; // BOARD_SIZE / 8
+
+/** Convert algebraic square (e.g. "e4") to pixel center within the 360×360 viewBox */
+function squareToPixel(square: string, flipped: boolean): { x: number; y: number } {
+  const col = square.charCodeAt(0) - 97; // 'a' = 0 .. 'h' = 7
+  const row = 8 - parseInt(square[1], 10);  // '8' = 0 .. '1' = 7
+  const displayCol = flipped ? 7 - col : col;
+  const displayRow = flipped ? 7 - row : row;
+  return { x: displayCol * SQUARE_SIZE + SQUARE_SIZE / 2, y: displayRow * SQUARE_SIZE + SQUARE_SIZE / 2 };
+}
+
+/**
+ * Build SVG markup for arrows — matches react-chessboard's arrow style:
+ * - strokeWidth = boardSize / 40
+ * - marker: 2×2.5 with polygon "0.3 0, 2 1.25, 0.3 2.5"
+ * - line shortened by boardSize/32 (or boardSize/16 for overlapping targets)
+ * - opacity 0.65
+ */
+function buildArrowsSVG(arrows: [string, string, string?][], flipped: boolean): string {
+  if (arrows.length === 0) return '';
+
+  const strokeWidth = BOARD_SIZE / 40; // 9
+  const defaultShorten = BOARD_SIZE / 32; // 11.25
+  const overlapShorten = BOARD_SIZE / 16; // 22.5
+
+  const parts: string[] = [];
+  for (let i = 0; i < arrows.length; i++) {
+    const [from, to, color] = arrows[i];
+    if (from === to) continue;
+    const arrowColor = color || DEFAULT_ARROW_COLOR;
+    const markerId = `ah${i}`;
+    const p1 = squareToPixel(from, flipped);
+    const p2 = squareToPixel(to, flipped);
+
+    // Shorten more when multiple arrows target the same square (matching react-chessboard)
+    const hasOverlap = arrows.some(
+      (other, j) => j !== i && other[0] !== from && other[1] === to
+    );
+    const shorten = hasOverlap ? overlapShorten : defaultShorten;
+
+    const dx = p2.x - p1.x;
+    const dy = p2.y - p1.y;
+    const r = Math.hypot(dx, dy);
+    const endX = p1.x + (dx * (r - shorten)) / r;
+    const endY = p1.y + (dy * (r - shorten)) / r;
+
+    parts.push(
+      `<marker id="${markerId}" markerWidth="2" markerHeight="2.5" refX="1.25" refY="1.25" orient="auto">` +
+        `<polygon points="0.3 0, 2 1.25, 0.3 2.5" fill="${arrowColor}"/>` +
+      `</marker>` +
+      `<line x1="${p1.x}" y1="${p1.y}" x2="${endX}" y2="${endY}" ` +
+        `stroke="${arrowColor}" stroke-width="${strokeWidth}" ` +
+        `marker-end="url(#${markerId})" opacity="0.65"/>`
+    );
+  }
+  return parts.join('');
 }
 
 function parseFEN(fen: string): (string | null)[][] {
@@ -69,6 +133,7 @@ export const StaticBoard = memo(function StaticBoard({
   fen,
   orientation = 'white',
   className,
+  arrows = [],
 }: StaticBoardProps) {
   const board = useMemo(() => parseFEN(fen), [fen]);
   const flipped = orientation === 'black';
@@ -107,8 +172,13 @@ export const StaticBoard = memo(function StaticBoard({
       }
     }
 
+    // Draw arrows on top of pieces
+    if (arrows.length > 0) {
+      parts.push(buildArrowsSVG(arrows, flipped));
+    }
+
     return parts.join('');
-  }, [board, flipped]);
+  }, [board, flipped, arrows]);
 
   return (
     <svg

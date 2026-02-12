@@ -15,7 +15,7 @@ import { STARTING_FEN } from '../../../shared/utils/chess';
 
 // --- Types ---
 
-type Phase =
+export type Phase =
   | 'idle'
   | 'playing'
   | 'wrong_move'
@@ -34,7 +34,7 @@ interface CorrectMoveArrow {
   to: string;
 }
 
-interface TrainingState {
+export interface TrainingState {
   phase: Phase;
   lines: TrainingLine[];
   currentLineIndex: number;
@@ -56,7 +56,7 @@ interface TrainingState {
   boardKey: number;
 }
 
-type Action =
+export type Action =
   | { type: 'START_SESSION'; lines: TrainingLine[]; orientation: 'white' | 'black'; userColor: 'w' | 'b'; nodeMap: Map<string, RepertoireNode>; treeRoot: RepertoireNode }
   | { type: 'USER_MOVE'; san: string; from: string; to: string }
   | { type: 'OPPONENT_MOVE_DONE' }
@@ -64,7 +64,7 @@ type Action =
   | { type: 'NEXT_LINE' }
   | { type: 'RESET' };
 
-const initialState: TrainingState = {
+export const initialState: TrainingState = {
   phase: 'idle',
   lines: [],
   currentLineIndex: 0,
@@ -89,7 +89,7 @@ const initialState: TrainingState = {
 /**
  * Compute the correct-move arrow for display on wrong move.
  */
-function computeCorrectMoveArrow(fen: string, san: string): CorrectMoveArrow | null {
+export function computeCorrectMoveArrow(fen: string, san: string): CorrectMoveArrow | null {
   try {
     const chess = new Chess(fen);
     const move = chess.move(san);
@@ -105,7 +105,7 @@ function computeCorrectMoveArrow(fen: string, san: string): CorrectMoveArrow | n
 /**
  * Parse a move to extract from/to squares for lastMove highlight.
  */
-function parseLastMove(fen: string, san: string): LastMove | null {
+export function parseLastMove(fen: string, san: string): LastMove | null {
   try {
     const chess = new Chess(fen);
     const move = chess.move(san);
@@ -123,7 +123,7 @@ function parseLastMove(fen: string, san: string): LastMove | null {
  * The parent is the node whose FEN matches the expected move's FEN (position before the move).
  * We look up by finding the node whose child has nodeId === expectedMove.nodeId.
  */
-function findCurrentParentNode(
+export function findCurrentParentNode(
   expectedMove: TrainingMove,
   nodeMap: Map<string, RepertoireNode>,
 ): RepertoireNode | null {
@@ -141,7 +141,7 @@ function findCurrentParentNode(
  * Check if a SAN move is a valid alternative in the repertoire at the current position.
  * Returns the child node if found, null otherwise.
  */
-function findAlternativeInRepertoire(
+export function findAlternativeInRepertoire(
   expectedMove: TrainingMove,
   san: string,
   nodeMap: Map<string, RepertoireNode>,
@@ -154,7 +154,7 @@ function findAlternativeInRepertoire(
 
 // --- Reducer ---
 
-function reducer(state: TrainingState, action: Action): TrainingState {
+export function reducer(state: TrainingState, action: Action): TrainingState {
   switch (action.type) {
     case 'START_SESSION': {
       if (action.lines.length === 0) {

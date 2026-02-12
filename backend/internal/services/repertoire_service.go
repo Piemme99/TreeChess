@@ -8,9 +8,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/notnil/chess"
 
-	"github.com/treechess/backend/config"
-	"github.com/treechess/backend/internal/models"
-	"github.com/treechess/backend/internal/repository"
+	"github.com/kumquat/backend/config"
+	"github.com/kumquat/backend/internal/models"
+	"github.com/kumquat/backend/internal/repository"
 )
 
 // Custom errors for better error handling

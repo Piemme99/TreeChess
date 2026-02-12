@@ -8,12 +8,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/treechess/backend/internal/models"
+	"github.com/kumquat/backend/internal/models"
 )
 
 const (
 	chesscomAPIBaseURL = "https://api.chess.com/pub"
-	chesscomUserAgent  = "TreeChess/1.0"
+	chesscomUserAgent  = "Kumquat/1.0"
 )
 
 type ChesscomService struct {
@@ -293,4 +293,3 @@ func matchesTimeClass(game string, timeClass string) bool {
 	// If no TimeControl header, include the game (don't filter out)
 	return true
 }
-

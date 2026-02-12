@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"net/smtp"
 
-	"github.com/treechess/backend/config"
+	"github.com/kumquat/backend/config"
 )
 
 // EmailService handles sending emails
@@ -61,10 +61,10 @@ func (s *EmailService) SendPasswordResetEmail(toEmail, token string) error {
 
 	resetURL := fmt.Sprintf("%s/reset-password?token=%s", s.frontendURL, token)
 
-	subject := "Reset your TreeChess password"
+	subject := "Reset your Kumquat password"
 	body := fmt.Sprintf(`Hello,
 
-You requested to reset your password for TreeChess.
+You requested to reset your password for Kumquat.
 
 Click the link below to reset your password:
 %s
@@ -73,7 +73,7 @@ This link will expire in 1 hour.
 
 If you did not request this password reset, you can safely ignore this email.
 
-- The TreeChess Team`, resetURL)
+- The Kumquat Team`, resetURL)
 
 	msg := fmt.Sprintf("From: %s\r\nTo: %s\r\nSubject: %s\r\n\r\n%s",
 		s.fromAddress, toEmail, subject, body)

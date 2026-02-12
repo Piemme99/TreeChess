@@ -114,7 +114,7 @@ export function LoginPage() {
           </div>
         </div>
         <h1 className="text-center text-2xl font-bold mb-1 font-display tracking-tight">
-          <span className="bg-gradient-to-r from-primary to-primary-hover bg-clip-text text-transparent">TreeChess</span>
+          <span className="bg-gradient-to-r from-primary to-primary-hover bg-clip-text text-transparent">Kumquat</span>
         </h1>
         <h2 className="text-center text-base text-text-muted mb-8 font-medium">{isRegister ? 'Create Account' : 'Sign In'}</h2>
 

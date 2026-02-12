@@ -1,4 +1,4 @@
-# TreeChess
+# Kumquat
 
 Interactive chess opening repertoire builder with tree visualization and game analysis.
 
@@ -217,7 +217,7 @@ npm run dev
 ## Project Structure
 
 ```
-treechess/
+kumquat/
 ├── backend/                  # Go API server
 │   ├── main.go
 │   ├── config/               # Environment config + application limits
@@ -277,6 +277,6 @@ treechess/
 
 ## License
 
-TreeChess is licensed under the [GNU Affero General Public License v3.0](LICENSE).
+Kumquat is licensed under the [GNU Affero General Public License v3.0](LICENSE).
 
 This means you are free to use, modify, and distribute this software, provided that any modified version you deploy as a network service also makes its source code available under the same license. See [LICENSE](LICENSE) for the full text.
