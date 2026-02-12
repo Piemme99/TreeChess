@@ -14,13 +14,12 @@ linters:
     - misspell      # Finds commonly misspelled English words
     - unconvert     # Removes unnecessary type conversions
     - nilerr        # Detects returning nil after checking error
+  settings:
+    revive:
+      rules:
+        - name: exported
+          disabled: true  # Don't require comments on all exports
 
-linters-settings:
-  revive:
-    rules:
-      - name: exported
-        disabled: true  # Don't require comments on all exports
-
-issues:
-  exclude-dirs:
-    - tests/integration  # Integration tests have different patterns
+run:
+  build-tags:
+    - integration

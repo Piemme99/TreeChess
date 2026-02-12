@@ -55,19 +55,20 @@ func TestImportPipeline_FullCycle(t *testing.T) {
 
 	// The game plays 1.e4 e5 2.Nf3 Nc6 3.Bb5 a6
 	// e4, Nf3, Bb5 are user moves (white)
-	// e4 and Nf3 are in repertoire, Bb5 is out-of-repertoire
+	// e4 and Nf3 are in repertoire; after Nf3 the repertoire ends,
+	// so Bb5 and subsequent moves are "out-of-book" (beyond the repertoire tree)
 	hasInRepertoire := false
-	hasOutOfRepertoire := false
+	hasOutOfBook := false
 	for _, move := range game.Moves {
 		if move.Status == "in-repertoire" {
 			hasInRepertoire = true
 		}
-		if move.Status == "out-of-repertoire" || move.Status == "new-line" {
-			hasOutOfRepertoire = true
+		if move.Status == "out-of-book" {
+			hasOutOfBook = true
 		}
 	}
 	assert.True(t, hasInRepertoire, "should have in-repertoire moves")
-	assert.True(t, hasOutOfRepertoire, "should have out-of-repertoire or new-line moves")
+	assert.True(t, hasOutOfBook, "should have out-of-book moves after repertoire ends")
 
 	// Verify matched repertoire
 	require.NotNil(t, game.MatchedRepertoire)
