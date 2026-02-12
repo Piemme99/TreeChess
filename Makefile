@@ -1,4 +1,4 @@
-.PHONY: dev build stop delete logs restart test lint test-frontend test-backend test-integration lint-frontend lint-backend prod prod-stop prod-logs prod-restart prod-init-ssl prod-renew-ssl prod-backup prod-install-backup-cron
+.PHONY: dev build stop delete logs restart test lint test-frontend test-backend test-integration lint-frontend lint-backend prod prod-stop prod-logs prod-restart prod-deploy prod-deploy-logs prod-deploy-stop prod-init-ssl prod-renew-ssl prod-backup prod-install-backup-cron
 
 dev:
 	docker-compose up --build -d
@@ -54,6 +54,19 @@ prod-logs:
 prod-restart:
 	docker compose --env-file .env.production -f docker-compose.prod.yml down
 	docker compose --env-file .env.production -f docker-compose.prod.yml up --build -d
+
+# === Production (GHCR images, used by CD pipeline) ===
+
+prod-deploy:
+	IMAGE_TAG=$${IMAGE_TAG:-latest} docker compose --env-file .env.production -f docker-compose.prod.ghcr.yml up -d
+
+prod-deploy-stop:
+	docker compose --env-file .env.production -f docker-compose.prod.ghcr.yml down
+
+prod-deploy-logs:
+	docker compose --env-file .env.production -f docker-compose.prod.ghcr.yml logs -f
+
+# === SSL & Backups ===
 
 prod-init-ssl:
 	@echo "Usage: make prod-init-ssl DOMAIN=yourdomain.com EMAIL=you@email.com"

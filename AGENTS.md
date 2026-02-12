@@ -38,7 +38,19 @@ make restart      # Full stop + rebuild + start
 
 Services: Frontend (5173), Backend (8080), PostgreSQL (5432), Mailhog SMTP (1025) / Web UI (8025), Prometheus (9091), Grafana (3000)
 
-### Production
+### Testing & Linting
+
+```bash
+make test                     # Run all tests (frontend + backend)
+make test-frontend            # Vitest only
+make test-backend             # Go unit tests only
+make test-integration         # Go integration tests (requires Docker)
+make lint                     # Run all linters (frontend + backend)
+make lint-frontend            # ESLint + TypeScript check
+make lint-backend             # go vet + golangci-lint
+```
+
+### Production (local build)
 
 ```bash
 make prod                     # Build and start production containers
@@ -46,6 +58,14 @@ make prod-stop / prod-logs / prod-restart
 make prod-init-ssl            # Initialize Let's Encrypt SSL (requires DOMAIN and EMAIL)
 make prod-backup              # Run database backup script
 make prod-install-backup-cron # Install automatic backup cron job
+```
+
+### Production (GHCR images, used by CD pipeline)
+
+```bash
+make prod-deploy              # Start production with pre-built GHCR images (IMAGE_TAG=latest)
+make prod-deploy-stop         # Stop GHCR production containers
+make prod-deploy-logs         # Follow GHCR production logs
 ```
 
 Production uses `.env.production` (not `.env`). All prod Make targets pass `--env-file .env.production`.
