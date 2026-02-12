@@ -22,16 +22,18 @@ import (
 var validChessUsername = regexp.MustCompile(`^[a-zA-Z0-9_-]{1,50}$`)
 
 type ImportHandler struct {
-	importService   *services.ImportService
-	lichessService  *services.LichessService
-	chesscomService *services.ChesscomService
+	importService     *services.ImportService
+	repertoireService *services.RepertoireService
+	lichessService    *services.LichessService
+	chesscomService   *services.ChesscomService
 }
 
-func NewImportHandler(importSvc *services.ImportService, lichessSvc *services.LichessService, chesscomSvc *services.ChesscomService) *ImportHandler {
+func NewImportHandler(importSvc *services.ImportService, repertoireSvc *services.RepertoireService, lichessSvc *services.LichessService, chesscomSvc *services.ChesscomService) *ImportHandler {
 	return &ImportHandler{
-		importService:   importSvc,
-		lichessService:  lichessSvc,
-		chesscomService: chesscomSvc,
+		importService:     importSvc,
+		repertoireService: repertoireSvc,
+		lichessService:    lichessSvc,
+		chesscomService:   chesscomSvc,
 	}
 }
 
@@ -356,6 +358,13 @@ func (h *ImportHandler) ReanalyzeGameHandler(c echo.Context) error {
 	}
 	if !ValidateUUIDField(c, "repertoireId", req.RepertoireID) {
 		return nil
+	}
+
+	// Verify the user owns the target repertoire to prevent leaking other users' repertoire data
+	if h.repertoireService != nil {
+		if err := h.repertoireService.CheckOwnership(req.RepertoireID, userID); err != nil {
+			return NotFoundResponse(c, "repertoire")
+		}
 	}
 
 	reanalyzed, err := h.importService.ReanalyzeGame(analysisID, gameIndex, req.RepertoireID)

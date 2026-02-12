@@ -17,12 +17,13 @@ import type { RepertoireNode } from '../../types';
 import { BoardSection } from './edit/components/BoardSection';
 import { DeleteModal } from './edit/components/DeleteModal';
 import { ExtractModal } from './edit/components/ExtractModal';
+import { RepertoireSettingsPanel } from './edit/components/RepertoireSettingsPanel';
 import { repertoireApi } from '../../services/api';
 import { useExploreStore } from '../../stores/exploreStore';
 import { toast } from '../../stores/toastStore';
 import { BRANCH_COLORS } from './shared/components/RepertoireTree/constants';
 import { usePageTitle } from '../../shared/hooks/usePageTitle';
-import { Download, Globe, Lock } from 'lucide-react';
+import { Download, Settings } from 'lucide-react';
 
 type TabId = 'tree' | 'moves' | 'engine';
 
@@ -43,6 +44,8 @@ export function RepertoireEdit() {
   const location = useLocation();
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [extractConfirmOpen, setExtractConfirmOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const settingsRef = useRef<HTMLDivElement>(null);
   const [treeExpanded, setTreeExpanded] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>('tree');
 
@@ -68,6 +71,18 @@ export function RepertoireEdit() {
       document.removeEventListener('pointerup', handlePointerUp);
     };
   }, [isDragging]);
+
+  // Close settings panel on outside click
+  useEffect(() => {
+    if (!settingsOpen) return;
+    const handleClick = (e: MouseEvent) => {
+      if (settingsRef.current && !settingsRef.current.contains(e.target as Node)) {
+        setSettingsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [settingsOpen]);
 
   const { id, color, repertoire, selectedNodeId, loading, selectNode, setRepertoire, readOnly } = useRepertoireLoader();
   usePageTitle(readOnly ? 'View Repertoire' : 'Edit Repertoire');
@@ -291,23 +306,25 @@ export function RepertoireEdit() {
             &larr; Back
           </Button>
           {!readOnly && repertoire && (
-            <button
-              className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg border border-primary/10 hover:border-primary/30 transition-colors cursor-pointer bg-transparent text-text-muted hover:text-text"
-              title={repertoire.isPublic ? 'Public - click to make private' : 'Private - click to make public'}
-              onClick={async () => {
-                if (!id) return;
-                try {
-                  const updated = await repertoireApi.updateVisibility(id, !repertoire.isPublic);
-                  setRepertoire(updated);
-                  toast.success(updated.isPublic ? 'Repertoire is now public' : 'Repertoire is now private');
-                } catch {
-                  toast.error('Failed to update visibility');
-                }
-              }}
-            >
-              {repertoire.isPublic ? <Globe className="w-3.5 h-3.5 text-primary" /> : <Lock className="w-3.5 h-3.5" />}
-              <span>{repertoire.isPublic ? 'Public' : 'Private'}</span>
-            </button>
+            <div className="relative" ref={settingsRef}>
+              <button
+                className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg border border-primary/10 hover:border-primary/30 transition-colors cursor-pointer bg-transparent text-text-muted hover:text-text"
+                title="Repertoire settings"
+                onClick={() => setSettingsOpen((prev) => !prev)}
+              >
+                <Settings className="w-3.5 h-3.5" />
+                <span>Settings</span>
+              </button>
+              {settingsOpen && (
+                <RepertoireSettingsPanel
+                  repertoire={repertoire}
+                  onUpdate={(updated) => {
+                    setRepertoire(updated);
+                  }}
+                  onClose={() => setSettingsOpen(false)}
+                />
+              )}
+            </div>
           )}
         </div>
         {readOnly && repertoire && (
@@ -496,8 +513,8 @@ export function RepertoireEdit() {
                 color={repertoire.color}
                 isExpanded={treeExpanded}
                 onToggleExpand={() => setTreeExpanded((prev) => !prev)}
-                onToggleCollapsed={handleToggleCollapsed}
-                onExpandToNode={handleExpandToNode}
+                onToggleCollapsed={readOnly ? undefined : handleToggleCollapsed}
+                onExpandToNode={readOnly ? undefined : handleExpandToNode}
               />
             )}
             {activeTab === 'moves' && (

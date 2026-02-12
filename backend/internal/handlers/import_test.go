@@ -35,7 +35,7 @@ func TestUploadHandler_MissingFile(t *testing.T) {
 	setTestUserID(c)
 
 	importSvc := services.NewImportService(nil, nil)
-	handler := NewImportHandler(importSvc, nil, nil)
+	handler := NewImportHandler(importSvc, nil, nil, nil)
 
 	err := handler.UploadHandler(c)
 
@@ -65,7 +65,7 @@ func TestUploadHandler_EmptyUsername(t *testing.T) {
 	setTestUserID(c)
 
 	importSvc := services.NewImportService(nil, nil)
-	handler := NewImportHandler(importSvc, nil, nil)
+	handler := NewImportHandler(importSvc, nil, nil, nil)
 
 	err := handler.UploadHandler(c)
 
@@ -95,7 +95,7 @@ func TestUploadHandler_InvalidFileExtension(t *testing.T) {
 	setTestUserID(c)
 
 	importSvc := services.NewImportService(nil, nil)
-	handler := NewImportHandler(importSvc, nil, nil)
+	handler := NewImportHandler(importSvc, nil, nil, nil)
 
 	err := handler.UploadHandler(c)
 
@@ -120,7 +120,7 @@ func TestValidatePGNHandler_Valid(t *testing.T) {
 	c := e.NewContext(req, rec)
 
 	importSvc := services.NewImportService(nil, nil)
-	handler := NewImportHandler(importSvc, nil, nil)
+	handler := NewImportHandler(importSvc, nil, nil, nil)
 
 	err := handler.ValidatePGNHandler(c)
 
@@ -137,7 +137,7 @@ func TestValidateMoveHandler_Valid(t *testing.T) {
 	c := e.NewContext(req, rec)
 
 	importSvc := services.NewImportService(nil, nil)
-	handler := NewImportHandler(importSvc, nil, nil)
+	handler := NewImportHandler(importSvc, nil, nil, nil)
 
 	err := handler.ValidateMoveHandler(c)
 
@@ -154,7 +154,7 @@ func TestValidateMoveHandler_MissingFEN(t *testing.T) {
 	c := e.NewContext(req, rec)
 
 	importSvc := services.NewImportService(nil, nil)
-	handler := NewImportHandler(importSvc, nil, nil)
+	handler := NewImportHandler(importSvc, nil, nil, nil)
 
 	err := handler.ValidateMoveHandler(c)
 
@@ -176,7 +176,7 @@ func TestValidateMoveHandler_InvalidMove(t *testing.T) {
 	c := e.NewContext(req, rec)
 
 	importSvc := services.NewImportService(nil, nil)
-	handler := NewImportHandler(importSvc, nil, nil)
+	handler := NewImportHandler(importSvc, nil, nil, nil)
 
 	err := handler.ValidateMoveHandler(c)
 
@@ -195,7 +195,7 @@ func TestGetLegalMovesHandler(t *testing.T) {
 	c.QueryParams().Set("fen", fen)
 
 	importSvc := services.NewImportService(nil, nil)
-	handler := NewImportHandler(importSvc, nil, nil)
+	handler := NewImportHandler(importSvc, nil, nil, nil)
 
 	err := handler.GetLegalMovesHandler(c)
 
@@ -215,7 +215,7 @@ func TestGetLegalMovesHandler_MissingFEN(t *testing.T) {
 	c := e.NewContext(req, rec)
 
 	importSvc := services.NewImportService(nil, nil)
-	handler := NewImportHandler(importSvc, nil, nil)
+	handler := NewImportHandler(importSvc, nil, nil, nil)
 
 	err := handler.GetLegalMovesHandler(c)
 
@@ -242,7 +242,7 @@ func TestListAnalysesHandler_Empty(t *testing.T) {
 		},
 	}
 	importSvc := services.NewImportService(nil, mockAnalysisRepo)
-	handler := NewImportHandler(importSvc, nil, nil)
+	handler := NewImportHandler(importSvc, nil, nil, nil)
 
 	err := handler.ListAnalysesHandler(c)
 
@@ -272,7 +272,7 @@ func TestListAnalysesHandler_WithResults(t *testing.T) {
 		},
 	}
 	importSvc := services.NewImportService(nil, mockAnalysisRepo)
-	handler := NewImportHandler(importSvc, nil, nil)
+	handler := NewImportHandler(importSvc, nil, nil, nil)
 
 	err := handler.ListAnalysesHandler(c)
 
@@ -305,7 +305,7 @@ func TestGetAnalysisHandler_NotFound(t *testing.T) {
 		},
 	}
 	importSvc := services.NewImportService(nil, mockAnalysisRepo)
-	handler := NewImportHandler(importSvc, nil, nil)
+	handler := NewImportHandler(importSvc, nil, nil, nil)
 
 	err := handler.GetAnalysisHandler(c)
 
@@ -339,7 +339,7 @@ func TestGetAnalysisHandler_Found(t *testing.T) {
 		},
 	}
 	importSvc := services.NewImportService(nil, mockAnalysisRepo)
-	handler := NewImportHandler(importSvc, nil, nil)
+	handler := NewImportHandler(importSvc, nil, nil, nil)
 
 	err := handler.GetAnalysisHandler(c)
 
@@ -372,7 +372,7 @@ func TestDeleteAnalysisHandler_NotFound(t *testing.T) {
 		},
 	}
 	importSvc := services.NewImportService(nil, mockAnalysisRepo)
-	handler := NewImportHandler(importSvc, nil, nil)
+	handler := NewImportHandler(importSvc, nil, nil, nil)
 
 	err := handler.DeleteAnalysisHandler(c)
 
@@ -399,7 +399,7 @@ func TestDeleteAnalysisHandler_Success(t *testing.T) {
 		},
 	}
 	importSvc := services.NewImportService(nil, mockAnalysisRepo)
-	handler := NewImportHandler(importSvc, nil, nil)
+	handler := NewImportHandler(importSvc, nil, nil, nil)
 
 	err := handler.DeleteAnalysisHandler(c)
 
@@ -411,7 +411,7 @@ func TestNewImportHandler(t *testing.T) {
 	importSvc := services.NewImportService(nil, nil)
 	lichessSvc := services.NewLichessService()
 	chesscomSvc := services.NewChesscomService()
-	handler := NewImportHandler(importSvc, lichessSvc, chesscomSvc)
+	handler := NewImportHandler(importSvc, nil, lichessSvc, chesscomSvc)
 
 	assert.NotNil(t, handler)
 	assert.NotNil(t, handler.importService)
@@ -421,7 +421,7 @@ func TestNewImportHandler(t *testing.T) {
 
 func TestNewImportHandler_NilLichessService(t *testing.T) {
 	importSvc := services.NewImportService(nil, nil)
-	handler := NewImportHandler(importSvc, nil, nil)
+	handler := NewImportHandler(importSvc, nil, nil, nil)
 
 	assert.NotNil(t, handler)
 	assert.NotNil(t, handler.importService)
@@ -437,7 +437,7 @@ func TestUploadHandler_InvalidBody(t *testing.T) {
 	setTestUserID(c)
 
 	importSvc := services.NewImportService(nil, nil)
-	handler := NewImportHandler(importSvc, nil, nil)
+	handler := NewImportHandler(importSvc, nil, nil, nil)
 
 	err := handler.UploadHandler(c)
 
@@ -461,7 +461,7 @@ func TestUploadHandler_MissingUsername(t *testing.T) {
 	setTestUserID(c)
 
 	importSvc := services.NewImportService(nil, nil)
-	handler := NewImportHandler(importSvc, nil, nil)
+	handler := NewImportHandler(importSvc, nil, nil, nil)
 
 	err := handler.UploadHandler(c)
 
@@ -483,7 +483,7 @@ func TestValidateMoveHandler_MissingSAN(t *testing.T) {
 	c := e.NewContext(req, rec)
 
 	importSvc := services.NewImportService(nil, nil)
-	handler := NewImportHandler(importSvc, nil, nil)
+	handler := NewImportHandler(importSvc, nil, nil, nil)
 
 	err := handler.ValidateMoveHandler(c)
 
@@ -504,7 +504,7 @@ func TestValidateMoveHandler_InvalidJSON(t *testing.T) {
 	c := e.NewContext(req, rec)
 
 	importSvc := services.NewImportService(nil, nil)
-	handler := NewImportHandler(importSvc, nil, nil)
+	handler := NewImportHandler(importSvc, nil, nil, nil)
 
 	err := handler.ValidateMoveHandler(c)
 
@@ -521,7 +521,7 @@ func TestValidateMoveHandler_InvalidFEN(t *testing.T) {
 	c := e.NewContext(req, rec)
 
 	importSvc := services.NewImportService(nil, nil)
-	handler := NewImportHandler(importSvc, nil, nil)
+	handler := NewImportHandler(importSvc, nil, nil, nil)
 
 	err := handler.ValidateMoveHandler(c)
 
@@ -541,7 +541,7 @@ func TestImportHandler_ResponseFormat(t *testing.T) {
 	c := e.NewContext(req, rec)
 
 	importSvc := services.NewImportService(nil, nil)
-	handler := NewImportHandler(importSvc, nil, nil)
+	handler := NewImportHandler(importSvc, nil, nil, nil)
 
 	err := handler.ValidatePGNHandler(c)
 
@@ -561,7 +561,7 @@ func TestImportHandler_RegularMove(t *testing.T) {
 	c := e.NewContext(req, rec)
 
 	importSvc := services.NewImportService(nil, nil)
-	handler := NewImportHandler(importSvc, nil, nil)
+	handler := NewImportHandler(importSvc, nil, nil, nil)
 
 	err := handler.ValidateMoveHandler(c)
 
@@ -578,7 +578,7 @@ func TestImportHandler_CastlingMove(t *testing.T) {
 	c := e.NewContext(req, rec)
 
 	importSvc := services.NewImportService(nil, nil)
-	handler := NewImportHandler(importSvc, nil, nil)
+	handler := NewImportHandler(importSvc, nil, nil, nil)
 
 	err := handler.ValidateMoveHandler(c)
 
@@ -596,7 +596,7 @@ func TestImportHandler_Promotion(t *testing.T) {
 	c := e.NewContext(req, rec)
 
 	importSvc := services.NewImportService(nil, nil)
-	handler := NewImportHandler(importSvc, nil, nil)
+	handler := NewImportHandler(importSvc, nil, nil, nil)
 
 	err := handler.ValidateMoveHandler(c)
 
@@ -616,7 +616,7 @@ func TestGetAnalysisHandler_InvalidUUID(t *testing.T) {
 	setTestUserID(c)
 
 	importSvc := services.NewImportService(nil, nil)
-	handler := NewImportHandler(importSvc, nil, nil)
+	handler := NewImportHandler(importSvc, nil, nil, nil)
 
 	err := handler.GetAnalysisHandler(c)
 
@@ -639,7 +639,7 @@ func TestDeleteAnalysisHandler_InvalidUUID(t *testing.T) {
 	setTestUserID(c)
 
 	importSvc := services.NewImportService(nil, nil)
-	handler := NewImportHandler(importSvc, nil, nil)
+	handler := NewImportHandler(importSvc, nil, nil, nil)
 
 	err := handler.DeleteAnalysisHandler(c)
 
@@ -662,7 +662,7 @@ func TestDeleteGameHandler_InvalidAnalysisID(t *testing.T) {
 	setTestUserID(c)
 
 	importSvc := services.NewImportService(nil, nil)
-	handler := NewImportHandler(importSvc, nil, nil)
+	handler := NewImportHandler(importSvc, nil, nil, nil)
 
 	err := handler.DeleteGameHandler(c)
 
@@ -691,7 +691,7 @@ func TestDeleteGameHandler_InvalidGameIndex(t *testing.T) {
 		},
 	}
 	importSvc := services.NewImportService(nil, mockAnalysisRepo)
-	handler := NewImportHandler(importSvc, nil, nil)
+	handler := NewImportHandler(importSvc, nil, nil, nil)
 
 	err := handler.DeleteGameHandler(c)
 
@@ -720,7 +720,7 @@ func TestDeleteGameHandler_NegativeGameIndex(t *testing.T) {
 		},
 	}
 	importSvc := services.NewImportService(nil, mockAnalysisRepo)
-	handler := NewImportHandler(importSvc, nil, nil)
+	handler := NewImportHandler(importSvc, nil, nil, nil)
 
 	err := handler.DeleteGameHandler(c)
 
@@ -744,7 +744,7 @@ func TestLichessImportHandler_MissingUsername(t *testing.T) {
 
 	importSvc := services.NewImportService(nil, nil)
 	lichessSvc := services.NewLichessService()
-	handler := NewImportHandler(importSvc, lichessSvc, nil)
+	handler := NewImportHandler(importSvc, nil, lichessSvc, nil)
 
 	err := handler.LichessImportHandler(c)
 
@@ -767,7 +767,7 @@ func TestLichessImportHandler_InvalidJSON(t *testing.T) {
 
 	importSvc := services.NewImportService(nil, nil)
 	lichessSvc := services.NewLichessService()
-	handler := NewImportHandler(importSvc, lichessSvc, nil)
+	handler := NewImportHandler(importSvc, nil, lichessSvc, nil)
 
 	err := handler.LichessImportHandler(c)
 
@@ -793,7 +793,7 @@ func TestGetGamesHandler_DefaultPagination(t *testing.T) {
 		},
 	}
 	importSvc := services.NewImportService(nil, mockAnalysisRepo)
-	handler := NewImportHandler(importSvc, nil, nil)
+	handler := NewImportHandler(importSvc, nil, nil, nil)
 
 	err := handler.GetGamesHandler(c)
 
@@ -834,7 +834,7 @@ func TestGetGamesHandler_WithGames(t *testing.T) {
 		},
 	}
 	importSvc := services.NewImportService(nil, mockAnalysisRepo)
-	handler := NewImportHandler(importSvc, nil, nil)
+	handler := NewImportHandler(importSvc, nil, nil, nil)
 
 	err := handler.GetGamesHandler(c)
 
@@ -871,7 +871,7 @@ func TestGetGamesHandler_CustomPagination(t *testing.T) {
 		},
 	}
 	importSvc := services.NewImportService(nil, mockAnalysisRepo)
-	handler := NewImportHandler(importSvc, nil, nil)
+	handler := NewImportHandler(importSvc, nil, nil, nil)
 
 	err := handler.GetGamesHandler(c)
 
@@ -889,7 +889,7 @@ func TestValidatePGNHandler_EmptyBody(t *testing.T) {
 	c := e.NewContext(req, rec)
 
 	importSvc := services.NewImportService(nil, nil)
-	handler := NewImportHandler(importSvc, nil, nil)
+	handler := NewImportHandler(importSvc, nil, nil, nil)
 
 	err := handler.ValidatePGNHandler(c)
 
@@ -907,7 +907,7 @@ func TestValidatePGNHandler_InvalidPGN(t *testing.T) {
 	c := e.NewContext(req, rec)
 
 	importSvc := services.NewImportService(nil, nil)
-	handler := NewImportHandler(importSvc, nil, nil)
+	handler := NewImportHandler(importSvc, nil, nil, nil)
 
 	err := handler.ValidatePGNHandler(c)
 
@@ -924,7 +924,7 @@ func TestGetLegalMovesHandler_InvalidFEN(t *testing.T) {
 	c.QueryParams().Set("fen", "invalid")
 
 	importSvc := services.NewImportService(nil, nil)
-	handler := NewImportHandler(importSvc, nil, nil)
+	handler := NewImportHandler(importSvc, nil, nil, nil)
 
 	err := handler.GetLegalMovesHandler(c)
 
@@ -944,7 +944,7 @@ func TestGetLegalMovesHandler_CheckmatePosition(t *testing.T) {
 	c.QueryParams().Set("fen", fen)
 
 	importSvc := services.NewImportService(nil, nil)
-	handler := NewImportHandler(importSvc, nil, nil)
+	handler := NewImportHandler(importSvc, nil, nil, nil)
 
 	err := handler.GetLegalMovesHandler(c)
 
@@ -997,7 +997,7 @@ func TestUploadHandler_CaseInsensitivePGNExtension(t *testing.T) {
 	}
 	repertoireSvc := services.NewRepertoireService(mockRepertoireRepo)
 	importSvc := services.NewImportService(repertoireSvc, mockAnalysisRepo)
-	handler := NewImportHandler(importSvc, nil, nil)
+	handler := NewImportHandler(importSvc, nil, nil, nil)
 
 	err := handler.UploadHandler(c)
 
@@ -1016,7 +1016,7 @@ func TestValidateMoveHandler_EnPassant(t *testing.T) {
 	c := e.NewContext(req, rec)
 
 	importSvc := services.NewImportService(nil, nil)
-	handler := NewImportHandler(importSvc, nil, nil)
+	handler := NewImportHandler(importSvc, nil, nil, nil)
 
 	err := handler.ValidateMoveHandler(c)
 
@@ -1033,7 +1033,7 @@ func TestValidateMoveHandler_QueensideCastling(t *testing.T) {
 	c := e.NewContext(req, rec)
 
 	importSvc := services.NewImportService(nil, nil)
-	handler := NewImportHandler(importSvc, nil, nil)
+	handler := NewImportHandler(importSvc, nil, nil, nil)
 
 	err := handler.ValidateMoveHandler(c)
 

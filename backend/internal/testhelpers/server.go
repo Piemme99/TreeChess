@@ -65,7 +65,7 @@ func SetupTestServer(t *testing.T, repos *Repos) *TestServer {
 	protected.POST("/api/repertoires/:id/merge-transpositions", handlers.MergeTranspositionsHandler(repertoireSvc))
 
 	// Import routes
-	importHandler := handlers.NewImportHandler(importSvc, nil, nil)
+	importHandler := handlers.NewImportHandler(importSvc, repertoireSvc, nil, nil)
 	protected.POST("/api/imports", importHandler.UploadHandler)
 	protected.GET("/api/analyses", importHandler.ListAnalysesHandler)
 	protected.GET("/api/analyses/:id", importHandler.GetAnalysisHandler)

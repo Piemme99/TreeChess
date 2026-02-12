@@ -6,14 +6,20 @@
 treechess/
 ├── backend/          # Go 1.25 + Echo v4 + pgx v5
 │   ├── main.go
-│   ├── config/
+│   ├── config/       # Environment config + application limits
 │   ├── internal/{handlers,middleware,models,repository,services,testhelpers}/
+│   ├── tests/integration/
 │   └── go.mod
 ├── frontend/         # React 18 + TypeScript 5 + Vite 5
 │   ├── src/{features,services,shared,stores,test,types}/
 │   └── package.json
-├── Makefile          # Docker orchestration commands
-└── docker-compose.yml
+├── migrations/       # SQL schema migrations (001-003)
+├── monitoring/       # Prometheus + Grafana configs and dashboards
+├── scripts/          # Backup, restore, SSL init scripts
+├── testdata/         # Sample PGNs and repertoire seed data
+├── Makefile          # Docker orchestration (dev + production)
+├── docker-compose.yml       # Development
+└── docker-compose.prod.yml  # Production (TLS, monitoring, isolated networks)
 ```
 
 ---
@@ -21,6 +27,8 @@ treechess/
 ## Build, Lint, and Test Commands
 
 ### Quick Start (Makefile - preferred)
+
+**Development:**
 
 ```bash
 make dev                          # Build and start all containers (detached)
@@ -31,7 +39,20 @@ make logs                         # Follow container logs
 make restart                      # Full stop + rebuild + start
 ```
 
-Services: Frontend (5173), Backend (8080), PostgreSQL (5432), Mailhog SMTP (1025) / Web UI (8025)
+**Production:**
+
+```bash
+make prod                         # Build and start production containers
+make prod-stop                    # Stop production containers
+make prod-logs                    # Follow production logs
+make prod-restart                 # Full prod stop + rebuild + start
+make prod-init-ssl                # Initialize Let's Encrypt SSL (requires DOMAIN and EMAIL)
+make prod-renew-ssl               # Dry-run SSL certificate renewal
+make prod-backup                  # Run database backup script
+make prod-install-backup-cron     # Install automatic backup cron job
+```
+
+Services (dev): Frontend (5173), Backend (8080), PostgreSQL (5432), Mailhog SMTP (1025) / Web UI (8025), Prometheus (9091), Grafana (3000)
 
 ### Frontend
 
@@ -64,6 +85,9 @@ go test -v -run TestName ./internal/services/        # Run single test by name
 go test -v -run "TestA|TestB" ./internal/...         # Multiple patterns
 go test -v ./internal/handlers/                      # Run all tests in package
 go test ./...                                        # Run all tests
+
+# Integration tests (require Docker for testcontainers)
+go test -v ./tests/integration/...
 
 # Coverage & Linting
 go test -coverprofile=coverage.out ./... && go tool cover -html=coverage.out
@@ -106,7 +130,7 @@ import (
 - Exported: PascalCase (`RepertoireService`, `AddNodeHandler`)
 - Unexported: camelCase (`findNode`, `moveExistsAsChild`)
 - Errors: `Err` prefix as package vars (`ErrNotFound`, `ErrInvalidMove`)
-- Interfaces: Repository interfaces in `internal/repository/interfaces.go`
+- Interfaces: Repository interfaces in `internal/repository/interfaces.go`; service interfaces in `internal/services/interfaces.go`
 
 **Error Handling:** Wrap errors with context using `%w`:
 
@@ -152,6 +176,8 @@ func TestExample(t *testing.T) {
     assert.Equal(t, expected, result)
 }
 ```
+
+Integration tests use testcontainers for real PostgreSQL instances (`tests/integration/`).
 
 ### TypeScript/React (Frontend)
 
@@ -208,11 +234,12 @@ export function GameAnalysisPage() {
 
 ## Key Technologies
 
-- **Backend:** Go 1.25, Echo v4, pgx v5, notnil/chess, testify
-- **Frontend:** React 18, TypeScript 5, Vite 5, chess.js, zustand, axios
-- **Testing:** Vitest (frontend), Go testing + testify (backend)
-- **Database:** PostgreSQL 15+ with JSONB for tree storage
-- **Architecture:** Repository pattern (backend), Zustand stores (frontend)
+- **Backend:** Go 1.25, Echo v4, pgx v5, notnil/chess, testify, golang-jwt/jwt v5, testcontainers
+- **Frontend:** React 18, TypeScript 5, Vite 5, Tailwind CSS 4, chess.js, Zustand, Axios, D3 (hierarchy/zoom/shape), Framer Motion, Lucide React
+- **Testing:** Vitest + Testing Library (frontend), Go testing + testify + testcontainers (backend)
+- **Database:** PostgreSQL 17 with JSONB for tree storage
+- **Monitoring:** Prometheus + Grafana dashboards
+- **Architecture:** Repository pattern (backend), Zustand stores (frontend), feature-based module structure
 
 ---
 
@@ -222,10 +249,13 @@ export function GameAnalysisPage() {
 - Store full FEN string for each node in the repertoire tree
 - Color values: Backend uses `"white"/"black"`; frontend uses `'w'/'b'` for chess.js
 - Multiple repertoires per color supported via POST `/api/repertoires` (max 50 total)
-- CORS configured for `http://localhost:5173` only
+- CORS origins are configurable via `CORS_ALLOWED_ORIGINS` env var (default `http://localhost:5173`)
 - All API endpoints return JSON; errors use `{"error": "message"}` format
-- Transpositions are NOT automatically merged in the tree
-- Game analyses require a `repertoireId` parameter to specify which repertoire to check
-- Backend uses dependency injection with interfaces (`RepertoireRepository`, `AnalysisRepository`)
-- Sentinel errors: `repository.ErrRepertoireNotFound`, `repository.ErrAnalysisNotFound`, `repository.ErrCategoryNotFound`, `repository.ErrUserNotFound`
+- Transpositions can be auto-merged via POST `/api/repertoires/:id/merge-transpositions`
+- Backend uses dependency injection with interfaces (`RepertoireRepository`, `AnalysisRepository`, etc. in `repository/interfaces.go`)
+- Sentinel errors: `repository.ErrRepertoireNotFound`, `repository.ErrAnalysisNotFound`, `repository.ErrGameNotFound`, `repository.ErrCategoryNotFound`, `repository.ErrUserNotFound`, `repository.ErrUsernameExists`, `repository.ErrEmailExists`, `repository.ErrResetTokenNotFound`, `repository.ErrRefreshTokenNotFound`
 - Game deduplication prevents duplicate imports via fingerprinting
+- JWT access tokens are short-lived (15 min); refresh tokens via httpOnly cookies (30-day, single-use rotation)
+- Application limits defined in `config/limits.go` (max repertoires: 50, max PGN: 10MB, max games per page: 100)
+- Background worker: `EngineService.RunWorker` processes engine evaluations via Lichess Explorer API
+- Metrics endpoint on port 9090 (separate from main API on 8080)

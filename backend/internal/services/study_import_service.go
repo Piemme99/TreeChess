@@ -254,7 +254,7 @@ func (s *StudyImportService) ImportStudyChaptersWithCategory(userID, studyID, au
 		}
 
 		// Save the parsed tree
-		saved, err := s.repertoireService.SaveTree(rep.ID, root)
+		saved, err := s.repertoireService.SaveTree(userID, rep.ID, root)
 		if err != nil {
 			return nil, fmt.Errorf("failed to save tree for chapter %d: %w", i, err)
 		}
@@ -361,7 +361,7 @@ func (s *StudyImportService) ImportStudyChaptersMerged(userID, studyID, authToke
 	}
 
 	// Save the merged tree
-	saved, err := s.repertoireService.SaveTree(rep.ID, merged)
+	saved, err := s.repertoireService.SaveTree(userID, rep.ID, merged)
 	if err != nil {
 		return nil, fmt.Errorf("failed to save merged tree: %w", err)
 	}

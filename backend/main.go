@@ -204,7 +204,7 @@ func main() {
 	protected.POST("/api/dashboard/gaps/dismiss", dashboardHandler.DismissGap)
 
 	// Import/Analysis API
-	importHandler := handlers.NewImportHandler(importSvc, lichessSvc, chesscomSvc)
+	importHandler := handlers.NewImportHandler(importSvc, repertoireSvc, lichessSvc, chesscomSvc)
 	protected.POST("/api/imports", importHandler.UploadHandler)
 	protected.POST("/api/imports/lichess", importHandler.LichessImportHandler)
 	protected.POST("/api/imports/chesscom", importHandler.ChesscomImportHandler)

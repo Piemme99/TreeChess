@@ -609,7 +609,7 @@ func TestUpdateRepertoireHandler_ValidRequest(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
 		BelongsToUserFunc: func(id string, userID string) (bool, error) { return true, nil },
 		ExistsFunc:        func(id string) (bool, error) { return true, nil },
-		UpdateNameFunc: func(id string, name string) (*models.Repertoire, error) {
+		UpdateNameFunc: func(id string, userID string, name string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID:    id,
 				Name:  name,
@@ -667,7 +667,7 @@ func TestDeleteRepertoireHandler_ValidID(t *testing.T) {
 
 	mockRepo := &mocks.MockRepertoireRepo{
 		BelongsToUserFunc: func(id string, userID string) (bool, error) { return true, nil },
-		DeleteFunc:        func(id string) error { return nil },
+		DeleteFunc:        func(id string, userID string) error { return nil },
 	}
 	svc := services.NewRepertoireService(mockRepo)
 	handler := DeleteRepertoireHandler(svc)
@@ -690,7 +690,7 @@ func TestDeleteRepertoireHandler_NotFound(t *testing.T) {
 
 	mockRepo := &mocks.MockRepertoireRepo{
 		BelongsToUserFunc: func(id string, userID string) (bool, error) { return true, nil },
-		DeleteFunc: func(id string) error {
+		DeleteFunc: func(id string, userID string) error {
 			return repository.ErrRepertoireNotFound
 		},
 	}
@@ -731,7 +731,7 @@ func TestAddNodeHandler_ValidRequest(t *testing.T) {
 				},
 			}, nil
 		},
-		SaveFunc: func(id string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
+		SaveFunc: func(id string, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID:       id,
 				Name:     "Test",
@@ -814,7 +814,7 @@ func TestDeleteNodeHandler_ValidRequest(t *testing.T) {
 				},
 			}, nil
 		},
-		SaveFunc: func(id string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
+		SaveFunc: func(id string, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID:       id,
 				Name:     "Test",
@@ -1107,7 +1107,7 @@ func TestUpdateNodeCommentHandler_Success(t *testing.T) {
 				},
 			}, nil
 		},
-		SaveFunc: func(id string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
+		SaveFunc: func(id string, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
 			return &models.Repertoire{ID: id, TreeData: treeData, Metadata: metadata}, nil
 		},
 	}

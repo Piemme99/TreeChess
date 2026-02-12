@@ -76,7 +76,7 @@ func CreateRepertoireHandler(svc *services.RepertoireService) echo.HandlerFunc {
 			isPublic = *req.IsPublic
 		}
 
-		rep, err := svc.CreateRepertoireWithVisibility(userID, req.Name, req.Color, isPublic)
+		rep, err := svc.CreateRepertoireWithVisibility(userID, req.Name, req.Description, req.Color, isPublic)
 		if err != nil {
 			if errors.Is(err, services.ErrLimitReached) {
 				return c.JSON(http.StatusConflict, map[string]string{
@@ -91,6 +91,11 @@ func CreateRepertoireHandler(svc *services.RepertoireService) echo.HandlerFunc {
 			if errors.Is(err, services.ErrNameTooLong) {
 				return c.JSON(http.StatusBadRequest, map[string]string{
 					"error": "name must be 100 characters or less",
+				})
+			}
+			if errors.Is(err, services.ErrDescriptionTooLong) {
+				return c.JSON(http.StatusBadRequest, map[string]string{
+					"error": "description must be 500 characters or less",
 				})
 			}
 			return c.JSON(http.StatusInternalServerError, map[string]string{
@@ -161,26 +166,59 @@ func UpdateRepertoireHandler(svc *services.RepertoireService) echo.HandlerFunc {
 			})
 		}
 
-		rep, err := svc.RenameRepertoire(idParam, req.Name)
-		if err != nil {
-			if errors.Is(err, services.ErrNotFound) {
-				return c.JSON(http.StatusNotFound, map[string]string{
-					"error": "repertoire not found",
-				})
-			}
-			if errors.Is(err, services.ErrNameRequired) {
-				return c.JSON(http.StatusBadRequest, map[string]string{
-					"error": "name is required",
-				})
-			}
-			if errors.Is(err, services.ErrNameTooLong) {
-				return c.JSON(http.StatusBadRequest, map[string]string{
-					"error": "name must be 100 characters or less",
-				})
-			}
-			return c.JSON(http.StatusInternalServerError, map[string]string{
-				"error": "failed to update repertoire",
+		if req.Name == nil && req.Description == nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{
+				"error": "at least one of name or description must be provided",
 			})
+		}
+
+		// Start with the current repertoire state
+		var rep *models.Repertoire
+		var err error
+
+		// Update name if provided
+		if req.Name != nil {
+			rep, err = svc.RenameRepertoire(userID, idParam, *req.Name)
+			if err != nil {
+				if errors.Is(err, services.ErrNotFound) {
+					return c.JSON(http.StatusNotFound, map[string]string{
+						"error": "repertoire not found",
+					})
+				}
+				if errors.Is(err, services.ErrNameRequired) {
+					return c.JSON(http.StatusBadRequest, map[string]string{
+						"error": "name is required",
+					})
+				}
+				if errors.Is(err, services.ErrNameTooLong) {
+					return c.JSON(http.StatusBadRequest, map[string]string{
+						"error": "name must be 100 characters or less",
+					})
+				}
+				return c.JSON(http.StatusInternalServerError, map[string]string{
+					"error": "failed to update repertoire",
+				})
+			}
+		}
+
+		// Update description if provided
+		if req.Description != nil {
+			rep, err = svc.UpdateDescription(userID, idParam, *req.Description)
+			if err != nil {
+				if errors.Is(err, services.ErrNotFound) {
+					return c.JSON(http.StatusNotFound, map[string]string{
+						"error": "repertoire not found",
+					})
+				}
+				if errors.Is(err, services.ErrDescriptionTooLong) {
+					return c.JSON(http.StatusBadRequest, map[string]string{
+						"error": "description must be 500 characters or less",
+					})
+				}
+				return c.JSON(http.StatusInternalServerError, map[string]string{
+					"error": "failed to update repertoire",
+				})
+			}
 		}
 
 		return c.JSON(http.StatusOK, rep)
@@ -205,7 +243,7 @@ func DeleteRepertoireHandler(svc *services.RepertoireService) echo.HandlerFunc {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "repertoire not found"})
 		}
 
-		err := svc.DeleteRepertoire(idParam)
+		err := svc.DeleteRepertoire(userID, idParam)
 		if err != nil {
 			if errors.Is(err, services.ErrNotFound) {
 				return c.JSON(http.StatusNotFound, map[string]string{
@@ -265,7 +303,7 @@ func AddNodeHandler(svc *services.RepertoireService) echo.HandlerFunc {
 			})
 		}
 
-		rep, err := svc.AddNode(idParam, req)
+		rep, err := svc.AddNode(userID, idParam, req)
 		if err != nil {
 			if errors.Is(err, services.ErrNotFound) {
 				return c.JSON(http.StatusNotFound, map[string]string{
@@ -514,7 +552,7 @@ func MergeTranspositionsHandler(svc *services.RepertoireService) echo.HandlerFun
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "repertoire not found"})
 		}
 
-		rep, err := svc.MergeTranspositions(idParam)
+		rep, err := svc.MergeTranspositions(userID, idParam)
 		if err != nil {
 			if errors.Is(err, services.ErrNotFound) {
 				return c.JSON(http.StatusNotFound, map[string]string{
@@ -565,7 +603,7 @@ func UpdateNodeCommentHandler(svc *services.RepertoireService) echo.HandlerFunc 
 			})
 		}
 
-		rep, err := svc.UpdateNodeComment(idParam, nodeID, req.Comment)
+		rep, err := svc.UpdateNodeComment(userID, idParam, nodeID, req.Comment)
 		if err != nil {
 			if errors.Is(err, services.ErrNotFound) {
 				return c.JSON(http.StatusNotFound, map[string]string{
@@ -621,7 +659,7 @@ func UpdateNodeBranchNameHandler(svc *services.RepertoireService) echo.HandlerFu
 			})
 		}
 
-		rep, err := svc.UpdateNodeBranchName(idParam, nodeID, req.BranchName)
+		rep, err := svc.UpdateNodeBranchName(userID, idParam, nodeID, req.BranchName)
 		if err != nil {
 			if errors.Is(err, services.ErrNotFound) {
 				return c.JSON(http.StatusNotFound, map[string]string{
@@ -677,7 +715,7 @@ func UpdateNodeBranchColorHandler(svc *services.RepertoireService) echo.HandlerF
 			})
 		}
 
-		rep, err := svc.UpdateNodeBranchColor(idParam, nodeID, req.BranchColor)
+		rep, err := svc.UpdateNodeBranchColor(userID, idParam, nodeID, req.BranchColor)
 		if err != nil {
 			if errors.Is(err, services.ErrNotFound) {
 				return c.JSON(http.StatusNotFound, map[string]string{
@@ -729,7 +767,7 @@ func ToggleNodeCollapsedHandler(svc *services.RepertoireService) echo.HandlerFun
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "repertoire not found"})
 		}
 
-		rep, err := svc.ToggleNodeCollapsed(idParam, nodeID)
+		rep, err := svc.ToggleNodeCollapsed(userID, idParam, nodeID)
 		if err != nil {
 			if errors.Is(err, services.ErrNotFound) {
 				return c.JSON(http.StatusNotFound, map[string]string{
@@ -776,7 +814,7 @@ func ExpandToNodeHandler(svc *services.RepertoireService) echo.HandlerFunc {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "repertoire not found"})
 		}
 
-		rep, err := svc.ExpandToNode(idParam, nodeID)
+		rep, err := svc.ExpandToNode(userID, idParam, nodeID)
 		if err != nil {
 			if errors.Is(err, services.ErrNotFound) {
 				return c.JSON(http.StatusNotFound, map[string]string{
@@ -823,7 +861,7 @@ func SetMainLineHandler(svc *services.RepertoireService) echo.HandlerFunc {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "repertoire not found"})
 		}
 
-		rep, err := svc.SetMainLine(idParam, nodeID)
+		rep, err := svc.SetMainLine(userID, idParam, nodeID)
 		if err != nil {
 			if errors.Is(err, services.ErrNotFound) {
 				return c.JSON(http.StatusNotFound, map[string]string{
@@ -862,7 +900,7 @@ func ClearMainLineHandler(svc *services.RepertoireService) echo.HandlerFunc {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "repertoire not found"})
 		}
 
-		rep, err := svc.ClearMainLine(idParam)
+		rep, err := svc.ClearMainLine(userID, idParam)
 		if err != nil {
 			if errors.Is(err, services.ErrNotFound) {
 				return c.JSON(http.StatusNotFound, map[string]string{
@@ -904,7 +942,7 @@ func DeleteNodeHandler(svc *services.RepertoireService) echo.HandlerFunc {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "repertoire not found"})
 		}
 
-		rep, err := svc.DeleteNode(idParam, nodeID)
+		rep, err := svc.DeleteNode(userID, idParam, nodeID)
 		if err != nil {
 			if errors.Is(err, services.ErrNotFound) {
 				return c.JSON(http.StatusNotFound, map[string]string{

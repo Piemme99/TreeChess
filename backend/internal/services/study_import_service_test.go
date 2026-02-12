@@ -147,7 +147,7 @@ func TestStudyImportService_ImportStudyChapters_Success(t *testing.T) {
 				Color: color,
 			}, nil
 		},
-		SaveTreeFunc: func(repertoireID string, treeData models.RepertoireNode) (*models.Repertoire, error) {
+		SaveTreeFunc: func(userID string, repertoireID string, treeData models.RepertoireNode) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID:       repertoireID,
 				TreeData: treeData,

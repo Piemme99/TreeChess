@@ -1,7 +1,28 @@
 import { Chess, type Move } from 'chess.js';
 
+import type { RepertoireNode } from '../../types';
+
 /** Standard starting position FEN */
 export const STARTING_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+
+/**
+ * Follows the main line of a repertoire tree and returns the FEN at the given depth.
+ * - Prefers children marked with `isMainLine`
+ * - Falls back to the first child if none is marked
+ * - Stops at `maxDepth` half-moves or when there are no more children
+ */
+export function getMainlineFEN(treeData: RepertoireNode, maxDepth = 6): string {
+  let current = treeData;
+  let depth = 0;
+
+  while (current.children.length > 0 && depth < maxDepth) {
+    const mainChild = current.children.find((c) => c.isMainLine);
+    current = mainChild ?? current.children[0];
+    depth++;
+  }
+
+  return ensureFullFEN(current.fen);
+}
 
 export function createInitialPosition(): Chess {
   return new Chess();

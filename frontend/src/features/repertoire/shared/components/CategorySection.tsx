@@ -3,10 +3,12 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
+import { staggerContainer } from '../../../../shared/utils/animations';
 import { Button, ConfirmModal } from '../../../../shared/components/UI';
 import { useRepertoireStore } from '../../../../stores/repertoireStore';
 import { toast } from '../../../../stores/toastStore';
 import type { Category, Repertoire } from '../../../../types';
+import { RepertoireCard } from './RepertoireCard';
 
 // Draggable repertoire item wrapper for category items
 function DraggableCategoryItem({
@@ -183,7 +185,7 @@ export function CategorySection({
         )}
       </div>
 
-      {/* Repertoires list */}
+      {/* Repertoires grid */}
       <AnimatePresence initial={false}>
         {isExpanded && (
           <motion.div
@@ -194,7 +196,7 @@ export function CategorySection({
             transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
             style={{ overflow: 'hidden' }}
           >
-            <div className="flex flex-col gap-1 p-2 bg-bg">
+            <div className="p-3 bg-bg">
               {repertoires.length === 0 ? (
                 <div className="text-text-muted italic p-2 text-center text-sm">
                   {isOver ? (
@@ -204,93 +206,36 @@ export function CategorySection({
                   )}
                 </div>
               ) : (
-                repertoires.map((rep) => (
-                  <DraggableCategoryItem key={rep.id} repertoire={rep}>
-                    {(dragAttributes, dragListeners) => (
-                      <div
-                        className={`flex items-center justify-between p-3 bg-bg-card rounded-xl gap-3${selectedIds.has(rep.id) ? ' outline-2 outline-primary outline-offset-[-2px]' : ''}`}
-                      >
-                        {editingId === rep.id ? (
-                          <div className="flex gap-2 flex-1 items-center">
-                            <input
-                              type="text"
-                              value={editName}
-                              onChange={(e) => onEditNameChange(e.target.value)}
-                              placeholder="Repertoire name"
-                              className="flex-1 py-1 px-3 border border-border rounded-xl text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary-light"
-                              autoFocus
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') onRename(rep.id);
-                                if (e.key === 'Escape') onCancelEditing();
-                              }}
-                            />
-                            <Button variant="primary" size="sm" onClick={() => onRename(rep.id)} disabled={loading}>
-                              Save
-                            </Button>
-                            <Button variant="ghost" size="sm" onClick={onCancelEditing} disabled={loading}>
-                              Cancel
-                            </Button>
-                          </div>
-                        ) : (
-                          <>
-                            <div
-                              className="flex items-center shrink-0 cursor-grab active:cursor-grabbing p-1 text-text-muted hover:text-text"
-                              {...dragAttributes}
-                              {...dragListeners}
-                            >
-                              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                                <circle cx="5" cy="4" r="1.5" />
-                                <circle cx="11" cy="4" r="1.5" />
-                                <circle cx="5" cy="8" r="1.5" />
-                                <circle cx="11" cy="8" r="1.5" />
-                                <circle cx="5" cy="12" r="1.5" />
-                                <circle cx="11" cy="12" r="1.5" />
-                              </svg>
-                            </div>
-                            <label className="flex items-center shrink-0 cursor-pointer">
-                              <input
-                                type="checkbox"
-                                checked={selectedIds.has(rep.id)}
-                                onChange={() => onToggleSelection(rep.id)}
-                                className="w-4 h-4 cursor-pointer accent-primary"
-                              />
-                            </label>
-                            <div className="flex flex-col gap-0.5 flex-1 min-w-0">
-                              <span
-                                className="font-medium text-sm whitespace-nowrap overflow-hidden text-ellipsis cursor-text"
-                                onDoubleClick={() => onStartEditing(rep.id, rep.name)}
-                              >
-                                {rep.name}
-                              </span>
-                              <span className="text-xs text-text-muted">
-                                {rep.metadata.totalMoves} moves, depth {rep.metadata.deepestDepth}
-                              </span>
-                            </div>
-                            <div className="flex gap-1 shrink-0">
-                              <Button
-                                variant="primary"
-                                size="sm"
-                                onClick={() => navigate(`/repertoire/${rep.id}/edit`, { state: { from: location.pathname } })}
-                              >
-                                Open
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => onDelete(rep.id, rep.name)}
-                                disabled={loading}
-                              >
-                                <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5">
-                                  <path d="M2 4h12M5.5 4V2.5a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1V4M6.5 7v5M9.5 7v5M3.5 4l.5 9a1.5 1.5 0 0 0 1.5 1.5h5A1.5 1.5 0 0 0 12 13l.5-9" strokeLinecap="round" strokeLinejoin="round" />
-                                </svg>
-                              </Button>
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    )}
-                  </DraggableCategoryItem>
-                ))
+                <motion.div
+                  variants={staggerContainer}
+                  initial="hidden"
+                  animate="visible"
+                  className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+                >
+                  {repertoires.map((rep, i) => (
+                    <DraggableCategoryItem key={rep.id} repertoire={rep}>
+                      {(dragAttributes, dragListeners) => (
+                        <RepertoireCard
+                          repertoire={rep}
+                          selected={selectedIds.has(rep.id)}
+                          editing={editingId === rep.id}
+                          editName={editName}
+                          loading={loading}
+                          index={i}
+                          onOpen={() => navigate(`/repertoire/${rep.id}/edit`, { state: { from: location.pathname } })}
+                          onDelete={() => onDelete(rep.id, rep.name)}
+                          onToggleSelection={() => onToggleSelection(rep.id)}
+                          onStartEditing={() => onStartEditing(rep.id, rep.name)}
+                          onEditNameChange={onEditNameChange}
+                          onRename={() => onRename(rep.id)}
+                          onCancelEditing={onCancelEditing}
+                          dragAttributes={dragAttributes}
+                          dragListeners={dragListeners}
+                        />
+                      )}
+                    </DraggableCategoryItem>
+                  ))}
+                </motion.div>
               )}
             </div>
           </motion.div>

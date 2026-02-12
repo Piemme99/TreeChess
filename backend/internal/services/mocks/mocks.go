@@ -110,7 +110,7 @@ func (m *MockImportService) ParseAndAnalyze(filename, username, userID, pgnData 
 type MockRepertoireService struct {
 	CreateRepertoireFunc             func(userID, name string, color models.Color) (*models.Repertoire, error)
 	CreateRepertoireWithCategoryFunc func(userID, name string, color models.Color, categoryID *string) (*models.Repertoire, error)
-	SaveTreeFunc                     func(repertoireID string, treeData models.RepertoireNode) (*models.Repertoire, error)
+	SaveTreeFunc                     func(userID, repertoireID string, treeData models.RepertoireNode) (*models.Repertoire, error)
 }
 
 func (m *MockRepertoireService) CreateRepertoire(userID, name string, color models.Color) (*models.Repertoire, error) {
@@ -131,9 +131,9 @@ func (m *MockRepertoireService) CreateRepertoireWithCategory(userID, name string
 	return nil, nil
 }
 
-func (m *MockRepertoireService) SaveTree(repertoireID string, treeData models.RepertoireNode) (*models.Repertoire, error) {
+func (m *MockRepertoireService) SaveTree(userID, repertoireID string, treeData models.RepertoireNode) (*models.Repertoire, error) {
 	if m.SaveTreeFunc != nil {
-		return m.SaveTreeFunc(repertoireID, treeData)
+		return m.SaveTreeFunc(userID, repertoireID, treeData)
 	}
 	return nil, nil
 }

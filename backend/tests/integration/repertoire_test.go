@@ -59,12 +59,12 @@ func TestRepertoireRepo_CRUD(t *testing.T) {
 	assert.Len(t, blacks, 0)
 
 	// UpdateName
-	updated, err := repos.Repertoire.UpdateName(rep.ID, "Renamed")
+	updated, err := repos.Repertoire.UpdateName(rep.ID, user.ID, "Renamed")
 	require.NoError(t, err)
 	assert.Equal(t, "Renamed", updated.Name)
 
 	// Delete
-	err = repos.Repertoire.Delete(rep.ID)
+	err = repos.Repertoire.Delete(rep.ID, user.ID)
 	require.NoError(t, err)
 
 	// GetByID after delete returns ErrRepertoireNotFound
@@ -132,7 +132,7 @@ func TestRepertoireService_AddNode_RealDB(t *testing.T) {
 
 	// Add e4 to root
 	rootID := rep.TreeData.ID
-	rep, err = svc.AddNode(rep.ID, models.AddNodeRequest{
+	rep, err = svc.AddNode(user.ID, rep.ID, models.AddNodeRequest{
 		ParentID:   rootID,
 		Move:       "e4",
 		MoveNumber: 1,
@@ -163,10 +163,10 @@ func TestRepertoireService_AddNode_DuplicateMove(t *testing.T) {
 	svc := services.NewRepertoireService(repos.Repertoire)
 
 	rep, _ := svc.CreateRepertoire(user.ID, "Dup Test", models.ColorWhite)
-	rep, _ = svc.AddNode(rep.ID, models.AddNodeRequest{ParentID: rep.TreeData.ID, Move: "e4", MoveNumber: 1})
+	rep, _ = svc.AddNode(user.ID, rep.ID, models.AddNodeRequest{ParentID: rep.TreeData.ID, Move: "e4", MoveNumber: 1})
 
 	// Adding e4 again to root should fail
-	_, err := svc.AddNode(rep.ID, models.AddNodeRequest{ParentID: rep.TreeData.ID, Move: "e4", MoveNumber: 1})
+	_, err := svc.AddNode(user.ID, rep.ID, models.AddNodeRequest{ParentID: rep.TreeData.ID, Move: "e4", MoveNumber: 1})
 	assert.ErrorIs(t, err, services.ErrMoveExists)
 }
 
@@ -179,7 +179,7 @@ func TestRepertoireService_AddNode_IllegalMove(t *testing.T) {
 	rep, _ := svc.CreateRepertoire(user.ID, "Illegal Test", models.ColorWhite)
 
 	// "Qd7" is illegal from the starting position
-	_, err := svc.AddNode(rep.ID, models.AddNodeRequest{ParentID: rep.TreeData.ID, Move: "Qd7", MoveNumber: 1})
+	_, err := svc.AddNode(user.ID, rep.ID, models.AddNodeRequest{ParentID: rep.TreeData.ID, Move: "Qd7", MoveNumber: 1})
 	assert.ErrorIs(t, err, services.ErrInvalidMove)
 }
 
@@ -195,21 +195,21 @@ func TestRepertoireService_AddMultipleNodes(t *testing.T) {
 	rootID := rep.TreeData.ID
 
 	// e4
-	rep, err = svc.AddNode(rep.ID, models.AddNodeRequest{ParentID: rootID, Move: "e4", MoveNumber: 1})
+	rep, err = svc.AddNode(user.ID, rep.ID, models.AddNodeRequest{ParentID: rootID, Move: "e4", MoveNumber: 1})
 	require.NoError(t, err)
 	e4ID := rep.TreeData.Children[0].ID
 
 	// e4 -> e5
-	rep, err = svc.AddNode(rep.ID, models.AddNodeRequest{ParentID: e4ID, Move: "e5", MoveNumber: 1})
+	rep, err = svc.AddNode(user.ID, rep.ID, models.AddNodeRequest{ParentID: e4ID, Move: "e5", MoveNumber: 1})
 	require.NoError(t, err)
 	e5ID := rep.TreeData.Children[0].Children[0].ID
 
 	// e4 -> e5 -> Nf3
-	rep, err = svc.AddNode(rep.ID, models.AddNodeRequest{ParentID: e5ID, Move: "Nf3", MoveNumber: 2})
+	rep, err = svc.AddNode(user.ID, rep.ID, models.AddNodeRequest{ParentID: e5ID, Move: "Nf3", MoveNumber: 2})
 	require.NoError(t, err)
 
 	// d4 as sibling of e4
-	rep, err = svc.AddNode(rep.ID, models.AddNodeRequest{ParentID: rootID, Move: "d4", MoveNumber: 1})
+	rep, err = svc.AddNode(user.ID, rep.ID, models.AddNodeRequest{ParentID: rootID, Move: "d4", MoveNumber: 1})
 	require.NoError(t, err)
 
 	// Verify from DB
@@ -238,14 +238,14 @@ func TestRepertoireService_DeleteNode_RealDB(t *testing.T) {
 	rootID := rep.TreeData.ID
 
 	// Build e4 -> e5 -> Nf3
-	rep, _ = svc.AddNode(rep.ID, models.AddNodeRequest{ParentID: rootID, Move: "e4", MoveNumber: 1})
+	rep, _ = svc.AddNode(user.ID, rep.ID, models.AddNodeRequest{ParentID: rootID, Move: "e4", MoveNumber: 1})
 	e4ID := rep.TreeData.Children[0].ID
-	rep, _ = svc.AddNode(rep.ID, models.AddNodeRequest{ParentID: e4ID, Move: "e5", MoveNumber: 1})
+	rep, _ = svc.AddNode(user.ID, rep.ID, models.AddNodeRequest{ParentID: e4ID, Move: "e5", MoveNumber: 1})
 	e5ID := rep.TreeData.Children[0].Children[0].ID
-	rep, _ = svc.AddNode(rep.ID, models.AddNodeRequest{ParentID: e5ID, Move: "Nf3", MoveNumber: 2})
+	rep, _ = svc.AddNode(user.ID, rep.ID, models.AddNodeRequest{ParentID: e5ID, Move: "Nf3", MoveNumber: 2})
 
 	// Delete e5 (should cascade and remove Nf3 too)
-	rep, err = svc.DeleteNode(rep.ID, e5ID)
+	rep, err = svc.DeleteNode(user.ID, rep.ID, e5ID)
 	require.NoError(t, err)
 
 	got, err := svc.GetRepertoire(rep.ID)
@@ -268,7 +268,7 @@ func TestRepertoireService_DeleteNode_CannotDeleteRoot(t *testing.T) {
 
 	rep, _ := svc.CreateRepertoire(user.ID, "Root Test", models.ColorWhite)
 
-	_, err := svc.DeleteNode(rep.ID, rep.TreeData.ID)
+	_, err := svc.DeleteNode(user.ID, rep.ID, rep.TreeData.ID)
 	assert.ErrorIs(t, err, services.ErrCannotDeleteRoot)
 }
 
@@ -280,11 +280,11 @@ func TestRepertoireService_MergeRepertoires_RealDB(t *testing.T) {
 
 	// Create repertoire with e4
 	rep1, _ := svc.CreateRepertoire(user.ID, "e4 Rep", models.ColorWhite)
-	rep1, _ = svc.AddNode(rep1.ID, models.AddNodeRequest{ParentID: rep1.TreeData.ID, Move: "e4", MoveNumber: 1})
+	rep1, _ = svc.AddNode(user.ID, rep1.ID, models.AddNodeRequest{ParentID: rep1.TreeData.ID, Move: "e4", MoveNumber: 1})
 
 	// Create repertoire with d4
 	rep2, _ := svc.CreateRepertoire(user.ID, "d4 Rep", models.ColorWhite)
-	rep2, _ = svc.AddNode(rep2.ID, models.AddNodeRequest{ParentID: rep2.TreeData.ID, Move: "d4", MoveNumber: 1})
+	rep2, _ = svc.AddNode(user.ID, rep2.ID, models.AddNodeRequest{ParentID: rep2.TreeData.ID, Move: "d4", MoveNumber: 1})
 
 	rep1ID := rep1.ID
 	rep2ID := rep2.ID
@@ -335,11 +335,11 @@ func TestRepertoireService_ExtractSubtree_RealDB(t *testing.T) {
 
 	// Build e4 -> e5 -> Nf3
 	rep, _ := svc.CreateRepertoire(user.ID, "Full Rep", models.ColorWhite)
-	rep, _ = svc.AddNode(rep.ID, models.AddNodeRequest{ParentID: rep.TreeData.ID, Move: "e4", MoveNumber: 1})
+	rep, _ = svc.AddNode(user.ID, rep.ID, models.AddNodeRequest{ParentID: rep.TreeData.ID, Move: "e4", MoveNumber: 1})
 	e4ID := rep.TreeData.Children[0].ID
-	rep, _ = svc.AddNode(rep.ID, models.AddNodeRequest{ParentID: e4ID, Move: "e5", MoveNumber: 1})
+	rep, _ = svc.AddNode(user.ID, rep.ID, models.AddNodeRequest{ParentID: e4ID, Move: "e5", MoveNumber: 1})
 	e5ID := rep.TreeData.Children[0].Children[0].ID
-	rep, _ = svc.AddNode(rep.ID, models.AddNodeRequest{ParentID: e5ID, Move: "Nf3", MoveNumber: 2})
+	rep, _ = svc.AddNode(user.ID, rep.ID, models.AddNodeRequest{ParentID: e5ID, Move: "Nf3", MoveNumber: 2})
 
 	// Extract from e4 node
 	result, err := svc.ExtractSubtree(user.ID, rep.ID, e4ID, "Extracted")
@@ -385,32 +385,32 @@ func TestRepertoireService_MergeTranspositions_RealDB(t *testing.T) {
 	rootID := rep.TreeData.ID
 
 	// Path 1: 1.e4 e5 2.Nf3 Nc6 3.Bc4
-	rep, _ = svc.AddNode(rep.ID, models.AddNodeRequest{ParentID: rootID, Move: "e4", MoveNumber: 1})
+	rep, _ = svc.AddNode(user.ID, rep.ID, models.AddNodeRequest{ParentID: rootID, Move: "e4", MoveNumber: 1})
 	e4ID := rep.TreeData.Children[0].ID
-	rep, _ = svc.AddNode(rep.ID, models.AddNodeRequest{ParentID: e4ID, Move: "e5", MoveNumber: 1})
+	rep, _ = svc.AddNode(user.ID, rep.ID, models.AddNodeRequest{ParentID: e4ID, Move: "e5", MoveNumber: 1})
 	e5AfterE4 := rep.TreeData.Children[0].Children[0].ID
-	rep, _ = svc.AddNode(rep.ID, models.AddNodeRequest{ParentID: e5AfterE4, Move: "Nf3", MoveNumber: 2})
+	rep, _ = svc.AddNode(user.ID, rep.ID, models.AddNodeRequest{ParentID: e5AfterE4, Move: "Nf3", MoveNumber: 2})
 	nf3AfterE5 := rep.TreeData.Children[0].Children[0].Children[0].ID
-	rep, _ = svc.AddNode(rep.ID, models.AddNodeRequest{ParentID: nf3AfterE5, Move: "Nc6", MoveNumber: 2})
+	rep, _ = svc.AddNode(user.ID, rep.ID, models.AddNodeRequest{ParentID: nf3AfterE5, Move: "Nc6", MoveNumber: 2})
 	nc6AfterNf3 := rep.TreeData.Children[0].Children[0].Children[0].Children[0].ID
-	rep, _ = svc.AddNode(rep.ID, models.AddNodeRequest{ParentID: nc6AfterNf3, Move: "Bc4", MoveNumber: 3})
+	rep, _ = svc.AddNode(user.ID, rep.ID, models.AddNodeRequest{ParentID: nc6AfterNf3, Move: "Bc4", MoveNumber: 3})
 
 	// Path 2: 1.Nf3 Nc6 2.e4 e5 3.Bc4
 	// Both paths reach the same position after Bc4 (no en passant difference)
-	rep, _ = svc.AddNode(rep.ID, models.AddNodeRequest{ParentID: rootID, Move: "Nf3", MoveNumber: 1})
+	rep, _ = svc.AddNode(user.ID, rep.ID, models.AddNodeRequest{ParentID: rootID, Move: "Nf3", MoveNumber: 1})
 	nf3ID := rep.TreeData.Children[1].ID
-	rep, _ = svc.AddNode(rep.ID, models.AddNodeRequest{ParentID: nf3ID, Move: "Nc6", MoveNumber: 1})
+	rep, _ = svc.AddNode(user.ID, rep.ID, models.AddNodeRequest{ParentID: nf3ID, Move: "Nc6", MoveNumber: 1})
 	nc6AfterNf3Root := rep.TreeData.Children[1].Children[0].ID
-	rep, _ = svc.AddNode(rep.ID, models.AddNodeRequest{ParentID: nc6AfterNf3Root, Move: "e4", MoveNumber: 2})
+	rep, _ = svc.AddNode(user.ID, rep.ID, models.AddNodeRequest{ParentID: nc6AfterNf3Root, Move: "e4", MoveNumber: 2})
 	e4AfterNc6 := rep.TreeData.Children[1].Children[0].Children[0].ID
-	rep, _ = svc.AddNode(rep.ID, models.AddNodeRequest{ParentID: e4AfterNc6, Move: "e5", MoveNumber: 2})
+	rep, _ = svc.AddNode(user.ID, rep.ID, models.AddNodeRequest{ParentID: e4AfterNc6, Move: "e5", MoveNumber: 2})
 	e5AfterE4Path2 := rep.TreeData.Children[1].Children[0].Children[0].Children[0].ID
-	rep, _ = svc.AddNode(rep.ID, models.AddNodeRequest{ParentID: e5AfterE4Path2, Move: "Bc4", MoveNumber: 3})
+	rep, _ = svc.AddNode(user.ID, rep.ID, models.AddNodeRequest{ParentID: e5AfterE4Path2, Move: "Bc4", MoveNumber: 3})
 
 	nodeCountBefore := rep.Metadata.TotalNodes
 
 	// Merge transpositions
-	merged, err := svc.MergeTranspositions(rep.ID)
+	merged, err := svc.MergeTranspositions(user.ID, rep.ID)
 	require.NoError(t, err)
 	require.NotNil(t, merged)
 
@@ -443,11 +443,11 @@ func TestRepertoireService_UpdateNodeComment(t *testing.T) {
 	svc := services.NewRepertoireService(repos.Repertoire)
 
 	rep, _ := svc.CreateRepertoire(user.ID, "Comment Test", models.ColorWhite)
-	rep, _ = svc.AddNode(rep.ID, models.AddNodeRequest{ParentID: rep.TreeData.ID, Move: "e4", MoveNumber: 1})
+	rep, _ = svc.AddNode(user.ID, rep.ID, models.AddNodeRequest{ParentID: rep.TreeData.ID, Move: "e4", MoveNumber: 1})
 	e4ID := rep.TreeData.Children[0].ID
 
 	// Add comment
-	rep, err := svc.UpdateNodeComment(rep.ID, e4ID, "King's pawn opening")
+	rep, err := svc.UpdateNodeComment(user.ID, rep.ID, e4ID, "King's pawn opening")
 	require.NoError(t, err)
 
 	got, _ := svc.GetRepertoire(rep.ID)
@@ -456,7 +456,7 @@ func TestRepertoireService_UpdateNodeComment(t *testing.T) {
 	assert.Equal(t, "King's pawn opening", *e4Node.Comment)
 
 	// Modify comment
-	rep, err = svc.UpdateNodeComment(rep.ID, e4ID, "Updated comment")
+	rep, err = svc.UpdateNodeComment(user.ID, rep.ID, e4ID, "Updated comment")
 	require.NoError(t, err)
 
 	got, _ = svc.GetRepertoire(rep.ID)
@@ -464,7 +464,7 @@ func TestRepertoireService_UpdateNodeComment(t *testing.T) {
 	assert.Equal(t, "Updated comment", *got.TreeData.Children[0].Comment)
 
 	// Remove comment (empty string)
-	rep, err = svc.UpdateNodeComment(rep.ID, e4ID, "")
+	rep, err = svc.UpdateNodeComment(user.ID, rep.ID, e4ID, "")
 	require.NoError(t, err)
 
 	got, _ = svc.GetRepertoire(rep.ID)
@@ -481,18 +481,18 @@ func TestRepertoireService_SaveTree_JSONBIntegrity(t *testing.T) {
 	rep, _ := svc.CreateRepertoire(user.ID, "JSONB Test", models.ColorWhite)
 	rootID := rep.TreeData.ID
 
-	rep, _ = svc.AddNode(rep.ID, models.AddNodeRequest{ParentID: rootID, Move: "e4", MoveNumber: 1})
+	rep, _ = svc.AddNode(user.ID, rep.ID, models.AddNodeRequest{ParentID: rootID, Move: "e4", MoveNumber: 1})
 	e4ID := rep.TreeData.Children[0].ID
-	rep, _ = svc.AddNode(rep.ID, models.AddNodeRequest{ParentID: rootID, Move: "d4", MoveNumber: 1})
-	rep, _ = svc.AddNode(rep.ID, models.AddNodeRequest{ParentID: e4ID, Move: "e5", MoveNumber: 1})
-	rep, _ = svc.AddNode(rep.ID, models.AddNodeRequest{ParentID: e4ID, Move: "c5", MoveNumber: 1})
+	rep, _ = svc.AddNode(user.ID, rep.ID, models.AddNodeRequest{ParentID: rootID, Move: "d4", MoveNumber: 1})
+	rep, _ = svc.AddNode(user.ID, rep.ID, models.AddNodeRequest{ParentID: e4ID, Move: "e5", MoveNumber: 1})
+	rep, _ = svc.AddNode(user.ID, rep.ID, models.AddNodeRequest{ParentID: e4ID, Move: "c5", MoveNumber: 1})
 
 	// Serialize tree, save, re-read, compare
 	treeJSON1, err := json.Marshal(rep.TreeData)
 	require.NoError(t, err)
 
 	// Save the tree directly
-	saved, err := svc.SaveTree(rep.ID, rep.TreeData)
+	saved, err := svc.SaveTree(user.ID, rep.ID, rep.TreeData)
 	require.NoError(t, err)
 
 	treeJSON2, err := json.Marshal(saved.TreeData)

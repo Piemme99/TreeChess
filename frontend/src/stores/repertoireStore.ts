@@ -23,8 +23,9 @@ interface RepertoireState {
   fetchCategories: () => Promise<void>;
 
   // Actions - repertoire management
-  createRepertoire: (name: string, color: Color, isPublic?: boolean) => Promise<Repertoire>;
+  createRepertoire: (name: string, color: Color, isPublic?: boolean, description?: string) => Promise<Repertoire>;
   renameRepertoire: (id: string, name: string) => Promise<void>;
+  updateDescription: (id: string, description: string) => Promise<void>;
   deleteRepertoire: (id: string) => Promise<void>;
   mergeRepertoires: (ids: string[], name: string) => Promise<Repertoire>;
   assignRepertoireToCategory: (repertoireId: string, categoryId: string | null) => Promise<void>;
@@ -107,10 +108,10 @@ export const useRepertoireStore = create<RepertoireState>((set, get) => ({
     }
   },
 
-  createRepertoire: async (name: string, color: Color, isPublic?: boolean) => {
+  createRepertoire: async (name: string, color: Color, isPublic?: boolean, description?: string) => {
     set({ loading: true, error: null });
     try {
-      const repertoire = await repertoireApi.create({ name, color, isPublic });
+      const repertoire = await repertoireApi.create({ name, color, isPublic, description });
       set((state) => ({
         repertoires: [...state.repertoires, repertoire],
         loading: false
@@ -140,6 +141,20 @@ export const useRepertoireStore = create<RepertoireState>((set, get) => ({
         error: { message: 'Failed to rename repertoire' },
         loading: false
       });
+      throw err;
+    }
+  },
+
+  updateDescription: async (id: string, description: string) => {
+    try {
+      const repertoire = await repertoireApi.updateDescription(id, description);
+      set((state) => ({
+        repertoires: state.repertoires.map((r) =>
+          r.id === id ? repertoire : r
+        ),
+      }));
+    } catch (err) {
+      toast.error('Failed to update description');
       throw err;
     }
   },

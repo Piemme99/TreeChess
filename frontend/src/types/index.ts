@@ -113,6 +113,7 @@ export interface RepertoireMetadata {
 export interface Repertoire {
   id: string;
   name: string;
+  description: string;
   color: Color;
   isPublic: boolean;
   categoryId?: string | null;
@@ -126,12 +127,14 @@ export interface Repertoire {
 // Request types for repertoire management
 export interface CreateRepertoireRequest {
   name: string;
+  description?: string;
   color: Color;
   isPublic?: boolean;
 }
 
 export interface UpdateRepertoireRequest {
-  name: string;
+  name?: string;
+  description?: string;
 }
 
 // Lightweight reference to a repertoire

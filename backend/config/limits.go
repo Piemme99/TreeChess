@@ -5,8 +5,9 @@ import "time"
 // Application limits and constants
 const (
 	// Repertoire limits
-	MaxRepertoires       = 50
-	MaxRepertoireNameLen = 100
+	MaxRepertoires              = 50
+	MaxRepertoireNameLen        = 100
+	MaxRepertoireDescriptionLen = 500
 
 	// File upload limits
 	MaxPGNFileSize = 10 * 1024 * 1024 // 10MB
@@ -24,7 +25,7 @@ const (
 	MigrationDBTimeout = 30 * time.Second
 
 	// Video import limits
-	MaxVideoLengthSeconds = 3600      // 1 hour max
+	MaxVideoLengthSeconds = 3600 // 1 hour max
 	VideoProcessTimeout   = 30 * time.Minute
 	MaxVideoImports       = 50
 )

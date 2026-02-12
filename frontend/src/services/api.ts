@@ -232,6 +232,12 @@ export const repertoireApi = {
     return response.data;
   },
 
+  updateDescription: async (id: string, description: string): Promise<Repertoire> => {
+    const data: UpdateRepertoireRequest = { description };
+    const response = await api.patch(`/repertoires/${id}`, data);
+    return response.data;
+  },
+
   delete: async (id: string): Promise<void> => {
     await api.delete(`/repertoires/${id}`);
   },

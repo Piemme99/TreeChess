@@ -153,7 +153,7 @@ func TestImportStudyHandler_Success(t *testing.T) {
 		CreateRepertoireFunc: func(userID, name string, color models.Color) (*models.Repertoire, error) {
 			return &models.Repertoire{ID: "rep-1", Name: name, Color: color}, nil
 		},
-		SaveTreeFunc: func(repertoireID string, treeData models.RepertoireNode) (*models.Repertoire, error) {
+		SaveTreeFunc: func(userID, repertoireID string, treeData models.RepertoireNode) (*models.Repertoire, error) {
 			return &models.Repertoire{ID: repertoireID, TreeData: treeData}, nil
 		},
 	}

@@ -2,11 +2,15 @@ import { useState, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { DndContext, DragEndEvent, DragOverlay, useDraggable, useDroppable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
-import { Button, ConfirmModal } from '../../../../shared/components/UI';
+import { motion } from 'framer-motion';
+import { staggerContainer } from '../../../../shared/utils/animations';
+import { Button } from '../../../../shared/components/UI';
+import { ConfirmModal } from '../../../../shared/components/UI';
 import { useRepertoireStore } from '../../../../stores/repertoireStore';
 import { toast } from '../../../../stores/toastStore';
 import type { Color, Repertoire, Category } from '../../../../types';
 import { CategorySection } from './CategorySection';
+import { RepertoireCard } from './RepertoireCard';
 
 interface RepertoireSelectorProps {
   color: Color;
@@ -32,9 +36,8 @@ function DraggableRepertoireItem({
     ? {
         transform: CSS.Transform.toString(transform),
         opacity: isDragging ? 0.5 : 1,
-        cursor: isDragging ? 'grabbing' : 'grab'
       }
-    : { cursor: 'grab' };
+    : {};
 
   return (
     <div ref={setNodeRef} style={style}>
@@ -67,7 +70,14 @@ function DroppableUncategorized({
           {isOver && <span className="ml-2 text-primary">Drop here</span>}
         </div>
       )}
-      {children}
+      <motion.div
+        variants={staggerContainer}
+        initial="hidden"
+        animate="visible"
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+      >
+        {children}
+      </motion.div>
     </div>
   );
 }
@@ -98,6 +108,7 @@ export function RepertoireSelector({ color, repertoires, categories, onImportStu
   const [mergeName, setMergeName] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [newIsPublic, setNewIsPublic] = useState(true);
+  const [newDescription, setNewDescription] = useState('');
 
   // Filter categories and repertoires by color
   const colorCategories = useMemo(
@@ -134,8 +145,9 @@ export function RepertoireSelector({ color, repertoires, categories, onImportStu
 
     setLoading(true);
     try {
-      const rep = await createRepertoire(newName.trim(), color, newIsPublic);
+      const rep = await createRepertoire(newName.trim(), color, newIsPublic, newDescription.trim() || undefined);
       setNewName('');
+      setNewDescription('');
       setNewIsPublic(true);
       setIsCreating(false);
       navigate(`/repertoire/${rep.id}/edit`, { state: { from: location.pathname } });
@@ -320,7 +332,7 @@ export function RepertoireSelector({ color, repertoires, categories, onImportStu
           </div>
         )}
 
-        <div className="flex flex-col gap-2 mb-6">
+        <div className="flex flex-col gap-4 mb-6">
           {/* Categories */}
           {colorCategories.map((category) => (
             <CategorySection
@@ -344,88 +356,26 @@ export function RepertoireSelector({ color, repertoires, categories, onImportStu
 
           {/* Uncategorized repertoires */}
           <DroppableUncategorized hasCategories={colorCategories.length > 0}>
-            {uncategorizedRepertoires.map((rep) => (
+            {uncategorizedRepertoires.map((rep, i) => (
               <DraggableRepertoireItem key={rep.id} repertoire={rep}>
                 {(_isDragging, dragAttributes, dragListeners) => (
-                  <div className={`flex items-center justify-between p-4 bg-bg-card rounded-xl gap-4 mb-1${selectedIds.has(rep.id) ? ' outline-2 outline-primary outline-offset-[-2px]' : ''}`}>
-                    {editingId === rep.id ? (
-                      <div className="flex gap-2 flex-1 items-center">
-                        <input
-                          type="text"
-                          value={editName}
-                          onChange={(e) => setEditName(e.target.value)}
-                          placeholder="Repertoire name"
-                          className="flex-1 py-2 px-4 border border-border rounded-xl text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary-light"
-                          autoFocus
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') handleRename(rep.id);
-                            if (e.key === 'Escape') cancelEditing();
-                          }}
-                        />
-                        <Button variant="primary" size="sm" onClick={() => handleRename(rep.id)} disabled={loading}>
-                          Save
-                        </Button>
-                        <Button variant="ghost" size="sm" onClick={cancelEditing} disabled={loading}>
-                          Cancel
-                        </Button>
-                      </div>
-                    ) : (
-                      <>
-                        <div
-                          className="flex items-center shrink-0 cursor-grab active:cursor-grabbing p-1 text-text-muted hover:text-text"
-                          {...dragAttributes}
-                          {...dragListeners}
-                        >
-                          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                            <circle cx="5" cy="4" r="1.5" />
-                            <circle cx="11" cy="4" r="1.5" />
-                            <circle cx="5" cy="8" r="1.5" />
-                            <circle cx="11" cy="8" r="1.5" />
-                            <circle cx="5" cy="12" r="1.5" />
-                            <circle cx="11" cy="12" r="1.5" />
-                          </svg>
-                        </div>
-                        <label className="flex items-center shrink-0 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={selectedIds.has(rep.id)}
-                            onChange={() => toggleSelection(rep.id)}
-                            className="w-4 h-4 cursor-pointer accent-primary"
-                          />
-                        </label>
-                        <div className="flex flex-col gap-1 flex-1 min-w-0">
-                          <span
-                            className="font-medium whitespace-nowrap overflow-hidden text-ellipsis cursor-text"
-                            onDoubleClick={() => startEditing(rep.id, rep.name)}
-                          >
-                            {rep.name}
-                          </span>
-                          <span className="text-xs text-text-muted">
-                            {rep.metadata.totalMoves} moves, depth {rep.metadata.deepestDepth}
-                          </span>
-                        </div>
-                        <div className="flex gap-1 shrink-0">
-                          <Button
-                            variant="primary"
-                            size="sm"
-                            onClick={() => navigate(`/repertoire/${rep.id}/edit`, { state: { from: location.pathname } })}
-                          >
-                            Open
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDelete(rep.id, rep.name)}
-                            disabled={loading}
-                          >
-                            <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5">
-                              <path d="M2 4h12M5.5 4V2.5a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1V4M6.5 7v5M9.5 7v5M3.5 4l.5 9a1.5 1.5 0 0 0 1.5 1.5h5A1.5 1.5 0 0 0 12 13l.5-9" strokeLinecap="round" strokeLinejoin="round" />
-                            </svg>
-                          </Button>
-                        </div>
-                      </>
-                    )}
-                  </div>
+                  <RepertoireCard
+                    repertoire={rep}
+                    selected={selectedIds.has(rep.id)}
+                    editing={editingId === rep.id}
+                    editName={editName}
+                    loading={loading}
+                    index={i}
+                    onOpen={() => navigate(`/repertoire/${rep.id}/edit`, { state: { from: location.pathname } })}
+                    onDelete={() => handleDelete(rep.id, rep.name)}
+                    onToggleSelection={() => toggleSelection(rep.id)}
+                    onStartEditing={() => startEditing(rep.id, rep.name)}
+                    onEditNameChange={setEditName}
+                    onRename={() => handleRename(rep.id)}
+                    onCancelEditing={cancelEditing}
+                    dragAttributes={dragAttributes}
+                    dragListeners={dragListeners}
+                  />
                 )}
               </DraggableRepertoireItem>
             ))}
@@ -491,6 +441,7 @@ export function RepertoireSelector({ color, repertoires, categories, onImportStu
                   if (e.key === 'Escape') {
                     setIsCreating(false);
                     setNewName('');
+                    setNewDescription('');
                     setNewIsPublic(true);
                   }
                 }}
@@ -498,10 +449,18 @@ export function RepertoireSelector({ color, repertoires, categories, onImportStu
               <Button variant="primary" onClick={handleCreate} disabled={loading}>
                 Create
               </Button>
-              <Button variant="ghost" onClick={() => { setIsCreating(false); setNewName(''); setNewIsPublic(true); }} disabled={loading}>
+              <Button variant="ghost" onClick={() => { setIsCreating(false); setNewName(''); setNewDescription(''); setNewIsPublic(true); }} disabled={loading}>
                 Cancel
               </Button>
             </div>
+            <textarea
+              value={newDescription}
+              onChange={(e) => setNewDescription(e.target.value)}
+              placeholder="Description (optional)"
+              maxLength={500}
+              rows={2}
+              className="py-2 px-4 border border-border rounded-xl text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary-light resize-y min-h-[2.5rem]"
+            />
             <label className="flex items-center gap-2 text-xs text-text-muted cursor-pointer select-none pl-1">
               <input
                 type="checkbox"

@@ -210,7 +210,7 @@ func AssignCategoryHandler(svc *services.RepertoireService, catSvc *services.Cat
 			categoryID = nil
 		}
 
-		rep, err := svc.AssignToCategory(idParam, categoryID)
+		rep, err := svc.AssignToCategory(userID, idParam, categoryID)
 		if err != nil {
 			if errors.Is(err, services.ErrNotFound) {
 				return NotFoundResponse(c, "repertoire")

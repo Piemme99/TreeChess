@@ -36,9 +36,10 @@ type RepertoireRepository interface {
 	GetByColor(userID string, color models.Color) ([]models.Repertoire, error)
 	GetAll(userID string) ([]models.Repertoire, error)
 	Create(userID string, name string, color models.Color) (*models.Repertoire, error)
-	Save(id string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error)
-	UpdateName(id string, name string) (*models.Repertoire, error)
-	Delete(id string) error
+	Save(id string, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error)
+	UpdateName(id string, userID string, name string) (*models.Repertoire, error)
+	UpdateDescription(id string, userID string, description string) (*models.Repertoire, error)
+	Delete(id string, userID string) error
 	Count(userID string) (int, error)
 	Exists(id string) (bool, error)
 	BelongsToUser(id string, userID string) (bool, error)

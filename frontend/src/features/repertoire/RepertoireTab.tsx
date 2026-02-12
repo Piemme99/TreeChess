@@ -16,7 +16,7 @@ export function RepertoireTab() {
 
   if (loading && repertoires.length === 0 && categories.length === 0) {
     return (
-      <div className="max-w-[700px] mx-auto w-full flex flex-col items-center py-8 gap-8">
+      <div className="max-w-[960px] mx-auto w-full flex flex-col items-center py-8 gap-8">
         <Loading size="lg" text="Loading repertoires..." />
       </div>
     );
@@ -27,7 +27,7 @@ export function RepertoireTab() {
       variants={staggerContainer}
       initial="hidden"
       animate="visible"
-      className="max-w-[700px] mx-auto w-full flex flex-col py-8 px-4 gap-6"
+      className="max-w-[960px] mx-auto w-full flex flex-col py-8 px-4 gap-6"
     >
       <motion.h1 variants={fadeUp} custom={0} className="text-2xl font-bold text-text font-display">Repertoires</motion.h1>
 
