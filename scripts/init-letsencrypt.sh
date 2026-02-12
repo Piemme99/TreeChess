@@ -101,9 +101,17 @@ docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" run --rm --entrypoint "
     --cert-name kumquat \
     -d "$DOMAIN"
 
-# --- Step 5: Reload nginx with the real certificate ---
-# Certbot has replaced the temporary certificate with the real one at the same path.
-# We just need to tell nginx to reload and pick up the new certificate.
+# --- Step 5: Fix permissions and reload nginx with the real certificate ---
+# Certbot creates certs as root with restrictive permissions.
+# nginx-unprivileged (UID 101) needs read access to the certificate files.
+# Let's Encrypt uses symlinks: live/kumquat/ -> ../../archive/kumquat/
+echo ">>> Fixing certificate permissions for nginx-unprivileged..."
+chmod 755 ./certbot/conf/live
+chmod 755 ./certbot/conf/archive
+chmod 755 "$CERT_PATH"
+chmod 755 ./certbot/conf/archive/kumquat
+chmod 644 ./certbot/conf/archive/kumquat/*.pem
+
 echo ">>> Reloading nginx with the real certificate..."
 docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" exec frontend nginx -s reload
 
