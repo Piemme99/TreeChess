@@ -758,17 +758,18 @@ func (s *ImportService) reanalyzeGameFromMoves(game *models.GameAnalysis, repert
 					break
 				}
 			}
-			if found {
+			switch {
+			case found:
 				status = "in-repertoire"
 				if move.IsUserMove {
 					result.MatchScore++
 				}
-			} else if move.IsUserMove {
+			case move.IsUserMove:
 				status = "out-of-repertoire"
 				if len(node.Children) > 0 && node.Children[0].Move != nil {
 					expectedMove = *node.Children[0].Move
 				}
-			} else {
+			default:
 				status = "opponent-new"
 			}
 		}

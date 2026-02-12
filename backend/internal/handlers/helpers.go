@@ -87,7 +87,7 @@ func ParseIntQueryParam(c echo.Context, paramName string, defaultValue, minValue
 // Returns true if valid, or sends an error response and returns false
 func RequireField(c echo.Context, fieldName, value string) bool {
 	if value == "" {
-		BadRequestResponse(c, fieldName+" is required")
+		_ = BadRequestResponse(c, fieldName+" is required")
 		return false
 	}
 	return true

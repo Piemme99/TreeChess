@@ -54,7 +54,7 @@ func (s *LichessService) FetchStudyPGN(studyID, authToken string) (string, error
 	if err != nil {
 		return "", fmt.Errorf("failed to fetch study from Lichess: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	switch resp.StatusCode {
 	case http.StatusOK:
@@ -66,7 +66,7 @@ func (s *LichessService) FetchStudyPGN(studyID, authToken string) (string, error
 	case http.StatusTooManyRequests:
 		return "", ErrLichessRateLimited
 	default:
-		return "", fmt.Errorf("Lichess API error: %s", resp.Status)
+		return "", fmt.Errorf("lichess API error: %s", resp.Status)
 	}
 
 	body, err := io.ReadAll(resp.Body)
@@ -105,7 +105,7 @@ func (s *LichessService) FetchStudyChapterPGN(studyID, chapterID, authToken stri
 	if err != nil {
 		return "", fmt.Errorf("failed to fetch study chapter from Lichess: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	switch resp.StatusCode {
 	case http.StatusOK:
@@ -117,7 +117,7 @@ func (s *LichessService) FetchStudyChapterPGN(studyID, chapterID, authToken stri
 	case http.StatusTooManyRequests:
 		return "", ErrLichessRateLimited
 	default:
-		return "", fmt.Errorf("Lichess API error: %s", resp.Status)
+		return "", fmt.Errorf("lichess API error: %s", resp.Status)
 	}
 
 	body, err := io.ReadAll(resp.Body)
@@ -182,7 +182,7 @@ func (s *LichessService) FetchGames(username string, options models.LichessImpor
 	if err != nil {
 		return "", fmt.Errorf("failed to fetch games from Lichess: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Handle response codes
 	switch resp.StatusCode {
@@ -193,7 +193,7 @@ func (s *LichessService) FetchGames(username string, options models.LichessImpor
 	case http.StatusTooManyRequests:
 		return "", ErrLichessRateLimited
 	default:
-		return "", fmt.Errorf("Lichess API error: %s", resp.Status)
+		return "", fmt.Errorf("lichess API error: %s", resp.Status)
 	}
 
 	body, err := io.ReadAll(resp.Body)
@@ -257,13 +257,13 @@ func (s *LichessService) GetPopularTopics() (*models.LichessTopicsResponse, erro
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch topics from Lichess: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode == http.StatusTooManyRequests {
 		return nil, ErrLichessRateLimited
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("Lichess API error: %s", resp.Status)
+		return nil, fmt.Errorf("lichess API error: %s", resp.Status)
 	}
 
 	var result models.LichessTopicsResponse
@@ -291,7 +291,7 @@ func (s *LichessService) fetchStudyBrowseJSON(reqURL, authToken string) (*models
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch studies from Lichess: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	switch resp.StatusCode {
 	case http.StatusOK:
@@ -303,7 +303,7 @@ func (s *LichessService) fetchStudyBrowseJSON(reqURL, authToken string) (*models
 	case http.StatusTooManyRequests:
 		return nil, ErrLichessRateLimited
 	default:
-		return nil, fmt.Errorf("Lichess API error: %s", resp.Status)
+		return nil, fmt.Errorf("lichess API error: %s", resp.Status)
 	}
 
 	var result models.LichessStudySearchResponse

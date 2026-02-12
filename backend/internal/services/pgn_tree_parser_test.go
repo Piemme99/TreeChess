@@ -114,14 +114,15 @@ func TestParsePGNToTree_SingleVariation(t *testing.T) {
 	require.Len(t, e4.Children, 2, "e4 should have two children: e5 and c5")
 
 	for _, child := range e4.Children {
-		if *child.Move == "e5" {
+		switch *child.Move {
+		case "e5":
 			// e5 -> Nf3
 			assert.Len(t, child.Children, 1)
-		} else if *child.Move == "c5" {
+		case "c5":
 			// c5 -> Nf3
 			assert.Len(t, child.Children, 1)
 			assert.Equal(t, "Nf3", *child.Children[0].Move)
-		} else {
+		default:
 			t.Fatalf("unexpected child move: %s", *child.Move)
 		}
 	}

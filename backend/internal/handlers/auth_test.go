@@ -120,7 +120,7 @@ func TestRegisterHandler_PasswordTooShort(t *testing.T) {
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
-	handler.RegisterHandler(c)
+	_ = handler.RegisterHandler(c)
 
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 }
@@ -140,7 +140,7 @@ func TestRegisterHandler_UsernameExists(t *testing.T) {
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
-	handler.RegisterHandler(c)
+	_ = handler.RegisterHandler(c)
 
 	assert.Equal(t, http.StatusConflict, rec.Code)
 }
@@ -160,7 +160,7 @@ func TestRegisterHandler_EmailExists(t *testing.T) {
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
-	handler.RegisterHandler(c)
+	_ = handler.RegisterHandler(c)
 
 	assert.Equal(t, http.StatusConflict, rec.Code)
 }
@@ -613,7 +613,7 @@ func TestResetPasswordHandler_ShortPassword(t *testing.T) {
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
-	handler.ResetPasswordHandler(c)
+	_ = handler.ResetPasswordHandler(c)
 
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 
@@ -641,7 +641,7 @@ func TestResetPasswordHandler_MissingFields(t *testing.T) {
 			rec := httptest.NewRecorder()
 			c := e.NewContext(req, rec)
 
-			handler.ResetPasswordHandler(c)
+			_ = handler.ResetPasswordHandler(c)
 
 			assert.Equal(t, http.StatusBadRequest, rec.Code)
 		})
@@ -795,7 +795,7 @@ func TestChangePasswordHandler_MissingFields(t *testing.T) {
 			c := e.NewContext(req, rec)
 			c.Set("userID", "user-123")
 
-			handler.ChangePasswordHandler(c)
+			_ = handler.ChangePasswordHandler(c)
 
 			assert.Equal(t, http.StatusBadRequest, rec.Code)
 		})
@@ -818,7 +818,7 @@ func TestChangePasswordHandler_UserNotFound(t *testing.T) {
 	c := e.NewContext(req, rec)
 	c.Set("userID", "nonexistent")
 
-	handler.ChangePasswordHandler(c)
+	_ = handler.ChangePasswordHandler(c)
 
 	assert.Equal(t, http.StatusUnauthorized, rec.Code)
 }

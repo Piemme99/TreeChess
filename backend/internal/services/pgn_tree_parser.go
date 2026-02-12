@@ -408,9 +408,11 @@ func splitPGNHeadersAndMovetext(pgn string) (map[string]string, string) {
 	lines := strings.Split(pgn, "\n")
 	movetextStart := 0
 
+loop:
 	for i, line := range lines {
 		trimmed := strings.TrimSpace(line)
-		if strings.HasPrefix(trimmed, "[") && strings.HasSuffix(trimmed, "]") {
+		switch {
+		case strings.HasPrefix(trimmed, "[") && strings.HasSuffix(trimmed, "]"):
 			// Parse header tag
 			content := trimmed[1 : len(trimmed)-1]
 			parts := strings.SplitN(content, " ", 2)
@@ -420,10 +422,10 @@ func splitPGNHeadersAndMovetext(pgn string) (map[string]string, string) {
 				headers[key] = value
 			}
 			movetextStart = i + 1
-		} else if trimmed == "" && movetextStart == i {
+		case trimmed == "" && movetextStart == i:
 			movetextStart = i + 1
-		} else if trimmed != "" {
-			break
+		case trimmed != "":
+			break loop
 		}
 	}
 

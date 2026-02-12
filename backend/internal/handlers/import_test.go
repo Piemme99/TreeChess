@@ -964,15 +964,15 @@ func TestUploadHandler_CaseInsensitivePGNExtension(t *testing.T) {
 
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
-	writer.WriteField("username", "testuser")
+	_ = writer.WriteField("username", "testuser")
 	part, _ := writer.CreateFormFile("file", "test.PGN") // uppercase extension
-	part.Write([]byte(`[Event "Test"]
+	_, _ = part.Write([]byte(`[Event "Test"]
 [White "A"]
 [Black "testuser"]
 [Result "1-0"]
 
 1. e4 e5 1-0`))
-	writer.Close()
+	_ = writer.Close()
 
 	req := httptest.NewRequest(http.MethodPost, "/api/imports", body)
 	req.Header.Set(echo.HeaderContentType, writer.FormDataContentType())

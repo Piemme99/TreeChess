@@ -420,7 +420,7 @@ func TestImportPipeline_HandlerLevel_Upload(t *testing.T) {
 	part, err := writer.CreateFormFile("file", "test.pgn")
 	require.NoError(t, err)
 	_, _ = part.Write([]byte(testhelpers.SimplePGN("uploaduser", "opponent")))
-	writer.Close()
+	_ = writer.Close()
 
 	req := httptest.NewRequest(http.MethodPost, "/api/imports", body)
 	req.Header.Set("Content-Type", writer.FormDataContentType())

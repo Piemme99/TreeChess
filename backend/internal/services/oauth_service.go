@@ -99,11 +99,11 @@ func (s *OAuthService) HandleCallback(ctx context.Context, code, codeVerifier st
 	if err != nil {
 		return "", "", "", fmt.Errorf("failed to fetch Lichess account: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return "", "", "", fmt.Errorf("Lichess account request failed (%d): %s", resp.StatusCode, string(body))
+		return "", "", "", fmt.Errorf("lichess account request failed (%d): %s", resp.StatusCode, string(body))
 	}
 
 	var account lichessAccount

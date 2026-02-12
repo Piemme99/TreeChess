@@ -62,7 +62,7 @@ func (s *ChesscomService) FetchGames(username string, options models.ChesscomImp
 	case http.StatusTooManyRequests:
 		return "", ErrChesscomRateLimited
 	default:
-		return "", fmt.Errorf("Chess.com API error: %s", archivesResp.Status)
+		return "", fmt.Errorf("chess.com API error: %s", archivesResp.Status)
 	}
 
 	var archives chesscomArchivesResponse
@@ -146,7 +146,7 @@ func (s *ChesscomService) fetchMonthPGN(pgnURL string, timeClass string) (string
 		return "", ErrChesscomRateLimited
 	}
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("Chess.com API error: %s", resp.Status)
+		return "", fmt.Errorf("chess.com API error: %s", resp.Status)
 	}
 
 	body, err := io.ReadAll(resp.Body)

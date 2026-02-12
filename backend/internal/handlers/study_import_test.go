@@ -114,7 +114,7 @@ func TestPreviewStudyHandler_Forbidden(t *testing.T) {
 	c := e.NewContext(req, rec)
 	c.Set("userID", testUserID)
 
-	handler.PreviewStudyHandler(c)
+	_ = handler.PreviewStudyHandler(c)
 
 	assert.Equal(t, http.StatusForbidden, rec.Code)
 }
@@ -133,7 +133,7 @@ func TestPreviewStudyHandler_RateLimited(t *testing.T) {
 	c := e.NewContext(req, rec)
 	c.Set("userID", testUserID)
 
-	handler.PreviewStudyHandler(c)
+	_ = handler.PreviewStudyHandler(c)
 
 	assert.Equal(t, http.StatusTooManyRequests, rec.Code)
 }

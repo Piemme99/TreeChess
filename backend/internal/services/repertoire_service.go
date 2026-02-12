@@ -49,8 +49,8 @@ var (
 	ErrCustomStartingPosition = fmt.Errorf("chapter uses a custom starting position and cannot be imported as a repertoire")
 
 	// Lichess study errors
-	ErrLichessStudyNotFound  = fmt.Errorf("Lichess study not found")
-	ErrLichessStudyForbidden = fmt.Errorf("Lichess study is private, authentication required")
+	ErrLichessStudyNotFound  = fmt.Errorf("lichess study not found")
+	ErrLichessStudyForbidden = fmt.Errorf("lichess study is private, authentication required")
 )
 
 // RepertoireRepository interface for repository operations
