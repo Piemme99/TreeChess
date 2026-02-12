@@ -106,11 +106,13 @@ docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" run --rm --entrypoint "
 # nginx-unprivileged (UID 101) needs read access to the certificate files.
 # Let's Encrypt uses symlinks: live/kumquat/ -> ../../archive/kumquat/
 echo ">>> Fixing certificate permissions for nginx-unprivileged..."
-chmod 755 ./certbot/conf/live
-chmod 755 ./certbot/conf/archive
-chmod 755 "$CERT_PATH"
-chmod 755 ./certbot/conf/archive/kumquat
-chmod 644 ./certbot/conf/archive/kumquat/*.pem
+# Certbot runs as root inside the container, so the created files are owned by root
+# on the host. We need sudo to change permissions for nginx-unprivileged (UID 101).
+sudo chmod 755 ./certbot/conf/live
+sudo chmod 755 ./certbot/conf/archive
+sudo chmod 755 "$CERT_PATH"
+sudo chmod 755 ./certbot/conf/archive/kumquat
+sudo chmod 644 ./certbot/conf/archive/kumquat/*.pem
 
 echo ">>> Reloading nginx with the real certificate..."
 docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" exec frontend nginx -s reload
