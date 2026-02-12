@@ -32,6 +32,7 @@ FROM nginxinc/nginx-unprivileged:1.27-alpine AS prod
 RUN rm /etc/nginx/conf.d/default.conf
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY nginx.prod.conf /etc/nginx/nginx.prod.conf
+COPY nginx-entrypoint.sh /usr/local/bin/nginx-entrypoint.sh
 COPY --from=builder /app/dist /usr/share/nginx/html
 
 EXPOSE 8080 8443

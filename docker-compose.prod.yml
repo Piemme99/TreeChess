@@ -90,6 +90,9 @@ services:
       - ./certbot/conf:/etc/letsencrypt:ro
       # ACME challenge files (certbot writes here, nginx serves them)
       - ./certbot/www:/var/www/certbot:ro
+      # Certbot writes a flag here after renewal; entrypoint watches it to reload nginx
+      - certbot_reload:/var/run/certbot-reload
+    command: ["/usr/local/bin/nginx-entrypoint.sh"]
     networks:
       - frontend-net
     depends_on:
@@ -114,8 +117,10 @@ services:
       - ./certbot/conf:/etc/letsencrypt
       # Certbot writes ACME challenge files here
       - ./certbot/www:/var/www/certbot
-    # Check for renewal every 12 hours, reload nginx on success
-    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew --quiet; sleep 12h & wait $${!}; done;'"
+      # Shared volume for signaling nginx to reload after renewal
+      - certbot_reload:/var/run/certbot-reload
+    # Check for renewal every 12 hours; on success, write a flag for nginx to reload
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew --quiet --deploy-hook \"touch /var/run/certbot-reload/reload\"; sleep 12h & wait $${!}; done;'"
     networks:
       - frontend-net
     restart: unless-stopped
@@ -199,6 +204,7 @@ volumes:
   postgres_data:
   prometheus_data:
   grafana_data:
+  certbot_reload:
 
 networks:
   frontend-net:
