@@ -18,7 +18,7 @@ export function ForgotPasswordPage() {
     try {
       await authApi.forgotPassword(email);
       setSubmitted(true);
-    } catch (err) {
+    } catch {
       // Always show success to prevent email enumeration
       setSubmitted(true);
     } finally {
