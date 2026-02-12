@@ -21,6 +21,7 @@ set -euo pipefail
 DOMAIN="${1:?Usage: $0 <domain> [email]}"
 EMAIL="${2:-}"
 COMPOSE_FILE="docker-compose.prod.yml"
+ENV_FILE=".env.production"
 CERT_PATH="./certbot/conf/live/kumquat"
 
 # Use staging for testing (set to 1 to avoid rate limits during testing)
@@ -55,7 +56,7 @@ fi
 
 # --- Step 3: Start nginx (frontend) ---
 echo ">>> Starting frontend (nginx)..."
-docker compose -f "$COMPOSE_FILE" up -d frontend
+docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" up -d frontend
 echo "    Waiting for nginx to be ready..."
 sleep 5
 
@@ -77,7 +78,7 @@ if [ -n "$EMAIL" ]; then
     EMAIL_FLAG="--email $EMAIL"
 fi
 
-docker compose -f "$COMPOSE_FILE" run --rm certbot certonly \
+docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" run --rm certbot certonly \
     --webroot \
     --webroot-path=/var/www/certbot \
     $STAGING_FLAG \
@@ -89,7 +90,7 @@ docker compose -f "$COMPOSE_FILE" run --rm certbot certonly \
 
 # --- Step 6: Reload nginx with real certificate ---
 echo ">>> Reloading nginx with the real certificate..."
-docker compose -f "$COMPOSE_FILE" exec frontend nginx -s reload
+docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" exec frontend nginx -s reload
 
 echo ""
 echo "=== Done! ==="
@@ -98,4 +99,4 @@ echo ""
 echo "Certificate auto-renewal is handled by the certbot service"
 echo "in $COMPOSE_FILE (checks every 12 hours)."
 echo ""
-echo "To test renewal: docker compose -f $COMPOSE_FILE run --rm certbot renew --dry-run"
+echo "To test renewal: docker compose --env-file $ENV_FILE -f $COMPOSE_FILE run --rm certbot renew --dry-run"

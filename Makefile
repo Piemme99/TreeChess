@@ -22,17 +22,17 @@ restart:
 # === Production ===
 
 prod:
-	docker compose -f docker-compose.prod.yml up --build -d
+	docker compose --env-file .env.production -f docker-compose.prod.yml up --build -d
 
 prod-stop:
-	docker compose -f docker-compose.prod.yml down
+	docker compose --env-file .env.production -f docker-compose.prod.yml down
 
 prod-logs:
-	docker compose -f docker-compose.prod.yml logs -f
+	docker compose --env-file .env.production -f docker-compose.prod.yml logs -f
 
 prod-restart:
-	docker compose -f docker-compose.prod.yml down
-	docker compose -f docker-compose.prod.yml up --build -d
+	docker compose --env-file .env.production -f docker-compose.prod.yml down
+	docker compose --env-file .env.production -f docker-compose.prod.yml up --build -d
 
 prod-init-ssl:
 	@echo "Usage: make prod-init-ssl DOMAIN=yourdomain.com EMAIL=you@email.com"
@@ -40,7 +40,7 @@ prod-init-ssl:
 	./scripts/init-letsencrypt.sh $(DOMAIN) $(EMAIL)
 
 prod-renew-ssl:
-	docker compose -f docker-compose.prod.yml run --rm certbot renew --dry-run
+	docker compose --env-file .env.production -f docker-compose.prod.yml run --rm certbot renew --dry-run
 
 prod-backup:
 	./scripts/backup.sh
