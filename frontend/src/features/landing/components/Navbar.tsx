@@ -1,5 +1,4 @@
 import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
 
 export function Navbar() {
   return (
@@ -27,14 +26,18 @@ export function Navbar() {
           <a href="#integrations" className="text-sm text-text-muted hover:text-primary transition-colors font-medium">
             Integrations
           </a>
-          <motion.a
-            href="#cta"
-            whileHover={{ scale: 1.04 }}
-            whileTap={{ scale: 0.97 }}
+          <Link
+            to="/login"
+            className="text-sm text-text-muted hover:text-primary transition-colors font-medium"
+          >
+            Log In
+          </Link>
+          <Link
+            to="/login?tab=register"
             className="px-5 py-2.5 bg-gradient-to-r from-primary to-primary-hover text-white text-sm font-semibold rounded-xl shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/30 transition-shadow"
           >
-            Get Started
-          </motion.a>
+            Sign Up
+          </Link>
         </div>
       </div>
     </nav>

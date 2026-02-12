@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Github } from 'lucide-react';
 
 export function Footer() {
   return (
@@ -23,23 +23,33 @@ export function Footer() {
         </div>
 
         <div className="flex flex-col md:flex-row items-center justify-between gap-6 pt-6 border-t border-primary/10">
-          <nav className="flex flex-wrap gap-x-6 gap-y-2 text-sm" aria-label="Footer navigation">
-            <Link to="/legal" className="text-text-muted hover:text-text transition-colors">
-              Legal
-            </Link>
-            <Link to="/terms" className="text-text-muted hover:text-text transition-colors">
-              Terms
-            </Link>
-            <Link to="/privacy" className="text-text-muted hover:text-text transition-colors">
-              Privacy
-            </Link>
-            <Link to="/contact" className="text-text-muted hover:text-text transition-colors">
-              Contact
-            </Link>
+          <nav className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm" aria-label="Footer navigation">
+            <a
+              href="https://github.com/Piemme99/TreeChess"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-text-muted hover:text-text transition-colors"
+            >
+              <Github size={14} />
+              GitHub
+            </a>
           </nav>
-          <p className="text-xs text-text-light">
-            &copy; {new Date().getFullYear()} Kumquat. All rights reserved.
-          </p>
+          <div className="text-right">
+            <p className="text-xs text-text-light">
+              &copy; {new Date().getFullYear()} Kumquat. All rights reserved.
+            </p>
+            <p className="text-xs text-text-light mt-1">
+              Licensed under{' '}
+              <a
+                href="https://www.gnu.org/licenses/agpl-3.0.html"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline hover:text-text transition-colors"
+              >
+                AGPL-3.0
+              </a>
+            </p>
+          </div>
         </div>
       </div>
     </footer>

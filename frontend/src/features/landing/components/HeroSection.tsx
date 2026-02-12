@@ -1,15 +1,10 @@
 import { Link } from 'react-router-dom';
-import { motion, MotionValue } from 'framer-motion';
-import { Zap, ArrowRight, MousePointerClick } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Zap } from 'lucide-react';
 import { fadeUp } from '../utils/animations';
 import { Section } from './Section';
-import { MiniChessBoard } from './MiniChessBoard';
 
-interface HeroSectionProps {
-  bgY: MotionValue<number>;
-}
-
-export function HeroSection({ bgY }: HeroSectionProps) {
+export function HeroSection() {
   return (
     <Section className="relative z-10 px-6 pt-12 pb-20 md:pt-20 md:pb-28">
       <div className="max-w-6xl mx-auto">
@@ -49,36 +44,40 @@ export function HeroSection({ bgY }: HeroSectionProps) {
             </motion.p>
 
             <motion.div variants={fadeUp} custom={3} className="flex flex-wrap items-center gap-4">
-              <motion.div
-                whileHover={{ scale: 1.04, boxShadow: '0 20px 40px -12px rgba(230, 126, 34, 0.35)' }}
-                whileTap={{ scale: 0.97 }}
+              <Link
+                to="/login?tab=register"
+                className="inline-flex items-center gap-2.5 px-7 py-3.5 bg-gradient-to-r from-primary to-primary-hover text-white font-semibold rounded-2xl shadow-lg shadow-primary/20 text-base"
               >
-                <Link
-                  to="/login?tab=register"
-                  className="inline-flex items-center gap-2.5 px-7 py-3.5 bg-gradient-to-r from-primary to-primary-hover text-white font-semibold rounded-2xl shadow-lg shadow-primary/20 text-base"
-                >
-                  Start Building
-                  <ArrowRight size={18} />
-                </Link>
-              </motion.div>
-              <a
-                href="#features"
+                Sign Up
+              </Link>
+              <Link
+                to="/login"
                 className="inline-flex items-center gap-2 px-6 py-3.5 text-text-muted font-semibold rounded-2xl border border-border hover:border-primary/30 hover:bg-white transition-all text-base"
               >
-                See Features
-              </a>
+                Log In
+              </Link>
             </motion.div>
           </div>
 
-          {/* Interactive chess board */}
-          <motion.div variants={fadeUp} custom={2} className="flex justify-center lg:justify-end relative">
-            <motion.div style={{ y: bgY }} className="relative">
-              <MiniChessBoard />
-              <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-3 py-1.5 bg-white/90 backdrop-blur-sm border border-primary-light rounded-full shadow-sm">
-                <MousePointerClick size={12} className="text-primary" />
-                <span className="text-[11px] text-text-muted font-medium">Hover squares to see moves</span>
-              </div>
-            </motion.div>
+          {/* Screenshot preview */}
+          <motion.div variants={fadeUp} custom={2} className="flex justify-center lg:justify-end">
+            <div className="w-full max-w-lg rounded-2xl overflow-hidden shadow-xl shadow-primary/10 border border-primary-light bg-white">
+              <img
+                src="/screenshots/hero.png"
+                alt="Kumquat repertoire editor"
+                className="w-full h-auto"
+                loading="eager"
+                onError={(e) => {
+                  const target = e.currentTarget;
+                  target.style.display = 'none';
+                  target.parentElement!.classList.add('min-h-[300px]', 'flex', 'items-center', 'justify-center');
+                  const placeholder = document.createElement('span');
+                  placeholder.className = 'text-sm text-text-muted';
+                  placeholder.textContent = 'Screenshot coming soon';
+                  target.parentElement!.appendChild(placeholder);
+                }}
+              />
+            </div>
           </motion.div>
         </div>
       </div>

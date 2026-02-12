@@ -1,5 +1,6 @@
+import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Check } from 'lucide-react';
+import { Check, ImageOff } from 'lucide-react';
 import { fadeUp } from '../utils/animations';
 import { Section } from './Section';
 
@@ -9,14 +10,9 @@ const features = [
   'Quick search across all variations',
 ];
 
-const categories = [
-  { name: "King's Pawn (e4)", count: 5, color: 'var(--color-primary)' },
-  { name: "Queen's Pawn (d4)", count: 3, color: '#f59e0b' },
-  { name: 'Indian Defenses', count: 4, color: '#84cc16' },
-  { name: 'Anti-Sicilians', count: 2, color: '#06b6d4' },
-];
-
 export function OrganizationSection() {
+  const [imgError, setImgError] = useState(false);
+
   return (
     <Section className="relative z-10 px-6 py-16 md:py-24">
       <div className="max-w-5xl mx-auto">
@@ -46,37 +42,22 @@ export function OrganizationSection() {
           </motion.div>
 
           <motion.div variants={fadeUp} custom={1}>
-            <div className="bg-white rounded-2xl p-5 border border-primary-light shadow-sm">
-              <div className="flex items-center gap-2 mb-4 pb-3 border-b border-primary-light">
-                <div className="w-3 h-3 rounded-full bg-red-300" />
-                <div className="w-3 h-3 rounded-full bg-yellow-300" />
-                <div className="w-3 h-3 rounded-full bg-green-300" />
-                <span className="ml-3 text-xs text-text-muted font-medium tracking-wide uppercase">
-                  My Repertoires
-                </span>
+            {imgError ? (
+              <div className="bg-white rounded-2xl border border-primary-light shadow-sm min-h-[300px] flex flex-col items-center justify-center gap-3 text-text-muted">
+                <ImageOff size={32} className="text-primary/30" />
+                <span className="text-sm">Screenshot coming soon</span>
               </div>
-              <div className="space-y-2">
-                {categories.map((cat, i) => (
-                  <motion.div
-                    key={cat.name}
-                    initial={{ opacity: 0, x: -12 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.3 + i * 0.1 }}
-                    className="flex items-center justify-between px-4 py-3 bg-gray-50 rounded-xl border border-gray-100 hover:bg-primary-light/30 hover:border-primary/30 transition-colors cursor-pointer group"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: cat.color }} />
-                      <span className="text-sm font-medium text-text group-hover:text-primary-dark transition-colors">
-                        {cat.name}
-                      </span>
-                    </div>
-                    <span className="text-xs text-text-muted bg-gray-100 px-2 py-0.5 rounded-full">
-                      {cat.count} repertoires
-                    </span>
-                  </motion.div>
-                ))}
+            ) : (
+              <div className="bg-white rounded-2xl border border-primary-light shadow-sm overflow-hidden">
+                <img
+                  src="/screenshots/organization.png"
+                  alt="Repertoire organization with categories"
+                  className="w-full h-auto"
+                  loading="lazy"
+                  onError={() => setImgError(true)}
+                />
               </div>
-            </div>
+            )}
           </motion.div>
         </div>
       </div>
