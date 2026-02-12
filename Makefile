@@ -1,4 +1,4 @@
-.PHONY: dev build stop delete logs restart prod prod-stop prod-logs prod-restart prod-init-ssl prod-renew-ssl prod-backup prod-install-backup-cron
+.PHONY: dev build stop delete logs restart test lint test-frontend test-backend test-integration lint-frontend lint-backend prod prod-stop prod-logs prod-restart prod-init-ssl prod-renew-ssl prod-backup prod-install-backup-cron
 
 dev:
 	docker-compose up --build -d
@@ -18,6 +18,27 @@ logs:
 restart:
 	docker-compose down
 	docker-compose up --build -d
+
+# === Test & Lint ===
+
+test: test-frontend test-backend
+
+test-frontend:
+	cd frontend && npm run test:run
+
+test-backend:
+	cd backend && go test ./...
+
+test-integration:
+	cd backend && go test -tags=integration -v -timeout 300s ./tests/integration/...
+
+lint: lint-frontend lint-backend
+
+lint-frontend:
+	cd frontend && npm run lint && npx tsc --noEmit
+
+lint-backend:
+	cd backend && go vet ./... && golangci-lint run ./...
 
 # === Production ===
 
