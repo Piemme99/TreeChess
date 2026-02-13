@@ -8,7 +8,7 @@ Build, visualize, and manage your chess opening repertoire. Import games from Li
 
 ## A Note on Origins
 
-This project started as a vibe coding experiment that I decided to see through and make publicly available. If you run into any bugs or issues, please don't hesitate to report them -- feedback is always welcome!
+This project started as a vibe coding experiment that I decided to see through and make publicly available. If you run into any bugs or issues, please don't hesitate to report them, feedback is always welcome!
 
 ## Features
 
