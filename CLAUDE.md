@@ -202,3 +202,7 @@ src/
 
 - `AGENTS.md` - Build commands, code style guidelines, naming conventions, detailed patterns
 - `SPECIFICATIONS.md` - Full technical and functional specifications
+
+## Workflow Rules
+
+- **Always ask before committing:** After completing any task, always ask the user whether they would like you to commit the changes before proceeding. Never commit automatically without explicit user approval.

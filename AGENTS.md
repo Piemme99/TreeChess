@@ -173,3 +173,7 @@ if errors.Is(err, repository.ErrRepertoireNotFound) { ... }
 - Background worker: `EngineService.RunWorker` processes evaluations via Lichess Explorer API
 - Metrics endpoint on port 9090 (separate from main API on 8080)
 - CORS origins configurable via `CORS_ALLOWED_ORIGINS` env var (default `http://localhost:5173`)
+
+## Workflow Rules
+
+- **Always ask before committing:** After completing any task, always ask the user whether they would like you to commit the changes before proceeding. Never commit automatically without explicit user approval.
