@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
+import { LogOut } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { Button } from '../../shared/components/UI';
 import { toast } from '../../stores/toastStore';
@@ -13,6 +14,7 @@ export function ProfilePage() {
   usePageTitle('Profile');
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
+  const logout = useAuthStore((s) => s.logout);
   const updateProfile = useAuthStore((s) => s.updateProfile);
   const triggerSync = useAuthStore((s) => s.triggerSync);
   const deleteAccount = useAuthStore((s) => s.deleteAccount);
@@ -332,8 +334,20 @@ export function ProfilePage() {
             </div>
           </motion.div>
         )}
+        {/* Logout */}
+        <motion.div variants={fadeUp} initial="hidden" animate="visible" custom={4}>
+          <Button
+            variant="secondary"
+            onClick={logout}
+            className="w-full"
+          >
+            <LogOut className="w-4 h-4" />
+            Logout
+          </Button>
+        </motion.div>
+
         {/* Danger Zone */}
-        <motion.div variants={fadeUp} initial="hidden" animate="visible" custom={4} className="bg-bg-card rounded-2xl p-6 border border-danger/20 shadow-sm text-center">
+        <motion.div variants={fadeUp} initial="hidden" animate="visible" custom={5} className="bg-bg-card rounded-2xl p-6 border border-danger/20 shadow-sm text-center">
           <h3 className="text-base font-semibold font-display mb-1 text-danger">Danger Zone</h3>
           <p className="text-sm text-text-muted mb-4">
             Permanently delete your account and all associated data. This action cannot be undone.

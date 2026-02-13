@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, BookOpen, GraduationCap, User, LogOut, ChevronLeft, ChevronRight, Compass } from 'lucide-react';
+import { LayoutDashboard, BookOpen, GraduationCap, User, ChevronLeft, ChevronRight, Compass } from 'lucide-react';
 
 function PawnIcon({ className }: { className?: string }) {
   return (
@@ -39,7 +39,7 @@ function useMediaQuery(query: string) {
 }
 
 export function MainLayout() {
-  const { user, logout } = useAuthStore();
+  const { user } = useAuthStore();
   const navigate = useNavigate();
   const location = useLocation();
   const isRepertoireEdit = /^\/repertoire\/[^/]+\/edit/.test(location.pathname) || /^\/explore\/repertoire\/[^/]+/.test(location.pathname);
@@ -164,16 +164,6 @@ export function MainLayout() {
                 )}
               </button>
             )}
-            <button
-              className={`flex items-center justify-center gap-2 py-1.5 bg-transparent border border-primary/10 rounded-xl text-text-muted text-xs cursor-pointer font-sans transition-all duration-150 hover:border-danger/30 hover:text-danger hover:bg-danger-light/30 ${
-                isCollapsed ? 'px-1.5 w-8 h-8' : 'px-3'
-              }`}
-              onClick={logout}
-              title="Logout"
-            >
-              <LogOut className="w-4 h-4 shrink-0" />
-              {!isCollapsed && <span>Logout</span>}
-            </button>
           </div>
         </aside>
       )}
@@ -224,13 +214,6 @@ export function MainLayout() {
             <User className="w-5 h-5" />
             <span>Profile</span>
           </NavLink>
-          <button
-            onClick={logout}
-            className="flex flex-col items-center justify-center flex-1 gap-0.5 text-xs font-medium bg-transparent border-none cursor-pointer text-text-muted hover:text-danger transition-colors duration-150"
-          >
-            <LogOut className="w-5 h-5" />
-            <span>Logout</span>
-          </button>
         </nav>
       )}
     </div>
