@@ -3,7 +3,6 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
-import { staggerContainer } from '../../../../shared/utils/animations';
 import { Button, ConfirmModal } from '../../../../shared/components/UI';
 import { useRepertoireStore } from '../../../../stores/repertoireStore';
 import { toast } from '../../../../stores/toastStore';
@@ -206,12 +205,7 @@ export function CategorySection({
                   )}
                 </div>
               ) : (
-                <motion.div
-                  variants={staggerContainer}
-                  initial="hidden"
-                  animate="visible"
-                  className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
-                >
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {repertoires.map((rep, i) => (
                     <DraggableCategoryItem key={rep.id} repertoire={rep}>
                       {(dragAttributes, dragListeners) => (
@@ -235,7 +229,7 @@ export function CategorySection({
                       )}
                     </DraggableCategoryItem>
                   ))}
-                </motion.div>
+                </div>
               )}
             </div>
           </motion.div>

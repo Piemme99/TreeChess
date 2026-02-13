@@ -1,1 +1,1 @@
-export { fadeUp, staggerContainer } from '../../../shared/utils/animations';
+export { fadeUp } from '../../../shared/utils/animations';

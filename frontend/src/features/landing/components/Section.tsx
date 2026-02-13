@@ -1,6 +1,6 @@
 import { useRef } from 'react';
-import { motion, useInView } from 'framer-motion';
-import { staggerContainer } from '../utils/animations';
+import { useInView } from 'framer-motion';
+import { SectionInViewContext } from './SectionInViewContext';
 
 interface SectionProps {
   children: React.ReactNode;
@@ -13,15 +13,10 @@ export function Section({ children, className = '', id }: SectionProps) {
   const inView = useInView(ref, { once: true, margin: '-60px' });
 
   return (
-    <motion.section
-      id={id}
-      ref={ref}
-      initial="hidden"
-      animate={inView ? 'visible' : 'hidden'}
-      variants={staggerContainer}
-      className={className}
-    >
-      {children}
-    </motion.section>
+    <SectionInViewContext.Provider value={inView}>
+      <section id={id} ref={ref} className={className}>
+        {children}
+      </section>
+    </SectionInViewContext.Provider>
   );
 }

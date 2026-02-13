@@ -1,6 +1,6 @@
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { fadeUp, staggerContainer } from '../../../shared/utils/animations';
+import { fadeUp } from '../../../shared/utils/animations';
 import { ColorDot } from '../../../shared/components/UI';
 import type { Repertoire } from '../../../types';
 
@@ -26,6 +26,8 @@ function RepertoireCard({ repertoire, index }: { repertoire: Repertoire; index: 
   return (
     <motion.button
       variants={fadeUp}
+      initial="hidden"
+      animate="visible"
       custom={index}
       whileHover={{ scale: 1.04, boxShadow: '0 12px 24px -8px rgba(230,126,34,0.2)' }}
       whileTap={{ scale: 0.97 }}
@@ -46,13 +48,13 @@ function RepertoireCard({ repertoire, index }: { repertoire: Repertoire; index: 
 
 export function RepertoireOverview({ repertoires }: RepertoireOverviewProps) {
   return (
-    <motion.section variants={staggerContainer} initial="hidden" animate="visible" className="min-w-0">
+    <section className="min-w-0">
       <h2 className="text-xs font-bold text-text-muted uppercase tracking-widest mb-3">Your Repertoires</h2>
       <div className="flex gap-4 overflow-x-auto py-2 px-1 scrollbar-thin">
         {repertoires.map((rep, i) => (
           <RepertoireCard key={rep.id} repertoire={rep} index={i} />
         ))}
       </div>
-    </motion.section>
+    </section>
   );
 }

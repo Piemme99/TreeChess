@@ -1,22 +1,16 @@
-import { motion } from 'framer-motion';
-import { fadeUp } from '../../../shared/utils/animations';
 import type { DashboardStatsResponse } from '../../../types';
 
 interface StatsSummaryProps {
   stats: DashboardStatsResponse;
 }
 
-function StatCard({ label, value, subtext, index }: { label: string; value: string; subtext?: string; index: number }) {
+function StatCard({ label, value, subtext }: { label: string; value: string; subtext?: string }) {
   return (
-    <motion.div
-      variants={fadeUp}
-      custom={index}
-      className="flex-1 min-w-[140px] bg-bg-card border border-primary/10 rounded-2xl p-4"
-    >
+    <div className="flex-1 min-w-[140px] bg-bg-card border border-primary/10 rounded-2xl p-4">
       <p className="text-xs font-bold text-text-muted uppercase tracking-widest mb-1">{label}</p>
       <p className="text-2xl font-semibold text-text font-display">{value}</p>
       {subtext && <p className="text-xs text-text-muted mt-1">{subtext}</p>}
-    </motion.div>
+    </div>
   );
 }
 
@@ -37,24 +31,17 @@ export function StatsSummary({ stats }: StatsSummaryProps) {
         label="Total Games"
         value={String(stats.totalGames)}
         subtext={`${stats.wins}W / ${stats.draws}D / ${stats.losses}L`}
-        index={0}
       />
       <StatCard
         label="Win Rate"
         value={`${winRatePct}%`}
-        index={1}
       />
       <StatCard
         label="Repertoire Coverage"
         value={`${coveragePct}%`}
         subtext={`${stats.inRepCount} in-rep / ${stats.outRepCount} out`}
-        index={2}
       />
-      <motion.div
-        variants={fadeUp}
-        custom={3}
-        className="flex-1 min-w-[140px] bg-bg-card border border-primary/10 rounded-2xl p-4"
-      >
+      <div className="flex-1 min-w-[140px] bg-bg-card border border-primary/10 rounded-2xl p-4">
         <p className="text-xs font-bold text-text-muted uppercase tracking-widest mb-1">Opening Errors</p>
         <p className={`text-2xl font-semibold font-display ${stats.matchedGamesCount > 0 ? errorRateColor(errorPct) : 'text-text-muted'}`}>
           {stats.matchedGamesCount > 0 ? `${errorPct}%` : '\u2014'}
@@ -64,7 +51,7 @@ export function StatsSummary({ stats }: StatsSummaryProps) {
             {stats.openingErrorCount} error{stats.openingErrorCount !== 1 ? 's' : ''} in {stats.matchedGamesCount} game{stats.matchedGamesCount !== 1 ? 's' : ''}
           </p>
         )}
-      </motion.div>
+      </div>
     </div>
   );
 }

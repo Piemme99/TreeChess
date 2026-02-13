@@ -4,7 +4,7 @@ import { BookOpen } from 'lucide-react';
 import type { Repertoire } from '../../../types';
 import { colorToShort } from '../../../types';
 import { generateTrainingLines } from '../utils/treeTraversal';
-import { fadeUp, staggerContainer } from '../../../shared/utils/animations';
+import { fadeUp } from '../../../shared/utils/animations';
 
 interface RepertoireSelectorProps {
   repertoires: Repertoire[];
@@ -18,13 +18,8 @@ export function RepertoireSelector({ repertoires, onSelect }: RepertoireSelector
   const blackReps = repertoires.filter((r) => r.color === 'black');
 
   return (
-    <motion.div
-      variants={staggerContainer}
-      initial="hidden"
-      animate="visible"
-      className="max-w-3xl mx-auto"
-    >
-      <motion.div variants={fadeUp} className="mb-8">
+    <div className="max-w-3xl mx-auto">
+      <motion.div variants={fadeUp} initial="hidden" animate="visible" className="mb-8">
         <h1 className="text-2xl font-bold font-display text-text mb-2">Training</h1>
         <p className="text-text-muted text-sm">
           Choose a repertoire to practice. The computer plays your opponent's moves and you must find the correct responses.
@@ -32,7 +27,7 @@ export function RepertoireSelector({ repertoires, onSelect }: RepertoireSelector
       </motion.div>
 
       {repertoires.length === 0 ? (
-        <motion.div variants={fadeUp} className="text-center py-16">
+        <motion.div variants={fadeUp} initial="hidden" animate="visible" custom={1} className="text-center py-16">
           <BookOpen className="w-12 h-12 text-text-muted/40 mx-auto mb-4" />
           <p className="text-text-muted">No repertoires yet. Create one first!</p>
         </motion.div>
@@ -54,7 +49,7 @@ export function RepertoireSelector({ repertoires, onSelect }: RepertoireSelector
           )}
         </>
       )}
-    </motion.div>
+    </div>
   );
 }
 
@@ -68,7 +63,7 @@ function RepertoireGroup({
   onSelect: (repertoire: Repertoire, lineCount: number) => void;
 }) {
   return (
-    <motion.div variants={fadeUp} className="mb-8">
+    <motion.div variants={fadeUp} initial="hidden" animate="visible" custom={1} className="mb-8">
       <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider mb-3">{title}</h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {repertoires.map((rep) => (

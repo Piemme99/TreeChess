@@ -71,6 +71,8 @@ function MistakeCard({ mistake, index, onDismiss }: MistakeCardProps) {
   return (
     <motion.div
       variants={fadeUp}
+      initial="hidden"
+      animate="visible"
       custom={index}
       className="bg-bg-card border border-primary/10 rounded-2xl p-4 relative"
     >

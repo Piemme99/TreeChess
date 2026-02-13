@@ -15,7 +15,7 @@ import { MistakesList } from '../../shared/components/MistakesList';
 import { ConfirmModal, Button, EmptyState } from '../../shared/components/UI';
 import { gamesApi } from '../../services/api';
 import { toast } from '../../stores/toastStore';
-import { fadeUp, staggerContainer } from '../../shared/utils/animations';
+import { fadeUp } from '../../shared/utils/animations';
 import { usePageTitle } from '../../shared/hooks/usePageTitle';
 
 const TIME_CLASS_FILTERS = [
@@ -127,8 +127,8 @@ export function GamesPage() {
 
   return (
     <div className="max-w-[1200px] mx-auto w-full">
-    <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="flex flex-col gap-6">
-      <motion.div variants={fadeUp} custom={0} className="flex items-center justify-between">
+    <div className="flex flex-col gap-6">
+      <motion.div variants={fadeUp} initial="hidden" animate="visible" custom={0} className="flex items-center justify-between">
         <h2 className="text-2xl font-semibold">Games</h2>
         <Button
           variant={showImport ? 'secondary' : 'primary'}
@@ -139,7 +139,7 @@ export function GamesPage() {
       </motion.div>
 
       {showImport && (
-        <motion.div variants={fadeUp} custom={1}>
+        <motion.div variants={fadeUp} initial="hidden" animate="visible" custom={1}>
         <ImportPanel
           username={username}
           onUsernameChange={setUsername}
@@ -158,7 +158,7 @@ export function GamesPage() {
         />
       )}
 
-      <motion.div variants={fadeUp} custom={2} className="flex items-center gap-4 flex-wrap">
+      <motion.div variants={fadeUp} initial="hidden" animate="visible" custom={2} className="flex items-center gap-4 flex-wrap">
         <div className="flex gap-2 flex-wrap">
           {TIME_CLASS_FILTERS.map((filter) => (
             <button
@@ -216,7 +216,7 @@ export function GamesPage() {
       </motion.div>
 
       {hasGames ? (
-        <motion.section variants={fadeUp} custom={3}>
+        <motion.section variants={fadeUp} initial="hidden" animate="visible" custom={3}>
           <GamesList
             games={games}
             loading={loading}
@@ -260,7 +260,7 @@ export function GamesPage() {
         loading={deleting}
       />
 
-    </motion.div>
+    </div>
     </div>
   );
 }

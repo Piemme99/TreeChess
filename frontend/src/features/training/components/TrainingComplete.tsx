@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { Trophy, RotateCcw, ArrowLeft } from 'lucide-react';
-import { fadeUp, staggerContainer } from '../../../shared/utils/animations';
+import { fadeUp } from '../../../shared/utils/animations';
 
 interface TrainingCompleteProps {
   totalLines: number;
@@ -25,35 +25,28 @@ export function TrainingComplete({
   // Edge case: empty repertoire
   if (totalLines === 0) {
     return (
-      <motion.div
-        variants={staggerContainer}
-        initial="hidden"
-        animate="visible"
-        className="max-w-md mx-auto text-center py-16"
-      >
-        <motion.p variants={fadeUp} className="text-text-muted mb-6">
+      <div className="max-w-md mx-auto text-center py-16">
+        <motion.p variants={fadeUp} initial="hidden" animate="visible" className="text-text-muted mb-6">
           {feedbackMessage || 'No lines to train in this repertoire.'}
         </motion.p>
         <motion.button
           variants={fadeUp}
+          initial="hidden"
+          animate="visible"
+          custom={1}
           onClick={onChooseAnother}
           className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-primary to-primary-hover text-white font-medium shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/30 transition-all duration-150 cursor-pointer border-0"
         >
           <ArrowLeft className="w-4 h-4" />
           Choose Another
         </motion.button>
-      </motion.div>
+      </div>
     );
   }
 
   return (
-    <motion.div
-      variants={staggerContainer}
-      initial="hidden"
-      animate="visible"
-      className="max-w-md mx-auto text-center py-12"
-    >
-      <motion.div variants={fadeUp} className="mb-6">
+    <div className="max-w-md mx-auto text-center py-12">
+      <motion.div variants={fadeUp} initial="hidden" animate="visible" className="mb-6">
         <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-500 flex items-center justify-center shadow-lg shadow-amber-500/20">
           <Trophy className="w-8 h-8 text-white" />
         </div>
@@ -61,7 +54,7 @@ export function TrainingComplete({
         <p className="text-text-muted text-sm">Great work on your repertoire practice.</p>
       </motion.div>
 
-      <motion.div variants={fadeUp} className="grid grid-cols-3 gap-3 mb-8">
+      <motion.div variants={fadeUp} initial="hidden" animate="visible" custom={1} className="grid grid-cols-3 gap-3 mb-8">
         <div className="p-4 rounded-2xl border border-primary/10 bg-bg-card">
           <div className="text-2xl font-bold text-text">{totalLines}</div>
           <div className="text-xs text-text-muted mt-0.5">Lines</div>
@@ -76,7 +69,7 @@ export function TrainingComplete({
         </div>
       </motion.div>
 
-      <motion.div variants={fadeUp} className="flex items-center justify-center gap-3">
+      <motion.div variants={fadeUp} initial="hidden" animate="visible" custom={2} className="flex items-center justify-center gap-3">
         <button
           onClick={onTrainAgain}
           className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-primary to-primary-hover text-white font-medium shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/30 transition-all duration-150 cursor-pointer border-0"
@@ -92,6 +85,6 @@ export function TrainingComplete({
           Choose Another
         </button>
       </motion.div>
-    </motion.div>
+    </div>
   );
 }

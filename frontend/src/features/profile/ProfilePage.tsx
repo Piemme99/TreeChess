@@ -5,7 +5,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { Button } from '../../shared/components/UI';
 import { toast } from '../../stores/toastStore';
 import { authApi } from '../../services/api';
-import { fadeUp, staggerContainer } from '../../shared/utils/animations';
+import { fadeUp } from '../../shared/utils/animations';
 import { usePageTitle } from '../../shared/hooks/usePageTitle';
 import type { TimeFormat } from '../../types';
 
@@ -181,13 +181,8 @@ export function ProfilePage() {
 
   return (
     <div className="max-w-[600px] mx-auto w-full">
-      <motion.div
-        variants={staggerContainer}
-        initial="hidden"
-        animate="visible"
-        className="flex flex-col gap-6"
-      >
-        <motion.div variants={fadeUp} custom={0} className="flex items-center justify-between">
+      <div className="flex flex-col gap-6">
+        <motion.div variants={fadeUp} initial="hidden" animate="visible" custom={0} className="flex items-center justify-between">
           <h2 className="text-2xl font-semibold font-display">Profile</h2>
           <Button
             variant="primary"
@@ -199,7 +194,7 @@ export function ProfilePage() {
           </Button>
         </motion.div>
 
-        <motion.div variants={fadeUp} custom={1} className="bg-bg-card rounded-2xl p-6 border border-primary/10 shadow-sm shadow-primary/10">
+        <motion.div variants={fadeUp} initial="hidden" animate="visible" custom={1} className="bg-bg-card rounded-2xl p-6 border border-primary/10 shadow-sm shadow-primary/10">
           <h3 className="text-base font-semibold font-display mb-1">Chess Usernames</h3>
           <p className="text-sm text-text-muted mb-4">
             Link your accounts to import games easily.
@@ -246,7 +241,7 @@ export function ProfilePage() {
           </div>
         </motion.div>
 
-        <motion.div variants={fadeUp} custom={2} className="bg-bg-card rounded-2xl p-6 border border-primary/10 shadow-sm shadow-primary/10">
+        <motion.div variants={fadeUp} initial="hidden" animate="visible" custom={2} className="bg-bg-card rounded-2xl p-6 border border-primary/10 shadow-sm shadow-primary/10">
           <h3 className="text-base font-semibold font-display mb-1">Time Formats</h3>
           <p className="text-sm text-text-muted mb-4">
             Select which time controls to sync from Lichess/Chess.com.
@@ -271,7 +266,7 @@ export function ProfilePage() {
         </motion.div>
 
         {hasPassword !== null && hasPassword && (
-          <motion.div variants={fadeUp} custom={3} className="bg-bg-card rounded-2xl p-6 border border-primary/10 shadow-sm shadow-primary/10">
+          <motion.div variants={fadeUp} initial="hidden" animate="visible" custom={3} className="bg-bg-card rounded-2xl p-6 border border-primary/10 shadow-sm shadow-primary/10">
             <h3 className="text-base font-semibold font-display mb-1">Change Password</h3>
             <p className="text-sm text-text-muted mb-4">
               Update your account password.
@@ -338,7 +333,7 @@ export function ProfilePage() {
           </motion.div>
         )}
         {/* Danger Zone */}
-        <motion.div variants={fadeUp} custom={4} className="bg-bg-card rounded-2xl p-6 border border-danger/20 shadow-sm text-center">
+        <motion.div variants={fadeUp} initial="hidden" animate="visible" custom={4} className="bg-bg-card rounded-2xl p-6 border border-danger/20 shadow-sm text-center">
           <h3 className="text-base font-semibold font-display mb-1 text-danger">Danger Zone</h3>
           <p className="text-sm text-text-muted mb-4">
             Permanently delete your account and all associated data. This action cannot be undone.
@@ -354,7 +349,7 @@ export function ProfilePage() {
             Delete my account
           </Button>
         </motion.div>
-      </motion.div>
+      </div>
 
       {/* Delete account confirmation dialog */}
       <AnimatePresence>

@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { ArrowLeft } from 'lucide-react';
-import { fadeUp, staggerContainer } from '../../../shared/utils/animations';
+import { fadeUp } from '../../../shared/utils/animations';
 
 interface ColorSelectorProps {
   onSelectColor: (color: 'w' | 'b') => void;
@@ -9,13 +9,8 @@ interface ColorSelectorProps {
 
 export function ColorSelector({ onSelectColor, onBack }: ColorSelectorProps) {
   return (
-    <motion.div
-      variants={staggerContainer}
-      initial="hidden"
-      animate="visible"
-      className="max-w-3xl mx-auto"
-    >
-      <motion.div variants={fadeUp} className="mb-8">
+    <div className="max-w-3xl mx-auto">
+      <motion.div variants={fadeUp} initial="hidden" animate="visible" className="mb-8">
         <button
           onClick={onBack}
           className="inline-flex items-center gap-1.5 text-sm text-text-muted hover:text-text transition-colors mb-4 cursor-pointer"
@@ -32,6 +27,9 @@ export function ColorSelector({ onSelectColor, onBack }: ColorSelectorProps) {
       <div className="grid grid-cols-2 gap-4 max-w-sm">
         <motion.button
           variants={fadeUp}
+          initial="hidden"
+          animate="visible"
+          custom={1}
           onClick={() => onSelectColor('w')}
           className="flex flex-col items-center gap-3 p-6 rounded-2xl border border-primary/10 bg-bg-card hover:border-primary/30 hover:shadow-md hover:shadow-primary/5 transition-all duration-150 cursor-pointer"
         >
@@ -43,6 +41,9 @@ export function ColorSelector({ onSelectColor, onBack }: ColorSelectorProps) {
 
         <motion.button
           variants={fadeUp}
+          initial="hidden"
+          animate="visible"
+          custom={2}
           onClick={() => onSelectColor('b')}
           className="flex flex-col items-center gap-3 p-6 rounded-2xl border border-primary/10 bg-bg-card hover:border-primary/30 hover:shadow-md hover:shadow-primary/5 transition-all duration-150 cursor-pointer"
         >
@@ -52,6 +53,6 @@ export function ColorSelector({ onSelectColor, onBack }: ColorSelectorProps) {
           <span className="font-medium text-text">Black</span>
         </motion.button>
       </div>
-    </motion.div>
+    </div>
   );
 }

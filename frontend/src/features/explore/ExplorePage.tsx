@@ -1,7 +1,5 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Compass, Search } from 'lucide-react';
-import { motion } from 'framer-motion';
-import { staggerContainer } from '../../shared/utils/animations';
 import { useExploreStore } from '../../stores/exploreStore';
 import { ExploreRepertoireCard } from './ExploreRepertoireCard';
 import { Loading, EmptyState } from '../../shared/components/UI';
@@ -142,12 +140,7 @@ export function ExplorePage() {
               {filteredRepertoires.length}{filteredRepertoires.length !== publicRepertoires.length && ` / ${publicRepertoires.length}`} repertoire{filteredRepertoires.length !== 1 ? 's' : ''}
             </span>
           </div>
-          <motion.div
-            variants={staggerContainer}
-            initial="hidden"
-            animate="visible"
-            className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3"
-          >
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
             {filteredRepertoires.map((rep, i) => (
               <ExploreRepertoireCard
                 key={rep.id}
@@ -157,7 +150,7 @@ export function ExplorePage() {
                 index={i}
               />
             ))}
-          </motion.div>
+          </div>
         </section>
       )}
     </div>

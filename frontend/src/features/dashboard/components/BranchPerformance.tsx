@@ -1,6 +1,4 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { fadeUp } from '../../../shared/utils/animations';
 import { ColorDot } from '../../../shared/components/UI';
 import type { BranchStats } from '../../../types';
 
@@ -32,11 +30,7 @@ export function BranchPerformance({ branches }: BranchPerformanceProps) {
       <p className="text-xs text-text-muted mb-3">
         Results by named repertoire branch
       </p>
-      <motion.div
-        variants={fadeUp}
-        custom={0}
-        className="bg-bg-card border border-primary/10 rounded-2xl overflow-hidden"
-      >
+      <div className="bg-bg-card border border-primary/10 rounded-2xl overflow-hidden">
         {/* Header */}
         <div className="grid grid-cols-[1fr_60px_100px_70px] gap-2 px-4 py-2.5 border-b border-primary/10 text-[10px] font-bold text-text-muted uppercase tracking-wider">
           <span>Line</span>
@@ -89,7 +83,7 @@ export function BranchPerformance({ branches }: BranchPerformanceProps) {
             </div>
           );
         })}
-      </motion.div>
+      </div>
     </section>
   );
 }

@@ -3,8 +3,10 @@ import { motion } from 'framer-motion';
 import { Zap } from 'lucide-react';
 import { fadeUp } from '../utils/animations';
 import { Section } from './Section';
+import { useSectionInView } from './SectionInViewContext';
 
 export function HeroSection() {
+  const inView = useSectionInView();
   return (
     <Section className="relative z-10 px-6 pt-12 pb-20 md:pt-20 md:pb-28">
       <div className="max-w-6xl mx-auto">
@@ -13,6 +15,8 @@ export function HeroSection() {
           <div>
             <motion.div
               variants={fadeUp}
+              initial="hidden"
+              animate={inView ? 'visible' : 'hidden'}
               custom={0}
               className="inline-flex items-center gap-2 px-4 py-2 bg-primary-light border border-primary/30 rounded-full mb-8"
             >
@@ -24,6 +28,8 @@ export function HeroSection() {
 
             <motion.h1
               variants={fadeUp}
+              initial="hidden"
+              animate={inView ? 'visible' : 'hidden'}
               custom={1}
               className="text-4xl md:text-5xl lg:text-[3.5rem] font-bold leading-[1.1] tracking-tight mb-6 font-display text-text"
             >
@@ -35,6 +41,8 @@ export function HeroSection() {
 
             <motion.p
               variants={fadeUp}
+              initial="hidden"
+              animate={inView ? 'visible' : 'hidden'}
               custom={2}
               className="text-lg text-text-muted leading-relaxed mb-8 max-w-lg"
             >
@@ -43,7 +51,7 @@ export function HeroSection() {
               games to find exactly where you went wrong.
             </motion.p>
 
-            <motion.div variants={fadeUp} custom={3} className="flex flex-wrap items-center gap-4">
+            <motion.div variants={fadeUp} initial="hidden" animate={inView ? 'visible' : 'hidden'} custom={3} className="flex flex-wrap items-center gap-4">
               <Link
                 to="/login?tab=register"
                 className="inline-flex items-center gap-2.5 px-7 py-3.5 bg-gradient-to-r from-primary to-primary-hover text-white font-semibold rounded-2xl shadow-lg shadow-primary/20 text-base"
@@ -60,7 +68,7 @@ export function HeroSection() {
           </div>
 
           {/* Screenshot preview */}
-          <motion.div variants={fadeUp} custom={2} className="flex justify-center lg:justify-end">
+          <motion.div variants={fadeUp} initial="hidden" animate={inView ? 'visible' : 'hidden'} custom={2} className="flex justify-center lg:justify-end">
             <div className="w-full max-w-lg rounded-2xl overflow-hidden shadow-xl shadow-primary/10 border border-primary-light bg-white">
               <img
                 src="/screenshots/hero.png"

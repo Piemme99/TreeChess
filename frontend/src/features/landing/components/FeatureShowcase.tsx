@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { FolderTree, FileDown, RefreshCw, BookOpen } from 'lucide-react';
 import { fadeUp } from '../utils/animations';
 import { Section } from './Section';
+import { useSectionInView } from './SectionInViewContext';
 import { TreeScreen } from './featureScreens/TreeScreen';
 import { ImportScreen } from './featureScreens/ImportScreen';
 import { SyncScreen } from './featureScreens/SyncScreen';
@@ -42,11 +43,12 @@ const TABS = [
 export function FeatureShowcase() {
   const [active, setActive] = useState(0);
   const ActiveScreen = TABS[active].screen;
+  const inView = useSectionInView();
 
   return (
     <Section id="features" className="relative z-10 px-6 py-20 md:py-28">
       <div className="max-w-6xl mx-auto">
-        <motion.div variants={fadeUp} className="text-center mb-14">
+        <motion.div variants={fadeUp} initial="hidden" animate={inView ? 'visible' : 'hidden'} className="text-center mb-14">
           <span className="text-xs font-bold text-primary tracking-widest uppercase mb-3 block">
             Features
           </span>
@@ -59,7 +61,7 @@ export function FeatureShowcase() {
           </p>
         </motion.div>
 
-        <motion.div variants={fadeUp}>
+        <motion.div variants={fadeUp} initial="hidden" animate={inView ? 'visible' : 'hidden'} custom={1}>
           <div className="grid lg:grid-cols-2 gap-10 items-start">
             {/* Tabs */}
             <div className="space-y-3">

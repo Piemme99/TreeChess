@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { RotateCcw, ArrowLeft, Palette } from 'lucide-react';
-import { fadeUp, staggerContainer } from '../../../shared/utils/animations';
+import { fadeUp } from '../../../shared/utils/animations';
 import type { MoveRecord } from '../hooks/useExplorerTraining';
 
 interface ExplorerTrainingCompleteProps {
@@ -45,16 +45,11 @@ export function ExplorerTrainingComplete({
   // Error state
   if (errorMessage) {
     return (
-      <motion.div
-        variants={staggerContainer}
-        initial="hidden"
-        animate="visible"
-        className="max-w-md mx-auto text-center py-16"
-      >
-        <motion.p variants={fadeUp} className="text-text-muted mb-6">
+      <div className="max-w-md mx-auto text-center py-16">
+        <motion.p variants={fadeUp} initial="hidden" animate="visible" className="text-text-muted mb-6">
           {errorMessage}
         </motion.p>
-        <motion.div variants={fadeUp} className="flex items-center justify-center gap-3">
+        <motion.div variants={fadeUp} initial="hidden" animate="visible" custom={1} className="flex items-center justify-center gap-3">
           <button
             onClick={onTryAgain}
             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-primary to-primary-hover text-white font-medium shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/30 transition-all duration-150 cursor-pointer border-0"
@@ -70,7 +65,7 @@ export function ExplorerTrainingComplete({
             Back
           </button>
         </motion.div>
-      </motion.div>
+      </div>
     );
   }
 
@@ -88,14 +83,9 @@ export function ExplorerTrainingComplete({
   }
 
   return (
-    <motion.div
-      variants={staggerContainer}
-      initial="hidden"
-      animate="visible"
-      className="max-w-md mx-auto text-center py-12"
-    >
+    <div className="max-w-md mx-auto text-center py-12">
       {/* Win rate display */}
-      <motion.div variants={fadeUp} className="mb-6">
+      <motion.div variants={fadeUp} initial="hidden" animate="visible" className="mb-6">
         <div className={`text-5xl font-bold font-display ${winRateColor} mb-2`}>
           {winRate.toFixed(0)}%
         </div>
@@ -107,7 +97,7 @@ export function ExplorerTrainingComplete({
 
       {/* Move history */}
       {movePairs.length > 0 && (
-        <motion.div variants={fadeUp} className="mb-8">
+        <motion.div variants={fadeUp} initial="hidden" animate="visible" custom={1} className="mb-8">
           <div className="rounded-2xl border border-primary/10 bg-bg-card overflow-hidden">
             <div className="px-4 py-2.5 border-b border-primary/10">
               <span className="text-xs font-semibold text-text-muted uppercase tracking-wider">Move History</span>
@@ -130,7 +120,7 @@ export function ExplorerTrainingComplete({
       )}
 
       {/* Actions */}
-      <motion.div variants={fadeUp} className="flex flex-wrap items-center justify-center gap-3">
+      <motion.div variants={fadeUp} initial="hidden" animate="visible" custom={2} className="flex flex-wrap items-center justify-center gap-3">
         <button
           onClick={onTryAgain}
           className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-primary to-primary-hover text-white font-medium shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/30 transition-all duration-150 cursor-pointer border-0"
@@ -153,7 +143,7 @@ export function ExplorerTrainingComplete({
           Back to Modes
         </button>
       </motion.div>
-    </motion.div>
+    </div>
   );
 }
 

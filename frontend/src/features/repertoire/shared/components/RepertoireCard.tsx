@@ -50,6 +50,8 @@ export const RepertoireCard = memo(function RepertoireCard({
   return (
     <motion.div
       variants={fadeUp}
+      initial="hidden"
+      animate="visible"
       custom={index}
       whileHover={{ scale: 1.02, boxShadow: '0 12px 24px -8px rgba(230,126,34,0.15)' }}
       className={`bg-bg-card rounded-2xl border transition-colors duration-150 overflow-hidden flex flex-col${

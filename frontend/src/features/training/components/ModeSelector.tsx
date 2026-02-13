@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { BookOpen, Globe } from 'lucide-react';
-import { fadeUp, staggerContainer } from '../../../shared/utils/animations';
+import { fadeUp } from '../../../shared/utils/animations';
 
 interface ModeSelectorProps {
   onSelectRepertoire: () => void;
@@ -9,13 +9,8 @@ interface ModeSelectorProps {
 
 export function ModeSelector({ onSelectRepertoire, onSelectExplorer }: ModeSelectorProps) {
   return (
-    <motion.div
-      variants={staggerContainer}
-      initial="hidden"
-      animate="visible"
-      className="max-w-3xl mx-auto"
-    >
-      <motion.div variants={fadeUp} className="mb-8">
+    <div className="max-w-3xl mx-auto">
+      <motion.div variants={fadeUp} initial="hidden" animate="visible" className="mb-8">
         <h1 className="text-2xl font-bold font-display text-text mb-2">Training</h1>
         <p className="text-text-muted text-sm">
           Choose a training mode to sharpen your opening skills.
@@ -25,6 +20,9 @@ export function ModeSelector({ onSelectRepertoire, onSelectExplorer }: ModeSelec
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <motion.button
           variants={fadeUp}
+          initial="hidden"
+          animate="visible"
+          custom={1}
           onClick={onSelectRepertoire}
           className="text-left p-6 rounded-2xl border border-primary/10 bg-bg-card hover:border-primary/30 hover:shadow-md hover:shadow-primary/5 transition-all duration-150 cursor-pointer"
         >
@@ -39,6 +37,9 @@ export function ModeSelector({ onSelectRepertoire, onSelectExplorer }: ModeSelec
 
         <motion.button
           variants={fadeUp}
+          initial="hidden"
+          animate="visible"
+          custom={2}
           onClick={onSelectExplorer}
           className="text-left p-6 rounded-2xl border border-primary/10 bg-bg-card hover:border-primary/30 hover:shadow-md hover:shadow-primary/5 transition-all duration-150 cursor-pointer"
         >
@@ -51,6 +52,6 @@ export function ModeSelector({ onSelectRepertoire, onSelectExplorer }: ModeSelec
           </div>
         </motion.button>
       </div>
-    </motion.div>
+    </div>
   );
 }

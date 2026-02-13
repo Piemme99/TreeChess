@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { fadeUp, staggerContainer } from '../../shared/utils/animations';
+import { fadeUp } from '../../shared/utils/animations';
 import { useGameLoader } from './hooks/useGameLoader';
 import { useChessNavigation, useToggleFullGame } from './hooks/useChessNavigation';
 import { useFENComputed } from './hooks/useFENComputed';
@@ -227,13 +227,8 @@ export function GameAnalysisPage() {
   const result = game.headers.Result || '*';
 
   return (
-    <motion.div
-      variants={staggerContainer}
-      initial="hidden"
-      animate="visible"
-      className="max-w-[1400px] mx-auto min-h-full flex flex-col"
-    >
-      <motion.div variants={fadeUp} custom={0} className="flex items-center gap-4 mb-6 pb-4 border-b border-primary/10 flex-wrap">
+    <div className="max-w-[1400px] mx-auto min-h-full flex flex-col">
+      <motion.div variants={fadeUp} initial="hidden" animate="visible" custom={0} className="flex items-center gap-4 mb-6 pb-4 border-b border-primary/10 flex-wrap">
         <Button variant="ghost" size="sm" onClick={() => navigate(location.state?.from || '/games')}>
           &larr; Back
         </Button>
@@ -250,7 +245,7 @@ export function GameAnalysisPage() {
       </motion.div>
 
       {/* Repertoire selector with reanalyze option */}
-      <motion.div variants={fadeUp} custom={1}>
+      <motion.div variants={fadeUp} initial="hidden" animate="visible" custom={1}>
       <RepertoireSelector
         userColor={game.userColor}
         currentRepertoire={game.matchedRepertoire}
@@ -259,7 +254,7 @@ export function GameAnalysisPage() {
       />
       </motion.div>
 
-      <motion.div variants={fadeUp} custom={2} className="flex gap-6 flex-1 min-h-0 max-md:flex-col">
+      <motion.div variants={fadeUp} initial="hidden" animate="visible" custom={2} className="flex gap-6 flex-1 min-h-0 max-md:flex-col">
         <GameBoardSection
           fen={currentFEN}
           orientation={flipped ? 'black' : 'white'}
@@ -306,6 +301,6 @@ export function GameAnalysisPage() {
         variant="danger"
         loading={deleting}
       />
-    </motion.div>
+    </div>
   );
 }

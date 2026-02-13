@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { Crown } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { OnboardingModal } from './OnboardingModal';
-import { fadeUp, staggerContainer } from '../../shared/utils/animations';
+import { fadeUp } from '../../shared/utils/animations';
 import { usePageTitle } from '../../shared/hooks/usePageTitle';
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
@@ -129,17 +129,16 @@ export function LoginPage() {
           </>
         )}
 
-        <motion.form
+        <form
           onSubmit={handleSubmit}
           className="flex flex-col gap-4"
-          variants={staggerContainer}
-          initial="hidden"
-          animate="visible"
         >
           {error && <div className="bg-danger-light text-danger py-2 px-4 rounded-xl text-sm">{error}</div>}
 
           <motion.div
             variants={fadeUp}
+            initial="hidden"
+            animate="visible"
             custom={0}
             className="flex flex-col gap-1"
           >
@@ -159,6 +158,8 @@ export function LoginPage() {
           {isRegister && (
             <motion.div
               variants={fadeUp}
+              initial="hidden"
+              animate="visible"
               custom={1}
               className="flex flex-col gap-1"
             >
@@ -180,6 +181,8 @@ export function LoginPage() {
 
           <motion.div
             variants={fadeUp}
+            initial="hidden"
+            animate="visible"
             custom={2}
             className="flex flex-col gap-1"
           >
@@ -207,6 +210,8 @@ export function LoginPage() {
           {isRegister && (
             <motion.div
               variants={fadeUp}
+              initial="hidden"
+              animate="visible"
               custom={3}
               className="flex flex-col gap-1"
             >
@@ -227,6 +232,8 @@ export function LoginPage() {
 
           <motion.button
             variants={fadeUp}
+            initial="hidden"
+            animate="visible"
             custom={4}
             whileHover={submitting ? undefined : { scale: 1.04, boxShadow: '0 20px 40px -12px rgba(230, 126, 34, 0.3)' }}
             whileTap={submitting ? undefined : { scale: 0.97 }}
@@ -236,7 +243,7 @@ export function LoginPage() {
           >
             {submitting ? 'Loading...' : isRegister ? 'Create Account' : 'Sign In'}
           </motion.button>
-        </motion.form>
+        </form>
 
         <div className="text-center mt-6 text-sm text-text-muted">
           {isRegister ? 'Already have an account?' : "Don't have an account?"}{' '}

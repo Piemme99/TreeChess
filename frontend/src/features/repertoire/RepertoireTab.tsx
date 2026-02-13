@@ -4,7 +4,7 @@ import { useRepertoires } from './shared/hooks/useRepertoires';
 import { RepertoireSelector } from './shared/components/RepertoireSelector';
 import { StudyImportModal } from './shared/components/StudyImportModal';
 import { Loading, ColorDot } from '../../shared/components/UI';
-import { fadeUp, staggerContainer } from '../../shared/utils/animations';
+import { fadeUp } from '../../shared/utils/animations';
 import { usePageTitle } from '../../shared/hooks/usePageTitle';
 import type { Color } from '../../types';
 
@@ -23,16 +23,11 @@ export function RepertoireTab() {
   }
 
   return (
-    <motion.div
-      variants={staggerContainer}
-      initial="hidden"
-      animate="visible"
-      className="max-w-[960px] mx-auto w-full flex flex-col py-8 px-4 gap-6"
-    >
-      <motion.h1 variants={fadeUp} custom={0} className="text-2xl font-bold text-text font-display">Repertoires</motion.h1>
+    <div className="max-w-[960px] mx-auto w-full flex flex-col py-8 px-4 gap-6">
+      <motion.h1 variants={fadeUp} initial="hidden" animate="visible" custom={0} className="text-2xl font-bold text-text font-display">Repertoires</motion.h1>
 
       {/* Tabs */}
-      <motion.div variants={fadeUp} custom={1} className="flex border-b border-primary/10">
+      <motion.div variants={fadeUp} initial="hidden" animate="visible" custom={1} className="flex border-b border-primary/10">
         <button
           className={`flex items-center gap-2 px-6 py-3 text-base font-medium transition-colors border-b-2 -mb-px ${
             activeTab === 'white'
@@ -64,7 +59,7 @@ export function RepertoireTab() {
       </motion.div>
 
       {/* Tab content */}
-      <motion.div variants={fadeUp} custom={2} className="mt-2">
+      <motion.div variants={fadeUp} initial="hidden" animate="visible" custom={2} className="mt-2">
         {activeTab === 'white' ? (
           <RepertoireSelector color="white" repertoires={whiteRepertoires} categories={whiteCategories} onImportStudy={() => {
             setShowStudyModal(true);
@@ -81,6 +76,6 @@ export function RepertoireTab() {
         onClose={() => setShowStudyModal(false)}
         onSuccess={refresh}
       />
-    </motion.div>
+    </div>
   );
 }

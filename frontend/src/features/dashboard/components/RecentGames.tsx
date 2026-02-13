@@ -1,7 +1,5 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { motion } from 'framer-motion';
 import { Button } from '../../../shared/components/UI';
-import { fadeUp } from '../../../shared/utils/animations';
 import type { GameSummary, Color } from '../../../types';
 
 function gameOutcome(result: string, userColor: Color): 'win' | 'loss' | 'draw' {
@@ -47,7 +45,7 @@ export function RecentGames({ games, loading }: RecentGamesProps) {
   if (loading) return null;
 
   return (
-    <motion.section variants={fadeUp}>
+    <section>
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-xs font-bold text-text-muted uppercase tracking-widest">Recent Games</h2>
         {games.length > 0 && (
@@ -113,6 +111,6 @@ export function RecentGames({ games, loading }: RecentGamesProps) {
           })}
         </div>
       )}
-    </motion.section>
+    </section>
   );
 }

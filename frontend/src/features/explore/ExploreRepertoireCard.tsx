@@ -33,6 +33,8 @@ export const ExploreRepertoireCard = memo(function ExploreRepertoireCard({
   return (
     <motion.div
       variants={fadeUp}
+      initial="hidden"
+      animate="visible"
       custom={index}
       whileHover={{ scale: 1.02, boxShadow: '0 12px 24px -8px rgba(230,126,34,0.15)' }}
       className="bg-bg-card rounded-xl border border-primary/10 flex flex-col transition-colors duration-150 hover:border-primary/30 overflow-hidden"

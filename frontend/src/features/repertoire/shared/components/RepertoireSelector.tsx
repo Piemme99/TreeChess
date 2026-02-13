@@ -2,8 +2,6 @@ import { useState, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { DndContext, DragEndEvent, DragOverlay, useDraggable, useDroppable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
-import { motion } from 'framer-motion';
-import { staggerContainer } from '../../../../shared/utils/animations';
 import { Button } from '../../../../shared/components/UI';
 import { ConfirmModal } from '../../../../shared/components/UI';
 import { useRepertoireStore } from '../../../../stores/repertoireStore';
@@ -70,14 +68,9 @@ function DroppableUncategorized({
           {isOver && <span className="ml-2 text-primary">Drop here</span>}
         </div>
       )}
-      <motion.div
-        variants={staggerContainer}
-        initial="hidden"
-        animate="visible"
-        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
-      >
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {children}
-      </motion.div>
+      </div>
     </div>
   );
 }

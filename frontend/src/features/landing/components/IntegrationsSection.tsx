@@ -2,13 +2,15 @@ import { motion } from 'framer-motion';
 import { FileDown, Check } from 'lucide-react';
 import { fadeUp } from '../utils/animations';
 import { Section } from './Section';
+import { useSectionInView } from './SectionInViewContext';
 import { TiltCard } from './TiltCard';
 
 export function IntegrationsSection() {
+  const inView = useSectionInView();
   return (
     <Section id="integrations" className="relative z-10 px-6 py-20 md:py-28">
       <div className="max-w-4xl mx-auto text-center">
-        <motion.div variants={fadeUp}>
+        <motion.div variants={fadeUp} initial="hidden" animate={inView ? 'visible' : 'hidden'}>
           <span className="text-xs font-bold text-primary tracking-widest uppercase mb-3 block">
             Integrations
           </span>
@@ -21,7 +23,7 @@ export function IntegrationsSection() {
           </p>
         </motion.div>
 
-        <motion.div variants={fadeUp} custom={1} className="flex flex-wrap justify-center gap-5">
+        <motion.div variants={fadeUp} initial="hidden" animate={inView ? 'visible' : 'hidden'} custom={1} className="flex flex-wrap justify-center gap-5">
           <TiltCard>
             <div className="flex items-center gap-4 px-8 py-5 bg-white rounded-2xl border border-border shadow-sm hover:shadow-md hover:border-primary/30 transition-all">
               <div className="w-12 h-12 bg-gray-900 rounded-xl flex items-center justify-center">

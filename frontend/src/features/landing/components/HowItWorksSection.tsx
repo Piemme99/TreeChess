@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { fadeUp } from '../utils/animations';
 import { Section } from './Section';
+import { useSectionInView } from './SectionInViewContext';
 import { TiltCard } from './TiltCard';
 import { StepIllustration } from './StepIllustration';
 
@@ -23,6 +24,7 @@ const steps = [
 ];
 
 export function HowItWorksSection() {
+  const inView = useSectionInView();
   return (
     <Section id="how-it-works" className="relative z-10 px-6 py-20 md:py-28">
       <div
@@ -30,7 +32,7 @@ export function HowItWorksSection() {
         style={{ backgroundColor: 'rgba(253, 242, 230, 0.5)' }}
       />
       <div className="max-w-5xl mx-auto relative">
-        <motion.div variants={fadeUp} className="text-center mb-16">
+        <motion.div variants={fadeUp} initial="hidden" animate={inView ? 'visible' : 'hidden'} className="text-center mb-16">
           <span className="text-xs font-bold text-primary tracking-widest uppercase mb-3 block">
             How It Works
           </span>
@@ -41,7 +43,7 @@ export function HowItWorksSection() {
 
         <div className="grid md:grid-cols-3 gap-8 md:gap-6">
           {steps.map((item, i) => (
-            <motion.div key={item.step} variants={fadeUp} custom={i}>
+            <motion.div key={item.step} variants={fadeUp} initial="hidden" animate={inView ? 'visible' : 'hidden'} custom={i}>
               <TiltCard>
                 <div className="bg-white rounded-3xl p-7 border border-primary-light shadow-sm hover:shadow-md hover:shadow-primary/10 transition-shadow h-full">
                   <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-primary-hover text-white flex items-center justify-center font-bold text-sm mb-5 shadow-md shadow-primary/15">

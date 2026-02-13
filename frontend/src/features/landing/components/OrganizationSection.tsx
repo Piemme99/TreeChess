@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Check, ImageOff } from 'lucide-react';
 import { fadeUp } from '../utils/animations';
 import { Section } from './Section';
+import { useSectionInView } from './SectionInViewContext';
 
 const features = [
   'Organize by opening family or personal tags',
@@ -12,12 +13,13 @@ const features = [
 
 export function OrganizationSection() {
   const [imgError, setImgError] = useState(false);
+  const inView = useSectionInView();
 
   return (
     <Section className="relative z-10 px-6 py-16 md:py-24">
       <div className="max-w-5xl mx-auto">
         <div className="grid lg:grid-cols-2 gap-12 items-center">
-          <motion.div variants={fadeUp}>
+          <motion.div variants={fadeUp} initial="hidden" animate={inView ? 'visible' : 'hidden'}>
             <span className="text-xs font-bold text-primary tracking-widest uppercase mb-3 block">
               Organization
             </span>
@@ -41,7 +43,7 @@ export function OrganizationSection() {
             </div>
           </motion.div>
 
-          <motion.div variants={fadeUp} custom={1}>
+          <motion.div variants={fadeUp} initial="hidden" animate={inView ? 'visible' : 'hidden'} custom={1}>
             {imgError ? (
               <div className="bg-white rounded-2xl border border-primary-light shadow-sm min-h-[300px] flex flex-col items-center justify-center gap-3 text-text-muted">
                 <ImageOff size={32} className="text-primary/30" />

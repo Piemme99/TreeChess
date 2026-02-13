@@ -1,9 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Chess } from 'chess.js';
-import { motion } from 'framer-motion';
 import { X } from 'lucide-react';
-import { fadeUp } from '../../../shared/utils/animations';
 import { ColorDot } from '../../../shared/components/UI';
 import { StaticBoard } from '../../../shared/components/Board/StaticBoard';
 import { ensureFullFEN } from '../../../shared/utils/chess';
@@ -35,18 +33,14 @@ function sanToArrow(fen: string, san: string): [string, string, string][] {
   }
 }
 
-function GapCard({ gap, index, onDismiss }: { gap: OpponentGap; index: number; onDismiss: () => void }) {
+function GapCard({ gap, onDismiss }: { gap: OpponentGap; onDismiss: () => void }) {
   const navigate = useNavigate();
   const location = useLocation();
   const winPct = Math.round(gap.winRate * 100);
   const arrows = useMemo(() => sanToArrow(gap.fen, gap.opponentMove), [gap.fen, gap.opponentMove]);
 
   return (
-    <motion.div
-      variants={fadeUp}
-      custom={index}
-      className="bg-bg-card border border-primary/10 rounded-2xl p-4 relative"
-    >
+    <div className="bg-bg-card border border-primary/10 rounded-2xl p-4 relative">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2 min-w-0">
           <ColorDot color={gap.color} size="sm" />
@@ -111,7 +105,7 @@ function GapCard({ gap, index, onDismiss }: { gap: OpponentGap; index: number; o
           </div>
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 }
 
@@ -135,8 +129,8 @@ export function OpponentGaps({ gaps }: OpponentGapsProps) {
         Frequent opponent moves not in your repertoire
       </p>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {visibleGaps.map((gap, i) => (
-          <GapCard key={gapKey(gap)} gap={gap} index={i} onDismiss={() => handleDismiss(gap)} />
+        {visibleGaps.map((gap) => (
+          <GapCard key={gapKey(gap)} gap={gap} onDismiss={() => handleDismiss(gap)} />
         ))}
       </div>
     </section>
