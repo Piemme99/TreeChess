@@ -80,6 +80,18 @@ npm run dev
 | `make logs` | Follow container logs |
 | `make restart` | Full stop + rebuild + start |
 
+**Testing & Linting:**
+
+| Command | Action |
+|---------|--------|
+| `make test` | Run all tests (frontend + backend) |
+| `make test-frontend` | Vitest only |
+| `make test-backend` | Go unit tests only |
+| `make test-integration` | Go integration tests (requires Docker) |
+| `make lint` | Run all linters (frontend + backend) |
+| `make lint-frontend` | ESLint + TypeScript check |
+| `make lint-backend` | go vet + golangci-lint |
+
 **Production:**
 
 | Command | Action |
@@ -93,15 +105,25 @@ npm run dev
 | `make prod-backup` | Run database backup script |
 | `make prod-install-backup-cron` | Install automatic backup cron job |
 
+**Production (GHCR images, used by CD pipeline):**
+
+| Command | Action |
+|---------|--------|
+| `make prod-deploy` | Start production with pre-built GHCR images |
+| `make prod-deploy-stop` | Stop GHCR production containers |
+| `make prod-deploy-logs` | Follow GHCR production logs |
+
 ## Project Structure
 
 ```
 kumquat/
+├── .github/                  # CI/CD workflows (ci.yml, deploy.yml) + Dependabot
 ├── backend/                  # Go API server
 │   ├── main.go
 │   ├── config/               # Environment config + application limits
 │   ├── internal/
-│   │   ├── handlers/         # HTTP handlers (auth, repertoire, import, dashboard, etc.)
+│   │   ├── handlers/         # HTTP handlers (auth, OAuth, repertoire, import, study import,
+│   │   │                     #   dashboard, training, explore, category, sync, health)
 │   │   ├── middleware/        # JWT auth middleware
 │   │   ├── models/           # Data structures
 │   │   ├── repository/       # Database access (interfaces + pgx + mocks)
@@ -112,26 +134,32 @@ kumquat/
 │   ├── nginx.conf            # Nginx config (dev)
 │   ├── nginx.prod.conf       # Nginx config (production, TLS)
 │   └── src/
-│       ├── features/         # Feature modules (auth, dashboard, repertoire, training, etc.)
+│       ├── features/         # Feature modules (auth, dashboard, repertoire, training, games,
+│       │                     #   game-analysis, analyse-tab, analyse-import, explore, profile,
+│       │                     #   landing, not-found)
 │       ├── services/         # API client & Stockfish WASM bridge
 │       ├── shared/           # Shared components, hooks, utils
 │       ├── stores/           # Zustand state stores
+│       ├── test/             # Test utilities and setup
 │       └── types/            # TypeScript types
-├── migrations/               # SQL schema migrations
+├── migrations/               # SQL schema migrations (001-003)
 ├── monitoring/               # Prometheus + Grafana configs
+├── postgres/                 # Custom PostgreSQL configuration
 ├── scripts/                  # Backup, restore, SSL init scripts
 ├── testdata/                 # Sample PGNs and repertoire seeds
 ├── docker-compose.yml        # Development
-└── docker-compose.prod.yml   # Production (TLS, monitoring, isolated networks)
+├── docker-compose.prod.yml   # Production (TLS, monitoring, isolated networks)
+└── docker-compose.prod.ghcr.yml  # Production with pre-built GHCR images (CD pipeline)
 ```
 
 ## Tech Stack
 
-- **Frontend:** React 18, TypeScript 5, Vite 5, Tailwind CSS 4, chess.js, Zustand, Axios, D3, Framer Motion
-- **Backend:** Go 1.25, Echo v4, pgx v5, notnil/chess, golang-jwt/jwt v5
+- **Frontend:** React 19, TypeScript 5, Vite 5, Tailwind CSS 4, chess.js, Zustand, Axios, D3, Framer Motion, Lucide React
+- **Backend:** Go 1.25, Echo v4, pgx v5, notnil/chess, golang-jwt/jwt v5, testify
 - **Database:** PostgreSQL 17 with JSONB tree storage
 - **Monitoring:** Prometheus + Grafana dashboards
-- **Dev tools:** Mailhog (email testing), Air (Go hot reload), Vitest (frontend testing), testcontainers (integration tests)
+- **Testing:** Vitest + Testing Library (frontend), Go testing + testify + testcontainers (backend)
+- **Dev tools:** Mailhog (email testing), Air (Go hot reload)
 
 ## Security
 
