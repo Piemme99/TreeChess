@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, BookOpen, GraduationCap, User, LogOut, ChevronLeft, ChevronRight, Compass } from 'lucide-react';
 
 function PawnIcon({ className }: { className?: string }) {
@@ -22,7 +22,6 @@ const navItems = [
   { to: '/explore', label: 'Explore', Icon: Compass, end: false },
   { to: '/training', label: 'Training', Icon: GraduationCap, end: false },
   { to: '/games', label: 'Games', Icon: PawnIcon, end: false },
-  { to: '/profile', label: 'Profile', Icon: User, end: false },
 ] as const;
 
 function useMediaQuery(query: string) {
@@ -41,6 +40,7 @@ function useMediaQuery(query: string) {
 
 export function MainLayout() {
   const { user, logout } = useAuthStore();
+  const navigate = useNavigate();
   const location = useLocation();
   const isRepertoireEdit = /^\/repertoire\/[^/]+\/edit/.test(location.pathname) || /^\/explore\/repertoire\/[^/]+/.test(location.pathname);
 
@@ -149,21 +149,20 @@ export function MainLayout() {
           {/* User section */}
           <div className={`flex flex-col gap-2 border-t border-primary/10 pt-4 mt-2 ${isCollapsed ? 'items-center px-2' : 'px-3'}`}>
             {user && (
-              isCollapsed ? (
-                <div
-                  className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-primary-hover text-white text-xs font-bold flex items-center justify-center"
-                  title={user.username}
-                >
+              <button
+                onClick={() => navigate('/profile')}
+                className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-2'} bg-transparent border-0 rounded-xl cursor-pointer p-1.5 transition-all duration-150 hover:bg-primary-light/50 ${
+                  location.pathname === '/profile' ? 'bg-primary-light' : ''
+                }`}
+                title={isCollapsed ? user.username : 'Profile'}
+              >
+                <div className={`w-8 h-8 rounded-full bg-gradient-to-br from-primary to-primary-hover text-white text-xs font-bold flex items-center justify-center shrink-0`}>
                   {initials}
                 </div>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-primary-hover text-white text-xs font-bold flex items-center justify-center shrink-0">
-                    {initials}
-                  </div>
-                  <span className="text-sm text-text-muted font-medium truncate">{user.username}</span>
-                </div>
-              )
+                {!isCollapsed && (
+                  <span className={`text-sm font-medium truncate ${location.pathname === '/profile' ? 'text-primary' : 'text-text-muted'}`}>{user.username}</span>
+                )}
+              </button>
             )}
             <button
               className={`flex items-center justify-center gap-2 py-1.5 bg-transparent border border-primary/10 rounded-xl text-text-muted text-xs cursor-pointer font-sans transition-all duration-150 hover:border-danger/30 hover:text-danger hover:bg-danger-light/30 ${
@@ -212,6 +211,19 @@ export function MainLayout() {
               <span>{label}</span>
             </NavLink>
           ))}
+          <NavLink
+            to="/profile"
+            className={({ isActive }) =>
+              `flex flex-col items-center justify-center flex-1 gap-0.5 text-xs font-medium no-underline transition-colors duration-150 ${
+                isActive
+                  ? 'text-primary'
+                  : 'text-text-muted hover:text-text'
+              }`
+            }
+          >
+            <User className="w-5 h-5" />
+            <span>Profile</span>
+          </NavLink>
           <button
             onClick={logout}
             className="flex flex-col items-center justify-center flex-1 gap-0.5 text-xs font-medium bg-transparent border-none cursor-pointer text-text-muted hover:text-danger transition-colors duration-150"
