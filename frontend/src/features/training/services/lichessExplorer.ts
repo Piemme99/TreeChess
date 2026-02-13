@@ -1,4 +1,4 @@
-// Lichess Explorer API client with in-memory cache and rate limiting
+// Lichess Explorer API client with LRU cache and serialized rate limiting
 
 const EXPLORER_BASE_URL = 'https://explorer.lichess.ovh/lichess';
 const EXPLORER_SPEEDS = 'blitz,rapid,classical';
@@ -7,6 +7,7 @@ const MIN_GAMES_THRESHOLD = 100;
 const API_DELAY_MS = 200;
 const RETRY_DELAY_MS = 2000;
 const REQUEST_TIMEOUT_MS = 10000;
+const MAX_CACHE_SIZE = 5000;
 
 export interface ExplorerMove {
   uci: string;
@@ -24,40 +25,66 @@ export interface ExplorerResponse {
   moves: ExplorerMove[];
 }
 
-// In-memory cache
+// LRU cache: Map iteration order = insertion order, so we can evict oldest
 const cache = new Map<string, ExplorerResponse>();
 
-// Rate limiting
-let lastRequestTime = 0;
-
-async function rateLimitedFetch(url: string): Promise<Response> {
-  const now = Date.now();
-  const elapsed = now - lastRequestTime;
-  if (elapsed < API_DELAY_MS) {
-    await new Promise((r) => setTimeout(r, API_DELAY_MS - elapsed));
+function cacheGet(key: string): ExplorerResponse | undefined {
+  const value = cache.get(key);
+  if (value !== undefined) {
+    // Move to end (most recently used) by re-inserting
+    cache.delete(key);
+    cache.set(key, value);
   }
-  lastRequestTime = Date.now();
+  return value;
+}
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-
-  try {
-    const resp = await fetch(url, { signal: controller.signal });
-
-    if (resp.status === 429) {
-      await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
-      lastRequestTime = Date.now();
-      return fetch(url, { signal: controller.signal });
-    }
-
-    return resp;
-  } finally {
-    clearTimeout(timeout);
+function cacheSet(key: string, value: ExplorerResponse): void {
+  if (cache.has(key)) {
+    cache.delete(key);
+  }
+  cache.set(key, value);
+  if (cache.size > MAX_CACHE_SIZE) {
+    // Delete oldest entry (first key in iteration order)
+    const oldest = cache.keys().next().value;
+    if (oldest !== undefined) cache.delete(oldest);
   }
 }
 
+// Serialized rate limiting via promise chain — prevents concurrent requests
+// from bypassing the delay
+let requestChain: Promise<void> = Promise.resolve();
+
+async function rateLimitedFetch(url: string): Promise<Response> {
+  // Chain this request after the previous one completes
+  const result = new Promise<Response>((resolve, reject) => {
+    requestChain = requestChain.then(async () => {
+      await new Promise((r) => setTimeout(r, API_DELAY_MS));
+
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+      try {
+        let resp = await fetch(url, { signal: controller.signal });
+
+        if (resp.status === 429) {
+          await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+          resp = await fetch(url, { signal: controller.signal });
+        }
+
+        resolve(resp);
+      } catch (err) {
+        reject(err);
+      } finally {
+        clearTimeout(timeout);
+      }
+    });
+  });
+
+  return result;
+}
+
 export async function fetchExplorerData(fen: string): Promise<ExplorerResponse> {
-  const cached = cache.get(fen);
+  const cached = cacheGet(fen);
   if (cached) return cached;
 
   const url = `${EXPLORER_BASE_URL}?variant=standard&speeds=${EXPLORER_SPEEDS}&ratings=${EXPLORER_RATINGS}&fen=${encodeURIComponent(fen)}`;
@@ -68,7 +95,7 @@ export async function fetchExplorerData(fen: string): Promise<ExplorerResponse> 
   }
 
   const data: ExplorerResponse = await resp.json();
-  cache.set(fen, data);
+  cacheSet(fen, data);
   return data;
 }
 

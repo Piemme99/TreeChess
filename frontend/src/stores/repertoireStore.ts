@@ -264,13 +264,15 @@ export const useRepertoireStore = create<RepertoireState>((set, get) => ({
       await categoryApi.delete(id);
       set((state) => ({
         categories: state.categories.filter((c) => c.id !== id),
-        // Also remove category from repertoires
-        repertoires: state.repertoires.map((r) =>
-          r.categoryId === id ? { ...r, categoryId: null } : r
-        ).filter((r) => r.categoryId !== id), // Cascade delete removes repertoires
+        // DB cascade-deletes repertoires in this category
+        repertoires: state.repertoires.filter((r) => r.categoryId !== id),
+        selectedRepertoireId:
+          state.repertoires.some((r) => r.id === state.selectedRepertoireId && r.categoryId === id)
+            ? null
+            : state.selectedRepertoireId,
         loading: false
       }));
-      // Refetch repertoires since cascade delete removes them
+      // Refetch to ensure consistency with server after cascade delete
       get().fetchRepertoires();
     } catch (err) {
       set({

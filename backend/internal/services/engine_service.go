@@ -1,6 +1,7 @@
 package services
 
 import (
+	"container/list"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -14,6 +15,54 @@ import (
 	"github.com/kumquat/backend/internal/repository"
 )
 
+// lruCache is a simple thread-safe LRU cache for explorer responses.
+type lruCache struct {
+	mu       sync.Mutex
+	items    map[string]*list.Element
+	order    *list.List
+	capacity int
+}
+
+type lruEntry struct {
+	key   string
+	value *explorerResponse
+}
+
+func newLRUCache(capacity int) *lruCache {
+	return &lruCache{
+		items:    make(map[string]*list.Element),
+		order:    list.New(),
+		capacity: capacity,
+	}
+}
+
+func (c *lruCache) get(key string) (*explorerResponse, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if el, ok := c.items[key]; ok {
+		c.order.MoveToFront(el)
+		return el.Value.(*lruEntry).value, true
+	}
+	return nil, false
+}
+
+func (c *lruCache) set(key string, value *explorerResponse) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if el, ok := c.items[key]; ok {
+		c.order.MoveToFront(el)
+		el.Value.(*lruEntry).value = value
+		return
+	}
+	el := c.order.PushFront(&lruEntry{key: key, value: value})
+	c.items[key] = el
+	if c.order.Len() > c.capacity {
+		oldest := c.order.Back()
+		c.order.Remove(oldest)
+		delete(c.items, oldest.Value.(*lruEntry).key)
+	}
+}
+
 const (
 	maxPlies         = 20 // Evaluate first 10 moves (20 plies)
 	pollInterval     = 5 * time.Second
@@ -22,6 +71,7 @@ const (
 	explorerRatings  = "1600,1800,2000,2200,2500"
 	minExplorerGames = 50 // minimum games for reliable stats
 	apiDelay         = 200 * time.Millisecond
+	maxCacheSize     = 10000 // max cached explorer positions before eviction
 )
 
 // explorerResponse represents the Lichess Explorer API response
@@ -46,8 +96,7 @@ type EngineService struct {
 	evalRepo     repository.EngineEvalRepository
 	analysisRepo repository.AnalysisRepository
 	httpClient   *http.Client
-	cache        map[string]*explorerResponse
-	cacheMu      sync.Mutex
+	cache        *lruCache
 }
 
 // NewEngineService creates a new engine service
@@ -58,7 +107,7 @@ func NewEngineService(evalRepo repository.EngineEvalRepository, analysisRepo rep
 		httpClient: &http.Client{
 			Timeout: 10 * time.Second,
 		},
-		cache: make(map[string]*explorerResponse),
+		cache: newLRUCache(maxCacheSize),
 	}
 }
 
@@ -242,12 +291,9 @@ func calcWinrate(white, draws, black int, userColor models.Color) float64 {
 
 func (s *EngineService) fetchExplorer(fen string) (*explorerResponse, error) {
 	// Check cache first
-	s.cacheMu.Lock()
-	if cached, ok := s.cache[fen]; ok {
-		s.cacheMu.Unlock()
+	if cached, ok := s.cache.get(fen); ok {
 		return cached, nil
 	}
-	s.cacheMu.Unlock()
 
 	// Rate limit
 	time.Sleep(apiDelay)
@@ -280,10 +326,8 @@ func (s *EngineService) fetchExplorer(fen string) (*explorerResponse, error) {
 		return nil, fmt.Errorf("failed to decode explorer response: %w", err)
 	}
 
-	// Cache the result
-	s.cacheMu.Lock()
-	s.cache[fen] = &result
-	s.cacheMu.Unlock()
+	// Cache the result (LRU-evicted at maxCacheSize)
+	s.cache.set(fen, &result)
 
 	return &result, nil
 }
