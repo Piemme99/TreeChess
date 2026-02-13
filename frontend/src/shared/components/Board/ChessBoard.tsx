@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { Chessboard } from 'react-chessboard';
-import type { Arrow } from 'react-chessboard/dist/chessboard/types';
+import type { Arrow } from 'react-chessboard';
 import { Chess, Square } from 'chess.js';
 
 interface ChessBoardProps {
@@ -17,6 +17,8 @@ interface ChessBoardProps {
   customArrows?: [string, string, string?][];
   annotationSquareStyles?: Record<string, React.CSSProperties>;
 }
+
+const DEFAULT_ARROW_COLOR = '#ffaa00';
 
 export function ChessBoard({
   fen,
@@ -58,18 +60,19 @@ export function ChessBoard({
     return moves.map((m) => m.to as Square);
   }, [game]);
 
-  const handleSquareClick = useCallback((square: Square) => {
+  const handleSquareClick = useCallback(({ square }: { piece: { pieceType: string } | null; square: string }) => {
+    const sq = square as Square;
     if (onSquareClick) {
-      onSquareClick(square);
+      onSquareClick(sq);
       return;
     }
     if (!interactive) return;
 
-    if (internalSelectedSquare && legalMoves.includes(square)) {
+    if (internalSelectedSquare && legalMoves.includes(sq)) {
       try {
         const move = game.move({
           from: internalSelectedSquare,
-          to: square,
+          to: sq,
           promotion: 'q'
         });
         if (move && onMove) {
@@ -88,14 +91,14 @@ export function ChessBoard({
       return;
     }
 
-    const piece = game.get(square);
+    const piece = game.get(sq);
     if (piece && piece.color === game.turn()) {
-      if (internalSelectedSquare === square) {
+      if (internalSelectedSquare === sq) {
         setInternalSelectedSquare(null);
         setLegalMoves([]);
       } else {
-        setInternalSelectedSquare(square);
-        setLegalMoves(getLegalMovesForSquare(square));
+        setInternalSelectedSquare(sq);
+        setLegalMoves(getLegalMovesForSquare(sq));
       }
     } else {
       setInternalSelectedSquare(null);
@@ -104,8 +107,8 @@ export function ChessBoard({
   }, [game, interactive, internalSelectedSquare, legalMoves, onMove, onSquareClick, getLegalMovesForSquare]);
 
   const handlePieceDrop = useCallback(
-    (sourceSquare: string, targetSquare: string): boolean => {
-      if (!interactive) return false;
+    ({ sourceSquare, targetSquare }: { piece: { isSparePiece: boolean; position: string; pieceType: string }; sourceSquare: string; targetSquare: string | null }): boolean => {
+      if (!interactive || !targetSquare) return false;
 
       try {
         const move = game.move({
@@ -188,19 +191,30 @@ export function ChessBoard({
     return styles;
   }, [game, internalSelectedSquare, highlightSquares, lastMove, bestMoveFrom, bestMoveTo, annotationSquareStyles]);
 
+  // Convert tuple arrows [from, to, color?] to v5 Arrow objects {startSquare, endSquare, color}
+  const arrows: Arrow[] = useMemo(() =>
+    customArrows.map(([from, to, color]) => ({
+      startSquare: from,
+      endSquare: to,
+      color: color || DEFAULT_ARROW_COLOR,
+    })),
+    [customArrows]
+  );
+
   return (
-    <div className="chessboard-wrapper" style={{ width }}>
+    <div className="chessboard-wrapper" style={{ width, maxWidth: '100%' }}>
       <Chessboard
-        position={fen}
-        onSquareClick={handleSquareClick}
-        onPieceDrop={handlePieceDrop}
-        boardOrientation={orientation}
-        boardWidth={width}
-        customSquareStyles={customSquareStyles}
-        customArrows={customArrows as Arrow[]}
-        animationDuration={200}
-        arePiecesDraggable={interactive}
-        isDraggablePiece={() => interactive}
+        options={{
+          position: fen,
+          onSquareClick: handleSquareClick,
+          onPieceDrop: handlePieceDrop,
+          boardOrientation: orientation,
+          squareStyles: customSquareStyles,
+          arrows,
+          animationDurationInMs: 200,
+          allowDragging: interactive,
+          canDragPiece: () => interactive,
+        }}
       />
     </div>
   );

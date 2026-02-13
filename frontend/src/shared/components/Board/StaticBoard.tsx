@@ -53,8 +53,7 @@ interface StaticBoardProps {
 const DEFAULT_ARROW_COLOR = 'rgb(255,170,0)';
 
 // Board dimensions in the viewBox coordinate system
-const BOARD_SIZE = 360;
-const SQUARE_SIZE = 45; // BOARD_SIZE / 8
+const SQUARE_SIZE = 45; // 360 / 8
 
 /** Convert algebraic square (e.g. "e4") to pixel center within the 360×360 viewBox */
 function squareToPixel(square: string, flipped: boolean): { x: number; y: number } {
@@ -66,18 +65,22 @@ function squareToPixel(square: string, flipped: boolean): { x: number; y: number
 }
 
 /**
- * Build SVG markup for arrows — matches react-chessboard's arrow style:
- * - strokeWidth = boardSize / 40
+ * Build SVG markup for arrows — matches react-chessboard v5 arrow style:
+ * - strokeWidth = squareSize / 5
  * - marker: 2×2.5 with polygon "0.3 0, 2 1.25, 0.3 2.5"
- * - line shortened by boardSize/32 (or boardSize/16 for overlapping targets)
+ * - L-shaped paths for knight moves (2+1 or 1+2 square patterns)
+ * - straight paths for all other moves
+ * - line shortened by squareSize/8 (or squareSize/4 for overlapping targets)
  * - opacity 0.65
  */
 function buildArrowsSVG(arrows: [string, string, string?][], flipped: boolean): string {
   if (arrows.length === 0) return '';
 
-  const strokeWidth = BOARD_SIZE / 40; // 9
-  const defaultShorten = BOARD_SIZE / 32; // 11.25
-  const overlapShorten = BOARD_SIZE / 16; // 22.5
+  const strokeWidth = SQUARE_SIZE / 5;
+  const defaultShorten = SQUARE_SIZE / 8;
+  const overlapShorten = SQUARE_SIZE / 4;
+  // Distance for a knight move: sqrt(1^2 + 2^2) * squareSize
+  const knightDistance = Math.hypot(1, 2) * SQUARE_SIZE;
 
   const parts: string[] = [];
   for (let i = 0; i < arrows.length; i++) {
@@ -97,14 +100,39 @@ function buildArrowsSVG(arrows: [string, string, string?][], flipped: boolean): 
     const dx = p2.x - p1.x;
     const dy = p2.y - p1.y;
     const r = Math.hypot(dx, dy);
-    const endX = p1.x + (dx * (r - shorten)) / r;
-    const endY = p1.y + (dy * (r - shorten)) / r;
+
+    let pathD: string;
+
+    // Knight move — draw an L-shaped arrow
+    if (Math.abs(r - knightDistance) < 0.5) {
+      // Draw the long leg first for visual clarity
+      const isVerticalFirst = Math.abs(dx) < Math.abs(dy);
+
+      // Corner where the L-shape turns
+      const corner = isVerticalFirst
+        ? { x: p1.x, y: p2.y }
+        : { x: p2.x, y: p1.y };
+
+      // Shorten the final leg (always 1 square for knight moves)
+      const dxFinal = p2.x - corner.x;
+      const dyFinal = p2.y - corner.y;
+      const finalLen = SQUARE_SIZE;
+      const endX = corner.x + (dxFinal * (finalLen - shorten)) / finalLen;
+      const endY = corner.y + (dyFinal * (finalLen - shorten)) / finalLen;
+
+      pathD = `M${p1.x},${p1.y} L${corner.x},${corner.y} L${endX},${endY}`;
+    } else {
+      // Straight arrow
+      const endX = p1.x + (dx * (r - shorten)) / r;
+      const endY = p1.y + (dy * (r - shorten)) / r;
+      pathD = `M${p1.x},${p1.y} L${endX},${endY}`;
+    }
 
     parts.push(
       `<marker id="${markerId}" markerWidth="2" markerHeight="2.5" refX="1.25" refY="1.25" orient="auto">` +
         `<polygon points="0.3 0, 2 1.25, 0.3 2.5" fill="${arrowColor}"/>` +
       `</marker>` +
-      `<line x1="${p1.x}" y1="${p1.y}" x2="${endX}" y2="${endY}" ` +
+      `<path d="${pathD}" fill="none" ` +
         `stroke="${arrowColor}" stroke-width="${strokeWidth}" ` +
         `marker-end="url(#${markerId})" opacity="0.65"/>`
     );
