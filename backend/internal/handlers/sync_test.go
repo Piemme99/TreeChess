@@ -79,3 +79,30 @@ func TestHandleSync_Error(t *testing.T) {
 
 	assert.Equal(t, http.StatusInternalServerError, rec.Code)
 }
+
+func TestHandleSync_Cooldown(t *testing.T) {
+	lichessUser := "lichessplayer"
+	recentSync := time.Now().Add(-1 * time.Minute)
+	user := &models.User{
+		ID:                "user-1",
+		LichessUsername:   &lichessUser,
+		LastLichessSyncAt: &recentSync,
+	}
+
+	mockUserRepo := &mocks.MockUserRepo{
+		GetByIDFunc: func(id string) (*models.User, error) { return user, nil },
+	}
+
+	syncSvc := services.NewSyncService(mockUserRepo, &smocks.MockImportService{}, &smocks.MockLichessService{}, &smocks.MockChesscomService{})
+	handler := NewSyncHandler(syncSvc)
+
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodPost, "/api/sync", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.Set("userID", "user-1")
+
+	_ = handler.HandleSync(c)
+
+	assert.Equal(t, http.StatusTooManyRequests, rec.Code)
+}

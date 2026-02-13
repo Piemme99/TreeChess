@@ -24,6 +24,9 @@ const (
 	DefaultDBTimeout   = 5 * time.Second
 	MigrationDBTimeout = 30 * time.Second
 
+	// Sync cooldown — minimum interval between sync requests per user
+	SyncCooldown = 5 * time.Minute
+
 	// Video import limits
 	MaxVideoLengthSeconds = 3600 // 1 hour max
 	VideoProcessTimeout   = 30 * time.Minute

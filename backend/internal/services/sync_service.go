@@ -6,9 +6,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kumquat/backend/config"
 	"github.com/kumquat/backend/internal/models"
 	"github.com/kumquat/backend/internal/repository"
 )
+
+var ErrSyncCooldown = fmt.Errorf("sync requested too soon, please wait %v between syncs", config.SyncCooldown)
 
 const (
 	syncLookbackDays          = 10
@@ -39,8 +42,15 @@ func (s *SyncService) Sync(userID string) (*models.SyncResult, error) {
 		return nil, fmt.Errorf("failed to get user: %w", err)
 	}
 
-	result := &models.SyncResult{}
+	// Enforce sync cooldown — reject if last sync was too recent
 	now := time.Now()
+	if mostRecent := mostRecentSync(user); mostRecent != nil {
+		if now.Sub(*mostRecent) < config.SyncCooldown {
+			return nil, ErrSyncCooldown
+		}
+	}
+
+	result := &models.SyncResult{}
 
 	if user.LichessUsername != nil && *user.LichessUsername != "" {
 		imported, err := s.syncLichess(user, now)
@@ -144,6 +154,18 @@ func (s *SyncService) syncChesscom(user *models.User, now time.Time) (int, error
 	}
 
 	return summary.GameCount, nil
+}
+
+// mostRecentSync returns the most recent sync timestamp across all platforms, or nil if never synced.
+func mostRecentSync(user *models.User) *time.Time {
+	var latest *time.Time
+	if user.LastLichessSyncAt != nil {
+		latest = user.LastLichessSyncAt
+	}
+	if user.LastChesscomSyncAt != nil && (latest == nil || user.LastChesscomSyncAt.After(*latest)) {
+		latest = user.LastChesscomSyncAt
+	}
+	return latest
 }
 
 func (s *SyncService) computeSince(lastSync *time.Time, now time.Time) int64 {

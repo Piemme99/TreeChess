@@ -148,13 +148,35 @@ func main() {
 	authGroup.GET("/api/auth/lichess/login", oauthHandler.LoginRedirect)
 	authGroup.GET("/api/auth/lichess/callback", oauthHandler.Callback)
 
-	// Token refresh (public — uses httpOnly cookie, not Authorization header)
-	e.POST("/api/auth/refresh", authHandler.RefreshHandler)
-	// Logout (public — revokes refresh token)
-	e.POST("/api/auth/logout", authHandler.LogoutHandler)
+	// Token refresh & logout — in auth rate-limit group (uses httpOnly cookie, not Authorization header)
+	authGroup.POST("/api/auth/refresh", authHandler.RefreshHandler)
+	authGroup.POST("/api/auth/logout", authHandler.LogoutHandler)
 
 	// Protected routes (auth required)
+	// 30s request timeout for standard operations; heavy ops use the server WriteTimeout (120s)
 	protected := e.Group("", appMiddleware.JWTAuth(authSvc))
+	protected.Use(middleware.TimeoutWithConfig(middleware.TimeoutConfig{
+		Timeout: 30 * time.Second,
+	}))
+
+	// Heavy operations rate limit: 5 requests/minute per IP
+	// For expensive endpoints like imports, sync, reanalyze that trigger
+	// external API calls, PGN parsing, or bulk database writes.
+	heavyOps := e.Group("", appMiddleware.JWTAuth(authSvc))
+	heavyOps.Use(middleware.RateLimiterWithConfig(middleware.RateLimiterConfig{
+		Store: middleware.NewRateLimiterMemoryStoreWithConfig(
+			middleware.RateLimiterMemoryStoreConfig{Rate: rate.Limit(5.0 / 60.0), Burst: 3},
+		),
+		IdentifierExtractor: func(ctx echo.Context) (string, error) {
+			return ctx.RealIP(), nil
+		},
+		ErrorHandler: func(ctx echo.Context, err error) error {
+			return ctx.JSON(http.StatusTooManyRequests, map[string]string{"error": "too many requests for this operation, please wait"})
+		},
+		DenyHandler: func(ctx echo.Context, identifier string, err error) error {
+			return ctx.JSON(http.StatusTooManyRequests, map[string]string{"error": "too many requests for this operation, please wait"})
+		},
+	}))
 
 	// Auth - current user
 	protected.GET("/api/auth/me", authHandler.MeHandler)
@@ -180,7 +202,7 @@ func main() {
 	protected.POST("/api/repertoires/:id/nodes/:nodeId/expand-to", handlers.ExpandToNodeHandler(repertoireSvc))
 	protected.POST("/api/repertoires/:id/nodes/:nodeId/set-main-line", handlers.SetMainLineHandler(repertoireSvc))
 	protected.POST("/api/repertoires/:id/clear-main-line", handlers.ClearMainLineHandler(repertoireSvc))
-	protected.POST("/api/repertoires/merge", handlers.MergeRepertoiresHandler(repertoireSvc))
+	heavyOps.POST("/api/repertoires/merge", handlers.MergeRepertoiresHandler(repertoireSvc))
 	protected.POST("/api/repertoires/:id/extract", handlers.ExtractSubtreeHandler(repertoireSvc))
 	protected.POST("/api/repertoires/:id/merge-transpositions", handlers.MergeTranspositionsHandler(repertoireSvc))
 	protected.PATCH("/api/repertoires/:id/category", handlers.AssignCategoryHandler(repertoireSvc, categorySvc))
@@ -205,9 +227,9 @@ func main() {
 
 	// Import/Analysis API
 	importHandler := handlers.NewImportHandler(importSvc, repertoireSvc, lichessSvc, chesscomSvc)
-	protected.POST("/api/imports", importHandler.UploadHandler)
-	protected.POST("/api/imports/lichess", importHandler.LichessImportHandler)
-	protected.POST("/api/imports/chesscom", importHandler.ChesscomImportHandler)
+	heavyOps.POST("/api/imports", importHandler.UploadHandler)
+	heavyOps.POST("/api/imports/lichess", importHandler.LichessImportHandler)
+	heavyOps.POST("/api/imports/chesscom", importHandler.ChesscomImportHandler)
 	protected.GET("/api/analyses", importHandler.ListAnalysesHandler)
 	protected.GET("/api/analyses/:id", importHandler.GetAnalysisHandler)
 	protected.DELETE("/api/analyses/:id", importHandler.DeleteAnalysisHandler)
@@ -217,7 +239,7 @@ func main() {
 
 	// Study Import API
 	protected.GET("/api/studies/preview", studyImportHandler.PreviewStudyHandler)
-	protected.POST("/api/studies/import", studyImportHandler.ImportStudyHandler)
+	heavyOps.POST("/api/studies/import", studyImportHandler.ImportStudyHandler)
 	protected.GET("/api/studies/browse", studyImportHandler.BrowseStudiesHandler)
 	protected.GET("/api/studies/topics", studyImportHandler.StudyTopicsHandler)
 
@@ -225,13 +247,13 @@ func main() {
 	protected.POST("/api/training/analyze", trainingHandler.AnalyzeHandler)
 
 	// Sync API
-	protected.POST("/api/sync", syncHandler.HandleSync)
+	heavyOps.POST("/api/sync", syncHandler.HandleSync)
 
 	// Games API
 	protected.GET("/api/games/insights", importHandler.GetInsightsHandler)
 	protected.POST("/api/games/insights/dismiss", importHandler.DismissMistakeHandler)
 	protected.GET("/api/games/repertoires", importHandler.GetDistinctRepertoiresHandler)
-	protected.POST("/api/games/reanalyze-all", importHandler.ReanalyzeAllGamesHandler)
+	heavyOps.POST("/api/games/reanalyze-all", importHandler.ReanalyzeAllGamesHandler)
 	protected.GET("/api/games", importHandler.GetGamesHandler)
 	protected.DELETE("/api/games/:analysisId/:gameIndex", importHandler.DeleteGameHandler)
 	protected.POST("/api/games/bulk-delete", importHandler.BulkDeleteGamesHandler)
@@ -256,11 +278,20 @@ func main() {
 		}
 	}()
 
-	// Start server in a goroutine
+	// Start server in a goroutine with explicit timeouts (Slowloris protection)
 	go func() {
 		addr := fmt.Sprintf(":%d", cfg.Port)
+		s := &http.Server{
+			Addr:              addr,
+			Handler:           e,
+			ReadTimeout:       10 * time.Second,
+			ReadHeaderTimeout: 5 * time.Second,
+			WriteTimeout:      120 * time.Second, // generous for long-running imports/sync
+			IdleTimeout:       60 * time.Second,
+		}
+		e.Server = s
 		slog.Info("starting server", "addr", addr)
-		if err := e.Start(addr); err != nil && err != http.ErrServerClosed {
+		if err := s.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			slog.Error("server error", "error", err)
 		}
 	}()

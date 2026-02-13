@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
@@ -21,6 +22,9 @@ func (h *SyncHandler) HandleSync(c echo.Context) error {
 
 	result, err := h.syncService.Sync(userID)
 	if err != nil {
+		if errors.Is(err, services.ErrSyncCooldown) {
+			return ErrorResponse(c, http.StatusTooManyRequests, err.Error())
+		}
 		return InternalErrorResponse(c, "failed to sync games")
 	}
 

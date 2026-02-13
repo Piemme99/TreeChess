@@ -83,6 +83,81 @@ func TestSyncService_Sync_LichessOnly(t *testing.T) {
 	assert.Equal(t, 0, result.ChesscomGamesImported)
 }
 
+func TestSyncService_Sync_CooldownEnforced(t *testing.T) {
+	lichessUser := "lichessplayer"
+	recentSync := time.Now().Add(-1 * time.Minute) // synced 1 minute ago
+	user := &models.User{
+		ID:                "user-1",
+		LichessUsername:   &lichessUser,
+		LastLichessSyncAt: &recentSync,
+	}
+
+	mockUserRepo := &mocks.MockUserRepo{
+		GetByIDFunc: func(id string) (*models.User, error) { return user, nil },
+	}
+
+	svc := NewSyncService(mockUserRepo, &smocks.MockImportService{}, &smocks.MockLichessService{}, &smocks.MockChesscomService{})
+	_, err := svc.Sync("user-1")
+
+	assert.Error(t, err)
+	assert.ErrorIs(t, err, ErrSyncCooldown)
+}
+
+func TestSyncService_Sync_CooldownExpired_Allowed(t *testing.T) {
+	lichessUser := "lichessplayer"
+	oldSync := time.Now().Add(-10 * time.Minute) // synced 10 minutes ago
+	user := &models.User{
+		ID:                "user-1",
+		LichessUsername:   &lichessUser,
+		LastLichessSyncAt: &oldSync,
+	}
+
+	mockUserRepo := &mocks.MockUserRepo{
+		GetByIDFunc:              func(id string) (*models.User, error) { return user, nil },
+		UpdateSyncTimestampsFunc: func(userID string, l, c *time.Time) error { return nil },
+	}
+	mockLichess := &smocks.MockLichessService{
+		FetchGamesFunc: func(username string, opts models.LichessImportOptions) (string, error) {
+			return "[Event \"Test\"]\n\n1. e4 e5 1-0\n", nil
+		},
+	}
+	mockImport := &smocks.MockImportService{
+		ParseAndAnalyzeFunc: func(filename, username, userID, pgnData string) (*models.AnalysisSummary, []models.GameAnalysis, error) {
+			return &models.AnalysisSummary{GameCount: 1}, nil, nil
+		},
+	}
+
+	svc := NewSyncService(mockUserRepo, mockImport, mockLichess, &smocks.MockChesscomService{})
+	result, err := svc.Sync("user-1")
+
+	require.NoError(t, err)
+	assert.Equal(t, 1, result.LichessGamesImported)
+}
+
+func TestMostRecentSync(t *testing.T) {
+	t.Run("nil when never synced", func(t *testing.T) {
+		user := &models.User{}
+		assert.Nil(t, mostRecentSync(user))
+	})
+
+	t.Run("returns lichess when only lichess synced", func(t *testing.T) {
+		ts := time.Date(2024, 6, 15, 10, 0, 0, 0, time.UTC)
+		user := &models.User{LastLichessSyncAt: &ts}
+		result := mostRecentSync(user)
+		require.NotNil(t, result)
+		assert.Equal(t, ts, *result)
+	})
+
+	t.Run("returns most recent of both", func(t *testing.T) {
+		older := time.Date(2024, 6, 15, 10, 0, 0, 0, time.UTC)
+		newer := time.Date(2024, 6, 16, 10, 0, 0, 0, time.UTC)
+		user := &models.User{LastLichessSyncAt: &older, LastChesscomSyncAt: &newer}
+		result := mostRecentSync(user)
+		require.NotNil(t, result)
+		assert.Equal(t, newer, *result)
+	})
+}
+
 func TestSyncService_Sync_ChesscomOnly(t *testing.T) {
 	chesscomUser := "chesscomuser"
 	user := &models.User{
