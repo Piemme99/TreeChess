@@ -100,7 +100,7 @@ export function RepertoireSelector({ color, repertoires, categories, onImportStu
   const [isMerging, setIsMerging] = useState(false);
   const [mergeName, setMergeName] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
-  const [newIsPublic, setNewIsPublic] = useState(true);
+  const [newIsPublic, setNewIsPublic] = useState(false);
   const [newDescription, setNewDescription] = useState('');
 
   // Filter categories and repertoires by color
@@ -141,7 +141,7 @@ export function RepertoireSelector({ color, repertoires, categories, onImportStu
       const rep = await createRepertoire(newName.trim(), color, newIsPublic, newDescription.trim() || undefined);
       setNewName('');
       setNewDescription('');
-      setNewIsPublic(true);
+      setNewIsPublic(false);
       setIsCreating(false);
       navigate(`/repertoire/${rep.id}/edit`, { state: { from: location.pathname } });
     } catch {
@@ -435,14 +435,14 @@ export function RepertoireSelector({ color, repertoires, categories, onImportStu
                     setIsCreating(false);
                     setNewName('');
                     setNewDescription('');
-                    setNewIsPublic(true);
+                    setNewIsPublic(false);
                   }
                 }}
               />
               <Button variant="primary" onClick={handleCreate} disabled={loading}>
                 Create
               </Button>
-              <Button variant="ghost" onClick={() => { setIsCreating(false); setNewName(''); setNewDescription(''); setNewIsPublic(true); }} disabled={loading}>
+              <Button variant="ghost" onClick={() => { setIsCreating(false); setNewName(''); setNewDescription(''); setNewIsPublic(false); }} disabled={loading}>
                 Cancel
               </Button>
             </div>
