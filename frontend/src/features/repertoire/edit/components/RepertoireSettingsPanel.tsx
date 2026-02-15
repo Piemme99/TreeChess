@@ -93,7 +93,7 @@ export function RepertoireSettingsPanel({ repertoire, onUpdate, onClose }: Reper
   }, [repertoire.id, repertoire.isPublic, onUpdate]);
 
   return (
-    <div className="absolute top-full right-0 mt-1 w-80 bg-bg-card border border-primary/15 rounded-xl shadow-xl z-50 overflow-hidden">
+    <div className="absolute top-full left-0 mt-1 w-80 bg-bg-card border border-primary/15 rounded-xl shadow-xl z-50 overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-primary/10">
         <h3 className="text-sm font-semibold text-text">Repertoire Settings</h3>
