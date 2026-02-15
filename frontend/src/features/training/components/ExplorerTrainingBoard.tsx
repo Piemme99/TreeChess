@@ -1,6 +1,6 @@
 import { useCallback, useRef, useEffect, useState } from 'react';
 import { ChessBoard } from '../../../shared/components/Board/ChessBoard';
-import { ArrowLeft, ArrowUpDown } from 'lucide-react';
+import { ArrowUpDown, BookOpen } from 'lucide-react';
 
 interface ExplorerTrainingBoardProps {
   fen: string;
@@ -10,7 +10,7 @@ interface ExplorerTrainingBoardProps {
   moveCount: number;
   onMove: (san: string, from: string, to: string) => void;
   onSwitchColor: () => void;
-  onBack: () => void;
+  onRepertoireTraining: () => void;
 }
 
 export function ExplorerTrainingBoard({
@@ -21,7 +21,7 @@ export function ExplorerTrainingBoard({
   moveCount,
   onMove,
   onSwitchColor,
-  onBack,
+  onRepertoireTraining,
 }: ExplorerTrainingBoardProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [boardSize, setBoardSize] = useState(400);
@@ -30,7 +30,7 @@ export function ExplorerTrainingBoard({
     function updateSize() {
       if (containerRef.current) {
         const width = containerRef.current.clientWidth;
-        setBoardSize(Math.min(width - 16, 560));
+        setBoardSize(width - 16);
       }
     }
     updateSize();
@@ -46,16 +46,9 @@ export function ExplorerTrainingBoard({
   );
 
   return (
-    <div className="max-w-2xl mx-auto">
+    <div className="max-w-4xl mx-auto">
       {/* Header */}
       <div className="flex items-center gap-3 mb-4">
-        <button
-          onClick={onBack}
-          className="p-2 rounded-xl border border-primary/10 bg-bg-card hover:bg-primary-light/50 text-text-muted hover:text-text transition-all duration-150 cursor-pointer"
-          title="Back to selection"
-        >
-          <ArrowLeft className="w-4 h-4" />
-        </button>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-3 text-sm text-text-muted">
             <span>Move {Math.ceil(moveCount / 2) || 1}</span>
@@ -78,7 +71,7 @@ export function ExplorerTrainingBoard({
       </div>
 
       {/* Controls */}
-      <div>
+      <div className="flex items-center gap-2">
         <button
           onClick={onSwitchColor}
           className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-primary/10 bg-bg-card hover:bg-primary-light/50 text-text-muted hover:text-text transition-all duration-150 cursor-pointer text-sm"
@@ -86,6 +79,14 @@ export function ExplorerTrainingBoard({
         >
           <ArrowUpDown className="w-3.5 h-3.5" />
           <span>{orientation === 'white' ? 'White' : 'Black'}</span>
+        </button>
+        <button
+          onClick={onRepertoireTraining}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-primary/10 bg-bg-card hover:bg-primary-light/50 text-text-muted hover:text-text transition-all duration-150 cursor-pointer text-sm"
+          title="Switch to Repertoire Training"
+        >
+          <BookOpen className="w-3.5 h-3.5" />
+          <span>Repertoire Training</span>
         </button>
       </div>
     </div>

@@ -1,9 +1,8 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { useRepertoires } from '../repertoire/shared/hooks/useRepertoires';
 import { usePageTitle } from '../../shared/hooks/usePageTitle';
 import { Loading } from '../../shared/components/UI';
-import { ModeSelector } from './components/ModeSelector';
 import { RepertoireSelector } from './components/RepertoireSelector';
 import { TrainingBoard } from './components/TrainingBoard';
 import { TrainingComplete } from './components/TrainingComplete';
@@ -14,16 +13,25 @@ import { useExplorerTraining } from './hooks/useExplorerTraining';
 import { useRepertoireComparison } from './hooks/useRepertoireComparison';
 import type { Repertoire } from '../../types';
 
-type Mode = 'none' | 'repertoire' | 'explorer';
+type Mode = 'repertoire' | 'explorer';
 
 export function TrainingPage() {
   usePageTitle('Training');
   const { repertoires, loading } = useRepertoires();
 
-  const [mode, setMode] = useState<Mode>('none');
+  const [mode, setMode] = useState<Mode>('explorer');
 
   const training = useTrainingSession();
   const explorer = useExplorerTraining();
+  const explorerStarted = useRef(false);
+
+  // Auto-start explorer session on mount
+  useEffect(() => {
+    if (!explorerStarted.current && explorer.phase === 'idle') {
+      explorerStarted.current = true;
+      explorer.startSession('w');
+    }
+  }, [explorer]);
 
   // Repertoire comparison — runs when explorer session completes
   const comparison = useRepertoireComparison(
@@ -32,19 +40,20 @@ export function TrainingPage() {
     explorer.phase === 'session_complete',
   );
 
-  const backToModes = useCallback(() => {
+  const backToExplorer = useCallback(() => {
     training.reset();
     explorer.reset();
-    setMode('none');
+    explorer.startSession('w');
+    setMode('explorer');
   }, [training, explorer]);
 
   const handleSelectRepertoire = useCallback((repertoire: Repertoire, lineCount: number) => {
     training.startSession(repertoire, lineCount);
   }, [training]);
 
-  const handleSelectExplorer = useCallback(() => {
-    explorer.startSession('w');
-    setMode('explorer');
+  const handleSwitchToRepertoire = useCallback(() => {
+    explorer.reset();
+    setMode('repertoire');
   }, [explorer]);
 
   const handleExplorerTryAgain = useCallback(() => {
@@ -63,22 +72,6 @@ export function TrainingPage() {
     return <Loading size="lg" text="Loading repertoires..." />;
   }
 
-  // Mode selector
-  if (mode === 'none') {
-    return (
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.3 }}
-      >
-        <ModeSelector
-          onSelectRepertoire={() => setMode('repertoire')}
-          onSelectExplorer={handleSelectExplorer}
-        />
-      </motion.div>
-    );
-  }
-
   // --- Repertoire Training ---
   if (mode === 'repertoire') {
     if (training.phase === 'idle') {
@@ -88,7 +81,7 @@ export function TrainingPage() {
           animate={{ opacity: 1 }}
           transition={{ duration: 0.3 }}
         >
-          <RepertoireSelector repertoires={repertoires} onSelect={handleSelectRepertoire} />
+          <RepertoireSelector repertoires={repertoires} onSelect={handleSelectRepertoire} onBack={backToExplorer} />
         </motion.div>
       );
     }
@@ -105,7 +98,7 @@ export function TrainingPage() {
             totalMistakes={training.totalMistakes}
             feedbackMessage={training.feedbackMessage}
             onTrainAgain={training.restartSession}
-            onChooseAnother={training.reset}
+            onChooseAnother={backToExplorer}
           />
         </motion.div>
       );
@@ -130,7 +123,7 @@ export function TrainingPage() {
           totalMistakes={training.totalMistakes}
           boardKey={training.boardKey}
           onMove={training.handleUserMove}
-          onBack={backToModes}
+          onBack={backToExplorer}
         />
       </motion.div>
     );
@@ -154,7 +147,7 @@ export function TrainingPage() {
           repertoireComparison={comparison}
           onTryAgain={handleExplorerTryAgain}
           onSwitchColor={handleExplorerSwitchColor}
-          onBackToModes={backToModes}
+          onBackToModes={backToExplorer}
         />
       </motion.div>
     );
@@ -174,7 +167,7 @@ export function TrainingPage() {
         moveCount={explorer.moveCount}
         onMove={explorer.handleUserMove}
         onSwitchColor={handleExplorerSwitchColor}
-        onBack={backToModes}
+        onRepertoireTraining={handleSwitchToRepertoire}
       />
     </motion.div>
   );

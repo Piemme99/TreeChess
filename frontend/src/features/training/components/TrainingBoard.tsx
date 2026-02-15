@@ -41,7 +41,7 @@ export function TrainingBoard({
     function updateSize() {
       if (containerRef.current) {
         const width = containerRef.current.clientWidth;
-        setBoardSize(Math.min(width - 16, 560));
+        setBoardSize(width - 16);
       }
     }
     updateSize();
@@ -79,7 +79,7 @@ export function TrainingBoard({
           : 'bg-primary/10 text-primary border-primary/20';
 
   return (
-    <div className="max-w-2xl mx-auto">
+    <div className="max-w-4xl mx-auto">
       {/* Header */}
       <div className="flex items-center gap-3 mb-4">
         <button

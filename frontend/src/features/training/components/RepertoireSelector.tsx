@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { BookOpen } from 'lucide-react';
+import { BookOpen, ArrowLeft } from 'lucide-react';
 import type { Repertoire } from '../../../types';
 import { colorToShort } from '../../../types';
 import { generateTrainingLines } from '../utils/treeTraversal';
@@ -9,18 +9,28 @@ import { fadeUp } from '../../../shared/utils/animations';
 interface RepertoireSelectorProps {
   repertoires: Repertoire[];
   onSelect: (repertoire: Repertoire, lineCount: number) => void;
+  onBack: () => void;
 }
 
 const LINE_COUNT_OPTIONS = [3, 5, 10] as const;
 
-export function RepertoireSelector({ repertoires, onSelect }: RepertoireSelectorProps) {
+export function RepertoireSelector({ repertoires, onSelect, onBack }: RepertoireSelectorProps) {
   const whiteReps = repertoires.filter((r) => r.color === 'white');
   const blackReps = repertoires.filter((r) => r.color === 'black');
 
   return (
     <div className="max-w-3xl mx-auto">
       <motion.div variants={fadeUp} initial="hidden" animate="visible" className="mb-8">
-        <h1 className="text-2xl font-bold font-display text-text mb-2">Training</h1>
+        <div className="flex items-center gap-3 mb-2">
+          <button
+            onClick={onBack}
+            className="p-2 rounded-xl border border-primary/10 bg-bg-card hover:bg-primary-light/50 text-text-muted hover:text-text transition-all duration-150 cursor-pointer"
+            title="Back to Explorer Training"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </button>
+          <h1 className="text-2xl font-bold font-display text-text">Repertoire Training</h1>
+        </div>
         <p className="text-text-muted text-sm">
           Choose a repertoire to practice. The computer plays your opponent's moves and you must find the correct responses.
         </p>
