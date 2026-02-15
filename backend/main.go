@@ -155,7 +155,7 @@ func main() {
 	// Protected routes (auth required)
 	// 30s request timeout for standard operations; heavy ops use the server WriteTimeout (120s)
 	protected := e.Group("", appMiddleware.JWTAuth(authSvc))
-	protected.Use(middleware.TimeoutWithConfig(middleware.TimeoutConfig{
+	protected.Use(middleware.ContextTimeoutWithConfig(middleware.ContextTimeoutConfig{
 		Timeout: 30 * time.Second,
 	}))
 

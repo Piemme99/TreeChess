@@ -1,4 +1,4 @@
-.PHONY: dev build stop delete logs restart test lint test-frontend test-backend test-integration lint-frontend lint-backend prod prod-stop prod-logs prod-restart prod-deploy prod-deploy-logs prod-deploy-stop prod-init-ssl prod-renew-ssl prod-backup prod-install-backup-cron
+.PHONY: dev build stop delete logs restart test lint test-frontend test-backend test-integration lint-frontend lint-backend install-hooks prod prod-stop prod-logs prod-restart prod-deploy prod-deploy-logs prod-deploy-stop prod-init-ssl prod-renew-ssl prod-backup prod-install-backup-cron
 
 dev:
 	docker-compose up --build -d
@@ -39,6 +39,11 @@ lint-frontend:
 
 lint-backend:
 	cd backend && go vet ./... && golangci-lint run ./...
+
+install-hooks:
+	cp scripts/pre-push .git/hooks/pre-push
+	chmod +x .git/hooks/pre-push
+	@echo "Git hooks installed successfully."
 
 # === Production ===
 

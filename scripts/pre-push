@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# Pre-push hook: runs lint checks before allowing push.
+# Install with: make install-hooks
+
+set -euo pipefail
+
+ROOT="$(git rev-parse --show-toplevel)"
+
+echo "=== Pre-push: running lint checks ==="
+
+# --- Frontend ---
+echo ">> Frontend: ESLint"
+(cd "$ROOT/frontend" && npm run lint)
+
+echo ">> Frontend: TypeScript check"
+(cd "$ROOT/frontend" && npx tsc --noEmit)
+
+# --- Backend ---
+echo ">> Backend: go vet"
+(cd "$ROOT/backend" && go vet ./...)
+
+if command -v golangci-lint &>/dev/null; then
+    echo ">> Backend: golangci-lint"
+    (cd "$ROOT/backend" && golangci-lint run ./...)
+else
+    echo ">> Backend: golangci-lint not found, installing..."
+    go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
+    echo ">> Backend: golangci-lint"
+    (cd "$ROOT/backend" && golangci-lint run ./...)
+fi
+
+echo "=== All lint checks passed ==="
