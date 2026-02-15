@@ -2384,7 +2384,7 @@ func TestRepertoireService_CreateRepertoireWithVisibility_LimitReached(t *testin
 
 // --- CreateRepertoire delegates to CreateRepertoireWithVisibility ---
 
-func TestRepertoireService_CreateRepertoire_DefaultsToPublic(t *testing.T) {
+func TestRepertoireService_CreateRepertoire_DefaultsToPrivate(t *testing.T) {
 	var receivedIsPublic bool
 	mockRepo := &mocks.MockRepertoireRepo{
 		CountFunc: func(userID string) (int, error) { return 0, nil },
@@ -2398,5 +2398,5 @@ func TestRepertoireService_CreateRepertoire_DefaultsToPublic(t *testing.T) {
 	_, err := svc.CreateRepertoire("user-1", "Test", models.ColorWhite)
 
 	require.NoError(t, err)
-	assert.True(t, receivedIsPublic, "CreateRepertoire should default to public (isPublic=true)")
+	assert.False(t, receivedIsPublic, "CreateRepertoire should default to private (isPublic=false)")
 }
