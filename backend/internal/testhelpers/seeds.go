@@ -94,6 +94,16 @@ func TwoGamePGN(white, black string) string {
 1. d4 d5 2. c4 e6 3. Nc3 Nf6 0-1`
 }
 
+// SeedCategory creates a category for the given user.
+func SeedCategory(t *testing.T, repos *Repos, userID, name string, color models.Color) *models.Category {
+	t.Helper()
+	cat, err := repos.Category.Create(userID, name, color)
+	if err != nil {
+		t.Fatalf("SeedCategory: %v", err)
+	}
+	return cat
+}
+
 // ThreeGamePGN returns a PGN with three games.
 func ThreeGamePGN(white, black string) string {
 	return `[Event "Game 1"]

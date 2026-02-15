@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
 	"time"
 
@@ -18,39 +19,92 @@ import (
 
 const testJWTSecret = "integration-test-secret-key-32chars!"
 
+// CapturingEmailService implements services.EmailSender and records sent emails
+// so that integration tests can inspect reset tokens without a real SMTP server.
+type CapturingEmailService struct {
+	mu     sync.Mutex
+	Emails []CapturedEmail
+}
+
+// CapturedEmail represents an email captured during testing.
+type CapturedEmail struct {
+	ToEmail string
+	Token   string
+}
+
+func (m *CapturingEmailService) SendPasswordResetEmail(toEmail, token string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.Emails = append(m.Emails, CapturedEmail{ToEmail: toEmail, Token: token})
+	return nil
+}
+
+func (m *CapturingEmailService) Enabled() bool {
+	return true
+}
+
+// LastToken returns the most recently captured reset token, or "" if none.
+func (m *CapturingEmailService) LastToken() string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if len(m.Emails) == 0 {
+		return ""
+	}
+	return m.Emails[len(m.Emails)-1].Token
+}
+
 // TestServer holds an Echo instance with all routes wired to real services.
 type TestServer struct {
-	Echo      *echo.Echo
-	AuthSvc   *services.AuthService
-	RepSvc    *services.RepertoireService
-	ImportSvc *services.ImportService
+	Echo         *echo.Echo
+	AuthSvc      *services.AuthService
+	RepSvc       *services.RepertoireService
+	ImportSvc    *services.ImportService
+	CategorySvc  *services.CategoryService
+	EmailCapture *CapturingEmailService
 }
 
 // SetupTestServer creates a full Echo server with real services and routes.
 func SetupTestServer(t *testing.T, repos *Repos) *TestServer {
 	t.Helper()
 
+	// Email capture for password reset tests
+	emailCapture := &CapturingEmailService{}
+
+	// Auth service with refresh tokens and password reset wired up
 	authSvc := services.NewAuthService(repos.User, testJWTSecret, 168*time.Hour)
+	authSvc.WithRefreshTokens(repos.RefreshToken)
+	authSvc.WithPasswordReset(repos.PasswordReset, emailCapture, 1)
+
 	repertoireSvc := services.NewRepertoireService(repos.Repertoire)
 	engineSvc := services.NewEngineService(repos.EngineEval, repos.Analysis)
 	importSvc := services.NewImportService(repertoireSvc, repos.Analysis,
 		services.WithFingerprintRepo(repos.Fingerprint),
 		services.WithEngineService(engineSvc),
 	)
+	categorySvc := services.NewCategoryService(repos.Category, repos.Repertoire)
 
 	e := echo.New()
 	e.HideBanner = true
 
 	authHandler := handlers.NewAuthHandler(authSvc, false)
 
-	// Public routes
+	// Public auth routes (no JWT required)
 	e.POST("/api/auth/register", authHandler.RegisterHandler)
 	e.POST("/api/auth/login", authHandler.LoginHandler)
+	e.POST("/api/auth/forgot-password", authHandler.ForgotPasswordHandler)
+	e.POST("/api/auth/reset-password", authHandler.ResetPasswordHandler)
+	e.POST("/api/auth/refresh", authHandler.RefreshHandler)
+	e.POST("/api/auth/logout", authHandler.LogoutHandler)
 
-	// Protected routes
+	// Protected routes (JWT required)
 	protected := e.Group("", appMiddleware.JWTAuth(authSvc))
 
+	// Auth - current user
 	protected.GET("/api/auth/me", authHandler.MeHandler)
+	protected.PUT("/api/auth/profile", authHandler.UpdateProfileHandler)
+	protected.POST("/api/auth/change-password", authHandler.ChangePasswordHandler)
+	protected.GET("/api/auth/has-password", authHandler.HasPasswordHandler)
+	protected.DELETE("/api/auth/account", authHandler.DeleteAccountHandler)
 
 	// Repertoire routes
 	protected.GET("/api/repertoires", handlers.ListRepertoiresHandler(repertoireSvc))
@@ -63,6 +117,14 @@ func SetupTestServer(t *testing.T, repos *Repos) *TestServer {
 	protected.POST("/api/repertoires/merge", handlers.MergeRepertoiresHandler(repertoireSvc))
 	protected.POST("/api/repertoires/:id/extract", handlers.ExtractSubtreeHandler(repertoireSvc))
 	protected.POST("/api/repertoires/:id/merge-transpositions", handlers.MergeTranspositionsHandler(repertoireSvc))
+	protected.PATCH("/api/repertoires/:id/category", handlers.AssignCategoryHandler(repertoireSvc, categorySvc))
+
+	// Category routes
+	protected.GET("/api/categories", handlers.ListCategoriesHandler(categorySvc))
+	protected.POST("/api/categories", handlers.CreateCategoryHandler(categorySvc))
+	protected.GET("/api/categories/:id", handlers.GetCategoryHandler(categorySvc))
+	protected.PATCH("/api/categories/:id", handlers.UpdateCategoryHandler(categorySvc))
+	protected.DELETE("/api/categories/:id", handlers.DeleteCategoryHandler(categorySvc))
 
 	// Import routes
 	importHandler := handlers.NewImportHandler(importSvc, repertoireSvc, nil, nil)
@@ -79,10 +141,12 @@ func SetupTestServer(t *testing.T, repos *Repos) *TestServer {
 	protected.GET("/api/games/insights", importHandler.GetInsightsHandler)
 
 	return &TestServer{
-		Echo:      e,
-		AuthSvc:   authSvc,
-		RepSvc:    repertoireSvc,
-		ImportSvc: importSvc,
+		Echo:         e,
+		AuthSvc:      authSvc,
+		RepSvc:       repertoireSvc,
+		ImportSvc:    importSvc,
+		CategorySvc:  categorySvc,
+		EmailCapture: emailCapture,
 	}
 }
 
