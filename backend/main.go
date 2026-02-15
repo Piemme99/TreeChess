@@ -125,11 +125,11 @@ func main() {
 	// Public routes (no auth required)
 	e.GET("/api/health", handlers.HealthHandler(db.Pool))
 
-	// Stricter rate limit for auth endpoints: 10 requests/minute per IP
+	// Stricter rate limit for auth endpoints: 20 requests/minute per IP
 	authGroup := e.Group("")
 	authGroup.Use(middleware.RateLimiterWithConfig(middleware.RateLimiterConfig{
 		Store: middleware.NewRateLimiterMemoryStoreWithConfig(
-			middleware.RateLimiterMemoryStoreConfig{Rate: rate.Limit(10.0 / 60.0), Burst: 5},
+			middleware.RateLimiterMemoryStoreConfig{Rate: rate.Limit(20.0 / 60.0), Burst: 10},
 		),
 		IdentifierExtractor: func(ctx echo.Context) (string, error) {
 			return ctx.RealIP(), nil
