@@ -134,7 +134,29 @@ export function StudyImportModal({ isOpen, onClose, onSuccess }: StudyImportModa
     : false;
 
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} title="Import Lichess Study" size="lg">
+    <Modal
+      isOpen={isOpen}
+      onClose={handleClose}
+      title={
+        <span className="flex items-center gap-3">
+          Import Lichess Study
+          <a
+            href="https://lichess.org/study"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[0.8rem] font-normal text-text-muted hover:text-primary transition-colors no-underline flex items-center gap-1"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+              <polyline points="15 3 21 3 21 9" />
+              <line x1="10" y1="14" x2="21" y2="3" />
+            </svg>
+            Browse on Lichess
+          </a>
+        </span>
+      }
+      size="lg"
+    >
       {/* Tab bar - hidden in preview */}
       {activeView !== 'preview' && (
         <div className="flex border-b border-primary/10 mb-4 -mt-2">
