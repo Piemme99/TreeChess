@@ -32,6 +32,7 @@ func (m *MockEmailService) Enabled() bool {
 type MockLichessService struct {
 	FetchGamesFunc           func(username string, options models.LichessImportOptions) (string, error)
 	FetchStudyPGNFunc        func(studyID, authToken string) (string, error)
+	FetchStudyMetadataFunc   func(studyID, authToken string) (*models.LichessStudyResult, error)
 	SearchStudiesFunc        func(query, order string, page int, authToken string) (*models.LichessStudySearchResponse, error)
 	BrowseStudiesByTopicFunc func(topic, sort string, page int, authToken string) (*models.LichessStudySearchResponse, error)
 	BrowseAllStudiesFunc     func(sort string, page int, authToken string) (*models.LichessStudySearchResponse, error)
@@ -50,6 +51,13 @@ func (m *MockLichessService) FetchStudyPGN(studyID, authToken string) (string, e
 		return m.FetchStudyPGNFunc(studyID, authToken)
 	}
 	return "", nil
+}
+
+func (m *MockLichessService) FetchStudyMetadata(studyID, authToken string) (*models.LichessStudyResult, error) {
+	if m.FetchStudyMetadataFunc != nil {
+		return m.FetchStudyMetadataFunc(studyID, authToken)
+	}
+	return nil, nil
 }
 
 func (m *MockLichessService) SearchStudies(query, order string, page int, authToken string) (*models.LichessStudySearchResponse, error) {
@@ -111,6 +119,7 @@ type MockRepertoireService struct {
 	CreateRepertoireFunc             func(userID, name string, color models.Color) (*models.Repertoire, error)
 	CreateRepertoireWithCategoryFunc func(userID, name string, color models.Color, categoryID *string) (*models.Repertoire, error)
 	SaveTreeFunc                     func(userID, repertoireID string, treeData models.RepertoireNode) (*models.Repertoire, error)
+	SetOriginFunc                    func(repertoireID string, origin *models.RepertoireOrigin) error
 }
 
 func (m *MockRepertoireService) CreateRepertoire(userID, name string, color models.Color) (*models.Repertoire, error) {
@@ -136,4 +145,11 @@ func (m *MockRepertoireService) SaveTree(userID, repertoireID string, treeData m
 		return m.SaveTreeFunc(userID, repertoireID, treeData)
 	}
 	return nil, nil
+}
+
+func (m *MockRepertoireService) SetOrigin(repertoireID string, origin *models.RepertoireOrigin) error {
+	if m.SetOriginFunc != nil {
+		return m.SetOriginFunc(repertoireID, origin)
+	}
+	return nil
 }

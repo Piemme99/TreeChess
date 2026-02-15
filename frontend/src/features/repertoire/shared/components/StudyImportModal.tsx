@@ -86,7 +86,8 @@ export function StudyImportModal({ isOpen, onClose, onSuccess }: StudyImportModa
       !mergeAsOne && createCategory,
       !mergeAsOne && createCategory ? studyInfo?.studyName : undefined,
       includeComments,
-      includeHints
+      includeHints,
+      studyInfo?.ownerName
     );
     if (result) {
       if (result.category) {

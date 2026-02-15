@@ -41,6 +41,7 @@ type StudyChapterInfo struct {
 type StudyInfo struct {
 	StudyID   string             `json:"studyId"`
 	StudyName string             `json:"studyName"`
+	OwnerName string             `json:"ownerName,omitempty"`
 	Chapters  []StudyChapterInfo `json:"chapters"`
 }
 
@@ -54,4 +55,5 @@ type StudyImportRequest struct {
 	CategoryName    string `json:"categoryName,omitempty"`
 	IncludeComments bool   `json:"includeComments,omitempty"`
 	IncludeHints    bool   `json:"includeHints,omitempty"`
+	OwnerName       string `json:"ownerName,omitempty"`
 }

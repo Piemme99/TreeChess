@@ -8,6 +8,7 @@ import (
 type LichessGameFetcher interface {
 	FetchGames(username string, options models.LichessImportOptions) (string, error)
 	FetchStudyPGN(studyID, authToken string) (string, error)
+	FetchStudyMetadata(studyID, authToken string) (*models.LichessStudyResult, error)
 	SearchStudies(query, order string, page int, authToken string) (*models.LichessStudySearchResponse, error)
 	BrowseStudiesByTopic(topic, sort string, page int, authToken string) (*models.LichessStudySearchResponse, error)
 	BrowseAllStudies(sort string, page int, authToken string) (*models.LichessStudySearchResponse, error)
@@ -29,4 +30,5 @@ type RepertoireManager interface {
 	CreateRepertoire(userID, name string, color models.Color) (*models.Repertoire, error)
 	CreateRepertoireWithCategory(userID, name string, color models.Color, categoryID *string) (*models.Repertoire, error)
 	SaveTree(userID, repertoireID string, treeData models.RepertoireNode) (*models.Repertoire, error)
+	SetOrigin(repertoireID string, origin *models.RepertoireOrigin) error
 }

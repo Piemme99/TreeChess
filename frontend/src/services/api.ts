@@ -451,7 +451,8 @@ export const studyApi = {
     createCategory?: boolean,
     categoryName?: string,
     includeComments?: boolean,
-    includeHints?: boolean
+    includeHints?: boolean,
+    ownerName?: string
   ): Promise<StudyImportResponse> => {
     const body: Record<string, unknown> = { studyUrl, chapters };
     if (mergeAsOne) {
@@ -463,6 +464,7 @@ export const studyApi = {
     }
     body.includeComments = includeComments ?? false;
     body.includeHints = includeHints ?? true;
+    if (ownerName) body.ownerName = ownerName;
     const response = await api.post('/studies/import', body, { timeout: 120000 });
     return response.data;
   },

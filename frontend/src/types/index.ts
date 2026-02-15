@@ -110,6 +110,12 @@ export interface RepertoireMetadata {
   deepestDepth: number;
 }
 
+export interface RepertoireOrigin {
+  type: string;    // 'lichess'
+  url?: string;    // e.g. 'https://lichess.org/study/abcdef12'
+  creator?: string; // study author username
+}
+
 export interface Repertoire {
   id: string;
   name: string;
@@ -119,6 +125,7 @@ export interface Repertoire {
   categoryId?: string | null;
   treeData: RepertoireNode;
   metadata: RepertoireMetadata;
+  origin?: RepertoireOrigin;
   authorName?: string;
   createdAt: string;
   updatedAt: string;
@@ -380,6 +387,7 @@ export interface StudyChapterInfo {
 export interface StudyInfo {
   studyId: string;
   studyName: string;
+  ownerName?: string;
   chapters: StudyChapterInfo[];
 }
 
@@ -392,6 +400,7 @@ export interface StudyImportRequest {
   categoryName?: string;
   includeComments?: boolean;
   includeHints?: boolean;
+  ownerName?: string;
 }
 
 export interface StudyImportResponse {

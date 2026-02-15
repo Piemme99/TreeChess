@@ -209,6 +209,51 @@ func (s *LichessService) FetchGames(username string, options models.LichessImpor
 	return pgnData, nil
 }
 
+// FetchStudyMetadata fetches metadata about a Lichess study (including owner info).
+func (s *LichessService) FetchStudyMetadata(studyID, authToken string) (*models.LichessStudyResult, error) {
+	if studyID == "" {
+		return nil, fmt.Errorf("study ID is required")
+	}
+
+	reqURL := fmt.Sprintf("%s/study/%s.json", lichessBaseURL, url.PathEscape(studyID))
+
+	req, err := http.NewRequest(http.MethodGet, reqURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Accept", "application/json")
+	if authToken != "" {
+		req.Header.Set("Authorization", "Bearer "+authToken)
+	}
+
+	resp, err := s.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch study metadata from Lichess: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	switch resp.StatusCode {
+	case http.StatusOK:
+		// continue
+	case http.StatusNotFound:
+		return nil, ErrLichessStudyNotFound
+	case http.StatusForbidden:
+		return nil, ErrLichessStudyForbidden
+	case http.StatusTooManyRequests:
+		return nil, ErrLichessRateLimited
+	default:
+		return nil, fmt.Errorf("lichess API error: %s", resp.Status)
+	}
+
+	var result models.LichessStudyResult
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to decode study metadata: %w", err)
+	}
+
+	return &result, nil
+}
+
 // SearchStudies searches Lichess studies by query string.
 func (s *LichessService) SearchStudies(query, order string, page int, authToken string) (*models.LichessStudySearchResponse, error) {
 	if query == "" {

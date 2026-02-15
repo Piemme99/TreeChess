@@ -1,6 +1,7 @@
 import { memo, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { fadeUp } from '../../../../shared/utils/animations';
+import { LichessLogo } from '../../../../shared/components/UI';
 import { StaticBoard } from '../../../../shared/components/Board';
 import { getMainlineFEN } from '../../../../shared/utils/chess';
 import type { Repertoire } from '../../../../types';
@@ -41,11 +42,16 @@ export const RepertoireCard = memo(function RepertoireCard({
   dragListeners
 }: RepertoireCardProps) {
   const orientation = repertoire.color === 'white' ? 'white' : 'black';
+  const isFromLichess = repertoire.origin?.type === 'lichess';
 
   const previewFEN = useMemo(
     () => getMainlineFEN(repertoire.treeData),
     [repertoire.treeData]
   );
+
+  const lichessTooltip = isFromLichess
+    ? `Imported from Lichess${repertoire.origin?.creator ? ` by ${repertoire.origin.creator}` : ''}`
+    : undefined;
 
   return (
     <motion.div
@@ -60,10 +66,22 @@ export const RepertoireCard = memo(function RepertoireCard({
     >
       {/* Mini board */}
       <div
-        className="w-full aspect-square cursor-pointer"
+        className="relative w-full aspect-square cursor-pointer"
         onClick={onOpen}
       >
         <StaticBoard fen={previewFEN} orientation={orientation} />
+        {isFromLichess && (
+          <a
+            href={repertoire.origin?.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            title={lichessTooltip}
+            className="absolute top-1.5 right-1.5 w-5 h-5 bg-white/90 rounded flex items-center justify-center shadow-sm hover:bg-white transition-colors"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <LichessLogo size={13} className="text-[#4a4a4a]" />
+          </a>
+        )}
       </div>
 
       {/* Content */}
@@ -130,6 +148,21 @@ export const RepertoireCard = memo(function RepertoireCard({
                 <span className="text-[11px] text-text-muted">
                   {repertoire.metadata.totalMoves} moves &middot; depth {repertoire.metadata.deepestDepth}
                 </span>
+                {isFromLichess && repertoire.origin?.creator && (
+                  <a
+                    href={repertoire.origin.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-0.5 mt-0.5 no-underline group"
+                    title={lichessTooltip}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <LichessLogo size={9} className="text-text-muted group-hover:text-[#629924] transition-colors shrink-0" />
+                    <span className="text-[10px] text-text-muted group-hover:text-[#629924] transition-colors truncate">
+                      {repertoire.origin.creator}
+                    </span>
+                  </a>
+                )}
               </div>
             </div>
 

@@ -120,6 +120,7 @@ type MockRepertoireRepo struct {
 	GetAllPublicFunc              func() ([]models.Repertoire, error)
 	GetPublicByIDFunc             func(id string) (*models.Repertoire, error)
 	GetOwnerIDFunc                func(id string) (string, error)
+	UpdateOriginFunc              func(id string, origin *models.RepertoireOrigin) error
 }
 
 func (m *MockRepertoireRepo) GetByID(id string) (*models.Repertoire, error) {
@@ -280,6 +281,13 @@ func (m *MockRepertoireRepo) GetOwnerID(id string) (string, error) {
 		return m.GetOwnerIDFunc(id)
 	}
 	return "", nil
+}
+
+func (m *MockRepertoireRepo) UpdateOrigin(id string, origin *models.RepertoireOrigin) error {
+	if m.UpdateOriginFunc != nil {
+		return m.UpdateOriginFunc(id, origin)
+	}
+	return nil
 }
 
 // MockAnalysisRepo is a mock implementation of AnalysisRepository for testing

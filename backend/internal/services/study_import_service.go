@@ -65,6 +65,15 @@ func (s *StudyImportService) PreviewStudy(studyID, authToken string) (*models.St
 		return nil, fmt.Errorf("no chapters found in study")
 	}
 
+	// Fetch study metadata to get the owner name
+	var ownerName string
+	studyMeta, err := s.lichessService.FetchStudyMetadata(studyID, authToken)
+	if err == nil && studyMeta != nil {
+		ownerName = studyMeta.Owner.Name
+	} else {
+		slog.Debug("could not fetch study metadata for owner name", "study_id", studyID, "error", err)
+	}
+
 	studyName := ""
 	var chapterInfos []models.StudyChapterInfo
 
@@ -114,6 +123,7 @@ func (s *StudyImportService) PreviewStudy(studyID, authToken string) (*models.St
 	return &models.StudyInfo{
 		StudyID:   studyID,
 		StudyName: studyName,
+		OwnerName: ownerName,
 		Chapters:  chapterInfos,
 	}, nil
 }
@@ -136,7 +146,7 @@ func (s *StudyImportService) ImportStudyChapters(userID, studyID, authToken stri
 // ImportStudyChaptersWithCategory imports selected chapters with optional category creation.
 // When createCategory is true and chapters are not being merged, it creates a category
 // and assigns all imported repertoires to it.
-func (s *StudyImportService) ImportStudyChaptersWithCategory(userID, studyID, authToken string, chapterIndices []int, createCategory bool, categoryName string, includeComments, includeHints bool) (*StudyImportResult, error) {
+func (s *StudyImportService) ImportStudyChaptersWithCategory(userID, studyID, authToken string, chapterIndices []int, createCategory bool, categoryName string, includeComments, includeHints bool, ownerName ...string) (*StudyImportResult, error) {
 	pgnData, err := s.lichessService.FetchStudyPGN(studyID, authToken)
 	if err != nil {
 		return nil, err
@@ -208,6 +218,25 @@ func (s *StudyImportService) ImportStudyChaptersWithCategory(userID, studyID, au
 		categoryID = &cat.ID
 	}
 
+	// Resolve the origin owner name
+	resolvedOwner := ""
+	if len(ownerName) > 0 && ownerName[0] != "" {
+		resolvedOwner = ownerName[0]
+	} else {
+		// Try to fetch from Lichess metadata
+		meta, metaErr := s.lichessService.FetchStudyMetadata(studyID, authToken)
+		if metaErr == nil && meta != nil {
+			resolvedOwner = meta.Owner.Name
+		}
+	}
+
+	// Build origin to set on each imported repertoire
+	origin := &models.RepertoireOrigin{
+		Type:    "lichess",
+		URL:     fmt.Sprintf("https://lichess.org/study/%s", studyID),
+		Creator: resolvedOwner,
+	}
+
 	var created []models.Repertoire
 
 	for i, chapterPGN := range chapters {
@@ -259,6 +288,13 @@ func (s *StudyImportService) ImportStudyChaptersWithCategory(userID, studyID, au
 			return nil, fmt.Errorf("failed to save tree for chapter %d: %w", i, err)
 		}
 
+		// Set Lichess origin
+		if setErr := s.repertoireService.SetOrigin(saved.ID, origin); setErr != nil {
+			slog.Error("failed to set origin on imported repertoire", "repertoire_id", saved.ID, "error", setErr)
+		} else {
+			saved.Origin = origin
+		}
+
 		created = append(created, *saved)
 	}
 
@@ -272,7 +308,7 @@ func (s *StudyImportService) ImportStudyChaptersWithCategory(userID, studyID, au
 var ErrMixedColors = fmt.Errorf("cannot merge chapters with different colors")
 
 // ImportStudyChaptersMerged imports selected chapters from a Lichess study and merges them into a single repertoire.
-func (s *StudyImportService) ImportStudyChaptersMerged(userID, studyID, authToken string, chapterIndices []int, mergeName string, includeComments, includeHints bool) (*models.Repertoire, error) {
+func (s *StudyImportService) ImportStudyChaptersMerged(userID, studyID, authToken string, chapterIndices []int, mergeName string, includeComments, includeHints bool, ownerName ...string) (*models.Repertoire, error) {
 	pgnData, err := s.lichessService.FetchStudyPGN(studyID, authToken)
 	if err != nil {
 		return nil, err
@@ -364,6 +400,28 @@ func (s *StudyImportService) ImportStudyChaptersMerged(userID, studyID, authToke
 	saved, err := s.repertoireService.SaveTree(userID, rep.ID, merged)
 	if err != nil {
 		return nil, fmt.Errorf("failed to save merged tree: %w", err)
+	}
+
+	// Set Lichess origin
+	resolvedOwner := ""
+	if len(ownerName) > 0 && ownerName[0] != "" {
+		resolvedOwner = ownerName[0]
+	} else {
+		meta, metaErr := s.lichessService.FetchStudyMetadata(studyID, authToken)
+		if metaErr == nil && meta != nil {
+			resolvedOwner = meta.Owner.Name
+		}
+	}
+
+	origin := &models.RepertoireOrigin{
+		Type:    "lichess",
+		URL:     fmt.Sprintf("https://lichess.org/study/%s", studyID),
+		Creator: resolvedOwner,
+	}
+	if setErr := s.repertoireService.SetOrigin(saved.ID, origin); setErr != nil {
+		slog.Error("failed to set origin on merged repertoire", "repertoire_id", saved.ID, "error", setErr)
+	} else {
+		saved.Origin = origin
 	}
 
 	return saved, nil
