@@ -4,7 +4,7 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 
 	"github.com/kumquat/backend/internal/models"
 	"github.com/kumquat/backend/internal/repository"
@@ -27,7 +27,7 @@ func NewAuthHandler(authSvc *services.AuthService, secureCookies bool) *AuthHand
 }
 
 // setRefreshTokenCookie sets the refresh token as an httpOnly cookie
-func (h *AuthHandler) setRefreshTokenCookie(c echo.Context, rawToken string) {
+func (h *AuthHandler) setRefreshTokenCookie(c *echo.Context, rawToken string) {
 	c.SetCookie(&http.Cookie{
 		Name:     refreshTokenCookieName,
 		Value:    rawToken,
@@ -40,7 +40,7 @@ func (h *AuthHandler) setRefreshTokenCookie(c echo.Context, rawToken string) {
 }
 
 // clearRefreshTokenCookie removes the refresh token cookie
-func (h *AuthHandler) clearRefreshTokenCookie(c echo.Context) {
+func (h *AuthHandler) clearRefreshTokenCookie(c *echo.Context) {
 	c.SetCookie(&http.Cookie{
 		Name:     refreshTokenCookieName,
 		Value:    "",
@@ -52,7 +52,7 @@ func (h *AuthHandler) clearRefreshTokenCookie(c echo.Context) {
 	})
 }
 
-func (h *AuthHandler) RegisterHandler(c echo.Context) error {
+func (h *AuthHandler) RegisterHandler(c *echo.Context) error {
 	var req models.RegisterRequest
 	if err := c.Bind(&req); err != nil {
 		return BadRequestResponse(c, "invalid request body")
@@ -97,7 +97,7 @@ func (h *AuthHandler) RegisterHandler(c echo.Context) error {
 	return c.JSON(http.StatusCreated, resp)
 }
 
-func (h *AuthHandler) LoginHandler(c echo.Context) error {
+func (h *AuthHandler) LoginHandler(c *echo.Context) error {
 	var req models.LoginRequest
 	if err := c.Bind(&req); err != nil {
 		return BadRequestResponse(c, "invalid request body")
@@ -130,7 +130,7 @@ func (h *AuthHandler) LoginHandler(c echo.Context) error {
 	return c.JSON(http.StatusOK, resp)
 }
 
-func (h *AuthHandler) MeHandler(c echo.Context) error {
+func (h *AuthHandler) MeHandler(c *echo.Context) error {
 	userID := c.Get("userID").(string)
 
 	user, err := h.authService.GetUserByID(userID)
@@ -150,7 +150,7 @@ var validTimeFormats = map[string]bool{
 	"rapid":  true,
 }
 
-func (h *AuthHandler) UpdateProfileHandler(c echo.Context) error {
+func (h *AuthHandler) UpdateProfileHandler(c *echo.Context) error {
 	userID := c.Get("userID").(string)
 
 	var req models.UpdateProfileRequest
@@ -175,7 +175,7 @@ func (h *AuthHandler) UpdateProfileHandler(c echo.Context) error {
 	return c.JSON(http.StatusOK, user)
 }
 
-func (h *AuthHandler) ForgotPasswordHandler(c echo.Context) error {
+func (h *AuthHandler) ForgotPasswordHandler(c *echo.Context) error {
 	var req models.ForgotPasswordRequest
 	if err := c.Bind(&req); err != nil {
 		return BadRequestResponse(c, "invalid request body")
@@ -193,7 +193,7 @@ func (h *AuthHandler) ForgotPasswordHandler(c echo.Context) error {
 	})
 }
 
-func (h *AuthHandler) ResetPasswordHandler(c echo.Context) error {
+func (h *AuthHandler) ResetPasswordHandler(c *echo.Context) error {
 	var req models.ResetPasswordRequest
 	if err := c.Bind(&req); err != nil {
 		return BadRequestResponse(c, "invalid request body")
@@ -228,7 +228,7 @@ func (h *AuthHandler) ResetPasswordHandler(c echo.Context) error {
 	})
 }
 
-func (h *AuthHandler) ChangePasswordHandler(c echo.Context) error {
+func (h *AuthHandler) ChangePasswordHandler(c *echo.Context) error {
 	userID := c.Get("userID").(string)
 
 	var req models.ChangePasswordRequest
@@ -265,7 +265,7 @@ func (h *AuthHandler) ChangePasswordHandler(c echo.Context) error {
 	})
 }
 
-func (h *AuthHandler) DeleteAccountHandler(c echo.Context) error {
+func (h *AuthHandler) DeleteAccountHandler(c *echo.Context) error {
 	userID := c.Get("userID").(string)
 
 	var req models.DeleteAccountRequest
@@ -290,7 +290,7 @@ func (h *AuthHandler) DeleteAccountHandler(c echo.Context) error {
 	return c.NoContent(http.StatusNoContent)
 }
 
-func (h *AuthHandler) HasPasswordHandler(c echo.Context) error {
+func (h *AuthHandler) HasPasswordHandler(c *echo.Context) error {
 	userID := c.Get("userID").(string)
 
 	hasPassword, err := h.authService.HasPassword(userID)
@@ -306,7 +306,7 @@ func (h *AuthHandler) HasPasswordHandler(c echo.Context) error {
 
 // RefreshHandler exchanges a valid refresh token for a new access token + refresh token pair.
 // The refresh token is read from the httpOnly cookie.
-func (h *AuthHandler) RefreshHandler(c echo.Context) error {
+func (h *AuthHandler) RefreshHandler(c *echo.Context) error {
 	cookie, err := c.Cookie(refreshTokenCookieName)
 	if err != nil || cookie.Value == "" {
 		return ErrorResponse(c, http.StatusUnauthorized, "no refresh token")
@@ -328,7 +328,7 @@ func (h *AuthHandler) RefreshHandler(c echo.Context) error {
 }
 
 // LogoutHandler revokes the refresh token and clears the cookie.
-func (h *AuthHandler) LogoutHandler(c echo.Context) error {
+func (h *AuthHandler) LogoutHandler(c *echo.Context) error {
 	cookie, err := c.Cookie(refreshTokenCookieName)
 	if err == nil && cookie.Value != "" {
 		_ = h.authService.RevokeRefreshToken(cookie.Value)

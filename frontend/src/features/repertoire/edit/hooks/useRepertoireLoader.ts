@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router';
 import { useRepertoireStore, useRepertoireById } from '../../../../stores/repertoireStore';
 import { exploreApi } from '../../../../services/api';
 import { toast } from '../../../../stores/toastStore';

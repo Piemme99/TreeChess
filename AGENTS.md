@@ -179,3 +179,4 @@ svc := services.NewRepertoireService(mock)
 ## Workflow Rules
 
 - **Always ask before committing:** After completing any task, always ask the user whether they would like you to commit the changes before proceeding. Never commit automatically without explicit user approval.
+- **Run tests before committing:** Always run the relevant test suite before committing any changes. For backend changes, run `go test ./...` from `backend/`. For frontend changes, run `npm run test:run` from `frontend/`. Do not commit if tests are failing.

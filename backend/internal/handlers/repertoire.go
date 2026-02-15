@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"github.com/google/uuid"
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 
 	"github.com/kumquat/backend/internal/models"
 	"github.com/kumquat/backend/internal/services"
@@ -14,7 +14,7 @@ import (
 // ListRepertoiresHandler returns all repertoires, optionally filtered by color
 // GET /api/repertoires?color=white|black
 func ListRepertoiresHandler(svc *services.RepertoireService) echo.HandlerFunc {
-	return func(c echo.Context) error {
+	return func(c *echo.Context) error {
 		userID := c.Get("userID").(string)
 		colorParam := c.QueryParam("color")
 
@@ -48,7 +48,7 @@ func ListRepertoiresHandler(svc *services.RepertoireService) echo.HandlerFunc {
 // CreateRepertoireHandler creates a new repertoire
 // POST /api/repertoires
 func CreateRepertoireHandler(svc *services.RepertoireService) echo.HandlerFunc {
-	return func(c echo.Context) error {
+	return func(c *echo.Context) error {
 		userID := c.Get("userID").(string)
 
 		var req models.CreateRepertoireRequest
@@ -110,7 +110,7 @@ func CreateRepertoireHandler(svc *services.RepertoireService) echo.HandlerFunc {
 // GetRepertoireHandler returns a single repertoire by ID
 // GET /api/repertoire/:id
 func GetRepertoireHandler(svc *services.RepertoireService) echo.HandlerFunc {
-	return func(c echo.Context) error {
+	return func(c *echo.Context) error {
 		userID := c.Get("userID").(string)
 		idParam := c.Param("id")
 
@@ -144,7 +144,7 @@ func GetRepertoireHandler(svc *services.RepertoireService) echo.HandlerFunc {
 // UpdateRepertoireHandler renames a repertoire
 // PATCH /api/repertoire/:id
 func UpdateRepertoireHandler(svc *services.RepertoireService) echo.HandlerFunc {
-	return func(c echo.Context) error {
+	return func(c *echo.Context) error {
 		userID := c.Get("userID").(string)
 		idParam := c.Param("id")
 
@@ -228,7 +228,7 @@ func UpdateRepertoireHandler(svc *services.RepertoireService) echo.HandlerFunc {
 // DeleteRepertoireHandler deletes a repertoire by ID
 // DELETE /api/repertoire/:id
 func DeleteRepertoireHandler(svc *services.RepertoireService) echo.HandlerFunc {
-	return func(c echo.Context) error {
+	return func(c *echo.Context) error {
 		userID := c.Get("userID").(string)
 		idParam := c.Param("id")
 
@@ -262,7 +262,7 @@ func DeleteRepertoireHandler(svc *services.RepertoireService) echo.HandlerFunc {
 // AddNodeHandler adds a node to a repertoire
 // POST /api/repertoire/:id/node
 func AddNodeHandler(svc *services.RepertoireService) echo.HandlerFunc {
-	return func(c echo.Context) error {
+	return func(c *echo.Context) error {
 		userID := c.Get("userID").(string)
 		idParam := c.Param("id")
 
@@ -337,7 +337,7 @@ func AddNodeHandler(svc *services.RepertoireService) echo.HandlerFunc {
 // ListTemplatesHandler returns available starter repertoire templates
 // GET /api/repertoires/templates
 func ListTemplatesHandler() echo.HandlerFunc {
-	return func(c echo.Context) error {
+	return func(c *echo.Context) error {
 		templates := services.ListTemplates()
 		return c.JSON(http.StatusOK, templates)
 	}
@@ -346,7 +346,7 @@ func ListTemplatesHandler() echo.HandlerFunc {
 // SeedHandler creates starter repertoires from templates
 // POST /api/repertoires/seed
 func SeedHandler(svc *services.RepertoireService) echo.HandlerFunc {
-	return func(c echo.Context) error {
+	return func(c *echo.Context) error {
 		userID := c.Get("userID").(string)
 
 		var req struct {
@@ -383,7 +383,7 @@ func SeedHandler(svc *services.RepertoireService) echo.HandlerFunc {
 // ExtractSubtreeHandler extracts a subtree into a new repertoire
 // POST /api/repertoires/:id/extract
 func ExtractSubtreeHandler(svc *services.RepertoireService) echo.HandlerFunc {
-	return func(c echo.Context) error {
+	return func(c *echo.Context) error {
 		userID := c.Get("userID").(string)
 		idParam := c.Param("id")
 
@@ -457,7 +457,7 @@ func ExtractSubtreeHandler(svc *services.RepertoireService) echo.HandlerFunc {
 // MergeRepertoiresHandler creates a new repertoire by merging multiple source repertoires
 // POST /api/repertoires/merge
 func MergeRepertoiresHandler(svc *services.RepertoireService) echo.HandlerFunc {
-	return func(c echo.Context) error {
+	return func(c *echo.Context) error {
 		userID := c.Get("userID").(string)
 
 		var req models.MergeRepertoiresRequest
@@ -537,7 +537,7 @@ func MergeRepertoiresHandler(svc *services.RepertoireService) echo.HandlerFunc {
 // MergeTranspositionsHandler merges transpositions within a single repertoire
 // POST /api/repertoires/:id/merge-transpositions
 func MergeTranspositionsHandler(svc *services.RepertoireService) echo.HandlerFunc {
-	return func(c echo.Context) error {
+	return func(c *echo.Context) error {
 		userID := c.Get("userID").(string)
 		idParam := c.Param("id")
 
@@ -571,7 +571,7 @@ func MergeTranspositionsHandler(svc *services.RepertoireService) echo.HandlerFun
 // UpdateNodeCommentHandler updates the comment on a specific node
 // PATCH /api/repertoires/:id/nodes/:nodeId/comment
 func UpdateNodeCommentHandler(svc *services.RepertoireService) echo.HandlerFunc {
-	return func(c echo.Context) error {
+	return func(c *echo.Context) error {
 		userID := c.Get("userID").(string)
 		idParam := c.Param("id")
 		nodeID := c.Param("nodeId")
@@ -627,7 +627,7 @@ func UpdateNodeCommentHandler(svc *services.RepertoireService) echo.HandlerFunc 
 // UpdateNodeBranchNameHandler updates the branch name on a specific node
 // PATCH /api/repertoires/:id/nodes/:nodeId/branch-name
 func UpdateNodeBranchNameHandler(svc *services.RepertoireService) echo.HandlerFunc {
-	return func(c echo.Context) error {
+	return func(c *echo.Context) error {
 		userID := c.Get("userID").(string)
 		idParam := c.Param("id")
 		nodeID := c.Param("nodeId")
@@ -683,7 +683,7 @@ func UpdateNodeBranchNameHandler(svc *services.RepertoireService) echo.HandlerFu
 // UpdateNodeBranchColorHandler updates the branch color on a specific node
 // PATCH /api/repertoires/:id/nodes/:nodeId/branch-color
 func UpdateNodeBranchColorHandler(svc *services.RepertoireService) echo.HandlerFunc {
-	return func(c echo.Context) error {
+	return func(c *echo.Context) error {
 		userID := c.Get("userID").(string)
 		idParam := c.Param("id")
 		nodeID := c.Param("nodeId")
@@ -744,7 +744,7 @@ func UpdateNodeBranchColorHandler(svc *services.RepertoireService) echo.HandlerF
 // ToggleNodeCollapsedHandler toggles the collapsed state on a specific node
 // POST /api/repertoires/:id/nodes/:nodeId/toggle-collapsed
 func ToggleNodeCollapsedHandler(svc *services.RepertoireService) echo.HandlerFunc {
-	return func(c echo.Context) error {
+	return func(c *echo.Context) error {
 		userID := c.Get("userID").(string)
 		idParam := c.Param("id")
 		nodeID := c.Param("nodeId")
@@ -791,7 +791,7 @@ func ToggleNodeCollapsedHandler(svc *services.RepertoireService) echo.HandlerFun
 // ExpandToNodeHandler expands all collapsed ancestors so the node becomes visible
 // POST /api/repertoires/:id/nodes/:nodeId/expand-to
 func ExpandToNodeHandler(svc *services.RepertoireService) echo.HandlerFunc {
-	return func(c echo.Context) error {
+	return func(c *echo.Context) error {
 		userID := c.Get("userID").(string)
 		idParam := c.Param("id")
 		nodeID := c.Param("nodeId")
@@ -838,7 +838,7 @@ func ExpandToNodeHandler(svc *services.RepertoireService) echo.HandlerFunc {
 // SetMainLineHandler marks the path from root to the given node as the main line
 // POST /api/repertoires/:id/nodes/:nodeId/set-main-line
 func SetMainLineHandler(svc *services.RepertoireService) echo.HandlerFunc {
-	return func(c echo.Context) error {
+	return func(c *echo.Context) error {
 		userID := c.Get("userID").(string)
 		idParam := c.Param("id")
 		nodeID := c.Param("nodeId")
@@ -885,7 +885,7 @@ func SetMainLineHandler(svc *services.RepertoireService) echo.HandlerFunc {
 // ClearMainLineHandler clears the main line from all nodes in a repertoire
 // POST /api/repertoires/:id/clear-main-line
 func ClearMainLineHandler(svc *services.RepertoireService) echo.HandlerFunc {
-	return func(c echo.Context) error {
+	return func(c *echo.Context) error {
 		userID := c.Get("userID").(string)
 		idParam := c.Param("id")
 
@@ -919,7 +919,7 @@ func ClearMainLineHandler(svc *services.RepertoireService) echo.HandlerFunc {
 // DeleteNodeHandler deletes a node from a repertoire
 // DELETE /api/repertoire/:id/node/:nodeId
 func DeleteNodeHandler(svc *services.RepertoireService) echo.HandlerFunc {
-	return func(c echo.Context) error {
+	return func(c *echo.Context) error {
 		userID := c.Get("userID").(string)
 		idParam := c.Param("id")
 		nodeID := c.Param("nodeId")
@@ -971,7 +971,7 @@ func DeleteNodeHandler(svc *services.RepertoireService) echo.HandlerFunc {
 // UpdateVisibilityHandler updates the public/private visibility of a repertoire
 // PATCH /api/repertoires/:id/visibility
 func UpdateVisibilityHandler(svc *services.RepertoireService) echo.HandlerFunc {
-	return func(c echo.Context) error {
+	return func(c *echo.Context) error {
 		userID := c.Get("userID").(string)
 		idParam := c.Param("id")
 

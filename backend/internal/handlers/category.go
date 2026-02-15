@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"github.com/google/uuid"
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 
 	"github.com/kumquat/backend/internal/models"
 	"github.com/kumquat/backend/internal/services"
@@ -14,7 +14,7 @@ import (
 // ListCategoriesHandler returns all categories for a user, optionally filtered by color
 // GET /api/categories?color=white|black
 func ListCategoriesHandler(svc *services.CategoryService) echo.HandlerFunc {
-	return func(c echo.Context) error {
+	return func(c *echo.Context) error {
 		userID := c.Get("userID").(string)
 		colorParam := c.QueryParam("color")
 
@@ -44,7 +44,7 @@ func ListCategoriesHandler(svc *services.CategoryService) echo.HandlerFunc {
 // CreateCategoryHandler creates a new category
 // POST /api/categories
 func CreateCategoryHandler(svc *services.CategoryService) echo.HandlerFunc {
-	return func(c echo.Context) error {
+	return func(c *echo.Context) error {
 		userID := c.Get("userID").(string)
 
 		var req models.CreateCategoryRequest
@@ -81,7 +81,7 @@ func CreateCategoryHandler(svc *services.CategoryService) echo.HandlerFunc {
 // GetCategoryHandler returns a single category by ID with its repertoires
 // GET /api/categories/:id
 func GetCategoryHandler(svc *services.CategoryService) echo.HandlerFunc {
-	return func(c echo.Context) error {
+	return func(c *echo.Context) error {
 		userID := c.Get("userID").(string)
 		idParam := c.Param("id")
 
@@ -109,7 +109,7 @@ func GetCategoryHandler(svc *services.CategoryService) echo.HandlerFunc {
 // UpdateCategoryHandler renames a category
 // PATCH /api/categories/:id
 func UpdateCategoryHandler(svc *services.CategoryService) echo.HandlerFunc {
-	return func(c echo.Context) error {
+	return func(c *echo.Context) error {
 		userID := c.Get("userID").(string)
 		idParam := c.Param("id")
 
@@ -148,7 +148,7 @@ func UpdateCategoryHandler(svc *services.CategoryService) echo.HandlerFunc {
 // DeleteCategoryHandler deletes a category and all its repertoires
 // DELETE /api/categories/:id
 func DeleteCategoryHandler(svc *services.CategoryService) echo.HandlerFunc {
-	return func(c echo.Context) error {
+	return func(c *echo.Context) error {
 		userID := c.Get("userID").(string)
 		idParam := c.Param("id")
 
@@ -176,7 +176,7 @@ func DeleteCategoryHandler(svc *services.CategoryService) echo.HandlerFunc {
 // AssignCategoryHandler assigns a repertoire to a category (or removes from category)
 // PATCH /api/repertoires/:id/category
 func AssignCategoryHandler(svc *services.RepertoireService, catSvc *services.CategoryService) echo.HandlerFunc {
-	return func(c echo.Context) error {
+	return func(c *echo.Context) error {
 		userID := c.Get("userID").(string)
 		idParam := c.Param("id")
 

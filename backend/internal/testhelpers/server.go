@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 
 	"github.com/kumquat/backend/internal/handlers"
 	appMiddleware "github.com/kumquat/backend/internal/middleware"
@@ -84,7 +84,6 @@ func SetupTestServer(t *testing.T, repos *Repos) *TestServer {
 	categorySvc := services.NewCategoryService(repos.Category, repos.Repertoire)
 
 	e := echo.New()
-	e.HideBanner = true
 
 	authHandler := handlers.NewAuthHandler(authSvc, false)
 

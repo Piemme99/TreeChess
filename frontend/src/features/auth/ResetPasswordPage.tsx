@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useSearchParams, useNavigate } from 'react-router-dom';
+import { Link, useSearchParams, useNavigate } from 'react-router';
 import { motion } from 'framer-motion';
 import { Crown } from 'lucide-react';
 import { authApi } from '../../services/api';

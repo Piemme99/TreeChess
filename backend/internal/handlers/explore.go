@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"github.com/google/uuid"
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 
 	"github.com/kumquat/backend/internal/models"
 	"github.com/kumquat/backend/internal/services"
@@ -14,7 +14,7 @@ import (
 // ListPublicRepertoiresHandler returns all public repertoires
 // GET /api/explore/repertoires
 func ListPublicRepertoiresHandler(svc *services.RepertoireService) echo.HandlerFunc {
-	return func(c echo.Context) error {
+	return func(c *echo.Context) error {
 		repertoires, err := svc.ListPublicRepertoires()
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{
@@ -33,7 +33,7 @@ func ListPublicRepertoiresHandler(svc *services.RepertoireService) echo.HandlerF
 // GetPublicRepertoireHandler returns a single public repertoire by ID
 // GET /api/explore/repertoires/:id
 func GetPublicRepertoireHandler(svc *services.RepertoireService) echo.HandlerFunc {
-	return func(c echo.Context) error {
+	return func(c *echo.Context) error {
 		idParam := c.Param("id")
 
 		if _, err := uuid.Parse(idParam); err != nil {
@@ -61,7 +61,7 @@ func GetPublicRepertoireHandler(svc *services.RepertoireService) echo.HandlerFun
 // ImportRepertoireHandler imports a public repertoire into the user's repertoires
 // POST /api/explore/repertoires/:id/import
 func ImportRepertoireHandler(svc *services.RepertoireService) echo.HandlerFunc {
-	return func(c echo.Context) error {
+	return func(c *echo.Context) error {
 		userID := c.Get("userID").(string)
 		idParam := c.Param("id")
 

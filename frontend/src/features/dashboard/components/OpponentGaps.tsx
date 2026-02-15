@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router';
 import { Chess } from 'chess.js';
 import { X } from 'lucide-react';
 import { ColorDot } from '../../../shared/components/UI';

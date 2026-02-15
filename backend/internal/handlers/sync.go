@@ -4,7 +4,7 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 
 	"github.com/kumquat/backend/internal/services"
 )
@@ -17,7 +17,7 @@ func NewSyncHandler(syncSvc *services.SyncService) *SyncHandler {
 	return &SyncHandler{syncService: syncSvc}
 }
 
-func (h *SyncHandler) HandleSync(c echo.Context) error {
+func (h *SyncHandler) HandleSync(c *echo.Context) error {
 	userID := c.Get("userID").(string)
 
 	result, err := h.syncService.Sync(userID)

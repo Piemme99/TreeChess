@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 
 	"github.com/kumquat/backend/config"
 	"github.com/kumquat/backend/internal/models"
@@ -37,7 +37,7 @@ func NewImportHandler(importSvc *services.ImportService, repertoireSvc *services
 	}
 }
 
-func (h *ImportHandler) UploadHandler(c echo.Context) error {
+func (h *ImportHandler) UploadHandler(c *echo.Context) error {
 	username := c.FormValue("username")
 	if !RequireField(c, "username", username) {
 		return nil
@@ -91,7 +91,7 @@ func (h *ImportHandler) UploadHandler(c echo.Context) error {
 	})
 }
 
-func (h *ImportHandler) ListAnalysesHandler(c echo.Context) error {
+func (h *ImportHandler) ListAnalysesHandler(c *echo.Context) error {
 	userID := c.Get("userID").(string)
 	analyses, err := h.importService.GetAnalyses(userID)
 	if err != nil {
@@ -112,7 +112,7 @@ func (h *ImportHandler) ListAnalysesHandler(c echo.Context) error {
 	return c.JSON(http.StatusOK, result)
 }
 
-func (h *ImportHandler) GetAnalysisHandler(c echo.Context) error {
+func (h *ImportHandler) GetAnalysisHandler(c *echo.Context) error {
 	userID := c.Get("userID").(string)
 	id, ok := ValidateUUIDParam(c, "id")
 	if !ok {
@@ -141,7 +141,7 @@ func (h *ImportHandler) GetAnalysisHandler(c echo.Context) error {
 	})
 }
 
-func (h *ImportHandler) DeleteAnalysisHandler(c echo.Context) error {
+func (h *ImportHandler) DeleteAnalysisHandler(c *echo.Context) error {
 	userID := c.Get("userID").(string)
 	id, ok := ValidateUUIDParam(c, "id")
 	if !ok {
@@ -163,7 +163,7 @@ func (h *ImportHandler) DeleteAnalysisHandler(c echo.Context) error {
 	return c.NoContent(http.StatusNoContent)
 }
 
-func (h *ImportHandler) ValidatePGNHandler(c echo.Context) error {
+func (h *ImportHandler) ValidatePGNHandler(c *echo.Context) error {
 	limitedReader := io.LimitReader(c.Request().Body, config.MaxPGNFileSize+1)
 	pgnData, err := io.ReadAll(limitedReader)
 	if err != nil {
@@ -185,7 +185,7 @@ func (h *ImportHandler) ValidatePGNHandler(c echo.Context) error {
 	})
 }
 
-func (h *ImportHandler) ValidateMoveHandler(c echo.Context) error {
+func (h *ImportHandler) ValidateMoveHandler(c *echo.Context) error {
 	var req struct {
 		FEN string `json:"fen"`
 		SAN string `json:"san"`
@@ -212,7 +212,7 @@ func (h *ImportHandler) ValidateMoveHandler(c echo.Context) error {
 	})
 }
 
-func (h *ImportHandler) GetLegalMovesHandler(c echo.Context) error {
+func (h *ImportHandler) GetLegalMovesHandler(c *echo.Context) error {
 	fen := c.QueryParam("fen")
 	if fen == "" {
 		return BadRequestResponse(c, "fen parameter is required")
@@ -229,7 +229,7 @@ func (h *ImportHandler) GetLegalMovesHandler(c echo.Context) error {
 	})
 }
 
-func (h *ImportHandler) GetDistinctRepertoiresHandler(c echo.Context) error {
+func (h *ImportHandler) GetDistinctRepertoiresHandler(c *echo.Context) error {
 	userID := c.Get("userID").(string)
 
 	repertoires, err := h.importService.GetDistinctRepertoires(userID)
@@ -246,7 +246,7 @@ func (h *ImportHandler) GetDistinctRepertoiresHandler(c echo.Context) error {
 	})
 }
 
-func (h *ImportHandler) GetGamesHandler(c echo.Context) error {
+func (h *ImportHandler) GetGamesHandler(c *echo.Context) error {
 	userID := c.Get("userID").(string)
 	limit := ParseIntQueryParam(c, "limit", config.DefaultGamesLimit, 1, config.MaxGamesLimit)
 	offset := ParseIntQueryParam(c, "offset", 0, 0, 1000000)
@@ -262,7 +262,7 @@ func (h *ImportHandler) GetGamesHandler(c echo.Context) error {
 	return c.JSON(http.StatusOK, response)
 }
 
-func (h *ImportHandler) DeleteGameHandler(c echo.Context) error {
+func (h *ImportHandler) DeleteGameHandler(c *echo.Context) error {
 	userID := c.Get("userID").(string)
 	analysisID, ok := ValidateUUIDParam(c, "analysisId")
 	if !ok {
@@ -293,7 +293,7 @@ func (h *ImportHandler) DeleteGameHandler(c echo.Context) error {
 	return c.NoContent(http.StatusNoContent)
 }
 
-func (h *ImportHandler) BulkDeleteGamesHandler(c echo.Context) error {
+func (h *ImportHandler) BulkDeleteGamesHandler(c *echo.Context) error {
 	userID := c.Get("userID").(string)
 
 	var req struct {
@@ -329,7 +329,7 @@ func (h *ImportHandler) BulkDeleteGamesHandler(c echo.Context) error {
 	})
 }
 
-func (h *ImportHandler) ReanalyzeGameHandler(c echo.Context) error {
+func (h *ImportHandler) ReanalyzeGameHandler(c *echo.Context) error {
 	userID := c.Get("userID").(string)
 	analysisID, ok := ValidateUUIDParam(c, "analysisId")
 	if !ok {
@@ -387,7 +387,7 @@ func (h *ImportHandler) ReanalyzeGameHandler(c echo.Context) error {
 	return c.JSON(http.StatusOK, reanalyzed)
 }
 
-func (h *ImportHandler) MarkGameViewedHandler(c echo.Context) error {
+func (h *ImportHandler) MarkGameViewedHandler(c *echo.Context) error {
 	userID := c.Get("userID").(string)
 	analysisID, ok := ValidateUUIDParam(c, "analysisId")
 	if !ok {
@@ -411,7 +411,7 @@ func (h *ImportHandler) MarkGameViewedHandler(c echo.Context) error {
 	return c.NoContent(http.StatusNoContent)
 }
 
-func (h *ImportHandler) GetInsightsHandler(c echo.Context) error {
+func (h *ImportHandler) GetInsightsHandler(c *echo.Context) error {
 	userID := c.Get("userID").(string)
 
 	insights, err := h.importService.GetInsights(userID)
@@ -428,7 +428,7 @@ type DismissMistakeRequest struct {
 	PlayedMove string `json:"playedMove"`
 }
 
-func (h *ImportHandler) DismissMistakeHandler(c echo.Context) error {
+func (h *ImportHandler) DismissMistakeHandler(c *echo.Context) error {
 	userID := c.Get("userID").(string)
 
 	var req DismissMistakeRequest
@@ -447,7 +447,7 @@ func (h *ImportHandler) DismissMistakeHandler(c echo.Context) error {
 	return c.NoContent(http.StatusNoContent)
 }
 
-func (h *ImportHandler) ReanalyzeAllGamesHandler(c echo.Context) error {
+func (h *ImportHandler) ReanalyzeAllGamesHandler(c *echo.Context) error {
 	userID := c.Get("userID").(string)
 
 	count, err := h.importService.ReanalyzeAllGames(userID)
@@ -460,7 +460,7 @@ func (h *ImportHandler) ReanalyzeAllGamesHandler(c echo.Context) error {
 	})
 }
 
-func (h *ImportHandler) LichessImportHandler(c echo.Context) error {
+func (h *ImportHandler) LichessImportHandler(c *echo.Context) error {
 	var req models.LichessImportRequest
 	if err := c.Bind(&req); err != nil {
 		return BadRequestResponse(c, "invalid request body")
@@ -511,7 +511,7 @@ func (h *ImportHandler) LichessImportHandler(c echo.Context) error {
 	})
 }
 
-func (h *ImportHandler) ChesscomImportHandler(c echo.Context) error {
+func (h *ImportHandler) ChesscomImportHandler(c *echo.Context) error {
 	var req models.ChesscomImportRequest
 	if err := c.Bind(&req); err != nil {
 		return BadRequestResponse(c, "invalid request body")

@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
-import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
+import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router';
 import { motion } from 'framer-motion';
 import { fadeUp } from '../../shared/utils/animations';
 import { useGameLoader } from './hooks/useGameLoader';

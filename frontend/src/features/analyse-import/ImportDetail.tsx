@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router';
 import { useAnalysisLoader } from './hooks/useAnalysisLoader';
 import { useAddToRepertoire } from './hooks/useAddToRepertoire';
 import { calculateStats, type GameStats } from './utils/gameAnalysisUtils';

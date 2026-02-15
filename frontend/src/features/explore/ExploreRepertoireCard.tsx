@@ -1,5 +1,5 @@
 import { memo, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { Eye, Download, User, GitBranch, Layers, ArrowDown } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { fadeUp } from '../../shared/utils/animations';

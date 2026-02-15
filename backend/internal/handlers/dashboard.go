@@ -3,7 +3,7 @@ package handlers
 import (
 	"net/http"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 
 	"github.com/kumquat/backend/internal/services"
 )
@@ -22,7 +22,7 @@ type DismissGapRequest struct {
 	RepertoireID string `json:"repertoireId"`
 }
 
-func (h *DashboardHandler) DismissGap(c echo.Context) error {
+func (h *DashboardHandler) DismissGap(c *echo.Context) error {
 	userID := c.Get("userID").(string)
 
 	var req DismissGapRequest
@@ -41,7 +41,7 @@ func (h *DashboardHandler) DismissGap(c echo.Context) error {
 	return c.NoContent(http.StatusNoContent)
 }
 
-func (h *DashboardHandler) GetStats(c echo.Context) error {
+func (h *DashboardHandler) GetStats(c *echo.Context) error {
 	userID := c.Get("userID").(string)
 
 	stats, err := h.importService.GetDashboardStats(userID)

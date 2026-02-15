@@ -14,7 +14,7 @@ import (
 
 	"log/slog"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"golang.org/x/crypto/hkdf"
 
 	"github.com/kumquat/backend/internal/repository"
@@ -56,7 +56,7 @@ type oauthCookieData struct {
 	CodeVerifier string `json:"v"`
 }
 
-func (h *OAuthHandler) LoginRedirect(c echo.Context) error {
+func (h *OAuthHandler) LoginRedirect(c *echo.Context) error {
 	authURL, state, codeVerifier, err := h.oauthService.GenerateAuthURL()
 	if err != nil {
 		return InternalErrorResponse(c, "failed to generate OAuth URL")
@@ -81,7 +81,7 @@ func (h *OAuthHandler) LoginRedirect(c echo.Context) error {
 	return c.Redirect(http.StatusTemporaryRedirect, authURL)
 }
 
-func (h *OAuthHandler) Callback(c echo.Context) error {
+func (h *OAuthHandler) Callback(c *echo.Context) error {
 	code := c.QueryParam("code")
 	state := c.QueryParam("state")
 
@@ -150,7 +150,7 @@ func (h *OAuthHandler) Callback(c echo.Context) error {
 	return c.Redirect(http.StatusTemporaryRedirect, redirectURL)
 }
 
-func (h *OAuthHandler) redirectWithError(c echo.Context, msg string) error {
+func (h *OAuthHandler) redirectWithError(c *echo.Context, msg string) error {
 	redirectURL := fmt.Sprintf("%s/login?error=%s", h.frontendURL, url.QueryEscape(msg))
 	return c.Redirect(http.StatusTemporaryRedirect, redirectURL)
 }

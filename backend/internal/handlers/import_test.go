@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -292,8 +292,7 @@ func TestGetAnalysisHandler_NotFound(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/api/analyses/"+validUUID, nil)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	c.SetParamNames("id")
-	c.SetParamValues(validUUID)
+	c.SetPathValues(echo.PathValues{{Name: "id", Value: validUUID}})
 	setTestUserID(c)
 
 	mockAnalysisRepo := &mocks.MockAnalysisRepo{
@@ -319,8 +318,7 @@ func TestGetAnalysisHandler_Found(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/api/analyses/"+validUUID, nil)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	c.SetParamNames("id")
-	c.SetParamValues(validUUID)
+	c.SetPathValues(echo.PathValues{{Name: "id", Value: validUUID}})
 	setTestUserID(c)
 
 	mockAnalysisRepo := &mocks.MockAnalysisRepo{
@@ -359,8 +357,7 @@ func TestDeleteAnalysisHandler_NotFound(t *testing.T) {
 	req := httptest.NewRequest(http.MethodDelete, "/api/analyses/"+validUUID, nil)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	c.SetParamNames("id")
-	c.SetParamValues(validUUID)
+	c.SetPathValues(echo.PathValues{{Name: "id", Value: validUUID}})
 	setTestUserID(c)
 
 	mockAnalysisRepo := &mocks.MockAnalysisRepo{
@@ -386,8 +383,7 @@ func TestDeleteAnalysisHandler_Success(t *testing.T) {
 	req := httptest.NewRequest(http.MethodDelete, "/api/analyses/"+validUUID, nil)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	c.SetParamNames("id")
-	c.SetParamValues(validUUID)
+	c.SetPathValues(echo.PathValues{{Name: "id", Value: validUUID}})
 	setTestUserID(c)
 
 	mockAnalysisRepo := &mocks.MockAnalysisRepo{
@@ -611,8 +607,7 @@ func TestGetAnalysisHandler_InvalidUUID(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/api/analyses/invalid-uuid", nil)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	c.SetParamNames("id")
-	c.SetParamValues("invalid-uuid")
+	c.SetPathValues(echo.PathValues{{Name: "id", Value: "invalid-uuid"}})
 	setTestUserID(c)
 
 	importSvc := services.NewImportService(nil, nil)
@@ -634,8 +629,7 @@ func TestDeleteAnalysisHandler_InvalidUUID(t *testing.T) {
 	req := httptest.NewRequest(http.MethodDelete, "/api/analyses/invalid-uuid", nil)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	c.SetParamNames("id")
-	c.SetParamValues("not-a-uuid")
+	c.SetPathValues(echo.PathValues{{Name: "id", Value: "not-a-uuid"}})
 	setTestUserID(c)
 
 	importSvc := services.NewImportService(nil, nil)
@@ -657,8 +651,7 @@ func TestDeleteGameHandler_InvalidAnalysisID(t *testing.T) {
 	req := httptest.NewRequest(http.MethodDelete, "/api/games/invalid-uuid/0", nil)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	c.SetParamNames("analysisId", "gameIndex")
-	c.SetParamValues("invalid-uuid", "0")
+	c.SetPathValues(echo.PathValues{{Name: "analysisId", Value: "invalid-uuid"}, {Name: "gameIndex", Value: "0"}})
 	setTestUserID(c)
 
 	importSvc := services.NewImportService(nil, nil)
@@ -681,8 +674,7 @@ func TestDeleteGameHandler_InvalidGameIndex(t *testing.T) {
 	req := httptest.NewRequest(http.MethodDelete, "/api/games/"+validUUID+"/abc", nil)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	c.SetParamNames("analysisId", "gameIndex")
-	c.SetParamValues(validUUID, "abc")
+	c.SetPathValues(echo.PathValues{{Name: "analysisId", Value: validUUID}, {Name: "gameIndex", Value: "abc"}})
 	setTestUserID(c)
 
 	mockAnalysisRepo := &mocks.MockAnalysisRepo{
@@ -710,8 +702,7 @@ func TestDeleteGameHandler_NegativeGameIndex(t *testing.T) {
 	req := httptest.NewRequest(http.MethodDelete, "/api/games/"+validUUID+"/-1", nil)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	c.SetParamNames("analysisId", "gameIndex")
-	c.SetParamValues(validUUID, "-1")
+	c.SetPathValues(echo.PathValues{{Name: "analysisId", Value: validUUID}, {Name: "gameIndex", Value: "-1"}})
 	setTestUserID(c)
 
 	mockAnalysisRepo := &mocks.MockAnalysisRepo{

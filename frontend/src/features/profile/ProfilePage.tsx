@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { LogOut } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { Button } from '../../shared/components/UI';

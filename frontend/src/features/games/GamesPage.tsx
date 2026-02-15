@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router';
 import { motion } from 'framer-motion';
 import { useAuthStore } from '../../stores/authStore';
 import { useGames } from '../analyse-tab/hooks/useGames';

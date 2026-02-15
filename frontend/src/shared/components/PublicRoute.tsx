@@ -1,4 +1,4 @@
-import { Navigate } from 'react-router-dom';
+import { Navigate } from 'react-router';
 import { useAuthStore } from '../../stores/authStore';
 import { Loading } from './UI';
 

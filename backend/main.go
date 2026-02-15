@@ -10,16 +10,14 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/labstack/echo-contrib/echoprometheus"
-	"github.com/labstack/echo/v4"
-	"github.com/labstack/echo/v4/middleware"
-	"golang.org/x/time/rate"
-
 	"github.com/kumquat/backend/config"
 	"github.com/kumquat/backend/internal/handlers"
 	appMiddleware "github.com/kumquat/backend/internal/middleware"
 	"github.com/kumquat/backend/internal/repository"
 	"github.com/kumquat/backend/internal/services"
+	"github.com/labstack/echo-contrib/v5/echoprometheus"
+	"github.com/labstack/echo/v5"
+	"github.com/labstack/echo/v5/middleware"
 )
 
 func main() {
@@ -85,10 +83,8 @@ func main() {
 
 	// Initialize Echo
 	e := echo.New()
-	e.HideBanner = true
-
 	// Middleware
-	e.Use(middleware.Logger()) //nolint:staticcheck // TODO: migrate to middleware.RequestLoggerWithConfig
+	e.Use(middleware.RequestLogger())
 	e.Use(middleware.Recover())
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins:     cfg.AllowedOrigins,
@@ -104,20 +100,20 @@ func main() {
 	e.Use(securityHeaders)
 
 	// Global body size limit (10MB)
-	e.Use(middleware.BodyLimit("10M"))
+	e.Use(middleware.BodyLimit(10_485_760)) // 10MB
 
 	// Rate limiting: 100 requests/minute per IP
 	e.Use(middleware.RateLimiterWithConfig(middleware.RateLimiterConfig{
 		Store: middleware.NewRateLimiterMemoryStoreWithConfig(
-			middleware.RateLimiterMemoryStoreConfig{Rate: rate.Limit(100.0 / 60.0), Burst: 20},
+			middleware.RateLimiterMemoryStoreConfig{Rate: 100.0 / 60.0, Burst: 20},
 		),
-		IdentifierExtractor: func(ctx echo.Context) (string, error) {
+		IdentifierExtractor: func(ctx *echo.Context) (string, error) {
 			return ctx.RealIP(), nil
 		},
-		ErrorHandler: func(ctx echo.Context, err error) error {
+		ErrorHandler: func(ctx *echo.Context, err error) error {
 			return ctx.JSON(http.StatusTooManyRequests, map[string]string{"error": "rate limit exceeded"})
 		},
-		DenyHandler: func(ctx echo.Context, identifier string, err error) error {
+		DenyHandler: func(ctx *echo.Context, identifier string, err error) error {
 			return ctx.JSON(http.StatusTooManyRequests, map[string]string{"error": "rate limit exceeded"})
 		},
 	}))
@@ -129,15 +125,15 @@ func main() {
 	authGroup := e.Group("")
 	authGroup.Use(middleware.RateLimiterWithConfig(middleware.RateLimiterConfig{
 		Store: middleware.NewRateLimiterMemoryStoreWithConfig(
-			middleware.RateLimiterMemoryStoreConfig{Rate: rate.Limit(20.0 / 60.0), Burst: 10},
+			middleware.RateLimiterMemoryStoreConfig{Rate: 20.0 / 60.0, Burst: 10},
 		),
-		IdentifierExtractor: func(ctx echo.Context) (string, error) {
+		IdentifierExtractor: func(ctx *echo.Context) (string, error) {
 			return ctx.RealIP(), nil
 		},
-		ErrorHandler: func(ctx echo.Context, err error) error {
+		ErrorHandler: func(ctx *echo.Context, err error) error {
 			return ctx.JSON(http.StatusTooManyRequests, map[string]string{"error": "too many authentication attempts"})
 		},
-		DenyHandler: func(ctx echo.Context, identifier string, err error) error {
+		DenyHandler: func(ctx *echo.Context, identifier string, err error) error {
 			return ctx.JSON(http.StatusTooManyRequests, map[string]string{"error": "too many authentication attempts"})
 		},
 	}))
@@ -165,15 +161,15 @@ func main() {
 	heavyOps := e.Group("", appMiddleware.JWTAuth(authSvc))
 	heavyOps.Use(middleware.RateLimiterWithConfig(middleware.RateLimiterConfig{
 		Store: middleware.NewRateLimiterMemoryStoreWithConfig(
-			middleware.RateLimiterMemoryStoreConfig{Rate: rate.Limit(5.0 / 60.0), Burst: 3},
+			middleware.RateLimiterMemoryStoreConfig{Rate: 5.0 / 60.0, Burst: 3},
 		),
-		IdentifierExtractor: func(ctx echo.Context) (string, error) {
+		IdentifierExtractor: func(ctx *echo.Context) (string, error) {
 			return ctx.RealIP(), nil
 		},
-		ErrorHandler: func(ctx echo.Context, err error) error {
+		ErrorHandler: func(ctx *echo.Context, err error) error {
 			return ctx.JSON(http.StatusTooManyRequests, map[string]string{"error": "too many requests for this operation, please wait"})
 		},
-		DenyHandler: func(ctx echo.Context, identifier string, err error) error {
+		DenyHandler: func(ctx *echo.Context, identifier string, err error) error {
 			return ctx.JSON(http.StatusTooManyRequests, map[string]string{"error": "too many requests for this operation, please wait"})
 		},
 	}))
@@ -262,7 +258,6 @@ func main() {
 
 	// Internal metrics server (separate port, not publicly exposed)
 	metrics := echo.New()
-	metrics.HideBanner = true
 	metrics.GET("/metrics", echoprometheus.NewHandler())
 
 	// Start opening analysis worker
@@ -270,28 +265,31 @@ func main() {
 	go engineSvc.RunWorker(workerCtx)
 
 	// Start metrics server in a goroutine
+	metricsAddr := fmt.Sprintf(":%d", cfg.MetricsPort)
+	metricsServer := &http.Server{
+		Addr:    metricsAddr,
+		Handler: metrics,
+	}
 	go func() {
-		metricsAddr := fmt.Sprintf(":%d", cfg.MetricsPort)
 		slog.Info("starting metrics server", "addr", metricsAddr)
-		if err := metrics.Start(metricsAddr); err != nil && err != http.ErrServerClosed {
+		if err := metricsServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			slog.Error("metrics server error", "error", err)
 		}
 	}()
 
 	// Start server in a goroutine with explicit timeouts (Slowloris protection)
+	addr := fmt.Sprintf(":%d", cfg.Port)
+	appServer := &http.Server{
+		Addr:              addr,
+		Handler:           e,
+		ReadTimeout:       10 * time.Second,
+		ReadHeaderTimeout: 5 * time.Second,
+		WriteTimeout:      120 * time.Second, // generous for long-running imports/sync
+		IdleTimeout:       60 * time.Second,
+	}
 	go func() {
-		addr := fmt.Sprintf(":%d", cfg.Port)
-		s := &http.Server{
-			Addr:              addr,
-			Handler:           e,
-			ReadTimeout:       10 * time.Second,
-			ReadHeaderTimeout: 5 * time.Second,
-			WriteTimeout:      120 * time.Second, // generous for long-running imports/sync
-			IdleTimeout:       60 * time.Second,
-		}
-		e.Server = s
 		slog.Info("starting server", "addr", addr)
-		if err := s.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		if err := appServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			slog.Error("server error", "error", err)
 		}
 	}()
@@ -309,10 +307,10 @@ func main() {
 	// Graceful shutdown with 10s timeout
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutdownCancel()
-	if err := metrics.Shutdown(shutdownCtx); err != nil {
+	if err := metricsServer.Shutdown(shutdownCtx); err != nil {
 		slog.Error("metrics server forced to shutdown", "error", err)
 	}
-	if err := e.Shutdown(shutdownCtx); err != nil {
+	if err := appServer.Shutdown(shutdownCtx); err != nil {
 		slog.Error("server forced to shutdown", "error", err)
 	}
 
@@ -323,7 +321,7 @@ func main() {
 
 // securityHeaders adds standard security headers to all responses.
 func securityHeaders(next echo.HandlerFunc) echo.HandlerFunc {
-	return func(c echo.Context) error {
+	return func(c *echo.Context) error {
 		h := c.Response().Header()
 		h.Set("X-Content-Type-Options", "nosniff")
 		h.Set("X-Frame-Options", "DENY")

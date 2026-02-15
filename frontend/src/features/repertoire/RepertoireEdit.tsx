@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { Chess } from 'chess.js';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router';
 import { ensureFullFEN } from '../../shared/utils/chess';
 import { Button, Loading } from '../../shared/components/UI';
 import { RepertoireTree } from './shared/components/RepertoireTree';

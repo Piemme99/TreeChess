@@ -1,4 +1,4 @@
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router';
 import { motion } from 'framer-motion';
 import { fadeUp } from '../../../shared/utils/animations';
 import { ColorDot } from '../../../shared/components/UI';

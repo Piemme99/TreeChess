@@ -1,4 +1,4 @@
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router';
 import { ColorDot } from '../../../shared/components/UI';
 import type { BranchStats } from '../../../types';
 

@@ -1,5 +1,5 @@
 import { useEffect, lazy, Suspense } from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route } from 'react-router';
 import { MainLayout } from './shared/components/Layout/MainLayout';
 import { ToastContainer, Loading } from './shared/components/UI';
 import { LoginPage } from './features/auth/LoginPage';

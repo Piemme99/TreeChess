@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 
 	"github.com/kumquat/backend/internal/models"
 	"github.com/kumquat/backend/internal/services"
@@ -25,7 +25,7 @@ func NewStudyImportHandler(studyImportSvc *services.StudyImportService) *StudyIm
 }
 
 // PreviewStudyHandler handles GET /api/studies/preview?url={lichessStudyUrl}
-func (h *StudyImportHandler) PreviewStudyHandler(c echo.Context) error {
+func (h *StudyImportHandler) PreviewStudyHandler(c *echo.Context) error {
 	rawURL := c.QueryParam("url")
 	if !RequireField(c, "url", rawURL) {
 		return nil
@@ -58,7 +58,7 @@ func (h *StudyImportHandler) PreviewStudyHandler(c echo.Context) error {
 }
 
 // ImportStudyHandler handles POST /api/studies/import
-func (h *StudyImportHandler) ImportStudyHandler(c echo.Context) error {
+func (h *StudyImportHandler) ImportStudyHandler(c *echo.Context) error {
 	var req models.StudyImportRequest
 	if err := c.Bind(&req); err != nil {
 		return BadRequestResponse(c, "invalid request body")
@@ -137,7 +137,7 @@ func (h *StudyImportHandler) ImportStudyHandler(c echo.Context) error {
 }
 
 // BrowseStudiesHandler handles GET /api/studies/browse?q=&topic=&order=&page=
-func (h *StudyImportHandler) BrowseStudiesHandler(c echo.Context) error {
+func (h *StudyImportHandler) BrowseStudiesHandler(c *echo.Context) error {
 	query := c.QueryParam("q")
 	topic := c.QueryParam("topic")
 	order := c.QueryParam("order")
@@ -181,7 +181,7 @@ func (h *StudyImportHandler) BrowseStudiesHandler(c echo.Context) error {
 }
 
 // StudyTopicsHandler handles GET /api/studies/topics
-func (h *StudyImportHandler) StudyTopicsHandler(c echo.Context) error {
+func (h *StudyImportHandler) StudyTopicsHandler(c *echo.Context) error {
 	result, err := h.studyImportService.GetPopularTopics()
 	if err != nil {
 		if errors.Is(err, services.ErrLichessRateLimited) {

@@ -1,4 +1,4 @@
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router';
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Button, ColorDot } from '../../../shared/components/UI';

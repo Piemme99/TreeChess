@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router';
 import { toast } from '../../../stores/toastStore';
 import { computeParentFEN } from '../utils/fenUtils';
 import type { GameAnalysis, MoveAnalysis } from '../../../types';

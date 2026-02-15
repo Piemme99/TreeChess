@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams } from 'react-router';
 import { importApi } from '../../services/api';
 import { toast } from '../../stores/toastStore';
 import { useAbortController, isAbortError } from './useAbortController';

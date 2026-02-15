@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router';
 import { useAuthStore } from '../../stores/authStore';
 import { useGames } from './hooks/useGames';
 import { useFileUpload } from './hooks/useFileUpload';

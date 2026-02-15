@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -41,7 +41,7 @@ func TestJWTAuth_ValidToken(t *testing.T) {
 	c := e.NewContext(req, rec)
 
 	middleware := JWTAuth(validator)
-	handler := middleware(func(c echo.Context) error {
+	handler := middleware(func(c *echo.Context) error {
 		userID := c.Get("userID").(string)
 		assert.Equal(t, "user-123", userID)
 		return c.String(http.StatusOK, "ok")
@@ -62,7 +62,7 @@ func TestJWTAuth_MissingToken(t *testing.T) {
 	c := e.NewContext(req, rec)
 
 	middleware := JWTAuth(validator)
-	handler := middleware(func(c echo.Context) error {
+	handler := middleware(func(c *echo.Context) error {
 		t.Fatal("should not reach handler")
 		return nil
 	})
@@ -83,7 +83,7 @@ func TestJWTAuth_InvalidToken(t *testing.T) {
 	c := e.NewContext(req, rec)
 
 	middleware := JWTAuth(validator)
-	handler := middleware(func(c echo.Context) error {
+	handler := middleware(func(c *echo.Context) error {
 		t.Fatal("should not reach handler")
 		return nil
 	})
@@ -103,7 +103,7 @@ func TestJWTAuth_QueryParamFallback(t *testing.T) {
 	c := e.NewContext(req, rec)
 
 	middleware := JWTAuth(validator)
-	handler := middleware(func(c echo.Context) error {
+	handler := middleware(func(c *echo.Context) error {
 		userID := c.Get("userID").(string)
 		assert.Equal(t, "user-123", userID)
 		return c.String(http.StatusOK, "ok")
@@ -125,7 +125,7 @@ func TestJWTAuth_BearerPrefixStripping(t *testing.T) {
 	c := e.NewContext(req, rec)
 
 	mw := JWTAuth(validator)
-	handler := mw(func(c echo.Context) error {
+	handler := mw(func(c *echo.Context) error {
 		return c.String(http.StatusOK, "ok")
 	})
 

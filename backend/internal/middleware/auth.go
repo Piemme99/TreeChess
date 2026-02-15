@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 )
 
 // TokenValidator validates JWT tokens and returns the associated user ID.
@@ -14,7 +14,7 @@ type TokenValidator interface {
 
 func JWTAuth(validator TokenValidator) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c echo.Context) error {
+		return func(c *echo.Context) error {
 			var tokenStr string
 
 			// Try Authorization header first (used by frontend for access token)

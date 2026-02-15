@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 import { LayoutDashboard, BookOpen, GraduationCap, User, ChevronLeft, ChevronRight, Compass } from 'lucide-react';
 
 function PawnIcon({ className }: { className?: string }) {

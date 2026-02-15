@@ -3,7 +3,7 @@ package handlers
 import (
 	"net/http"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 
 	"github.com/kumquat/backend/internal/models"
 	"github.com/kumquat/backend/internal/services"
@@ -20,7 +20,7 @@ func NewTrainingHandler(importSvc *services.ImportService) *TrainingHandler {
 }
 
 // AnalyzeHandler analyzes a sequence of moves from explorer training against the user's repertoires
-func (h *TrainingHandler) AnalyzeHandler(c echo.Context) error {
+func (h *TrainingHandler) AnalyzeHandler(c *echo.Context) error {
 	userID := c.Get("userID").(string)
 
 	var req models.TrainingAnalyzeRequest

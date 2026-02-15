@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router';
 import { Chess } from 'chess.js';
 import { ChessBoard } from '../../../shared/components/Board/ChessBoard';
 import { EvalBar } from '../../repertoire/edit/components/EvalBar';

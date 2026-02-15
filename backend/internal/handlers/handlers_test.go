@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -26,7 +26,7 @@ func newTestRepertoireService() *services.RepertoireService {
 }
 
 // setTestUserID sets the userID in the echo context for testing
-func setTestUserID(c echo.Context) {
+func setTestUserID(c *echo.Context) {
 	c.Set("userID", testUserID)
 }
 
@@ -75,8 +75,7 @@ func TestGetRepertoireHandler_InvalidID(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/api/repertoires/not-a-uuid", nil)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	c.SetParamNames("id")
-	c.SetParamValues("not-a-uuid")
+	c.SetPathValues(echo.PathValues{{Name: "id", Value: "not-a-uuid"}})
 	setTestUserID(c)
 
 	svc := newTestRepertoireService()
@@ -164,8 +163,7 @@ func TestUpdateRepertoireHandler_InvalidID(t *testing.T) {
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	c.SetParamNames("id")
-	c.SetParamValues("not-a-uuid")
+	c.SetPathValues(echo.PathValues{{Name: "id", Value: "not-a-uuid"}})
 	setTestUserID(c)
 
 	svc := newTestRepertoireService()
@@ -187,8 +185,7 @@ func TestDeleteRepertoireHandler_InvalidID(t *testing.T) {
 	req := httptest.NewRequest(http.MethodDelete, "/api/repertoires/not-a-uuid", nil)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	c.SetParamNames("id")
-	c.SetParamValues("not-a-uuid")
+	c.SetPathValues(echo.PathValues{{Name: "id", Value: "not-a-uuid"}})
 	setTestUserID(c)
 
 	svc := newTestRepertoireService()
@@ -207,8 +204,7 @@ func TestAddNodeHandler_InvalidRepertoireID(t *testing.T) {
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	c.SetParamNames("id")
-	c.SetParamValues("not-a-uuid")
+	c.SetPathValues(echo.PathValues{{Name: "id", Value: "not-a-uuid"}})
 	setTestUserID(c)
 
 	svc := newTestRepertoireService()
@@ -232,8 +228,7 @@ func TestAddNodeHandler_MissingParentID(t *testing.T) {
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	c.SetParamNames("id")
-	c.SetParamValues("123e4567-e89b-12d3-a456-426614174000")
+	c.SetPathValues(echo.PathValues{{Name: "id", Value: "123e4567-e89b-12d3-a456-426614174000"}})
 	setTestUserID(c)
 
 	mockRepo := &mocks.MockRepertoireRepo{
@@ -260,8 +255,7 @@ func TestAddNodeHandler_InvalidParentID(t *testing.T) {
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	c.SetParamNames("id")
-	c.SetParamValues("123e4567-e89b-12d3-a456-426614174000")
+	c.SetPathValues(echo.PathValues{{Name: "id", Value: "123e4567-e89b-12d3-a456-426614174000"}})
 	setTestUserID(c)
 
 	mockRepo := &mocks.MockRepertoireRepo{
@@ -288,8 +282,7 @@ func TestAddNodeHandler_MissingMove(t *testing.T) {
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	c.SetParamNames("id")
-	c.SetParamValues("123e4567-e89b-12d3-a456-426614174000")
+	c.SetPathValues(echo.PathValues{{Name: "id", Value: "123e4567-e89b-12d3-a456-426614174000"}})
 	setTestUserID(c)
 
 	mockRepo := &mocks.MockRepertoireRepo{
@@ -316,8 +309,7 @@ func TestAddNodeHandler_InvalidJSON(t *testing.T) {
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	c.SetParamNames("id")
-	c.SetParamValues("123e4567-e89b-12d3-a456-426614174000")
+	c.SetPathValues(echo.PathValues{{Name: "id", Value: "123e4567-e89b-12d3-a456-426614174000"}})
 	setTestUserID(c)
 
 	mockRepo := &mocks.MockRepertoireRepo{
@@ -337,8 +329,7 @@ func TestDeleteNodeHandler_InvalidRepertoireID(t *testing.T) {
 	req := httptest.NewRequest(http.MethodDelete, "/api/repertoires/not-a-uuid/nodes/123e4567-e89b-12d3-a456-426614174000", nil)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	c.SetParamNames("id", "nodeId")
-	c.SetParamValues("not-a-uuid", "123e4567-e89b-12d3-a456-426614174000")
+	c.SetPathValues(echo.PathValues{{Name: "id", Value: "not-a-uuid"}, {Name: "nodeId", Value: "123e4567-e89b-12d3-a456-426614174000"}})
 	setTestUserID(c)
 
 	svc := newTestRepertoireService()
@@ -360,8 +351,7 @@ func TestDeleteNodeHandler_InvalidNodeID(t *testing.T) {
 	req := httptest.NewRequest(http.MethodDelete, "/api/repertoires/123e4567-e89b-12d3-a456-426614174000/nodes/not-a-uuid", nil)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	c.SetParamNames("id", "nodeId")
-	c.SetParamValues("123e4567-e89b-12d3-a456-426614174000", "not-a-uuid")
+	c.SetPathValues(echo.PathValues{{Name: "id", Value: "123e4567-e89b-12d3-a456-426614174000"}, {Name: "nodeId", Value: "not-a-uuid"}})
 	setTestUserID(c)
 
 	svc := newTestRepertoireService()
@@ -536,8 +526,7 @@ func TestGetRepertoireHandler_ValidID(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/api/repertoires/"+validUUID, nil)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	c.SetParamNames("id")
-	c.SetParamValues(validUUID)
+	c.SetPathValues(echo.PathValues{{Name: "id", Value: validUUID}})
 	setTestUserID(c)
 
 	mockRepo := &mocks.MockRepertoireRepo{
@@ -575,8 +564,7 @@ func TestGetRepertoireHandler_NotFound(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/api/repertoires/"+validUUID, nil)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	c.SetParamNames("id")
-	c.SetParamValues(validUUID)
+	c.SetPathValues(echo.PathValues{{Name: "id", Value: validUUID}})
 	setTestUserID(c)
 
 	mockRepo := &mocks.MockRepertoireRepo{
@@ -602,8 +590,7 @@ func TestUpdateRepertoireHandler_ValidRequest(t *testing.T) {
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	c.SetParamNames("id")
-	c.SetParamValues(validUUID)
+	c.SetPathValues(echo.PathValues{{Name: "id", Value: validUUID}})
 	setTestUserID(c)
 
 	mockRepo := &mocks.MockRepertoireRepo{
@@ -639,8 +626,7 @@ func TestUpdateRepertoireHandler_NotFound(t *testing.T) {
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	c.SetParamNames("id")
-	c.SetParamValues(validUUID)
+	c.SetPathValues(echo.PathValues{{Name: "id", Value: validUUID}})
 	setTestUserID(c)
 
 	mockRepo := &mocks.MockRepertoireRepo{
@@ -661,8 +647,7 @@ func TestDeleteRepertoireHandler_ValidID(t *testing.T) {
 	req := httptest.NewRequest(http.MethodDelete, "/api/repertoires/"+validUUID, nil)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	c.SetParamNames("id")
-	c.SetParamValues(validUUID)
+	c.SetPathValues(echo.PathValues{{Name: "id", Value: validUUID}})
 	setTestUserID(c)
 
 	mockRepo := &mocks.MockRepertoireRepo{
@@ -684,8 +669,7 @@ func TestDeleteRepertoireHandler_NotFound(t *testing.T) {
 	req := httptest.NewRequest(http.MethodDelete, "/api/repertoires/"+validUUID, nil)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	c.SetParamNames("id")
-	c.SetParamValues(validUUID)
+	c.SetPathValues(echo.PathValues{{Name: "id", Value: validUUID}})
 	setTestUserID(c)
 
 	mockRepo := &mocks.MockRepertoireRepo{
@@ -712,8 +696,7 @@ func TestAddNodeHandler_ValidRequest(t *testing.T) {
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	c.SetParamNames("id")
-	c.SetParamValues(validUUID)
+	c.SetPathValues(echo.PathValues{{Name: "id", Value: validUUID}})
 	setTestUserID(c)
 
 	mockRepo := &mocks.MockRepertoireRepo{
@@ -765,8 +748,7 @@ func TestAddNodeHandler_RepertoireNotFound(t *testing.T) {
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	c.SetParamNames("id")
-	c.SetParamValues(validUUID)
+	c.SetPathValues(echo.PathValues{{Name: "id", Value: validUUID}})
 	setTestUserID(c)
 
 	mockRepo := &mocks.MockRepertoireRepo{
@@ -794,8 +776,7 @@ func TestDeleteNodeHandler_ValidRequest(t *testing.T) {
 	req := httptest.NewRequest(http.MethodDelete, "/api/repertoires/"+validUUID+"/nodes/"+nodeUUID, nil)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	c.SetParamNames("id", "nodeId")
-	c.SetParamValues(validUUID, nodeUUID)
+	c.SetPathValues(echo.PathValues{{Name: "id", Value: validUUID}, {Name: "nodeId", Value: nodeUUID}})
 	setTestUserID(c)
 
 	mockRepo := &mocks.MockRepertoireRepo{
@@ -898,8 +879,7 @@ func TestExtractSubtreeHandler_InvalidRepertoireID(t *testing.T) {
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	c.SetParamNames("id")
-	c.SetParamValues("not-a-uuid")
+	c.SetPathValues(echo.PathValues{{Name: "id", Value: "not-a-uuid"}})
 	setTestUserID(c)
 
 	svc := newTestRepertoireService()
@@ -918,8 +898,7 @@ func TestExtractSubtreeHandler_MissingNodeID(t *testing.T) {
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	c.SetParamNames("id")
-	c.SetParamValues(validUUID)
+	c.SetPathValues(echo.PathValues{{Name: "id", Value: validUUID}})
 	setTestUserID(c)
 
 	mockRepo := &mocks.MockRepertoireRepo{
@@ -941,8 +920,7 @@ func TestExtractSubtreeHandler_InvalidNodeID(t *testing.T) {
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	c.SetParamNames("id")
-	c.SetParamValues(validUUID)
+	c.SetPathValues(echo.PathValues{{Name: "id", Value: validUUID}})
 	setTestUserID(c)
 
 	mockRepo := &mocks.MockRepertoireRepo{
@@ -965,8 +943,7 @@ func TestExtractSubtreeHandler_CannotExtractRoot(t *testing.T) {
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	c.SetParamNames("id")
-	c.SetParamValues(validUUID)
+	c.SetPathValues(echo.PathValues{{Name: "id", Value: validUUID}})
 	setTestUserID(c)
 
 	mockRepo := &mocks.MockRepertoireRepo{
@@ -1048,8 +1025,7 @@ func TestUpdateNodeCommentHandler_InvalidRepertoireID(t *testing.T) {
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	c.SetParamNames("id", "nodeId")
-	c.SetParamValues("not-uuid", "123e4567-e89b-12d3-a456-426614174000")
+	c.SetPathValues(echo.PathValues{{Name: "id", Value: "not-uuid"}, {Name: "nodeId", Value: "123e4567-e89b-12d3-a456-426614174000"}})
 	setTestUserID(c)
 
 	svc := newTestRepertoireService()
@@ -1068,8 +1044,7 @@ func TestUpdateNodeCommentHandler_InvalidNodeID(t *testing.T) {
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	c.SetParamNames("id", "nodeId")
-	c.SetParamValues(validUUID, "not-uuid")
+	c.SetPathValues(echo.PathValues{{Name: "id", Value: validUUID}, {Name: "nodeId", Value: "not-uuid"}})
 	setTestUserID(c)
 
 	svc := newTestRepertoireService()
@@ -1089,8 +1064,7 @@ func TestUpdateNodeCommentHandler_Success(t *testing.T) {
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	c.SetParamNames("id", "nodeId")
-	c.SetParamValues(validUUID, nodeUUID)
+	c.SetPathValues(echo.PathValues{{Name: "id", Value: validUUID}, {Name: "nodeId", Value: nodeUUID}})
 	setTestUserID(c)
 
 	mockRepo := &mocks.MockRepertoireRepo{
@@ -1127,8 +1101,7 @@ func TestDeleteNodeHandler_CannotDeleteRoot(t *testing.T) {
 	req := httptest.NewRequest(http.MethodDelete, "/api/repertoires/"+validUUID+"/nodes/"+rootUUID, nil)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	c.SetParamNames("id", "nodeId")
-	c.SetParamValues(validUUID, rootUUID)
+	c.SetPathValues(echo.PathValues{{Name: "id", Value: validUUID}, {Name: "nodeId", Value: rootUUID}})
 	setTestUserID(c)
 
 	mockRepo := &mocks.MockRepertoireRepo{

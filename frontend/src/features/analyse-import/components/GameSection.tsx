@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router';
 import { Button } from '../../../shared/components/UI';
 import { getFirstActionableMove } from '../utils/gameAnalysisUtils';
 import type { GameAnalysis, MoveAnalysis } from '../../../types';
