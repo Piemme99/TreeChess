@@ -269,6 +269,11 @@ func (db *DB) runMigrations() error {
 		`CREATE INDEX IF NOT EXISTS idx_refresh_tokens_expires ON refresh_tokens(expires_at)`,
 		// Add description column to repertoires
 		`ALTER TABLE repertoires ADD COLUMN IF NOT EXISTS description TEXT NOT NULL DEFAULT ''`,
+		// Track origin of imported repertoires (e.g. from Lichess studies)
+		`ALTER TABLE repertoires ADD COLUMN IF NOT EXISTS origin_type VARCHAR(20)`,
+		`ALTER TABLE repertoires ADD COLUMN IF NOT EXISTS origin_url TEXT`,
+		`ALTER TABLE repertoires ADD COLUMN IF NOT EXISTS origin_creator VARCHAR(100)`,
+		`CREATE INDEX IF NOT EXISTS idx_repertoires_origin_type ON repertoires(origin_type) WHERE origin_type IS NOT NULL`,
 	}
 	for _, m := range migrations {
 		if _, err := conn.Exec(ctx, m); err != nil {
