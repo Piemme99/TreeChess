@@ -99,7 +99,7 @@ export function RepertoireSelector({ color, repertoires, categories, onImportStu
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isMerging, setIsMerging] = useState(false);
   const [mergeName, setMergeName] = useState('');
-  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string; isPublic: boolean } | null>(null);
   const [newIsPublic, setNewIsPublic] = useState(false);
   const [newDescription, setNewDescription] = useState('');
 
@@ -170,8 +170,8 @@ export function RepertoireSelector({ color, repertoires, categories, onImportStu
     }
   };
 
-  const handleDelete = (id: string, name: string) => {
-    setDeleteTarget({ id, name });
+  const handleDelete = (id: string, name: string, isPublic: boolean) => {
+    setDeleteTarget({ id, name, isPublic });
   };
 
   const confirmDelete = async () => {
@@ -360,7 +360,7 @@ export function RepertoireSelector({ color, repertoires, categories, onImportStu
                     loading={loading}
                     index={i}
                     onOpen={() => navigate(`/repertoire/${rep.id}/edit`, { state: { from: location.pathname } })}
-                    onDelete={() => handleDelete(rep.id, rep.name)}
+                    onDelete={() => handleDelete(rep.id, rep.name, rep.isPublic)}
                     onToggleSelection={() => toggleSelection(rep.id)}
                     onStartEditing={() => startEditing(rep.id, rep.name)}
                     onEditNameChange={setEditName}
@@ -501,7 +501,19 @@ export function RepertoireSelector({ color, repertoires, categories, onImportStu
       <ConfirmModal
         isOpen={deleteTarget !== null}
         title="Delete Repertoire"
-        message={`Are you sure you want to delete "${deleteTarget?.name}"? This cannot be undone.`}
+        message={
+          deleteTarget?.isPublic ? (
+            <>
+              <p>Are you sure you want to delete &quot;{deleteTarget.name}&quot;?</p>
+              <p className="mt-2 text-sm text-amber-600 bg-amber-50 border border-amber-200 rounded-lg p-2">
+                This repertoire is public and visible to the community. Deleting it will remove it from Explore for everyone.
+              </p>
+              <p className="mt-2 text-sm text-text-muted">This cannot be undone.</p>
+            </>
+          ) : (
+            `Are you sure you want to delete "${deleteTarget?.name}"? This cannot be undone.`
+          )
+        }
         variant="danger"
         confirmText="Delete"
         loading={loading}

@@ -48,7 +48,7 @@ interface CategorySectionProps {
   onStartEditing: (id: string, name: string) => void;
   onCancelEditing: () => void;
   onRename: (id: string) => void;
-  onDelete: (id: string, name: string) => void;
+  onDelete: (id: string, name: string, isPublic: boolean) => void;
   onEditNameChange: (name: string) => void;
   loading: boolean;
 }
@@ -217,7 +217,7 @@ export function CategorySection({
                           loading={loading}
                           index={i}
                           onOpen={() => navigate(`/repertoire/${rep.id}/edit`, { state: { from: location.pathname } })}
-                          onDelete={() => onDelete(rep.id, rep.name)}
+                          onDelete={() => onDelete(rep.id, rep.name, rep.isPublic)}
                           onToggleSelection={() => onToggleSelection(rep.id)}
                           onStartEditing={() => onStartEditing(rep.id, rep.name)}
                           onEditNameChange={onEditNameChange}
