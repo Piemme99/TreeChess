@@ -61,6 +61,7 @@ type RepertoireRepository interface {
 	CreateWithIsPublicAndDescription(userID, name, description string, color models.Color, isPublic bool) (*models.Repertoire, error)
 	UpdateCategory(id string, userID string, categoryID *string) (*models.Repertoire, error)
 	UpdateVisibility(id string, userID string, isPublic bool) (*models.Repertoire, error)
+	UpdateOrigin(id string, origin *models.RepertoireOrigin) error
 	GetByCategory(categoryID string) ([]models.Repertoire, error)
 	GetUncategorized(userID string, color models.Color) ([]models.Repertoire, error)
 	GetAllPublic() ([]models.Repertoire, error)
@@ -80,7 +81,7 @@ func NewRepertoireService(repo RepertoireRepository) *RepertoireService {
 
 // CreateRepertoire creates a new repertoire with the given name and color for a user
 func (s *RepertoireService) CreateRepertoire(userID string, name string, color models.Color) (*models.Repertoire, error) {
-	return s.CreateRepertoireWithVisibility(userID, name, "", color, true)
+	return s.CreateRepertoireWithVisibility(userID, name, "", color, false)
 }
 
 // CreateRepertoireWithVisibility creates a new repertoire with explicit public/private visibility
@@ -1105,5 +1106,18 @@ func (s *RepertoireService) ImportRepertoire(userID, sourceRepertoireID string) 
 		return nil, fmt.Errorf("failed to save imported repertoire: %w", err)
 	}
 
+	// Carry over origin from the source repertoire
+	if source.Origin != nil {
+		if err := s.repo.UpdateOrigin(saved.ID, source.Origin); err != nil {
+			return nil, fmt.Errorf("failed to set origin on imported repertoire: %w", err)
+		}
+		saved.Origin = source.Origin
+	}
+
 	return saved, nil
+}
+
+// SetOrigin sets the origin on a repertoire
+func (s *RepertoireService) SetOrigin(repertoireID string, origin *models.RepertoireOrigin) error {
+	return s.repo.UpdateOrigin(repertoireID, origin)
 }

@@ -253,8 +253,8 @@ func (db *DB) runMigrations() error {
 			PRIMARY KEY (user_id, fen, opponent_move, repertoire_id)
 		)`,
 		`CREATE INDEX IF NOT EXISTS idx_dismissed_gaps_user ON dismissed_gaps(user_id)`,
-		// Add is_public column to repertoires (default true for explore feature)
-		`ALTER TABLE repertoires ADD COLUMN IF NOT EXISTS is_public BOOLEAN NOT NULL DEFAULT true`,
+		// Add is_public column to repertoires (default false - private by default)
+		`ALTER TABLE repertoires ADD COLUMN IF NOT EXISTS is_public BOOLEAN NOT NULL DEFAULT false`,
 		`CREATE INDEX IF NOT EXISTS idx_repertoires_is_public ON repertoires(is_public) WHERE is_public = true`,
 		// Refresh tokens table for token rotation
 		`CREATE TABLE IF NOT EXISTS refresh_tokens (

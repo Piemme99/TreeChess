@@ -70,8 +70,8 @@ func CreateRepertoireHandler(svc *services.RepertoireService) echo.HandlerFunc {
 			})
 		}
 
-		// Default isPublic to true if not provided
-		isPublic := true
+		// Default isPublic to false if not provided (private by default)
+		isPublic := false
 		if req.IsPublic != nil {
 			isPublic = *req.IsPublic
 		}

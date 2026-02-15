@@ -54,18 +54,26 @@ type Metadata struct {
 	DeepestDepth int `json:"deepestDepth"`
 }
 
+// RepertoireOrigin tracks where a repertoire was imported from (e.g. Lichess study)
+type RepertoireOrigin struct {
+	Type    string `json:"type"`              // "lichess"
+	URL     string `json:"url,omitempty"`     // e.g. "https://lichess.org/study/abcdef12"
+	Creator string `json:"creator,omitempty"` // study author username
+}
+
 type Repertoire struct {
-	ID          string         `json:"id"`
-	Name        string         `json:"name"`
-	Description string         `json:"description"`
-	Color       Color          `json:"color"`
-	IsPublic    bool           `json:"isPublic"`
-	CategoryID  *string        `json:"categoryId,omitempty"`
-	TreeData    RepertoireNode `json:"treeData"`
-	Metadata    Metadata       `json:"metadata"`
-	AuthorName  string         `json:"authorName,omitempty"`
-	CreatedAt   time.Time      `json:"createdAt"`
-	UpdatedAt   time.Time      `json:"updatedAt"`
+	ID          string            `json:"id"`
+	Name        string            `json:"name"`
+	Description string            `json:"description"`
+	Color       Color             `json:"color"`
+	IsPublic    bool              `json:"isPublic"`
+	CategoryID  *string           `json:"categoryId,omitempty"`
+	TreeData    RepertoireNode    `json:"treeData"`
+	Metadata    Metadata          `json:"metadata"`
+	Origin      *RepertoireOrigin `json:"origin,omitempty"`
+	AuthorName  string            `json:"authorName,omitempty"`
+	CreatedAt   time.Time         `json:"createdAt"`
+	UpdatedAt   time.Time         `json:"updatedAt"`
 }
 
 // CreateRepertoireRequest represents a request to create a new repertoire
@@ -73,7 +81,7 @@ type CreateRepertoireRequest struct {
 	Name        string `json:"name"`
 	Description string `json:"description,omitempty"`
 	Color       Color  `json:"color"`
-	IsPublic    *bool  `json:"isPublic,omitempty"` // defaults to true if not provided
+	IsPublic    *bool  `json:"isPublic,omitempty"` // defaults to false if not provided
 }
 
 // UpdateRepertoireRequest represents a request to update a repertoire

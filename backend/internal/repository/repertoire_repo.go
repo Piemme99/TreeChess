@@ -15,30 +15,30 @@ import (
 
 const (
 	getRepertoireByIDSQL = `
-		SELECT id, name, description, color, is_public, category_id, tree_data, metadata, created_at, updated_at
+		SELECT id, name, description, color, is_public, category_id, tree_data, metadata, origin_type, origin_url, origin_creator, created_at, updated_at
 		FROM repertoires
 		WHERE id = $1
 	`
 	getRepertoiresByColorSQL = `
-		SELECT id, name, description, color, is_public, category_id, tree_data, metadata, created_at, updated_at
+		SELECT id, name, description, color, is_public, category_id, tree_data, metadata, origin_type, origin_url, origin_creator, created_at, updated_at
 		FROM repertoires
 		WHERE user_id = $1 AND color = $2
 		ORDER BY updated_at DESC
 	`
 	getAllRepertoiresSQL = `
-		SELECT id, name, description, color, is_public, category_id, tree_data, metadata, created_at, updated_at
+		SELECT id, name, description, color, is_public, category_id, tree_data, metadata, origin_type, origin_url, origin_creator, created_at, updated_at
 		FROM repertoires
 		WHERE user_id = $1
 		ORDER BY color, updated_at DESC
 	`
 	getRepertoiresByCategorySQL = `
-		SELECT id, name, description, color, is_public, category_id, tree_data, metadata, created_at, updated_at
+		SELECT id, name, description, color, is_public, category_id, tree_data, metadata, origin_type, origin_url, origin_creator, created_at, updated_at
 		FROM repertoires
 		WHERE category_id = $1
 		ORDER BY updated_at DESC
 	`
 	getUncategorizedRepertoiresSQL = `
-		SELECT id, name, description, color, is_public, category_id, tree_data, metadata, created_at, updated_at
+		SELECT id, name, description, color, is_public, category_id, tree_data, metadata, origin_type, origin_url, origin_creator, created_at, updated_at
 		FROM repertoires
 		WHERE user_id = $1 AND color = $2 AND category_id IS NULL
 		ORDER BY updated_at DESC
@@ -46,45 +46,50 @@ const (
 	createRepertoireSQL = `
 		INSERT INTO repertoires (id, user_id, name, description, color, is_public, tree_data, metadata)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-		RETURNING id, name, description, color, is_public, category_id, tree_data, metadata, created_at, updated_at
+		RETURNING id, name, description, color, is_public, category_id, tree_data, metadata, origin_type, origin_url, origin_creator, created_at, updated_at
 	`
 	createRepertoireWithCategorySQL = `
 		INSERT INTO repertoires (id, user_id, name, description, color, is_public, category_id, tree_data, metadata)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-		RETURNING id, name, description, color, is_public, category_id, tree_data, metadata, created_at, updated_at
+		RETURNING id, name, description, color, is_public, category_id, tree_data, metadata, origin_type, origin_url, origin_creator, created_at, updated_at
 	`
 	updateRepertoireByIDSQL = `
 		UPDATE repertoires
 		SET tree_data = $2, metadata = $3, updated_at = NOW()
 		WHERE id = $1 AND user_id = $4
-		RETURNING id, name, description, color, is_public, category_id, tree_data, metadata, created_at, updated_at
+		RETURNING id, name, description, color, is_public, category_id, tree_data, metadata, origin_type, origin_url, origin_creator, created_at, updated_at
 	`
 	updateRepertoireNameSQL = `
 		UPDATE repertoires
 		SET name = $2, updated_at = NOW()
 		WHERE id = $1 AND user_id = $3
-		RETURNING id, name, description, color, is_public, category_id, tree_data, metadata, created_at, updated_at
+		RETURNING id, name, description, color, is_public, category_id, tree_data, metadata, origin_type, origin_url, origin_creator, created_at, updated_at
 	`
 	updateRepertoireDescriptionSQL = `
 		UPDATE repertoires
 		SET description = $2, updated_at = NOW()
 		WHERE id = $1 AND user_id = $3
-		RETURNING id, name, description, color, is_public, category_id, tree_data, metadata, created_at, updated_at
+		RETURNING id, name, description, color, is_public, category_id, tree_data, metadata, origin_type, origin_url, origin_creator, created_at, updated_at
 	`
 	updateRepertoireCategorySQL = `
 		UPDATE repertoires
 		SET category_id = $2, updated_at = NOW()
 		WHERE id = $1 AND user_id = $3
-		RETURNING id, name, description, color, is_public, category_id, tree_data, metadata, created_at, updated_at
+		RETURNING id, name, description, color, is_public, category_id, tree_data, metadata, origin_type, origin_url, origin_creator, created_at, updated_at
 	`
 	updateRepertoireVisibilitySQL = `
 		UPDATE repertoires
 		SET is_public = $2, updated_at = NOW()
 		WHERE id = $1 AND user_id = $3
-		RETURNING id, name, description, color, is_public, category_id, tree_data, metadata, created_at, updated_at
+		RETURNING id, name, description, color, is_public, category_id, tree_data, metadata, origin_type, origin_url, origin_creator, created_at, updated_at
+	`
+	updateRepertoireOriginSQL = `
+		UPDATE repertoires
+		SET origin_type = $2, origin_url = $3, origin_creator = $4
+		WHERE id = $1
 	`
 	getAllPublicRepertoiresSQL = `
-		SELECT r.id, r.name, r.description, r.color, r.is_public, NULL AS category_id, r.tree_data, r.metadata, r.created_at, r.updated_at,
+		SELECT r.id, r.name, r.description, r.color, r.is_public, NULL AS category_id, r.tree_data, r.metadata, r.origin_type, r.origin_url, r.origin_creator, r.created_at, r.updated_at,
 		       u.username
 		FROM repertoires r
 		JOIN users u ON r.user_id = u.id
@@ -92,7 +97,7 @@ const (
 		ORDER BY r.updated_at DESC
 	`
 	getPublicRepertoireByIDSQL = `
-		SELECT r.id, r.name, r.description, r.color, r.is_public, NULL AS category_id, r.tree_data, r.metadata, r.created_at, r.updated_at,
+		SELECT r.id, r.name, r.description, r.color, r.is_public, NULL AS category_id, r.tree_data, r.metadata, r.origin_type, r.origin_url, r.origin_creator, r.created_at, r.updated_at,
 		       u.username
 		FROM repertoires r
 		JOIN users u ON r.user_id = u.id
@@ -122,6 +127,21 @@ func NewPostgresRepertoireRepo(pool *pgxpool.Pool) *PostgresRepertoireRepo {
 	return &PostgresRepertoireRepo{pool: pool}
 }
 
+// buildOrigin constructs a RepertoireOrigin from nullable scan values, returning nil if no origin is set.
+func buildOrigin(originType, originURL, originCreator *string) *models.RepertoireOrigin {
+	if originType == nil {
+		return nil
+	}
+	origin := &models.RepertoireOrigin{Type: *originType}
+	if originURL != nil {
+		origin.URL = *originURL
+	}
+	if originCreator != nil {
+		origin.Creator = *originCreator
+	}
+	return origin
+}
+
 // GetByID retrieves a repertoire by its UUID
 func (r *PostgresRepertoireRepo) GetByID(id string) (*models.Repertoire, error) {
 	ctx, cancel := dbContext()
@@ -129,6 +149,7 @@ func (r *PostgresRepertoireRepo) GetByID(id string) (*models.Repertoire, error) 
 
 	var rep models.Repertoire
 	var treeDataJSON, metadataJSON []byte
+	var originType, originURL, originCreator *string
 
 	err := r.pool.QueryRow(ctx, getRepertoireByIDSQL, id).Scan(
 		&rep.ID,
@@ -139,6 +160,9 @@ func (r *PostgresRepertoireRepo) GetByID(id string) (*models.Repertoire, error) 
 		&rep.CategoryID,
 		&treeDataJSON,
 		&metadataJSON,
+		&originType,
+		&originURL,
+		&originCreator,
 		&rep.CreatedAt,
 		&rep.UpdatedAt,
 	)
@@ -156,6 +180,8 @@ func (r *PostgresRepertoireRepo) GetByID(id string) (*models.Repertoire, error) 
 	if err := json.Unmarshal(metadataJSON, &rep.Metadata); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal metadata: %w", err)
 	}
+
+	rep.Origin = buildOrigin(originType, originURL, originCreator)
 
 	return &rep, nil
 }
@@ -205,7 +231,7 @@ func (r *PostgresRepertoireRepo) CreateWithIsPublicAndDescription(userID string,
 
 // CreateWithCategory creates a new repertoire with a name, color, and optional category for a user
 func (r *PostgresRepertoireRepo) CreateWithCategory(userID string, name string, color models.Color, categoryID *string) (*models.Repertoire, error) {
-	return r.createRepertoire(userID, name, "", color, categoryID, true)
+	return r.createRepertoire(userID, name, "", color, categoryID, false)
 }
 
 // createRepertoire is the internal implementation for creating repertoires
@@ -263,6 +289,7 @@ func (r *PostgresRepertoireRepo) createRepertoire(userID string, name string, de
 		args = []interface{}{rep.ID, userID, rep.Name, rep.Description, string(rep.Color), isPublic, treeDataJSON, metadataJSON}
 	}
 
+	var originType, originURL, originCreator *string
 	err = r.pool.QueryRow(ctx, query, args...).Scan(
 		&rep.ID,
 		&rep.Name,
@@ -272,6 +299,9 @@ func (r *PostgresRepertoireRepo) createRepertoire(userID string, name string, de
 		&rep.CategoryID,
 		&treeDataJSON,
 		&metadataJSON,
+		&originType,
+		&originURL,
+		&originCreator,
 		&rep.CreatedAt,
 		&rep.UpdatedAt,
 	)
@@ -286,6 +316,8 @@ func (r *PostgresRepertoireRepo) createRepertoire(userID string, name string, de
 	if err := json.Unmarshal(metadataJSON, &rep.Metadata); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal metadata: %w", err)
 	}
+
+	rep.Origin = buildOrigin(originType, originURL, originCreator)
 
 	return &rep, nil
 }
@@ -307,6 +339,7 @@ func (r *PostgresRepertoireRepo) Save(id string, userID string, treeData models.
 
 	var rep models.Repertoire
 	var newTreeDataJSON, newMetadataJSON []byte
+	var originType, originURL, originCreator *string
 
 	err = r.pool.QueryRow(ctx, updateRepertoireByIDSQL,
 		id,
@@ -322,6 +355,9 @@ func (r *PostgresRepertoireRepo) Save(id string, userID string, treeData models.
 		&rep.CategoryID,
 		&newTreeDataJSON,
 		&newMetadataJSON,
+		&originType,
+		&originURL,
+		&originCreator,
 		&rep.CreatedAt,
 		&rep.UpdatedAt,
 	)
@@ -337,6 +373,8 @@ func (r *PostgresRepertoireRepo) Save(id string, userID string, treeData models.
 		return nil, fmt.Errorf("failed to unmarshal metadata: %w", err)
 	}
 
+	rep.Origin = buildOrigin(originType, originURL, originCreator)
+
 	return &rep, nil
 }
 
@@ -347,6 +385,7 @@ func (r *PostgresRepertoireRepo) UpdateName(id string, userID string, name strin
 
 	var rep models.Repertoire
 	var treeDataJSON, metadataJSON []byte
+	var originType, originURL, originCreator *string
 
 	err := r.pool.QueryRow(ctx, updateRepertoireNameSQL, id, name, userID).Scan(
 		&rep.ID,
@@ -357,6 +396,9 @@ func (r *PostgresRepertoireRepo) UpdateName(id string, userID string, name strin
 		&rep.CategoryID,
 		&treeDataJSON,
 		&metadataJSON,
+		&originType,
+		&originURL,
+		&originCreator,
 		&rep.CreatedAt,
 		&rep.UpdatedAt,
 	)
@@ -372,6 +414,8 @@ func (r *PostgresRepertoireRepo) UpdateName(id string, userID string, name strin
 		return nil, fmt.Errorf("failed to unmarshal metadata: %w", err)
 	}
 
+	rep.Origin = buildOrigin(originType, originURL, originCreator)
+
 	return &rep, nil
 }
 
@@ -382,6 +426,7 @@ func (r *PostgresRepertoireRepo) UpdateDescription(id string, userID string, des
 
 	var rep models.Repertoire
 	var treeDataJSON, metadataJSON []byte
+	var originType, originURL, originCreator *string
 
 	err := r.pool.QueryRow(ctx, updateRepertoireDescriptionSQL, id, description, userID).Scan(
 		&rep.ID,
@@ -392,6 +437,9 @@ func (r *PostgresRepertoireRepo) UpdateDescription(id string, userID string, des
 		&rep.CategoryID,
 		&treeDataJSON,
 		&metadataJSON,
+		&originType,
+		&originURL,
+		&originCreator,
 		&rep.CreatedAt,
 		&rep.UpdatedAt,
 	)
@@ -410,6 +458,8 @@ func (r *PostgresRepertoireRepo) UpdateDescription(id string, userID string, des
 		return nil, fmt.Errorf("failed to unmarshal metadata: %w", err)
 	}
 
+	rep.Origin = buildOrigin(originType, originURL, originCreator)
+
 	return &rep, nil
 }
 
@@ -420,6 +470,7 @@ func (r *PostgresRepertoireRepo) UpdateCategory(id string, userID string, catego
 
 	var rep models.Repertoire
 	var treeDataJSON, metadataJSON []byte
+	var originType, originURL, originCreator *string
 
 	err := r.pool.QueryRow(ctx, updateRepertoireCategorySQL, id, categoryID, userID).Scan(
 		&rep.ID,
@@ -430,6 +481,9 @@ func (r *PostgresRepertoireRepo) UpdateCategory(id string, userID string, catego
 		&rep.CategoryID,
 		&treeDataJSON,
 		&metadataJSON,
+		&originType,
+		&originURL,
+		&originCreator,
 		&rep.CreatedAt,
 		&rep.UpdatedAt,
 	)
@@ -447,6 +501,8 @@ func (r *PostgresRepertoireRepo) UpdateCategory(id string, userID string, catego
 	if err := json.Unmarshal(metadataJSON, &rep.Metadata); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal metadata: %w", err)
 	}
+
+	rep.Origin = buildOrigin(originType, originURL, originCreator)
 
 	return &rep, nil
 }
@@ -547,6 +603,7 @@ func (r *PostgresRepertoireRepo) scanRepertoires(rows interface {
 	for rows.Next() {
 		var rep models.Repertoire
 		var treeDataJSON, metadataJSON []byte
+		var originType, originURL, originCreator *string
 
 		err := rows.Scan(
 			&rep.ID,
@@ -557,6 +614,9 @@ func (r *PostgresRepertoireRepo) scanRepertoires(rows interface {
 			&rep.CategoryID,
 			&treeDataJSON,
 			&metadataJSON,
+			&originType,
+			&originURL,
+			&originCreator,
 			&rep.CreatedAt,
 			&rep.UpdatedAt,
 		)
@@ -572,6 +632,7 @@ func (r *PostgresRepertoireRepo) scanRepertoires(rows interface {
 			return nil, fmt.Errorf("failed to unmarshal metadata: %w", err)
 		}
 
+		rep.Origin = buildOrigin(originType, originURL, originCreator)
 		repertoires = append(repertoires, rep)
 	}
 
@@ -589,6 +650,7 @@ func (r *PostgresRepertoireRepo) UpdateVisibility(id string, userID string, isPu
 
 	var rep models.Repertoire
 	var treeDataJSON, metadataJSON []byte
+	var originType, originURL, originCreator *string
 
 	err := r.pool.QueryRow(ctx, updateRepertoireVisibilitySQL, id, isPublic, userID).Scan(
 		&rep.ID,
@@ -599,6 +661,9 @@ func (r *PostgresRepertoireRepo) UpdateVisibility(id string, userID string, isPu
 		&rep.CategoryID,
 		&treeDataJSON,
 		&metadataJSON,
+		&originType,
+		&originURL,
+		&originCreator,
 		&rep.CreatedAt,
 		&rep.UpdatedAt,
 	)
@@ -617,7 +682,32 @@ func (r *PostgresRepertoireRepo) UpdateVisibility(id string, userID string, isPu
 		return nil, fmt.Errorf("failed to unmarshal metadata: %w", err)
 	}
 
+	rep.Origin = buildOrigin(originType, originURL, originCreator)
+
 	return &rep, nil
+}
+
+// UpdateOrigin sets the origin fields on a repertoire
+func (r *PostgresRepertoireRepo) UpdateOrigin(id string, origin *models.RepertoireOrigin) error {
+	ctx, cancel := dbContext()
+	defer cancel()
+
+	var originType, originURL, originCreator *string
+	if origin != nil {
+		originType = &origin.Type
+		if origin.URL != "" {
+			originURL = &origin.URL
+		}
+		if origin.Creator != "" {
+			originCreator = &origin.Creator
+		}
+	}
+
+	_, err := r.pool.Exec(ctx, updateRepertoireOriginSQL, id, originType, originURL, originCreator)
+	if err != nil {
+		return fmt.Errorf("failed to update repertoire origin: %w", err)
+	}
+	return nil
 }
 
 // GetAllPublic retrieves all public repertoires with author usernames
@@ -641,6 +731,7 @@ func (r *PostgresRepertoireRepo) GetPublicByID(id string) (*models.Repertoire, e
 
 	var rep models.Repertoire
 	var treeDataJSON, metadataJSON []byte
+	var originType, originURL, originCreator *string
 
 	err := r.pool.QueryRow(ctx, getPublicRepertoireByIDSQL, id).Scan(
 		&rep.ID,
@@ -651,6 +742,9 @@ func (r *PostgresRepertoireRepo) GetPublicByID(id string) (*models.Repertoire, e
 		&rep.CategoryID,
 		&treeDataJSON,
 		&metadataJSON,
+		&originType,
+		&originURL,
+		&originCreator,
 		&rep.CreatedAt,
 		&rep.UpdatedAt,
 		&rep.AuthorName,
@@ -669,6 +763,8 @@ func (r *PostgresRepertoireRepo) GetPublicByID(id string) (*models.Repertoire, e
 	if err := json.Unmarshal(metadataJSON, &rep.Metadata); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal metadata: %w", err)
 	}
+
+	rep.Origin = buildOrigin(originType, originURL, originCreator)
 
 	return &rep, nil
 }
@@ -700,6 +796,7 @@ func (r *PostgresRepertoireRepo) scanRepertoiresWithAuthor(rows interface {
 	for rows.Next() {
 		var rep models.Repertoire
 		var treeDataJSON, metadataJSON []byte
+		var originType, originURL, originCreator *string
 
 		err := rows.Scan(
 			&rep.ID,
@@ -710,6 +807,9 @@ func (r *PostgresRepertoireRepo) scanRepertoiresWithAuthor(rows interface {
 			&rep.CategoryID,
 			&treeDataJSON,
 			&metadataJSON,
+			&originType,
+			&originURL,
+			&originCreator,
 			&rep.CreatedAt,
 			&rep.UpdatedAt,
 			&rep.AuthorName,
@@ -726,6 +826,7 @@ func (r *PostgresRepertoireRepo) scanRepertoiresWithAuthor(rows interface {
 			return nil, fmt.Errorf("failed to unmarshal metadata: %w", err)
 		}
 
+		rep.Origin = buildOrigin(originType, originURL, originCreator)
 		repertoires = append(repertoires, rep)
 	}
 
