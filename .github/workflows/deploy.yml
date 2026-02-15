@@ -18,8 +18,7 @@ concurrency:
 
 env:
   REGISTRY: ghcr.io
-  BACKEND_IMAGE: ghcr.io/${{ github.repository_owner }}/kumquat-backend
-  FRONTEND_IMAGE: ghcr.io/${{ github.repository_owner }}/kumquat-frontend
+  OWNER: ${{ github.repository_owner }}
 
 jobs:
   # Run the CI checks first to make sure everything is green
@@ -40,12 +39,16 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Set image tag
+      - name: Set image tag and registry
         id: meta
         run: |
           TAG="sha-$(git rev-parse --short HEAD)"
+          OWNER_LC="${{ env.OWNER }}"
+          OWNER_LC="${OWNER_LC,,}"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-          echo "Image tag: $TAG"
+          echo "backend_image=ghcr.io/${OWNER_LC}/kumquat-backend" >> "$GITHUB_OUTPUT"
+          echo "frontend_image=ghcr.io/${OWNER_LC}/kumquat-frontend" >> "$GITHUB_OUTPUT"
+          echo "Image tag: $TAG (owner: $OWNER_LC)"
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
@@ -64,8 +67,8 @@ jobs:
           target: prod
           push: true
           tags: |
-            ${{ env.BACKEND_IMAGE }}:${{ steps.meta.outputs.tag }}
-            ${{ env.BACKEND_IMAGE }}:latest
+            ${{ steps.meta.outputs.backend_image }}:${{ steps.meta.outputs.tag }}
+            ${{ steps.meta.outputs.backend_image }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -76,8 +79,8 @@ jobs:
           target: prod
           push: true
           tags: |
-            ${{ env.FRONTEND_IMAGE }}:${{ steps.meta.outputs.tag }}
-            ${{ env.FRONTEND_IMAGE }}:latest
+            ${{ steps.meta.outputs.frontend_image }}:${{ steps.meta.outputs.tag }}
+            ${{ steps.meta.outputs.frontend_image }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
