@@ -28,7 +28,8 @@ import type {
   RepertoireFilterOption,
   LichessStudySearchResponse,
   LichessTopicsResponse,
-  TrainingAnalyzeResponse
+  TrainingAnalyzeResponse,
+  ExploreTemplate
 } from '../types';
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
@@ -323,7 +324,7 @@ export const repertoireApi = {
   }
 };
 
-// Explore API (public repertoires)
+// Explore API (public repertoires + starter templates)
 export const exploreApi = {
   listPublic: async (): Promise<Repertoire[]> => {
     const response = await api.get('/explore/repertoires');
@@ -337,6 +338,16 @@ export const exploreApi = {
 
   importRepertoire: async (id: string): Promise<Repertoire> => {
     const response = await api.post(`/explore/repertoires/${id}/import`);
+    return response.data;
+  },
+
+  listTemplates: async (): Promise<ExploreTemplate[]> => {
+    const response = await api.get('/explore/templates');
+    return response.data;
+  },
+
+  importTemplate: async (id: string): Promise<Repertoire> => {
+    const response = await api.post(`/explore/templates/${id}/import`);
     return response.data;
   }
 };

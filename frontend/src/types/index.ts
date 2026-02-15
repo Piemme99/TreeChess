@@ -131,6 +131,16 @@ export interface Repertoire {
   updatedAt: string;
 }
 
+// Starter template with full tree data for the explore page
+export interface ExploreTemplate {
+  id: string;
+  name: string;
+  description: string;
+  color: Color;
+  treeData: RepertoireNode;
+  metadata: RepertoireMetadata;
+}
+
 // Request types for repertoire management
 export interface CreateRepertoireRequest {
   name: string;

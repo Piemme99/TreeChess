@@ -346,6 +346,39 @@ var starterTemplates = []RepertoireTemplate{
 	},
 }
 
+// ExploreTemplate is a fully-built template with tree data and metadata,
+// shaped like a Repertoire so the frontend can render it with the same card.
+type ExploreTemplate struct {
+	ID          string                `json:"id"`
+	Name        string                `json:"name"`
+	Description string                `json:"description"`
+	Color       models.Color          `json:"color"`
+	TreeData    models.RepertoireNode `json:"treeData"`
+	Metadata    models.Metadata       `json:"metadata"`
+}
+
+// ListTemplatesWithPreview builds full tree data for each starter template
+// so the explore page can render previews (board position, stats, etc.).
+func ListTemplatesWithPreview() []ExploreTemplate {
+	result := make([]ExploreTemplate, 0, len(starterTemplates))
+	for _, tmpl := range starterTemplates {
+		tree, err := BuildTemplateTree(&tmpl)
+		if err != nil {
+			continue // skip broken templates
+		}
+		meta := calculateMetadata(tree)
+		result = append(result, ExploreTemplate{
+			ID:          tmpl.ID,
+			Name:        tmpl.Name,
+			Description: tmpl.Description,
+			Color:       tmpl.Color,
+			TreeData:    tree,
+			Metadata:    meta,
+		})
+	}
+	return result
+}
+
 // GetTemplate returns a template by ID, or nil if not found
 func GetTemplate(id string) *RepertoireTemplate {
 	for i := range starterTemplates {

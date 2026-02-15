@@ -2,20 +2,33 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Compass, Search } from 'lucide-react';
 import { useExploreStore } from '../../stores/exploreStore';
 import { ExploreRepertoireCard } from './ExploreRepertoireCard';
+import { StarterTemplateCard } from './StarterTemplateCard';
 import { Loading, EmptyState } from '../../shared/components/UI';
 import type { Color } from '../../types';
 
 type ColorFilter = Color | 'all';
+type CategoryFilter = 'starter' | 'community';
 
 export function ExplorePage() {
-  const { publicRepertoires, loading, fetchPublicRepertoires, importRepertoire } = useExploreStore();
+  const {
+    publicRepertoires,
+    starterTemplates,
+    loading,
+    fetchPublicRepertoires,
+    fetchStarterTemplates,
+    importRepertoire,
+    importTemplate
+  } = useExploreStore();
   const [importingId, setImportingId] = useState<string | null>(null);
+  const [importingTemplateId, setImportingTemplateId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [colorFilter, setColorFilter] = useState<ColorFilter>('all');
+  const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('community');
 
   useEffect(() => {
     fetchPublicRepertoires();
-  }, [fetchPublicRepertoires]);
+    fetchStarterTemplates();
+  }, [fetchPublicRepertoires, fetchStarterTemplates]);
 
   const handleImport = useCallback(async (id: string) => {
     setImportingId(id);
@@ -26,15 +39,22 @@ export function ExplorePage() {
     }
   }, [importRepertoire]);
 
+  const handleImportTemplate = useCallback(async (id: string) => {
+    setImportingTemplateId(id);
+    try {
+      await importTemplate(id);
+    } finally {
+      setImportingTemplateId(null);
+    }
+  }, [importTemplate]);
+
   const filteredRepertoires = useMemo(() => {
     let result = publicRepertoires;
 
-    // Filter by color
     if (colorFilter !== 'all') {
       result = result.filter((r) => r.color === colorFilter);
     }
 
-    // Filter by search query (name or description, case-insensitive)
     const query = searchQuery.trim().toLowerCase();
     if (query) {
       result = result.filter(
@@ -48,6 +68,28 @@ export function ExplorePage() {
     return result;
   }, [publicRepertoires, colorFilter, searchQuery]);
 
+  const filteredTemplates = useMemo(() => {
+    let result = starterTemplates;
+
+    if (colorFilter !== 'all') {
+      result = result.filter((t) => t.color === colorFilter);
+    }
+
+    const query = searchQuery.trim().toLowerCase();
+    if (query) {
+      result = result.filter(
+        (t) =>
+          t.name.toLowerCase().includes(query) ||
+          t.description?.toLowerCase().includes(query)
+      );
+    }
+
+    return result;
+  }, [starterTemplates, colorFilter, searchQuery]);
+
+  const hasAnyContent = publicRepertoires.length > 0 || starterTemplates.length > 0;
+  const currentItems = categoryFilter === 'starter' ? filteredTemplates : filteredRepertoires;
+
   if (loading && publicRepertoires.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -60,6 +102,11 @@ export function ExplorePage() {
     { value: 'all', label: 'All' },
     { value: 'white', label: 'White' },
     { value: 'black', label: 'Black' },
+  ];
+
+  const categoryFilters: { value: CategoryFilter; label: string }[] = [
+    { value: 'community', label: 'Community' },
+    { value: 'starter', label: 'Starter' },
   ];
 
   return (
@@ -76,8 +123,25 @@ export function ExplorePage() {
       </div>
 
       {/* Search and filters */}
-      {publicRepertoires.length > 0 && (
+      {hasAnyContent && (
         <div className="flex items-center gap-3 mb-6">
+          {/* Category toggle */}
+          <div className="flex items-center rounded-xl border border-primary/10 overflow-hidden shrink-0">
+            {categoryFilters.map((f) => (
+              <button
+                key={f.value}
+                onClick={() => setCategoryFilter(f.value)}
+                className={`px-3.5 py-2 text-xs font-medium transition-colors cursor-pointer ${
+                  categoryFilter === f.value
+                    ? 'bg-primary text-white'
+                    : 'bg-bg-card text-text-muted hover:text-text hover:bg-bg'
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+
           {/* Search input */}
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted pointer-events-none" />
@@ -109,8 +173,8 @@ export function ExplorePage() {
         </div>
       )}
 
-      {/* Empty state - no repertoires at all */}
-      {publicRepertoires.length === 0 && !loading && (
+      {/* Empty state - nothing at all */}
+      {!hasAnyContent && !loading && (
         <EmptyState
           icon="🧭"
           title="No public repertoires yet"
@@ -119,7 +183,7 @@ export function ExplorePage() {
       )}
 
       {/* No results for current filter */}
-      {publicRepertoires.length > 0 && filteredRepertoires.length === 0 && (
+      {hasAnyContent && currentItems.length === 0 && (
         <EmptyState
           icon="🔍"
           title="No matching repertoires"
@@ -129,8 +193,33 @@ export function ExplorePage() {
         />
       )}
 
-      {/* Repertoire grid */}
-      {filteredRepertoires.length > 0 && (
+      {/* Starter Repertoires */}
+      {categoryFilter === 'starter' && filteredTemplates.length > 0 && (
+        <section>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xs font-bold text-text-muted uppercase tracking-widest">
+              Starter Repertoires
+            </h2>
+            <span className="text-xs text-text-muted">
+              {filteredTemplates.length} template{filteredTemplates.length !== 1 ? 's' : ''}
+            </span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+            {filteredTemplates.map((tmpl, i) => (
+              <StarterTemplateCard
+                key={tmpl.id}
+                template={tmpl}
+                onImport={handleImportTemplate}
+                importing={importingTemplateId === tmpl.id}
+                index={i}
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Community Repertoires */}
+      {categoryFilter === 'community' && filteredRepertoires.length > 0 && (
         <section>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xs font-bold text-text-muted uppercase tracking-widest">

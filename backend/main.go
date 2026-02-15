@@ -204,7 +204,9 @@ func main() {
 	protected.PATCH("/api/repertoires/:id/category", handlers.AssignCategoryHandler(repertoireSvc, categorySvc))
 	protected.PATCH("/api/repertoires/:id/visibility", handlers.UpdateVisibilityHandler(repertoireSvc))
 
-	// Explore API (public repertoires)
+	// Explore API (public repertoires + starter templates)
+	protected.GET("/api/explore/templates", handlers.ListExploreTemplatesHandler())
+	protected.POST("/api/explore/templates/:id/import", handlers.ImportExploreTemplateHandler(repertoireSvc))
 	protected.GET("/api/explore/repertoires", handlers.ListPublicRepertoiresHandler(repertoireSvc))
 	protected.GET("/api/explore/repertoires/:id", handlers.GetPublicRepertoireHandler(repertoireSvc))
 	protected.POST("/api/explore/repertoires/:id/import", handlers.ImportRepertoireHandler(repertoireSvc))

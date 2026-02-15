@@ -11,6 +11,44 @@ import (
 	"github.com/kumquat/backend/internal/services"
 )
 
+// ListExploreTemplatesHandler returns starter templates with full tree data for the explore page
+// GET /api/explore/templates
+func ListExploreTemplatesHandler() echo.HandlerFunc {
+	return func(c *echo.Context) error {
+		templates := services.ListTemplatesWithPreview()
+		return c.JSON(http.StatusOK, templates)
+	}
+}
+
+// ImportExploreTemplateHandler imports a starter template into the user's repertoires
+// POST /api/explore/templates/:id/import
+func ImportExploreTemplateHandler(svc *services.RepertoireService) echo.HandlerFunc {
+	return func(c *echo.Context) error {
+		userID := c.Get("userID").(string)
+		templateID := c.Param("id")
+
+		repertoires, err := svc.SeedRepertoires(userID, []string{templateID})
+		if err != nil {
+			if errors.Is(err, services.ErrLimitReached) {
+				return c.JSON(http.StatusConflict, map[string]string{
+					"error": "maximum repertoire limit reached (50)",
+				})
+			}
+			return c.JSON(http.StatusBadRequest, map[string]string{
+				"error": "failed to import template",
+			})
+		}
+
+		if len(repertoires) == 0 {
+			return c.JSON(http.StatusInternalServerError, map[string]string{
+				"error": "failed to import template",
+			})
+		}
+
+		return c.JSON(http.StatusCreated, repertoires[0])
+	}
+}
+
 // ListPublicRepertoiresHandler returns all public repertoires
 // GET /api/explore/repertoires
 func ListPublicRepertoiresHandler(svc *services.RepertoireService) echo.HandlerFunc {
