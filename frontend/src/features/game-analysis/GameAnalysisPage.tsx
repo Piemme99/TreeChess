@@ -12,7 +12,7 @@ import { RepertoireSelector } from './components/RepertoireSelector';
 import { Button, Loading, ConfirmModal } from '../../shared/components/UI';
 import { GameMoveList } from './components/GameMoveList';
 import { useDeleteGame } from '../analyse-tab/hooks/useDeleteGame';
-import { useEngine } from '../repertoire/edit/hooks/useEngine';
+import { useEngine } from '../../shared/hooks/useEngine';
 import { toast } from '../../stores/toastStore';
 import { usePageTitle } from '../../shared/hooks/usePageTitle';
 import type { GameAnalysis, MoveAnalysis } from '../../types';

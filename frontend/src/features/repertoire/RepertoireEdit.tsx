@@ -9,7 +9,7 @@ import { TopMovesPanel } from './edit/components/TopMovesPanel';
 import { useRepertoireLoader } from './edit/hooks/useRepertoireLoader';
 import { usePendingAddNode } from './edit/hooks/usePendingAddNode';
 import { useMoveActions } from './edit/hooks/useMoveActions';
-import { useEngine } from './edit/hooks/useEngine';
+import { useEngine } from '../../shared/hooks/useEngine';
 import { useTreeNavigation } from './edit/hooks/useTreeNavigation';
 import { useResizableSplit } from './edit/hooks/useResizableSplit';
 import { useNodeAnnotation } from './edit/hooks/useNodeAnnotation';
@@ -69,7 +69,7 @@ export function RepertoireEdit() {
 
   const { id, color, repertoire, selectedNodeId, loading, selectNode, setRepertoire, readOnly } = useRepertoireLoader();
   usePageTitle(readOnly ? 'View Repertoire' : 'Edit Repertoire');
-  const engine = useEngine();
+  const engine = useEngine({ multiPV: 3 });
   const [importingFromView, setImportingFromView] = useState(false);
 
   const selectedNode = repertoire && selectedNodeId ? findNode(repertoire.treeData, selectedNodeId) : null;
@@ -404,7 +404,15 @@ export function RepertoireEdit() {
               <div className="p-4">
                 <TopMovesPanel
                   evaluation={engine.currentEvaluation}
+                  lines={engine.currentLines}
                   fen={currentFEN}
+                  repertoireId={id}
+                  selectedNode={selectedNode}
+                  onAddMove={(san: string) => {
+                    if (selectedNode && id) {
+                      handleBoardMove({ san });
+                    }
+                  }}
                 />
               </div>
             )}

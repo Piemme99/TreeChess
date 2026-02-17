@@ -4,12 +4,14 @@ import { Chess } from 'chess.js';
 import { ChessBoard } from '../../../shared/components/Board/ChessBoard';
 import { EvalBar } from '../../repertoire/edit/components/EvalBar';
 import { GameNavigation } from '../../game-analysis/components/GameNavigation';
-import { useEngine } from '../../repertoire/edit/hooks/useEngine';
-import { useBatchEval } from '../hooks/useBatchEval';
+import { useEngine } from '../../../shared/hooks/useEngine';
+import { useBatchEval } from '../../../shared/hooks/useBatchEval';
+import { getMoveQualityDisplay, formatWinPercent } from '../../../shared/utils/moveClassification';
 import { STARTING_FEN } from '../../../shared/utils/chess';
 import { RotateCcw, ArrowUpDown, ExternalLink, ArrowLeft, BookOpen, Plus, Loader2 } from 'lucide-react';
 import type { MoveRecord } from '../hooks/useExplorerTraining';
-import type { MoveEvalDelta } from '../hooks/useBatchEval';
+import type { MoveEvalDelta } from '../../../shared/hooks/useBatchEval';
+import type { MoveClassification } from '../../../shared/utils/moveClassification';
 import type { MoveAnalysis, RepertoireRef } from '../../../types';
 
 interface ExplorerTrainingReviewProps {
@@ -76,46 +78,15 @@ function getWinRateColor(winRate: number): string {
   return 'text-danger';
 }
 
-/** Format a centipawn score as a readable string like "+0.3" or "-1.2". */
-function formatCp(cp: number): string {
-  const pawns = cp / 100;
-  return `${pawns > 0 ? '+' : ''}${pawns.toFixed(1)}`;
-}
-
 /**
- * Classify a user move's quality from its centipawn loss (Stockfish eval delta).
- *
- * For suboptimal moves, displays the loss in pawns (e.g. "-0.4").
- * Good moves show no extra text, just a green dot.
+ * Get display info for a move using the unified Win% classification system.
+ * Returns null for opponent moves or moves without eval data.
  */
-function getMoveQualityFromEval(
+function getMoveQualityInfo(
   delta: MoveEvalDelta | undefined,
-): { dotColor: string; sanColor: string; lossDisplay: string | null; title: string } | null {
-  if (!delta || delta.cpLoss === null) return null;
-  const loss = delta.cpLoss;
-
-  if (loss <= 20) {
-    return {
-      dotColor: 'bg-success',
-      sanColor: 'text-success',
-      lossDisplay: null,
-      title: `Good move (${formatCp(delta.scoreAfter ?? 0)})`,
-    };
-  }
-  if (loss <= 60) {
-    return {
-      dotColor: 'bg-warning',
-      sanColor: 'text-warning',
-      lossDisplay: `-${(loss / 100).toFixed(1)}`,
-      title: `Inaccuracy: lost ${(loss / 100).toFixed(2)} pawns (eval ${formatCp(delta.scoreAfter ?? 0)})`,
-    };
-  }
-  return {
-    dotColor: 'bg-danger',
-    sanColor: 'text-danger',
-    lossDisplay: `-${(loss / 100).toFixed(1)}`,
-    title: `Mistake: lost ${(loss / 100).toFixed(2)} pawns (eval ${formatCp(delta.scoreAfter ?? 0)})`,
-  };
+): ReturnType<typeof getMoveQualityDisplay> | null {
+  if (!delta?.classification) return null;
+  return getMoveQualityDisplay(delta.classification);
 }
 
 function getRepertoireStatusBadge(status: string | undefined): { label: string; className: string } | null {
@@ -324,6 +295,26 @@ export function ExplorerTrainingReview({
     return analysis?.status === 'in-repertoire';
   }, [currentMoveIndex, repertoireComparison]);
 
+  // Compute game summary stats
+  const gameSummary = useMemo(() => {
+    if (!batchEval.done) return null;
+    const userDeltas = batchEval.deltas.filter(d => d.classification !== null);
+    if (userDeltas.length === 0) return null;
+
+    const counts = { best: 0, excellent: 0, good: 0, inaccuracy: 0, mistake: 0, blunder: 0 };
+    let totalAccuracy = 0;
+    for (const d of userDeltas) {
+      if (d.classification) {
+        counts[d.classification.category]++;
+        // Per-move accuracy: 100% minus the Win% drop (clamped to [0, 100])
+        totalAccuracy += Math.max(0, Math.min(100, 100 - d.classification.winPercentDrop));
+      }
+    }
+    const avgAccuracy = totalAccuracy / userDeltas.length;
+
+    return { counts, avgAccuracy, totalMoves: userDeltas.length };
+  }, [batchEval.done, batchEval.deltas]);
+
   // Error state
   if (errorMessage) {
     return (
@@ -363,18 +354,28 @@ export function ExplorerTrainingReview({
             <span>Explorer Training</span>
           </div>
         </div>
-        {/* Win rate + verdict in header */}
-        {finalWinRate !== null && (
-          <div className="flex items-center gap-2" title="Expected score based on Lichess database statistics for the final position">
-            <span className="text-xs text-text-muted hidden sm:inline">Expected score</span>
-            <span className={`text-lg font-bold font-display ${getWinRateColor(winRate)}`}>
-              {winRate.toFixed(0)}%
-            </span>
-            <span className="text-xs text-text-muted/70 hidden sm:inline">
-              {finalVerdict}
-            </span>
-          </div>
-        )}
+        {/* Win rate + accuracy in header */}
+        <div className="flex items-center gap-3">
+          {gameSummary && (
+            <div className="flex items-center gap-1.5" title={`Average accuracy across ${gameSummary.totalMoves} moves`}>
+              <span className="text-xs text-text-muted hidden sm:inline">Accuracy</span>
+              <span className={`text-lg font-bold font-display ${gameSummary.avgAccuracy >= 80 ? 'text-success' : gameSummary.avgAccuracy >= 60 ? 'text-warning' : 'text-danger'}`}>
+                {gameSummary.avgAccuracy.toFixed(0)}%
+              </span>
+            </div>
+          )}
+          {finalWinRate !== null && (
+            <div className="flex items-center gap-2" title="Expected score based on Lichess database statistics for the final position">
+              <span className="text-xs text-text-muted hidden sm:inline">Expected score</span>
+              <span className={`text-lg font-bold font-display ${getWinRateColor(winRate)}`}>
+                {winRate.toFixed(0)}%
+              </span>
+              <span className="text-xs text-text-muted/70 hidden sm:inline">
+                {finalVerdict}
+              </span>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* 2-column layout */}
@@ -440,19 +441,31 @@ export function ExplorerTrainingReview({
                   </span>
                 )}
               </div>
-              {/* Legend */}
+              {/* Legend — 6 categories */}
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-text-muted/70">
                 <span className="flex items-center gap-1">
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-cyan-500" />
+                  Best
+                </span>
+                <span className="flex items-center gap-1">
                   <span className="inline-block w-1.5 h-1.5 rounded-full bg-success" />
+                  Excellent
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-success/60" />
                   Good
                 </span>
                 <span className="flex items-center gap-1">
                   <span className="inline-block w-1.5 h-1.5 rounded-full bg-warning" />
-                  <span className="text-warning">-0.3</span> Inaccuracy
+                  Inaccuracy
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-orange-500" />
+                  Mistake
                 </span>
                 <span className="flex items-center gap-1">
                   <span className="inline-block w-1.5 h-1.5 rounded-full bg-danger" />
-                  <span className="text-danger">-1.2</span> Mistake
+                  Blunder
                 </span>
                 {!batchEval.done && (
                   <span className="flex items-center gap-1 text-text-muted/50">
@@ -503,7 +516,58 @@ export function ExplorerTrainingReview({
                 Expected: <span className="font-semibold">{repertoireComparison.moveAnalysis[currentMoveIndex].expectedMove}</span>
               </div>
             )}
+
+            {/* Win% info for selected move */}
+            {currentMoveIndex >= 0 && batchEval.deltas[currentMoveIndex]?.classification && (
+              <SelectedMoveInfo
+                classification={batchEval.deltas[currentMoveIndex].classification!}
+              />
+            )}
           </div>
+
+          {/* Game summary (shown when eval is done) */}
+          {gameSummary && (
+            <div className="rounded-xl border border-primary/10 bg-bg-card px-4 py-3">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+                {gameSummary.counts.best > 0 && (
+                  <span className="flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-cyan-500" />
+                    <span className="text-cyan-600 font-medium">{gameSummary.counts.best}</span> best
+                  </span>
+                )}
+                {gameSummary.counts.excellent > 0 && (
+                  <span className="flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-success" />
+                    <span className="text-success font-medium">{gameSummary.counts.excellent}</span> excellent
+                  </span>
+                )}
+                {gameSummary.counts.good > 0 && (
+                  <span className="flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-success/60" />
+                    <span className="text-success font-medium">{gameSummary.counts.good}</span> good
+                  </span>
+                )}
+                {gameSummary.counts.inaccuracy > 0 && (
+                  <span className="flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-warning" />
+                    <span className="text-warning font-medium">{gameSummary.counts.inaccuracy}</span> inaccuracy
+                  </span>
+                )}
+                {gameSummary.counts.mistake > 0 && (
+                  <span className="flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-orange-500" />
+                    <span className="text-orange-500 font-medium">{gameSummary.counts.mistake}</span> mistake
+                  </span>
+                )}
+                {gameSummary.counts.blunder > 0 && (
+                  <span className="flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-danger" />
+                    <span className="text-danger font-medium">{gameSummary.counts.blunder}</span> blunder
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Actions */}
           <div className="flex flex-wrap items-center gap-2">
@@ -543,6 +607,35 @@ export function ExplorerTrainingReview({
   );
 }
 
+// --- Selected move info panel ---
+
+interface SelectedMoveInfoProps {
+  classification: MoveClassification;
+}
+
+function SelectedMoveInfo({ classification }: SelectedMoveInfoProps) {
+  const display = getMoveQualityDisplay(classification);
+  const isNegative = classification.category === 'inaccuracy' || classification.category === 'mistake' || classification.category === 'blunder';
+
+  if (!isNegative) return null;
+
+  return (
+    <div className="px-4 py-2 border-t border-primary/10 bg-bg text-xs">
+      <div className="flex items-center gap-2">
+        <span className={`font-semibold ${display.sanColor}`}>
+          {classification.category.charAt(0).toUpperCase() + classification.category.slice(1)}
+        </span>
+        <span className="text-text-muted">
+          Lost {classification.winPercentDrop.toFixed(1)}% winning chances
+        </span>
+        <span className="text-text-muted/60">
+          ({formatWinPercent(classification.winPercentBefore)} &rarr; {formatWinPercent(classification.winPercentAfter)})
+        </span>
+      </div>
+    </div>
+  );
+}
+
 // --- Move cell sub-component ---
 
 interface MoveEntry {
@@ -562,7 +655,7 @@ interface MoveCellProps {
 function MoveCell({ entry, isSelected, isUserColor, onClick }: MoveCellProps) {
   const { record, analysis, evalDelta } = entry;
   const quality = record.isUser
-    ? getMoveQualityFromEval(evalDelta)
+    ? getMoveQualityInfo(evalDelta)
     : null;
   const repBadge = analysis ? getRepertoireStatusBadge(analysis.status) : null;
 
@@ -595,8 +688,11 @@ function MoveCell({ entry, isSelected, isUserColor, onClick }: MoveCellProps) {
       )}
       <span className={`font-medium text-sm ${sanColor}`} title={quality?.title}>
         {record.san}
+        {quality?.symbol && (
+          <span className="ml-0.5 text-[10px] opacity-70">{quality.symbol}</span>
+        )}
       </span>
-      {/* Eval loss for suboptimal moves — shows pawn loss like "-0.4" */}
+      {/* Win% loss for suboptimal moves */}
       {quality?.lossDisplay && (
         <span
           title={quality.title}

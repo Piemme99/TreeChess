@@ -476,11 +476,15 @@ export interface EngineEvaluation {
   bestMoveFrom?: string;
   bestMoveTo?: string;
   pv: string[];
+  /** MultiPV line index (1-based). Line 1 is the best move. */
+  multipv?: number;
 }
 
 export interface EngineState {
   isAnalyzing: boolean;
   currentEvaluation: EngineEvaluation | null;
+  /** All MultiPV lines (ordered by line index, best first). Empty when MultiPV=1. */
+  currentLines: EngineEvaluation[];
   currentFEN: string;
   error: string | null;
 }
@@ -495,6 +499,8 @@ export interface UCIInfo {
   nps?: number;
   time?: number;
   nodes?: number;
+  /** MultiPV line index (1-based). Absent when MultiPV=1. */
+  multipv?: number;
 }
 
 // Helper functions

@@ -71,4 +71,11 @@ describe('useEngine', () => {
     // The engine object reference should remain stable even after state change
     expect(result.current).toBe(initialEngine);
   });
+
+  it('should expose currentLines array', () => {
+    const { result } = renderHook(() => useEngine());
+    
+    // Initially, currentLines should be an empty array
+    expect(result.current.currentLines).toEqual([]);
+  });
 });

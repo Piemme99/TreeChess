@@ -162,6 +162,7 @@ svc := services.NewRepertoireService(mock)
 
 - **Backend:** Go 1.25, Echo v4, pgx v5, notnil/chess, testify, golang-jwt/jwt v5, testcontainers
 - **Frontend:** React 19, TypeScript 5, Vite 5, Tailwind CSS 4, chess.js, Zustand, Axios, D3, Framer Motion, Vitest 4
+- **Chess engine:** Stockfish 18 NNUE (lite multi-thread WASM build from nmrugg/stockfish.js, ~7MB, vendored in `frontend/public/stockfish-18-lite.{js,wasm}`)
 - **Database:** PostgreSQL 17 with JSONB for tree storage
 - **Architecture:** Repository pattern + DI (backend), Zustand stores (frontend), feature-based module structure
 

@@ -4,6 +4,7 @@ import type { EngineEvaluation, EngineState } from '../types';
 interface EngineStoreState extends EngineState {
   setAnalyzing: (analyzing: boolean, fen?: string) => void;
   setEvaluation: (evaluation: EngineEvaluation) => void;
+  setLines: (lines: EngineEvaluation[]) => void;
   setError: (error: string) => void;
   reset: () => void;
 }
@@ -11,6 +12,7 @@ interface EngineStoreState extends EngineState {
 export const useEngineStore = create<EngineStoreState>((set) => ({
   isAnalyzing: false,
   currentEvaluation: null,
+  currentLines: [],
   currentFEN: '',
   error: null,
 
@@ -19,12 +21,17 @@ export const useEngineStore = create<EngineStoreState>((set) => ({
       isAnalyzing: analyzing,
       currentFEN: fen ?? state.currentFEN,
       currentEvaluation: fen && fen !== state.currentFEN ? null : state.currentEvaluation,
+      currentLines: fen && fen !== state.currentFEN ? [] : state.currentLines,
       error: null
     }));
   },
 
   setEvaluation: (evaluation: EngineEvaluation) => {
     set({ currentEvaluation: evaluation, isAnalyzing: false });
+  },
+
+  setLines: (lines: EngineEvaluation[]) => {
+    set({ currentLines: lines });
   },
 
   setError: (error: string) => {
@@ -35,6 +42,7 @@ export const useEngineStore = create<EngineStoreState>((set) => ({
     set({
       isAnalyzing: false,
       currentEvaluation: null,
+      currentLines: [],
       currentFEN: '',
       error: null
     });
