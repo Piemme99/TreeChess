@@ -207,3 +207,17 @@ src/
 
 - **Always ask before committing:** After completing any task, always ask the user whether they would like you to commit the changes before proceeding. Never commit automatically without explicit user approval.
 - **Run tests before committing:** Always run the relevant test suite before committing any changes. For backend changes, run `go test ./...` from `backend/`. For frontend changes, run `npm run test:run` from `frontend/`. Do not commit if tests are failing.
+
+## Agent skills
+
+### Issue tracker
+
+GitHub Issues on `Piemme99/TreeChess`, accessed via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Five canonical triage roles mapped 1:1 to default label strings (`wontfix` already exists; the other four are created on first use). See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: one `CONTEXT.md` + `docs/adr/` at the repo root (created lazily by `/grill-with-docs`). See `docs/agents/domain.md`.
