@@ -2,6 +2,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
 
+const mocks = vi.hoisted(() => ({
+  handleImportSpy: vi.fn(),
+}));
+
 vi.mock('../../../../shared/components/UI/Modal', () => ({
   Modal: ({ isOpen, children }: { isOpen: boolean; children: ReactNode }) =>
     isOpen ? <div data-testid="modal">{children}</div> : null,
@@ -45,7 +49,7 @@ vi.mock('../hooks/useStudyImport', async () => {
           setStudyInfo(fakeStudyData);
           return true;
         },
-        handleImport: async () => null,
+        handleImport: mocks.handleImportSpy,
         reset: () => { setStudyInfo(null); },
       };
     },
@@ -67,7 +71,8 @@ function getChapterCheckbox(name: string): HTMLInputElement {
 
 describe('StudyImportModal – chapter toggle', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    mocks.handleImportSpy.mockReset();
+    mocks.handleImportSpy.mockResolvedValue(null);
   });
 
   it('all chapters are initially checked when a study loads', async () => {
@@ -96,5 +101,20 @@ describe('StudyImportModal – chapter toggle', () => {
 
     fireEvent.click(getChapterCheckbox('Chapter 2'));
     expect(getChapterCheckbox('Chapter 2')).toBeChecked();
+  });
+
+  it('preserves study order when chapters are toggled off and back on', async () => {
+    await renderAndLoadStudy();
+
+    // Toggle Chapter 1 off then back on. Set insertion order would now be {1, 2, 0},
+    // but the import payload must follow study order.
+    fireEvent.click(getChapterCheckbox('Chapter 1'));
+    fireEvent.click(getChapterCheckbox('Chapter 1'));
+
+    fireEvent.click(screen.getByText(/Import 3 chapter\(s\)/i));
+
+    await waitFor(() => expect(mocks.handleImportSpy).toHaveBeenCalled());
+    const chaptersArg = mocks.handleImportSpy.mock.calls[0][1];
+    expect(chaptersArg).toEqual([0, 1, 2]);
   });
 });
