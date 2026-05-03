@@ -73,7 +73,7 @@ export function StudyImportModal({ isOpen, onClose, onSuccess }: StudyImportModa
   const onImport = useCallback(async () => {
     const chapters = mergeAsOne
       ? studyInfo?.chapters.map(c => c.index) ?? []
-      : Array.from(selectedChapters);
+      : studyInfo?.chapters.map(c => c.index).filter(i => selectedChapters.has(i)) ?? [];
     const result = await handleImport(
       url,
       chapters,
