@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Modal } from '../../../../shared/components/UI/Modal';
 import { Button } from '../../../../shared/components/UI/Button';
 import { ColorDot } from '../../../../shared/components/UI';
@@ -45,7 +45,6 @@ export function StudyImportModal({ isOpen, onClose, onSuccess }: StudyImportModa
   const onPreview = useCallback(async () => {
     const success = await handlePreview(url);
     if (success) {
-      setSelectedChapters(new Set());
       setMergeAsOne(false);
       setMergeName('');
       setCreateCategory(true);
@@ -61,7 +60,6 @@ export function StudyImportModal({ isOpen, onClose, onSuccess }: StudyImportModa
     setUrl(studyUrl);
     const success = await handlePreview(studyUrl);
     if (success) {
-      setSelectedChapters(new Set());
       setMergeAsOne(false);
       setMergeName('');
       setCreateCategory(true);
@@ -75,9 +73,7 @@ export function StudyImportModal({ isOpen, onClose, onSuccess }: StudyImportModa
   const onImport = useCallback(async () => {
     const chapters = mergeAsOne
       ? studyInfo?.chapters.map(c => c.index) ?? []
-      : selectedChapters.size > 0
-        ? Array.from(selectedChapters)
-        : studyInfo?.chapters.map(c => c.index) ?? [];
+      : Array.from(selectedChapters);
     const result = await handleImport(
       url,
       chapters,
@@ -105,6 +101,12 @@ export function StudyImportModal({ isOpen, onClose, onSuccess }: StudyImportModa
     setActiveView(previousTab);
   }, [reset, previousTab]);
 
+  useEffect(() => {
+    if (studyInfo) {
+      setSelectedChapters(new Set(studyInfo.chapters.map(c => c.index)));
+    }
+  }, [studyInfo]);
+
   const toggleChapter = (index: number) => {
     setSelectedChapters(prev => {
       const next = new Set(prev);
@@ -127,8 +129,7 @@ export function StudyImportModal({ isOpen, onClose, onSuccess }: StudyImportModa
   };
 
   const allSelected = studyInfo ? selectedChapters.size === studyInfo.chapters.length : false;
-  const noneSelected = selectedChapters.size === 0;
-  const importCount = noneSelected ? (studyInfo?.chapters.length ?? 0) : selectedChapters.size;
+  const importCount = selectedChapters.size;
 
   const hasMixedColors = studyInfo
     ? new Set(studyInfo.chapters.map(c => c.orientation)).size > 1
@@ -236,7 +237,7 @@ export function StudyImportModal({ isOpen, onClose, onSuccess }: StudyImportModa
               <label key={ch.index} className="flex items-center gap-2 py-2 px-4 border-b border-primary/10 last:border-b-0 cursor-pointer text-[0.9rem] hover:bg-primary-light/20">
                 <input
                   type="checkbox"
-                  checked={noneSelected || selectedChapters.has(ch.index)}
+                  checked={selectedChapters.has(ch.index)}
                   onChange={() => toggleChapter(ch.index)}
                 />
                 <ColorDot color={ch.orientation as 'white' | 'black'} size="sm" />
