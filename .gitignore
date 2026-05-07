@@ -50,3 +50,9 @@ games.pgn
 
 # Lighthouse reports
 lighthouse-report*
+
+# Session-local notes (workflow feedback, scratchpads)
+.notes/
+
+# Sandcastle orchestration artefacts (npm install + worktrees + logs + env)
+.sandcastle/
