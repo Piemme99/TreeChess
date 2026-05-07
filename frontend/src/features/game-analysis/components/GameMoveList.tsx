@@ -138,12 +138,21 @@ export function GameMoveList({
     return displayedMoves.findIndex(m => m.status === 'out-of-book');
   }, [displayedMoves]);
 
-  // Show add button for moves at/after divergence, or out-of-book moves when no divergence
-  const showAddButton = (index: number) => {
-    if (!onAddToRepertoire) return false;
+  const isMoveAddable = (index: number) => {
     if (firstActionableIndex !== -1 && index >= firstActionableIndex) return true;
     if (firstActionableIndex === -1 && displayedMoves[index]?.status === 'out-of-book') return true;
     return false;
+  };
+
+  const showAddButton = (index: number) => Boolean(onAddToRepertoire) && isMoveAddable(index);
+
+  // Decoupled from `onAddToRepertoire` so the create-new affordance stays reachable
+  // on `new-opening` games (no matched repertoire — parent omits onAddToRepertoire).
+  const showCreateNewBlock = (index: number) => {
+    if (!onCreateAndAdd || !userColor) return false;
+    if (index < 0 || index >= displayedMoves.length) return false;
+    if (onAddToRepertoire) return isMoveAddable(index);
+    return true;
   };
 
   // Show "Open in Repertoire" for in-repertoire moves
@@ -245,9 +254,11 @@ export function GameMoveList({
               {getAddButtonLabel(currentMoveIndex)}
             </Button>
           )}
-          {showAddButton(currentMoveIndex) && userColor && (
+          {showCreateNewBlock(currentMoveIndex) && (
             <div className="flex flex-col gap-2 pt-2 border-t border-dashed border-primary/10 mt-2">
-              <span className="text-xs text-text-muted">Or add to a new repertoire:</span>
+              <span className="text-xs text-text-muted">
+                {onAddToRepertoire ? 'Or add to a new repertoire:' : 'Add to a new repertoire:'}
+              </span>
               {isCreating ? (
                 <div className="flex items-center gap-2">
                   <input
