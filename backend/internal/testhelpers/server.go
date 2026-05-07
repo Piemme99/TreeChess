@@ -134,7 +134,6 @@ func SetupTestServer(t *testing.T, repos *Repos) *TestServer {
 
 	// Games routes
 	protected.GET("/api/games", importHandler.GetGamesHandler)
-	protected.DELETE("/api/games/:analysisId/:gameIndex", importHandler.DeleteGameHandler)
 	protected.POST("/api/games/:analysisId/:gameIndex/reanalyze", importHandler.ReanalyzeGameHandler)
 	protected.POST("/api/games/:analysisId/:gameIndex/view", importHandler.MarkGameViewedHandler)
 	protected.GET("/api/games/insights", importHandler.GetInsightsHandler)

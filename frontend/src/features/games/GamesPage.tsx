@@ -6,13 +6,12 @@ import { useGames } from '../analyse-tab/hooks/useGames';
 import { useFileUpload } from '../analyse-tab/hooks/useFileUpload';
 import { useLichessImport } from '../analyse-tab/hooks/useLichessImport';
 import { useChesscomImport } from '../analyse-tab/hooks/useChesscomImport';
-import { useDeleteGame } from '../analyse-tab/hooks/useDeleteGame';
 import { useInsights } from './hooks/useInsights';
 import type { RepertoireFilterOption } from '../../types';
 import { GamesList } from '../analyse-tab/components/GamesList';
 import { ImportPanel } from './components/ImportPanel';
 import { MistakesList } from '../../shared/components/MistakesList';
-import { ConfirmModal, Button, EmptyState } from '../../shared/components/UI';
+import { Button, EmptyState } from '../../shared/components/UI';
 import { gamesApi } from '../../services/api';
 import { toast } from '../../stores/toastStore';
 import { fadeUp } from '../../shared/utils/animations';
@@ -52,7 +51,6 @@ export function GamesPage() {
   const {
     games,
     loading,
-    deleteGame,
     markGameViewed,
     nextPage,
     prevPage,
@@ -94,17 +92,12 @@ export function GamesPage() {
   const fileUploadState = useFileUpload(username, handleImportSuccess);
   const lichessImportState = useLichessImport(username, handleImportSuccess);
   const chesscomImportState = useChesscomImport(username, handleImportSuccess);
-  const { deleteTarget, setDeleteTarget, deleting, handleDelete } = useDeleteGame(deleteGame);
 
   const handleViewClick = useCallback((analysisId: string, gameIndex: number) => {
     markGameViewed(analysisId, gameIndex);
     gamesApi.markViewed(analysisId, gameIndex).catch(() => { /* non-critical */ });
     navigate(`/analyse/${analysisId}/game/${gameIndex}`, { state: { from: location.pathname } });
   }, [navigate, markGameViewed, location]);
-
-  const handleDeleteClick = useCallback((analysisId: string, gameIndex: number) => {
-    setDeleteTarget({ analysisId, gameIndex });
-  }, [setDeleteTarget]);
 
   const [reanalyzingAll, setReanalyzingAll] = useState(false);
 
@@ -220,7 +213,6 @@ export function GamesPage() {
           <GamesList
             games={games}
             loading={loading}
-            onDeleteClick={handleDeleteClick}
             onViewClick={handleViewClick}
             hasNextPage={hasNextPage}
             hasPrevPage={hasPrevPage}
@@ -248,17 +240,6 @@ export function GamesPage() {
           </Button>
         </EmptyState>
       )}
-
-      <ConfirmModal
-        isOpen={!!deleteTarget}
-        onClose={() => setDeleteTarget(null)}
-        onConfirm={handleDelete}
-        title="Delete Game"
-        message="Are you sure you want to delete this game? This action cannot be undone."
-        confirmText="Delete"
-        variant="danger"
-        loading={deleting}
-      />
 
     </div>
     </div>

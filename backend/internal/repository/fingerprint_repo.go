@@ -92,19 +92,3 @@ func (r *PostgresFingerprintRepo) SaveBatch(userID, analysisID string, entries [
 
 	return nil
 }
-
-// DeleteByAnalysisAndIndex deletes a fingerprint for a specific game in an analysis
-func (r *PostgresFingerprintRepo) DeleteByAnalysisAndIndex(analysisID string, gameIndex int) error {
-	ctx, cancel := dbContext()
-	defer cancel()
-
-	_, err := r.pool.Exec(ctx,
-		"DELETE FROM game_fingerprints WHERE analysis_id = $1 AND game_index = $2",
-		analysisID, gameIndex,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to delete fingerprint: %w", err)
-	}
-
-	return nil
-}

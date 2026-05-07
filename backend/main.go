@@ -259,8 +259,6 @@ func main() {
 	protected.GET("/api/games/repertoires", importHandler.GetDistinctRepertoiresHandler)
 	heavyOps.POST("/api/games/reanalyze-all", importHandler.ReanalyzeAllGamesHandler)
 	protected.GET("/api/games", importHandler.GetGamesHandler)
-	protected.DELETE("/api/games/:analysisId/:gameIndex", importHandler.DeleteGameHandler)
-	protected.POST("/api/games/bulk-delete", importHandler.BulkDeleteGamesHandler)
 	protected.POST("/api/games/:analysisId/:gameIndex/reanalyze", importHandler.ReanalyzeGameHandler)
 	protected.POST("/api/games/:analysisId/:gameIndex/view", importHandler.MarkGameViewedHandler)
 

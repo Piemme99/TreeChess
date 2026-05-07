@@ -15,7 +15,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kumquat/backend/internal/models"
-	"github.com/kumquat/backend/internal/repository"
 	"github.com/kumquat/backend/internal/services"
 	"github.com/kumquat/backend/internal/testhelpers"
 )
@@ -179,57 +178,6 @@ func TestImportPipeline_FingerprintDedup_Partial(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 1, summary2.GameCount)
 	assert.Equal(t, 1, summary2.SkippedDuplicates)
-}
-
-func TestImportPipeline_DeleteGame_CascadeFingerprint(t *testing.T) {
-	testDB.TruncateAll(t)
-	repos := testDB.Repos()
-	user := testhelpers.SeedUser(t, repos, "delgameuser", "password123")
-
-	repertoireSvc := services.NewRepertoireService(repos.Repertoire)
-	importSvc := services.NewImportService(repertoireSvc, repos.Analysis,
-		services.WithFingerprintRepo(repos.Fingerprint),
-	)
-
-	pgn := testhelpers.SimplePGN("delgameuser", "opponent")
-	summary, _, err := importSvc.ParseAndAnalyze("test.pgn", "delgameuser", user.ID, pgn)
-	require.NoError(t, err)
-
-	// Delete the game
-	err = importSvc.DeleteGame(summary.ID, 0)
-	require.NoError(t, err)
-
-	// Re-importing the same PGN should succeed (fingerprint was deleted)
-	_, _, err = importSvc.ParseAndAnalyze("test2.pgn", "delgameuser", user.ID, pgn)
-	require.NoError(t, err)
-}
-
-func TestImportPipeline_DeleteLastGame_DeletesAnalysis(t *testing.T) {
-	testDB.TruncateAll(t)
-	repos := testDB.Repos()
-	user := testhelpers.SeedUser(t, repos, "dellastgame", "password123")
-
-	repertoireSvc := services.NewRepertoireService(repos.Repertoire)
-	importSvc := services.NewImportService(repertoireSvc, repos.Analysis,
-		services.WithFingerprintRepo(repos.Fingerprint),
-	)
-
-	pgn := testhelpers.SimplePGN("dellastgame", "opponent")
-	summary, _, err := importSvc.ParseAndAnalyze("test.pgn", "dellastgame", user.ID, pgn)
-	require.NoError(t, err)
-
-	// Delete the only game
-	err = importSvc.DeleteGame(summary.ID, 0)
-	require.NoError(t, err)
-
-	// The entire analysis should be gone
-	_, err = importSvc.GetAnalysisByID(summary.ID)
-	assert.ErrorIs(t, err, repository.ErrAnalysisNotFound)
-
-	// No analyses should remain
-	analyses, err := importSvc.GetAnalyses(user.ID)
-	require.NoError(t, err)
-	assert.Len(t, analyses, 0)
 }
 
 func TestImportPipeline_DeleteAnalysis_CascadeAll(t *testing.T) {

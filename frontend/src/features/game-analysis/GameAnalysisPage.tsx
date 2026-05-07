@@ -9,9 +9,8 @@ import { computeFEN, STARTING_FEN } from './utils/fenCalculator';
 import { GameBoardSection } from './components/GameBoardSection';
 import { GameNavigation } from './components/GameNavigation';
 import { RepertoireSelector } from './components/RepertoireSelector';
-import { Button, Loading, ConfirmModal } from '../../shared/components/UI';
+import { Button, Loading } from '../../shared/components/UI';
 import { GameMoveList } from './components/GameMoveList';
-import { useDeleteGame } from '../analyse-tab/hooks/useDeleteGame';
 import { useEngine } from '../../shared/hooks/useEngine';
 import { toast } from '../../stores/toastStore';
 import { usePageTitle } from '../../shared/hooks/usePageTitle';
@@ -37,9 +36,6 @@ export function GameAnalysisPage() {
   }, [searchParams]);
   const [flipped, setFlipped] = useState(false);
   const { showFullGame, toggleFullGame } = useToggleFullGame();
-  const { deleteTarget, setDeleteTarget, deleting, handleDelete } = useDeleteGame(() => {
-    navigate('/games');
-  });
   const engine = useEngine();
 
   const gameIdx = parseInt(gameIndex || '0', 10);
@@ -234,14 +230,6 @@ export function GameAnalysisPage() {
         </Button>
         <span className="text-xl font-semibold font-display">Game {gameIdx + 1}: {opponent}</span>
         <span className="font-mono text-text-muted">{result}</span>
-        <Button
-          variant="danger"
-          size="sm"
-          className="ml-auto"
-          onClick={() => setDeleteTarget({ analysisId: analysis.id, gameIndex: gameIdx })}
-        >
-          Delete
-        </Button>
       </motion.div>
 
       {/* Repertoire selector with reanalyze option */}
@@ -290,16 +278,6 @@ export function GameAnalysisPage() {
         goPrev={goPrev}
         goNext={goNext}
         goLast={goLast}
-      />
-      <ConfirmModal
-        isOpen={!!deleteTarget}
-        onClose={() => setDeleteTarget(null)}
-        onConfirm={handleDelete}
-        title="Delete Game"
-        message="Are you sure you want to delete this game? This action cannot be undone."
-        confirmText="Delete"
-        variant="danger"
-        loading={deleting}
       />
     </div>
   );

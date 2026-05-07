@@ -50,7 +50,6 @@ type RepertoireRepository interface {
 type GameFingerprintRepository interface {
 	CheckExisting(userID string, fingerprints []string) (map[string]bool, error)
 	SaveBatch(userID, analysisID string, entries []FingerprintEntry) error
-	DeleteByAnalysisAndIndex(analysisID string, gameIndex int) error
 }
 
 // OpeningExplorerCacheRepository persists Lichess Opening Explorer responses
@@ -91,7 +90,6 @@ type AnalysisRepository interface {
 	GetByID(id string) (*models.AnalysisDetail, error)
 	Delete(id string) error
 	GetAllGames(userID string, limit, offset int, timeClass, repertoire, source string) (*models.GamesResponse, error)
-	DeleteGame(analysisID string, gameIndex int) error
 	UpdateResults(analysisID string, results []models.GameAnalysis) error
 	BelongsToUser(id string, userID string) (bool, error)
 	GetDistinctRepertoires(userID string) ([]models.RepertoireFilterOption, error)

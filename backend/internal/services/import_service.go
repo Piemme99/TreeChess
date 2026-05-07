@@ -679,16 +679,6 @@ func (s *ImportService) CheckOwnership(id string, userID string) error {
 	return nil
 }
 
-// DeleteGame removes a single game from an analysis and its fingerprint
-func (s *ImportService) DeleteGame(analysisID string, gameIndex int) error {
-	if s.fingerprintRepo != nil {
-		if err := s.fingerprintRepo.DeleteByAnalysisAndIndex(analysisID, gameIndex); err != nil {
-			slog.Warn("failed to delete fingerprint", "analysis_id", analysisID, "game_index", gameIndex, "error", err)
-		}
-	}
-	return s.analysisRepo.DeleteGame(analysisID, gameIndex)
-}
-
 // ReanalyzeGame re-analyzes a specific game against a different repertoire
 func (s *ImportService) ReanalyzeGame(analysisID string, gameIndex int, repertoireID string) (*models.GameAnalysis, error) {
 	detail, err := s.analysisRepo.GetByID(analysisID)
