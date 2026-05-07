@@ -1,6 +1,6 @@
-import { useNavigate, useLocation } from 'react-router';
+import { Link, useNavigate, useLocation } from 'react-router';
 import { FileText } from 'lucide-react';
-import { Button, LichessLogo, ChessComLogo } from '../../../shared/components/UI';
+import { LichessLogo, ChessComLogo } from '../../../shared/components/UI';
 import type { GameSummary, GameSource, Color } from '../../../types';
 
 function gameOutcome(result: string, userColor: Color): 'win' | 'loss' | 'draw' {
@@ -52,13 +52,21 @@ export function RecentGames({ games, loading }: RecentGamesProps) {
 
   return (
     <section>
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="text-xs font-bold text-text-muted uppercase tracking-widest">Recent Games</h2>
-        {games.length > 0 && (
-          <Button variant="ghost" size="sm" onClick={() => navigate('/games')}>
-            View all
-          </Button>
-        )}
+      <div className="mb-3">
+        <Link
+          to="/games"
+          className="group inline-flex items-center gap-1.5 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2"
+        >
+          <h2 className="text-xs font-bold text-text-muted uppercase tracking-widest group-hover:text-text transition-colors duration-150">
+            Recent Games
+          </h2>
+          <span
+            aria-hidden="true"
+            className="text-text-muted text-xs transition-all duration-150 group-hover:text-text group-hover:translate-x-0.5"
+          >
+            &rarr;
+          </span>
+        </Link>
       </div>
       {games.length === 0 ? (
         <p className="text-center text-text-muted py-8 px-6 bg-bg-card rounded-2xl border border-primary/10">
