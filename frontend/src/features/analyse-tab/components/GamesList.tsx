@@ -1,6 +1,6 @@
 import { useMemo, useState, useCallback } from 'react';
 import { Button, Loading } from '../../../shared/components/UI';
-import type { GameSummary, GameStatus, Color } from '../../../types';
+import type { GameSummary, GameStatus, Color, TimeClass } from '../../../types';
 import { formatSource } from '../utils/dateUtils';
 import { gamesApi } from '../../../services/api';
 import { toast } from '../../../stores/toastStore';
@@ -44,7 +44,18 @@ function StatusBadge({ status }: { status: GameStatus }) {
   return <span className={className}>{label}</span>;
 }
 
-const gridCols = 'grid grid-cols-[16px_1fr_80px_70px_66px] md:grid-cols-[16px_1fr_150px_100px_80px_70px_66px] items-center gap-x-3 px-4';
+function TimeClassBadge({ timeClass }: { timeClass?: TimeClass }) {
+  if (!timeClass) {
+    return <span data-testid="time-class" className="text-xs text-text-muted">—</span>;
+  }
+  return (
+    <span data-testid="time-class" className="py-0.5 px-2 rounded-full text-xs font-medium bg-bg text-text-light lowercase">
+      {timeClass}
+    </span>
+  );
+}
+
+const gridCols = 'grid grid-cols-[16px_1fr_64px_80px_70px_66px] md:grid-cols-[16px_1fr_150px_100px_64px_80px_70px_66px] items-center gap-x-3 px-4';
 
 function GameRow({ game, onViewClick, onDeleteClick, onReanalyze, reanalyzing, showNewBadge }: {
   game: GameSummary;
@@ -82,6 +93,11 @@ function GameRow({ game, onViewClick, onDeleteClick, onReanalyze, reanalyzing, s
       {/* Status */}
       <div className="hidden md:flex justify-center">
         <StatusBadge status={game.status} />
+      </div>
+
+      {/* Time control */}
+      <div className="flex justify-start">
+        <TimeClassBadge timeClass={game.timeClass} />
       </div>
 
       {/* Date */}
@@ -181,6 +197,7 @@ export function GamesList({
         <span>Players</span>
         <span className="hidden md:block">Repertoire</span>
         <span className="hidden md:block text-center">Status</span>
+        <span>Time</span>
         <span>Date</span>
         <span>Source</span>
         <span></span>
