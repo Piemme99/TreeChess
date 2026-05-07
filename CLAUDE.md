@@ -206,6 +206,7 @@ src/
 ## Workflow Rules
 
 - **Always ask before committing:** After completing any task, always ask the user whether they would like you to commit the changes before proceeding. Never commit automatically without explicit user approval.
+- **AFK exception (`agent/*` branches):** When running on a branch matching `agent/*`, commit your changes before emitting the completion signal. The "ask before committing" rule above does NOT apply on these branches — they are pre-authorized for AFK Sandcastle sessions.
 - **Run tests before committing:** Always run the relevant test suite before committing any changes. For backend changes, run `go test ./...` from `backend/`. For frontend changes, run `npm run test:run` from `frontend/`. Do not commit if tests are failing.
 
 ## Agent skills
