@@ -1,80 +1,25 @@
 package services
 
 import (
-	"container/list"
 	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
-	"net/http"
-	"net/url"
-	"sync"
 	"time"
 
 	"github.com/kumquat/backend/internal/models"
 	"github.com/kumquat/backend/internal/repository"
 )
 
-// lruCache is a simple thread-safe LRU cache for explorer responses.
-type lruCache struct {
-	mu       sync.Mutex
-	items    map[string]*list.Element
-	order    *list.List
-	capacity int
-}
-
-type lruEntry struct {
-	key   string
-	value *explorerResponse
-}
-
-func newLRUCache(capacity int) *lruCache {
-	return &lruCache{
-		items:    make(map[string]*list.Element),
-		order:    list.New(),
-		capacity: capacity,
-	}
-}
-
-func (c *lruCache) get(key string) (*explorerResponse, bool) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if el, ok := c.items[key]; ok {
-		c.order.MoveToFront(el)
-		return el.Value.(*lruEntry).value, true
-	}
-	return nil, false
-}
-
-func (c *lruCache) set(key string, value *explorerResponse) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if el, ok := c.items[key]; ok {
-		c.order.MoveToFront(el)
-		el.Value.(*lruEntry).value = value
-		return
-	}
-	el := c.order.PushFront(&lruEntry{key: key, value: value})
-	c.items[key] = el
-	if c.order.Len() > c.capacity {
-		oldest := c.order.Back()
-		c.order.Remove(oldest)
-		delete(c.items, oldest.Value.(*lruEntry).key)
-	}
-}
-
 const (
 	maxPlies         = 20 // Evaluate first 10 moves (20 plies)
 	pollInterval     = 5 * time.Second
-	explorerBaseURL  = "https://explorer.lichess.ovh/lichess"
-	explorerSpeeds   = "blitz,rapid,classical"
-	explorerRatings  = "1600,1800,2000,2200,2500"
 	minExplorerGames = 50 // minimum games for reliable stats
-	apiDelay         = 200 * time.Millisecond
-	maxCacheSize     = 10000 // max cached explorer positions before eviction
 )
 
-// explorerResponse represents the Lichess Explorer API response
+// explorerResponse is the shape of an Opening Explorer payload as cached.
+// It is structurally compatible with services.OpeningStats (same JSON tags),
+// so cached blobs written by the user-facing handler are readable here.
 type explorerResponse struct {
 	White int            `json:"white"`
 	Draws int            `json:"draws"`
@@ -91,23 +36,29 @@ type explorerMove struct {
 	AverageRating int    `json:"averageRating"`
 }
 
-// EngineService manages async opening analysis using the Lichess Explorer API
+// EngineService manages async opening analysis. It is cache-only: it never
+// hits the Lichess Explorer API directly. Cache fills are produced by the
+// user-facing TrainingExplorerHandler when authenticated users request a
+// position; the worker piggybacks on those fills so we never burn rate-limit
+// budget on background traffic.
 type EngineService struct {
 	evalRepo     repository.EngineEvalRepository
 	analysisRepo repository.AnalysisRepository
-	httpClient   *http.Client
-	cache        *lruCache
+	cacheRepo    repository.OpeningExplorerCacheRepository
 }
 
-// NewEngineService creates a new engine service
-func NewEngineService(evalRepo repository.EngineEvalRepository, analysisRepo repository.AnalysisRepository) *EngineService {
+// NewEngineService creates a new engine service. cacheRepo may be nil only in
+// tests that do not exercise position lookups; production wiring must always
+// pass a non-nil cache.
+func NewEngineService(
+	evalRepo repository.EngineEvalRepository,
+	analysisRepo repository.AnalysisRepository,
+	cacheRepo repository.OpeningExplorerCacheRepository,
+) *EngineService {
 	return &EngineService{
 		evalRepo:     evalRepo,
 		analysisRepo: analysisRepo,
-		httpClient: &http.Client{
-			Timeout: 10 * time.Second,
-		},
-		cache: newLRUCache(maxCacheSize),
+		cacheRepo:    cacheRepo,
 	}
 }
 
@@ -118,7 +69,7 @@ func (s *EngineService) EnqueueAnalysis(userID, analysisID string, gameCount int
 	}
 }
 
-// RunWorker polls for pending evals and processes them via the Lichess Explorer API
+// RunWorker polls for pending evals and processes them via the cache.
 func (s *EngineService) RunWorker(ctx context.Context) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -128,7 +79,6 @@ func (s *EngineService) RunWorker(ctx context.Context) {
 
 	slog.Info("opening-analysis worker started")
 
-	// Recover any evals stuck in 'processing' from a previous crash/restart
 	if count, err := s.evalRepo.ResetStaleProcessing(); err != nil {
 		slog.Error("failed to reset stale processing evals", "component", "opening-analysis", "error", err)
 	} else if count > 0 {
@@ -209,7 +159,12 @@ func (s *EngineService) analyzeGameOpenings(analysisID string, gameIndex int) ([
 		fen := ensureFullFEN(move.FEN)
 		resp, err := s.fetchExplorer(fen)
 		if err != nil {
-			slog.Warn("explorer error", "component", "opening-analysis", "ply", i, "error", err)
+			slog.Warn("explorer cache lookup error", "component", "opening-analysis", "ply", i, "error", err)
+			continue
+		}
+		if resp == nil {
+			// Cache miss: a user request will fill this position later, and the
+			// next worker pass over the same eval row will pick it up.
 			continue
 		}
 
@@ -218,7 +173,6 @@ func (s *EngineService) analyzeGameOpenings(analysisID string, gameIndex int) ([
 			continue
 		}
 
-		// Find the played move and the best move
 		var playedMoveData *explorerMove
 		var bestMove explorerMove
 		bestWinrate := -1.0
@@ -241,8 +195,6 @@ func (s *EngineService) analyzeGameOpenings(analysisID string, gameIndex int) ([
 		}
 
 		if playedMoveData == nil {
-			// Move not in explorer — likely a rare/bad move, use 0 winrate
-			// but only if we have a best move to compare against
 			if bestWinrate < 0 {
 				continue
 			}
@@ -289,47 +241,31 @@ func calcWinrate(white, draws, black int, userColor models.Color) float64 {
 	return (float64(black) + float64(draws)*0.5) / float64(total)
 }
 
+// fetchExplorer consults the shared opening-explorer cache. A cache miss
+// returns (nil, nil): callers must skip the position rather than treat the
+// miss as an error. The worker is intentionally cache-only — it never makes
+// upstream HTTP requests, so it never burns the user's rate-limit budget.
 func (s *EngineService) fetchExplorer(fen string) (*explorerResponse, error) {
-	// Check cache first
-	if cached, ok := s.cache.get(fen); ok {
-		return cached, nil
+	if s.cacheRepo == nil {
+		return nil, nil
 	}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
 
-	// Rate limit
-	time.Sleep(apiDelay)
-
-	u := fmt.Sprintf("%s?variant=standard&speeds=%s&ratings=%s&fen=%s",
-		explorerBaseURL, explorerSpeeds, explorerRatings, url.QueryEscape(fen))
-
-	resp, err := s.httpClient.Get(u)
+	key := CanonicalKey(DefaultOpeningQuery(fen))
+	payload, found, err := s.cacheRepo.Get(ctx, key)
 	if err != nil {
-		return nil, fmt.Errorf("explorer request failed: %w", err)
+		return nil, err
 	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode == http.StatusTooManyRequests {
-		// Back off and retry once
-		time.Sleep(2 * time.Second)
-		resp, err = s.httpClient.Get(u)
-		if err != nil {
-			return nil, fmt.Errorf("explorer retry failed: %w", err)
-		}
-		defer func() { _ = resp.Body.Close() }()
+	if !found {
+		return nil, nil
 	}
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("explorer returned status %d", resp.StatusCode)
+	var resp explorerResponse
+	if err := json.Unmarshal(payload, &resp); err != nil {
+		return nil, fmt.Errorf("decode cached explorer payload: %w", err)
 	}
-
-	var result explorerResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, fmt.Errorf("failed to decode explorer response: %w", err)
-	}
-
-	// Cache the result (LRU-evicted at maxCacheSize)
-	s.cache.set(fen, &result)
-
-	return &result, nil
+	return &resp, nil
 }
 
 // EngineInsightsData holds opening analysis results with progress counters

@@ -1052,7 +1052,7 @@ func TestGetInsights_WithExplorerStats(t *testing.T) {
 		},
 	}
 
-	engineSvc := NewEngineService(mockEvalRepo, mockAnalysisRepo)
+	engineSvc := NewEngineService(mockEvalRepo, mockAnalysisRepo, nil)
 	svc := NewImportService(nil, mockAnalysisRepo, WithEngineService(engineSvc))
 
 	insights, err := svc.GetInsights("user-1")
@@ -1110,7 +1110,7 @@ func TestGetInsights_RecurringMistake(t *testing.T) {
 		},
 	}
 
-	engineSvc := NewEngineService(mockEvalRepo, mockAnalysisRepo)
+	engineSvc := NewEngineService(mockEvalRepo, mockAnalysisRepo, nil)
 	svc := NewImportService(nil, mockAnalysisRepo, WithEngineService(engineSvc))
 
 	insights, err := svc.GetInsights("user-1")
@@ -1136,7 +1136,7 @@ func TestGetInsights_Empty(t *testing.T) {
 		},
 	}
 
-	engineSvc := NewEngineService(mockEvalRepo, mockAnalysisRepo)
+	engineSvc := NewEngineService(mockEvalRepo, mockAnalysisRepo, nil)
 	svc := NewImportService(nil, mockAnalysisRepo, WithEngineService(engineSvc))
 	insights, err := svc.GetInsights("user-1")
 

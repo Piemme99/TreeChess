@@ -1,6 +1,9 @@
 package models
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
 
 type User struct {
 	ID                 string     `json:"id"`
@@ -17,6 +20,20 @@ type User struct {
 	TimeFormatPrefs    []string   `json:"timeFormatPrefs,omitempty"`
 	PasswordChangedAt  *time.Time `json:"-"`
 	CreatedAt          time.Time  `json:"createdAt"`
+}
+
+// MarshalJSON exposes a derived `lichessLinked` boolean so the frontend can
+// gate Lichess-dependent features (Training tab) without ever seeing the
+// raw access token. The field is true only when a non-empty token is stored.
+func (u User) MarshalJSON() ([]byte, error) {
+	type alias User
+	return json.Marshal(struct {
+		alias
+		LichessLinked bool `json:"lichessLinked"`
+	}{
+		alias:         alias(u),
+		LichessLinked: u.LichessAccessToken != nil && *u.LichessAccessToken != "",
+	})
 }
 
 type SyncResult struct {

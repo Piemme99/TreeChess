@@ -274,6 +274,15 @@ func (db *DB) runMigrations() error {
 		`ALTER TABLE repertoires ADD COLUMN IF NOT EXISTS origin_url TEXT`,
 		`ALTER TABLE repertoires ADD COLUMN IF NOT EXISTS origin_creator VARCHAR(100)`,
 		`CREATE INDEX IF NOT EXISTS idx_repertoires_origin_type ON repertoires(origin_type) WHERE origin_type IS NOT NULL`,
+		// Shared cache for Lichess Opening Explorer responses; flattens upstream load
+		// across all users so the rate-limit budget on individual user tokens is preserved.
+		`CREATE TABLE IF NOT EXISTS opening_explorer_cache (
+			cache_key  TEXT PRIMARY KEY,
+			response   JSONB NOT NULL,
+			expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+			created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_opening_explorer_cache_expires ON opening_explorer_cache(expires_at)`,
 	}
 	for _, m := range migrations {
 		if _, err := conn.Exec(ctx, m); err != nil {

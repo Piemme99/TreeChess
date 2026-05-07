@@ -33,6 +33,7 @@ export function createUser(overrides: Partial<User> = {}): User {
     id: nextId('user'),
     username: 'testuser',
     email: 'test@example.com',
+    lichessLinked: false,
     createdAt: '2025-01-01T00:00:00Z',
     ...overrides,
   };

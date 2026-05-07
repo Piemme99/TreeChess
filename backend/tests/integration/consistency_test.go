@@ -22,7 +22,7 @@ func TestCascadeDelete_Analysis(t *testing.T) {
 	user := testhelpers.SeedUser(t, repos, "cascadeuser", "password123")
 
 	repertoireSvc := services.NewRepertoireService(repos.Repertoire)
-	engineSvc := services.NewEngineService(repos.EngineEval, repos.Analysis)
+	engineSvc := services.NewEngineService(repos.EngineEval, repos.Analysis, repos.OpeningExplorerCache)
 	importSvc := services.NewImportService(repertoireSvc, repos.Analysis,
 		services.WithFingerprintRepo(repos.Fingerprint),
 		services.WithEngineService(engineSvc),

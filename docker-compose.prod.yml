@@ -56,6 +56,8 @@ services:
       FRONTEND_URL: ${FRONTEND_URL}
       OAUTH_CALLBACK_URL: ${OAUTH_CALLBACK_URL}
       LICHESS_CLIENT_ID: ${LICHESS_CLIENT_ID}
+      LICHESS_EXPLORER_BASE_URL: ${LICHESS_EXPLORER_BASE_URL:-https://explorer.lichess.org}
+      LICHESS_EXPLORER_CACHE_TTL_HOURS: ${LICHESS_EXPLORER_CACHE_TTL_HOURS:-168}
     networks:
       - backend-net
       - frontend-net

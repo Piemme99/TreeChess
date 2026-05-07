@@ -8,6 +8,7 @@ export interface User {
   oauthProvider?: string;
   lichessUsername?: string;
   chesscomUsername?: string;
+  lichessLinked: boolean;
   lastLichessSyncAt?: string;
   lastChesscomSyncAt?: string;
   timeFormatPrefs?: TimeFormat[];

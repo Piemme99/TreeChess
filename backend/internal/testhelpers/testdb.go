@@ -19,16 +19,17 @@ import (
 
 // Repos holds all real repository implementations for integration tests.
 type Repos struct {
-	User             *repository.PostgresUserRepo
-	Repertoire       *repository.PostgresRepertoireRepo
-	Analysis         *repository.PostgresAnalysisRepo
-	Fingerprint      *repository.PostgresFingerprintRepo
-	EngineEval       *repository.PostgresEngineEvalRepo
-	RefreshToken     *repository.PostgresRefreshTokenRepo
-	PasswordReset    *repository.PostgresPasswordResetRepo
-	Category         *repository.PostgresCategoryRepo
-	DismissedMistake *repository.DismissedMistakeRepo
-	DismissedGap     *repository.DismissedGapRepo
+	User                  *repository.PostgresUserRepo
+	Repertoire            *repository.PostgresRepertoireRepo
+	Analysis              *repository.PostgresAnalysisRepo
+	Fingerprint           *repository.PostgresFingerprintRepo
+	EngineEval            *repository.PostgresEngineEvalRepo
+	RefreshToken          *repository.PostgresRefreshTokenRepo
+	PasswordReset         *repository.PostgresPasswordResetRepo
+	Category              *repository.PostgresCategoryRepo
+	DismissedMistake      *repository.DismissedMistakeRepo
+	DismissedGap          *repository.DismissedGapRepo
+	OpeningExplorerCache  *repository.PostgresOpeningExplorerCacheRepo
 }
 
 // TestDB wraps a testcontainer PostgreSQL instance with a connection pool and repos.
@@ -122,6 +123,7 @@ func (tdb *TestDB) TruncateAll(t *testing.T) {
 			engine_evals, viewed_games, game_fingerprints, analyses,
 			dismissed_mistakes, dismissed_gaps,
 			refresh_tokens, password_reset_tokens,
+			opening_explorer_cache,
 			categories, repertoires, users
 		CASCADE`)
 	if err != nil {
@@ -133,16 +135,17 @@ func (tdb *TestDB) TruncateAll(t *testing.T) {
 func (tdb *TestDB) Repos() *Repos {
 	if tdb.repos == nil {
 		tdb.repos = &Repos{
-			User:             repository.NewPostgresUserRepo(tdb.Pool),
-			Repertoire:       repository.NewPostgresRepertoireRepo(tdb.Pool),
-			Analysis:         repository.NewPostgresAnalysisRepo(tdb.Pool),
-			Fingerprint:      repository.NewPostgresFingerprintRepo(tdb.Pool),
-			EngineEval:       repository.NewPostgresEngineEvalRepo(tdb.Pool),
-			RefreshToken:     repository.NewPostgresRefreshTokenRepo(tdb.Pool),
-			PasswordReset:    repository.NewPostgresPasswordResetRepo(tdb.Pool),
-			Category:         repository.NewPostgresCategoryRepo(tdb.Pool),
-			DismissedMistake: repository.NewDismissedMistakeRepo(tdb.Pool),
-			DismissedGap:     repository.NewDismissedGapRepo(tdb.Pool),
+			User:                 repository.NewPostgresUserRepo(tdb.Pool),
+			Repertoire:           repository.NewPostgresRepertoireRepo(tdb.Pool),
+			Analysis:             repository.NewPostgresAnalysisRepo(tdb.Pool),
+			Fingerprint:          repository.NewPostgresFingerprintRepo(tdb.Pool),
+			EngineEval:           repository.NewPostgresEngineEvalRepo(tdb.Pool),
+			RefreshToken:         repository.NewPostgresRefreshTokenRepo(tdb.Pool),
+			PasswordReset:        repository.NewPostgresPasswordResetRepo(tdb.Pool),
+			Category:             repository.NewPostgresCategoryRepo(tdb.Pool),
+			DismissedMistake:     repository.NewDismissedMistakeRepo(tdb.Pool),
+			DismissedGap:         repository.NewDismissedGapRepo(tdb.Pool),
+			OpeningExplorerCache: repository.NewPostgresOpeningExplorerCacheRepo(tdb.Pool),
 		}
 	}
 	return tdb.repos

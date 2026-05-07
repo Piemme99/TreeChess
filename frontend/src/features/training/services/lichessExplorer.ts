@@ -1,12 +1,12 @@
-// Lichess Explorer API client with LRU cache and serialized rate limiting
+// Opening Explorer client. Calls the backend proxy at /api/training/opening.
+// The backend gates the upstream Lichess Explorer call behind the requesting
+// user's Lichess OAuth token and a shared Postgres cache; this client just
+// forwards the FEN, parses the response, and translates structured backend
+// errors into typed ExplorerError values for the Training UI to branch on.
 
-const EXPLORER_BASE_URL = 'https://explorer.lichess.ovh/lichess';
-const EXPLORER_SPEEDS = 'blitz,rapid,classical';
-const EXPLORER_RATINGS = '1600,1800,2000,2200,2500';
+import { trainingApi } from '../../../services/api';
+
 const MIN_GAMES_THRESHOLD = 100;
-const API_DELAY_MS = 200;
-const RETRY_DELAY_MS = 2000;
-const REQUEST_TIMEOUT_MS = 10000;
 const MAX_CACHE_SIZE = 5000;
 
 export interface ExplorerMove {
@@ -25,13 +25,35 @@ export interface ExplorerResponse {
   moves: ExplorerMove[];
 }
 
-// LRU cache: Map iteration order = insertion order, so we can evict oldest
+export type ExplorerErrorCode =
+  | 'rate_limited'
+  | 'upstream_unavailable'
+  | 'lichess_not_linked'
+  | 'lichess_token_invalid'
+  | 'invalid_fen'
+  | 'network_error'
+  | 'unknown';
+
+export class ExplorerError extends Error {
+  code: ExplorerErrorCode;
+  status?: number;
+  retryAfterSeconds?: number;
+
+  constructor(code: ExplorerErrorCode, message: string, status?: number, retryAfterSeconds?: number) {
+    super(message);
+    this.name = 'ExplorerError';
+    this.code = code;
+    this.status = status;
+    this.retryAfterSeconds = retryAfterSeconds;
+  }
+}
+
+// LRU cache: Map iteration order = insertion order, so we evict oldest.
 const cache = new Map<string, ExplorerResponse>();
 
 function cacheGet(key: string): ExplorerResponse | undefined {
   const value = cache.get(key);
   if (value !== undefined) {
-    // Move to end (most recently used) by re-inserting
     cache.delete(key);
     cache.set(key, value);
   }
@@ -39,64 +61,66 @@ function cacheGet(key: string): ExplorerResponse | undefined {
 }
 
 function cacheSet(key: string, value: ExplorerResponse): void {
-  if (cache.has(key)) {
-    cache.delete(key);
-  }
+  if (cache.has(key)) cache.delete(key);
   cache.set(key, value);
   if (cache.size > MAX_CACHE_SIZE) {
-    // Delete oldest entry (first key in iteration order)
     const oldest = cache.keys().next().value;
     if (oldest !== undefined) cache.delete(oldest);
   }
 }
 
-// Serialized rate limiting via promise chain — prevents concurrent requests
-// from bypassing the delay
-let requestChain: Promise<void> = Promise.resolve();
+// Test seam — production code does not need to clear the cache.
+export function resetExplorerCacheForTests(): void {
+  cache.clear();
+}
 
-async function rateLimitedFetch(url: string): Promise<Response> {
-  // Chain this request after the previous one completes
-  const result = new Promise<Response>((resolve, reject) => {
-    requestChain = requestChain.then(async () => {
-      await new Promise((r) => setTimeout(r, API_DELAY_MS));
+interface ApiErrorShape {
+  response?: {
+    status?: number;
+    data?: {
+      code?: string;
+      error?: string;
+      retryAfterSeconds?: number;
+    };
+  };
+}
 
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+function toExplorerError(err: unknown): ExplorerError {
+  const e = err as ApiErrorShape;
+  const status = e.response?.status;
+  const data = e.response?.data;
 
-      try {
-        let resp = await fetch(url, { signal: controller.signal });
+  // No response at all → transport-level failure (CORS, DNS, offline, ...).
+  if (status === undefined) {
+    return new ExplorerError('network_error', 'Could not reach the server. Check your connection.');
+  }
 
-        if (resp.status === 429) {
-          await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
-          resp = await fetch(url, { signal: controller.signal });
-        }
+  const code = (data?.code as ExplorerErrorCode | undefined) ?? 'unknown';
+  const message = data?.error ?? `Opening data unavailable (HTTP ${status}).`;
 
-        resolve(resp);
-      } catch (err) {
-        reject(err);
-      } finally {
-        clearTimeout(timeout);
-      }
-    });
-  });
-
-  return result;
+  switch (code) {
+    case 'lichess_not_linked':
+    case 'lichess_token_invalid':
+    case 'rate_limited':
+    case 'upstream_unavailable':
+    case 'invalid_fen':
+      return new ExplorerError(code, message, status, data?.retryAfterSeconds);
+    default:
+      return new ExplorerError('unknown', message, status);
+  }
 }
 
 export async function fetchExplorerData(fen: string): Promise<ExplorerResponse> {
   const cached = cacheGet(fen);
   if (cached) return cached;
 
-  const url = `${EXPLORER_BASE_URL}?variant=standard&speeds=${EXPLORER_SPEEDS}&ratings=${EXPLORER_RATINGS}&fen=${encodeURIComponent(fen)}`;
-  const resp = await rateLimitedFetch(url);
-
-  if (!resp.ok) {
-    throw new Error(`Explorer API error: ${resp.status}`);
+  try {
+    const data = await trainingApi.opening(fen);
+    cacheSet(fen, data);
+    return data;
+  } catch (err) {
+    throw toExplorerError(err);
   }
-
-  const data: ExplorerResponse = await resp.json();
-  cacheSet(fen, data);
-  return data;
 }
 
 function totalGames(move: ExplorerMove): number {
@@ -110,9 +134,6 @@ export function getMostPopularMove(response: ExplorerResponse): ExplorerMove | n
 
 /**
  * Select a random opponent move weighted by number of games played.
- * More popular moves are more likely to be chosen, but every move
- * in the database has a chance — so the user faces different lines
- * across training sessions.
  */
 export function getWeightedRandomMove(response: ExplorerResponse): ExplorerMove | null {
   if (response.moves.length === 0) return null;
@@ -126,8 +147,6 @@ export function getWeightedRandomMove(response: ExplorerResponse): ExplorerMove 
     roll -= totalGames(move);
     if (roll <= 0) return move;
   }
-
-  // Fallback (should not happen due to floating-point)
   return response.moves[response.moves.length - 1];
 }
 
@@ -141,10 +160,6 @@ export function getMovePopularity(response: ExplorerResponse, san: string): numb
   return (totalGames(move) / total) * 100;
 }
 
-/**
- * Returns the user win rate (%) for a specific move in a position.
- * Returns null if the move is not found.
- */
 export function getMoveWinRate(response: ExplorerResponse, san: string, userColor: 'w' | 'b'): number | null {
   const move = response.moves.find((m) => m.san === san);
   if (!move) return null;
@@ -156,15 +171,9 @@ export function getMoveWinRate(response: ExplorerResponse, san: string, userColo
   return ((move.black + move.draws * 0.5) / total) * 100;
 }
 
-/**
- * Returns the user win rate (%) of the best "mainstream" move in a position.
- * Only considers moves with at least 1% of the total games at this position
- * to avoid noise from rare lines with inflated win rates.
- */
 export function getBestMoveWinRate(response: ExplorerResponse, userColor: 'w' | 'b'): number | null {
   if (response.moves.length === 0) return null;
   const positionTotal = response.white + response.draws + response.black;
-  // Minimum games: 1% of position total, but at least 100
   const minGames = Math.max(100, positionTotal * 0.01);
 
   let best: number | null = null;

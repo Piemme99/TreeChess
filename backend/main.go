@@ -51,9 +51,12 @@ func main() {
 	dismissedGapRepo := repository.NewDismissedGapRepo(db.Pool)
 	passwordResetRepo := repository.NewPostgresPasswordResetRepo(db.Pool)
 	refreshTokenRepo := repository.NewPostgresRefreshTokenRepo(db.Pool)
+	openingCacheRepo := repository.NewPostgresOpeningExplorerCacheRepo(db.Pool)
 
-	// Initialize opening analysis service (uses Lichess Explorer API)
-	engineSvc := services.NewEngineService(engineEvalRepo, analysisRepo)
+	// Initialize opening analysis service (cache-only; cache is populated by
+	// the user-facing TrainingExplorerHandler when authenticated users request
+	// a position).
+	engineSvc := services.NewEngineService(engineEvalRepo, analysisRepo, openingCacheRepo)
 
 	// Initialize services
 	authSvc := services.NewAuthService(userRepo, cfg.JWTSecret, cfg.JWTExpiry)
@@ -80,6 +83,8 @@ func main() {
 	syncHandler := handlers.NewSyncHandler(syncSvc)
 	studyImportHandler := handlers.NewStudyImportHandler(studyImportSvc)
 	trainingHandler := handlers.NewTrainingHandler(importSvc)
+	explorerSvc := services.NewLichessExplorerService(cfg.LichessExplorerBaseURL, nil)
+	trainingExplorerHandler := handlers.NewTrainingExplorerHandler(explorerSvc, openingCacheRepo, userRepo, cfg.LichessExplorerCacheTTL)
 
 	// Initialize Echo
 	e := echo.New()
@@ -243,6 +248,7 @@ func main() {
 
 	// Training API
 	protected.POST("/api/training/analyze", trainingHandler.AnalyzeHandler)
+	protected.GET("/api/training/opening", trainingExplorerHandler.GetOpening)
 
 	// Sync API
 	heavyOps.POST("/api/sync", syncHandler.HandleSync)

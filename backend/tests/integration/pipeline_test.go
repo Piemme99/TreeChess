@@ -19,7 +19,7 @@ func TestEngineEvalPipeline(t *testing.T) {
 	user := testhelpers.SeedUser(t, repos, "evaluser", "password123")
 
 	repertoireSvc := services.NewRepertoireService(repos.Repertoire)
-	engineSvc := services.NewEngineService(repos.EngineEval, repos.Analysis)
+	engineSvc := services.NewEngineService(repos.EngineEval, repos.Analysis, repos.OpeningExplorerCache)
 	importSvc := services.NewImportService(repertoireSvc, repos.Analysis,
 		services.WithFingerprintRepo(repos.Fingerprint),
 		services.WithEngineService(engineSvc),
@@ -54,7 +54,7 @@ func TestEngineEvalPipeline_DeleteCascade(t *testing.T) {
 	user := testhelpers.SeedUser(t, repos, "evaldeluser", "password123")
 
 	repertoireSvc := services.NewRepertoireService(repos.Repertoire)
-	engineSvc := services.NewEngineService(repos.EngineEval, repos.Analysis)
+	engineSvc := services.NewEngineService(repos.EngineEval, repos.Analysis, repos.OpeningExplorerCache)
 	importSvc := services.NewImportService(repertoireSvc, repos.Analysis,
 		services.WithFingerprintRepo(repos.Fingerprint),
 		services.WithEngineService(engineSvc),

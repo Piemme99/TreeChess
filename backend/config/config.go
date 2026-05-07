@@ -29,6 +29,8 @@ type Config struct {
 	SMTPFromAddress          string
 	PasswordResetExpiryHours int
 	MetricsPort              int
+	LichessExplorerBaseURL   string
+	LichessExplorerCacheTTL  time.Duration
 }
 
 // MustLoad loads configuration from environment variables
@@ -133,6 +135,19 @@ func MustLoad() Config {
 		passwordResetExpiryHours = hours
 	}
 
+	explorerBaseURL := os.Getenv("LICHESS_EXPLORER_BASE_URL")
+	if explorerBaseURL == "" {
+		explorerBaseURL = "https://explorer.lichess.org"
+	}
+	explorerCacheTTL := 7 * 24 * time.Hour
+	if ttlStr := os.Getenv("LICHESS_EXPLORER_CACHE_TTL_HOURS"); ttlStr != "" {
+		hours, err := strconv.Atoi(ttlStr)
+		if err != nil {
+			panic(fmt.Sprintf("Invalid LICHESS_EXPLORER_CACHE_TTL_HOURS value: %s", ttlStr))
+		}
+		explorerCacheTTL = time.Duration(hours) * time.Hour
+	}
+
 	return Config{
 		Environment:              env,
 		DatabaseURL:              dbURL,
@@ -151,5 +166,7 @@ func MustLoad() Config {
 		SMTPFromAddress:          smtpFromAddress,
 		PasswordResetExpiryHours: passwordResetExpiryHours,
 		MetricsPort:              metricsPort,
+		LichessExplorerBaseURL:   explorerBaseURL,
+		LichessExplorerCacheTTL:  explorerCacheTTL,
 	}
 }

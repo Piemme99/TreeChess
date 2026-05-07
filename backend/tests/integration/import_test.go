@@ -26,7 +26,7 @@ func TestImportPipeline_FullCycle(t *testing.T) {
 	user := testhelpers.SeedUser(t, repos, "importuser", "password123")
 
 	repertoireSvc := services.NewRepertoireService(repos.Repertoire)
-	engineSvc := services.NewEngineService(repos.EngineEval, repos.Analysis)
+	engineSvc := services.NewEngineService(repos.EngineEval, repos.Analysis, repos.OpeningExplorerCache)
 	importSvc := services.NewImportService(repertoireSvc, repos.Analysis,
 		services.WithFingerprintRepo(repos.Fingerprint),
 		services.WithEngineService(engineSvc),
@@ -238,7 +238,7 @@ func TestImportPipeline_DeleteAnalysis_CascadeAll(t *testing.T) {
 	user := testhelpers.SeedUser(t, repos, "delanalysis", "password123")
 
 	repertoireSvc := services.NewRepertoireService(repos.Repertoire)
-	engineSvc := services.NewEngineService(repos.EngineEval, repos.Analysis)
+	engineSvc := services.NewEngineService(repos.EngineEval, repos.Analysis, repos.OpeningExplorerCache)
 	importSvc := services.NewImportService(repertoireSvc, repos.Analysis,
 		services.WithFingerprintRepo(repos.Fingerprint),
 		services.WithEngineService(engineSvc),

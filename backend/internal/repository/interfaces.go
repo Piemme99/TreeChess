@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"time"
 
 	"github.com/kumquat/backend/internal/models"
@@ -50,6 +51,14 @@ type GameFingerprintRepository interface {
 	CheckExisting(userID string, fingerprints []string) (map[string]bool, error)
 	SaveBatch(userID, analysisID string, entries []FingerprintEntry) error
 	DeleteByAnalysisAndIndex(analysisID string, gameIndex int) error
+}
+
+// OpeningExplorerCacheRepository persists Lichess Opening Explorer responses
+// across users so a popular FEN is fetched from upstream at most once per
+// TTL window.
+type OpeningExplorerCacheRepository interface {
+	Get(ctx context.Context, cacheKey string) (payload []byte, found bool, err error)
+	Put(ctx context.Context, cacheKey string, payload []byte, expiresAt time.Time) error
 }
 
 // EngineEvalRepository defines the interface for engine evaluation operations

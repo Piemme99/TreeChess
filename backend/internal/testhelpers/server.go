@@ -76,7 +76,7 @@ func SetupTestServer(t *testing.T, repos *Repos) *TestServer {
 	authSvc.WithPasswordReset(repos.PasswordReset, emailCapture, 1)
 
 	repertoireSvc := services.NewRepertoireService(repos.Repertoire)
-	engineSvc := services.NewEngineService(repos.EngineEval, repos.Analysis)
+	engineSvc := services.NewEngineService(repos.EngineEval, repos.Analysis, repos.OpeningExplorerCache)
 	importSvc := services.NewImportService(repertoireSvc, repos.Analysis,
 		services.WithFingerprintRepo(repos.Fingerprint),
 		services.WithEngineService(engineSvc),

@@ -7,10 +7,31 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/kumquat/backend/internal/models"
 	"github.com/kumquat/backend/internal/repository/mocks"
 )
+
+// stubExplorerCache is an in-memory implementation of the cache repo used by
+// EngineService tests.
+type stubExplorerCache struct {
+	store map[string][]byte
+}
+
+func newStubExplorerCache() *stubExplorerCache {
+	return &stubExplorerCache{store: map[string][]byte{}}
+}
+
+func (c *stubExplorerCache) Get(_ context.Context, key string) ([]byte, bool, error) {
+	v, ok := c.store[key]
+	return v, ok, nil
+}
+
+func (c *stubExplorerCache) Put(_ context.Context, key string, payload []byte, _ time.Time) error {
+	c.store[key] = payload
+	return nil
+}
 
 func TestRunWorker_ResetsStaleProcessingOnStartup(t *testing.T) {
 	resetCalled := false
@@ -22,7 +43,7 @@ func TestRunWorker_ResetsStaleProcessingOnStartup(t *testing.T) {
 	}
 	mockAnalysisRepo := &mocks.MockAnalysisRepo{}
 
-	svc := NewEngineService(mockEvalRepo, mockAnalysisRepo)
+	svc := NewEngineService(mockEvalRepo, mockAnalysisRepo, newStubExplorerCache())
 
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
@@ -48,7 +69,7 @@ func TestRunWorker_ResetsStaleProcessingErrorDoesNotPreventWorker(t *testing.T) 
 	}
 	mockAnalysisRepo := &mocks.MockAnalysisRepo{}
 
-	svc := NewEngineService(mockEvalRepo, mockAnalysisRepo)
+	svc := NewEngineService(mockEvalRepo, mockAnalysisRepo, newStubExplorerCache())
 
 	// Give enough time for at least one poll cycle after the reset error
 	ctx, cancel := context.WithTimeout(context.Background(), 6*time.Second)
@@ -72,7 +93,7 @@ func TestGetInsightsData_ProcessingCountsAsIncomplete(t *testing.T) {
 	}
 	mockAnalysisRepo := &mocks.MockAnalysisRepo{}
 
-	svc := NewEngineService(mockEvalRepo, mockAnalysisRepo)
+	svc := NewEngineService(mockEvalRepo, mockAnalysisRepo, newStubExplorerCache())
 	data, err := svc.GetInsightsData("user-1")
 
 	assert.NoError(t, err)
@@ -93,11 +114,35 @@ func TestGetInsightsData_AllDoneWhenAllCompleted(t *testing.T) {
 	}
 	mockAnalysisRepo := &mocks.MockAnalysisRepo{}
 
-	svc := NewEngineService(mockEvalRepo, mockAnalysisRepo)
+	svc := NewEngineService(mockEvalRepo, mockAnalysisRepo, newStubExplorerCache())
 	data, err := svc.GetInsightsData("user-1")
 
 	assert.NoError(t, err)
 	assert.Equal(t, 3, data.Total)
 	assert.Equal(t, 3, data.Completed)
 	assert.True(t, data.AllDone)
+}
+
+func TestEngineService_FetchExplorer_CacheHitReturnsStats(t *testing.T) {
+	cache := newStubExplorerCache()
+	cache.store[CanonicalKey(DefaultOpeningQuery("starting-fen"))] = []byte(`{"white":7,"draws":3,"black":1,"moves":[{"uci":"e2e4","san":"e4","white":4,"draws":2,"black":1,"averageRating":1900}]}`)
+
+	svc := NewEngineService(&mocks.MockEngineEvalRepo{}, &mocks.MockAnalysisRepo{}, cache)
+
+	resp, err := svc.fetchExplorer("starting-fen")
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	assert.Equal(t, 7, resp.White)
+	assert.Equal(t, 3, resp.Draws)
+	assert.Equal(t, 1, resp.Black)
+	require.Len(t, resp.Moves, 1)
+	assert.Equal(t, "e4", resp.Moves[0].SAN)
+}
+
+func TestEngineService_FetchExplorer_CacheMissReturnsNilNoError(t *testing.T) {
+	svc := NewEngineService(&mocks.MockEngineEvalRepo{}, &mocks.MockAnalysisRepo{}, newStubExplorerCache())
+
+	resp, err := svc.fetchExplorer("missing-fen")
+	require.NoError(t, err)
+	assert.Nil(t, resp, "cache miss must surface as nil result so callers can skip the position without HTTP")
 }

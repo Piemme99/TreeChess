@@ -539,9 +539,29 @@ export const gamesApi = {
   }
 };
 
+export interface OpeningExplorerMove {
+  uci: string;
+  san: string;
+  white: number;
+  draws: number;
+  black: number;
+  averageRating: number;
+}
+
+export interface OpeningExplorerResponse {
+  white: number;
+  draws: number;
+  black: number;
+  moves: OpeningExplorerMove[];
+}
+
 export const trainingApi = {
   analyze: async (moves: string[], userColor: 'white' | 'black'): Promise<TrainingAnalyzeResponse> => {
     const response = await api.post('/training/analyze', { moves, userColor });
+    return response.data;
+  },
+  opening: async (fen: string): Promise<OpeningExplorerResponse> => {
+    const response = await api.get('/training/opening', { params: { fen } });
     return response.data;
   },
 };

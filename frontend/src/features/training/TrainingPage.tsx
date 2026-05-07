@@ -8,15 +8,18 @@ import { TrainingBoard } from './components/TrainingBoard';
 import { TrainingComplete } from './components/TrainingComplete';
 import { ExplorerTrainingBoard } from './components/ExplorerTrainingBoard';
 import { ExplorerTrainingReview } from './components/ExplorerTrainingReview';
+import { TrainingLichessGate } from './components/TrainingLichessGate';
 import { useTrainingSession } from './hooks/useTrainingSession';
 import { useExplorerTraining } from './hooks/useExplorerTraining';
 import { useRepertoireComparison } from './hooks/useRepertoireComparison';
+import { useAuthStore } from '../../stores/authStore';
 import type { Repertoire } from '../../types';
 
 type Mode = 'repertoire' | 'explorer';
 
 export function TrainingPage() {
   usePageTitle('Training');
+  const user = useAuthStore((s) => s.user);
   const { repertoires, loading } = useRepertoires();
 
   const [mode, setMode] = useState<Mode>('explorer');
@@ -67,6 +70,13 @@ export function TrainingPage() {
     explorer.reset();
     explorer.startSession(newColor);
   }, [explorer]);
+
+  // Training is gated behind a Lichess link: every cache miss has to be paid
+  // for by the requesting user's own Lichess token, so unlinked accounts can't
+  // enter Training at all (even the repertoire-only mode).
+  if (user && !user.lichessLinked) {
+    return <TrainingLichessGate />;
+  }
 
   if (loading && repertoires.length === 0) {
     return <Loading size="lg" text="Loading repertoires..." />;

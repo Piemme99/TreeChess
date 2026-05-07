@@ -39,6 +39,8 @@ services:
       SMTP_HOST: mailhog
       SMTP_PORT: "1025"
       SMTP_FROM_ADDRESS: noreply@treechess.local
+      LICHESS_EXPLORER_BASE_URL: ${LICHESS_EXPLORER_BASE_URL:-https://explorer.lichess.org}
+      LICHESS_EXPLORER_CACHE_TTL_HOURS: ${LICHESS_EXPLORER_CACHE_TTL_HOURS:-168}
     depends_on:
       postgres:
         condition: service_healthy
