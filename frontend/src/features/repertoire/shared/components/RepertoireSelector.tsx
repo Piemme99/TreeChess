@@ -291,7 +291,12 @@ export function RepertoireSelector({ color, repertoires, categories, onImportStu
           mergeName={mergeName}
           loading={loading}
           onMergeNameChange={setMergeName}
-          onStartMerging={() => setIsMerging(true)}
+          onStartMerging={() => {
+            const firstId = Array.from(selectedIds)[0];
+            const firstRep = repertoires.find((r) => r.id === firstId);
+            setMergeName(firstRep?.name ?? '');
+            setIsMerging(true);
+          }}
           onCancelMerging={() => { setIsMerging(false); setMergeName(''); }}
           onConfirmMerge={handleMerge}
         />
