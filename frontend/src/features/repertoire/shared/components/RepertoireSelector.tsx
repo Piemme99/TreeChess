@@ -284,46 +284,49 @@ export function RepertoireSelector({ color, repertoires, categories, onImportStu
   return (
     <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <div className="flex-1">
-        {/* Merge banner */}
-        {selectedIds.size >= 2 && !isMerging && (
-          <div className="flex items-center justify-between p-3 mb-4 bg-primary-light rounded-lg">
-            <span className="text-sm text-text-muted">{selectedIds.size} repertoires selected</span>
-            <Button variant="primary" size="sm" onClick={() => setIsMerging(true)} disabled={loading}>
-              Merge Selected
-            </Button>
-          </div>
-        )}
-
-        {isMerging && (
-          <div className="flex flex-col gap-2 p-4 bg-primary-light rounded-xl mb-2">
-            <span className="text-[0.85rem] text-text-muted">
-              Merging {selectedIds.size} repertoires into a new one. All originals will be deleted.
-            </span>
-            <input
-              type="text"
-              value={mergeName}
-              onChange={(e) => setMergeName(e.target.value)}
-              placeholder="Name for merged repertoire"
-              className="flex-1 py-2 px-4 border border-border rounded-xl text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary-light"
-              autoFocus
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleMerge();
-                if (e.key === 'Escape') {
-                  setIsMerging(false);
-                  setMergeName('');
-                }
-              }}
-            />
-            <div className="flex gap-2">
-              <Button variant="primary" onClick={handleMerge} disabled={loading}>
-                Merge
-              </Button>
-              <Button variant="ghost" onClick={() => { setIsMerging(false); setMergeName(''); }} disabled={loading}>
-                Cancel
+        {/* Merge slot — always rendered to reserve space and avoid layout
+            shift when the banner appears on multi-select (issue #42). */}
+        <div data-testid="merge-slot" className="min-h-[60px] mb-4">
+          {selectedIds.size >= 2 && !isMerging && (
+            <div className="flex items-center justify-between p-3 bg-primary-light rounded-lg">
+              <span className="text-sm text-text-muted">{selectedIds.size} repertoires selected</span>
+              <Button variant="primary" size="sm" onClick={() => setIsMerging(true)} disabled={loading}>
+                Merge Selected
               </Button>
             </div>
-          </div>
-        )}
+          )}
+
+          {isMerging && (
+            <div className="flex flex-col gap-2 p-4 bg-primary-light rounded-xl">
+              <span className="text-[0.85rem] text-text-muted">
+                Merging {selectedIds.size} repertoires into a new one. All originals will be deleted.
+              </span>
+              <input
+                type="text"
+                value={mergeName}
+                onChange={(e) => setMergeName(e.target.value)}
+                placeholder="Name for merged repertoire"
+                className="flex-1 py-2 px-4 border border-border rounded-xl text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary-light"
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleMerge();
+                  if (e.key === 'Escape') {
+                    setIsMerging(false);
+                    setMergeName('');
+                  }
+                }}
+              />
+              <div className="flex gap-2">
+                <Button variant="primary" onClick={handleMerge} disabled={loading}>
+                  Merge
+                </Button>
+                <Button variant="ghost" onClick={() => { setIsMerging(false); setMergeName(''); }} disabled={loading}>
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
 
         <div className="flex flex-col gap-4 mb-6">
           {/* Categories */}
