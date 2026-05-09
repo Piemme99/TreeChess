@@ -49,7 +49,7 @@ function TimeClassBadge({ timeClass }: { timeClass?: TimeClass }) {
     return <span data-testid="time-class" className="text-xs text-text-muted">—</span>;
   }
   return (
-    <span data-testid="time-class" className="py-0.5 px-2 rounded-full text-xs font-medium bg-bg text-text-light lowercase">
+    <span data-testid="time-class" className="py-0.5 px-2 rounded-full text-xs font-medium bg-bg text-text-light capitalize">
       {timeClass}
     </span>
   );
@@ -77,7 +77,7 @@ function GameRow({ game, onViewClick, onDeleteClick, onReanalyze, reanalyzing, s
       <span className={`w-2.5 h-2.5 rounded-full ${dotColor}`} title={outcome} />
 
       {/* Players */}
-      <div className="flex items-center gap-1.5 text-sm min-w-0">
+      <div className="flex items-center justify-center gap-1.5 text-sm min-w-0">
         <span className="font-medium truncate">{game.white}</span>
         <span className="text-text-light text-xs">vs</span>
         <span className="font-medium truncate">{game.black}</span>
@@ -86,7 +86,7 @@ function GameRow({ game, onViewClick, onDeleteClick, onReanalyze, reanalyzing, s
       </div>
 
       {/* Repertoire */}
-      <span className="hidden md:block text-xs text-text-muted truncate">
+      <span className="hidden md:block text-xs text-text-muted truncate text-center">
         {game.repertoireName || '-'}
       </span>
 
@@ -101,13 +101,13 @@ function GameRow({ game, onViewClick, onDeleteClick, onReanalyze, reanalyzing, s
       </div>
 
       {/* Date */}
-      <span className="text-xs text-text-muted whitespace-nowrap">{game.date || '-'}</span>
+      <span className="text-xs text-text-muted whitespace-nowrap text-center">{game.date || '-'}</span>
 
       {/* Source */}
-      <span className="text-xs text-text-muted">{formatSource(game.source)}</span>
+      <span className="text-xs text-text-muted text-center">{formatSource(game.source)}</span>
 
       {/* Actions */}
-      <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+      <div className="flex items-center justify-center gap-1" onClick={(e) => e.stopPropagation()}>
         {game.repertoireId && (
           <button
             className={`flex items-center justify-center w-7 h-7 p-0 border-none rounded-sm bg-transparent text-text-muted cursor-pointer transition-colors duration-150 hover:not-disabled:text-primary hover:not-disabled:bg-bg disabled:cursor-default ${reanalyzing ? '[&_svg]:animate-spin' : ''}`}
@@ -194,12 +194,12 @@ export function GamesList({
       {/* Table header */}
       <div className={`${gridCols} py-2 border-b border-primary/10 text-[11px] font-semibold text-text-light uppercase tracking-wide`}>
         <span></span>
-        <span>Players</span>
-        <span className="hidden md:block">Repertoire</span>
+        <span className="text-center">Players</span>
+        <span className="hidden md:block text-center">Repertoire</span>
         <span className="hidden md:block text-center">Status</span>
         <span className="text-center">Time</span>
-        <span>Date</span>
-        <span>Source</span>
+        <span className="text-center">Date</span>
+        <span className="text-center">Source</span>
         <span></span>
       </div>
       {list.map((game) => {
