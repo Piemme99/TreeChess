@@ -278,60 +278,6 @@ func (r *PostgresAnalysisRepo) GetAllGames(userID string, limit, offset int, tim
 	}, nil
 }
 
-// DeleteGame removes a single game from an analysis
-func (r *PostgresAnalysisRepo) DeleteGame(analysisID string, gameIndex int) error {
-	ctx, cancel := dbContext()
-	defer cancel()
-
-	// First, get the current analysis
-	var resultsJSON []byte
-	err := r.pool.QueryRow(ctx, "SELECT results FROM analyses WHERE id = $1", analysisID).Scan(&resultsJSON)
-	if err != nil {
-		if err == pgx.ErrNoRows {
-			return ErrAnalysisNotFound
-		}
-		return fmt.Errorf("failed to get analysis: %w", err)
-	}
-
-	var games []models.GameAnalysis
-	if err := json.Unmarshal(resultsJSON, &games); err != nil {
-		return fmt.Errorf("failed to unmarshal results: %w", err)
-	}
-
-	// Find and remove the game with the given index
-	found := false
-	var updatedGames []models.GameAnalysis
-	for _, game := range games {
-		if game.GameIndex == gameIndex {
-			found = true
-		} else {
-			updatedGames = append(updatedGames, game)
-		}
-	}
-
-	if !found {
-		return ErrGameNotFound
-	}
-
-	// If no games left, delete the entire analysis
-	if len(updatedGames) == 0 {
-		return r.Delete(analysisID)
-	}
-
-	// Update the analysis with remaining games
-	updatedJSON, err := json.Marshal(updatedGames)
-	if err != nil {
-		return fmt.Errorf("failed to marshal updated results: %w", err)
-	}
-
-	_, err = r.pool.Exec(ctx, updateAnalysisResultsSQL, analysisID, updatedJSON, len(updatedGames))
-	if err != nil {
-		return fmt.Errorf("failed to update analysis: %w", err)
-	}
-
-	return nil
-}
-
 // UpdateResults updates the results array of an existing analysis
 func (r *PostgresAnalysisRepo) UpdateResults(analysisID string, results []models.GameAnalysis) error {
 	ctx, cancel := dbContext()

@@ -501,15 +501,6 @@ export const gamesApi = {
     return response.data;
   },
 
-  delete: async (analysisId: string, gameIndex: number): Promise<void> => {
-    await api.delete(`/games/${analysisId}/${gameIndex}`);
-  },
-
-  bulkDelete: async (games: { analysisId: string; gameIndex: number }[]): Promise<{ deleted: number }> => {
-    const response = await api.post('/games/bulk-delete', { games });
-    return response.data;
-  },
-
   repertoires: async (options?: RequestOptions): Promise<RepertoireFilterOption[]> => {
     const response = await api.get('/games/repertoires', { signal: options?.signal });
     return response.data.repertoires;

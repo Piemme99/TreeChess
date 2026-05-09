@@ -38,25 +38,12 @@ export function useGames(timeClass?: string, repertoire?: string, source?: strin
     loadGames(0);
   }, [loadGames]);
 
-  const deleteGame = useCallback((analysisId: string, gameIndex: number) => {
-    setGames((prev) => prev.filter(
-      (g) => !(g.analysisId === analysisId && g.gameIndex === gameIndex)
-    ));
-    setTotal((prev) => prev - 1);
-  }, []);
-
   const markGameViewed = useCallback((analysisId: string, gameIndex: number) => {
     setGames((prev) => prev.map((g) =>
       g.analysisId === analysisId && g.gameIndex === gameIndex
         ? { ...g, synced: false }
         : g
     ));
-  }, []);
-
-  const deleteGames = useCallback((items: { analysisId: string; gameIndex: number }[]) => {
-    const keys = new Set(items.map((g) => `${g.analysisId}-${g.gameIndex}`));
-    setGames((prev) => prev.filter((g) => !keys.has(`${g.analysisId}-${g.gameIndex}`)));
-    setTotal((prev) => prev - items.length);
   }, []);
 
   const nextPage = useCallback(() => {
@@ -82,8 +69,6 @@ export function useGames(timeClass?: string, repertoire?: string, source?: strin
     games,
     loading,
     total,
-    deleteGame,
-    deleteGames,
     markGameViewed,
     nextPage,
     prevPage,

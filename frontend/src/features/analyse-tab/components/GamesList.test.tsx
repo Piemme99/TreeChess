@@ -30,7 +30,6 @@ function renderList(games: GameSummary[]) {
     <GamesList
       games={games}
       loading={false}
-      onDeleteClick={vi.fn()}
       onViewClick={vi.fn()}
       hasNextPage={false}
       hasPrevPage={false}

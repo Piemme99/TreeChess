@@ -21,7 +21,6 @@ function toKey(analysisId: string, gameIndex: number): GameKey {
 export interface GamesListProps {
   games: GameSummary[];
   loading: boolean;
-  onDeleteClick: (analysisId: string, gameIndex: number) => void;
   onViewClick: (analysisId: string, gameIndex: number) => void;
   hasNextPage: boolean;
   hasPrevPage: boolean;
@@ -55,12 +54,11 @@ function TimeClassBadge({ timeClass }: { timeClass?: TimeClass }) {
   );
 }
 
-const gridCols = 'grid grid-cols-[16px_1fr_64px_80px_70px_66px] md:grid-cols-[16px_1fr_150px_100px_64px_80px_70px_66px] items-center gap-x-3 px-4';
+const gridCols = 'grid grid-cols-[16px_1fr_64px_80px_70px_36px] md:grid-cols-[16px_1fr_150px_100px_64px_80px_70px_36px] items-center gap-x-3 px-4';
 
-function GameRow({ game, onViewClick, onDeleteClick, onReanalyze, reanalyzing, showNewBadge }: {
+function GameRow({ game, onViewClick, onReanalyze, reanalyzing, showNewBadge }: {
   game: GameSummary;
   onViewClick: (analysisId: string, gameIndex: number) => void;
-  onDeleteClick: (analysisId: string, gameIndex: number) => void;
   onReanalyze: (analysisId: string, gameIndex: number, repertoireId: string) => void;
   reanalyzing: boolean;
   showNewBadge?: boolean;
@@ -121,15 +119,6 @@ function GameRow({ game, onViewClick, onDeleteClick, onReanalyze, reanalyzing, s
             </svg>
           </button>
         )}
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => onDeleteClick(game.analysisId, game.gameIndex)}
-        >
-          <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5">
-            <path d="M2 4h12M5.5 4V2.5a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1V4M6.5 7v5M9.5 7v5M3.5 4l.5 9a1.5 1.5 0 0 0 1.5 1.5h5A1.5 1.5 0 0 0 12 13l.5-9" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </Button>
       </div>
     </div>
   );
@@ -138,7 +127,6 @@ function GameRow({ game, onViewClick, onDeleteClick, onReanalyze, reanalyzing, s
 export function GamesList({
   games,
   loading,
-  onDeleteClick,
   onViewClick,
   hasNextPage,
   hasPrevPage,
@@ -209,7 +197,6 @@ export function GamesList({
             key={key}
             game={game}
             onViewClick={onViewClick}
-            onDeleteClick={onDeleteClick}
             onReanalyze={handleReanalyze}
             reanalyzing={reanalyzingKeys.has(key)}
             showNewBadge={showNew}

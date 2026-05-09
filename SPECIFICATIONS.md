@@ -772,8 +772,6 @@ DELETE /api/analyses/:id                     # Delete analysis
 
 # Protected - Games
 GET    /api/games                            # List games (paginated, filterable)
-DELETE /api/games/:analysisId/:gameIndex     # Delete specific game
-POST   /api/games/bulk-delete                # Delete multiple games
 POST   /api/games/:analysisId/:gameIndex/reanalyze  # Reanalyze game
 
 # Protected - Insights

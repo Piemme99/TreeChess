@@ -11,9 +11,8 @@ import (
 
 // MockFingerprintRepo is a mock implementation of GameFingerprintRepository for testing
 type MockFingerprintRepo struct {
-	CheckExistingFunc            func(userID string, fingerprints []string) (map[string]bool, error)
-	SaveBatchFunc                func(userID, analysisID string, entries []repository.FingerprintEntry) error
-	DeleteByAnalysisAndIndexFunc func(analysisID string, gameIndex int) error
+	CheckExistingFunc func(userID string, fingerprints []string) (map[string]bool, error)
+	SaveBatchFunc     func(userID, analysisID string, entries []repository.FingerprintEntry) error
 }
 
 func (m *MockFingerprintRepo) CheckExisting(userID string, fingerprints []string) (map[string]bool, error) {
@@ -26,13 +25,6 @@ func (m *MockFingerprintRepo) CheckExisting(userID string, fingerprints []string
 func (m *MockFingerprintRepo) SaveBatch(userID, analysisID string, entries []repository.FingerprintEntry) error {
 	if m.SaveBatchFunc != nil {
 		return m.SaveBatchFunc(userID, analysisID, entries)
-	}
-	return nil
-}
-
-func (m *MockFingerprintRepo) DeleteByAnalysisAndIndex(analysisID string, gameIndex int) error {
-	if m.DeleteByAnalysisAndIndexFunc != nil {
-		return m.DeleteByAnalysisAndIndexFunc(analysisID, gameIndex)
 	}
 	return nil
 }
@@ -297,7 +289,6 @@ type MockAnalysisRepo struct {
 	GetByIDFunc                func(id string) (*models.AnalysisDetail, error)
 	DeleteFunc                 func(id string) error
 	GetAllGamesFunc            func(userID string, limit, offset int, timeClass, opening, source string) (*models.GamesResponse, error)
-	DeleteGameFunc             func(analysisID string, gameIndex int) error
 	UpdateResultsFunc          func(analysisID string, results []models.GameAnalysis) error
 	BelongsToUserFunc          func(id string, userID string) (bool, error)
 	GetDistinctRepertoiresFunc func(userID string) ([]models.RepertoireFilterOption, error)
@@ -339,13 +330,6 @@ func (m *MockAnalysisRepo) GetAllGames(userID string, limit, offset int, timeCla
 		return m.GetAllGamesFunc(userID, limit, offset, timeClass, opening, source)
 	}
 	return nil, nil
-}
-
-func (m *MockAnalysisRepo) DeleteGame(analysisID string, gameIndex int) error {
-	if m.DeleteGameFunc != nil {
-		return m.DeleteGameFunc(analysisID, gameIndex)
-	}
-	return nil
 }
 
 func (m *MockAnalysisRepo) UpdateResults(analysisID string, results []models.GameAnalysis) error {
