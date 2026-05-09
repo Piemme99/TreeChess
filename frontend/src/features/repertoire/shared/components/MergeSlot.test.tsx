@@ -1,20 +1,21 @@
 import { describe, it, expect, vi } from 'vitest';
+import type { Mock } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import { MergeSlot } from './MergeSlot';
 
 interface Handlers {
-  onMergeNameChange: ReturnType<typeof vi.fn>;
-  onStartMerging: ReturnType<typeof vi.fn>;
-  onCancelMerging: ReturnType<typeof vi.fn>;
-  onConfirmMerge: ReturnType<typeof vi.fn>;
+  onMergeNameChange: Mock<(name: string) => void>;
+  onStartMerging: Mock<() => void>;
+  onCancelMerging: Mock<() => void>;
+  onConfirmMerge: Mock<() => void>;
 }
 
 function createHandlers(): Handlers {
   return {
-    onMergeNameChange: vi.fn(),
-    onStartMerging: vi.fn(),
-    onCancelMerging: vi.fn(),
-    onConfirmMerge: vi.fn(),
+    onMergeNameChange: vi.fn<(name: string) => void>(),
+    onStartMerging: vi.fn<() => void>(),
+    onCancelMerging: vi.fn<() => void>(),
+    onConfirmMerge: vi.fn<() => void>(),
   };
 }
 
