@@ -96,7 +96,7 @@ function GameRow({ game, onViewClick, onDeleteClick, onReanalyze, reanalyzing, s
       </div>
 
       {/* Time control */}
-      <div className="flex justify-start">
+      <div className="flex justify-center">
         <TimeClassBadge timeClass={game.timeClass} />
       </div>
 
@@ -197,7 +197,7 @@ export function GamesList({
         <span>Players</span>
         <span className="hidden md:block">Repertoire</span>
         <span className="hidden md:block text-center">Status</span>
-        <span>Time</span>
+        <span className="text-center">Time</span>
         <span>Date</span>
         <span>Source</span>
         <span></span>
