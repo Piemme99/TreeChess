@@ -5,3 +5,4 @@ export { Loading, LoadingOverlay } from './Loading';
 export { EmptyState } from './EmptyState';
 export { ColorDot } from './ColorDot';
 export { LichessLogo } from './LichessLogo';
+export { ChessComLogo } from './ChessComLogo';

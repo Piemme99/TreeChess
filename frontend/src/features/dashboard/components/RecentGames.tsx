@@ -1,6 +1,7 @@
 import { useNavigate, useLocation } from 'react-router';
-import { Button } from '../../../shared/components/UI';
-import type { GameSummary, Color } from '../../../types';
+import { FileText } from 'lucide-react';
+import { Button, LichessLogo, ChessComLogo } from '../../../shared/components/UI';
+import type { GameSummary, GameSource, Color } from '../../../types';
 
 function gameOutcome(result: string, userColor: Color): 'win' | 'loss' | 'draw' {
   if (result === '1/2-1/2') return 'draw';
@@ -15,11 +16,16 @@ const outcomeDot: Record<string, string> = {
   draw: 'bg-text-light',
 };
 
-const sourceIcons: Record<string, string> = {
-  lichess: '\u265E',
-  chesscom: '\u265F',
-  pgn: '\uD83D\uDCC4',
-};
+function SourceIcon({ source }: { source: GameSource }) {
+  switch (source) {
+    case 'lichess':
+      return <LichessLogo size={14} />;
+    case 'chesscom':
+      return <ChessComLogo size={14} />;
+    case 'pgn':
+      return <FileText size={14} />;
+  }
+}
 
 const statusConfig: Record<string, { label: string; className: string }> = {
   'in-repertoire': { label: 'In repertoire', className: 'py-0.5 px-1.5 rounded-full text-[11px] font-medium bg-success-light text-success' },
@@ -103,8 +109,8 @@ export function RecentGames({ games, loading }: RecentGamesProps) {
                 <span className="text-xs text-text-muted whitespace-nowrap text-center">{game.date || '-'}</span>
 
                 {/* Source */}
-                <span className="text-xs text-text-muted text-center" title={game.source}>
-                  {sourceIcons[game.source] || game.source}
+                <span className="flex justify-center text-text-muted" title={game.source}>
+                  <SourceIcon source={game.source} />
                 </span>
               </div>
             );
