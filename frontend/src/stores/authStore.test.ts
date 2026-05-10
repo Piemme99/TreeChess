@@ -289,9 +289,10 @@ describe('authStore', () => {
       expect(getState().isAuthenticated).toBe(true);
     });
 
-    it('clears state when refresh also fails', async () => {
+    it('unauthenticates when refresh is rejected with 401', async () => {
       mockGetAccessToken.mockReturnValue(null);
-      mockAuthApi.refresh.mockRejectedValue(new Error('No refresh token'));
+      const unauthorizedError = { response: { status: 401, data: { error: 'no refresh token' } } };
+      mockAuthApi.refresh.mockRejectedValue(unauthorizedError);
 
       await getState().checkAuth();
 
@@ -299,6 +300,96 @@ describe('authStore', () => {
       expect(getState().user).toBeNull();
       expect(getState().isAuthenticated).toBe(false);
       expect(getState().loading).toBe(false);
+    });
+
+    it('unauthenticates when refresh is rejected with 403', async () => {
+      mockGetAccessToken.mockReturnValue(null);
+      const forbiddenError = { response: { status: 403, data: { error: 'forbidden' } } };
+      mockAuthApi.refresh.mockRejectedValue(forbiddenError);
+
+      await getState().checkAuth();
+
+      expect(mockSetAccessToken).toHaveBeenCalledWith(null);
+      expect(getState().isAuthenticated).toBe(false);
+      expect(getState().loading).toBe(false);
+    });
+
+    it('keeps existing auth state on transient refresh failures (network error)', async () => {
+      // Simulate a logged-in user where the refresh token is still valid in
+      // the browser but the backend is briefly unreachable (e.g. mid-restart).
+      const existingUser = createUser();
+      useAuthStore.setState({
+        user: existingUser,
+        isAuthenticated: true,
+        loading: true,
+      });
+      mockGetAccessToken.mockReturnValue(null);
+      const networkError = new Error('Network Error'); // axios error with no `.response`
+      mockAuthApi.refresh.mockRejectedValue(networkError);
+
+      vi.useFakeTimers();
+      try {
+        const promise = getState().checkAuth();
+        await vi.runAllTimersAsync();
+        await promise;
+      } finally {
+        vi.useRealTimers();
+      }
+
+      // 4 calls: initial + 3 retries (delays 300, 800, 2000 ms)
+      expect(mockAuthApi.refresh).toHaveBeenCalledTimes(4);
+      // Auth state preserved — only `loading` is cleared.
+      expect(mockSetAccessToken).not.toHaveBeenCalledWith(null);
+      expect(getState().user).toEqual(existingUser);
+      expect(getState().isAuthenticated).toBe(true);
+      expect(getState().loading).toBe(false);
+    });
+
+    it('keeps existing auth state on transient refresh failures (5xx)', async () => {
+      useAuthStore.setState({
+        user: createUser(),
+        isAuthenticated: true,
+        loading: true,
+      });
+      mockGetAccessToken.mockReturnValue(null);
+      mockAuthApi.refresh.mockRejectedValue({ response: { status: 503 } });
+
+      vi.useFakeTimers();
+      try {
+        const promise = getState().checkAuth();
+        await vi.runAllTimersAsync();
+        await promise;
+      } finally {
+        vi.useRealTimers();
+      }
+
+      expect(mockAuthApi.refresh).toHaveBeenCalledTimes(4);
+      expect(mockSetAccessToken).not.toHaveBeenCalledWith(null);
+      expect(getState().isAuthenticated).toBe(true);
+      expect(getState().loading).toBe(false);
+    });
+
+    it('recovers when refresh succeeds after a transient failure', async () => {
+      const user = createUser();
+      mockGetAccessToken.mockReturnValue(null);
+      mockAuthApi.refresh
+        .mockRejectedValueOnce({ response: { status: 502 } })
+        .mockRejectedValueOnce(new Error('Network Error'))
+        .mockResolvedValueOnce(createAuthResponse({ user, token: 'recovered-tok' }));
+
+      vi.useFakeTimers();
+      try {
+        const promise = getState().checkAuth();
+        await vi.runAllTimersAsync();
+        await promise;
+      } finally {
+        vi.useRealTimers();
+      }
+
+      expect(mockAuthApi.refresh).toHaveBeenCalledTimes(3);
+      expect(mockSetAccessToken).toHaveBeenCalledWith('recovered-tok');
+      expect(getState().user).toEqual(user);
+      expect(getState().isAuthenticated).toBe(true);
     });
 
     it('triggers sync after successful auth with platform usernames', async () => {
