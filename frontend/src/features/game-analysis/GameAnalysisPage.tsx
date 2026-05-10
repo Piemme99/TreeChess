@@ -160,14 +160,15 @@ export function GameAnalysisPage() {
   const handleCreateAndAdd = useCallback((repertoireId: string) => {
     if (!game || !game.userColor) return;
 
-    // New repertoire is empty (only root node), so always start from move 0
-    // to build the full move sequence up to the current position
+    // New repertoire is empty (only root node). Build the full sequence from move 0
+    // up to the selected move, or — if no move is selected (new-opening default) —
+    // up to the last displayed move so the user gets the full opening line.
     const startIndex = 0;
-    const endIndex = currentMoveIndex;
+    const endIndex = currentMoveIndex >= 0 ? currentMoveIndex : maxDisplayedMoveIndex;
+    if (endIndex < 0) return;
 
     const gameInfo = `${game.headers.White || '?'} vs ${game.headers.Black || '?'}`;
 
-    // Build array of moves from start to current move
     const moves: { parentFEN: string; moveSAN: string; resultFEN: string }[] = [];
     for (let i = startIndex; i <= endIndex; i++) {
       const parentFEN = i === 0 ? STARTING_FEN : computeFEN(game.moves, i - 1);
@@ -188,7 +189,7 @@ export function GameAnalysisPage() {
     sessionStorage.setItem('pendingAddNode', JSON.stringify(context));
 
     navigate(`/repertoire/${repertoireId}/edit`, { state: { from: location.pathname + location.search } });
-  }, [game, currentMoveIndex, navigate, location]);
+  }, [game, currentMoveIndex, maxDisplayedMoveIndex, navigate, location]);
 
   // Refresh repertoire data after import - reanalyze with new repertoires available
   const handleImportSuccess = useCallback(() => {

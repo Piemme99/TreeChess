@@ -138,13 +138,24 @@ export function GameMoveList({
     return displayedMoves.findIndex(m => m.status === 'out-of-book');
   }, [displayedMoves]);
 
-  // Show add button for moves at/after divergence, or out-of-book moves when no divergence
-  const showAddButton = (index: number) => {
-    if (!onAddToRepertoire) return false;
+  const isMoveAddable = (index: number) => {
     if (firstActionableIndex !== -1 && index >= firstActionableIndex) return true;
     if (firstActionableIndex === -1 && displayedMoves[index]?.status === 'out-of-book') return true;
     return false;
   };
+
+  const showAddButton = (index: number) => Boolean(onAddToRepertoire) && isMoveAddable(index);
+
+  // For new-opening games (no matched repertoire — parent withholds onAddToRepertoire),
+  // the create-new affordance must stay reachable even before the user clicks a move.
+  // For new-line games, keep the original rule: only show at or after the divergence.
+  const isNewOpeningGame = !onAddToRepertoire;
+  const showCreateNewBlock =
+    Boolean(onCreateAndAdd && userColor) &&
+    (isNewOpeningGame ||
+      (currentMoveIndex >= 0 &&
+        currentMoveIndex < displayedMoves.length &&
+        isMoveAddable(currentMoveIndex)));
 
   // Show "Open in Repertoire" for in-repertoire moves
   const showOpenButton = (index: number) => {
@@ -218,7 +229,7 @@ export function GameMoveList({
         </div>
       )}
 
-      {/* Show error details for selected move (only for first error) */}
+      {/* Per-move action surface (Open / Add / expected-move chip) */}
       {currentMoveIndex >= 0 && currentMoveIndex < displayedMoves.length && (
         <div className="mt-4 pt-4 border-t border-primary/10 flex flex-col gap-2">
           {showExpectedMoveError(currentMoveIndex, displayedMoves[currentMoveIndex]) && (
@@ -245,53 +256,56 @@ export function GameMoveList({
               {getAddButtonLabel(currentMoveIndex)}
             </Button>
           )}
-          {showAddButton(currentMoveIndex) && userColor && (
-            <div className="flex flex-col gap-2 pt-2 border-t border-dashed border-primary/10 mt-2">
-              <span className="text-xs text-text-muted">Or add to a new repertoire:</span>
-              {isCreating ? (
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={newName}
-                    onChange={(e) => setNewName(e.target.value)}
-                    placeholder="Repertoire name"
-                    className="flex-1 py-1 px-2 border border-primary/10 rounded-md text-sm bg-bg text-text focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary-light"
-                    autoFocus
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') handleCreate();
-                      if (e.key === 'Escape') {
-                        setIsCreating(false);
-                        setNewName('');
-                      }
-                    }}
-                  />
-                  <Button variant="primary" size="sm" onClick={handleCreate} disabled={createLoading}>
-                    {createLoading ? 'Creating...' : 'Create'}
-                  </Button>
-                  <Button variant="ghost" size="sm" onClick={() => { setIsCreating(false); setNewName(''); }} disabled={createLoading}>
-                    Cancel
-                  </Button>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <Button variant="secondary" size="sm" onClick={() => setIsCreating(true)}>
-                    Create New Repertoire
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setShowStudyModal(true);
-                      const lichessUrl = openingName
-                        ? `https://lichess.org/study/search?q=${encodeURIComponent(openingName)}`
-                        : 'https://lichess.org/study';
-                      window.open(lichessUrl, '_blank', 'noopener,noreferrer');
-                    }}
-                  >
-                    Import from Lichess
-                  </Button>
-                </div>
-              )}
+        </div>
+      )}
+
+      {showCreateNewBlock && (
+        <div className="mt-4 pt-4 border-t border-primary/10 flex flex-col gap-2">
+          <span className="text-xs text-text-muted">
+            {onAddToRepertoire ? 'Or add to a new repertoire:' : 'Add to a new repertoire:'}
+          </span>
+          {isCreating ? (
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="Repertoire name"
+                className="flex-1 py-1 px-2 border border-primary/10 rounded-md text-sm bg-bg text-text focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary-light"
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleCreate();
+                  if (e.key === 'Escape') {
+                    setIsCreating(false);
+                    setNewName('');
+                  }
+                }}
+              />
+              <Button variant="primary" size="sm" onClick={handleCreate} disabled={createLoading}>
+                {createLoading ? 'Creating...' : 'Create'}
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => { setIsCreating(false); setNewName(''); }} disabled={createLoading}>
+                Cancel
+              </Button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <Button variant="secondary" size="sm" onClick={() => setIsCreating(true)}>
+                Create New Repertoire
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setShowStudyModal(true);
+                  const lichessUrl = openingName
+                    ? `https://lichess.org/study/search?q=${encodeURIComponent(openingName)}`
+                    : 'https://lichess.org/study';
+                  window.open(lichessUrl, '_blank', 'noopener,noreferrer');
+                }}
+              >
+                Import from Lichess
+              </Button>
             </div>
           )}
         </div>
