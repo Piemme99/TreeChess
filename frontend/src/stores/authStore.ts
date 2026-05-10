@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { authApi, syncApi, setAccessToken, getAccessToken } from '../services/api';
 import { useRepertoireStore } from './repertoireStore';
-import type { User, UpdateProfileRequest, SyncResult } from '../types';
+import type { AuthResponse, User, UpdateProfileRequest, SyncResult } from '../types';
 
 interface AuthState {
   user: User | null;
@@ -136,9 +136,13 @@ export const useAuthStore = create<AuthState>((set) => ({
       }
     }
 
-    // Try to get a new access token using the refresh token cookie
+    // Try to get a new access token using the refresh token cookie.
+    // Retry transient failures (network / 5xx) so a backend that's briefly
+    // unreachable (e.g. mid-restart during dev hot-reload, or a deploy in
+    // prod) doesn't bounce the user to /login while the refresh cookie is
+    // still valid.
     try {
-      const response = await authApi.refresh();
+      const response = await refreshWithRetry();
       setAccessToken(response.token);
       set({
         user: response.user,
@@ -148,14 +152,21 @@ export const useAuthStore = create<AuthState>((set) => ({
       if (response.user.lichessUsername || response.user.chesscomUsername) {
         useAuthStore.getState().triggerSync();
       }
-    } catch {
-      // No valid refresh token — user is not authenticated
-      setAccessToken(null);
-      set({
-        user: null,
-        isAuthenticated: false,
-        loading: false,
-      });
+    } catch (err) {
+      if (isAuthRejection(err)) {
+        // Definitive: the refresh cookie is gone or rejected by the server.
+        setAccessToken(null);
+        set({
+          user: null,
+          isAuthenticated: false,
+          loading: false,
+        });
+      } else {
+        // Transient failure outlasted our retries. Don't flip auth state —
+        // the next user-initiated request will trigger another refresh via
+        // the axios interceptor once the backend is reachable again.
+        set({ loading: false });
+      }
     }
   },
 
@@ -203,4 +214,42 @@ function getErrorMessage(err: unknown, fallback: string): string {
     }
   }
   return fallback;
+}
+
+// 401/403 means the server has definitively rejected the refresh token.
+// Anything else (no response at all, 5xx, timeout) is treated as transient.
+function isAuthRejection(err: unknown): boolean {
+  if (!err || typeof err !== 'object' || !('response' in err)) {
+    return false;
+  }
+  const status = (err as { response?: { status?: number } }).response?.status;
+  return status === 401 || status === 403;
+}
+
+const REFRESH_RETRY_DELAYS_MS = [300, 800, 2000];
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// Retry transient refresh failures with backoff. Auth rejections (401/403)
+// short-circuit immediately; the caller decides what to do with them.
+async function refreshWithRetry(): Promise<AuthResponse> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt <= REFRESH_RETRY_DELAYS_MS.length; attempt++) {
+    try {
+      return await authApi.refresh();
+    } catch (err) {
+      lastError = err;
+      if (isAuthRejection(err)) {
+        throw err;
+      }
+      const nextDelay = REFRESH_RETRY_DELAYS_MS[attempt];
+      if (nextDelay === undefined) {
+        break;
+      }
+      await delay(nextDelay);
+    }
+  }
+  throw lastError;
 }

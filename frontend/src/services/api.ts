@@ -63,16 +63,39 @@ const api = axios.create({
 });
 
 // --- Token refresh logic ---
+type RefreshSubscriber = {
+  resolve: (token: string) => void;
+  reject: (err: unknown) => void;
+};
+
 let isRefreshing = false;
-let refreshSubscribers: Array<(token: string) => void> = [];
+let refreshSubscribers: RefreshSubscriber[] = [];
 
 function onRefreshed(token: string) {
-  refreshSubscribers.forEach((cb) => cb(token));
+  const subs = refreshSubscribers;
   refreshSubscribers = [];
+  subs.forEach((sub) => sub.resolve(token));
 }
 
-function addRefreshSubscriber(cb: (token: string) => void) {
-  refreshSubscribers.push(cb);
+function onRefreshFailed(err: unknown) {
+  const subs = refreshSubscribers;
+  refreshSubscribers = [];
+  subs.forEach((sub) => sub.reject(err));
+}
+
+function addRefreshSubscriber(sub: RefreshSubscriber) {
+  refreshSubscribers.push(sub);
+}
+
+// 401/403 from /auth/refresh means the refresh token itself is rejected
+// (expired, revoked, missing). Anything else (no response, 5xx, timeout)
+// is transient — we should not log the user out for those.
+function isAuthRejection(err: unknown): boolean {
+  if (!err || typeof err !== 'object' || !('response' in err)) {
+    return false;
+  }
+  const status = (err as { response?: { status?: number } }).response?.status;
+  return status === 401 || status === 403;
 }
 
 // Request interceptor - inject access token from memory
@@ -124,22 +147,33 @@ api.interceptors.response.use(
             Authorization: `Bearer ${newAccessToken}`,
           };
           return api(originalRequest);
-        } catch {
+        } catch (refreshError) {
           isRefreshing = false;
-          accessToken = null;
-          refreshSubscribers = [];
-          window.dispatchEvent(new Event('auth:unauthorized'));
+          if (isAuthRejection(refreshError)) {
+            // Definitive: refresh token rejected. Clear state and signal
+            // the app so it can route to /login.
+            accessToken = null;
+            onRefreshFailed(refreshError);
+            window.dispatchEvent(new Event('auth:unauthorized'));
+          } else {
+            // Transient (network / 5xx). Don't unauthenticate — let queued
+            // callers see the failure and let the next request retry.
+            onRefreshFailed(refreshError);
+          }
           return Promise.reject(error);
         }
       } else {
         // Another request is already refreshing — queue this one
-        return new Promise((resolve) => {
-          addRefreshSubscriber((newToken: string) => {
-            originalRequest.headers = {
-              ...originalRequest.headers,
-              Authorization: `Bearer ${newToken}`,
-            };
-            resolve(api(originalRequest));
+        return new Promise((resolve, reject) => {
+          addRefreshSubscriber({
+            resolve: (newToken: string) => {
+              originalRequest.headers = {
+                ...originalRequest.headers,
+                Authorization: `Bearer ${newToken}`,
+              };
+              resolve(api(originalRequest));
+            },
+            reject,
           });
         });
       }
