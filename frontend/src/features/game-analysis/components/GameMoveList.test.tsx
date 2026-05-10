@@ -40,9 +40,11 @@ function makeMove(plyNumber: number, san: string, status: MoveAnalysis['status']
 }
 
 describe('GameMoveList - create-new-repertoire affordance', () => {
-  it('shows "Create New Repertoire" on a new-opening game (no matched repertoire) when a move is selected', () => {
+  it('shows "Create New Repertoire" on a new-opening game (no matched repertoire) without requiring a move click', () => {
     // Simulate new-opening: GameAnalysisPage withholds onAddToRepertoire/onOpenInRepertoire
     // because there is no matched repertoire, but onCreateAndAdd is still provided.
+    // The page lands at currentMoveIndex=-1 (no move selected); the affordance must still
+    // be visible — otherwise the user has no discoverable path to seed a new repertoire.
     const moves: MoveAnalysis[] = [
       makeMove(0, 'e4', 'out-of-book', true),
       makeMove(1, 'e5', 'out-of-book', false),
@@ -51,7 +53,7 @@ describe('GameMoveList - create-new-repertoire affordance', () => {
     render(
       <GameMoveList
         moves={moves}
-        currentMoveIndex={0}
+        currentMoveIndex={-1}
         maxDisplayedIndex={1}
         onMoveClick={vi.fn()}
         onAddToRepertoire={undefined}
