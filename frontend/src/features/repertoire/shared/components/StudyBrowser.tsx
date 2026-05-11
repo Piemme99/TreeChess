@@ -47,10 +47,10 @@ export function StudyBrowser({ onSelectStudy }: StudyBrowserProps) {
       {/* Search bar */}
       <div className="flex gap-2">
         <div className="flex-1 relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted pointer-events-none z-10" />
           <input
             type="text"
-            className="w-full py-2 pl-10 pr-4 border border-primary/10 rounded-xl text-[0.9rem] bg-bg text-text focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary-light"
+            className="w-full py-2 pl-10 pr-4 border border-primary/10 rounded-xl text-[0.9rem] bg-bg text-text focus:outline-none focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary-light"
             placeholder="Search studies..."
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
