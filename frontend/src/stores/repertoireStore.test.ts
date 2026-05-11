@@ -127,6 +127,20 @@ describe('repertoireStore', () => {
       expect(result).toEqual(rep);
     });
 
+    it('adds the repertoire to the store when not already present', async () => {
+      // Repro: F5 on /repertoire/:id/edit loads the page with an empty store.
+      // Without this, the fetched repertoire was dropped and the editor was
+      // stuck on the "Loading repertoire..." screen forever.
+      const rep = createRepertoire({ id: 'r1' });
+      mockRepertoireApi.get.mockResolvedValue(rep);
+
+      const result = await getState().fetchRepertoire('r1');
+
+      expect(result).toEqual(rep);
+      expect(getState().repertoires).toHaveLength(1);
+      expect(getState().repertoires[0]).toEqual(rep);
+    });
+
     it('sets error and throws on failure', async () => {
       mockRepertoireApi.get.mockRejectedValue(new Error('Not found'));
 
