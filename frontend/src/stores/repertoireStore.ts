@@ -93,9 +93,9 @@ export const useRepertoireStore = create<RepertoireState>((set, get) => ({
     try {
       const repertoire = await repertoireApi.get(id);
       set((state) => ({
-        repertoires: state.repertoires.map((r) =>
-          r.id === id ? repertoire : r
-        ),
+        repertoires: state.repertoires.some((r) => r.id === id)
+          ? state.repertoires.map((r) => (r.id === id ? repertoire : r))
+          : [...state.repertoires, repertoire],
         loading: false
       }));
       return repertoire;
