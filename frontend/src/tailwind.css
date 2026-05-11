@@ -114,9 +114,19 @@ input[type="search"]:focus,
 textarea:focus,
 select:focus {
   outline: none;
+}
+
+input[type="text"]:focus-visible,
+input[type="email"]:focus-visible,
+input[type="password"]:focus-visible,
+input[type="url"]:focus-visible,
+input[type="number"]:focus-visible,
+input[type="search"]:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: none;
   border-color: var(--color-primary);
   box-shadow: 0 0 0 3px rgba(230, 126, 34, 0.15), 0 4px 12px -2px rgba(230, 126, 34, 0.1);
-  transform: translateY(-1px);
 }
 
 input::placeholder,
