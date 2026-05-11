@@ -497,7 +497,8 @@ export const studyApi = {
     categoryName?: string,
     includeComments?: boolean,
     includeHints?: boolean,
-    ownerName?: string
+    ownerName?: string,
+    renameStrategy?: 'abort' | 'auto-suffix'
   ): Promise<StudyImportResponse> => {
     const body: Record<string, unknown> = { studyUrl, chapters };
     if (mergeAsOne) {
@@ -510,6 +511,7 @@ export const studyApi = {
     body.includeComments = includeComments ?? false;
     body.includeHints = includeHints ?? true;
     if (ownerName) body.ownerName = ownerName;
+    if (renameStrategy) body.renameStrategy = renameStrategy;
     const response = await api.post('/studies/import', body, { timeout: 120000 });
     return response.data;
   },

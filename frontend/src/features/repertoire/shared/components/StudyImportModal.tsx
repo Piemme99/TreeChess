@@ -1,10 +1,12 @@
 import { useState, useCallback, useEffect } from 'react';
+import { Link } from 'react-router';
 import { Modal } from '../../../../shared/components/UI/Modal';
 import { Button } from '../../../../shared/components/UI/Button';
 import { ColorDot } from '../../../../shared/components/UI';
 import { useStudyImport } from '../hooks/useStudyImport';
 import { useRepertoireStore } from '../../../../stores/repertoireStore';
 import { StudyBrowser } from './StudyBrowser';
+import type { RepertoireNameConflict, StudyImportRenameStrategy } from '../../../../types';
 
 type ActiveView = 'browse' | 'paste-url' | 'preview';
 
@@ -24,6 +26,7 @@ export function StudyImportModal({ isOpen, onClose, onSuccess }: StudyImportModa
   const [createCategory, setCreateCategory] = useState(true);
   const [includeHints, setIncludeHints] = useState(true);
   const [includeComments, setIncludeComments] = useState(false);
+  const [conflicts, setConflicts] = useState<RepertoireNameConflict[] | null>(null);
   const addCategory = useRepertoireStore((state) => state.addCategory);
 
   const { previewing, importing, studyInfo, previewError, handlePreview, handleImport, reset } = useStudyImport(onSuccess);
@@ -38,6 +41,7 @@ export function StudyImportModal({ isOpen, onClose, onSuccess }: StudyImportModa
     setCreateCategory(true);
     setIncludeHints(true);
     setIncludeComments(false);
+    setConflicts(null);
     reset();
     onClose();
   }, [onClose, reset]);
@@ -70,12 +74,12 @@ export function StudyImportModal({ isOpen, onClose, onSuccess }: StudyImportModa
     }
   }, [handlePreview]);
 
-  const onImport = useCallback(async () => {
+  const runImport = useCallback(async (renameStrategy?: StudyImportRenameStrategy) => {
     const importableChapters = studyInfo?.chapters.filter(c => c.importable) ?? [];
     const chapters = mergeAsOne
       ? importableChapters.map(c => c.index)
       : importableChapters.map(c => c.index).filter(i => selectedChapters.has(i));
-    const result = await handleImport(
+    const outcome = await handleImport(
       url,
       chapters,
       mergeAsOne,
@@ -84,21 +88,39 @@ export function StudyImportModal({ isOpen, onClose, onSuccess }: StudyImportModa
       !mergeAsOne && createCategory ? studyInfo?.studyName : undefined,
       includeComments,
       includeHints,
-      studyInfo?.ownerName
+      studyInfo?.ownerName,
+      renameStrategy,
     );
-    if (result) {
-      if (result.category) {
-        addCategory(result.category);
+    if (outcome.kind === 'success') {
+      if (outcome.result.category) {
+        addCategory(outcome.result.category);
       }
       handleClose();
+    } else if (outcome.kind === 'conflict') {
+      setConflicts(outcome.conflicts);
     }
   }, [url, selectedChapters, studyInfo, mergeAsOne, mergeName, createCategory, includeComments, includeHints, handleImport, handleClose, addCategory]);
+
+  const onImport = useCallback(() => {
+    setConflicts(null);
+    void runImport();
+  }, [runImport]);
+
+  const onAutoSuffix = useCallback(() => {
+    setConflicts(null);
+    void runImport('auto-suffix');
+  }, [runImport]);
+
+  const onCancelConflict = useCallback(() => {
+    setConflicts(null);
+  }, []);
 
   const handleBack = useCallback(() => {
     reset();
     setSelectedChapters(new Set());
     setMergeAsOne(false);
     setMergeName('');
+    setConflicts(null);
     setActiveView(previousTab);
   }, [reset, previousTab]);
 
@@ -347,6 +369,50 @@ export function StudyImportModal({ isOpen, onClose, onSuccess }: StudyImportModa
               <span>Import comments</span>
             </label>
           </div>
+
+          {conflicts && conflicts.length > 0 && (
+            <div
+              role="alert"
+              aria-label="Repertoire name conflicts"
+              className="border border-warning/40 bg-warning/5 rounded-xl p-4 flex flex-col gap-3"
+            >
+              <p className="m-0 text-[0.9rem] text-text font-medium">
+                {conflicts.length === 1
+                  ? `A repertoire named “${conflicts[0].targetName}” already exists for this color.`
+                  : `${conflicts.length} target names already exist for this color:`}
+              </p>
+              {conflicts.length > 1 && (
+                <ul className="m-0 pl-5 list-disc text-[0.85rem] text-text">
+                  {conflicts.map((c) => (
+                    <li key={`${c.existingId}-${c.chapterIndex}`}>
+                      <Link
+                        to={`/repertoire/${c.existingId}/edit`}
+                        className="text-primary underline hover:no-underline"
+                        onClick={handleClose}
+                      >
+                        {c.targetName}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <div className="flex flex-wrap gap-2">
+                {conflicts.length === 1 && (
+                  <Link to={`/repertoire/${conflicts[0].existingId}/edit`} onClick={handleClose}>
+                    <Button variant="ghost" type="button">
+                      Open existing “{conflicts[0].targetName}”
+                    </Button>
+                  </Link>
+                )}
+                <Button onClick={onAutoSuffix} loading={importing}>
+                  Import with new names
+                </Button>
+                <Button variant="ghost" onClick={onCancelConflict} type="button">
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
 
           <div className="flex justify-end gap-2">
             <Button variant="ghost" onClick={handleBack}>

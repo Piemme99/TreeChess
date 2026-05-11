@@ -8,7 +8,8 @@ var (
 	ErrCategoryNotFound = fmt.Errorf("category not found")
 
 	// Repertoire errors
-	ErrRepertoireNotFound = fmt.Errorf("repertoire not found")
+	ErrRepertoireNotFound   = fmt.Errorf("repertoire not found")
+	ErrRepertoireNameExists = fmt.Errorf("repertoire name already exists for this color")
 
 	// Analysis errors
 	ErrAnalysisNotFound = fmt.Errorf("analysis not found")

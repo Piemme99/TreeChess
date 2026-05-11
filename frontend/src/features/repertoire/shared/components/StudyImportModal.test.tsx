@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { MemoryRouter } from 'react-router';
 import type { ReactNode } from 'react';
 
 const mocks = vi.hoisted(() => ({
@@ -76,7 +77,11 @@ vi.mock('../hooks/useStudyImport', async () => {
 import { StudyImportModal } from './StudyImportModal';
 
 async function renderAndLoadStudy() {
-  render(<StudyImportModal isOpen onClose={vi.fn()} />);
+  render(
+    <MemoryRouter>
+      <StudyImportModal isOpen onClose={vi.fn()} />
+    </MemoryRouter>,
+  );
   fireEvent.click(screen.getByTestId('select-study-btn'));
   const firstChapterName = nextStudy.chapters[0].name;
   await waitFor(() => expect(screen.getByText(firstChapterName)).toBeInTheDocument());
@@ -90,7 +95,7 @@ function getChapterCheckbox(name: string): HTMLInputElement {
 describe('StudyImportModal – chapter toggle', () => {
   beforeEach(() => {
     mocks.handleImportSpy.mockReset();
-    mocks.handleImportSpy.mockResolvedValue(null);
+    mocks.handleImportSpy.mockResolvedValue({ kind: 'error' });
     nextStudy = defaultStudy;
   });
 
@@ -141,7 +146,7 @@ describe('StudyImportModal – chapter toggle', () => {
 describe('StudyImportModal – skipped chapters', () => {
   beforeEach(() => {
     mocks.handleImportSpy.mockReset();
-    mocks.handleImportSpy.mockResolvedValue(null);
+    mocks.handleImportSpy.mockResolvedValue({ kind: 'error' });
     nextStudy = {
       studyId: 'abc123',
       studyName: 'Mixed Study',
@@ -178,5 +183,64 @@ describe('StudyImportModal – skipped chapters', () => {
     await waitFor(() => expect(mocks.handleImportSpy).toHaveBeenCalled());
     const chaptersArg = mocks.handleImportSpy.mock.calls[0][1];
     expect(chaptersArg).toEqual([0]);
+  });
+});
+
+describe('StudyImportModal – name conflicts', () => {
+  beforeEach(() => {
+    mocks.handleImportSpy.mockReset();
+    nextStudy = defaultStudy;
+  });
+
+  it('renders the conflict panel with a link to the existing repertoire when handleImport returns a conflict', async () => {
+    const conflicts = [
+      { chapterIndex: 0, chapterName: 'Chapter 1', targetName: 'Chapter 1', existingId: 'existing-rep-id', existingColor: 'white' },
+    ];
+    mocks.handleImportSpy.mockResolvedValueOnce({ kind: 'conflict', conflicts });
+
+    await renderAndLoadStudy();
+    fireEvent.click(screen.getByText(/Import 3 chapter\(s\)/i));
+
+    const conflictAlert = await screen.findByRole('alert', { name: /repertoire name conflicts/i });
+    expect(within(conflictAlert).getByText(/already exists/i)).toBeInTheDocument();
+
+    const openExistingLink = within(conflictAlert).getByRole('link', { name: /open existing/i });
+    expect(openExistingLink).toHaveAttribute('href', '/repertoire/existing-rep-id/edit');
+  });
+
+  it('retries the import with renameStrategy=auto-suffix when the user clicks "Import with new names"', async () => {
+    const conflicts = [
+      { chapterIndex: 0, chapterName: 'Chapter 1', targetName: 'Chapter 1', existingId: 'existing-rep-id', existingColor: 'white' },
+    ];
+    mocks.handleImportSpy
+      .mockResolvedValueOnce({ kind: 'conflict', conflicts })
+      .mockResolvedValueOnce({ kind: 'success', result: { repertoires: [], count: 0 } });
+
+    await renderAndLoadStudy();
+    fireEvent.click(screen.getByText(/Import 3 chapter\(s\)/i));
+
+    await screen.findByRole('alert', { name: /repertoire name conflicts/i });
+    fireEvent.click(screen.getByText(/Import with new names/i));
+
+    await waitFor(() => expect(mocks.handleImportSpy).toHaveBeenCalledTimes(2));
+    const secondCallArgs = mocks.handleImportSpy.mock.calls[1];
+    // renameStrategy is the 10th positional argument (index 9).
+    expect(secondCallArgs[9]).toBe('auto-suffix');
+  });
+
+  it('dismisses the conflict panel when the user clicks Cancel', async () => {
+    const conflicts = [
+      { chapterIndex: 0, chapterName: 'Chapter 1', targetName: 'Chapter 1', existingId: 'existing-rep-id', existingColor: 'white' },
+    ];
+    mocks.handleImportSpy.mockResolvedValueOnce({ kind: 'conflict', conflicts });
+
+    await renderAndLoadStudy();
+    fireEvent.click(screen.getByText(/Import 3 chapter\(s\)/i));
+
+    const alert = await screen.findByRole('alert', { name: /repertoire name conflicts/i });
+    const cancelBtn = within(alert).getByText(/^Cancel$/);
+    fireEvent.click(cancelBtn);
+
+    await waitFor(() => expect(screen.queryByRole('alert', { name: /repertoire name conflicts/i })).not.toBeInTheDocument());
   });
 });

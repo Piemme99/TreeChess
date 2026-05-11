@@ -205,6 +205,90 @@ func TestImportStudyHandler_NoChapters(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 }
 
+func TestImportStudyHandler_NameConflict_Returns409(t *testing.T) {
+	pgnData := `[Event "Sicilian Study: Najdorf"]
+[Orientation "White"]
+
+1. e4 c5 *
+`
+	mockLichess := &smocks.MockLichessService{
+		FetchStudyPGNFunc: func(studyID, authToken string) (string, error) { return pgnData, nil },
+	}
+	mockRepSvc := &smocks.MockRepertoireService{
+		ListRepertoiresFunc: func(userID string, color *models.Color) ([]models.Repertoire, error) {
+			return []models.Repertoire{{ID: "existing-1", Name: "Najdorf", Color: models.ColorWhite}}, nil
+		},
+		CreateRepertoireFunc: func(userID, name string, color models.Color) (*models.Repertoire, error) {
+			t.Fatalf("create should not be called when conflict aborts the import")
+			return nil, nil
+		},
+	}
+	handler := newTestStudyImportHandler(mockLichess, mockRepSvc, &mocks.MockUserRepo{})
+
+	e := echo.New()
+	body := `{"studyUrl":"https://lichess.org/study/abcdefgh","chapters":[0]}`
+	req := httptest.NewRequest(http.MethodPost, "/api/studies/import", strings.NewReader(body))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.Set("userID", testUserID)
+
+	err := handler.ImportStudyHandler(c)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusConflict, rec.Code)
+
+	var resp struct {
+		Error     string                          `json:"error"`
+		Type      string                          `json:"type"`
+		Conflicts []models.RepertoireNameConflict `json:"conflicts"`
+	}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	assert.Equal(t, "name-conflict", resp.Type)
+	assert.Contains(t, resp.Error, "Najdorf")
+	require.Len(t, resp.Conflicts, 1)
+	assert.Equal(t, "Najdorf", resp.Conflicts[0].TargetName)
+	assert.Equal(t, "existing-1", resp.Conflicts[0].ExistingID)
+	assert.Equal(t, "white", resp.Conflicts[0].ExistingColor)
+}
+
+func TestImportStudyHandler_AutoSuffixSucceeds(t *testing.T) {
+	pgnData := `[Event "Sicilian Study: Najdorf"]
+[Orientation "White"]
+
+1. e4 c5 *
+`
+	mockLichess := &smocks.MockLichessService{
+		FetchStudyPGNFunc: func(studyID, authToken string) (string, error) { return pgnData, nil },
+	}
+	var createdName string
+	mockRepSvc := &smocks.MockRepertoireService{
+		ListRepertoiresFunc: func(userID string, color *models.Color) ([]models.Repertoire, error) {
+			return []models.Repertoire{{ID: "existing-1", Name: "Najdorf", Color: models.ColorWhite}}, nil
+		},
+		CreateRepertoireFunc: func(userID, name string, color models.Color) (*models.Repertoire, error) {
+			createdName = name
+			return &models.Repertoire{ID: "rep-1", Name: name, Color: color}, nil
+		},
+		SaveTreeFunc: func(userID, repertoireID string, treeData models.RepertoireNode) (*models.Repertoire, error) {
+			return &models.Repertoire{ID: repertoireID, TreeData: treeData}, nil
+		},
+	}
+	handler := newTestStudyImportHandler(mockLichess, mockRepSvc, &mocks.MockUserRepo{})
+
+	e := echo.New()
+	body := `{"studyUrl":"https://lichess.org/study/abcdefgh","chapters":[0],"renameStrategy":"auto-suffix"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/studies/import", strings.NewReader(body))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.Set("userID", testUserID)
+
+	err := handler.ImportStudyHandler(c)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusCreated, rec.Code)
+	assert.Equal(t, "Najdorf (2)", createdName)
+}
+
 func TestImportStudyHandler_LimitReached(t *testing.T) {
 	pgnData := `[Event "Study: Chapter"]
 [Orientation "White"]
