@@ -60,6 +60,10 @@ export function useStudyImport(onSuccess?: () => void): UseStudyImportReturn {
             ? `Imported ${result.count} repertoire(s) into category "${result.category.name}"`
             : `Imported ${result.count} repertoire(s) from Lichess study`
       );
+      if (result.skipped && result.skipped.length > 0) {
+        const n = result.skipped.length;
+        toast.warning(`${n} chapter${n > 1 ? 's' : ''} skipped (custom starting position not yet supported)`);
+      }
       onSuccess?.();
       return result;
     } catch (error) {

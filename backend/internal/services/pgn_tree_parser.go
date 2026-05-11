@@ -242,6 +242,19 @@ func stripTrailingNAG(move string) (string, string) {
 	return move, ""
 }
 
+// HasCustomStartingPosition reports whether the parsed PGN headers describe a
+// chapter that starts from a non-standard position (Lichess "From Position"
+// feature). Such chapters are rejected by ParsePGNToTree and surfaced to the UI
+// so users know they were skipped.
+func HasCustomStartingPosition(headers map[string]string) bool {
+	fenHeader, ok := headers["FEN"]
+	if !ok || fenHeader == "" {
+		return false
+	}
+	const standardFEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+	return ensureFullFEN(fenHeader) != standardFEN
+}
+
 // ParsePGNToTree parses a single PGN game text (with headers) into a RepertoireNode tree.
 // Returns the root node, a map of PGN headers, and any error.
 func ParsePGNToTree(pgnText string) (models.RepertoireNode, map[string]string, error) {
@@ -249,11 +262,8 @@ func ParsePGNToTree(pgnText string) (models.RepertoireNode, map[string]string, e
 	tokens := tokenizePGNMovetext(movetext)
 
 	// Reject custom starting positions — only standard openings are supported
-	if fenHeader, ok := headers["FEN"]; ok && fenHeader != "" {
-		standardFEN := "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
-		if ensureFullFEN(fenHeader) != standardFEN {
-			return models.RepertoireNode{}, nil, ErrCustomStartingPosition
-		}
+	if HasCustomStartingPosition(headers) {
+		return models.RepertoireNode{}, nil, ErrCustomStartingPosition
 	}
 
 	game := chess.NewGame()

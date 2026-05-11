@@ -81,7 +81,7 @@ func (h *StudyImportHandler) ImportStudyHandler(c *echo.Context) error {
 	authToken := h.studyImportService.GetLichessTokenForUser(userID)
 
 	if req.MergeAsOne {
-		merged, err := h.studyImportService.ImportStudyChaptersMerged(userID, studyID, authToken, req.ChapterIndices, req.MergeName, req.IncludeComments, req.IncludeHints, req.OwnerName)
+		mergeResult, err := h.studyImportService.ImportStudyChaptersMerged(userID, studyID, authToken, req.ChapterIndices, req.MergeName, req.IncludeComments, req.IncludeHints, req.OwnerName)
 		if err != nil {
 			if errors.Is(err, services.ErrLichessStudyNotFound) {
 				return NotFoundResponse(c, "Lichess study")
@@ -98,14 +98,21 @@ func (h *StudyImportHandler) ImportStudyHandler(c *echo.Context) error {
 			if errors.Is(err, services.ErrMixedColors) {
 				return BadRequestResponse(c, "cannot merge chapters with different colors (white/black)")
 			}
+			if errors.Is(err, services.ErrAllChaptersSkipped) {
+				return BadRequestResponse(c, "selected chapters use a custom starting position and cannot be imported")
+			}
 			slog.Error("study merged import failed", "user_id", userID, "error", err)
 			return BadRequestResponse(c, "failed to import study")
 		}
 
-		return c.JSON(http.StatusCreated, map[string]interface{}{
-			"repertoires": []models.Repertoire{*merged},
+		response := map[string]interface{}{
+			"repertoires": []models.Repertoire{*mergeResult.Repertoire},
 			"count":       1,
-		})
+		}
+		if len(mergeResult.Skipped) > 0 {
+			response["skipped"] = mergeResult.Skipped
+		}
+		return c.JSON(http.StatusCreated, response)
 	}
 
 	result, err := h.studyImportService.ImportStudyChaptersWithCategory(userID, studyID, authToken, req.ChapterIndices, req.CreateCategory, req.CategoryName, req.IncludeComments, req.IncludeHints, req.OwnerName)
@@ -132,6 +139,9 @@ func (h *StudyImportHandler) ImportStudyHandler(c *echo.Context) error {
 	}
 	if result.Category != nil {
 		response["category"] = result.Category
+	}
+	if len(result.Skipped) > 0 {
+		response["skipped"] = result.Skipped
 	}
 	return c.JSON(http.StatusCreated, response)
 }
