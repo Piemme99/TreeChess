@@ -60,7 +60,7 @@ export function BoardSection({
 
   const bestMoveArrow = useMemo<[string, string, string?][]>(() => {
     if (engineEvaluation?.bestMoveFrom && engineEvaluation?.bestMoveTo) {
-      return [[engineEvaluation.bestMoveFrom, engineEvaluation.bestMoveTo, 'rgba(230, 126, 34, 0.6)']];
+      return [[engineEvaluation.bestMoveFrom, engineEvaluation.bestMoveTo, '#e67e22']];
     }
     return [];
   }, [engineEvaluation?.bestMoveFrom, engineEvaluation?.bestMoveTo]);

@@ -191,7 +191,7 @@ export function ExplorerTrainingReview({
 
   const bestMoveArrow = useMemo<[string, string, string?][]>(() => {
     if (engine.currentEvaluation?.bestMoveFrom && engine.currentEvaluation?.bestMoveTo) {
-      return [[engine.currentEvaluation.bestMoveFrom, engine.currentEvaluation.bestMoveTo, 'rgba(230, 126, 34, 0.6)']];
+      return [[engine.currentEvaluation.bestMoveFrom, engine.currentEvaluation.bestMoveTo, '#e67e22']];
     }
     return [];
   }, [engine.currentEvaluation?.bestMoveFrom, engine.currentEvaluation?.bestMoveTo]);

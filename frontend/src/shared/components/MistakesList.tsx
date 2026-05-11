@@ -26,14 +26,14 @@ function moveToArrows(fen: string, playedMove: string, bestMove: string): [strin
     const chess = new Chess(ensureFullFEN(fen));
     const played = chess.move(playedMove);
     if (played) {
-      arrows.push([played.from, played.to, 'rgba(220, 53, 69, 0.8)']);
+      arrows.push([played.from, played.to, '#dc3545']);
     }
   } catch { /* ignore */ }
   try {
     const chess = new Chess(ensureFullFEN(fen));
     const best = chess.move(bestMove);
     if (best) {
-      arrows.push([best.from, best.to, 'rgba(40, 167, 69, 0.8)']);
+      arrows.push([best.from, best.to, '#28a745']);
     }
   } catch { /* ignore */ }
   return arrows;

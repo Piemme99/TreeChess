@@ -101,7 +101,7 @@ export function RepertoireEdit() {
       const move = chess.move(data.moveSAN);
       if (!move) return [];
       pendingArrowFenRef.current = data.parentFEN.split(' ')[0];
-      return [[move.from, move.to, 'rgba(220, 53, 69, 0.8)']];
+      return [[move.from, move.to, '#dc3545']];
     } catch {
       return [];
     }
