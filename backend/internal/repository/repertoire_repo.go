@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -306,6 +307,9 @@ func (r *PostgresRepertoireRepo) createRepertoire(userID string, name string, de
 		&rep.UpdatedAt,
 	)
 	if err != nil {
+		if isRepertoireNameConflict(err) {
+			return nil, ErrRepertoireNameExists
+		}
 		return nil, fmt.Errorf("failed to create repertoire: %w", err)
 	}
 
@@ -593,6 +597,21 @@ func (r *PostgresRepertoireRepo) BelongsToUser(id string, userID string) (bool, 
 }
 
 // scanRepertoires is a helper to scan multiple repertoire rows
+// isRepertoireNameConflict detects a Postgres unique-constraint violation on the
+// repertoires (user_id, name, color) tuple. The unique index name in db.go is auto-generated
+// by the inline UNIQUE() clause, so we match on the SQLSTATE code + the offending column hints.
+func isRepertoireNameConflict(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	if !strings.Contains(msg, "23505") && !strings.Contains(msg, "duplicate key") {
+		return false
+	}
+	// Restrict to the repertoires table so other unique constraints (categories, etc.) don't get swallowed
+	return strings.Contains(msg, "repertoires")
+}
+
 func (r *PostgresRepertoireRepo) scanRepertoires(rows interface {
 	Next() bool
 	Scan(...interface{}) error

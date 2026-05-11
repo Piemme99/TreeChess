@@ -412,6 +412,8 @@ export interface SkippedStudyChapter {
 
 export const STUDY_SKIP_REASON_CUSTOM_STARTING_POSITION = 'custom-starting-position';
 
+export type StudyImportRenameStrategy = 'abort' | 'auto-suffix';
+
 export interface StudyImportRequest {
   studyUrl: string;
   chapters: number[];
@@ -422,6 +424,7 @@ export interface StudyImportRequest {
   includeComments?: boolean;
   includeHints?: boolean;
   ownerName?: string;
+  renameStrategy?: StudyImportRenameStrategy;
 }
 
 export interface StudyImportResponse {
@@ -429,6 +432,20 @@ export interface StudyImportResponse {
   count: number;
   category?: Category;
   skipped?: SkippedStudyChapter[];
+}
+
+export interface RepertoireNameConflict {
+  chapterIndex: number;
+  chapterName: string;
+  targetName: string;
+  existingId: string;
+  existingColor: string;
+}
+
+export interface StudyImportConflictResponse {
+  error: string;
+  type: 'name-conflict';
+  conflicts: RepertoireNameConflict[];
 }
 
 // Lichess Study Browser types

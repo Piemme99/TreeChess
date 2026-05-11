@@ -120,6 +120,7 @@ type MockRepertoireService struct {
 	CreateRepertoireWithCategoryFunc func(userID, name string, color models.Color, categoryID *string) (*models.Repertoire, error)
 	SaveTreeFunc                     func(userID, repertoireID string, treeData models.RepertoireNode) (*models.Repertoire, error)
 	SetOriginFunc                    func(repertoireID string, origin *models.RepertoireOrigin) error
+	ListRepertoiresFunc              func(userID string, color *models.Color) ([]models.Repertoire, error)
 }
 
 func (m *MockRepertoireService) CreateRepertoire(userID, name string, color models.Color) (*models.Repertoire, error) {
@@ -152,4 +153,11 @@ func (m *MockRepertoireService) SetOrigin(repertoireID string, origin *models.Re
 		return m.SetOriginFunc(repertoireID, origin)
 	}
 	return nil
+}
+
+func (m *MockRepertoireService) ListRepertoires(userID string, color *models.Color) ([]models.Repertoire, error) {
+	if m.ListRepertoiresFunc != nil {
+		return m.ListRepertoiresFunc(userID, color)
+	}
+	return nil, nil
 }

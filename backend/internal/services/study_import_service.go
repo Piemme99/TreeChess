@@ -142,19 +142,98 @@ type StudyImportResult struct {
 	Skipped     []models.SkippedStudyChapter `json:"skipped,omitempty"`
 }
 
+// Rename strategies for resolving repertoire name conflicts during study import.
+const (
+	RenameStrategyAbort      = "abort"
+	RenameStrategyAutoSuffix = "auto-suffix"
+)
+
+// StudyImportConflictError is returned by the import flows when one or more
+// target repertoire names collide with existing repertoires (same user + color)
+// and the caller asked for the default abort strategy. The handler maps this
+// to HTTP 409 so the UI can offer "open existing" / "import under new name".
+type StudyImportConflictError struct {
+	Conflicts []models.RepertoireNameConflict
+}
+
+func (e *StudyImportConflictError) Error() string {
+	if len(e.Conflicts) == 1 {
+		return fmt.Sprintf("a repertoire named %q already exists for this color", e.Conflicts[0].TargetName)
+	}
+	return fmt.Sprintf("%d repertoire names already exist for this color", len(e.Conflicts))
+}
+
+// normalizeRenameStrategy returns a canonical strategy value, defaulting to abort.
+func normalizeRenameStrategy(s string) string {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case RenameStrategyAutoSuffix:
+		return RenameStrategyAutoSuffix
+	default:
+		return RenameStrategyAbort
+	}
+}
+
+// uniqueNameWithSuffix returns the input name if it doesn't collide with any name in
+// `taken`, otherwise appends " (2)", " (3)", ... until it doesn't. Comparison is
+// case-sensitive to mirror the Postgres collation used by the unique constraint.
+// The returned name is also added to `taken` so subsequent calls don't reuse it.
+func uniqueNameWithSuffix(name string, taken map[string]bool) string {
+	if !taken[name] {
+		taken[name] = true
+		return name
+	}
+	for i := 2; ; i++ {
+		candidate := fmt.Sprintf("%s (%d)", name, i)
+		if !taken[candidate] {
+			taken[candidate] = true
+			return candidate
+		}
+	}
+}
+
+// existingNamesByColor builds a lookup table of {color -> {name -> existingRepertoireID}}
+// for the user, used to detect study-import conflicts before any writes.
+func (s *StudyImportService) existingNamesByColor(userID string) (map[models.Color]map[string]string, error) {
+	all, err := s.repertoireService.ListRepertoires(userID, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list existing repertoires: %w", err)
+	}
+	out := map[models.Color]map[string]string{}
+	for _, r := range all {
+		if out[r.Color] == nil {
+			out[r.Color] = map[string]string{}
+		}
+		out[r.Color][r.Name] = r.ID
+	}
+	return out, nil
+}
+
 // ImportStudyChapters imports selected chapters from a Lichess study as new repertoires.
 func (s *StudyImportService) ImportStudyChapters(userID, studyID, authToken string, chapterIndices []int) ([]models.Repertoire, error) {
-	result, err := s.ImportStudyChaptersWithCategory(userID, studyID, authToken, chapterIndices, false, "", false, true)
+	result, err := s.ImportStudyChaptersWithCategory(userID, studyID, authToken, chapterIndices, false, "", false, true, RenameStrategyAbort)
 	if err != nil {
 		return nil, err
 	}
 	return result.Repertoires, nil
 }
 
+// parsedChapter holds a study chapter that has been parsed and is ready to import.
+type parsedChapter struct {
+	index int
+	name  string
+	color models.Color
+	root  models.RepertoireNode
+}
+
 // ImportStudyChaptersWithCategory imports selected chapters with optional category creation.
 // When createCategory is true and chapters are not being merged, it creates a category
 // and assigns all imported repertoires to it.
-func (s *StudyImportService) ImportStudyChaptersWithCategory(userID, studyID, authToken string, chapterIndices []int, createCategory bool, categoryName string, includeComments, includeHints bool, ownerName ...string) (*StudyImportResult, error) {
+//
+// renameStrategy controls behavior when a target name collides with an existing
+// repertoire for the same user+color. See the RenameStrategy* constants.
+// The optional ownerName variadic preserves backward compatibility with callers
+// that don't pass an explicit owner — only the first value is honored.
+func (s *StudyImportService) ImportStudyChaptersWithCategory(userID, studyID, authToken string, chapterIndices []int, createCategory bool, categoryName string, includeComments, includeHints bool, renameStrategy string, ownerName ...string) (*StudyImportResult, error) {
 	pgnData, err := s.lichessService.FetchStudyPGN(studyID, authToken)
 	if err != nil {
 		return nil, err
@@ -165,87 +244,14 @@ func (s *StudyImportService) ImportStudyChaptersWithCategory(userID, studyID, au
 		return nil, fmt.Errorf("no chapters found in study")
 	}
 
-	// Build a set of requested indices for quick lookup
 	requested := make(map[int]bool, len(chapterIndices))
 	for _, idx := range chapterIndices {
 		requested[idx] = true
 	}
 
+	// Phase 1: parse all requested chapters, splitting into parsed + skipped.
 	studyName := ""
-	// First pass: determine study name and dominant color
-	var detectedColor models.Color
-	colorsFound := make(map[models.Color]int)
-
-	for i, chapterPGN := range chapters {
-		if !requested[i] {
-			continue
-		}
-
-		headers, _ := splitPGNHeadersAndMovetext(chapterPGN)
-		name := headers["Event"]
-		if studyName == "" {
-			if parts := strings.SplitN(name, ": ", 2); len(parts) == 2 {
-				studyName = parts[0]
-			} else {
-				studyName = name
-			}
-		}
-
-		orientation := strings.ToLower(headers["Orientation"])
-		color := models.ColorWhite
-		if orientation == "black" {
-			color = models.ColorBlack
-		}
-		colorsFound[color]++
-	}
-
-	// Determine the dominant color (for category creation)
-	if colorsFound[models.ColorWhite] >= colorsFound[models.ColorBlack] {
-		detectedColor = models.ColorWhite
-	} else {
-		detectedColor = models.ColorBlack
-	}
-
-	// Create category if requested
-	var category *models.Category
-	var categoryID *string
-	if createCategory && s.categoryRepo != nil {
-		catName := categoryName
-		if catName == "" {
-			catName = studyName
-		}
-		if catName == "" {
-			catName = "Imported Study"
-		}
-
-		cat, err := s.categoryRepo.Create(userID, catName, detectedColor)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create category: %w", err)
-		}
-		category = cat
-		categoryID = &cat.ID
-	}
-
-	// Resolve the origin owner name
-	resolvedOwner := ""
-	if len(ownerName) > 0 && ownerName[0] != "" {
-		resolvedOwner = ownerName[0]
-	} else {
-		// Try to fetch from Lichess metadata
-		meta, metaErr := s.lichessService.FetchStudyMetadata(studyID, authToken)
-		if metaErr == nil && meta != nil {
-			resolvedOwner = meta.Owner.Name
-		}
-	}
-
-	// Build origin to set on each imported repertoire
-	origin := &models.RepertoireOrigin{
-		Type:    "lichess",
-		URL:     fmt.Sprintf("https://lichess.org/study/%s", studyID),
-		Creator: resolvedOwner,
-	}
-
-	var created []models.Repertoire
+	var parsed []parsedChapter
 	var skipped []models.SkippedStudyChapter
 
 	for i, chapterPGN := range chapters {
@@ -253,9 +259,9 @@ func (s *StudyImportService) ImportStudyChaptersWithCategory(userID, studyID, au
 			continue
 		}
 
-		root, headers, err := ParsePGNToTree(chapterPGN)
-		if err != nil {
-			if errors.Is(err, ErrCustomStartingPosition) {
+		root, headers, parseErr := ParsePGNToTree(chapterPGN)
+		if parseErr != nil {
+			if errors.Is(parseErr, ErrCustomStartingPosition) {
 				slog.Debug("skipping chapter with custom starting position", "chapter_index", i)
 				skipped = append(skipped, models.SkippedStudyChapter{
 					Index:  i,
@@ -264,45 +270,154 @@ func (s *StudyImportService) ImportStudyChaptersWithCategory(userID, studyID, au
 				})
 				continue
 			}
-			return nil, fmt.Errorf("failed to parse chapter %d: %w", i, err)
+			return nil, fmt.Errorf("failed to parse chapter %d: %w", i, parseErr)
 		}
 
 		stripTreeAnnotations(&root, includeComments, includeHints)
 
-		// Determine chapter name
-		name := headers["Event"]
-		if name == "" {
-			name = fmt.Sprintf("Chapter %d", i+1)
+		rawName := headers["Event"]
+		if rawName == "" {
+			rawName = fmt.Sprintf("Chapter %d", i+1)
 		}
-		if parts := strings.SplitN(name, ": ", 2); len(parts) == 2 {
-			name = parts[1]
+		if studyName == "" {
+			if parts := strings.SplitN(rawName, ": ", 2); len(parts) == 2 {
+				studyName = parts[0]
+			} else {
+				studyName = rawName
+			}
+		}
+		chapterName := rawName
+		if parts := strings.SplitN(rawName, ": ", 2); len(parts) == 2 {
+			chapterName = parts[1]
 		}
 
-		// Determine color from Orientation header
 		orientation := strings.ToLower(headers["Orientation"])
 		color := models.ColorWhite
 		if orientation == "black" {
 			color = models.ColorBlack
 		}
 
-		// Create the repertoire (with category if one was created and colors match)
+		parsed = append(parsed, parsedChapter{
+			index: i,
+			name:  chapterName,
+			color: color,
+			root:  root,
+		})
+	}
+
+	// Phase 2: detect name conflicts against existing repertoires (per color).
+	existing, err := s.existingNamesByColor(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	strategy := normalizeRenameStrategy(renameStrategy)
+
+	// Track names being created in this batch so two chapters with the same
+	// name + color don't collide with each other during auto-suffix.
+	takenByColor := map[models.Color]map[string]bool{}
+	for color, names := range existing {
+		takenByColor[color] = map[string]bool{}
+		for n := range names {
+			takenByColor[color][n] = true
+		}
+	}
+
+	var conflicts []models.RepertoireNameConflict
+	targetNames := make([]string, len(parsed))
+	for idx, pc := range parsed {
+		if takenByColor[pc.color] == nil {
+			takenByColor[pc.color] = map[string]bool{}
+		}
+		taken := takenByColor[pc.color]
+		if !taken[pc.name] {
+			taken[pc.name] = true
+			targetNames[idx] = pc.name
+			continue
+		}
+		if strategy == RenameStrategyAutoSuffix {
+			targetNames[idx] = uniqueNameWithSuffix(pc.name, taken)
+			continue
+		}
+		conflicts = append(conflicts, models.RepertoireNameConflict{
+			ChapterIndex:  pc.index,
+			ChapterName:   pc.name,
+			TargetName:    pc.name,
+			ExistingID:    existing[pc.color][pc.name],
+			ExistingColor: string(pc.color),
+		})
+	}
+	if len(conflicts) > 0 {
+		return nil, &StudyImportConflictError{Conflicts: conflicts}
+	}
+
+	// Phase 3: determine dominant color across the parsed chapters (for the
+	// optional category — same heuristic as before).
+	colorsFound := map[models.Color]int{}
+	for _, pc := range parsed {
+		colorsFound[pc.color]++
+	}
+	detectedColor := models.ColorWhite
+	if colorsFound[models.ColorBlack] > colorsFound[models.ColorWhite] {
+		detectedColor = models.ColorBlack
+	}
+
+	// Phase 4: create the category (if requested) and the repertoires.
+	var category *models.Category
+	var categoryID *string
+	if createCategory && s.categoryRepo != nil && len(parsed) > 0 {
+		catName := categoryName
+		if catName == "" {
+			catName = studyName
+		}
+		if catName == "" {
+			catName = "Imported Study"
+		}
+
+		cat, catErr := s.categoryRepo.Create(userID, catName, detectedColor)
+		if catErr != nil {
+			return nil, fmt.Errorf("failed to create category: %w", catErr)
+		}
+		category = cat
+		categoryID = &cat.ID
+	}
+
+	resolvedOwner := ""
+	if len(ownerName) > 0 && ownerName[0] != "" {
+		resolvedOwner = ownerName[0]
+	} else {
+		meta, metaErr := s.lichessService.FetchStudyMetadata(studyID, authToken)
+		if metaErr == nil && meta != nil {
+			resolvedOwner = meta.Owner.Name
+		}
+	}
+
+	origin := &models.RepertoireOrigin{
+		Type:    "lichess",
+		URL:     fmt.Sprintf("https://lichess.org/study/%s", studyID),
+		Creator: resolvedOwner,
+	}
+
+	var created []models.Repertoire
+	for idx, pc := range parsed {
+		name := targetNames[idx]
+
 		var rep *models.Repertoire
-		if categoryID != nil && color == detectedColor {
-			rep, err = s.repertoireService.CreateRepertoireWithCategory(userID, name, color, categoryID)
+		var createErr error
+		if categoryID != nil && pc.color == detectedColor {
+			rep, createErr = s.repertoireService.CreateRepertoireWithCategory(userID, name, pc.color, categoryID)
 		} else {
-			rep, err = s.repertoireService.CreateRepertoire(userID, name, color)
+			rep, createErr = s.repertoireService.CreateRepertoire(userID, name, pc.color)
 		}
-		if err != nil {
-			return nil, fmt.Errorf("failed to create repertoire for chapter %d: %w", i, err)
-		}
-
-		// Save the parsed tree
-		saved, err := s.repertoireService.SaveTree(userID, rep.ID, root)
-		if err != nil {
-			return nil, fmt.Errorf("failed to save tree for chapter %d: %w", i, err)
+		if createErr != nil {
+			return nil, fmt.Errorf("failed to create repertoire for chapter %d: %w", pc.index, createErr)
 		}
 
-		// Set Lichess origin
+		saved, saveErr := s.repertoireService.SaveTree(userID, rep.ID, pc.root)
+		if saveErr != nil {
+			return nil, fmt.Errorf("failed to save tree for chapter %d: %w", pc.index, saveErr)
+		}
+
 		if setErr := s.repertoireService.SetOrigin(saved.ID, origin); setErr != nil {
 			slog.Error("failed to set origin on imported repertoire", "repertoire_id", saved.ID, "error", setErr)
 		} else {
@@ -333,7 +448,10 @@ type MergedStudyImportResult struct {
 }
 
 // ImportStudyChaptersMerged imports selected chapters from a Lichess study and merges them into a single repertoire.
-func (s *StudyImportService) ImportStudyChaptersMerged(userID, studyID, authToken string, chapterIndices []int, mergeName string, includeComments, includeHints bool, ownerName ...string) (*MergedStudyImportResult, error) {
+//
+// renameStrategy controls behavior when the merged repertoire name collides
+// with an existing repertoire for the same user+color. See RenameStrategy* constants.
+func (s *StudyImportService) ImportStudyChaptersMerged(userID, studyID, authToken string, chapterIndices []int, mergeName string, includeComments, includeHints bool, renameStrategy string, ownerName ...string) (*MergedStudyImportResult, error) {
 	pgnData, err := s.lichessService.FetchStudyPGN(studyID, authToken)
 	if err != nil {
 		return nil, err
@@ -413,6 +531,30 @@ func (s *StudyImportService) ImportStudyChaptersMerged(userID, studyID, authToke
 	}
 	if mergeName == "" {
 		mergeName = "Merged Study"
+	}
+
+	// Conflict check against existing repertoires of the same color.
+	existing, err := s.existingNamesByColor(userID)
+	if err != nil {
+		return nil, err
+	}
+	strategy := normalizeRenameStrategy(renameStrategy)
+	if existingID, taken := existing[detectedColor][mergeName]; taken {
+		if strategy == RenameStrategyAutoSuffix {
+			takenSet := map[string]bool{}
+			for n := range existing[detectedColor] {
+				takenSet[n] = true
+			}
+			mergeName = uniqueNameWithSuffix(mergeName, takenSet)
+		} else {
+			return nil, &StudyImportConflictError{Conflicts: []models.RepertoireNameConflict{{
+				ChapterIndex:  -1,
+				ChapterName:   mergeName,
+				TargetName:    mergeName,
+				ExistingID:    existingID,
+				ExistingColor: string(detectedColor),
+			}}}
+		}
 	}
 
 	// Create one repertoire

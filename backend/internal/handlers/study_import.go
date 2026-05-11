@@ -12,6 +12,15 @@ import (
 	"github.com/kumquat/backend/internal/services"
 )
 
+// asConflictError unwraps a StudyImportConflictError if present.
+func asConflictError(err error) *services.StudyImportConflictError {
+	var conflictErr *services.StudyImportConflictError
+	if errors.As(err, &conflictErr) {
+		return conflictErr
+	}
+	return nil
+}
+
 // StudyImportHandler handles Lichess study import requests.
 type StudyImportHandler struct {
 	studyImportService *services.StudyImportService
@@ -81,8 +90,15 @@ func (h *StudyImportHandler) ImportStudyHandler(c *echo.Context) error {
 	authToken := h.studyImportService.GetLichessTokenForUser(userID)
 
 	if req.MergeAsOne {
-		mergeResult, err := h.studyImportService.ImportStudyChaptersMerged(userID, studyID, authToken, req.ChapterIndices, req.MergeName, req.IncludeComments, req.IncludeHints, req.OwnerName)
+		mergeResult, err := h.studyImportService.ImportStudyChaptersMerged(userID, studyID, authToken, req.ChapterIndices, req.MergeName, req.IncludeComments, req.IncludeHints, req.RenameStrategy, req.OwnerName)
 		if err != nil {
+			if conflictErr := asConflictError(err); conflictErr != nil {
+				return c.JSON(http.StatusConflict, map[string]interface{}{
+					"error":     conflictErr.Error(),
+					"type":      "name-conflict",
+					"conflicts": conflictErr.Conflicts,
+				})
+			}
 			if errors.Is(err, services.ErrLichessStudyNotFound) {
 				return NotFoundResponse(c, "Lichess study")
 			}
@@ -115,8 +131,15 @@ func (h *StudyImportHandler) ImportStudyHandler(c *echo.Context) error {
 		return c.JSON(http.StatusCreated, response)
 	}
 
-	result, err := h.studyImportService.ImportStudyChaptersWithCategory(userID, studyID, authToken, req.ChapterIndices, req.CreateCategory, req.CategoryName, req.IncludeComments, req.IncludeHints, req.OwnerName)
+	result, err := h.studyImportService.ImportStudyChaptersWithCategory(userID, studyID, authToken, req.ChapterIndices, req.CreateCategory, req.CategoryName, req.IncludeComments, req.IncludeHints, req.RenameStrategy, req.OwnerName)
 	if err != nil {
+		if conflictErr := asConflictError(err); conflictErr != nil {
+			return c.JSON(http.StatusConflict, map[string]interface{}{
+				"error":     conflictErr.Error(),
+				"type":      "name-conflict",
+				"conflicts": conflictErr.Conflicts,
+			})
+		}
 		if errors.Is(err, services.ErrLichessStudyNotFound) {
 			return NotFoundResponse(c, "Lichess study")
 		}

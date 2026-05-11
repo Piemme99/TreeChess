@@ -71,4 +71,18 @@ type StudyImportRequest struct {
 	IncludeComments bool   `json:"includeComments,omitempty"`
 	IncludeHints    bool   `json:"includeHints,omitempty"`
 	OwnerName       string `json:"ownerName,omitempty"`
+	// RenameStrategy controls behavior when a chapter's target repertoire name
+	// already exists for this user+color. Accepted: "" or "abort" (default — return
+	// 409 with conflicts), "auto-suffix" (append " (2)", " (3)", ... until unique).
+	RenameStrategy string `json:"renameStrategy,omitempty"`
+}
+
+// RepertoireNameConflict describes a single name collision discovered before
+// study import (or during merged import) — used to surface a clear 409 response.
+type RepertoireNameConflict struct {
+	ChapterIndex  int    `json:"chapterIndex"`
+	ChapterName   string `json:"chapterName"`
+	TargetName    string `json:"targetName"`
+	ExistingID    string `json:"existingId"`
+	ExistingColor string `json:"existingColor"`
 }
