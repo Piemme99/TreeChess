@@ -24,29 +24,46 @@ vi.mock('../../../../stores/repertoireStore', () => ({
     selector({ addCategory: vi.fn() }),
 }));
 
+type FakeChapter = {
+  index: number;
+  name: string;
+  orientation: string;
+  moveCount: number;
+  importable: boolean;
+  skipReason?: string;
+};
+
+type FakeStudy = {
+  studyId: string;
+  studyName: string;
+  chapters: FakeChapter[];
+};
+
+const defaultStudy: FakeStudy = {
+  studyId: 'abc123',
+  studyName: 'Test Study',
+  chapters: [
+    { index: 0, name: 'Chapter 1', orientation: 'white', moveCount: 10, importable: true },
+    { index: 1, name: 'Chapter 2', orientation: 'white', moveCount: 8, importable: true },
+    { index: 2, name: 'Chapter 3', orientation: 'black', moveCount: 12, importable: true },
+  ],
+};
+
+let nextStudy: FakeStudy = defaultStudy;
+
 vi.mock('../hooks/useStudyImport', async () => {
   const { useState } = await import('react');
 
-  const fakeStudyData = {
-    studyId: 'abc123',
-    studyName: 'Test Study',
-    chapters: [
-      { index: 0, name: 'Chapter 1', orientation: 'white', moveCount: 10 },
-      { index: 1, name: 'Chapter 2', orientation: 'white', moveCount: 8 },
-      { index: 2, name: 'Chapter 3', orientation: 'black', moveCount: 12 },
-    ],
-  };
-
   return {
     useStudyImport: () => {
-      const [studyInfo, setStudyInfo] = useState<typeof fakeStudyData | null>(null);
+      const [studyInfo, setStudyInfo] = useState<FakeStudy | null>(null);
       return {
         previewing: false,
         importing: false,
         studyInfo,
         previewError: null,
         handlePreview: async () => {
-          setStudyInfo(fakeStudyData);
+          setStudyInfo(nextStudy);
           return true;
         },
         handleImport: mocks.handleImportSpy,
@@ -61,7 +78,8 @@ import { StudyImportModal } from './StudyImportModal';
 async function renderAndLoadStudy() {
   render(<StudyImportModal isOpen onClose={vi.fn()} />);
   fireEvent.click(screen.getByTestId('select-study-btn'));
-  await waitFor(() => expect(screen.getByText('Chapter 1')).toBeInTheDocument());
+  const firstChapterName = nextStudy.chapters[0].name;
+  await waitFor(() => expect(screen.getByText(firstChapterName)).toBeInTheDocument());
 }
 
 function getChapterCheckbox(name: string): HTMLInputElement {
@@ -73,6 +91,7 @@ describe('StudyImportModal – chapter toggle', () => {
   beforeEach(() => {
     mocks.handleImportSpy.mockReset();
     mocks.handleImportSpy.mockResolvedValue(null);
+    nextStudy = defaultStudy;
   });
 
   it('all chapters are initially checked when a study loads', async () => {
@@ -116,5 +135,48 @@ describe('StudyImportModal – chapter toggle', () => {
     await waitFor(() => expect(mocks.handleImportSpy).toHaveBeenCalled());
     const chaptersArg = mocks.handleImportSpy.mock.calls[0][1];
     expect(chaptersArg).toEqual([0, 1, 2]);
+  });
+});
+
+describe('StudyImportModal – skipped chapters', () => {
+  beforeEach(() => {
+    mocks.handleImportSpy.mockReset();
+    mocks.handleImportSpy.mockResolvedValue(null);
+    nextStudy = {
+      studyId: 'abc123',
+      studyName: 'Mixed Study',
+      chapters: [
+        { index: 0, name: 'Standard Start', orientation: 'white', moveCount: 8, importable: true },
+        { index: 1, name: 'From Position A', orientation: 'white', moveCount: 6, importable: false, skipReason: 'custom-starting-position' },
+        { index: 2, name: 'From Position B', orientation: 'white', moveCount: 4, importable: false, skipReason: 'custom-starting-position' },
+      ],
+    };
+  });
+
+  it('disables checkboxes for non-importable chapters and excludes them from initial selection', async () => {
+    await renderAndLoadStudy();
+
+    expect(getChapterCheckbox('Standard Start')).toBeChecked();
+    expect(getChapterCheckbox('Standard Start')).not.toBeDisabled();
+
+    expect(getChapterCheckbox('From Position A')).not.toBeChecked();
+    expect(getChapterCheckbox('From Position A')).toBeDisabled();
+    expect(getChapterCheckbox('From Position B')).toBeDisabled();
+  });
+
+  it('shows a banner counting non-importable chapters', async () => {
+    await renderAndLoadStudy();
+
+    expect(screen.getByText(/2 chapters cannot be imported/i)).toBeInTheDocument();
+  });
+
+  it('only imports the selected, importable chapters', async () => {
+    await renderAndLoadStudy();
+
+    fireEvent.click(screen.getByText(/Import 1 chapter\(s\)/i));
+
+    await waitFor(() => expect(mocks.handleImportSpy).toHaveBeenCalled());
+    const chaptersArg = mocks.handleImportSpy.mock.calls[0][1];
+    expect(chaptersArg).toEqual([0]);
   });
 });

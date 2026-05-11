@@ -238,6 +238,132 @@ func TestStudyImportService_GetLichessTokenForUser_UserNotFound(t *testing.T) {
 	assert.Empty(t, result)
 }
 
+// --- Custom starting position handling ---
+
+const studyPGNWithCustomStartingPositions = `[Event "Sicilian: Chapter 1"]
+[Orientation "White"]
+
+1. e4 c5 *
+
+[Event "Sicilian: Chapter 2 (From Position)"]
+[Orientation "White"]
+[FEN "r1bqkbnr/pp1ppp1p/2n3p1/2p5/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 0 1"]
+[SetUp "1"]
+
+1. Nc3 *
+
+[Event "Sicilian: Chapter 3 (From Position)"]
+[Orientation "White"]
+[FEN "rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w kq - 0 7"]
+[SetUp "1"]
+
+7. Nf3 *
+`
+
+func TestStudyImportService_PreviewStudy_MarksCustomStartingPositionUnimportable(t *testing.T) {
+	mockLichess := &smocks.MockLichessService{
+		FetchStudyPGNFunc: func(studyID, authToken string) (string, error) {
+			return studyPGNWithCustomStartingPositions, nil
+		},
+	}
+	svc := NewStudyImportService(mockLichess, &smocks.MockRepertoireService{}, nil, &mocks.MockUserRepo{})
+
+	info, err := svc.PreviewStudy("testid01", "")
+
+	require.NoError(t, err)
+	require.NotNil(t, info)
+	require.Len(t, info.Chapters, 3)
+	assert.True(t, info.Chapters[0].Importable)
+	assert.Empty(t, info.Chapters[0].SkipReason)
+	assert.False(t, info.Chapters[1].Importable)
+	assert.Equal(t, models.SkipReasonCustomStartingPosition, info.Chapters[1].SkipReason)
+	assert.False(t, info.Chapters[2].Importable)
+	assert.Equal(t, models.SkipReasonCustomStartingPosition, info.Chapters[2].SkipReason)
+}
+
+func TestStudyImportService_ImportStudyChaptersWithCategory_ReturnsSkipped(t *testing.T) {
+	mockLichess := &smocks.MockLichessService{
+		FetchStudyPGNFunc: func(studyID, authToken string) (string, error) {
+			return studyPGNWithCustomStartingPositions, nil
+		},
+	}
+	createdCount := 0
+	mockRepSvc := &smocks.MockRepertoireService{
+		CreateRepertoireFunc: func(userID, name string, color models.Color) (*models.Repertoire, error) {
+			createdCount++
+			return &models.Repertoire{ID: fmt.Sprintf("rep-%d", createdCount), Name: name, Color: color}, nil
+		},
+		SaveTreeFunc: func(userID, repertoireID string, treeData models.RepertoireNode) (*models.Repertoire, error) {
+			return &models.Repertoire{ID: repertoireID, TreeData: treeData}, nil
+		},
+	}
+	svc := NewStudyImportService(mockLichess, mockRepSvc, nil, &mocks.MockUserRepo{})
+
+	result, err := svc.ImportStudyChaptersWithCategory("user-1", "testid01", "", []int{0, 1, 2}, false, "", false, true)
+
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.Len(t, result.Repertoires, 1)
+	require.Len(t, result.Skipped, 2)
+	assert.Equal(t, 1, result.Skipped[0].Index)
+	assert.Equal(t, models.SkipReasonCustomStartingPosition, result.Skipped[0].Reason)
+	assert.Equal(t, 2, result.Skipped[1].Index)
+	assert.Equal(t, models.SkipReasonCustomStartingPosition, result.Skipped[1].Reason)
+}
+
+func TestStudyImportService_ImportStudyChaptersMerged_ReturnsSkipped(t *testing.T) {
+	mockLichess := &smocks.MockLichessService{
+		FetchStudyPGNFunc: func(studyID, authToken string) (string, error) {
+			return studyPGNWithCustomStartingPositions, nil
+		},
+	}
+	mockRepSvc := &smocks.MockRepertoireService{
+		CreateRepertoireFunc: func(userID, name string, color models.Color) (*models.Repertoire, error) {
+			return &models.Repertoire{ID: "rep-1", Name: name, Color: color}, nil
+		},
+		SaveTreeFunc: func(userID, repertoireID string, treeData models.RepertoireNode) (*models.Repertoire, error) {
+			return &models.Repertoire{ID: repertoireID, TreeData: treeData}, nil
+		},
+	}
+	svc := NewStudyImportService(mockLichess, mockRepSvc, nil, &mocks.MockUserRepo{})
+
+	result, err := svc.ImportStudyChaptersMerged("user-1", "testid01", "", []int{0, 1, 2}, "Merged", false, true)
+
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.NotNil(t, result.Repertoire)
+	require.Len(t, result.Skipped, 2)
+	assert.Equal(t, 1, result.Skipped[0].Index)
+	assert.Equal(t, 2, result.Skipped[1].Index)
+}
+
+func TestStudyImportService_ImportStudyChaptersMerged_AllChaptersSkipped(t *testing.T) {
+	pgnAllCustom := `[Event "Study: Chapter A"]
+[Orientation "White"]
+[FEN "r1bqkbnr/pp1ppp1p/2n3p1/2p5/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 0 1"]
+[SetUp "1"]
+
+1. Nc3 *
+
+[Event "Study: Chapter B"]
+[Orientation "White"]
+[FEN "rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w kq - 0 7"]
+[SetUp "1"]
+
+7. Nf3 *
+`
+	mockLichess := &smocks.MockLichessService{
+		FetchStudyPGNFunc: func(studyID, authToken string) (string, error) {
+			return pgnAllCustom, nil
+		},
+	}
+	svc := NewStudyImportService(mockLichess, &smocks.MockRepertoireService{}, nil, &mocks.MockUserRepo{})
+
+	_, err := svc.ImportStudyChaptersMerged("user-1", "testid01", "", []int{0, 1}, "Merged", false, true)
+
+	assert.ErrorIs(t, err, ErrAllChaptersSkipped)
+}
+
 func TestStudyImportService_ImportStudyChapters_CreateError(t *testing.T) {
 	pgnData := `[Event "Study: Test"]
 [Orientation "White"]

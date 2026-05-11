@@ -112,12 +112,18 @@ func (s *StudyImportService) PreviewStudy(studyID, authToken string) (*models.St
 			}
 		}
 
-		chapterInfos = append(chapterInfos, models.StudyChapterInfo{
+		info := models.StudyChapterInfo{
 			Index:       i,
 			Name:        name,
 			Orientation: orientation,
 			MoveCount:   moveCount,
-		})
+			Importable:  true,
+		}
+		if HasCustomStartingPosition(headers) {
+			info.Importable = false
+			info.SkipReason = models.SkipReasonCustomStartingPosition
+		}
+		chapterInfos = append(chapterInfos, info)
 	}
 
 	return &models.StudyInfo{
@@ -128,10 +134,12 @@ func (s *StudyImportService) PreviewStudy(studyID, authToken string) (*models.St
 	}, nil
 }
 
-// StudyImportResult contains the imported repertoires and optional created category
+// StudyImportResult contains the imported repertoires, optional created category,
+// and any chapters that were requested but skipped (e.g. custom starting position).
 type StudyImportResult struct {
-	Repertoires []models.Repertoire `json:"repertoires"`
-	Category    *models.Category    `json:"category,omitempty"`
+	Repertoires []models.Repertoire          `json:"repertoires"`
+	Category    *models.Category             `json:"category,omitempty"`
+	Skipped     []models.SkippedStudyChapter `json:"skipped,omitempty"`
 }
 
 // ImportStudyChapters imports selected chapters from a Lichess study as new repertoires.
@@ -238,6 +246,7 @@ func (s *StudyImportService) ImportStudyChaptersWithCategory(userID, studyID, au
 	}
 
 	var created []models.Repertoire
+	var skipped []models.SkippedStudyChapter
 
 	for i, chapterPGN := range chapters {
 		if !requested[i] {
@@ -248,6 +257,11 @@ func (s *StudyImportService) ImportStudyChaptersWithCategory(userID, studyID, au
 		if err != nil {
 			if errors.Is(err, ErrCustomStartingPosition) {
 				slog.Debug("skipping chapter with custom starting position", "chapter_index", i)
+				skipped = append(skipped, models.SkippedStudyChapter{
+					Index:  i,
+					Name:   chapterDisplayName(chapterPGN, i),
+					Reason: models.SkipReasonCustomStartingPosition,
+				})
 				continue
 			}
 			return nil, fmt.Errorf("failed to parse chapter %d: %w", i, err)
@@ -301,14 +315,25 @@ func (s *StudyImportService) ImportStudyChaptersWithCategory(userID, studyID, au
 	return &StudyImportResult{
 		Repertoires: created,
 		Category:    category,
+		Skipped:     skipped,
 	}, nil
 }
 
 // ErrMixedColors is returned when trying to merge chapters with different orientations.
 var ErrMixedColors = fmt.Errorf("cannot merge chapters with different colors")
 
+// ErrAllChaptersSkipped is returned when a merge import has nothing to merge because
+// every requested chapter was skipped (e.g. all use custom starting positions).
+var ErrAllChaptersSkipped = fmt.Errorf("no chapters could be imported")
+
+// MergedStudyImportResult is the result of merging selected chapters into a single repertoire.
+type MergedStudyImportResult struct {
+	Repertoire *models.Repertoire           `json:"repertoire"`
+	Skipped    []models.SkippedStudyChapter `json:"skipped,omitempty"`
+}
+
 // ImportStudyChaptersMerged imports selected chapters from a Lichess study and merges them into a single repertoire.
-func (s *StudyImportService) ImportStudyChaptersMerged(userID, studyID, authToken string, chapterIndices []int, mergeName string, includeComments, includeHints bool, ownerName ...string) (*models.Repertoire, error) {
+func (s *StudyImportService) ImportStudyChaptersMerged(userID, studyID, authToken string, chapterIndices []int, mergeName string, includeComments, includeHints bool, ownerName ...string) (*MergedStudyImportResult, error) {
 	pgnData, err := s.lichessService.FetchStudyPGN(studyID, authToken)
 	if err != nil {
 		return nil, err
@@ -328,6 +353,7 @@ func (s *StudyImportService) ImportStudyChaptersMerged(userID, studyID, authToke
 	studyName := ""
 	var parsedTrees []models.RepertoireNode
 	var detectedColor models.Color
+	var skipped []models.SkippedStudyChapter
 
 	for i, chapterPGN := range chapters {
 		if !requested[i] {
@@ -338,6 +364,11 @@ func (s *StudyImportService) ImportStudyChaptersMerged(userID, studyID, authToke
 		if err != nil {
 			if errors.Is(err, ErrCustomStartingPosition) {
 				slog.Debug("skipping chapter with custom starting position", "chapter_index", i)
+				skipped = append(skipped, models.SkippedStudyChapter{
+					Index:  i,
+					Name:   chapterDisplayName(chapterPGN, i),
+					Reason: models.SkipReasonCustomStartingPosition,
+				})
 				continue
 			}
 			return nil, fmt.Errorf("failed to parse chapter %d: %w", i, err)
@@ -373,7 +404,7 @@ func (s *StudyImportService) ImportStudyChaptersMerged(userID, studyID, authToke
 	}
 
 	if len(parsedTrees) == 0 {
-		return nil, fmt.Errorf("no chapters could be parsed")
+		return nil, ErrAllChaptersSkipped
 	}
 
 	// Use provided name or fall back to study name
@@ -424,7 +455,25 @@ func (s *StudyImportService) ImportStudyChaptersMerged(userID, studyID, authToke
 		saved.Origin = origin
 	}
 
-	return saved, nil
+	return &MergedStudyImportResult{
+		Repertoire: saved,
+		Skipped:    skipped,
+	}, nil
+}
+
+// chapterDisplayName returns a human-friendly chapter name extracted from PGN
+// headers (Event header, with study-name prefix stripped), falling back to a
+// "Chapter N" placeholder. Used when reporting skipped chapters.
+func chapterDisplayName(chapterPGN string, index int) string {
+	headers, _ := splitPGNHeadersAndMovetext(chapterPGN)
+	name := headers["Event"]
+	if name == "" {
+		return fmt.Sprintf("Chapter %d", index+1)
+	}
+	if parts := strings.SplitN(name, ": ", 2); len(parts) == 2 {
+		return parts[1]
+	}
+	return name
 }
 
 // stripTreeAnnotations recursively removes comments and/or hints (arrows, highlights)

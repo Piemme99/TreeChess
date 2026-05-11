@@ -35,6 +35,21 @@ type StudyChapterInfo struct {
 	Name        string `json:"name"`
 	Orientation string `json:"orientation"`
 	MoveCount   int    `json:"moveCount"`
+	// Importable is false when the chapter cannot be imported as-is (e.g. custom
+	// starting position). When false, SkipReason explains why.
+	Importable bool   `json:"importable"`
+	SkipReason string `json:"skipReason,omitempty"`
+}
+
+// SkipReasonCustomStartingPosition is set on StudyChapterInfo / SkippedStudyChapter
+// when a chapter uses a non-standard starting position ([SetUp "1"] / [FEN ...]).
+const SkipReasonCustomStartingPosition = "custom-starting-position"
+
+// SkippedStudyChapter records a chapter that was requested but not imported.
+type SkippedStudyChapter struct {
+	Index  int    `json:"index"`
+	Name   string `json:"name"`
+	Reason string `json:"reason"`
 }
 
 // StudyInfo represents metadata about a Lichess study

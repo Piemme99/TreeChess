@@ -71,9 +71,10 @@ export function StudyImportModal({ isOpen, onClose, onSuccess }: StudyImportModa
   }, [handlePreview]);
 
   const onImport = useCallback(async () => {
+    const importableChapters = studyInfo?.chapters.filter(c => c.importable) ?? [];
     const chapters = mergeAsOne
-      ? studyInfo?.chapters.map(c => c.index) ?? []
-      : studyInfo?.chapters.map(c => c.index).filter(i => selectedChapters.has(i)) ?? [];
+      ? importableChapters.map(c => c.index)
+      : importableChapters.map(c => c.index).filter(i => selectedChapters.has(i));
     const result = await handleImport(
       url,
       chapters,
@@ -103,7 +104,7 @@ export function StudyImportModal({ isOpen, onClose, onSuccess }: StudyImportModa
 
   useEffect(() => {
     if (studyInfo) {
-      setSelectedChapters(new Set(studyInfo.chapters.map(c => c.index)));
+      setSelectedChapters(new Set(studyInfo.chapters.filter(c => c.importable).map(c => c.index)));
     }
   }, [studyInfo]);
 
@@ -119,20 +120,23 @@ export function StudyImportModal({ isOpen, onClose, onSuccess }: StudyImportModa
     });
   };
 
+  const importableChapters = studyInfo?.chapters.filter(c => c.importable) ?? [];
+  const skippedChapters = studyInfo?.chapters.filter(c => !c.importable) ?? [];
+
   const toggleAll = () => {
     if (!studyInfo) return;
-    if (selectedChapters.size === studyInfo.chapters.length) {
+    if (selectedChapters.size === importableChapters.length) {
       setSelectedChapters(new Set());
     } else {
-      setSelectedChapters(new Set(studyInfo.chapters.map(c => c.index)));
+      setSelectedChapters(new Set(importableChapters.map(c => c.index)));
     }
   };
 
-  const allSelected = studyInfo ? selectedChapters.size === studyInfo.chapters.length : false;
+  const allSelected = studyInfo ? selectedChapters.size === importableChapters.length && importableChapters.length > 0 : false;
   const importCount = selectedChapters.size;
 
   const hasMixedColors = studyInfo
-    ? new Set(studyInfo.chapters.map(c => c.orientation)).size > 1
+    ? new Set(importableChapters.map(c => c.orientation)).size > 1
     : false;
 
   return (
@@ -225,27 +229,60 @@ export function StudyImportModal({ isOpen, onClose, onSuccess }: StudyImportModa
           </div>
 
           <div className="flex flex-col border border-primary/10 rounded-xl max-h-[320px] overflow-y-auto">
-            <label className="flex items-center gap-2 py-2 px-4 border-b border-primary/10 cursor-pointer text-[0.9rem] bg-bg font-medium sticky top-0">
+            <label className={`flex items-center gap-2 py-2 px-4 border-b border-primary/10 text-[0.9rem] bg-bg font-medium sticky top-0 ${importableChapters.length === 0 ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
               <input
                 type="checkbox"
                 checked={allSelected}
                 onChange={toggleAll}
+                disabled={importableChapters.length === 0}
               />
               <span className="flex-1">Select all</span>
             </label>
-            {studyInfo.chapters.map((ch) => (
-              <label key={ch.index} className="flex items-center gap-2 py-2 px-4 border-b border-primary/10 last:border-b-0 cursor-pointer text-[0.9rem] hover:bg-primary-light/20">
-                <input
-                  type="checkbox"
-                  checked={selectedChapters.has(ch.index)}
-                  onChange={() => toggleChapter(ch.index)}
-                />
-                <ColorDot color={ch.orientation as 'white' | 'black'} size="sm" />
-                <span className="flex-1 overflow-hidden text-ellipsis whitespace-nowrap">{ch.name}</span>
-                <span className="text-text-muted text-[0.8rem] whitespace-nowrap">{ch.moveCount} moves</span>
-              </label>
-            ))}
+            {studyInfo.chapters.map((ch) => {
+              const skipMessage = ch.skipReason === 'custom-starting-position'
+                ? 'Custom starting position is not yet supported'
+                : 'This chapter cannot be imported';
+              return (
+                <label
+                  key={ch.index}
+                  className={`flex items-center gap-2 py-2 px-4 border-b border-primary/10 last:border-b-0 text-[0.9rem] ${
+                    ch.importable
+                      ? 'cursor-pointer hover:bg-primary-light/20'
+                      : 'cursor-not-allowed opacity-60'
+                  }`}
+                  title={ch.importable ? undefined : skipMessage}
+                >
+                  <input
+                    type="checkbox"
+                    checked={ch.importable && selectedChapters.has(ch.index)}
+                    onChange={() => toggleChapter(ch.index)}
+                    disabled={!ch.importable}
+                  />
+                  <ColorDot color={ch.orientation as 'white' | 'black'} size="sm" />
+                  <span className="flex-1 overflow-hidden text-ellipsis whitespace-nowrap">{ch.name}</span>
+                  {ch.importable ? (
+                    <span className="text-text-muted text-[0.8rem] whitespace-nowrap">{ch.moveCount} moves</span>
+                  ) : (
+                    <span className="text-warning text-[0.8rem] whitespace-nowrap">unsupported</span>
+                  )}
+                </label>
+              );
+            })}
           </div>
+
+          {skippedChapters.length > 0 && (
+            <p className="text-text-muted text-[0.8rem] m-0">
+              {skippedChapters.length} chapter{skippedChapters.length > 1 ? 's' : ''} cannot be imported (custom starting position).{' '}
+              <a
+                href="https://github.com/Piemme99/TreeChess/issues/78"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline hover:text-text"
+              >
+                Tracking issue
+              </a>
+            </p>
+          )}
 
           <div className="flex flex-col gap-2">
             <label className="flex items-center gap-2 cursor-pointer text-[0.9rem]">
@@ -315,7 +352,11 @@ export function StudyImportModal({ isOpen, onClose, onSuccess }: StudyImportModa
             <Button variant="ghost" onClick={handleBack}>
               Back
             </Button>
-            <Button onClick={onImport} loading={importing}>
+            <Button
+              onClick={onImport}
+              loading={importing}
+              disabled={mergeAsOne ? importableChapters.length === 0 : importCount === 0}
+            >
               {mergeAsOne
                 ? `Import as 1 merged repertoire`
                 : `Import ${importCount} chapter(s)`

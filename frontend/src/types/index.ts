@@ -393,6 +393,8 @@ export interface StudyChapterInfo {
   name: string;
   orientation: string;
   moveCount: number;
+  importable: boolean;
+  skipReason?: string;
 }
 
 export interface StudyInfo {
@@ -401,6 +403,14 @@ export interface StudyInfo {
   ownerName?: string;
   chapters: StudyChapterInfo[];
 }
+
+export interface SkippedStudyChapter {
+  index: number;
+  name: string;
+  reason: string;
+}
+
+export const STUDY_SKIP_REASON_CUSTOM_STARTING_POSITION = 'custom-starting-position';
 
 export interface StudyImportRequest {
   studyUrl: string;
@@ -418,6 +428,7 @@ export interface StudyImportResponse {
   repertoires: Repertoire[];
   count: number;
   category?: Category;
+  skipped?: SkippedStudyChapter[];
 }
 
 // Lichess Study Browser types
