@@ -27,7 +27,7 @@ function sanToArrow(fen: string, san: string): [string, string, string][] {
     const chess = new Chess(ensureFullFEN(fen));
     const move = chess.move(san);
     if (!move) return [];
-    return [[move.from, move.to, 'rgba(220, 53, 69, 0.8)']];
+    return [[move.from, move.to, '#dc3545']];
   } catch {
     return [];
   }
