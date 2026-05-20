@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useRepertoires } from '../repertoire/shared/hooks/useRepertoires';
 import { useGames } from '../analyse-tab/hooks/useGames';
@@ -15,15 +15,22 @@ import { useDashboardStats } from './hooks/useDashboardStats';
 import { useInsights } from '../games/hooks/useInsights';
 import { fadeUp } from '../../shared/utils/animations';
 import { usePageTitle } from '../../shared/hooks/usePageTitle';
+import { useReanalysisCompletion } from '../../shared/hooks';
 
 export function Dashboard() {
   usePageTitle('Dashboard');
   const { user, syncing, lastSyncResult } = useAuthStore();
   const { repertoires, loading: repLoading } = useRepertoires();
-  const { games, loading: gamesLoading } = useGames();
-  const { stats } = useDashboardStats();
-  const { insights } = useInsights();
+  const { games, loading: gamesLoading, refresh: refreshGames } = useGames();
+  const { stats, refresh: refreshStats } = useDashboardStats();
+  const { insights, refresh: refreshInsights } = useInsights();
   const [showSyncResult, setShowSyncResult] = useState(false);
+
+  useReanalysisCompletion(useCallback(() => {
+    refreshGames();
+    refreshStats();
+    refreshInsights();
+  }, [refreshGames, refreshStats, refreshInsights]));
 
   useEffect(() => {
     if (lastSyncResult) {

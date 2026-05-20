@@ -16,6 +16,7 @@ import { gamesApi } from '../../services/api';
 import { toast } from '../../stores/toastStore';
 import { fadeUp } from '../../shared/utils/animations';
 import { usePageTitle } from '../../shared/hooks/usePageTitle';
+import { useReanalysisCompletion } from '../../shared/hooks';
 
 const TIME_CLASS_FILTERS = [
   { value: '', label: 'All' },
@@ -62,6 +63,11 @@ export function GamesPage() {
   } = useGames(timeClassFilter || undefined, repertoireFilter || undefined, sourceFilter || undefined);
 
   const { insights, refresh: refreshInsights } = useInsights();
+
+  useReanalysisCompletion(useCallback(() => {
+    refresh();
+    refreshInsights();
+  }, [refresh, refreshInsights]));
 
   useEffect(() => {
     const controller = new AbortController();

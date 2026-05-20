@@ -13,6 +13,7 @@ function PawnIcon({ className }: { className?: string }) {
 }
 
 import { useAuthStore } from '../../../stores/authStore';
+import { ReanalysisIndicator } from '../ReanalysisIndicator';
 
 const SIDEBAR_COLLAPSED_KEY = 'kumquat-sidebar-collapsed';
 
@@ -180,6 +181,8 @@ export function MainLayout() {
       >
         <Outlet />
       </main>
+
+      <ReanalysisIndicator />
 
       {/* Mobile Bottom Tab Bar */}
       {showBottomTabs && (
