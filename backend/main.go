@@ -72,6 +72,14 @@ func main() {
 		services.WithDismissedMistakeRepo(dismissedMistakeRepo),
 		services.WithDismissedGapRepo(dismissedGapRepo),
 	)
+
+	// Auto re-analyse games whenever a repertoire mutates (issue #45).
+	// In-memory debounce coalesces rapid edits into one run per user.
+	reanalysisQueue := services.NewReanalysisQueue(func(userID string) error {
+		_, err := importSvc.ReanalyzeAllGames(userID)
+		return err
+	}, services.DefaultReanalysisDebounce)
+	repertoireSvc.WithReanalysisQueue(reanalysisQueue)
 	lichessSvc := services.NewLichessService()
 	chesscomSvc := services.NewChesscomService()
 	syncSvc := services.NewSyncService(userRepo, importSvc, lichessSvc, chesscomSvc)
@@ -229,7 +237,8 @@ func main() {
 	protected.POST("/api/dashboard/gaps/dismiss", dashboardHandler.DismissGap)
 
 	// Import/Analysis API
-	importHandler := handlers.NewImportHandler(importSvc, repertoireSvc, lichessSvc, chesscomSvc)
+	importHandler := handlers.NewImportHandler(importSvc, repertoireSvc, lichessSvc, chesscomSvc).
+		WithReanalysisQueue(reanalysisQueue)
 	heavyOps.POST("/api/imports", importHandler.UploadHandler)
 	heavyOps.POST("/api/imports/lichess", importHandler.LichessImportHandler)
 	heavyOps.POST("/api/imports/chesscom", importHandler.ChesscomImportHandler)
@@ -258,6 +267,7 @@ func main() {
 	protected.POST("/api/games/insights/dismiss", importHandler.DismissMistakeHandler)
 	protected.GET("/api/games/repertoires", importHandler.GetDistinctRepertoiresHandler)
 	heavyOps.POST("/api/games/reanalyze-all", importHandler.ReanalyzeAllGamesHandler)
+	protected.GET("/api/games/reanalysis-status", importHandler.ReanalysisStatusHandler)
 	protected.GET("/api/games", importHandler.GetGamesHandler)
 	protected.POST("/api/games/:analysisId/:gameIndex/reanalyze", importHandler.ReanalyzeGameHandler)
 	protected.POST("/api/games/:analysisId/:gameIndex/view", importHandler.MarkGameViewedHandler)

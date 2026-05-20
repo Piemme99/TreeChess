@@ -21,11 +21,16 @@ import (
 // validChessUsername matches alphanumeric usernames with hyphens and underscores (1-50 chars).
 var validChessUsername = regexp.MustCompile(`^[a-zA-Z0-9_-]{1,50}$`)
 
+type reanalysisStatusReporter interface {
+	Status(userID string) services.ReanalysisStatus
+}
+
 type ImportHandler struct {
 	importService     *services.ImportService
 	repertoireService *services.RepertoireService
 	lichessService    *services.LichessService
 	chesscomService   *services.ChesscomService
+	reanalysisQueue   reanalysisStatusReporter
 }
 
 func NewImportHandler(importSvc *services.ImportService, repertoireSvc *services.RepertoireService, lichessSvc *services.LichessService, chesscomSvc *services.ChesscomService) *ImportHandler {
@@ -35,6 +40,21 @@ func NewImportHandler(importSvc *services.ImportService, repertoireSvc *services
 		lichessService:    lichessSvc,
 		chesscomService:   chesscomSvc,
 	}
+}
+
+// WithReanalysisQueue wires the auto-reanalysis queue so the ReanalysisStatusHandler
+// can report queue state. Without it the handler reports idle.
+func (h *ImportHandler) WithReanalysisQueue(q reanalysisStatusReporter) *ImportHandler {
+	h.reanalysisQueue = q
+	return h
+}
+
+func (h *ImportHandler) ReanalysisStatusHandler(c *echo.Context) error {
+	userID := c.Get("userID").(string)
+	if h.reanalysisQueue == nil {
+		return c.JSON(http.StatusOK, services.ReanalysisStatus{})
+	}
+	return c.JSON(http.StatusOK, h.reanalysisQueue.Status(userID))
 }
 
 func (h *ImportHandler) UploadHandler(c *echo.Context) error {

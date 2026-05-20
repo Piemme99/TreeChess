@@ -31,6 +31,7 @@ import type {
   TrainingAnalyzeResponse,
   ExploreTemplate
 } from '../types';
+import { triggerReanalysisPolling } from '../stores/reanalysisStore';
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
@@ -275,15 +276,18 @@ export const repertoireApi = {
 
   delete: async (id: string): Promise<void> => {
     await api.delete(`/repertoires/${id}`);
+    triggerReanalysisPolling();
   },
 
   addNode: async (id: string, data: AddNodeRequest): Promise<Repertoire> => {
     const response = await api.post(`/repertoires/${id}/nodes`, data);
+    triggerReanalysisPolling();
     return response.data;
   },
 
   deleteNode: async (id: string, nodeId: string): Promise<Repertoire> => {
     const response = await api.delete(`/repertoires/${id}/nodes/${nodeId}`);
+    triggerReanalysisPolling();
     return response.data;
   },
 
@@ -294,16 +298,19 @@ export const repertoireApi = {
 
   seedFromTemplates: async (templateIds: string[]): Promise<Repertoire[]> => {
     const response = await api.post('/repertoires/seed', { templateIds });
+    triggerReanalysisPolling();
     return response.data;
   },
 
   extractSubtree: async (id: string, nodeId: string, name: string): Promise<{ original: Repertoire; extracted: Repertoire }> => {
     const response = await api.post(`/repertoires/${id}/extract`, { nodeId, name });
+    triggerReanalysisPolling();
     return response.data;
   },
 
   mergeRepertoires: async (ids: string[], name: string): Promise<{ merged: Repertoire }> => {
     const response = await api.post('/repertoires/merge', { ids, name });
+    triggerReanalysisPolling();
     return response.data;
   },
 
@@ -324,6 +331,7 @@ export const repertoireApi = {
 
   mergeTranspositions: async (id: string): Promise<Repertoire> => {
     const response = await api.post(`/repertoires/${id}/merge-transpositions`);
+    triggerReanalysisPolling();
     return response.data;
   },
 
@@ -372,6 +380,7 @@ export const exploreApi = {
 
   importRepertoire: async (id: string): Promise<Repertoire> => {
     const response = await api.post(`/explore/repertoires/${id}/import`);
+    triggerReanalysisPolling();
     return response.data;
   },
 
@@ -382,6 +391,7 @@ export const exploreApi = {
 
   importTemplate: async (id: string): Promise<Repertoire> => {
     const response = await api.post(`/explore/templates/${id}/import`);
+    triggerReanalysisPolling();
     return response.data;
   }
 };
@@ -513,6 +523,7 @@ export const studyApi = {
     if (ownerName) body.ownerName = ownerName;
     if (renameStrategy) body.renameStrategy = renameStrategy;
     const response = await api.post('/studies/import', body, { timeout: 120000 });
+    triggerReanalysisPolling();
     return response.data;
   },
 };
@@ -563,8 +574,18 @@ export const gamesApi = {
   reanalyzeAll: async (): Promise<{ reanalyzed: number }> => {
     const response = await api.post('/games/reanalyze-all');
     return response.data;
+  },
+
+  reanalysisStatus: async (options?: RequestOptions): Promise<ReanalysisStatus> => {
+    const response = await api.get('/games/reanalysis-status', { signal: options?.signal });
+    return response.data;
   }
 };
+
+export interface ReanalysisStatus {
+  inProgress: boolean;
+  pending: boolean;
+}
 
 export interface OpeningExplorerMove {
   uci: string;

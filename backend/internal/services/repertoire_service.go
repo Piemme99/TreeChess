@@ -71,12 +71,28 @@ type RepertoireRepository interface {
 
 // RepertoireService handles repertoire business logic
 type RepertoireService struct {
-	repo RepertoireRepository
+	repo  RepertoireRepository
+	queue ReanalysisNotifier
 }
 
 // NewRepertoireService creates a new repertoire service with the given repository
 func NewRepertoireService(repo RepertoireRepository) *RepertoireService {
 	return &RepertoireService{repo: repo}
+}
+
+// WithReanalysisQueue wires a queue that gets notified after each successful tree
+// mutation. Passing nil disables auto-re-analysis (default).
+func (s *RepertoireService) WithReanalysisQueue(q ReanalysisNotifier) *RepertoireService {
+	s.queue = q
+	return s
+}
+
+// notifyReanalysis is a no-op when no queue is attached, so unit tests that
+// construct RepertoireService directly remain unaffected.
+func (s *RepertoireService) notifyReanalysis(userID string) {
+	if s.queue != nil {
+		s.queue.Notify(userID)
+	}
 }
 
 // CreateRepertoire creates a new repertoire with the given name and color for a user
@@ -241,6 +257,7 @@ func (s *RepertoireService) DeleteRepertoire(userID, id string) error {
 		}
 		return err
 	}
+	s.notifyReanalysis(userID)
 	return nil
 }
 
@@ -287,7 +304,12 @@ func (s *RepertoireService) AddNode(userID, repertoireID string, req models.AddN
 
 	newMetadata := calculateMetadata(rep.TreeData)
 
-	return s.repo.Save(repertoireID, userID, rep.TreeData, newMetadata)
+	saved, err := s.repo.Save(repertoireID, userID, rep.TreeData, newMetadata)
+	if err != nil {
+		return nil, err
+	}
+	s.notifyReanalysis(userID)
+	return saved, nil
 }
 
 // SaveTree saves a complete tree to a repertoire, replacing the existing tree data
@@ -301,7 +323,12 @@ func (s *RepertoireService) SaveTree(userID, repertoireID string, treeData model
 	}
 
 	metadata := calculateMetadata(treeData)
-	return s.repo.Save(repertoireID, userID, treeData, metadata)
+	saved, err := s.repo.Save(repertoireID, userID, treeData, metadata)
+	if err != nil {
+		return nil, err
+	}
+	s.notifyReanalysis(userID)
+	return saved, nil
 }
 
 // DeleteNode removes a node and its children from a repertoire
@@ -325,7 +352,12 @@ func (s *RepertoireService) DeleteNode(userID, repertoireID string, nodeID strin
 
 	newMetadata := calculateMetadata(*newTreeData)
 
-	return s.repo.Save(repertoireID, userID, *newTreeData, newMetadata)
+	saved, err := s.repo.Save(repertoireID, userID, *newTreeData, newMetadata)
+	if err != nil {
+		return nil, err
+	}
+	s.notifyReanalysis(userID)
+	return saved, nil
 }
 
 // SeedRepertoires creates starter repertoires from templates for the given user
@@ -364,6 +396,10 @@ func (s *RepertoireService) SeedRepertoires(userID string, templateIDs []string)
 		}
 
 		created = append(created, *saved)
+	}
+
+	if len(created) > 0 {
+		s.notifyReanalysis(userID)
 	}
 
 	return created, nil
@@ -514,6 +550,8 @@ func (s *RepertoireService) ExtractSubtree(userID, repertoireID, nodeID, name st
 		return nil, fmt.Errorf("failed to save pruned repertoire: %w", err)
 	}
 
+	s.notifyReanalysis(userID)
+
 	return &models.ExtractSubtreeResponse{
 		Original:  savedOriginal,
 		Extracted: savedNew,
@@ -660,6 +698,8 @@ func (s *RepertoireService) MergeRepertoires(userID string, ids []string, name s
 		}
 	}
 
+	s.notifyReanalysis(userID)
+
 	return &models.MergeRepertoiresResponse{Merged: saved}, nil
 }
 
@@ -678,7 +718,12 @@ func (s *RepertoireService) MergeTranspositions(userID, repertoireID string) (*m
 	mergeTranspositionsInTree(&rep.TreeData)
 
 	metadata := calculateMetadata(rep.TreeData)
-	return s.repo.Save(repertoireID, userID, rep.TreeData, metadata)
+	saved, err := s.repo.Save(repertoireID, userID, rep.TreeData, metadata)
+	if err != nil {
+		return nil, err
+	}
+	s.notifyReanalysis(userID)
+	return saved, nil
 }
 
 // positionKey identifies a unique position at a specific move number.
@@ -1113,6 +1158,8 @@ func (s *RepertoireService) ImportRepertoire(userID, sourceRepertoireID string) 
 		}
 		saved.Origin = source.Origin
 	}
+
+	s.notifyReanalysis(userID)
 
 	return saved, nil
 }
