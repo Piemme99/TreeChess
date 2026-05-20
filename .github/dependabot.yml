@@ -26,6 +26,12 @@ updates:
       - dependencies
       - npm
     open-pull-requests-limit: 5
+    groups:
+      typescript:
+        patterns:
+          - "typescript"
+          - "typescript-eslint"
+          - "@typescript-eslint/*"
 
   # GitHub Actions
   - package-ecosystem: github-actions
