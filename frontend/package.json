@@ -26,7 +26,7 @@
     "react": "^19.2.4",
     "react-chessboard": "^5.10.0",
     "react-dom": "^19.2.6",
-    "react-router": "^7.15.0",
+    "react-router": "^7.15.1",
     "tailwindcss": "^4.1.18",
     "zustand": "^5.0.11"
   },
