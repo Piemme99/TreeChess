@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { Chess } from 'chess.js';
 import { useNavigate, useLocation } from 'react-router';
 import { ensureFullFEN } from '../../shared/utils/chess';
@@ -51,6 +51,7 @@ export function RepertoireEdit() {
   const settingsRef = useRef<HTMLDivElement>(null);
   const [treeExpanded, setTreeExpanded] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>('tree');
+  const [hoveredEngineLineRank, setHoveredEngineLineRank] = useState<number | null>(null);
 
   // Resizable split (extracted hook)
   const { boardWidthPercent, isDragging, containerRef, startDragging } = useResizableSplit(50);
@@ -85,7 +86,22 @@ export function RepertoireEdit() {
 
   useEffect(() => {
     engine.analyze(currentFEN);
+    setHoveredEngineLineRank(null);
   }, [currentFEN, engine]);
+
+  // When previewing an alternate line, swap the board's best-move arrow to that line's first move.
+  const displayedEngineEvaluation = useMemo(() => {
+    const baseEval = engine.currentEvaluation;
+    if (!baseEval || !hoveredEngineLineRank || hoveredEngineLineRank === 1) return baseEval;
+    const hovered = engine.currentLines?.[hoveredEngineLineRank - 1];
+    if (!hovered?.bestMoveFrom || !hovered?.bestMoveTo) return baseEval;
+    return {
+      ...baseEval,
+      bestMoveFrom: hovered.bestMoveFrom,
+      bestMoveTo: hovered.bestMoveTo,
+    };
+  }, [engine.currentEvaluation, engine.currentLines, hoveredEngineLineRank]);
+
   const isRootNode = selectedNode?.id === repertoire?.treeData?.id;
 
   // Read pending move arrow from sessionStorage synchronously at mount.
@@ -238,7 +254,7 @@ export function RepertoireEdit() {
             possibleMoves={readOnly ? [] : possibleMoves}
             setPossibleMoves={readOnly ? (() => {}) : setPossibleMoves}
             onMove={readOnly ? (() => {}) : handleBoardMove}
-            engineEvaluation={readOnly ? null : engine.currentEvaluation}
+            engineEvaluation={readOnly ? null : displayedEngineEvaluation}
             pendingMoveArrow={readOnly ? [] : pendingMoveArrow}
           />
         </div>
@@ -413,6 +429,7 @@ export function RepertoireEdit() {
                       handleBoardMove({ san });
                     }
                   }}
+                  onHoverLine={setHoveredEngineLineRank}
                 />
               </div>
             )}
