@@ -17,6 +17,8 @@ interface TopMovesPanelProps {
   selectedNode?: RepertoireNode | null;
   /** Callback to add a move to the repertoire. */
   onAddMove?: (san: string) => void;
+  /** Notify when the user hovers a line (1-based rank). Used to preview the move on the board. */
+  onHoverLine?: (rank: number | null) => void;
 }
 
 interface LineDisplay {
@@ -30,7 +32,7 @@ interface LineDisplay {
   existsInTree: boolean;
 }
 
-export function TopMovesPanel({ evaluation, lines, fen, repertoireId, selectedNode, onAddMove }: TopMovesPanelProps) {
+export function TopMovesPanel({ evaluation, lines, fen, repertoireId, selectedNode, onAddMove, onHoverLine }: TopMovesPanelProps) {
   // Get Explorer stats for this position
   const explorerStats = useExplorerEnrichment(fen);
 
@@ -112,10 +114,12 @@ export function TopMovesPanel({ evaluation, lines, fen, repertoireId, selectedNo
         return (
           <div
             key={line.rank}
+            onMouseEnter={() => onHoverLine?.(line.rank)}
+            onMouseLeave={() => onHoverLine?.(null)}
             className={`rounded-xl border px-3 py-2.5 transition-colors ${
               line.rank === 1
                 ? 'border-primary/20 bg-primary/5'
-                : 'border-primary/10 bg-bg'
+                : 'border-primary/10 bg-bg hover:border-primary/30'
             }`}
           >
             {/* Main row: rank + move + score + Win% + add button */}
