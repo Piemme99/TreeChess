@@ -1,8 +1,9 @@
 import { useRef, useState, useEffect, useMemo } from 'react';
 import { ExternalLink } from 'lucide-react';
 import { ChessBoard } from '../../../../shared/components/Board/ChessBoard';
+import { OpeningLabel } from '../../../../shared/components/OpeningLabel';
 import { useChess } from '../../../../shared/hooks/useChess';
-import { findNode } from '../utils/nodeUtils';
+import { findNode, findPathToNode } from '../utils/nodeUtils';
 import { EvalBar } from './EvalBar';
 import type { RepertoireNode, Color, Repertoire, EngineEvaluation } from '../../../../types';
 
@@ -107,11 +108,18 @@ export function BoardSection({
     }
   };
 
+  const fenPath = useMemo(() => {
+    if (!repertoire || !selectedNode) return [];
+    const path = findPathToNode(repertoire.treeData, selectedNode.id);
+    return path ? path.map((n) => n.fen) : [];
+  }, [repertoire, selectedNode]);
+
   const truncatedFEN = currentFEN.length > 60 ? currentFEN.slice(0, 57) + '...' : currentFEN;
   const orientationLabel = color === 'white' ? 'White' : color === 'black' ? 'Black' : '';
 
   return (
     <div className="flex flex-col items-center justify-center h-full max-md:w-full">
+      <OpeningLabel fenPath={fenPath} className="w-full px-3 py-1.5 shrink-0" />
       <div className="flex items-center justify-center flex-1 min-h-0 w-full">
         <EvalBar score={engineEvaluation?.score} mate={engineEvaluation?.mate} fen={currentFEN} />
         <div className="w-full h-full flex items-center justify-center p-2 aspect-square" ref={wrapperRef}>

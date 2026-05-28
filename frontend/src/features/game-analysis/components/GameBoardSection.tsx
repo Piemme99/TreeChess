@@ -1,18 +1,20 @@
 import { useRef, useState, useEffect, useMemo } from 'react';
 import { ChessBoard } from '../../../shared/components/Board/ChessBoard';
 import { Button } from '../../../shared/components/UI';
+import { OpeningLabel } from '../../../shared/components/OpeningLabel';
 import { EvalBar } from '../../repertoire/edit/components/EvalBar';
 import type { EngineEvaluation } from '../../../types';
 
 export interface GameBoardSectionProps {
   fen: string;
+  fenPath: string[];
   orientation: 'white' | 'black';
   lastMove?: { from: string; to: string } | null;
   onFlip: () => void;
   engineEvaluation?: EngineEvaluation | null;
 }
 
-export function GameBoardSection({ fen, orientation, lastMove, onFlip, engineEvaluation }: GameBoardSectionProps) {
+export function GameBoardSection({ fen, fenPath, orientation, lastMove, onFlip, engineEvaluation }: GameBoardSectionProps) {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [boardSize, setBoardSize] = useState(350);
 
@@ -36,6 +38,7 @@ export function GameBoardSection({ fen, orientation, lastMove, onFlip, engineEva
 
   return (
     <div className="flex flex-col gap-2 shrink-0 max-md:items-center max-md:w-full min-w-[700px] max-md:min-w-0">
+      <OpeningLabel fenPath={fenPath} className="px-2 py-1" />
       <div className="flex items-stretch gap-1">
         <EvalBar score={engineEvaluation?.score} mate={engineEvaluation?.mate} fen={fen} />
         <div ref={wrapperRef} className="w-[700px]">
