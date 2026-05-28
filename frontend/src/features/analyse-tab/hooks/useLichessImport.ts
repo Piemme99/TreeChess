@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { importApi } from '../../../services/api';
 import { toast } from '../../../stores/toastStore';
+import { sanitizeUsername } from '../utils/sanitizeUsername';
 import type { LichessImportOptions } from '../../../types';
 
 export interface UseLichessImportReturn {
@@ -12,7 +13,8 @@ export function useLichessImport(username: string, onSuccess?: () => void): UseL
   const [importing, setImporting] = useState(false);
 
   const handleLichessImport = useCallback(async (options?: LichessImportOptions) => {
-    if (!username.trim()) {
+    const cleanedUsername = sanitizeUsername(username);
+    if (!cleanedUsername) {
       toast.error('Please enter your Lichess username first');
       return false;
     }
@@ -20,7 +22,7 @@ export function useLichessImport(username: string, onSuccess?: () => void): UseL
     setImporting(true);
 
     try {
-      const result = await importApi.importFromLichess(username.trim(), options);
+      const result = await importApi.importFromLichess(cleanedUsername, options);
       toast.success(`Imported ${result.gameCount} game(s) from Lichess`);
       onSuccess?.();
       return true;
