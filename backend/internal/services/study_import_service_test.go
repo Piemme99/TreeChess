@@ -260,7 +260,7 @@ const studyPGNWithCustomStartingPositions = `[Event "Sicilian: Chapter 1"]
 7. Nf3 *
 `
 
-func TestStudyImportService_PreviewStudy_MarksCustomStartingPositionUnimportable(t *testing.T) {
+func TestStudyImportService_PreviewStudy_FlagsCustomStartingPositionChapters(t *testing.T) {
 	mockLichess := &smocks.MockLichessService{
 		FetchStudyPGNFunc: func(studyID, authToken string) (string, error) {
 			return studyPGNWithCustomStartingPositions, nil
@@ -273,27 +273,35 @@ func TestStudyImportService_PreviewStudy_MarksCustomStartingPositionUnimportable
 	require.NoError(t, err)
 	require.NotNil(t, info)
 	require.Len(t, info.Chapters, 3)
+	// Standard chapter: importable, not flagged.
 	assert.True(t, info.Chapters[0].Importable)
+	assert.False(t, info.Chapters[0].CustomStart)
 	assert.Empty(t, info.Chapters[0].SkipReason)
-	assert.False(t, info.Chapters[1].Importable)
+	// Custom-start chapters: importable on their own, but flagged so the UI can
+	// show they can't be merged into a standard repertoire.
+	assert.True(t, info.Chapters[1].Importable)
+	assert.True(t, info.Chapters[1].CustomStart)
 	assert.Equal(t, models.SkipReasonCustomStartingPosition, info.Chapters[1].SkipReason)
-	assert.False(t, info.Chapters[2].Importable)
+	assert.True(t, info.Chapters[2].Importable)
+	assert.True(t, info.Chapters[2].CustomStart)
 	assert.Equal(t, models.SkipReasonCustomStartingPosition, info.Chapters[2].SkipReason)
 }
 
-func TestStudyImportService_ImportStudyChaptersWithCategory_ReturnsSkipped(t *testing.T) {
+func TestStudyImportService_ImportStudyChaptersWithCategory_ImportsCustomStart(t *testing.T) {
 	mockLichess := &smocks.MockLichessService{
 		FetchStudyPGNFunc: func(studyID, authToken string) (string, error) {
 			return studyPGNWithCustomStartingPositions, nil
 		},
 	}
 	createdCount := 0
+	var savedTrees []models.RepertoireNode
 	mockRepSvc := &smocks.MockRepertoireService{
 		CreateRepertoireFunc: func(userID, name string, color models.Color) (*models.Repertoire, error) {
 			createdCount++
 			return &models.Repertoire{ID: fmt.Sprintf("rep-%d", createdCount), Name: name, Color: color}, nil
 		},
 		SaveTreeFunc: func(userID, repertoireID string, treeData models.RepertoireNode) (*models.Repertoire, error) {
+			savedTrees = append(savedTrees, treeData)
 			return &models.Repertoire{ID: repertoireID, TreeData: treeData}, nil
 		},
 	}
@@ -303,12 +311,17 @@ func TestStudyImportService_ImportStudyChaptersWithCategory_ReturnsSkipped(t *te
 
 	require.NoError(t, err)
 	require.NotNil(t, result)
-	assert.Len(t, result.Repertoires, 1)
-	require.Len(t, result.Skipped, 2)
-	assert.Equal(t, 1, result.Skipped[0].Index)
-	assert.Equal(t, models.SkipReasonCustomStartingPosition, result.Skipped[0].Reason)
-	assert.Equal(t, 2, result.Skipped[1].Index)
-	assert.Equal(t, models.SkipReasonCustomStartingPosition, result.Skipped[1].Reason)
+	// Per-chapter import now imports custom-start chapters too, each rooted at
+	// its own FEN — nothing is skipped.
+	assert.Len(t, result.Repertoires, 3)
+	assert.Empty(t, result.Skipped)
+
+	// Each custom-start chapter is rooted at its (verbatim) starting FEN.
+	require.Len(t, savedTrees, 3)
+	assert.Equal(t, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -", savedTrees[0].FEN)
+	assert.Equal(t, "r1bqkbnr/pp1ppp1p/2n3p1/2p5/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq -", savedTrees[1].FEN)
+	// FEN is left untouched, including the non-standard "kq" castling rights.
+	assert.Equal(t, "rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w kq -", savedTrees[2].FEN)
 }
 
 func TestStudyImportService_ImportStudyChaptersMerged_ReturnsSkipped(t *testing.T) {

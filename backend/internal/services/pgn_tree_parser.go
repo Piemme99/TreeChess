@@ -256,25 +256,52 @@ func HasCustomStartingPosition(headers map[string]string) bool {
 }
 
 // ParsePGNToTree parses a single PGN game text (with headers) into a RepertoireNode tree.
-// Returns the root node, a map of PGN headers, and any error.
+// Returns the root node, a map of PGN headers, and any error. Chapters that start
+// from a custom position (Lichess "From Position") are rejected with
+// ErrCustomStartingPosition; use ParseChapterPGNToTree to import those rooted at
+// their starting FEN.
 func ParsePGNToTree(pgnText string) (models.RepertoireNode, map[string]string, error) {
+	return parsePGNToTree(pgnText, false)
+}
+
+// ParseChapterPGNToTree parses a PGN chapter into a RepertoireNode tree, allowing
+// a custom starting position: the tree is rooted at the chapter's [FEN] header
+// rather than the standard starting position.
+func ParseChapterPGNToTree(pgnText string) (models.RepertoireNode, map[string]string, error) {
+	return parsePGNToTree(pgnText, true)
+}
+
+func parsePGNToTree(pgnText string, allowCustomStart bool) (models.RepertoireNode, map[string]string, error) {
 	headers, movetext := splitPGNHeadersAndMovetext(pgnText)
 	tokens := tokenizePGNMovetext(movetext)
 
-	// Reject custom starting positions — only standard openings are supported
-	if HasCustomStartingPosition(headers) {
+	customStart := HasCustomStartingPosition(headers)
+	if customStart && !allowCustomStart {
+		// Standard imports only support the standard starting position.
 		return models.RepertoireNode{}, nil, ErrCustomStartingPosition
 	}
 
 	game := chess.NewGame()
+	if customStart {
+		fenFn, err := chess.FEN(ensureFullFEN(headers["FEN"]))
+		if err != nil {
+			return models.RepertoireNode{}, nil, fmt.Errorf("invalid starting FEN %q: %w", headers["FEN"], err)
+		}
+		game = chess.NewGame(fenFn)
+	}
 	startFEN := normalizeFEN(game.Position().String())
+
+	rootColor := models.ChessColorWhite
+	if fields := strings.Fields(startFEN); len(fields) > 1 && fields[1] == "b" {
+		rootColor = models.ChessColorBlack
+	}
 
 	root := models.RepertoireNode{
 		ID:          uuid.New().String(),
 		FEN:         startFEN,
 		Move:        nil,
 		MoveNumber:  0,
-		ColorToMove: models.ChessColorWhite,
+		ColorToMove: rootColor,
 		Children:    []*models.RepertoireNode{},
 	}
 
@@ -443,11 +470,25 @@ loop:
 	return headers, movetext
 }
 
+// newGameFromStart returns a fresh game at g's starting position, preserving a
+// custom starting FEN (Lichess "From Position") rather than assuming the
+// standard initial position.
+func newGameFromStart(g *chess.Game) *chess.Game {
+	if g != nil {
+		positions := g.Positions()
+		if len(positions) > 0 {
+			if fenFn, err := chess.FEN(positions[0].String()); err == nil {
+				return chess.NewGame(fenFn)
+			}
+		}
+	}
+	return chess.NewGame()
+}
+
 // cloneGame creates a copy of a chess.Game at the same position by replaying moves.
 func cloneGame(g *chess.Game) *chess.Game {
-	moves := g.Moves()
-	newGame := chess.NewGame()
-	for _, m := range moves {
+	newGame := newGameFromStart(g)
+	for _, m := range g.Moves() {
 		_ = newGame.Move(m)
 	}
 	return newGame
@@ -477,10 +518,10 @@ func replayToNode(root *models.RepertoireNode, target *models.RepertoireNode, ba
 	// Find path from root to target
 	path := findPathToNode(root, target.ID)
 	if path == nil {
-		return chess.NewGame()
+		return newGameFromStart(baseGame)
 	}
 
-	g := chess.NewGame()
+	g := newGameFromStart(baseGame)
 	// Skip root (index 0), replay moves along the path
 	for i := 1; i < len(path); i++ {
 		if path[i].Move != nil {

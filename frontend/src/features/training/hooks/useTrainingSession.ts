@@ -11,7 +11,7 @@ import {
   type TrainingMove,
 } from '../utils/treeTraversal';
 import { Chess } from 'chess.js';
-import { STARTING_FEN } from '../../../shared/utils/chess';
+import { STARTING_FEN, ensureFullFEN } from '../../../shared/utils/chess';
 
 // --- Types ---
 
@@ -177,7 +177,7 @@ export function reducer(state: TrainingState, action: Action): TrainingState {
           ...initialState,
           phase: 'opponent_moving',
           lines: action.lines,
-          fen: STARTING_FEN,
+          fen: ensureFullFEN(action.treeRoot.fen),
           orientation: action.orientation,
           userColor: action.userColor,
           nodeMap: action.nodeMap,
@@ -189,7 +189,7 @@ export function reducer(state: TrainingState, action: Action): TrainingState {
         ...initialState,
         phase: 'playing',
         lines: action.lines,
-        fen: STARTING_FEN,
+        fen: ensureFullFEN(action.treeRoot.fen),
         orientation: action.orientation,
         userColor: action.userColor,
         nodeMap: action.nodeMap,
@@ -436,7 +436,7 @@ export function reducer(state: TrainingState, action: Action): TrainingState {
           phase: 'opponent_moving',
           currentLineIndex: nextLineIndex,
           currentMoveIndex: 0,
-          fen: STARTING_FEN,
+          fen: state.treeRoot ? ensureFullFEN(state.treeRoot.fen) : STARTING_FEN,
           lastMove: null,
           lineMistakes: 0,
           correctMoveSan: null,
@@ -451,7 +451,7 @@ export function reducer(state: TrainingState, action: Action): TrainingState {
         phase: 'playing',
         currentLineIndex: nextLineIndex,
         currentMoveIndex: 0,
-        fen: STARTING_FEN,
+        fen: state.treeRoot ? ensureFullFEN(state.treeRoot.fen) : STARTING_FEN,
         lastMove: null,
         lineMistakes: 0,
         correctMoveSan: null,
