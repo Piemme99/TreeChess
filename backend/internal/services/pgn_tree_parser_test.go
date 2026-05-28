@@ -378,6 +378,40 @@ func TestParsePGNToTree_CustomFENHeader_Rejected(t *testing.T) {
 	assert.ErrorIs(t, err, ErrCustomStartingPosition)
 }
 
+func TestParseChapterPGNToTree_CustomFENHeader_Accepted(t *testing.T) {
+	// A "From Position" chapter is imported rooted at its custom starting FEN.
+	pgn := `[Event "My Study: Sicilian Defense"]
+[FEN "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1"]
+[Orientation "Black"]
+
+1... c5 2. Nf3 d6 *`
+
+	root, headers, err := ParseChapterPGNToTree(pgn)
+	require.NoError(t, err)
+	// Root is the custom position (normalized, counters stripped), black to move.
+	assert.Equal(t, "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq -", root.FEN)
+	assert.Equal(t, models.ChessColorBlack, root.ColorToMove)
+	assert.Equal(t, "Black", headers["Orientation"])
+
+	// Moves are replayed from the custom position.
+	require.Len(t, root.Children, 1)
+	assert.Equal(t, "c5", *root.Children[0].Move)
+	// After 1...c5 the en-passant square is c6.
+	assert.Equal(t, "rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq c6", root.Children[0].FEN)
+}
+
+func TestParseChapterPGNToTree_StandardStart_StillWorks(t *testing.T) {
+	pgn := `[Event "Test"]
+
+1. e4 e5 *`
+
+	root, _, err := ParseChapterPGNToTree(pgn)
+	require.NoError(t, err)
+	require.Len(t, root.Children, 1)
+	assert.Equal(t, "e4", *root.Children[0].Move)
+	assert.Equal(t, models.ChessColorWhite, root.ColorToMove)
+}
+
 func TestParsePGNToTree_StandardFENHeader_Accepted(t *testing.T) {
 	// A FEN header matching the standard starting position should be accepted
 	pgn := `[Event "Test"]

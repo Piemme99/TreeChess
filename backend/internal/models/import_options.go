@@ -35,10 +35,14 @@ type StudyChapterInfo struct {
 	Name        string `json:"name"`
 	Orientation string `json:"orientation"`
 	MoveCount   int    `json:"moveCount"`
-	// Importable is false when the chapter cannot be imported as-is (e.g. custom
-	// starting position). When false, SkipReason explains why.
+	// Importable is false when the chapter cannot be imported as-is. When false,
+	// SkipReason explains why.
 	Importable bool   `json:"importable"`
 	SkipReason string `json:"skipReason,omitempty"`
+	// CustomStart is true when the chapter starts from a non-standard position
+	// (Lichess "From Position"). Such chapters are importable as their own
+	// repertoire (rooted at that FEN) but cannot be merged into a standard tree.
+	CustomStart bool `json:"customStart,omitempty"`
 }
 
 // SkipReasonCustomStartingPosition is set on StudyChapterInfo / SkippedStudyChapter
