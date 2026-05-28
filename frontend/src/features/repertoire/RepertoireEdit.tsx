@@ -13,7 +13,6 @@ import { useEngine } from '../../shared/hooks/useEngine';
 import { useTreeNavigation } from './edit/hooks/useTreeNavigation';
 import { useResizableSplit } from './edit/hooks/useResizableSplit';
 import { useNodeAnnotation } from './edit/hooks/useNodeAnnotation';
-import { useMainLineActions } from './edit/hooks/useMainLineActions';
 import { findNode } from './edit/utils/nodeUtils';
 import { STARTING_FEN } from './edit/utils/constants';
 import type { RepertoireNode } from '../../types';
@@ -26,7 +25,7 @@ import { useExploreStore } from '../../stores/exploreStore';
 import { toast } from '../../stores/toastStore';
 import { BRANCH_COLORS } from './shared/components/RepertoireTree/constants';
 import { usePageTitle } from '../../shared/hooks/usePageTitle';
-import { Download, Settings } from 'lucide-react';
+import { Download, Settings, Home, Scissors } from 'lucide-react';
 
 type TabId = 'tree' | 'moves' | 'engine';
 
@@ -139,12 +138,6 @@ export function RepertoireEdit() {
 
   const { actionLoading, possibleMoves, setPossibleMoves, handleBoardMove, handleDeleteBranch, handleExtractBranch } =
     useMoveActions(selectedNode, currentFEN, id, setRepertoire, selectNode);
-
-  // Main line actions (extracted hook)
-  const {
-    mainLineLoading, mergeLoading, hasMainLine,
-    handleSetMainLine, handleClearMainLine, handleMergeTranspositions,
-  } = useMainLineActions(id, selectedNodeId, setRepertoire);
 
   const handleNodeClick = useCallback(
     (node: RepertoireNode) => {
@@ -268,9 +261,17 @@ export function RepertoireEdit() {
         </div>
 
         <div className={`min-w-0 min-h-0 bg-bg-card overflow-hidden flex flex-col border-l border-primary/10 max-md:!w-full${activeTab === 'tree' && treeExpanded ? ' fixed inset-0 w-full h-full z-100' : ''}`} style={{ width: `${100 - boardWidthPercent}%` }}>
-          {/* Action bar */}
+          {/* Action bar — navigation controls on the left, repertoire actions on the right */}
           <div className="flex items-center justify-between py-2 px-4 border-b border-primary/10 gap-2">
             <div className="flex items-center gap-2">
+              <button
+                onClick={goToRoot}
+                disabled={isRootNode}
+                title="Go to starting position"
+                className="flex items-center justify-center w-7 h-7 rounded-lg text-text-muted hover:text-text hover:bg-primary-light/50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+              >
+                <Home className="w-4 h-4" />
+              </button>
               {selectedNode && (
                 <span className="font-mono text-sm text-text font-medium">
                   {selectedNode.move
@@ -281,32 +282,14 @@ export function RepertoireEdit() {
             </div>
             {!readOnly && (
               <div className="flex items-center gap-1">
-                <Button variant="ghost" size="sm" onClick={handleSetMainLine} disabled={isRootNode || mainLineLoading} title="Set main line to this node">
-                  Main Line
-                </Button>
-                {repertoire && hasMainLine(repertoire.treeData) && (
-                  <Button variant="ghost" size="sm" onClick={handleClearMainLine} disabled={mainLineLoading} title="Clear main line">
-                    Clear ML
-                  </Button>
-                )}
-                <Button variant="ghost" size="sm" onClick={handleMergeTranspositions} disabled={mergeLoading} title="Merge transpositions">
-                  {mergeLoading ? 'Merging...' : 'Merge'}
-                </Button>
-                <Button variant="ghost" size="sm" onClick={() => setExtractConfirmOpen(true)} disabled={isRootNode || actionLoading} title="Extract branch into new repertoire">
-                  Extract
+                <Button variant="ghost" size="sm" onClick={() => setExtractConfirmOpen(true)} disabled={isRootNode || actionLoading} title="Create a new repertoire from this branch">
+                  <Scissors className="w-3.5 h-3.5 mr-1" />
+                  Extract branch
                 </Button>
                 <Button variant="ghost" size="sm" onClick={() => setDeleteConfirmOpen(true)} disabled={isRootNode || actionLoading} title="Delete this branch">
                   <span className="text-danger">Delete</span>
                 </Button>
-                <Button variant="ghost" size="sm" onClick={goToRoot} title="Go to starting position">
-                  Root
-                </Button>
               </div>
-            )}
-            {readOnly && (
-              <Button variant="ghost" size="sm" onClick={goToRoot} title="Go to starting position">
-                Root
-              </Button>
             )}
           </div>
 

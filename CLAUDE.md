@@ -198,6 +198,10 @@ src/
 - **Application limits:** Defined in `config/limits.go` (max repertoires: 50, max PGN: 10MB, max games per page: 100)
 - **Background worker:** `EngineService.RunWorker` processes engine evaluations via Lichess Explorer API
 
+## UI Conventions
+
+- **Control placement (toolbar vs tree-view):** Controls that *mutate the repertoire* (CRUD, metadata, extract) live on the repertoire toolbar. Controls that *mutate the tree view* (navigation, zoom, display mode) live inside the tree-view component. Place each control in the area that matches its role; keep navigation controls visually separate from repertoire actions.
+
 ## Documentation
 
 - `AGENTS.md` - Build commands, code style guidelines, naming conventions, detailed patterns
