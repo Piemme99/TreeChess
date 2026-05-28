@@ -38,7 +38,7 @@ export function GameBoardSection({ fen, fenPath, orientation, lastMove, onFlip, 
 
   return (
     <div className="flex flex-col gap-2 shrink-0 max-md:items-center max-md:w-full min-w-[700px] max-md:min-w-0">
-      <OpeningLabel fenPath={fenPath} className="px-2 py-1" />
+      <OpeningLabel fenPath={fenPath} className="px-2" />
       <div className="flex items-stretch gap-1">
         <EvalBar score={engineEvaluation?.score} mate={engineEvaluation?.mate} fen={fen} />
         <div ref={wrapperRef} className="w-[700px]">

@@ -119,7 +119,7 @@ export function BoardSection({
 
   return (
     <div className="flex flex-col items-center justify-center h-full max-md:w-full">
-      <OpeningLabel fenPath={fenPath} className="w-full px-3 py-1.5 shrink-0" />
+      <OpeningLabel fenPath={fenPath} className="w-full px-3 shrink-0" />
       <div className="flex items-center justify-center flex-1 min-h-0 w-full">
         <EvalBar score={engineEvaluation?.score} mate={engineEvaluation?.mate} fen={currentFEN} />
         <div className="w-full h-full flex items-center justify-center p-2 aspect-square" ref={wrapperRef}>
