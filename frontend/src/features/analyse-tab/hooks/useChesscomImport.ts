@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { importApi } from '../../../services/api';
 import { toast } from '../../../stores/toastStore';
+import { sanitizeUsername } from '../utils/sanitizeUsername';
 import type { ChesscomImportOptions } from '../../../types';
 
 export interface UseChesscomImportReturn {
@@ -12,7 +13,8 @@ export function useChesscomImport(username: string, onSuccess?: () => void): Use
   const [importing, setImporting] = useState(false);
 
   const handleChesscomImport = useCallback(async (options?: ChesscomImportOptions) => {
-    if (!username.trim()) {
+    const cleanedUsername = sanitizeUsername(username);
+    if (!cleanedUsername) {
       toast.error('Please enter your Chess.com username first');
       return false;
     }
@@ -20,7 +22,7 @@ export function useChesscomImport(username: string, onSuccess?: () => void): Use
     setImporting(true);
 
     try {
-      const result = await importApi.importFromChesscom(username.trim(), options);
+      const result = await importApi.importFromChesscom(cleanedUsername, options);
       toast.success(`Imported ${result.gameCount} game(s) from Chess.com`);
       onSuccess?.();
       return true;
