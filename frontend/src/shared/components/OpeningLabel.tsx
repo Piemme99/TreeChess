@@ -8,8 +8,7 @@ interface OpeningLabelProps {
 
 /**
  * A slim caption showing the opening name + ECO code for the current position.
- * Once a line leaves theory it keeps the last known opening and appends an
- * "out of book" hint.
+ * Once a line leaves theory it keeps showing the last known opening.
  *
  * The slot always reserves a fixed height (even when no opening is known) so the
  * board never resizes as the label appears, disappears, or changes.
@@ -27,9 +26,6 @@ export function OpeningLabel({ fenPath, className = '' }: OpeningLabelProps) {
           <span className="text-sm font-medium text-text truncate" title={opening.name}>
             {opening.name}
           </span>
-          {!opening.isExact && (
-            <span className="text-xs text-text-muted shrink-0">· out of book</span>
-          )}
         </>
       )}
     </div>
