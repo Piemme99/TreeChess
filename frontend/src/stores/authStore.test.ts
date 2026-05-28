@@ -289,6 +289,20 @@ describe('authStore', () => {
       expect(getState().isAuthenticated).toBe(true);
     });
 
+    it('dedupes concurrent calls into a single refresh (StrictMode double-invoke)', async () => {
+      // React StrictMode double-invokes the mount effect that calls checkAuth.
+      // With single-use refresh-token rotation, a second racing refresh would
+      // send an already-consumed token and log the user out on every reload.
+      const user = createUser();
+      mockGetAccessToken.mockReturnValue(null);
+      mockAuthApi.refresh.mockResolvedValue(createAuthResponse({ user, token: 'fresh-tok' }));
+
+      await Promise.all([getState().checkAuth(), getState().checkAuth()]);
+
+      expect(mockAuthApi.refresh).toHaveBeenCalledTimes(1);
+      expect(getState().isAuthenticated).toBe(true);
+    });
+
     it('unauthenticates when refresh is rejected with 401', async () => {
       mockGetAccessToken.mockReturnValue(null);
       const unauthorizedError = { response: { status: 401, data: { error: 'no refresh token' } } };

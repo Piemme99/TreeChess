@@ -117,56 +117,19 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   checkAuth: async () => {
-    // First try to use an existing in-memory access token
-    const existingToken = getAccessToken();
-    if (existingToken) {
-      try {
-        const user = await authApi.me();
-        set({
-          user,
-          isAuthenticated: true,
-          loading: false,
-        });
-        if (user.lichessUsername || user.chesscomUsername) {
-          useAuthStore.getState().triggerSync();
-        }
-        return;
-      } catch {
-        // Access token expired or invalid — try refreshing below
-      }
+    // React StrictMode double-invokes the mount effect that calls checkAuth
+    // (and a hot-reload remount can overlap a prior run), so dedupe onto a
+    // single in-flight promise. Combined with the coalesced refresh in api.ts,
+    // this guarantees one auth check — and one refresh-token rotation — per
+    // burst, instead of a second racing refresh that logs the user out.
+    if (checkAuthInFlight) {
+      return checkAuthInFlight;
     }
-
-    // Try to get a new access token using the refresh token cookie.
-    // Retry transient failures (network / 5xx) so a backend that's briefly
-    // unreachable (e.g. mid-restart during dev hot-reload, or a deploy in
-    // prod) doesn't bounce the user to /login while the refresh cookie is
-    // still valid.
+    checkAuthInFlight = doCheckAuth(set);
     try {
-      const response = await refreshWithRetry();
-      setAccessToken(response.token);
-      set({
-        user: response.user,
-        isAuthenticated: true,
-        loading: false,
-      });
-      if (response.user.lichessUsername || response.user.chesscomUsername) {
-        useAuthStore.getState().triggerSync();
-      }
-    } catch (err) {
-      if (isAuthRejection(err)) {
-        // Definitive: the refresh cookie is gone or rejected by the server.
-        setAccessToken(null);
-        set({
-          user: null,
-          isAuthenticated: false,
-          loading: false,
-        });
-      } else {
-        // Transient failure outlasted our retries. Don't flip auth state —
-        // the next user-initiated request will trigger another refresh via
-        // the axios interceptor once the backend is reachable again.
-        set({ loading: false });
-      }
+      await checkAuthInFlight;
+    } finally {
+      checkAuthInFlight = null;
     }
   },
 
@@ -205,6 +168,67 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
   },
 }));
+
+// Setter signature for the slice of state checkAuth touches.
+type AuthSetState = (partial: Partial<AuthState>) => void;
+
+// Shared across all checkAuth() callers so a double-invoked mount effect
+// resolves to one auth check instead of two racing refreshes.
+let checkAuthInFlight: Promise<void> | null = null;
+
+async function doCheckAuth(set: AuthSetState): Promise<void> {
+  // First try to use an existing in-memory access token
+  const existingToken = getAccessToken();
+  if (existingToken) {
+    try {
+      const user = await authApi.me();
+      set({
+        user,
+        isAuthenticated: true,
+        loading: false,
+      });
+      if (user.lichessUsername || user.chesscomUsername) {
+        useAuthStore.getState().triggerSync();
+      }
+      return;
+    } catch {
+      // Access token expired or invalid — try refreshing below
+    }
+  }
+
+  // Try to get a new access token using the refresh token cookie.
+  // Retry transient failures (network / 5xx) so a backend that's briefly
+  // unreachable (e.g. mid-restart during dev hot-reload, or a deploy in
+  // prod) doesn't bounce the user to /login while the refresh cookie is
+  // still valid.
+  try {
+    const response = await refreshWithRetry();
+    setAccessToken(response.token);
+    set({
+      user: response.user,
+      isAuthenticated: true,
+      loading: false,
+    });
+    if (response.user.lichessUsername || response.user.chesscomUsername) {
+      useAuthStore.getState().triggerSync();
+    }
+  } catch (err) {
+    if (isAuthRejection(err)) {
+      // Definitive: the refresh cookie is gone or rejected by the server.
+      setAccessToken(null);
+      set({
+        user: null,
+        isAuthenticated: false,
+        loading: false,
+      });
+    } else {
+      // Transient failure outlasted our retries. Don't flip auth state —
+      // the next user-initiated request will trigger another refresh via
+      // the axios interceptor once the backend is reachable again.
+      set({ loading: false });
+    }
+  }
+}
 
 function getErrorMessage(err: unknown, fallback: string): string {
   if (err && typeof err === 'object' && 'response' in err) {
