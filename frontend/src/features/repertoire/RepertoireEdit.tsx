@@ -13,10 +13,12 @@ import { useEngine } from '../../shared/hooks/useEngine';
 import { useTreeNavigation } from './edit/hooks/useTreeNavigation';
 import { useResizableSplit } from './edit/hooks/useResizableSplit';
 import { useNodeAnnotation } from './edit/hooks/useNodeAnnotation';
+import { useExploration } from './edit/hooks/useExploration';
 import { findNode } from './edit/utils/nodeUtils';
 import { STARTING_FEN } from './edit/utils/constants';
 import type { RepertoireNode } from '../../types';
 import { BoardSection } from './edit/components/BoardSection';
+import { ExploreBar } from './edit/components/ExploreBar';
 import { DeleteModal } from './edit/components/DeleteModal';
 import { ExtractModal } from './edit/components/ExtractModal';
 import { RepertoireSettingsPanel } from './edit/components/RepertoireSettingsPanel';
@@ -83,11 +85,6 @@ export function RepertoireEdit() {
     handleBranchColorChange,
   } = useNodeAnnotation(id, selectedNodeId, selectedNode, setRepertoire);
 
-  useEffect(() => {
-    engine.analyze(currentFEN);
-    setHoveredEngineLineRank(null);
-  }, [currentFEN, engine]);
-
   // When previewing an alternate line, swap the board's best-move arrow to that line's first move.
   const displayedEngineEvaluation = useMemo(() => {
     const baseEval = engine.currentEvaluation;
@@ -139,8 +136,34 @@ export function RepertoireEdit() {
   const { actionLoading, possibleMoves, setPossibleMoves, handleBoardMove, handleDeleteBranch, handleExtractBranch } =
     useMoveActions(selectedNode, currentFEN, id, setRepertoire, selectNode);
 
+  const exploration = useExploration(selectedNode, repertoire, id, setRepertoire, selectNode);
+
+  // While exploring, the board, engine and opening label follow the explored
+  // position instead of the selected node.
+  const displayFEN = exploration.exploring && exploration.exploreFEN ? exploration.exploreFEN : currentFEN;
+
+  useEffect(() => {
+    engine.analyze(displayFEN);
+    setHoveredEngineLineRank(null);
+  }, [displayFEN, engine]);
+
+  // Board moves are committed to the tree normally, but routed to exploration
+  // (local-only) while exploring.
+  const handleMove = useCallback(
+    (move: { san: string }) => {
+      if (exploration.exploring) {
+        exploration.playExploreMove(move.san);
+      } else {
+        handleBoardMove(move);
+      }
+    },
+    [exploration, handleBoardMove]
+  );
+
   const handleNodeClick = useCallback(
     (node: RepertoireNode) => {
+      // Navigating to a real node leaves exploration behind.
+      if (exploration.exploring) exploration.exitExplore();
       // If clicking a transposition node, navigate to the canonical node
       if (node.transpositionOf) {
         selectNode(node.transpositionOf);
@@ -149,7 +172,7 @@ export function RepertoireEdit() {
       }
       setPossibleMoves([]);
     },
-    [selectNode, setPossibleMoves]
+    [exploration, selectNode, setPossibleMoves]
   );
 
   const handleToggleCollapsed = useCallback(async (nodeId: string) => {
@@ -238,18 +261,33 @@ export function RepertoireEdit() {
         )}
       </div>
       <div ref={containerRef} className={`flex-1 flex gap-0 min-h-0 overflow-hidden max-md:flex-col${isDragging ? ' select-none' : ''}`}>
-        <div className="h-full max-md:!w-full" style={{ width: `${boardWidthPercent}%` }}>
-          <BoardSection
-            selectedNode={selectedNode}
-            repertoire={repertoire}
-            currentFEN={currentFEN}
-            color={color}
-            possibleMoves={readOnly ? [] : possibleMoves}
-            setPossibleMoves={readOnly ? (() => {}) : setPossibleMoves}
-            onMove={readOnly ? (() => {}) : handleBoardMove}
-            engineEvaluation={readOnly ? null : displayedEngineEvaluation}
-            pendingMoveArrow={readOnly ? [] : pendingMoveArrow}
-          />
+        <div className="h-full max-md:!w-full flex flex-col min-h-0" style={{ width: `${boardWidthPercent}%` }}>
+          {!readOnly && (
+            <ExploreBar
+              exploring={exploration.exploring}
+              saving={exploration.saving}
+              canExplore={!!selectedNode}
+              hasExploredMoves={exploration.hasExploredMoves}
+              onStart={exploration.startExplore}
+              onSave={exploration.saveExplore}
+              onDiscard={exploration.discardExplore}
+            />
+          )}
+          <div className="flex-1 min-h-0">
+            <BoardSection
+              selectedNode={selectedNode}
+              repertoire={repertoire}
+              currentFEN={readOnly ? currentFEN : displayFEN}
+              color={color}
+              possibleMoves={readOnly ? [] : possibleMoves}
+              setPossibleMoves={readOnly ? (() => {}) : setPossibleMoves}
+              onMove={readOnly ? (() => {}) : handleMove}
+              engineEvaluation={readOnly ? null : displayedEngineEvaluation}
+              pendingMoveArrow={readOnly || exploration.exploring ? [] : pendingMoveArrow}
+              exploring={!readOnly && exploration.exploring}
+              explorationFens={exploration.exploreFens}
+            />
+          </div>
         </div>
 
         {/* Resize handle */}
@@ -404,11 +442,13 @@ export function RepertoireEdit() {
                 <TopMovesPanel
                   evaluation={engine.currentEvaluation}
                   lines={engine.currentLines}
-                  fen={currentFEN}
+                  fen={displayFEN}
                   repertoireId={id}
                   selectedNode={selectedNode}
                   onAddMove={(san: string) => {
-                    if (selectedNode && id) {
+                    if (exploration.exploring) {
+                      exploration.playExploreMove(san);
+                    } else if (selectedNode && id) {
                       handleBoardMove({ san });
                     }
                   }}

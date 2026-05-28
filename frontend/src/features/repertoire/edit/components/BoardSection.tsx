@@ -17,6 +17,8 @@ interface BoardSectionProps {
   onMove: (move: { san: string }) => void;
   engineEvaluation?: EngineEvaluation | null;
   pendingMoveArrow?: [string, string, string][];
+  exploring?: boolean;
+  explorationFens?: string[];
 }
 
 export function BoardSection({
@@ -28,7 +30,9 @@ export function BoardSection({
   setPossibleMoves,
   onMove,
   engineEvaluation,
-  pendingMoveArrow = []
+  pendingMoveArrow = [],
+  exploring = false,
+  explorationFens = []
 }: BoardSectionProps) {
   const { getLegalMoves } = useChess();
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -74,7 +78,9 @@ export function BoardSection({
   const handleSquareClick = (square: string) => {
     if (!color || !selectedNode) return;
 
-    const moves = getLegalMoves(selectedNode.fen);
+    // Legal moves come from the displayed position, which differs from the
+    // selected node while exploring.
+    const moves = getLegalMoves(currentFEN);
     const targetSquares = moves.map((m) => m.to);
 
     if (possibleMoves.includes(square)) {
@@ -86,18 +92,22 @@ export function BoardSection({
       return;
     }
 
-    const targetToNodeId = new Map<string, string>();
-    for (const child of selectedNode.children) {
-      if (child.move) {
-        const destSquare = child.move.slice(-2);
-        targetToNodeId.set(destSquare, child.id);
+    // The tree-node interception only applies to the committed tree, not to a
+    // free exploration from the current position.
+    if (!exploring) {
+      const targetToNodeId = new Map<string, string>();
+      for (const child of selectedNode.children) {
+        if (child.move) {
+          const destSquare = child.move.slice(-2);
+          targetToNodeId.set(destSquare, child.id);
+        }
       }
-    }
-    const nodeId = targetToNodeId.get(square);
-    if (nodeId && repertoire) {
-      const nodeForSquare = findNode(repertoire.treeData, nodeId);
-      if (nodeForSquare) {
-        return;
+      const nodeId = targetToNodeId.get(square);
+      if (nodeId && repertoire) {
+        const nodeForSquare = findNode(repertoire.treeData, nodeId);
+        if (nodeForSquare) {
+          return;
+        }
       }
     }
 
@@ -111,8 +121,9 @@ export function BoardSection({
   const fenPath = useMemo(() => {
     if (!repertoire || !selectedNode) return [];
     const path = findPathToNode(repertoire.treeData, selectedNode.id);
-    return path ? path.map((n) => n.fen) : [];
-  }, [repertoire, selectedNode]);
+    const base = path ? path.map((n) => n.fen) : [];
+    return [...base, ...explorationFens];
+  }, [repertoire, selectedNode, explorationFens]);
 
   const truncatedFEN = currentFEN.length > 60 ? currentFEN.slice(0, 57) + '...' : currentFEN;
   const orientationLabel = color === 'white' ? 'White' : color === 'black' ? 'Black' : '';
