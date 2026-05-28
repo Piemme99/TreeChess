@@ -64,28 +64,30 @@ const api = axios.create({
 });
 
 // --- Token refresh logic ---
-type RefreshSubscriber = {
-  resolve: (token: string) => void;
-  reject: (err: unknown) => void;
-};
+// A single in-flight refresh is shared across ALL callers (the response
+// interceptor below AND authStore.checkAuth). Refresh tokens are single-use:
+// the backend rotates — i.e. deletes — the old token on every refresh. If two
+// refreshes race (e.g. React StrictMode double-invokes the app's mount effect
+// on every dev hot-reload, firing two checkAuth() calls), the second sends an
+// already-consumed token, gets a 401, and logs the user out. Coalescing onto
+// one promise guarantees exactly one rotation per burst.
+let inflightRefresh: Promise<AuthResponse> | null = null;
 
-let isRefreshing = false;
-let refreshSubscribers: RefreshSubscriber[] = [];
-
-function onRefreshed(token: string) {
-  const subs = refreshSubscribers;
-  refreshSubscribers = [];
-  subs.forEach((sub) => sub.resolve(token));
-}
-
-function onRefreshFailed(err: unknown) {
-  const subs = refreshSubscribers;
-  refreshSubscribers = [];
-  subs.forEach((sub) => sub.reject(err));
-}
-
-function addRefreshSubscriber(sub: RefreshSubscriber) {
-  refreshSubscribers.push(sub);
+function refreshAccessToken(): Promise<AuthResponse> {
+  if (!inflightRefresh) {
+    // Use bare axios (not the `api` instance) so a 401 here never re-enters
+    // the response interceptor and triggers a recursive refresh.
+    inflightRefresh = axios
+      .post<AuthResponse>(`${API_BASE}/auth/refresh`, null, { withCredentials: true })
+      .then((response) => {
+        accessToken = response.data.token;
+        return response.data;
+      })
+      .finally(() => {
+        inflightRefresh = null;
+      });
+  }
+  return inflightRefresh;
 }
 
 // 401/403 from /auth/refresh means the refresh token itself is rejected
@@ -119,64 +121,29 @@ api.interceptors.response.use(
 
     // If we get a 401 and haven't already retried this request
     if (error.response?.status === 401 && !originalRequest._retry) {
-      // Don't try to refresh if the failing request IS the refresh endpoint
-      if (originalRequest.url === '/auth/refresh') {
-        accessToken = null;
-        window.dispatchEvent(new Event('auth:unauthorized'));
-        return Promise.reject(error);
-      }
-
       originalRequest._retry = true;
 
-      if (!isRefreshing) {
-        isRefreshing = true;
+      try {
+        // Coalesced refresh — concurrent 401s share one network request and
+        // therefore one refresh-token rotation.
+        const { token } = await refreshAccessToken();
 
-        try {
-          // Call refresh endpoint — the browser sends the httpOnly cookie automatically
-          const response = await axios.post(`${API_BASE}/auth/refresh`, null, {
-            withCredentials: true,
-          });
-
-          const newAccessToken = response.data.token;
-          accessToken = newAccessToken;
-          isRefreshing = false;
-          onRefreshed(newAccessToken);
-
-          // Retry the original request with the new token
-          originalRequest.headers = {
-            ...originalRequest.headers,
-            Authorization: `Bearer ${newAccessToken}`,
-          };
-          return api(originalRequest);
-        } catch (refreshError) {
-          isRefreshing = false;
-          if (isAuthRejection(refreshError)) {
-            // Definitive: refresh token rejected. Clear state and signal
-            // the app so it can route to /login.
-            accessToken = null;
-            onRefreshFailed(refreshError);
-            window.dispatchEvent(new Event('auth:unauthorized'));
-          } else {
-            // Transient (network / 5xx). Don't unauthenticate — let queued
-            // callers see the failure and let the next request retry.
-            onRefreshFailed(refreshError);
-          }
-          return Promise.reject(error);
+        // Retry the original request with the new token
+        originalRequest.headers = {
+          ...originalRequest.headers,
+          Authorization: `Bearer ${token}`,
+        };
+        return api(originalRequest);
+      } catch (refreshError) {
+        if (isAuthRejection(refreshError)) {
+          // Definitive: refresh token rejected. Clear state and signal
+          // the app so it can route to /login.
+          accessToken = null;
+          window.dispatchEvent(new Event('auth:unauthorized'));
         }
-      } else {
-        // Another request is already refreshing — queue this one
-        return new Promise((resolve, reject) => {
-          addRefreshSubscriber({
-            resolve: (newToken: string) => {
-              originalRequest.headers = {
-                ...originalRequest.headers,
-                Authorization: `Bearer ${newToken}`,
-              };
-              resolve(api(originalRequest));
-            },
-            reject,
-          });
-        });
+        // Transient (network / 5xx): don't unauthenticate — the next request
+        // will trigger another refresh once the backend is reachable again.
+        return Promise.reject(error);
       }
     }
 
@@ -239,8 +206,9 @@ export const authApi = {
   },
 
   refresh: async (): Promise<AuthResponse> => {
-    const response = await api.post('/auth/refresh');
-    return response.data;
+    // Shares the single in-flight refresh so callers can never trigger a
+    // second, racing token rotation.
+    return refreshAccessToken();
   },
 };
 
