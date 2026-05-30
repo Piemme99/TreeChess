@@ -65,6 +65,9 @@ func (r *PostgresEngineEvalRepo) GetPending(limit int) ([]models.EngineEval, err
 		}
 		evals = append(evals, e)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating pending evals: %w", err)
+	}
 	return evals, nil
 }
 
@@ -77,7 +80,10 @@ func (r *PostgresEngineEvalRepo) MarkProcessing(id string) error {
 		`UPDATE engine_evals SET status = 'processing', updated_at = $2 WHERE id = $1`,
 		id, time.Now(),
 	)
-	return err
+	if err != nil {
+		return fmt.Errorf("failed to mark eval processing: %w", err)
+	}
+	return nil
 }
 
 // SaveEvals saves completed evaluations for an engine eval
@@ -94,7 +100,10 @@ func (r *PostgresEngineEvalRepo) SaveEvals(id string, evals []models.ExplorerMov
 		`UPDATE engine_evals SET status = 'done', evals = $2, updated_at = $3 WHERE id = $1`,
 		id, evalsJSON, time.Now(),
 	)
-	return err
+	if err != nil {
+		return fmt.Errorf("failed to save evals: %w", err)
+	}
+	return nil
 }
 
 // MarkFailed marks an engine eval as failed
@@ -106,7 +115,10 @@ func (r *PostgresEngineEvalRepo) MarkFailed(id string) error {
 		`UPDATE engine_evals SET status = 'failed', updated_at = $2 WHERE id = $1`,
 		id, time.Now(),
 	)
-	return err
+	if err != nil {
+		return fmt.Errorf("failed to mark eval failed: %w", err)
+	}
+	return nil
 }
 
 // ResetStaleProcessing resets any evals stuck in 'processing' back to 'pending'.
@@ -156,6 +168,9 @@ func (r *PostgresEngineEvalRepo) GetByUser(userID string) ([]models.EngineEval, 
 			}
 		}
 		evals = append(evals, e)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating user evals: %w", err)
 	}
 	return evals, nil
 }

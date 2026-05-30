@@ -1,6 +1,7 @@
 package services
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -146,6 +147,23 @@ func TestAuthService_Login_UserNotFound(t *testing.T) {
 	mockRepo := &mocks.MockUserRepo{
 		GetByEmailFunc: func(email string) (*models.User, error) {
 			return nil, repository.ErrUserNotFound
+		},
+	}
+	svc := newTestAuthService(mockRepo)
+
+	_, err := svc.Login("nonexistent@example.com", "password123")
+
+	assert.ErrorIs(t, err, ErrInvalidCredentials)
+}
+
+// TestAuthService_Login_WrappedUserNotFound guards the email-enumeration
+// protection: even if a lower layer wraps the sentinel with %w, Login must still
+// classify it as ErrInvalidCredentials (not leak a raw 500). This fails if the
+// sentinel is compared with == instead of errors.Is.
+func TestAuthService_Login_WrappedUserNotFound(t *testing.T) {
+	mockRepo := &mocks.MockUserRepo{
+		GetByEmailFunc: func(email string) (*models.User, error) {
+			return nil, fmt.Errorf("query failed: %w", repository.ErrUserNotFound)
 		},
 	}
 	svc := newTestAuthService(mockRepo)

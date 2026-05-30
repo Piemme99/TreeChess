@@ -55,6 +55,9 @@ func (r *DismissedGapRepo) GetDismissed(userID string) (map[string]bool, error) 
 		key := fen + "|" + opponentMove + "|" + repertoireID
 		dismissed[key] = true
 	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating dismissed gaps: %w", err)
+	}
 
 	return dismissed, nil
 }

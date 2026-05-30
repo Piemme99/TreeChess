@@ -2,6 +2,7 @@ package repository
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -142,7 +143,7 @@ func (r *PostgresAnalysisRepo) GetByID(id string) (*models.AnalysisDetail, error
 		&detail.UploadedAt,
 	)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrAnalysisNotFound
 		}
 		return nil, fmt.Errorf("failed to get analysis: %w", err)
@@ -239,18 +240,18 @@ func (r *PostgresAnalysisRepo) GetAllGames(userID string, limit, offset int, tim
 				Opening:    gameOpening,
 				ImportedAt: uploadedAt,
 				Source:     analysisSource,
-			Synced:     analysisSynced && !viewedGames[fmt.Sprintf("%s-%d", analysisID, game.GameIndex)],
+				Synced:     analysisSynced && !viewedGames[fmt.Sprintf("%s-%d", analysisID, game.GameIndex)],
 			}
 			if game.MatchedRepertoire != nil {
 				summary.RepertoireName = game.MatchedRepertoire.Name
 				summary.RepertoireID = game.MatchedRepertoire.ID
 			}
 			// "New" games are synced and not yet viewed — the set the analyse
-				// session steps through.
-				if onlyNew && !summary.Synced {
-					continue
-				}
-				allGames = append(allGames, summary)
+			// session steps through.
+			if onlyNew && !summary.Synced {
+				continue
+			}
+			allGames = append(allGames, summary)
 		}
 	}
 

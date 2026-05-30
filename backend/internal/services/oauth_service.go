@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -118,7 +119,7 @@ func (s *OAuthService) HandleCallback(ctx context.Context, code, codeVerifier st
 // The isNew return value indicates whether a new user was created.
 func (s *OAuthService) FindOrCreateUser(provider, oauthID, username string) (resp *models.AuthResponse, isNew bool, err error) {
 	user, err := s.userRepo.FindByOAuth(provider, oauthID)
-	if err != nil && err != repository.ErrUserNotFound {
+	if err != nil && !errors.Is(err, repository.ErrUserNotFound) {
 		return nil, false, fmt.Errorf("failed to find OAuth user: %w", err)
 	}
 
