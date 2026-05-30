@@ -32,20 +32,28 @@ func (m *MockFingerprintRepo) SaveBatch(userID, analysisID string, entries []rep
 
 // MockEngineEvalRepo is a mock implementation of EngineEvalRepository for testing
 type MockEngineEvalRepo struct {
-	CreatePendingBatchFunc   func(userID, analysisID string, gameCount int) error
+	CreatePendingBatchFunc   func(ctx context.Context, userID, analysisID string, gameCount int) error
+	ClaimPendingFunc         func(ctx context.Context, limit int) ([]models.EngineEval, error)
 	GetPendingFunc           func(limit int) ([]models.EngineEval, error)
 	MarkProcessingFunc       func(id string) error
-	SaveEvalsFunc            func(id string, evals []models.ExplorerMoveStats) error
-	MarkFailedFunc           func(id string) error
+	SaveEvalsFunc            func(ctx context.Context, id string, evals []models.ExplorerMoveStats) error
+	MarkFailedFunc           func(ctx context.Context, id string) error
 	GetByUserFunc            func(userID string) ([]models.EngineEval, error)
-	ResetStaleProcessingFunc func() (int, error)
+	ResetStaleProcessingFunc func(ctx context.Context) (int, error)
 }
 
-func (m *MockEngineEvalRepo) CreatePendingBatch(userID, analysisID string, gameCount int) error {
+func (m *MockEngineEvalRepo) CreatePendingBatch(ctx context.Context, userID, analysisID string, gameCount int) error {
 	if m.CreatePendingBatchFunc != nil {
-		return m.CreatePendingBatchFunc(userID, analysisID, gameCount)
+		return m.CreatePendingBatchFunc(ctx, userID, analysisID, gameCount)
 	}
 	return nil
+}
+
+func (m *MockEngineEvalRepo) ClaimPending(ctx context.Context, limit int) ([]models.EngineEval, error) {
+	if m.ClaimPendingFunc != nil {
+		return m.ClaimPendingFunc(ctx, limit)
+	}
+	return nil, nil
 }
 
 func (m *MockEngineEvalRepo) GetPending(limit int) ([]models.EngineEval, error) {
@@ -62,16 +70,16 @@ func (m *MockEngineEvalRepo) MarkProcessing(id string) error {
 	return nil
 }
 
-func (m *MockEngineEvalRepo) SaveEvals(id string, evals []models.ExplorerMoveStats) error {
+func (m *MockEngineEvalRepo) SaveEvals(ctx context.Context, id string, evals []models.ExplorerMoveStats) error {
 	if m.SaveEvalsFunc != nil {
-		return m.SaveEvalsFunc(id, evals)
+		return m.SaveEvalsFunc(ctx, id, evals)
 	}
 	return nil
 }
 
-func (m *MockEngineEvalRepo) MarkFailed(id string) error {
+func (m *MockEngineEvalRepo) MarkFailed(ctx context.Context, id string) error {
 	if m.MarkFailedFunc != nil {
-		return m.MarkFailedFunc(id)
+		return m.MarkFailedFunc(ctx, id)
 	}
 	return nil
 }
@@ -83,9 +91,9 @@ func (m *MockEngineEvalRepo) GetByUser(userID string) ([]models.EngineEval, erro
 	return nil, nil
 }
 
-func (m *MockEngineEvalRepo) ResetStaleProcessing() (int, error) {
+func (m *MockEngineEvalRepo) ResetStaleProcessing(ctx context.Context) (int, error) {
 	if m.ResetStaleProcessingFunc != nil {
-		return m.ResetStaleProcessingFunc()
+		return m.ResetStaleProcessingFunc(ctx)
 	}
 	return 0, nil
 }

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -335,12 +336,25 @@ func main() {
 	metrics := echo.New()
 	metrics.GET("/metrics", echoprometheus.NewHandler())
 
-	// Start opening analysis worker
+	// Start background workers under a shared cancellable context. A WaitGroup
+	// lets us join them on shutdown before closing the DB pool, so no eval is
+	// left half-written and no query runs against a closed pool.
 	workerCtx, workerCancel := context.WithCancel(context.Background())
-	go svc.engineSvc.RunWorker(workerCtx)
+	var workerWG sync.WaitGroup
+
+	// Start opening analysis worker
+	workerWG.Add(1)
+	go func() {
+		defer workerWG.Done()
+		svc.engineSvc.RunWorker(workerCtx)
+	}()
 
 	// Start periodic cleanup worker (expired tokens + stale explorer cache)
-	go svc.cleanupSvc.RunWorker(workerCtx)
+	workerWG.Add(1)
+	go func() {
+		defer workerWG.Done()
+		svc.cleanupSvc.RunWorker(workerCtx)
+	}()
 
 	// Start metrics server in a goroutine
 	metricsAddr := fmt.Sprintf(":%d", cfg.MetricsPort)
@@ -379,7 +393,7 @@ func main() {
 
 	slog.Info("shutting down server")
 
-	// Stop the engine worker
+	// Signal the background workers to stop.
 	workerCancel()
 
 	// Graceful shutdown with 10s timeout
@@ -392,7 +406,10 @@ func main() {
 		slog.Error("server forced to shutdown", "error", err)
 	}
 
-	// Close DB after server is shut down
+	// Join the background workers so no in-flight query races db.Close().
+	workerWG.Wait()
+
+	// Close DB after the servers are shut down and the workers have stopped.
 	db.Close()
 	slog.Info("server stopped")
 }
