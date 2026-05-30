@@ -8,6 +8,7 @@ import { toast } from '../../stores/toastStore';
 import { authApi } from '../../services/api';
 import { fadeUp } from '../../shared/utils/animations';
 import { usePageTitle } from '../../shared/hooks/usePageTitle';
+import { getApiErrorMessage } from '../../shared/utils/apiError';
 import type { TimeFormat } from '../../types';
 
 export function ProfilePage() {
@@ -61,12 +62,7 @@ export function ProfilePage() {
       toast.success('Your account has been deleted.');
       navigate('/');
     } catch (err) {
-      if (err instanceof Error && 'response' in err) {
-        const axiosError = err as { response?: { data?: { error?: string } } };
-        setDeleteError(axiosError.response?.data?.error || 'Failed to delete account');
-      } else {
-        setDeleteError('Failed to delete account');
-      }
+      setDeleteError(getApiErrorMessage(err, 'Failed to delete account'));
     } finally {
       setDeleteLoading(false);
     }
@@ -168,12 +164,7 @@ export function ProfilePage() {
       setNewPassword('');
       setConfirmNewPassword('');
     } catch (err) {
-      if (err instanceof Error && 'response' in err) {
-        const axiosError = err as { response?: { data?: { error?: string } } };
-        setPasswordError(axiosError.response?.data?.error || 'Failed to change password');
-      } else {
-        setPasswordError('Failed to change password');
-      }
+      setPasswordError(getApiErrorMessage(err, 'Failed to change password'));
     } finally {
       setPasswordLoading(false);
     }

@@ -34,6 +34,7 @@ import type {
   ExploreTemplate
 } from '../types';
 import { triggerReanalysisPolling } from '../stores/reanalysisStore';
+import { getApiErrorStatus } from '../shared/utils/apiError';
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
@@ -99,10 +100,7 @@ function refreshAccessToken(): Promise<AuthResponse> {
 // (expired, revoked, missing). Anything else (no response, 5xx, timeout)
 // is transient — we should not log the user out for those.
 function isAuthRejection(err: unknown): boolean {
-  if (!err || typeof err !== 'object' || !('response' in err)) {
-    return false;
-  }
-  const status = (err as { response?: { status?: number } }).response?.status;
+  const status = getApiErrorStatus(err);
   return status === 401 || status === 403;
 }
 
