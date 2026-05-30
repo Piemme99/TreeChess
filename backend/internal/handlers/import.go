@@ -98,6 +98,9 @@ func (h *ImportHandler) UploadHandler(c *echo.Context) error {
 		if errors.Is(err, services.ErrAllGamesDuplicate) {
 			return ErrorResponse(c, http.StatusConflict, "all games have already been imported")
 		}
+		if errors.Is(err, services.ErrTooManyGames) {
+			return ErrorResponse(c, http.StatusRequestEntityTooLarge, fmt.Sprintf("PGN contains too many games (maximum %d per import)", config.MaxGamesPerImport))
+		}
 		slog.Error("PGN parse failed", "user_id", userID, "error", err)
 		return BadRequestResponse(c, "failed to parse PGN file")
 	}
@@ -451,6 +454,9 @@ func (h *ImportHandler) LichessImportHandler(c *echo.Context) error {
 		if errors.Is(err, services.ErrAllGamesDuplicate) {
 			return ErrorResponse(c, http.StatusConflict, "all games have already been imported")
 		}
+		if errors.Is(err, services.ErrTooManyGames) {
+			return ErrorResponse(c, http.StatusRequestEntityTooLarge, fmt.Sprintf("import contains too many games (maximum %d per import)", config.MaxGamesPerImport))
+		}
 		slog.Error("lichess import parse failed", "user_id", userID, "error", err)
 		return BadRequestResponse(c, "failed to parse imported games")
 	}
@@ -501,6 +507,9 @@ func (h *ImportHandler) ChesscomImportHandler(c *echo.Context) error {
 	if err != nil {
 		if errors.Is(err, services.ErrAllGamesDuplicate) {
 			return ErrorResponse(c, http.StatusConflict, "all games have already been imported")
+		}
+		if errors.Is(err, services.ErrTooManyGames) {
+			return ErrorResponse(c, http.StatusRequestEntityTooLarge, fmt.Sprintf("import contains too many games (maximum %d per import)", config.MaxGamesPerImport))
 		}
 		slog.Error("chess.com import parse failed", "user_id", userID, "error", err)
 		return BadRequestResponse(c, "failed to parse imported games")
