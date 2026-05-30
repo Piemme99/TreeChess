@@ -77,7 +77,9 @@ export function StudyImportModal({ isOpen, onClose, onSuccess }: StudyImportModa
   const runImport = useCallback(async (renameStrategy?: StudyImportRenameStrategy) => {
     const importableChapters = studyInfo?.chapters.filter(c => c.importable) ?? [];
     const chapters = mergeAsOne
-      ? importableChapters.map(c => c.index)
+      // Custom-start chapters can't be merged into a standard tree, so they're
+      // excluded from the merge payload (import them per-chapter instead).
+      ? importableChapters.filter(c => !c.customStart).map(c => c.index)
       : importableChapters.map(c => c.index).filter(i => selectedChapters.has(i));
     const outcome = await handleImport(
       url,
@@ -144,6 +146,7 @@ export function StudyImportModal({ isOpen, onClose, onSuccess }: StudyImportModa
 
   const importableChapters = studyInfo?.chapters.filter(c => c.importable) ?? [];
   const skippedChapters = studyInfo?.chapters.filter(c => !c.importable) ?? [];
+  const customStartChapters = studyInfo?.chapters.filter(c => c.importable && c.customStart) ?? [];
 
   const toggleAll = () => {
     if (!studyInfo) return;
@@ -264,24 +267,35 @@ export function StudyImportModal({ isOpen, onClose, onSuccess }: StudyImportModa
               const skipMessage = ch.skipReason === 'custom-starting-position'
                 ? 'Custom starting position is not yet supported'
                 : 'This chapter cannot be imported';
+              const excludedFromMerge = mergeAsOne && !!ch.customStart;
+              const disabled = !ch.importable || excludedFromMerge;
               return (
                 <label
                   key={ch.index}
                   className={`flex items-center gap-2 py-2 px-4 border-b border-primary/10 last:border-b-0 text-[0.9rem] ${
-                    ch.importable
-                      ? 'cursor-pointer hover:bg-primary-light/20'
-                      : 'cursor-not-allowed opacity-60'
+                    disabled
+                      ? 'cursor-not-allowed opacity-60'
+                      : 'cursor-pointer hover:bg-primary-light/20'
                   }`}
-                  title={ch.importable ? undefined : skipMessage}
+                  title={
+                    !ch.importable
+                      ? skipMessage
+                      : excludedFromMerge
+                        ? "Custom-start chapters can't be merged — import them individually"
+                        : undefined
+                  }
                 >
                   <input
                     type="checkbox"
-                    checked={ch.importable && selectedChapters.has(ch.index)}
+                    checked={ch.importable && !excludedFromMerge && selectedChapters.has(ch.index)}
                     onChange={() => toggleChapter(ch.index)}
-                    disabled={!ch.importable}
+                    disabled={disabled}
                   />
                   <ColorDot color={ch.orientation as 'white' | 'black'} size="sm" />
                   <span className="flex-1 overflow-hidden text-ellipsis whitespace-nowrap">{ch.name}</span>
+                  {ch.importable && ch.customStart && (
+                    <span className="text-[0.7rem] px-1.5 py-0.5 rounded-md bg-primary/10 text-primary whitespace-nowrap">custom start</span>
+                  )}
                   {ch.importable ? (
                     <span className="text-text-muted text-[0.8rem] whitespace-nowrap">{ch.moveCount} moves</span>
                   ) : (
@@ -294,15 +308,16 @@ export function StudyImportModal({ isOpen, onClose, onSuccess }: StudyImportModa
 
           {skippedChapters.length > 0 && (
             <p className="text-text-muted text-[0.8rem] m-0">
-              {skippedChapters.length} chapter{skippedChapters.length > 1 ? 's' : ''} cannot be imported (custom starting position).{' '}
-              <a
-                href="https://github.com/Piemme99/TreeChess/issues/78"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="underline hover:text-text"
-              >
-                Tracking issue
-              </a>
+              {skippedChapters.length} chapter{skippedChapters.length > 1 ? 's' : ''} cannot be imported.
+            </p>
+          )}
+
+          {customStartChapters.length > 0 && (
+            <p className="text-text-muted text-[0.8rem] m-0">
+              {customStartChapters.length} chapter{customStartChapters.length > 1 ? 's' : ''} start{customStartChapters.length > 1 ? '' : 's'} from a custom position
+              {mergeAsOne
+                ? " and won't be merged — import individually to keep them as separate repertoires."
+                : ' and will each import as their own repertoire.'}
             </p>
           )}
 

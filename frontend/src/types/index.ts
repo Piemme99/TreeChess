@@ -395,6 +395,8 @@ export interface StudyChapterInfo {
   moveCount: number;
   importable: boolean;
   skipReason?: string;
+  /** Chapter starts from a custom position: importable on its own, not mergeable. */
+  customStart?: boolean;
 }
 
 export interface StudyInfo {

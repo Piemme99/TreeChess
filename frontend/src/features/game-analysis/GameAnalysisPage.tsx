@@ -5,7 +5,7 @@ import { fadeUp } from '../../shared/utils/animations';
 import { useGameLoader } from './hooks/useGameLoader';
 import { useChessNavigation, useToggleFullGame } from './hooks/useChessNavigation';
 import { useFENComputed } from './hooks/useFENComputed';
-import { computeFEN, STARTING_FEN } from './utils/fenCalculator';
+import { computeFEN, computeFENPath, STARTING_FEN } from './utils/fenCalculator';
 import { GameBoardSection } from './components/GameBoardSection';
 import { GameNavigation } from './components/GameNavigation';
 import { RepertoireSelector } from './components/RepertoireSelector';
@@ -89,6 +89,11 @@ export function GameAnalysisPage() {
   } = useChessNavigation(game, showFullGame, initialPly);
 
   const { currentFEN, lastMove } = useFENComputed(game, currentMoveIndex);
+
+  const fenPath = useMemo(
+    () => (game ? computeFENPath(game.moves, currentMoveIndex) : [STARTING_FEN]),
+    [game, currentMoveIndex]
+  );
 
   // Trigger engine analysis when position changes
   useEffect(() => {
@@ -246,6 +251,7 @@ export function GameAnalysisPage() {
       <motion.div variants={fadeUp} initial="hidden" animate="visible" custom={2} className="flex gap-6 flex-1 min-h-0 max-md:flex-col">
         <GameBoardSection
           fen={currentFEN}
+          fenPath={fenPath}
           orientation={flipped ? 'black' : 'white'}
           lastMove={lastMove}
           onFlip={() => setFlipped(!flipped)}

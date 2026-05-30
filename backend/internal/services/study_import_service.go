@@ -120,7 +120,9 @@ func (s *StudyImportService) PreviewStudy(studyID, authToken string) (*models.St
 			Importable:  true,
 		}
 		if HasCustomStartingPosition(headers) {
-			info.Importable = false
+			// Importable on its own (rooted at the custom FEN), but flagged so the
+			// UI can show it can't be merged into a standard repertoire.
+			info.CustomStart = true
 			info.SkipReason = models.SkipReasonCustomStartingPosition
 		}
 		chapterInfos = append(chapterInfos, info)
@@ -259,17 +261,10 @@ func (s *StudyImportService) ImportStudyChaptersWithCategory(userID, studyID, au
 			continue
 		}
 
-		root, headers, parseErr := ParsePGNToTree(chapterPGN)
+		// Per-chapter import supports custom starting positions: such chapters
+		// become their own repertoire rooted at the chapter's FEN.
+		root, headers, parseErr := ParseChapterPGNToTree(chapterPGN)
 		if parseErr != nil {
-			if errors.Is(parseErr, ErrCustomStartingPosition) {
-				slog.Debug("skipping chapter with custom starting position", "chapter_index", i)
-				skipped = append(skipped, models.SkippedStudyChapter{
-					Index:  i,
-					Name:   chapterDisplayName(chapterPGN, i),
-					Reason: models.SkipReasonCustomStartingPosition,
-				})
-				continue
-			}
 			return nil, fmt.Errorf("failed to parse chapter %d: %w", i, parseErr)
 		}
 

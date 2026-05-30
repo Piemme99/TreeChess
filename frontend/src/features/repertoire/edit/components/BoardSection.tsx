@@ -1,8 +1,9 @@
 import { useRef, useState, useEffect, useMemo } from 'react';
 import { ExternalLink } from 'lucide-react';
 import { ChessBoard } from '../../../../shared/components/Board/ChessBoard';
+import { OpeningLabel } from '../../../../shared/components/OpeningLabel';
 import { useChess } from '../../../../shared/hooks/useChess';
-import { findNode } from '../utils/nodeUtils';
+import { findNode, findPathToNode } from '../utils/nodeUtils';
 import { EvalBar } from './EvalBar';
 import type { RepertoireNode, Color, Repertoire, EngineEvaluation } from '../../../../types';
 
@@ -16,6 +17,8 @@ interface BoardSectionProps {
   onMove: (move: { san: string }) => void;
   engineEvaluation?: EngineEvaluation | null;
   pendingMoveArrow?: [string, string, string][];
+  exploring?: boolean;
+  explorationFens?: string[];
 }
 
 export function BoardSection({
@@ -27,7 +30,9 @@ export function BoardSection({
   setPossibleMoves,
   onMove,
   engineEvaluation,
-  pendingMoveArrow = []
+  pendingMoveArrow = [],
+  exploring = false,
+  explorationFens = []
 }: BoardSectionProps) {
   const { getLegalMoves } = useChess();
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -73,7 +78,9 @@ export function BoardSection({
   const handleSquareClick = (square: string) => {
     if (!color || !selectedNode) return;
 
-    const moves = getLegalMoves(selectedNode.fen);
+    // Legal moves come from the displayed position, which differs from the
+    // selected node while exploring.
+    const moves = getLegalMoves(currentFEN);
     const targetSquares = moves.map((m) => m.to);
 
     if (possibleMoves.includes(square)) {
@@ -85,18 +92,22 @@ export function BoardSection({
       return;
     }
 
-    const targetToNodeId = new Map<string, string>();
-    for (const child of selectedNode.children) {
-      if (child.move) {
-        const destSquare = child.move.slice(-2);
-        targetToNodeId.set(destSquare, child.id);
+    // The tree-node interception only applies to the committed tree, not to a
+    // free exploration from the current position.
+    if (!exploring) {
+      const targetToNodeId = new Map<string, string>();
+      for (const child of selectedNode.children) {
+        if (child.move) {
+          const destSquare = child.move.slice(-2);
+          targetToNodeId.set(destSquare, child.id);
+        }
       }
-    }
-    const nodeId = targetToNodeId.get(square);
-    if (nodeId && repertoire) {
-      const nodeForSquare = findNode(repertoire.treeData, nodeId);
-      if (nodeForSquare) {
-        return;
+      const nodeId = targetToNodeId.get(square);
+      if (nodeId && repertoire) {
+        const nodeForSquare = findNode(repertoire.treeData, nodeId);
+        if (nodeForSquare) {
+          return;
+        }
       }
     }
 
@@ -107,11 +118,19 @@ export function BoardSection({
     }
   };
 
+  const fenPath = useMemo(() => {
+    if (!repertoire || !selectedNode) return [];
+    const path = findPathToNode(repertoire.treeData, selectedNode.id);
+    const base = path ? path.map((n) => n.fen) : [];
+    return [...base, ...explorationFens];
+  }, [repertoire, selectedNode, explorationFens]);
+
   const truncatedFEN = currentFEN.length > 60 ? currentFEN.slice(0, 57) + '...' : currentFEN;
   const orientationLabel = color === 'white' ? 'White' : color === 'black' ? 'Black' : '';
 
   return (
     <div className="flex flex-col items-center justify-center h-full max-md:w-full">
+      <OpeningLabel fenPath={fenPath} className="w-full px-3 shrink-0" />
       <div className="flex items-center justify-center flex-1 min-h-0 w-full">
         <EvalBar score={engineEvaluation?.score} mate={engineEvaluation?.mate} fen={currentFEN} />
         <div className="w-full h-full flex items-center justify-center p-2 aspect-square" ref={wrapperRef}>
