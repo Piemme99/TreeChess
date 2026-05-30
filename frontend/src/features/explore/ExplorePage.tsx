@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { Compass, Search } from 'lucide-react';
 import { useExploreStore } from '../../stores/exploreStore';
 import { ExploreRepertoireCard } from './ExploreRepertoireCard';
@@ -18,7 +19,17 @@ export function ExplorePage() {
     fetchStarterTemplates,
     importRepertoire,
     importTemplate
-  } = useExploreStore();
+  } = useExploreStore(
+    useShallow((s) => ({
+      publicRepertoires: s.publicRepertoires,
+      starterTemplates: s.starterTemplates,
+      loading: s.loading,
+      fetchPublicRepertoires: s.fetchPublicRepertoires,
+      fetchStarterTemplates: s.fetchStarterTemplates,
+      importRepertoire: s.importRepertoire,
+      importTemplate: s.importTemplate,
+    }))
+  );
   const [importingId, setImportingId] = useState<string | null>(null);
   const [importingTemplateId, setImportingTemplateId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');

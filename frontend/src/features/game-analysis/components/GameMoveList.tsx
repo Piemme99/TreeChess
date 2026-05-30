@@ -74,8 +74,12 @@ export function GameMoveList({
     }
   }, [currentMoveIndex]);
 
-  // Filter moves to only show up to maxDisplayedIndex
-  const displayedMoves = moves.slice(0, maxDisplayedIndex + 1);
+  // Filter moves to only show up to maxDisplayedIndex.
+  // Memoized so the dependent useMemos below don't recompute on every render.
+  const displayedMoves = useMemo(
+    () => moves.slice(0, maxDisplayedIndex + 1),
+    [moves, maxDisplayedIndex]
+  );
 
   // Find the index of the first actionable move (opponent-new or out-of-repertoire)
   const firstActionableIndex = useMemo(() => {
@@ -102,17 +106,21 @@ export function GameMoveList({
     return '';
   }
 
-  // Group moves by pairs (white, black)
+  // Group moves by pairs (white, black).
+  // Use a Map keyed by moveNumber for O(1) lookup instead of an O(n) find per move.
   const movePairs = useMemo(() => {
-    const pairs: { moveNumber: number; white?: MoveAnalysis; black?: MoveAnalysis; whiteIndex?: number; blackIndex?: number }[] = [];
+    type MovePair = { moveNumber: number; white?: MoveAnalysis; black?: MoveAnalysis; whiteIndex?: number; blackIndex?: number };
+    const pairs: MovePair[] = [];
+    const byMoveNumber = new Map<number, MovePair>();
 
     displayedMoves.forEach((move, index) => {
       const moveNumber = Math.floor(move.plyNumber / 2) + 1;
       const isWhite = move.plyNumber % 2 === 0;
 
-      let pair = pairs.find((p) => p.moveNumber === moveNumber);
+      let pair = byMoveNumber.get(moveNumber);
       if (!pair) {
         pair = { moveNumber };
+        byMoveNumber.set(moveNumber, pair);
         pairs.push(pair);
       }
 

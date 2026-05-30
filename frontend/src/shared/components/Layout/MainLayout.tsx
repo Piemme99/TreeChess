@@ -40,7 +40,7 @@ function useMediaQuery(query: string) {
 }
 
 export function MainLayout() {
-  const { user } = useAuthStore();
+  const user = useAuthStore((s) => s.user);
   const navigate = useNavigate();
   const location = useLocation();
   const isRepertoireEdit = /^\/repertoire\/[^/]+\/edit/.test(location.pathname) || /^\/explore\/repertoire\/[^/]+/.test(location.pathname);

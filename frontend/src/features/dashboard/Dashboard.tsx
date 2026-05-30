@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
+import { useShallow } from 'zustand/react/shallow';
 import { useRepertoires } from '../repertoire/shared/hooks/useRepertoires';
 import { useGames } from '../analyse-tab/hooks/useGames';
 import { Loading } from '../../shared/components/UI';
@@ -19,7 +20,9 @@ import { useReanalysisCompletion } from '../../shared/hooks';
 
 export function Dashboard() {
   usePageTitle('Dashboard');
-  const { user, syncing, lastSyncResult } = useAuthStore();
+  const { user, syncing, lastSyncResult } = useAuthStore(
+    useShallow((s) => ({ user: s.user, syncing: s.syncing, lastSyncResult: s.lastSyncResult }))
+  );
   const { repertoires, loading: repLoading } = useRepertoires();
   const { games, loading: gamesLoading, refresh: refreshGames } = useGames();
   const { stats, refresh: refreshStats } = useDashboardStats();
