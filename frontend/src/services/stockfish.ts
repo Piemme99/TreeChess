@@ -37,6 +37,14 @@ class StockfishService {
 
       this.worker.onerror = (error: ErrorEvent) => {
         this.callbacks.onError?.(`Worker error: ${error.message}`);
+        // Tear down the dead worker so initialize() can spin up a fresh one
+        // in-session instead of early-returning on a stale, non-null reference.
+        this.terminate();
+      };
+
+      this.worker.onmessageerror = (event: MessageEvent) => {
+        this.callbacks.onError?.(`Worker message error: ${String(event.data)}`);
+        this.terminate();
       };
 
       // Initialize UCI protocol
@@ -83,8 +91,13 @@ class StockfishService {
       this.sendCommand('quit');
       this.worker.terminate();
       this.worker = null;
-      this.isReady = false;
     }
+    this.isReady = false;
+    // A fresh worker starts at the engine default MultiPV (1). Reset our cached
+    // value so the next analyzePosition() with a higher MultiPV re-sends the
+    // setoption instead of assuming it's already applied.
+    this.currentMultiPV = 1;
+    this.pendingLines.clear();
   }
 
   setCallbacks(callbacks: StockfishCallbacks): void {
