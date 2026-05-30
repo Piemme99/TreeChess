@@ -76,7 +76,7 @@ func main() {
 	// Auto re-analyse games whenever a repertoire mutates (issue #45).
 	// In-memory debounce coalesces rapid edits into one run per user.
 	reanalysisQueue := services.NewReanalysisQueue(func(userID string) error {
-		_, err := importSvc.ReanalyzeAllGames(userID)
+		_, err := importSvc.ReanalyzeAllGames(userID, true)
 		return err
 	}, services.DefaultReanalysisDebounce)
 	repertoireSvc.WithReanalysisQueue(reanalysisQueue)

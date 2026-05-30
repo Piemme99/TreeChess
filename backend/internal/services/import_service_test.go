@@ -1385,7 +1385,7 @@ func TestReanalyzeAllGames_Basic(t *testing.T) {
 	repSvc := NewRepertoireService(mockRepRepo)
 	svc := NewImportService(repSvc, mockAnalysisRepo)
 
-	count, err := svc.ReanalyzeAllGames("user-1")
+	count, err := svc.ReanalyzeAllGames("user-1", false)
 
 	require.NoError(t, err)
 	assert.Equal(t, 1, count)
@@ -1436,7 +1436,7 @@ func TestReanalyzeAllGames_NoRepertoires(t *testing.T) {
 	repSvc := NewRepertoireService(mockRepRepo)
 	svc := NewImportService(repSvc, mockAnalysisRepo)
 
-	count, err := svc.ReanalyzeAllGames("user-1")
+	count, err := svc.ReanalyzeAllGames("user-1", false)
 
 	require.NoError(t, err)
 	assert.Equal(t, 1, count)
@@ -1462,10 +1462,111 @@ func TestReanalyzeAllGames_EmptyAnalyses(t *testing.T) {
 	repSvc := NewRepertoireService(mockRepRepo)
 	svc := NewImportService(repSvc, mockAnalysisRepo)
 
-	count, err := svc.ReanalyzeAllGames("user-1")
+	count, err := svc.ReanalyzeAllGames("user-1", false)
 
 	require.NoError(t, err)
 	assert.Equal(t, 0, count)
+}
+
+// TestReanalyzeAllGames_PreserveAnalysed verifies that auto re-analysis
+// (preserveAnalysed=true) does not retroactively flag a previously non-error game as an
+// opening error, while manual re-analysis (preserveAnalysed=false) still re-tags it.
+func TestReanalyzeAllGames_PreserveAnalysed(t *testing.T) {
+	const (
+		fenStart = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -"
+		fenE4    = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3"
+		fenE5    = "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6"
+		fenNf3   = "rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq -"
+	)
+	moveE4, moveE5, moveNf3 := "e4", "e5", "Nf3"
+
+	// Repertoire expects 1.e4 e5 2.Nf3. The user played 2.a3, which deviates — but this
+	// prep was added after the game was played.
+	whiteRepertoire := models.Repertoire{
+		ID:    "rep-w",
+		Name:  "White Rep",
+		Color: models.ColorWhite,
+		TreeData: models.RepertoireNode{
+			ID:  "root",
+			FEN: fenStart,
+			Children: []*models.RepertoireNode{
+				{
+					ID:   "e4",
+					FEN:  fenE4,
+					Move: &moveE4,
+					Children: []*models.RepertoireNode{
+						{
+							ID:   "e5",
+							FEN:  fenE5,
+							Move: &moveE5,
+							Children: []*models.RepertoireNode{
+								{ID: "nf3", FEN: fenNf3, Move: &moveNf3},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	// Stored analysis: the game was never flagged as an error (no matched repertoire yet).
+	freshAnalyses := func() []models.RawAnalysis {
+		return []models.RawAnalysis{
+			{
+				ID: "a1",
+				Results: []models.GameAnalysis{
+					{
+						GameIndex: 0,
+						UserColor: models.ColorWhite,
+						Headers:   models.PGNHeaders{"White": "User", "Black": "Opp", "Result": "1-0"},
+						Moves: []models.MoveAnalysis{
+							{PlyNumber: 0, SAN: "e4", FEN: fenStart, IsUserMove: true, Status: "out-of-book"},
+							{PlyNumber: 1, SAN: "e5", FEN: fenE4, IsUserMove: false, Status: "out-of-book"},
+							{PlyNumber: 2, SAN: "a3", FEN: fenE5, IsUserMove: true, Status: "out-of-book"},
+						},
+					},
+				},
+			},
+		}
+	}
+
+	run := func(preserveAnalysed bool) (updated bool, results []models.GameAnalysis) {
+		mockAnalysisRepo := &mocks.MockAnalysisRepo{
+			GetAllGamesRawFunc: func(userID string) ([]models.RawAnalysis, error) {
+				return freshAnalyses(), nil
+			},
+			UpdateResultsFunc: func(analysisID string, r []models.GameAnalysis) error {
+				updated = true
+				results = r
+				return nil
+			},
+		}
+		mockRepRepo := &mocks.MockRepertoireRepo{
+			GetByColorFunc: func(userID string, color models.Color) ([]models.Repertoire, error) {
+				if color == models.ColorWhite {
+					return []models.Repertoire{whiteRepertoire}, nil
+				}
+				return nil, nil
+			},
+		}
+		svc := NewImportService(NewRepertoireService(mockRepRepo), mockAnalysisRepo)
+		_, err := svc.ReanalyzeAllGames("user-1", preserveAnalysed)
+		require.NoError(t, err)
+		return updated, results
+	}
+
+	t.Run("auto preserve does not retag", func(t *testing.T) {
+		updated, _ := run(true)
+		assert.False(t, updated, "preserved game should not be written back as an error")
+	})
+
+	t.Run("manual reanalysis retags", func(t *testing.T) {
+		updated, results := run(false)
+		require.True(t, updated)
+		require.Len(t, results, 1)
+		assert.Equal(t, "out-of-repertoire", results[0].Moves[2].Status)
+		assert.Equal(t, "error", gameStatusFromGame(results[0]))
+	})
 }
 
 func TestFindBestMatchingRepertoireFromStored(t *testing.T) {

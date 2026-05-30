@@ -403,7 +403,7 @@ func (h *ImportHandler) DismissMistakeHandler(c *echo.Context) error {
 func (h *ImportHandler) ReanalyzeAllGamesHandler(c *echo.Context) error {
 	userID := c.Get("userID").(string)
 
-	count, err := h.importService.ReanalyzeAllGames(userID)
+	count, err := h.importService.ReanalyzeAllGames(userID, false)
 	if err != nil {
 		return InternalErrorResponse(c, "failed to reanalyze games")
 	}
