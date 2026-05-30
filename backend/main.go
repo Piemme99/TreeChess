@@ -136,6 +136,12 @@ func buildServices(cfg config.Config, db *repository.DB) *appServices {
 
 // rateLimiter builds a per-IP, in-memory rate-limiter middleware that responds
 // with HTTP 429 and the given JSON error message when the limit is exceeded.
+//
+// Clients are keyed on ctx.RealIP(), which honours X-Forwarded-For. This is only
+// trustworthy when the app sits behind a reverse proxy that strips any
+// client-supplied X-Forwarded-For header before setting its own; deploying the
+// app directly on the public internet lets a client spoof the header and bypass
+// the limit. See the deployment notes in .env.example.
 func rateLimiter(rate float64, burst int, msg string) echo.MiddlewareFunc {
 	deny := func(ctx *echo.Context) error {
 		return ctx.JSON(http.StatusTooManyRequests, map[string]string{"error": msg})
