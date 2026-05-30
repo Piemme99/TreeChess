@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { authApi, syncApi, setAccessToken, getAccessToken } from '../services/api';
 import { useRepertoireStore } from './repertoireStore';
+import { getApiErrorMessage, getApiErrorStatus } from '../shared/utils/apiError';
 import type { AuthResponse, User, UpdateProfileRequest, SyncResult } from '../types';
 
 interface AuthState {
@@ -50,7 +51,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         useAuthStore.getState().triggerSync();
       }
     } catch (err: unknown) {
-      const message = getErrorMessage(err, 'Login failed');
+      const message = getApiErrorMessage(err, 'Login failed');
       set({ error: message });
       throw new Error(message, { cause: err });
     }
@@ -69,7 +70,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         error: null,
       });
     } catch (err: unknown) {
-      const message = getErrorMessage(err, 'Registration failed');
+      const message = getApiErrorMessage(err, 'Registration failed');
       set({ error: message });
       throw new Error(message, { cause: err });
     }
@@ -105,8 +106,8 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   logout: async () => {
-    // Call backend to revoke the refresh token and clear the httpOnly cookie
-    await authApi.logout();
+    // Clear local state first so a slow or failed revocation call can't strand
+    // the user in a logging-out limbo.
     setAccessToken(null);
     // Clear cached data from other stores to prevent data leaking between accounts
     useRepertoireStore.getState().clearAll();
@@ -116,6 +117,8 @@ export const useAuthStore = create<AuthState>((set) => ({
       loading: false,
       error: null,
     });
+    // Fire-and-forget the backend revocation (clears the httpOnly refresh cookie).
+    authApi.logout().catch(() => {});
   },
 
   checkAuth: async () => {
@@ -265,23 +268,10 @@ async function doCheckAuth(set: AuthSetState): Promise<void> {
   }
 }
 
-function getErrorMessage(err: unknown, fallback: string): string {
-  if (err && typeof err === 'object' && 'response' in err) {
-    const axiosErr = err as { response?: { data?: { error?: string } } };
-    if (axiosErr.response?.data?.error) {
-      return axiosErr.response.data.error;
-    }
-  }
-  return fallback;
-}
-
 // 401/403 means the server has definitively rejected the refresh token.
 // Anything else (no response at all, 5xx, timeout) is treated as transient.
 function isAuthRejection(err: unknown): boolean {
-  if (!err || typeof err !== 'object' || !('response' in err)) {
-    return false;
-  }
-  const status = (err as { response?: { status?: number } }).response?.status;
+  const status = getApiErrorStatus(err);
   return status === 401 || status === 403;
 }
 

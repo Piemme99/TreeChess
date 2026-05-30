@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useRepertoires } from './shared/hooks/useRepertoires';
-import { RepertoireSelector } from './shared/components/RepertoireSelector';
+import { RepertoireManager } from './shared/components/RepertoireManager';
 import { StudyImportModal } from './shared/components/StudyImportModal';
 import { Loading, ColorDot } from '../../shared/components/UI';
 import { fadeUp } from '../../shared/utils/animations';
@@ -48,7 +48,7 @@ export function RepertoireTab() {
               {section.reps.length}
             </span>
           </div>
-          <RepertoireSelector
+          <RepertoireManager
             color={section.color}
             repertoires={section.reps}
             categories={section.cats}
