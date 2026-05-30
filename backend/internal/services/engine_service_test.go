@@ -33,6 +33,10 @@ func (c *stubExplorerCache) Put(_ context.Context, key string, payload []byte, _
 	return nil
 }
 
+func (c *stubExplorerCache) DeleteExpired(_ context.Context) error {
+	return nil
+}
+
 func TestRunWorker_ResetsStaleProcessingOnStartup(t *testing.T) {
 	resetCalled := false
 	mockEvalRepo := &mocks.MockEngineEvalRepo{

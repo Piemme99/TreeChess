@@ -226,6 +226,7 @@ func (db *DB) runMigrations() error {
 		)`,
 		`CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_user ON password_reset_tokens(user_id)`,
 		`CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_hash ON password_reset_tokens(token_hash)`,
+		`CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_expires ON password_reset_tokens(expires_at)`,
 		// Categories table for grouping repertoires
 		`CREATE TABLE IF NOT EXISTS categories (
 			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

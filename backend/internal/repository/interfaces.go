@@ -58,6 +58,7 @@ type GameFingerprintRepository interface {
 type OpeningExplorerCacheRepository interface {
 	Get(ctx context.Context, cacheKey string) (payload []byte, found bool, err error)
 	Put(ctx context.Context, cacheKey string, payload []byte, expiresAt time.Time) error
+	DeleteExpired(ctx context.Context) error
 }
 
 // EngineEvalRepository defines the interface for engine evaluation operations
@@ -114,5 +115,6 @@ type PasswordResetRepository interface {
 	GetByTokenHash(tokenHash string) (*models.PasswordResetToken, error)
 	MarkUsed(id string) error
 	DeleteByUserID(userID string) error
+	DeleteExpired() error
 	CountRecentByUserID(userID string, since time.Time) (int, error)
 }
