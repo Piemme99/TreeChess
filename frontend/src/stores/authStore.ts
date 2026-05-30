@@ -125,7 +125,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     if (checkAuthInFlight) {
       return checkAuthInFlight;
     }
-    checkAuthInFlight = doCheckAuth(set);
+    checkAuthInFlight = runCheckAuthWithTimeout(set);
     try {
       await checkAuthInFlight;
     } finally {
@@ -175,6 +175,34 @@ type AuthSetState = (partial: Partial<AuthState>) => void;
 // Shared across all checkAuth() callers so a double-invoked mount effect
 // resolves to one auth check instead of two racing refreshes.
 let checkAuthInFlight: Promise<void> | null = null;
+
+// Hard ceiling on how long the initial auth check may keep the app on the
+// full-screen spinner. If `doCheckAuth` hangs (e.g. `/auth/refresh` stalls
+// with no response and never rejects), this guarantees `loading` is cleared
+// so the route guards can render instead of spinning forever. The user lands
+// unauthenticated; the axios interceptor will retry a refresh on their next
+// action once the backend is reachable.
+const CHECK_AUTH_TIMEOUT_MS = 10000;
+
+// Wrap doCheckAuth so that `loading` is ALWAYS cleared: on success, on a
+// thrown error, or after a timeout. doCheckAuth clears `loading` itself in
+// every normal branch; the `finally` here is a belt-and-suspenders guard for
+// the cases doCheckAuth can't cover (a synchronous throw before its first
+// `set`, or a promise that never settles).
+async function runCheckAuthWithTimeout(set: AuthSetState): Promise<void> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<void>((resolve) => {
+    timeoutId = setTimeout(resolve, CHECK_AUTH_TIMEOUT_MS);
+  });
+  try {
+    await Promise.race([doCheckAuth(set).catch(() => {}), timeout]);
+  } finally {
+    if (timeoutId !== undefined) {
+      clearTimeout(timeoutId);
+    }
+    set({ loading: false });
+  }
+}
 
 async function doCheckAuth(set: AuthSetState): Promise<void> {
   // First try to use an existing in-memory access token
