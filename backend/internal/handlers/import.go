@@ -273,8 +273,9 @@ func (h *ImportHandler) GetGamesHandler(c *echo.Context) error {
 	timeClass := c.QueryParam("timeClass")
 	repertoire := c.QueryParam("repertoire")
 	source := c.QueryParam("source")
+	onlyNew := c.QueryParam("new") == "true"
 
-	response, err := h.importService.GetAllGames(userID, limit, offset, timeClass, repertoire, source)
+	response, err := h.importService.GetAllGames(userID, limit, offset, timeClass, repertoire, source, onlyNew)
 	if err != nil {
 		return InternalErrorResponse(c, "failed to get games")
 	}

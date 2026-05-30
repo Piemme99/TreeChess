@@ -9,7 +9,7 @@ import type { GameAnalysis } from '../../../types';
  * Extends useAnalysisBase with game-specific functionality (reanalyze).
  */
 export function useGameLoader() {
-  const { id, analysis, setAnalysis, loading } = useAnalysisBase();
+  const { id, analysis, setAnalysis, loading, reload } = useAnalysisBase();
 
   // Update a specific game in the analysis (used after reanalysis)
   const updateGame = useCallback((gameIndex: number, updatedGame: GameAnalysis) => {
@@ -41,5 +41,5 @@ export function useGameLoader() {
     }
   }, [id, updateGame]);
 
-  return { analysis, loading, reanalyzeGame };
+  return { id, analysis, loading, reanalyzeGame, updateGame, reload };
 }

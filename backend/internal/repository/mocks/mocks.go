@@ -288,7 +288,7 @@ type MockAnalysisRepo struct {
 	GetAllFunc                 func(userID string) ([]models.AnalysisSummary, error)
 	GetByIDFunc                func(id string) (*models.AnalysisDetail, error)
 	DeleteFunc                 func(id string) error
-	GetAllGamesFunc            func(userID string, limit, offset int, timeClass, opening, source string) (*models.GamesResponse, error)
+	GetAllGamesFunc            func(userID string, limit, offset int, timeClass, opening, source string, onlyNew bool) (*models.GamesResponse, error)
 	UpdateResultsFunc          func(analysisID string, results []models.GameAnalysis) error
 	BelongsToUserFunc          func(id string, userID string) (bool, error)
 	GetDistinctRepertoiresFunc func(userID string) ([]models.RepertoireFilterOption, error)
@@ -325,9 +325,9 @@ func (m *MockAnalysisRepo) Delete(id string) error {
 	return nil
 }
 
-func (m *MockAnalysisRepo) GetAllGames(userID string, limit, offset int, timeClass, opening, source string) (*models.GamesResponse, error) {
+func (m *MockAnalysisRepo) GetAllGames(userID string, limit, offset int, timeClass, opening, source string, onlyNew bool) (*models.GamesResponse, error) {
 	if m.GetAllGamesFunc != nil {
-		return m.GetAllGamesFunc(userID, limit, offset, timeClass, opening, source)
+		return m.GetAllGamesFunc(userID, limit, offset, timeClass, opening, source, onlyNew)
 	}
 	return nil, nil
 }

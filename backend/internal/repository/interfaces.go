@@ -89,7 +89,7 @@ type AnalysisRepository interface {
 	GetAll(userID string) ([]models.AnalysisSummary, error)
 	GetByID(id string) (*models.AnalysisDetail, error)
 	Delete(id string) error
-	GetAllGames(userID string, limit, offset int, timeClass, repertoire, source string) (*models.GamesResponse, error)
+	GetAllGames(userID string, limit, offset int, timeClass, repertoire, source string, onlyNew bool) (*models.GamesResponse, error)
 	UpdateResults(analysisID string, results []models.GameAnalysis) error
 	BelongsToUser(id string, userID string) (bool, error)
 	GetDistinctRepertoires(userID string) ([]models.RepertoireFilterOption, error)
