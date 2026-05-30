@@ -20,7 +20,7 @@ func NewSyncHandler(syncSvc *services.SyncService) *SyncHandler {
 func (h *SyncHandler) HandleSync(c *echo.Context) error {
 	userID := c.Get("userID").(string)
 
-	result, err := h.syncService.Sync(userID)
+	result, err := h.syncService.Sync(c.Request().Context(), userID)
 	if err != nil {
 		if errors.Is(err, services.ErrSyncCooldown) {
 			return ErrorResponse(c, http.StatusTooManyRequests, err.Error())

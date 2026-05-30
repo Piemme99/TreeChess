@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -24,7 +25,7 @@ func newTestAuthService(userRepo repository.UserRepository) *AuthService {
 func TestAuthService_Register_Success(t *testing.T) {
 	email := "test@example.com"
 	mockRepo := &mocks.MockUserRepo{
-		CreateFunc: func(e, username, passwordHash string) (*models.User, error) {
+		CreateFunc: func(_ context.Context, e, username, passwordHash string) (*models.User, error) {
 			return &models.User{
 				ID:       "user-123",
 				Username: username,
@@ -34,7 +35,7 @@ func TestAuthService_Register_Success(t *testing.T) {
 	}
 	svc := newTestAuthService(mockRepo)
 
-	resp, err := svc.Register(email, "testuser", "password123")
+	resp, err := svc.Register(context.Background(), email, "testuser", "password123")
 
 	require.NoError(t, err)
 	require.NotNil(t, resp)
@@ -59,7 +60,7 @@ func TestAuthService_Register_InvalidEmail(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := svc.Register(tt.email, "testuser", "password123")
+			_, err := svc.Register(context.Background(), tt.email, "testuser", "password123")
 			assert.ErrorIs(t, err, ErrInvalidEmail)
 		})
 	}
@@ -80,7 +81,7 @@ func TestAuthService_Register_InvalidUsername(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := svc.Register("test@example.com", tt.username, "password123")
+			_, err := svc.Register(context.Background(), "test@example.com", tt.username, "password123")
 			assert.ErrorIs(t, err, ErrInvalidUsername)
 		})
 	}
@@ -89,33 +90,33 @@ func TestAuthService_Register_InvalidUsername(t *testing.T) {
 func TestAuthService_Register_PasswordTooShort(t *testing.T) {
 	svc := newTestAuthService(&mocks.MockUserRepo{})
 
-	_, err := svc.Register("test@example.com", "validuser", "short")
+	_, err := svc.Register(context.Background(), "test@example.com", "validuser", "short")
 
 	assert.ErrorIs(t, err, ErrPasswordTooShort)
 }
 
 func TestAuthService_Register_UsernameExists(t *testing.T) {
 	mockRepo := &mocks.MockUserRepo{
-		CreateFunc: func(email, username, passwordHash string) (*models.User, error) {
+		CreateFunc: func(_ context.Context, email, username, passwordHash string) (*models.User, error) {
 			return nil, repository.ErrUsernameExists
 		},
 	}
 	svc := newTestAuthService(mockRepo)
 
-	_, err := svc.Register("test@example.com", "existinguser", "password123")
+	_, err := svc.Register(context.Background(), "test@example.com", "existinguser", "password123")
 
 	assert.ErrorIs(t, err, repository.ErrUsernameExists)
 }
 
 func TestAuthService_Register_EmailExists(t *testing.T) {
 	mockRepo := &mocks.MockUserRepo{
-		CreateFunc: func(email, username, passwordHash string) (*models.User, error) {
+		CreateFunc: func(_ context.Context, email, username, passwordHash string) (*models.User, error) {
 			return nil, repository.ErrEmailExists
 		},
 	}
 	svc := newTestAuthService(mockRepo)
 
-	_, err := svc.Register("existing@example.com", "newuser", "password123")
+	_, err := svc.Register(context.Background(), "existing@example.com", "newuser", "password123")
 
 	assert.ErrorIs(t, err, repository.ErrEmailExists)
 }
@@ -124,7 +125,7 @@ func TestAuthService_Login_Success(t *testing.T) {
 	hash, _ := bcrypt.GenerateFromPassword([]byte("password123"), bcrypt.MinCost)
 	email := "test@example.com"
 	mockRepo := &mocks.MockUserRepo{
-		GetByEmailFunc: func(e string) (*models.User, error) {
+		GetByEmailFunc: func(_ context.Context, e string) (*models.User, error) {
 			return &models.User{
 				ID:           "user-123",
 				Username:     "testuser",
@@ -135,7 +136,7 @@ func TestAuthService_Login_Success(t *testing.T) {
 	}
 	svc := newTestAuthService(mockRepo)
 
-	resp, err := svc.Login("test@example.com", "password123")
+	resp, err := svc.Login(context.Background(), "test@example.com", "password123")
 
 	require.NoError(t, err)
 	require.NotNil(t, resp)
@@ -145,13 +146,13 @@ func TestAuthService_Login_Success(t *testing.T) {
 
 func TestAuthService_Login_UserNotFound(t *testing.T) {
 	mockRepo := &mocks.MockUserRepo{
-		GetByEmailFunc: func(email string) (*models.User, error) {
+		GetByEmailFunc: func(_ context.Context, email string) (*models.User, error) {
 			return nil, repository.ErrUserNotFound
 		},
 	}
 	svc := newTestAuthService(mockRepo)
 
-	_, err := svc.Login("nonexistent@example.com", "password123")
+	_, err := svc.Login(context.Background(), "nonexistent@example.com", "password123")
 
 	assert.ErrorIs(t, err, ErrInvalidCredentials)
 }
@@ -162,13 +163,13 @@ func TestAuthService_Login_UserNotFound(t *testing.T) {
 // sentinel is compared with == instead of errors.Is.
 func TestAuthService_Login_WrappedUserNotFound(t *testing.T) {
 	mockRepo := &mocks.MockUserRepo{
-		GetByEmailFunc: func(email string) (*models.User, error) {
+		GetByEmailFunc: func(_ context.Context, email string) (*models.User, error) {
 			return nil, fmt.Errorf("query failed: %w", repository.ErrUserNotFound)
 		},
 	}
 	svc := newTestAuthService(mockRepo)
 
-	_, err := svc.Login("nonexistent@example.com", "password123")
+	_, err := svc.Login(context.Background(), "nonexistent@example.com", "password123")
 
 	assert.ErrorIs(t, err, ErrInvalidCredentials)
 }
@@ -176,7 +177,7 @@ func TestAuthService_Login_WrappedUserNotFound(t *testing.T) {
 func TestAuthService_Login_WrongPassword(t *testing.T) {
 	hash, _ := bcrypt.GenerateFromPassword([]byte("correctpassword"), bcrypt.MinCost)
 	mockRepo := &mocks.MockUserRepo{
-		GetByEmailFunc: func(email string) (*models.User, error) {
+		GetByEmailFunc: func(_ context.Context, email string) (*models.User, error) {
 			return &models.User{
 				ID:           "user-123",
 				Username:     "testuser",
@@ -186,7 +187,7 @@ func TestAuthService_Login_WrongPassword(t *testing.T) {
 	}
 	svc := newTestAuthService(mockRepo)
 
-	_, err := svc.Login("test@example.com", "wrongpassword")
+	_, err := svc.Login(context.Background(), "test@example.com", "wrongpassword")
 
 	assert.ErrorIs(t, err, ErrInvalidCredentials)
 }
@@ -194,7 +195,7 @@ func TestAuthService_Login_WrongPassword(t *testing.T) {
 func TestAuthService_Login_OAuthOnly(t *testing.T) {
 	provider := "lichess"
 	mockRepo := &mocks.MockUserRepo{
-		GetByEmailFunc: func(email string) (*models.User, error) {
+		GetByEmailFunc: func(_ context.Context, email string) (*models.User, error) {
 			return &models.User{
 				ID:            "user-123",
 				Username:      "oauthuser",
@@ -205,14 +206,14 @@ func TestAuthService_Login_OAuthOnly(t *testing.T) {
 	}
 	svc := newTestAuthService(mockRepo)
 
-	_, err := svc.Login("oauth@example.com", "anypassword")
+	_, err := svc.Login(context.Background(), "oauth@example.com", "anypassword")
 
 	assert.ErrorIs(t, err, ErrOAuthOnly)
 }
 
 func TestAuthService_ValidateToken_Roundtrip(t *testing.T) {
 	mockRepo := &mocks.MockUserRepo{
-		GetByIDFunc: func(id string) (*models.User, error) {
+		GetByIDFunc: func(_ context.Context, id string) (*models.User, error) {
 			return &models.User{ID: id, Username: "testuser"}, nil
 		},
 	}
@@ -222,7 +223,7 @@ func TestAuthService_ValidateToken_Roundtrip(t *testing.T) {
 	token, err := svc.generateToken(user)
 	require.NoError(t, err)
 
-	userID, err := svc.ValidateToken(token)
+	userID, err := svc.ValidateToken(context.Background(), token)
 
 	require.NoError(t, err)
 	assert.Equal(t, "user-123", userID)
@@ -231,7 +232,7 @@ func TestAuthService_ValidateToken_Roundtrip(t *testing.T) {
 func TestAuthService_ValidateToken_InvalidString(t *testing.T) {
 	svc := newTestAuthService(&mocks.MockUserRepo{})
 
-	_, err := svc.ValidateToken("not-a-valid-jwt-token")
+	_, err := svc.ValidateToken(context.Background(), "not-a-valid-jwt-token")
 
 	assert.ErrorIs(t, err, ErrUnauthorized)
 }
@@ -241,7 +242,7 @@ func TestAuthService_ValidateToken_TokenIssuedBeforePasswordChange(t *testing.T)
 	// credentials captured before a password change can no longer be used.
 	passwordChangedAt := time.Now().Add(1 * time.Hour) // strictly after iat
 	mockRepo := &mocks.MockUserRepo{
-		GetByIDFunc: func(id string) (*models.User, error) {
+		GetByIDFunc: func(_ context.Context, id string) (*models.User, error) {
 			return &models.User{
 				ID:                id,
 				Username:          "testuser",
@@ -255,7 +256,7 @@ func TestAuthService_ValidateToken_TokenIssuedBeforePasswordChange(t *testing.T)
 	token, err := svc.generateToken(user)
 	require.NoError(t, err)
 
-	_, err = svc.ValidateToken(token)
+	_, err = svc.ValidateToken(context.Background(), token)
 
 	assert.ErrorIs(t, err, ErrUnauthorized,
 		"token issued before the password change must be rejected")
@@ -265,7 +266,7 @@ func TestAuthService_ValidateToken_TokenIssuedAfterPasswordChange(t *testing.T) 
 	// A token whose iat is after PasswordChangedAt remains valid.
 	passwordChangedAt := time.Now().Add(-1 * time.Hour) // strictly before iat
 	mockRepo := &mocks.MockUserRepo{
-		GetByIDFunc: func(id string) (*models.User, error) {
+		GetByIDFunc: func(_ context.Context, id string) (*models.User, error) {
 			return &models.User{
 				ID:                id,
 				Username:          "testuser",
@@ -279,7 +280,7 @@ func TestAuthService_ValidateToken_TokenIssuedAfterPasswordChange(t *testing.T) 
 	token, err := svc.generateToken(user)
 	require.NoError(t, err)
 
-	userID, err := svc.ValidateToken(token)
+	userID, err := svc.ValidateToken(context.Background(), token)
 
 	require.NoError(t, err)
 	assert.Equal(t, "user-123", userID,
@@ -290,7 +291,7 @@ func TestAuthService_ValidateToken_NilPasswordChangedAt(t *testing.T) {
 	// Users who have never changed their password (nil PasswordChangedAt)
 	// must keep validating successfully.
 	mockRepo := &mocks.MockUserRepo{
-		GetByIDFunc: func(id string) (*models.User, error) {
+		GetByIDFunc: func(_ context.Context, id string) (*models.User, error) {
 			return &models.User{
 				ID:                id,
 				Username:          "testuser",
@@ -304,7 +305,7 @@ func TestAuthService_ValidateToken_NilPasswordChangedAt(t *testing.T) {
 	token, err := svc.generateToken(user)
 	require.NoError(t, err)
 
-	userID, err := svc.ValidateToken(token)
+	userID, err := svc.ValidateToken(context.Background(), token)
 
 	require.NoError(t, err)
 	assert.Equal(t, "user-123", userID)
@@ -314,7 +315,7 @@ func TestAuthService_ValidateToken_UserLookupFailsDuringInvalidationCheck(t *tes
 	// If the user can no longer be loaded while checking the iat against
 	// PasswordChangedAt, the token must be rejected rather than accepted.
 	mockRepo := &mocks.MockUserRepo{
-		GetByIDFunc: func(id string) (*models.User, error) {
+		GetByIDFunc: func(_ context.Context, id string) (*models.User, error) {
 			return nil, repository.ErrUserNotFound
 		},
 	}
@@ -324,7 +325,7 @@ func TestAuthService_ValidateToken_UserLookupFailsDuringInvalidationCheck(t *tes
 	token, err := svc.generateToken(user)
 	require.NoError(t, err)
 
-	_, err = svc.ValidateToken(token)
+	_, err = svc.ValidateToken(context.Background(), token)
 
 	assert.ErrorIs(t, err, ErrUnauthorized)
 }
@@ -338,20 +339,20 @@ func TestAuthService_ValidateToken_Expired(t *testing.T) {
 	token, err := svc.generateToken(user)
 	require.NoError(t, err)
 
-	_, err = svc.ValidateToken(token)
+	_, err = svc.ValidateToken(context.Background(), token)
 
 	assert.ErrorIs(t, err, ErrUnauthorized)
 }
 
 func TestAuthService_GetUserByID(t *testing.T) {
 	mockRepo := &mocks.MockUserRepo{
-		GetByIDFunc: func(id string) (*models.User, error) {
+		GetByIDFunc: func(_ context.Context, id string) (*models.User, error) {
 			return &models.User{ID: id, Username: "testuser"}, nil
 		},
 	}
 	svc := newTestAuthService(mockRepo)
 
-	user, err := svc.GetUserByID("user-123")
+	user, err := svc.GetUserByID(context.Background(), "user-123")
 
 	require.NoError(t, err)
 	assert.Equal(t, "user-123", user.ID)
@@ -359,13 +360,13 @@ func TestAuthService_GetUserByID(t *testing.T) {
 
 func TestAuthService_GetUserByID_NotFound(t *testing.T) {
 	mockRepo := &mocks.MockUserRepo{
-		GetByIDFunc: func(id string) (*models.User, error) {
+		GetByIDFunc: func(_ context.Context, id string) (*models.User, error) {
 			return nil, repository.ErrUserNotFound
 		},
 	}
 	svc := newTestAuthService(mockRepo)
 
-	_, err := svc.GetUserByID("nonexistent")
+	_, err := svc.GetUserByID(context.Background(), "nonexistent")
 
 	assert.ErrorIs(t, err, repository.ErrUserNotFound)
 }
@@ -373,7 +374,7 @@ func TestAuthService_GetUserByID_NotFound(t *testing.T) {
 func TestAuthService_UpdateProfile(t *testing.T) {
 	lichess := "lichessuser"
 	mockRepo := &mocks.MockUserRepo{
-		UpdateProfileFunc: func(userID string, l, c *string, timeFormatPrefs []string) (*models.User, error) {
+		UpdateProfileFunc: func(_ context.Context, userID string, l, c *string, timeFormatPrefs []string) (*models.User, error) {
 			return &models.User{
 				ID:               userID,
 				Username:         "testuser",
@@ -384,7 +385,7 @@ func TestAuthService_UpdateProfile(t *testing.T) {
 	}
 	svc := newTestAuthService(mockRepo)
 
-	user, err := svc.UpdateProfile("user-123", models.UpdateProfileRequest{
+	user, err := svc.UpdateProfile(context.Background(), "user-123", models.UpdateProfileRequest{
 		LichessUsername: &lichess,
 	})
 
@@ -397,18 +398,18 @@ func TestAuthService_UpdateProfile_ResetsSync_WhenNewFormatsAdded(t *testing.T) 
 	var resetCalled bool
 
 	mockRepo := &mocks.MockUserRepo{
-		GetByIDFunc: func(id string) (*models.User, error) {
+		GetByIDFunc: func(_ context.Context, id string) (*models.User, error) {
 			return &models.User{
 				ID:              id,
 				Username:        "testuser",
 				TimeFormatPrefs: []string{"rapid"},
 			}, nil
 		},
-		ResetSyncTimestampsFunc: func(userID string) error {
+		ResetSyncTimestampsFunc: func(_ context.Context, userID string) error {
 			resetCalled = true
 			return nil
 		},
-		UpdateProfileFunc: func(userID string, l, c *string, timeFormatPrefs []string) (*models.User, error) {
+		UpdateProfileFunc: func(_ context.Context, userID string, l, c *string, timeFormatPrefs []string) (*models.User, error) {
 			return &models.User{
 				ID:              userID,
 				Username:        "testuser",
@@ -419,7 +420,7 @@ func TestAuthService_UpdateProfile_ResetsSync_WhenNewFormatsAdded(t *testing.T) 
 	}
 	svc := newTestAuthService(mockRepo)
 
-	_, err := svc.UpdateProfile("user-123", models.UpdateProfileRequest{
+	_, err := svc.UpdateProfile(context.Background(), "user-123", models.UpdateProfileRequest{
 		LichessUsername: &lichess,
 		TimeFormatPrefs: []string{"rapid", "blitz"},
 	})
@@ -433,18 +434,18 @@ func TestAuthService_UpdateProfile_NoReset_WhenFormatsUnchanged(t *testing.T) {
 	var resetCalled bool
 
 	mockRepo := &mocks.MockUserRepo{
-		GetByIDFunc: func(id string) (*models.User, error) {
+		GetByIDFunc: func(_ context.Context, id string) (*models.User, error) {
 			return &models.User{
 				ID:              id,
 				Username:        "testuser",
 				TimeFormatPrefs: []string{"rapid", "blitz"},
 			}, nil
 		},
-		ResetSyncTimestampsFunc: func(userID string) error {
+		ResetSyncTimestampsFunc: func(_ context.Context, userID string) error {
 			resetCalled = true
 			return nil
 		},
-		UpdateProfileFunc: func(userID string, l, c *string, timeFormatPrefs []string) (*models.User, error) {
+		UpdateProfileFunc: func(_ context.Context, userID string, l, c *string, timeFormatPrefs []string) (*models.User, error) {
 			return &models.User{
 				ID:              userID,
 				Username:        "testuser",
@@ -455,7 +456,7 @@ func TestAuthService_UpdateProfile_NoReset_WhenFormatsUnchanged(t *testing.T) {
 	}
 	svc := newTestAuthService(mockRepo)
 
-	_, err := svc.UpdateProfile("user-123", models.UpdateProfileRequest{
+	_, err := svc.UpdateProfile(context.Background(), "user-123", models.UpdateProfileRequest{
 		LichessUsername: &lichess,
 		TimeFormatPrefs: []string{"rapid", "blitz"},
 	})
@@ -469,18 +470,18 @@ func TestAuthService_UpdateProfile_NoReset_WhenFormatsRemoved(t *testing.T) {
 	var resetCalled bool
 
 	mockRepo := &mocks.MockUserRepo{
-		GetByIDFunc: func(id string) (*models.User, error) {
+		GetByIDFunc: func(_ context.Context, id string) (*models.User, error) {
 			return &models.User{
 				ID:              id,
 				Username:        "testuser",
 				TimeFormatPrefs: []string{"rapid", "blitz", "bullet"},
 			}, nil
 		},
-		ResetSyncTimestampsFunc: func(userID string) error {
+		ResetSyncTimestampsFunc: func(_ context.Context, userID string) error {
 			resetCalled = true
 			return nil
 		},
-		UpdateProfileFunc: func(userID string, l, c *string, timeFormatPrefs []string) (*models.User, error) {
+		UpdateProfileFunc: func(_ context.Context, userID string, l, c *string, timeFormatPrefs []string) (*models.User, error) {
 			return &models.User{
 				ID:              userID,
 				Username:        "testuser",
@@ -491,7 +492,7 @@ func TestAuthService_UpdateProfile_NoReset_WhenFormatsRemoved(t *testing.T) {
 	}
 	svc := newTestAuthService(mockRepo)
 
-	_, err := svc.UpdateProfile("user-123", models.UpdateProfileRequest{
+	_, err := svc.UpdateProfile(context.Background(), "user-123", models.UpdateProfileRequest{
 		LichessUsername: &lichess,
 		TimeFormatPrefs: []string{"rapid"},
 	})
@@ -525,7 +526,7 @@ func TestHasNewTimeFormats(t *testing.T) {
 
 func TestAuthService_Register_ValidUsernames(t *testing.T) {
 	mockRepo := &mocks.MockUserRepo{
-		CreateFunc: func(email, username, passwordHash string) (*models.User, error) {
+		CreateFunc: func(_ context.Context, email, username, passwordHash string) (*models.User, error) {
 			return &models.User{ID: "user-123", Username: username, Email: &email}, nil
 		},
 	}
@@ -534,7 +535,7 @@ func TestAuthService_Register_ValidUsernames(t *testing.T) {
 	validNames := []string{"abc", "user_name", "user-name", "User123", "a_b-c"}
 	for _, name := range validNames {
 		t.Run(name, func(t *testing.T) {
-			resp, err := svc.Register("test@example.com", name, "password123")
+			resp, err := svc.Register(context.Background(), "test@example.com", name, "password123")
 			require.NoError(t, err)
 			assert.NotNil(t, resp)
 		})
@@ -543,7 +544,7 @@ func TestAuthService_Register_ValidUsernames(t *testing.T) {
 
 func TestAuthService_Register_ValidEmails(t *testing.T) {
 	mockRepo := &mocks.MockUserRepo{
-		CreateFunc: func(email, username, passwordHash string) (*models.User, error) {
+		CreateFunc: func(_ context.Context, email, username, passwordHash string) (*models.User, error) {
 			return &models.User{ID: "user-123", Username: username, Email: &email}, nil
 		},
 	}
@@ -558,7 +559,7 @@ func TestAuthService_Register_ValidEmails(t *testing.T) {
 	}
 	for _, email := range validEmails {
 		t.Run(email, func(t *testing.T) {
-			resp, err := svc.Register(email, "testuser", "password123")
+			resp, err := svc.Register(context.Background(), email, "testuser", "password123")
 			require.NoError(t, err)
 			assert.NotNil(t, resp)
 		})
@@ -568,20 +569,20 @@ func TestAuthService_Register_ValidEmails(t *testing.T) {
 func TestAuthService_ChangePassword_Success(t *testing.T) {
 	hash, _ := bcrypt.GenerateFromPassword([]byte("oldpassword123"), bcrypt.MinCost)
 	mockUserRepo := &mocks.MockUserRepo{
-		GetByIDFunc: func(id string) (*models.User, error) {
+		GetByIDFunc: func(_ context.Context, id string) (*models.User, error) {
 			return &models.User{
 				ID:           "user-123",
 				Username:     "testuser",
 				PasswordHash: string(hash),
 			}, nil
 		},
-		UpdatePasswordFunc: func(userID, passwordHash string) error {
+		UpdatePasswordFunc: func(_ context.Context, userID, passwordHash string) error {
 			return nil
 		},
 	}
 	svc := newTestAuthService(mockUserRepo)
 
-	err := svc.ChangePassword("user-123", "oldpassword123", "newpassword123")
+	err := svc.ChangePassword(context.Background(), "user-123", "oldpassword123", "newpassword123")
 
 	require.NoError(t, err)
 }
@@ -589,7 +590,7 @@ func TestAuthService_ChangePassword_Success(t *testing.T) {
 func TestAuthService_ChangePassword_IncorrectCurrent(t *testing.T) {
 	hash, _ := bcrypt.GenerateFromPassword([]byte("correctpassword"), bcrypt.MinCost)
 	mockUserRepo := &mocks.MockUserRepo{
-		GetByIDFunc: func(id string) (*models.User, error) {
+		GetByIDFunc: func(_ context.Context, id string) (*models.User, error) {
 			return &models.User{
 				ID:           "user-123",
 				Username:     "testuser",
@@ -599,7 +600,7 @@ func TestAuthService_ChangePassword_IncorrectCurrent(t *testing.T) {
 	}
 	svc := newTestAuthService(mockUserRepo)
 
-	err := svc.ChangePassword("user-123", "wrongpassword", "newpassword123")
+	err := svc.ChangePassword(context.Background(), "user-123", "wrongpassword", "newpassword123")
 
 	assert.ErrorIs(t, err, ErrIncorrectPassword)
 }
@@ -607,7 +608,7 @@ func TestAuthService_ChangePassword_IncorrectCurrent(t *testing.T) {
 func TestAuthService_ChangePassword_NoPassword(t *testing.T) {
 	provider := "lichess"
 	mockUserRepo := &mocks.MockUserRepo{
-		GetByIDFunc: func(id string) (*models.User, error) {
+		GetByIDFunc: func(_ context.Context, id string) (*models.User, error) {
 			return &models.User{
 				ID:            "user-123",
 				Username:      "oauthuser",
@@ -618,7 +619,7 @@ func TestAuthService_ChangePassword_NoPassword(t *testing.T) {
 	}
 	svc := newTestAuthService(mockUserRepo)
 
-	err := svc.ChangePassword("user-123", "anypassword", "newpassword123")
+	err := svc.ChangePassword(context.Background(), "user-123", "anypassword", "newpassword123")
 
 	assert.ErrorIs(t, err, ErrNoPassword)
 }
@@ -626,7 +627,7 @@ func TestAuthService_ChangePassword_NoPassword(t *testing.T) {
 func TestAuthService_ChangePassword_ShortPassword(t *testing.T) {
 	hash, _ := bcrypt.GenerateFromPassword([]byte("oldpassword123"), bcrypt.MinCost)
 	mockUserRepo := &mocks.MockUserRepo{
-		GetByIDFunc: func(id string) (*models.User, error) {
+		GetByIDFunc: func(_ context.Context, id string) (*models.User, error) {
 			return &models.User{
 				ID:           "user-123",
 				Username:     "testuser",
@@ -636,7 +637,7 @@ func TestAuthService_ChangePassword_ShortPassword(t *testing.T) {
 	}
 	svc := newTestAuthService(mockUserRepo)
 
-	err := svc.ChangePassword("user-123", "oldpassword123", "short")
+	err := svc.ChangePassword(context.Background(), "user-123", "oldpassword123", "short")
 
 	assert.ErrorIs(t, err, ErrPasswordTooShort)
 }
@@ -654,7 +655,7 @@ func TestAuthService_HasPassword(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockUserRepo := &mocks.MockUserRepo{
-				GetByIDFunc: func(id string) (*models.User, error) {
+				GetByIDFunc: func(_ context.Context, id string) (*models.User, error) {
 					return &models.User{
 						ID:           "user-123",
 						Username:     "testuser",
@@ -664,7 +665,7 @@ func TestAuthService_HasPassword(t *testing.T) {
 			}
 			svc := newTestAuthService(mockUserRepo)
 
-			result, err := svc.HasPassword("user-123")
+			result, err := svc.HasPassword(context.Background(), "user-123")
 
 			require.NoError(t, err)
 			assert.Equal(t, tt.expected, result)
@@ -679,12 +680,12 @@ func TestAuthService_ResetPassword_Success(t *testing.T) {
 	tokenHash := hashToken(rawToken)
 
 	mockUserRepo := &mocks.MockUserRepo{
-		UpdatePasswordFunc: func(userID, passwordHash string) error {
+		UpdatePasswordFunc: func(_ context.Context, userID, passwordHash string) error {
 			return nil
 		},
 	}
 	mockResetRepo := &mocks.MockPasswordResetRepo{
-		GetByTokenHashFunc: func(hash string) (*models.PasswordResetToken, error) {
+		GetByTokenHashFunc: func(_ context.Context, hash string) (*models.PasswordResetToken, error) {
 			if hash == tokenHash {
 				return &models.PasswordResetToken{
 					ID:        "reset-123",
@@ -696,10 +697,10 @@ func TestAuthService_ResetPassword_Success(t *testing.T) {
 			}
 			return nil, repository.ErrResetTokenNotFound
 		},
-		MarkUsedFunc: func(id string) error {
+		MarkUsedFunc: func(_ context.Context, id string) error {
 			return nil
 		},
-		DeleteByUserIDFunc: func(userID string) error {
+		DeleteByUserIDFunc: func(_ context.Context, userID string) error {
 			return nil
 		},
 	}
@@ -708,7 +709,7 @@ func TestAuthService_ResetPassword_Success(t *testing.T) {
 	svc := newTestAuthService(mockUserRepo)
 	svc.WithPasswordReset(mockResetRepo, mockEmailSvc, 1)
 
-	err := svc.ResetPassword(rawToken, "newpassword123")
+	err := svc.ResetPassword(context.Background(), rawToken, "newpassword123")
 
 	require.NoError(t, err)
 }
@@ -719,7 +720,7 @@ func TestAuthService_ResetPassword_Expired(t *testing.T) {
 
 	mockUserRepo := &mocks.MockUserRepo{}
 	mockResetRepo := &mocks.MockPasswordResetRepo{
-		GetByTokenHashFunc: func(hash string) (*models.PasswordResetToken, error) {
+		GetByTokenHashFunc: func(_ context.Context, hash string) (*models.PasswordResetToken, error) {
 			if hash == tokenHash {
 				return &models.PasswordResetToken{
 					ID:        "reset-123",
@@ -737,7 +738,7 @@ func TestAuthService_ResetPassword_Expired(t *testing.T) {
 	svc := newTestAuthService(mockUserRepo)
 	svc.WithPasswordReset(mockResetRepo, mockEmailSvc, 1)
 
-	err := svc.ResetPassword(rawToken, "newpassword123")
+	err := svc.ResetPassword(context.Background(), rawToken, "newpassword123")
 
 	assert.ErrorIs(t, err, ErrResetTokenExpired)
 }
@@ -749,7 +750,7 @@ func TestAuthService_ResetPassword_AlreadyUsed(t *testing.T) {
 
 	mockUserRepo := &mocks.MockUserRepo{}
 	mockResetRepo := &mocks.MockPasswordResetRepo{
-		GetByTokenHashFunc: func(hash string) (*models.PasswordResetToken, error) {
+		GetByTokenHashFunc: func(_ context.Context, hash string) (*models.PasswordResetToken, error) {
 			if hash == tokenHash {
 				return &models.PasswordResetToken{
 					ID:        "reset-123",
@@ -767,7 +768,7 @@ func TestAuthService_ResetPassword_AlreadyUsed(t *testing.T) {
 	svc := newTestAuthService(mockUserRepo)
 	svc.WithPasswordReset(mockResetRepo, mockEmailSvc, 1)
 
-	err := svc.ResetPassword(rawToken, "newpassword123")
+	err := svc.ResetPassword(context.Background(), rawToken, "newpassword123")
 
 	assert.ErrorIs(t, err, ErrResetTokenUsed)
 }
@@ -775,7 +776,7 @@ func TestAuthService_ResetPassword_AlreadyUsed(t *testing.T) {
 func TestAuthService_ResetPassword_Invalid(t *testing.T) {
 	mockUserRepo := &mocks.MockUserRepo{}
 	mockResetRepo := &mocks.MockPasswordResetRepo{
-		GetByTokenHashFunc: func(hash string) (*models.PasswordResetToken, error) {
+		GetByTokenHashFunc: func(_ context.Context, hash string) (*models.PasswordResetToken, error) {
 			return nil, repository.ErrResetTokenNotFound
 		},
 	}
@@ -784,7 +785,7 @@ func TestAuthService_ResetPassword_Invalid(t *testing.T) {
 	svc := newTestAuthService(mockUserRepo)
 	svc.WithPasswordReset(mockResetRepo, mockEmailSvc, 1)
 
-	err := svc.ResetPassword("invalidtoken", "newpassword123")
+	err := svc.ResetPassword(context.Background(), "invalidtoken", "newpassword123")
 
 	assert.ErrorIs(t, err, ErrResetTokenInvalid)
 }
@@ -794,7 +795,7 @@ func TestAuthService_RequestPasswordReset_Success(t *testing.T) {
 	emailSent := false
 
 	mockUserRepo := &mocks.MockUserRepo{
-		GetByEmailFunc: func(e string) (*models.User, error) {
+		GetByEmailFunc: func(_ context.Context, e string) (*models.User, error) {
 			return &models.User{
 				ID:           "user-123",
 				Username:     "testuser",
@@ -804,10 +805,10 @@ func TestAuthService_RequestPasswordReset_Success(t *testing.T) {
 		},
 	}
 	mockResetRepo := &mocks.MockPasswordResetRepo{
-		CountRecentByUserIDFunc: func(userID string, since time.Time) (int, error) {
+		CountRecentByUserIDFunc: func(_ context.Context, userID string, since time.Time) (int, error) {
 			return 0, nil
 		},
-		CreateFunc: func(userID, tokenHash string, expiresAt time.Time) (*models.PasswordResetToken, error) {
+		CreateFunc: func(_ context.Context, userID, tokenHash string, expiresAt time.Time) (*models.PasswordResetToken, error) {
 			return &models.PasswordResetToken{
 				ID:        "reset-123",
 				UserID:    userID,
@@ -828,7 +829,7 @@ func TestAuthService_RequestPasswordReset_Success(t *testing.T) {
 	svc := newTestAuthService(mockUserRepo)
 	svc.WithPasswordReset(mockResetRepo, mockEmailSvc, 1)
 
-	err := svc.RequestPasswordReset(email)
+	err := svc.RequestPasswordReset(context.Background(), email)
 
 	require.NoError(t, err)
 	assert.True(t, emailSent)
@@ -836,7 +837,7 @@ func TestAuthService_RequestPasswordReset_Success(t *testing.T) {
 
 func TestAuthService_RequestPasswordReset_UserNotFound(t *testing.T) {
 	mockUserRepo := &mocks.MockUserRepo{
-		GetByEmailFunc: func(e string) (*models.User, error) {
+		GetByEmailFunc: func(_ context.Context, e string) (*models.User, error) {
 			return nil, repository.ErrUserNotFound
 		},
 	}
@@ -847,7 +848,7 @@ func TestAuthService_RequestPasswordReset_UserNotFound(t *testing.T) {
 	svc.WithPasswordReset(mockResetRepo, mockEmailSvc, 1)
 
 	// Should return nil (no error) to prevent email enumeration
-	err := svc.RequestPasswordReset("nonexistent@example.com")
+	err := svc.RequestPasswordReset(context.Background(), "nonexistent@example.com")
 
 	require.NoError(t, err)
 }
@@ -856,14 +857,14 @@ func TestAuthService_DeleteAccount_PasswordUser_Success(t *testing.T) {
 	hash, _ := bcrypt.GenerateFromPassword([]byte("password123"), bcrypt.MinCost)
 	deleted := false
 	mockUserRepo := &mocks.MockUserRepo{
-		GetByIDFunc: func(id string) (*models.User, error) {
+		GetByIDFunc: func(_ context.Context, id string) (*models.User, error) {
 			return &models.User{
 				ID:           "user-123",
 				Username:     "testuser",
 				PasswordHash: string(hash),
 			}, nil
 		},
-		DeleteFunc: func(id string) error {
+		DeleteFunc: func(_ context.Context, id string) error {
 			assert.Equal(t, "user-123", id)
 			deleted = true
 			return nil
@@ -871,7 +872,7 @@ func TestAuthService_DeleteAccount_PasswordUser_Success(t *testing.T) {
 	}
 	svc := newTestAuthService(mockUserRepo)
 
-	err := svc.DeleteAccount("user-123", "password123", "")
+	err := svc.DeleteAccount(context.Background(), "user-123", "password123", "")
 
 	require.NoError(t, err)
 	assert.True(t, deleted)
@@ -880,7 +881,7 @@ func TestAuthService_DeleteAccount_PasswordUser_Success(t *testing.T) {
 func TestAuthService_DeleteAccount_PasswordUser_WrongPassword(t *testing.T) {
 	hash, _ := bcrypt.GenerateFromPassword([]byte("correctpassword"), bcrypt.MinCost)
 	mockUserRepo := &mocks.MockUserRepo{
-		GetByIDFunc: func(id string) (*models.User, error) {
+		GetByIDFunc: func(_ context.Context, id string) (*models.User, error) {
 			return &models.User{
 				ID:           "user-123",
 				Username:     "testuser",
@@ -890,7 +891,7 @@ func TestAuthService_DeleteAccount_PasswordUser_WrongPassword(t *testing.T) {
 	}
 	svc := newTestAuthService(mockUserRepo)
 
-	err := svc.DeleteAccount("user-123", "wrongpassword", "")
+	err := svc.DeleteAccount(context.Background(), "user-123", "wrongpassword", "")
 
 	assert.ErrorIs(t, err, ErrIncorrectPassword)
 }
@@ -898,7 +899,7 @@ func TestAuthService_DeleteAccount_PasswordUser_WrongPassword(t *testing.T) {
 func TestAuthService_DeleteAccount_PasswordUser_EmptyPassword(t *testing.T) {
 	hash, _ := bcrypt.GenerateFromPassword([]byte("password123"), bcrypt.MinCost)
 	mockUserRepo := &mocks.MockUserRepo{
-		GetByIDFunc: func(id string) (*models.User, error) {
+		GetByIDFunc: func(_ context.Context, id string) (*models.User, error) {
 			return &models.User{
 				ID:           "user-123",
 				Username:     "testuser",
@@ -908,7 +909,7 @@ func TestAuthService_DeleteAccount_PasswordUser_EmptyPassword(t *testing.T) {
 	}
 	svc := newTestAuthService(mockUserRepo)
 
-	err := svc.DeleteAccount("user-123", "", "")
+	err := svc.DeleteAccount(context.Background(), "user-123", "", "")
 
 	assert.ErrorIs(t, err, ErrIncorrectPassword)
 }
@@ -917,7 +918,7 @@ func TestAuthService_DeleteAccount_OAuthUser_Success(t *testing.T) {
 	provider := "lichess"
 	deleted := false
 	mockUserRepo := &mocks.MockUserRepo{
-		GetByIDFunc: func(id string) (*models.User, error) {
+		GetByIDFunc: func(_ context.Context, id string) (*models.User, error) {
 			return &models.User{
 				ID:            "user-123",
 				Username:      "lichessuser",
@@ -925,7 +926,7 @@ func TestAuthService_DeleteAccount_OAuthUser_Success(t *testing.T) {
 				OAuthProvider: &provider,
 			}, nil
 		},
-		DeleteFunc: func(id string) error {
+		DeleteFunc: func(_ context.Context, id string) error {
 			assert.Equal(t, "user-123", id)
 			deleted = true
 			return nil
@@ -933,7 +934,7 @@ func TestAuthService_DeleteAccount_OAuthUser_Success(t *testing.T) {
 	}
 	svc := newTestAuthService(mockUserRepo)
 
-	err := svc.DeleteAccount("user-123", "", "lichessuser")
+	err := svc.DeleteAccount(context.Background(), "user-123", "", "lichessuser")
 
 	require.NoError(t, err)
 	assert.True(t, deleted)
@@ -942,7 +943,7 @@ func TestAuthService_DeleteAccount_OAuthUser_Success(t *testing.T) {
 func TestAuthService_DeleteAccount_OAuthUser_WrongUsername(t *testing.T) {
 	provider := "lichess"
 	mockUserRepo := &mocks.MockUserRepo{
-		GetByIDFunc: func(id string) (*models.User, error) {
+		GetByIDFunc: func(_ context.Context, id string) (*models.User, error) {
 			return &models.User{
 				ID:            "user-123",
 				Username:      "lichessuser",
@@ -953,7 +954,7 @@ func TestAuthService_DeleteAccount_OAuthUser_WrongUsername(t *testing.T) {
 	}
 	svc := newTestAuthService(mockUserRepo)
 
-	err := svc.DeleteAccount("user-123", "", "wrongusername")
+	err := svc.DeleteAccount(context.Background(), "user-123", "", "wrongusername")
 
 	assert.ErrorIs(t, err, ErrInvalidCredentials)
 }
@@ -961,7 +962,7 @@ func TestAuthService_DeleteAccount_OAuthUser_WrongUsername(t *testing.T) {
 func TestAuthService_DeleteAccount_OAuthUser_EmptyUsername(t *testing.T) {
 	provider := "lichess"
 	mockUserRepo := &mocks.MockUserRepo{
-		GetByIDFunc: func(id string) (*models.User, error) {
+		GetByIDFunc: func(_ context.Context, id string) (*models.User, error) {
 			return &models.User{
 				ID:            "user-123",
 				Username:      "lichessuser",
@@ -972,20 +973,20 @@ func TestAuthService_DeleteAccount_OAuthUser_EmptyUsername(t *testing.T) {
 	}
 	svc := newTestAuthService(mockUserRepo)
 
-	err := svc.DeleteAccount("user-123", "", "")
+	err := svc.DeleteAccount(context.Background(), "user-123", "", "")
 
 	assert.ErrorIs(t, err, ErrInvalidCredentials)
 }
 
 func TestAuthService_DeleteAccount_UserNotFound(t *testing.T) {
 	mockUserRepo := &mocks.MockUserRepo{
-		GetByIDFunc: func(id string) (*models.User, error) {
+		GetByIDFunc: func(_ context.Context, id string) (*models.User, error) {
 			return nil, repository.ErrUserNotFound
 		},
 	}
 	svc := newTestAuthService(mockUserRepo)
 
-	err := svc.DeleteAccount("nonexistent", "password123", "")
+	err := svc.DeleteAccount(context.Background(), "nonexistent", "password123", "")
 
 	assert.ErrorIs(t, err, repository.ErrUserNotFound)
 }
@@ -995,7 +996,7 @@ func TestAuthService_RequestPasswordReset_OAuthOnly(t *testing.T) {
 	provider := "lichess"
 
 	mockUserRepo := &mocks.MockUserRepo{
-		GetByEmailFunc: func(e string) (*models.User, error) {
+		GetByEmailFunc: func(_ context.Context, e string) (*models.User, error) {
 			return &models.User{
 				ID:            "user-123",
 				Username:      "oauthuser",
@@ -1012,7 +1013,7 @@ func TestAuthService_RequestPasswordReset_OAuthOnly(t *testing.T) {
 	svc.WithPasswordReset(mockResetRepo, mockEmailSvc, 1)
 
 	// Should return nil (no error) - silently fail for OAuth-only users
-	err := svc.RequestPasswordReset(email)
+	err := svc.RequestPasswordReset(context.Background(), email)
 
 	require.NoError(t, err)
 }

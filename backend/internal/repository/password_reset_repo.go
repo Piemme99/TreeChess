@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"time"
@@ -69,8 +70,8 @@ func scanPasswordResetToken(scan func(dest ...any) error) (*models.PasswordReset
 	return &token, nil
 }
 
-func (r *PostgresPasswordResetRepo) Create(userID, tokenHash string, expiresAt time.Time) (*models.PasswordResetToken, error) {
-	ctx, cancel := dbContext()
+func (r *PostgresPasswordResetRepo) Create(ctx context.Context, userID, tokenHash string, expiresAt time.Time) (*models.PasswordResetToken, error) {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	id := uuid.New().String()
@@ -81,8 +82,8 @@ func (r *PostgresPasswordResetRepo) Create(userID, tokenHash string, expiresAt t
 	return token, nil
 }
 
-func (r *PostgresPasswordResetRepo) GetByTokenHash(tokenHash string) (*models.PasswordResetToken, error) {
-	ctx, cancel := dbContext()
+func (r *PostgresPasswordResetRepo) GetByTokenHash(ctx context.Context, tokenHash string) (*models.PasswordResetToken, error) {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	token, err := scanPasswordResetToken(r.pool.QueryRow(ctx, getPasswordResetByHashSQL, tokenHash).Scan)
@@ -95,8 +96,8 @@ func (r *PostgresPasswordResetRepo) GetByTokenHash(tokenHash string) (*models.Pa
 	return token, nil
 }
 
-func (r *PostgresPasswordResetRepo) MarkUsed(id string) error {
-	ctx, cancel := dbContext()
+func (r *PostgresPasswordResetRepo) MarkUsed(ctx context.Context, id string) error {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	_, err := r.pool.Exec(ctx, markPasswordResetUsedSQL, id)
@@ -106,8 +107,8 @@ func (r *PostgresPasswordResetRepo) MarkUsed(id string) error {
 	return nil
 }
 
-func (r *PostgresPasswordResetRepo) DeleteByUserID(userID string) error {
-	ctx, cancel := dbContext()
+func (r *PostgresPasswordResetRepo) DeleteByUserID(ctx context.Context, userID string) error {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	_, err := r.pool.Exec(ctx, deletePasswordResetByUserSQL, userID)
@@ -119,8 +120,8 @@ func (r *PostgresPasswordResetRepo) DeleteByUserID(userID string) error {
 
 // DeleteExpired removes all password reset tokens whose expiry has passed.
 // Used by the periodic cleanup worker to prevent unbounded table growth.
-func (r *PostgresPasswordResetRepo) DeleteExpired() error {
-	ctx, cancel := dbContext()
+func (r *PostgresPasswordResetRepo) DeleteExpired(ctx context.Context) error {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	_, err := r.pool.Exec(ctx, deleteExpiredPasswordResetSQL)
@@ -130,8 +131,8 @@ func (r *PostgresPasswordResetRepo) DeleteExpired() error {
 	return nil
 }
 
-func (r *PostgresPasswordResetRepo) CountRecentByUserID(userID string, since time.Time) (int, error) {
-	ctx, cancel := dbContext()
+func (r *PostgresPasswordResetRepo) CountRecentByUserID(ctx context.Context, userID string, since time.Time) (int, error) {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	var count int

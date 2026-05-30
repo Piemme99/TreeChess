@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"context"
 	"net/http"
 	"strings"
 
@@ -9,7 +10,7 @@ import (
 
 // TokenValidator validates JWT tokens and returns the associated user ID.
 type TokenValidator interface {
-	ValidateToken(token string) (string, error)
+	ValidateToken(ctx context.Context, token string) (string, error)
 }
 
 func JWTAuth(validator TokenValidator) echo.MiddlewareFunc {
@@ -32,7 +33,7 @@ func JWTAuth(validator TokenValidator) echo.MiddlewareFunc {
 				return c.JSON(http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
 			}
 
-			userID, err := validator.ValidateToken(tokenStr)
+			userID, err := validator.ValidateToken(c.Request().Context(), tokenStr)
 			if err != nil {
 				return c.JSON(http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
 			}

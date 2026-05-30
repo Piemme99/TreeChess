@@ -29,7 +29,7 @@ func ListRepertoiresHandler(svc *services.RepertoireService) echo.HandlerFunc {
 			colorFilter = &color
 		}
 
-		repertoires, err := svc.ListRepertoires(userID, colorFilter)
+		repertoires, err := svc.ListRepertoires(c.Request().Context(), userID, colorFilter)
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{
 				"error": "failed to list repertoires",
@@ -76,7 +76,7 @@ func CreateRepertoireHandler(svc *services.RepertoireService) echo.HandlerFunc {
 			isPublic = *req.IsPublic
 		}
 
-		rep, err := svc.CreateRepertoireWithVisibility(userID, req.Name, req.Description, req.Color, isPublic)
+		rep, err := svc.CreateRepertoireWithVisibility(c.Request().Context(), userID, req.Name, req.Description, req.Color, isPublic)
 		if err != nil {
 			if errors.Is(err, services.ErrLimitReached) {
 				return c.JSON(http.StatusConflict, map[string]string{
@@ -121,11 +121,11 @@ func GetRepertoireHandler(svc *services.RepertoireService) echo.HandlerFunc {
 			})
 		}
 
-		if err := svc.CheckOwnership(idParam, userID); err != nil {
+		if err := svc.CheckOwnership(c.Request().Context(), idParam, userID); err != nil {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "repertoire not found"})
 		}
 
-		rep, err := svc.GetRepertoire(idParam)
+		rep, err := svc.GetRepertoire(c.Request().Context(), idParam)
 		if err != nil {
 			if errors.Is(err, services.ErrNotFound) {
 				return c.JSON(http.StatusNotFound, map[string]string{
@@ -155,7 +155,7 @@ func UpdateRepertoireHandler(svc *services.RepertoireService) echo.HandlerFunc {
 			})
 		}
 
-		if err := svc.CheckOwnership(idParam, userID); err != nil {
+		if err := svc.CheckOwnership(c.Request().Context(), idParam, userID); err != nil {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "repertoire not found"})
 		}
 
@@ -178,7 +178,7 @@ func UpdateRepertoireHandler(svc *services.RepertoireService) echo.HandlerFunc {
 
 		// Update name if provided
 		if req.Name != nil {
-			rep, err = svc.RenameRepertoire(userID, idParam, *req.Name)
+			rep, err = svc.RenameRepertoire(c.Request().Context(), userID, idParam, *req.Name)
 			if err != nil {
 				if errors.Is(err, services.ErrNotFound) {
 					return c.JSON(http.StatusNotFound, map[string]string{
@@ -203,7 +203,7 @@ func UpdateRepertoireHandler(svc *services.RepertoireService) echo.HandlerFunc {
 
 		// Update description if provided
 		if req.Description != nil {
-			rep, err = svc.UpdateDescription(userID, idParam, *req.Description)
+			rep, err = svc.UpdateDescription(c.Request().Context(), userID, idParam, *req.Description)
 			if err != nil {
 				if errors.Is(err, services.ErrNotFound) {
 					return c.JSON(http.StatusNotFound, map[string]string{
@@ -239,11 +239,11 @@ func DeleteRepertoireHandler(svc *services.RepertoireService) echo.HandlerFunc {
 			})
 		}
 
-		if err := svc.CheckOwnership(idParam, userID); err != nil {
+		if err := svc.CheckOwnership(c.Request().Context(), idParam, userID); err != nil {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "repertoire not found"})
 		}
 
-		err := svc.DeleteRepertoire(userID, idParam)
+		err := svc.DeleteRepertoire(c.Request().Context(), userID, idParam)
 		if err != nil {
 			if errors.Is(err, services.ErrNotFound) {
 				return c.JSON(http.StatusNotFound, map[string]string{
@@ -273,7 +273,7 @@ func AddNodeHandler(svc *services.RepertoireService) echo.HandlerFunc {
 			})
 		}
 
-		if err := svc.CheckOwnership(idParam, userID); err != nil {
+		if err := svc.CheckOwnership(c.Request().Context(), idParam, userID); err != nil {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "repertoire not found"})
 		}
 
@@ -303,7 +303,7 @@ func AddNodeHandler(svc *services.RepertoireService) echo.HandlerFunc {
 			})
 		}
 
-		rep, err := svc.AddNode(userID, idParam, req)
+		rep, err := svc.AddNode(c.Request().Context(), userID, idParam, req)
 		if err != nil {
 			if errors.Is(err, services.ErrNotFound) {
 				return c.JSON(http.StatusNotFound, map[string]string{
@@ -364,7 +364,7 @@ func SeedHandler(svc *services.RepertoireService) echo.HandlerFunc {
 			})
 		}
 
-		repertoires, err := svc.SeedRepertoires(userID, req.TemplateIDs)
+		repertoires, err := svc.SeedRepertoires(c.Request().Context(), userID, req.TemplateIDs)
 		if err != nil {
 			if errors.Is(err, services.ErrLimitReached) {
 				return c.JSON(http.StatusConflict, map[string]string{
@@ -394,7 +394,7 @@ func ExtractSubtreeHandler(svc *services.RepertoireService) echo.HandlerFunc {
 			})
 		}
 
-		if err := svc.CheckOwnership(idParam, userID); err != nil {
+		if err := svc.CheckOwnership(c.Request().Context(), idParam, userID); err != nil {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "repertoire not found"})
 		}
 
@@ -418,7 +418,7 @@ func ExtractSubtreeHandler(svc *services.RepertoireService) echo.HandlerFunc {
 			})
 		}
 
-		result, err := svc.ExtractSubtree(userID, idParam, req.NodeID, req.Name)
+		result, err := svc.ExtractSubtree(c.Request().Context(), userID, idParam, req.NodeID, req.Name)
 		if err != nil {
 			if errors.Is(err, services.ErrCannotExtractRoot) {
 				return c.JSON(http.StatusBadRequest, map[string]string{
@@ -486,14 +486,14 @@ func MergeRepertoiresHandler(svc *services.RepertoireService) echo.HandlerFunc {
 					"error": "all IDs must be valid UUIDs",
 				})
 			}
-			if err := svc.CheckOwnership(id, userID); err != nil {
+			if err := svc.CheckOwnership(c.Request().Context(), id, userID); err != nil {
 				return c.JSON(http.StatusNotFound, map[string]string{
 					"error": "repertoire not found",
 				})
 			}
 		}
 
-		result, err := svc.MergeRepertoires(userID, req.IDs, req.Name)
+		result, err := svc.MergeRepertoires(c.Request().Context(), userID, req.IDs, req.Name)
 		if err != nil {
 			if errors.Is(err, services.ErrMergeMinimumTwo) {
 				return c.JSON(http.StatusBadRequest, map[string]string{
@@ -548,11 +548,11 @@ func MergeTranspositionsHandler(svc *services.RepertoireService) echo.HandlerFun
 			})
 		}
 
-		if err := svc.CheckOwnership(idParam, userID); err != nil {
+		if err := svc.CheckOwnership(c.Request().Context(), idParam, userID); err != nil {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "repertoire not found"})
 		}
 
-		rep, err := svc.MergeTranspositions(userID, idParam)
+		rep, err := svc.MergeTranspositions(c.Request().Context(), userID, idParam)
 		if err != nil {
 			if errors.Is(err, services.ErrNotFound) {
 				return c.JSON(http.StatusNotFound, map[string]string{
@@ -590,7 +590,7 @@ func UpdateNodeCommentHandler(svc *services.RepertoireService) echo.HandlerFunc 
 			})
 		}
 
-		if err := svc.CheckOwnership(idParam, userID); err != nil {
+		if err := svc.CheckOwnership(c.Request().Context(), idParam, userID); err != nil {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "repertoire not found"})
 		}
 
@@ -603,7 +603,7 @@ func UpdateNodeCommentHandler(svc *services.RepertoireService) echo.HandlerFunc 
 			})
 		}
 
-		rep, err := svc.UpdateNodeComment(userID, idParam, nodeID, req.Comment)
+		rep, err := svc.UpdateNodeComment(c.Request().Context(), userID, idParam, nodeID, req.Comment)
 		if err != nil {
 			if errors.Is(err, services.ErrNotFound) {
 				return c.JSON(http.StatusNotFound, map[string]string{
@@ -646,7 +646,7 @@ func UpdateNodeBranchNameHandler(svc *services.RepertoireService) echo.HandlerFu
 			})
 		}
 
-		if err := svc.CheckOwnership(idParam, userID); err != nil {
+		if err := svc.CheckOwnership(c.Request().Context(), idParam, userID); err != nil {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "repertoire not found"})
 		}
 
@@ -659,7 +659,7 @@ func UpdateNodeBranchNameHandler(svc *services.RepertoireService) echo.HandlerFu
 			})
 		}
 
-		rep, err := svc.UpdateNodeBranchName(userID, idParam, nodeID, req.BranchName)
+		rep, err := svc.UpdateNodeBranchName(c.Request().Context(), userID, idParam, nodeID, req.BranchName)
 		if err != nil {
 			if errors.Is(err, services.ErrNotFound) {
 				return c.JSON(http.StatusNotFound, map[string]string{
@@ -702,7 +702,7 @@ func UpdateNodeBranchColorHandler(svc *services.RepertoireService) echo.HandlerF
 			})
 		}
 
-		if err := svc.CheckOwnership(idParam, userID); err != nil {
+		if err := svc.CheckOwnership(c.Request().Context(), idParam, userID); err != nil {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "repertoire not found"})
 		}
 
@@ -715,7 +715,7 @@ func UpdateNodeBranchColorHandler(svc *services.RepertoireService) echo.HandlerF
 			})
 		}
 
-		rep, err := svc.UpdateNodeBranchColor(userID, idParam, nodeID, req.BranchColor)
+		rep, err := svc.UpdateNodeBranchColor(c.Request().Context(), userID, idParam, nodeID, req.BranchColor)
 		if err != nil {
 			if errors.Is(err, services.ErrNotFound) {
 				return c.JSON(http.StatusNotFound, map[string]string{
@@ -763,7 +763,7 @@ func UpdateNodeAnnotationsHandler(svc *services.RepertoireService) echo.HandlerF
 			})
 		}
 
-		if err := svc.CheckOwnership(idParam, userID); err != nil {
+		if err := svc.CheckOwnership(c.Request().Context(), idParam, userID); err != nil {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "repertoire not found"})
 		}
 
@@ -777,7 +777,7 @@ func UpdateNodeAnnotationsHandler(svc *services.RepertoireService) echo.HandlerF
 			})
 		}
 
-		rep, err := svc.UpdateNodeAnnotations(userID, idParam, nodeID, req.Arrows, req.Highlights)
+		rep, err := svc.UpdateNodeAnnotations(c.Request().Context(), userID, idParam, nodeID, req.Arrows, req.Highlights)
 		if err != nil {
 			if errors.Is(err, services.ErrNotFound) {
 				return c.JSON(http.StatusNotFound, map[string]string{
@@ -825,11 +825,11 @@ func ToggleNodeCollapsedHandler(svc *services.RepertoireService) echo.HandlerFun
 			})
 		}
 
-		if err := svc.CheckOwnership(idParam, userID); err != nil {
+		if err := svc.CheckOwnership(c.Request().Context(), idParam, userID); err != nil {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "repertoire not found"})
 		}
 
-		rep, err := svc.ToggleNodeCollapsed(userID, idParam, nodeID)
+		rep, err := svc.ToggleNodeCollapsed(c.Request().Context(), userID, idParam, nodeID)
 		if err != nil {
 			if errors.Is(err, services.ErrNotFound) {
 				return c.JSON(http.StatusNotFound, map[string]string{
@@ -872,11 +872,11 @@ func ExpandToNodeHandler(svc *services.RepertoireService) echo.HandlerFunc {
 			})
 		}
 
-		if err := svc.CheckOwnership(idParam, userID); err != nil {
+		if err := svc.CheckOwnership(c.Request().Context(), idParam, userID); err != nil {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "repertoire not found"})
 		}
 
-		rep, err := svc.ExpandToNode(userID, idParam, nodeID)
+		rep, err := svc.ExpandToNode(c.Request().Context(), userID, idParam, nodeID)
 		if err != nil {
 			if errors.Is(err, services.ErrNotFound) {
 				return c.JSON(http.StatusNotFound, map[string]string{
@@ -919,11 +919,11 @@ func SetMainLineHandler(svc *services.RepertoireService) echo.HandlerFunc {
 			})
 		}
 
-		if err := svc.CheckOwnership(idParam, userID); err != nil {
+		if err := svc.CheckOwnership(c.Request().Context(), idParam, userID); err != nil {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "repertoire not found"})
 		}
 
-		rep, err := svc.SetMainLine(userID, idParam, nodeID)
+		rep, err := svc.SetMainLine(c.Request().Context(), userID, idParam, nodeID)
 		if err != nil {
 			if errors.Is(err, services.ErrNotFound) {
 				return c.JSON(http.StatusNotFound, map[string]string{
@@ -958,11 +958,11 @@ func ClearMainLineHandler(svc *services.RepertoireService) echo.HandlerFunc {
 			})
 		}
 
-		if err := svc.CheckOwnership(idParam, userID); err != nil {
+		if err := svc.CheckOwnership(c.Request().Context(), idParam, userID); err != nil {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "repertoire not found"})
 		}
 
-		rep, err := svc.ClearMainLine(userID, idParam)
+		rep, err := svc.ClearMainLine(c.Request().Context(), userID, idParam)
 		if err != nil {
 			if errors.Is(err, services.ErrNotFound) {
 				return c.JSON(http.StatusNotFound, map[string]string{
@@ -1000,11 +1000,11 @@ func DeleteNodeHandler(svc *services.RepertoireService) echo.HandlerFunc {
 			})
 		}
 
-		if err := svc.CheckOwnership(idParam, userID); err != nil {
+		if err := svc.CheckOwnership(c.Request().Context(), idParam, userID); err != nil {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "repertoire not found"})
 		}
 
-		rep, err := svc.DeleteNode(userID, idParam, nodeID)
+		rep, err := svc.DeleteNode(c.Request().Context(), userID, idParam, nodeID)
 		if err != nil {
 			if errors.Is(err, services.ErrNotFound) {
 				return c.JSON(http.StatusNotFound, map[string]string{
@@ -1043,7 +1043,7 @@ func UpdateVisibilityHandler(svc *services.RepertoireService) echo.HandlerFunc {
 			})
 		}
 
-		if err := svc.CheckOwnership(idParam, userID); err != nil {
+		if err := svc.CheckOwnership(c.Request().Context(), idParam, userID); err != nil {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "repertoire not found"})
 		}
 
@@ -1056,7 +1056,7 @@ func UpdateVisibilityHandler(svc *services.RepertoireService) echo.HandlerFunc {
 			})
 		}
 
-		rep, err := svc.UpdateVisibility(userID, idParam, req.IsPublic)
+		rep, err := svc.UpdateVisibility(c.Request().Context(), userID, idParam, req.IsPublic)
 		if err != nil {
 			if errors.Is(err, services.ErrNotFound) {
 				return c.JSON(http.StatusNotFound, map[string]string{

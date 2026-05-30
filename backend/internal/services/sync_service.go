@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -36,8 +37,8 @@ func NewSyncService(userRepo repository.UserRepository, importSvc GameImporter, 
 	}
 }
 
-func (s *SyncService) Sync(userID string) (*models.SyncResult, error) {
-	user, err := s.userRepo.GetByID(userID)
+func (s *SyncService) Sync(ctx context.Context, userID string) (*models.SyncResult, error) {
+	user, err := s.userRepo.GetByID(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user: %w", err)
 	}
@@ -53,26 +54,26 @@ func (s *SyncService) Sync(userID string) (*models.SyncResult, error) {
 	result := &models.SyncResult{}
 
 	if user.LichessUsername != nil && *user.LichessUsername != "" {
-		imported, err := s.syncLichess(user, now)
+		imported, err := s.syncLichess(ctx, user, now)
 		if err != nil {
 			slog.Error("lichess sync failed", "user_id", userID, "error", err)
 			result.LichessError = err.Error()
 		} else {
 			result.LichessGamesImported = imported
-			if err := s.userRepo.UpdateSyncTimestamps(userID, &now, nil); err != nil {
+			if err := s.userRepo.UpdateSyncTimestamps(ctx, userID, &now, nil); err != nil {
 				slog.Error("failed to update lichess sync timestamp", "user_id", userID, "error", err)
 			}
 		}
 	}
 
 	if user.ChesscomUsername != nil && *user.ChesscomUsername != "" {
-		imported, err := s.syncChesscom(user, now)
+		imported, err := s.syncChesscom(ctx, user, now)
 		if err != nil {
 			slog.Error("chess.com sync failed", "user_id", userID, "error", err)
 			result.ChesscomError = err.Error()
 		} else {
 			result.ChesscomGamesImported = imported
-			if err := s.userRepo.UpdateSyncTimestamps(userID, nil, &now); err != nil {
+			if err := s.userRepo.UpdateSyncTimestamps(ctx, userID, nil, &now); err != nil {
 				slog.Error("failed to update chess.com sync timestamp", "user_id", userID, "error", err)
 			}
 		}
@@ -81,7 +82,7 @@ func (s *SyncService) Sync(userID string) (*models.SyncResult, error) {
 	return result, nil
 }
 
-func (s *SyncService) syncLichess(user *models.User, now time.Time) (int, error) {
+func (s *SyncService) syncLichess(ctx context.Context, user *models.User, now time.Time) (int, error) {
 	since := s.computeSince(user.LastLichessSyncAt, now)
 
 	max := syncMaxGames
@@ -106,7 +107,7 @@ func (s *SyncService) syncLichess(user *models.User, now time.Time) (int, error)
 	}
 
 	filename := fmt.Sprintf("sync_lichess_%s.pgn", *user.LichessUsername)
-	summary, _, err := s.importService.ParseAndAnalyze(filename, *user.LichessUsername, user.ID, pgnData)
+	summary, _, err := s.importService.ParseAndAnalyze(ctx, filename, *user.LichessUsername, user.ID, pgnData)
 	if err != nil {
 		return 0, fmt.Errorf("failed to analyze Lichess games: %w", err)
 	}
@@ -114,7 +115,7 @@ func (s *SyncService) syncLichess(user *models.User, now time.Time) (int, error)
 	return summary.GameCount, nil
 }
 
-func (s *SyncService) syncChesscom(user *models.User, now time.Time) (int, error) {
+func (s *SyncService) syncChesscom(ctx context.Context, user *models.User, now time.Time) (int, error) {
 	since := s.computeSince(user.LastChesscomSyncAt, now)
 
 	max := syncMaxGames
@@ -148,7 +149,7 @@ func (s *SyncService) syncChesscom(user *models.User, now time.Time) (int, error
 	}
 
 	filename := fmt.Sprintf("sync_chesscom_%s.pgn", *user.ChesscomUsername)
-	summary, _, err := s.importService.ParseAndAnalyze(filename, *user.ChesscomUsername, user.ID, allPgnData.String())
+	summary, _, err := s.importService.ParseAndAnalyze(ctx, filename, *user.ChesscomUsername, user.ID, allPgnData.String())
 	if err != nil {
 		return 0, fmt.Errorf("failed to analyze Chess.com games: %w", err)
 	}

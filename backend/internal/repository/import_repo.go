@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -63,8 +64,8 @@ func NewPostgresAnalysisRepo(pool *pgxpool.Pool) *PostgresAnalysisRepo {
 }
 
 // Save saves a new analysis
-func (r *PostgresAnalysisRepo) Save(userID string, username, filename string, gameCount int, results []models.GameAnalysis) (*models.AnalysisSummary, error) {
-	ctx, cancel := dbContext()
+func (r *PostgresAnalysisRepo) Save(ctx context.Context, userID string, username, filename string, gameCount int, results []models.GameAnalysis) (*models.AnalysisSummary, error) {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	resultsJSON, err := json.Marshal(results)
@@ -99,8 +100,8 @@ func (r *PostgresAnalysisRepo) Save(userID string, username, filename string, ga
 }
 
 // GetAll returns all analysis summaries for a user
-func (r *PostgresAnalysisRepo) GetAll(userID string) ([]models.AnalysisSummary, error) {
-	ctx, cancel := dbContext()
+func (r *PostgresAnalysisRepo) GetAll(ctx context.Context, userID string) ([]models.AnalysisSummary, error) {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	rows, err := r.pool.Query(ctx, getAnalysesSQL, userID)
@@ -127,8 +128,8 @@ func (r *PostgresAnalysisRepo) GetAll(userID string) ([]models.AnalysisSummary, 
 }
 
 // GetByID returns analysis details by ID
-func (r *PostgresAnalysisRepo) GetByID(id string) (*models.AnalysisDetail, error) {
-	ctx, cancel := dbContext()
+func (r *PostgresAnalysisRepo) GetByID(ctx context.Context, id string) (*models.AnalysisDetail, error) {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	var detail models.AnalysisDetail
@@ -157,8 +158,8 @@ func (r *PostgresAnalysisRepo) GetByID(id string) (*models.AnalysisDetail, error
 }
 
 // Delete deletes an analysis by ID
-func (r *PostgresAnalysisRepo) Delete(id string) error {
-	ctx, cancel := dbContext()
+func (r *PostgresAnalysisRepo) Delete(ctx context.Context, id string) error {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	result, err := r.pool.Exec(ctx, deleteAnalysisSQL, id)
@@ -174,8 +175,8 @@ func (r *PostgresAnalysisRepo) Delete(id string) error {
 }
 
 // GetAllGames returns all games from all analyses with pagination for a user
-func (r *PostgresAnalysisRepo) GetAllGames(userID string, limit, offset int, timeClass, repertoire, source string, onlyNew bool) (*models.GamesResponse, error) {
-	ctx, cancel := dbContext()
+func (r *PostgresAnalysisRepo) GetAllGames(ctx context.Context, userID string, limit, offset int, timeClass, repertoire, source string, onlyNew bool) (*models.GamesResponse, error) {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	rows, err := r.pool.Query(ctx, getAllGamesSQL, userID)
@@ -184,7 +185,7 @@ func (r *PostgresAnalysisRepo) GetAllGames(userID string, limit, offset int, tim
 	}
 	defer rows.Close()
 
-	viewedGames, err := r.GetViewedGames(userID)
+	viewedGames, err := r.GetViewedGames(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get viewed games: %w", err)
 	}
@@ -285,8 +286,8 @@ func (r *PostgresAnalysisRepo) GetAllGames(userID string, limit, offset int, tim
 }
 
 // UpdateResults updates the results array of an existing analysis
-func (r *PostgresAnalysisRepo) UpdateResults(analysisID string, results []models.GameAnalysis) error {
-	ctx, cancel := dbContext()
+func (r *PostgresAnalysisRepo) UpdateResults(ctx context.Context, analysisID string, results []models.GameAnalysis) error {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	resultsJSON, err := json.Marshal(results)
@@ -307,8 +308,8 @@ func (r *PostgresAnalysisRepo) UpdateResults(analysisID string, results []models
 }
 
 // BelongsToUser checks if an analysis belongs to a specific user
-func (r *PostgresAnalysisRepo) BelongsToUser(id string, userID string) (bool, error) {
-	ctx, cancel := dbContext()
+func (r *PostgresAnalysisRepo) BelongsToUser(ctx context.Context, id string, userID string) (bool, error) {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	var belongs bool
@@ -320,8 +321,8 @@ func (r *PostgresAnalysisRepo) BelongsToUser(id string, userID string) (bool, er
 }
 
 // GetDistinctRepertoires returns a sorted list of distinct repertoires (id, name, color) for a user
-func (r *PostgresAnalysisRepo) GetDistinctRepertoires(userID string) ([]models.RepertoireFilterOption, error) {
-	ctx, cancel := dbContext()
+func (r *PostgresAnalysisRepo) GetDistinctRepertoires(ctx context.Context, userID string) ([]models.RepertoireFilterOption, error) {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	rows, err := r.pool.Query(ctx, getAllGamesSQL, userID)
@@ -379,8 +380,8 @@ func (r *PostgresAnalysisRepo) GetDistinctRepertoires(userID string) ([]models.R
 }
 
 // MarkGameViewed marks a specific game as viewed by the user
-func (r *PostgresAnalysisRepo) MarkGameViewed(userID, analysisID string, gameIndex int) error {
-	ctx, cancel := dbContext()
+func (r *PostgresAnalysisRepo) MarkGameViewed(ctx context.Context, userID, analysisID string, gameIndex int) error {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	_, err := r.pool.Exec(ctx,
@@ -394,8 +395,8 @@ func (r *PostgresAnalysisRepo) MarkGameViewed(userID, analysisID string, gameInd
 }
 
 // GetViewedGames returns a set of "analysisID-gameIndex" keys for all viewed games of a user
-func (r *PostgresAnalysisRepo) GetViewedGames(userID string) (map[string]bool, error) {
-	ctx, cancel := dbContext()
+func (r *PostgresAnalysisRepo) GetViewedGames(ctx context.Context, userID string) (map[string]bool, error) {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	rows, err := r.pool.Query(ctx,
@@ -420,8 +421,8 @@ func (r *PostgresAnalysisRepo) GetViewedGames(userID string) (map[string]bool, e
 }
 
 // GetAllGamesRaw returns all analyses with full game data for a user
-func (r *PostgresAnalysisRepo) GetAllGamesRaw(userID string) ([]models.RawAnalysis, error) {
-	ctx, cancel := dbContext()
+func (r *PostgresAnalysisRepo) GetAllGamesRaw(ctx context.Context, userID string) ([]models.RawAnalysis, error) {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	rows, err := r.pool.Query(ctx, getAllGamesSQL, userID)

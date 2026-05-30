@@ -3,6 +3,7 @@
 package integration
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -26,22 +27,22 @@ func TestEngineEvalPipeline(t *testing.T) {
 	)
 
 	pgn := testhelpers.SimplePGN("evaluser", "opponent")
-	summary, _, err := importSvc.ParseAndAnalyze("test.pgn", "evaluser", user.ID, pgn)
+	summary, _, err := importSvc.ParseAndAnalyze(context.Background(), "test.pgn", "evaluser", user.ID, pgn)
 	require.NoError(t, err)
 	require.NotEmpty(t, summary.ID)
 
 	// Import should have created pending engine evals
-	pending, err := repos.EngineEval.GetPending(10)
+	pending, err := repos.EngineEval.GetPending(context.Background(), 10)
 	require.NoError(t, err)
 	assert.GreaterOrEqual(t, len(pending), 1)
 
 	// Mark one as processing
 	evalID := pending[0].ID
-	err = repos.EngineEval.MarkProcessing(evalID)
+	err = repos.EngineEval.MarkProcessing(context.Background(), evalID)
 	require.NoError(t, err)
 
 	// Verify it's no longer pending
-	stillPending, err := repos.EngineEval.GetPending(10)
+	stillPending, err := repos.EngineEval.GetPending(context.Background(), 10)
 	require.NoError(t, err)
 	for _, p := range stillPending {
 		assert.NotEqual(t, evalID, p.ID)
@@ -61,20 +62,20 @@ func TestEngineEvalPipeline_DeleteCascade(t *testing.T) {
 	)
 
 	pgn := testhelpers.SimplePGN("evaldeluser", "opponent")
-	summary, _, err := importSvc.ParseAndAnalyze("test.pgn", "evaldeluser", user.ID, pgn)
+	summary, _, err := importSvc.ParseAndAnalyze(context.Background(), "test.pgn", "evaldeluser", user.ID, pgn)
 	require.NoError(t, err)
 
 	// Verify engine evals exist
-	evals, err := repos.EngineEval.GetByUser(user.ID)
+	evals, err := repos.EngineEval.GetByUser(context.Background(), user.ID)
 	require.NoError(t, err)
 	require.NotEmpty(t, evals)
 
 	// Delete the analysis
-	err = importSvc.DeleteAnalysis(summary.ID)
+	err = importSvc.DeleteAnalysis(context.Background(), summary.ID)
 	require.NoError(t, err)
 
 	// Engine evals should be gone
-	evals, err = repos.EngineEval.GetByUser(user.ID)
+	evals, err = repos.EngineEval.GetByUser(context.Background(), user.ID)
 	require.NoError(t, err)
 	assert.Empty(t, evals)
 }
@@ -90,15 +91,15 @@ func TestViewedGames_MarkAndRetrieve(t *testing.T) {
 	)
 
 	pgn := testhelpers.TwoGamePGN("viewuser", "opponent")
-	summary, _, err := importSvc.ParseAndAnalyze("test.pgn", "viewuser", user.ID, pgn)
+	summary, _, err := importSvc.ParseAndAnalyze(context.Background(), "test.pgn", "viewuser", user.ID, pgn)
 	require.NoError(t, err)
 
 	// Mark game 0 as viewed
-	err = importSvc.MarkGameViewed(user.ID, summary.ID, 0)
+	err = importSvc.MarkGameViewed(context.Background(), user.ID, summary.ID, 0)
 	require.NoError(t, err)
 
 	// Get viewed games
-	viewed, err := repos.Analysis.GetViewedGames(user.ID)
+	viewed, err := repos.Analysis.GetViewedGames(context.Background(), user.ID)
 	require.NoError(t, err)
 
 	key := summary.ID + "-0"
@@ -119,21 +120,21 @@ func TestReanalyzeGame(t *testing.T) {
 	)
 
 	// Create e4 repertoire
-	e4Rep, _ := repertoireSvc.CreateRepertoire(user.ID, "e4", "white")
-	_, _ = repertoireSvc.AddNode(user.ID, e4Rep.ID, models.AddNodeRequest{ParentID: e4Rep.TreeData.ID, Move: "e4", MoveNumber: 1})
+	e4Rep, _ := repertoireSvc.CreateRepertoire(context.Background(), user.ID, "e4", "white")
+	_, _ = repertoireSvc.AddNode(context.Background(), user.ID, e4Rep.ID, models.AddNodeRequest{ParentID: e4Rep.TreeData.ID, Move: "e4", MoveNumber: 1})
 
 	// Create d4 repertoire
-	d4Rep, _ := repertoireSvc.CreateRepertoire(user.ID, "d4", "white")
-	d4Rep, _ = repertoireSvc.AddNode(user.ID, d4Rep.ID, models.AddNodeRequest{ParentID: d4Rep.TreeData.ID, Move: "d4", MoveNumber: 1})
+	d4Rep, _ := repertoireSvc.CreateRepertoire(context.Background(), user.ID, "d4", "white")
+	d4Rep, _ = repertoireSvc.AddNode(context.Background(), user.ID, d4Rep.ID, models.AddNodeRequest{ParentID: d4Rep.TreeData.ID, Move: "d4", MoveNumber: 1})
 
 	// Import e4 game (matched to e4 repertoire)
 	pgn := testhelpers.SimplePGN("reanalyze", "opponent")
-	summary, results, err := importSvc.ParseAndAnalyze("test.pgn", "reanalyze", user.ID, pgn)
+	summary, results, err := importSvc.ParseAndAnalyze(context.Background(), "test.pgn", "reanalyze", user.ID, pgn)
 	require.NoError(t, err)
 	require.Len(t, results, 1)
 
 	// Reanalyze against d4 repertoire
-	reanalyzed, err := importSvc.ReanalyzeGame(summary.ID, 0, d4Rep.ID)
+	reanalyzed, err := importSvc.ReanalyzeGame(context.Background(), summary.ID, 0, d4Rep.ID)
 	require.NoError(t, err)
 	require.NotNil(t, reanalyzed)
 
@@ -143,7 +144,7 @@ func TestReanalyzeGame(t *testing.T) {
 	assert.Equal(t, "d4", reanalyzed.MatchedRepertoire.Name)
 
 	// Verify the reanalyzed game is persisted in the DB
-	detail, err := importSvc.GetAnalysisByID(summary.ID)
+	detail, err := importSvc.GetAnalysisByID(context.Background(), summary.ID)
 	require.NoError(t, err)
 	require.NotNil(t, detail)
 	require.NotEmpty(t, detail.Results)
@@ -161,18 +162,18 @@ func TestViewedGames_MarkIdempotent(t *testing.T) {
 	)
 
 	pgn := testhelpers.SimplePGN("viewidem", "opponent")
-	summary, _, err := importSvc.ParseAndAnalyze("test.pgn", "viewidem", user.ID, pgn)
+	summary, _, err := importSvc.ParseAndAnalyze(context.Background(), "test.pgn", "viewidem", user.ID, pgn)
 	require.NoError(t, err)
 
 	// Mark game 0 as viewed twice — should not error
-	err = importSvc.MarkGameViewed(user.ID, summary.ID, 0)
+	err = importSvc.MarkGameViewed(context.Background(), user.ID, summary.ID, 0)
 	require.NoError(t, err)
 
-	err = importSvc.MarkGameViewed(user.ID, summary.ID, 0)
+	err = importSvc.MarkGameViewed(context.Background(), user.ID, summary.ID, 0)
 	require.NoError(t, err)
 
 	// Still only one entry
-	viewed, err := repos.Analysis.GetViewedGames(user.ID)
+	viewed, err := repos.Analysis.GetViewedGames(context.Background(), user.ID)
 	require.NoError(t, err)
 
 	key := summary.ID + "-0"

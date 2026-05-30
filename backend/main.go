@@ -102,7 +102,9 @@ func buildServices(cfg config.Config, db *repository.DB) *appServices {
 	// The queue closes over importSvc and is injected back into repertoireSvc,
 	// closing the construction cycle described above.
 	reanalysisQueue := services.NewReanalysisQueue(func(userID string) error {
-		_, err := importSvc.ReanalyzeAllGames(userID, true)
+		// Debounced auto-re-analysis runs in a background goroutine that is not
+		// tied to any single HTTP request, so it uses a fresh background context.
+		_, err := importSvc.ReanalyzeAllGames(context.Background(), userID, true)
 		return err
 	}, services.DefaultReanalysisDebounce)
 	repertoireSvc.WithReanalysisQueue(reanalysisQueue)

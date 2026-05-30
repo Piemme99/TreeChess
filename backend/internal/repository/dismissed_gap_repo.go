@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -17,8 +18,8 @@ func NewDismissedGapRepo(pool *pgxpool.Pool) *DismissedGapRepo {
 }
 
 // Dismiss marks a gap as dismissed for a user
-func (r *DismissedGapRepo) Dismiss(userID, fen, opponentMove, repertoireID string) error {
-	ctx, cancel := dbContext()
+func (r *DismissedGapRepo) Dismiss(ctx context.Context, userID, fen, opponentMove, repertoireID string) error {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	query := `
@@ -35,8 +36,8 @@ func (r *DismissedGapRepo) Dismiss(userID, fen, opponentMove, repertoireID strin
 
 // GetDismissed returns a map of dismissed gaps for a user
 // The key is "fen|opponentMove|repertoireID"
-func (r *DismissedGapRepo) GetDismissed(userID string) (map[string]bool, error) {
-	ctx, cancel := dbContext()
+func (r *DismissedGapRepo) GetDismissed(ctx context.Context, userID string) (map[string]bool, error) {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	query := `SELECT fen, opponent_move, repertoire_id FROM dismissed_gaps WHERE user_id = $1`

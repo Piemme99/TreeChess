@@ -8,12 +8,12 @@ import (
 
 // refreshTokenCleaner purges expired refresh tokens.
 type refreshTokenCleaner interface {
-	DeleteExpired() error
+	DeleteExpired(ctx context.Context) error
 }
 
 // passwordResetCleaner purges expired password reset tokens.
 type passwordResetCleaner interface {
-	DeleteExpired() error
+	DeleteExpired(ctx context.Context) error
 }
 
 // explorerCacheCleaner purges stale opening-explorer cache rows.
@@ -81,13 +81,13 @@ func (s *CleanupService) RunWorker(ctx context.Context) {
 // table is logged and does not prevent the others from being cleaned.
 func (s *CleanupService) cleanup(ctx context.Context) {
 	if s.refreshTokens != nil {
-		if err := s.refreshTokens.DeleteExpired(); err != nil {
+		if err := s.refreshTokens.DeleteExpired(ctx); err != nil {
 			slog.Error("failed to purge expired refresh tokens", "component", "cleanup", "error", err)
 		}
 	}
 
 	if s.passwordResets != nil {
-		if err := s.passwordResets.DeleteExpired(); err != nil {
+		if err := s.passwordResets.DeleteExpired(ctx); err != nil {
 			slog.Error("failed to purge expired password reset tokens", "component", "cleanup", "error", err)
 		}
 	}

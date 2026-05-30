@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -23,8 +24,8 @@ func TestSyncService_Sync_BothPlatforms(t *testing.T) {
 	}
 
 	mockUserRepo := &mocks.MockUserRepo{
-		GetByIDFunc:              func(id string) (*models.User, error) { return user, nil },
-		UpdateSyncTimestampsFunc: func(userID string, l, c *time.Time) error { return nil },
+		GetByIDFunc:              func(_ context.Context, id string) (*models.User, error) { return user, nil },
+		UpdateSyncTimestampsFunc: func(_ context.Context, userID string, l, c *time.Time) error { return nil },
 	}
 	mockLichess := &smocks.MockLichessService{
 		FetchGamesFunc: func(username string, opts models.LichessImportOptions) (string, error) {
@@ -37,13 +38,13 @@ func TestSyncService_Sync_BothPlatforms(t *testing.T) {
 		},
 	}
 	mockImport := &smocks.MockImportService{
-		ParseAndAnalyzeFunc: func(filename, username, userID, pgnData string) (*models.AnalysisSummary, []models.GameAnalysis, error) {
+		ParseAndAnalyzeFunc: func(_ context.Context, filename, username, userID, pgnData string) (*models.AnalysisSummary, []models.GameAnalysis, error) {
 			return &models.AnalysisSummary{GameCount: 1}, nil, nil
 		},
 	}
 
 	svc := NewSyncService(mockUserRepo, mockImport, mockLichess, mockChesscom)
-	result, err := svc.Sync("user-1")
+	result, err := svc.Sync(context.Background(), "user-1")
 
 	require.NoError(t, err)
 	assert.Equal(t, 1, result.LichessGamesImported)
@@ -61,11 +62,11 @@ func TestSyncService_Sync_LichessOnly(t *testing.T) {
 	}
 
 	mockUserRepo := &mocks.MockUserRepo{
-		GetByIDFunc:              func(id string) (*models.User, error) { return user, nil },
-		UpdateSyncTimestampsFunc: func(userID string, l, c *time.Time) error { return nil },
+		GetByIDFunc:              func(_ context.Context, id string) (*models.User, error) { return user, nil },
+		UpdateSyncTimestampsFunc: func(_ context.Context, userID string, l, c *time.Time) error { return nil },
 	}
 	mockImport := &smocks.MockImportService{
-		ParseAndAnalyzeFunc: func(filename, username, userID, pgnData string) (*models.AnalysisSummary, []models.GameAnalysis, error) {
+		ParseAndAnalyzeFunc: func(_ context.Context, filename, username, userID, pgnData string) (*models.AnalysisSummary, []models.GameAnalysis, error) {
 			return &models.AnalysisSummary{GameCount: 3}, nil, nil
 		},
 	}
@@ -76,7 +77,7 @@ func TestSyncService_Sync_LichessOnly(t *testing.T) {
 	}
 
 	svc := NewSyncService(mockUserRepo, mockImport, mockLichess, &smocks.MockChesscomService{})
-	result, err := svc.Sync("user-1")
+	result, err := svc.Sync(context.Background(), "user-1")
 
 	require.NoError(t, err)
 	assert.Equal(t, 3, result.LichessGamesImported)
@@ -93,11 +94,11 @@ func TestSyncService_Sync_CooldownEnforced(t *testing.T) {
 	}
 
 	mockUserRepo := &mocks.MockUserRepo{
-		GetByIDFunc: func(id string) (*models.User, error) { return user, nil },
+		GetByIDFunc: func(_ context.Context, id string) (*models.User, error) { return user, nil },
 	}
 
 	svc := NewSyncService(mockUserRepo, &smocks.MockImportService{}, &smocks.MockLichessService{}, &smocks.MockChesscomService{})
-	_, err := svc.Sync("user-1")
+	_, err := svc.Sync(context.Background(), "user-1")
 
 	assert.Error(t, err)
 	assert.ErrorIs(t, err, ErrSyncCooldown)
@@ -113,8 +114,8 @@ func TestSyncService_Sync_CooldownExpired_Allowed(t *testing.T) {
 	}
 
 	mockUserRepo := &mocks.MockUserRepo{
-		GetByIDFunc:              func(id string) (*models.User, error) { return user, nil },
-		UpdateSyncTimestampsFunc: func(userID string, l, c *time.Time) error { return nil },
+		GetByIDFunc:              func(_ context.Context, id string) (*models.User, error) { return user, nil },
+		UpdateSyncTimestampsFunc: func(_ context.Context, userID string, l, c *time.Time) error { return nil },
 	}
 	mockLichess := &smocks.MockLichessService{
 		FetchGamesFunc: func(username string, opts models.LichessImportOptions) (string, error) {
@@ -122,13 +123,13 @@ func TestSyncService_Sync_CooldownExpired_Allowed(t *testing.T) {
 		},
 	}
 	mockImport := &smocks.MockImportService{
-		ParseAndAnalyzeFunc: func(filename, username, userID, pgnData string) (*models.AnalysisSummary, []models.GameAnalysis, error) {
+		ParseAndAnalyzeFunc: func(_ context.Context, filename, username, userID, pgnData string) (*models.AnalysisSummary, []models.GameAnalysis, error) {
 			return &models.AnalysisSummary{GameCount: 1}, nil, nil
 		},
 	}
 
 	svc := NewSyncService(mockUserRepo, mockImport, mockLichess, &smocks.MockChesscomService{})
-	result, err := svc.Sync("user-1")
+	result, err := svc.Sync(context.Background(), "user-1")
 
 	require.NoError(t, err)
 	assert.Equal(t, 1, result.LichessGamesImported)
@@ -167,11 +168,11 @@ func TestSyncService_Sync_ChesscomOnly(t *testing.T) {
 	}
 
 	mockUserRepo := &mocks.MockUserRepo{
-		GetByIDFunc:              func(id string) (*models.User, error) { return user, nil },
-		UpdateSyncTimestampsFunc: func(userID string, l, c *time.Time) error { return nil },
+		GetByIDFunc:              func(_ context.Context, id string) (*models.User, error) { return user, nil },
+		UpdateSyncTimestampsFunc: func(_ context.Context, userID string, l, c *time.Time) error { return nil },
 	}
 	mockImport := &smocks.MockImportService{
-		ParseAndAnalyzeFunc: func(filename, username, userID, pgnData string) (*models.AnalysisSummary, []models.GameAnalysis, error) {
+		ParseAndAnalyzeFunc: func(_ context.Context, filename, username, userID, pgnData string) (*models.AnalysisSummary, []models.GameAnalysis, error) {
 			return &models.AnalysisSummary{GameCount: 2}, nil, nil
 		},
 	}
@@ -182,7 +183,7 @@ func TestSyncService_Sync_ChesscomOnly(t *testing.T) {
 	}
 
 	svc := NewSyncService(mockUserRepo, mockImport, &smocks.MockLichessService{}, mockChesscom)
-	result, err := svc.Sync("user-1")
+	result, err := svc.Sync(context.Background(), "user-1")
 
 	require.NoError(t, err)
 	assert.Equal(t, 0, result.LichessGamesImported)
@@ -197,11 +198,11 @@ func TestSyncService_Sync_NeitherPlatform(t *testing.T) {
 	}
 
 	mockUserRepo := &mocks.MockUserRepo{
-		GetByIDFunc: func(id string) (*models.User, error) { return user, nil },
+		GetByIDFunc: func(_ context.Context, id string) (*models.User, error) { return user, nil },
 	}
 
 	svc := NewSyncService(mockUserRepo, &smocks.MockImportService{}, &smocks.MockLichessService{}, &smocks.MockChesscomService{})
-	result, err := svc.Sync("user-1")
+	result, err := svc.Sync(context.Background(), "user-1")
 
 	require.NoError(t, err)
 	assert.Equal(t, 0, result.LichessGamesImported)
@@ -218,8 +219,8 @@ func TestSyncService_Sync_LichessError_ChesscomStillRuns(t *testing.T) {
 	}
 
 	mockUserRepo := &mocks.MockUserRepo{
-		GetByIDFunc:              func(id string) (*models.User, error) { return user, nil },
-		UpdateSyncTimestampsFunc: func(userID string, l, c *time.Time) error { return nil },
+		GetByIDFunc:              func(_ context.Context, id string) (*models.User, error) { return user, nil },
+		UpdateSyncTimestampsFunc: func(_ context.Context, userID string, l, c *time.Time) error { return nil },
 	}
 	mockLichess := &smocks.MockLichessService{
 		FetchGamesFunc: func(username string, opts models.LichessImportOptions) (string, error) {
@@ -232,13 +233,13 @@ func TestSyncService_Sync_LichessError_ChesscomStillRuns(t *testing.T) {
 		},
 	}
 	mockImport := &smocks.MockImportService{
-		ParseAndAnalyzeFunc: func(filename, username, userID, pgnData string) (*models.AnalysisSummary, []models.GameAnalysis, error) {
+		ParseAndAnalyzeFunc: func(_ context.Context, filename, username, userID, pgnData string) (*models.AnalysisSummary, []models.GameAnalysis, error) {
 			return &models.AnalysisSummary{GameCount: 1}, nil, nil
 		},
 	}
 
 	svc := NewSyncService(mockUserRepo, mockImport, mockLichess, mockChesscom)
-	result, err := svc.Sync("user-1")
+	result, err := svc.Sync(context.Background(), "user-1")
 
 	require.NoError(t, err)
 	assert.NotEmpty(t, result.LichessError)
@@ -247,13 +248,13 @@ func TestSyncService_Sync_LichessError_ChesscomStillRuns(t *testing.T) {
 
 func TestSyncService_Sync_UserNotFound(t *testing.T) {
 	mockUserRepo := &mocks.MockUserRepo{
-		GetByIDFunc: func(id string) (*models.User, error) {
+		GetByIDFunc: func(_ context.Context, id string) (*models.User, error) {
 			return nil, fmt.Errorf("user not found")
 		},
 	}
 
 	svc := NewSyncService(mockUserRepo, &smocks.MockImportService{}, &smocks.MockLichessService{}, &smocks.MockChesscomService{})
-	_, err := svc.Sync("nonexistent")
+	_, err := svc.Sync(context.Background(), "nonexistent")
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to get user")
@@ -294,8 +295,8 @@ func TestSyncService_FirstSync_Uses100Games(t *testing.T) {
 	var capturedChesscomMax int
 
 	mockUserRepo := &mocks.MockUserRepo{
-		GetByIDFunc:              func(id string) (*models.User, error) { return user, nil },
-		UpdateSyncTimestampsFunc: func(userID string, l, c *time.Time) error { return nil },
+		GetByIDFunc:              func(_ context.Context, id string) (*models.User, error) { return user, nil },
+		UpdateSyncTimestampsFunc: func(_ context.Context, userID string, l, c *time.Time) error { return nil },
 	}
 	mockLichess := &smocks.MockLichessService{
 		FetchGamesFunc: func(username string, opts models.LichessImportOptions) (string, error) {
@@ -310,13 +311,13 @@ func TestSyncService_FirstSync_Uses100Games(t *testing.T) {
 		},
 	}
 	mockImport := &smocks.MockImportService{
-		ParseAndAnalyzeFunc: func(filename, username, userID, pgnData string) (*models.AnalysisSummary, []models.GameAnalysis, error) {
+		ParseAndAnalyzeFunc: func(_ context.Context, filename, username, userID, pgnData string) (*models.AnalysisSummary, []models.GameAnalysis, error) {
 			return &models.AnalysisSummary{GameCount: 1}, nil, nil
 		},
 	}
 
 	svc := NewSyncService(mockUserRepo, mockImport, mockLichess, mockChesscom)
-	_, err := svc.Sync("user-1")
+	_, err := svc.Sync(context.Background(), "user-1")
 
 	require.NoError(t, err)
 	assert.Equal(t, 100, capturedLichessMax, "first Lichess sync should request 100 games")
@@ -339,8 +340,8 @@ func TestSyncService_SubsequentSync_Uses10Games(t *testing.T) {
 	var capturedChesscomMax int
 
 	mockUserRepo := &mocks.MockUserRepo{
-		GetByIDFunc:              func(id string) (*models.User, error) { return user, nil },
-		UpdateSyncTimestampsFunc: func(userID string, l, c *time.Time) error { return nil },
+		GetByIDFunc:              func(_ context.Context, id string) (*models.User, error) { return user, nil },
+		UpdateSyncTimestampsFunc: func(_ context.Context, userID string, l, c *time.Time) error { return nil },
 	}
 	mockLichess := &smocks.MockLichessService{
 		FetchGamesFunc: func(username string, opts models.LichessImportOptions) (string, error) {
@@ -355,13 +356,13 @@ func TestSyncService_SubsequentSync_Uses10Games(t *testing.T) {
 		},
 	}
 	mockImport := &smocks.MockImportService{
-		ParseAndAnalyzeFunc: func(filename, username, userID, pgnData string) (*models.AnalysisSummary, []models.GameAnalysis, error) {
+		ParseAndAnalyzeFunc: func(_ context.Context, filename, username, userID, pgnData string) (*models.AnalysisSummary, []models.GameAnalysis, error) {
 			return &models.AnalysisSummary{GameCount: 1}, nil, nil
 		},
 	}
 
 	svc := NewSyncService(mockUserRepo, mockImport, mockLichess, mockChesscom)
-	_, err := svc.Sync("user-1")
+	_, err := svc.Sync(context.Background(), "user-1")
 
 	require.NoError(t, err)
 	assert.Equal(t, 10, capturedLichessMax, "subsequent Lichess sync should request 10 games")
@@ -378,11 +379,11 @@ func TestSyncService_Sync_EmptyUsername(t *testing.T) {
 	}
 
 	mockUserRepo := &mocks.MockUserRepo{
-		GetByIDFunc: func(id string) (*models.User, error) { return user, nil },
+		GetByIDFunc: func(_ context.Context, id string) (*models.User, error) { return user, nil },
 	}
 
 	svc := NewSyncService(mockUserRepo, &smocks.MockImportService{}, &smocks.MockLichessService{}, &smocks.MockChesscomService{})
-	result, err := svc.Sync("user-1")
+	result, err := svc.Sync(context.Background(), "user-1")
 
 	require.NoError(t, err)
 	assert.Equal(t, 0, result.LichessGamesImported)

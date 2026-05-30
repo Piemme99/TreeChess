@@ -35,15 +35,15 @@ func TestCleanupService_PurgesExpiredRowsAcrossAllThreeTables(t *testing.T) {
 	future := time.Now().Add(1 * time.Hour)
 
 	// Refresh tokens: one expired, one valid.
-	_, err := repos.RefreshToken.Create(user.ID, "refresh-expired", past)
+	_, err := repos.RefreshToken.Create(context.Background(), user.ID, "refresh-expired", past)
 	require.NoError(t, err)
-	_, err = repos.RefreshToken.Create(user.ID, "refresh-valid", future)
+	_, err = repos.RefreshToken.Create(context.Background(), user.ID, "refresh-valid", future)
 	require.NoError(t, err)
 
 	// Password reset tokens: one expired, one valid.
-	_, err = repos.PasswordReset.Create(user.ID, "reset-expired", past)
+	_, err = repos.PasswordReset.Create(context.Background(), user.ID, "reset-expired", past)
 	require.NoError(t, err)
-	_, err = repos.PasswordReset.Create(user.ID, "reset-valid", future)
+	_, err = repos.PasswordReset.Create(context.Background(), user.ID, "reset-valid", future)
 	require.NoError(t, err)
 
 	// Explorer cache: one expired, one valid.
@@ -90,6 +90,6 @@ func TestCleanupService_PurgesExpiredRowsAcrossAllThreeTables(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, found, "valid cache row must survive cleanup")
 
-	_, err = repos.RefreshToken.GetByTokenHash("refresh-valid")
+	_, err = repos.RefreshToken.GetByTokenHash(context.Background(), "refresh-valid")
 	assert.NoError(t, err, "valid refresh token must survive cleanup")
 }

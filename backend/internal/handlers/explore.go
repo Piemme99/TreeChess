@@ -27,7 +27,7 @@ func ImportExploreTemplateHandler(svc *services.RepertoireService) echo.HandlerF
 		userID := c.Get("userID").(string)
 		templateID := c.Param("id")
 
-		repertoires, err := svc.SeedRepertoires(userID, []string{templateID})
+		repertoires, err := svc.SeedRepertoires(c.Request().Context(), userID, []string{templateID})
 		if err != nil {
 			if errors.Is(err, services.ErrLimitReached) {
 				return c.JSON(http.StatusConflict, map[string]string{
@@ -53,7 +53,7 @@ func ImportExploreTemplateHandler(svc *services.RepertoireService) echo.HandlerF
 // GET /api/explore/repertoires
 func ListPublicRepertoiresHandler(svc *services.RepertoireService) echo.HandlerFunc {
 	return func(c *echo.Context) error {
-		repertoires, err := svc.ListPublicRepertoires()
+		repertoires, err := svc.ListPublicRepertoires(c.Request().Context())
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{
 				"error": "failed to list public repertoires",
@@ -80,7 +80,7 @@ func GetPublicRepertoireHandler(svc *services.RepertoireService) echo.HandlerFun
 			})
 		}
 
-		rep, err := svc.GetPublicRepertoire(idParam)
+		rep, err := svc.GetPublicRepertoire(c.Request().Context(), idParam)
 		if err != nil {
 			if errors.Is(err, services.ErrNotFound) {
 				return c.JSON(http.StatusNotFound, map[string]string{
@@ -109,7 +109,7 @@ func ImportRepertoireHandler(svc *services.RepertoireService) echo.HandlerFunc {
 			})
 		}
 
-		rep, err := svc.ImportRepertoire(userID, idParam)
+		rep, err := svc.ImportRepertoire(c.Request().Context(), userID, idParam)
 		if err != nil {
 			if errors.Is(err, services.ErrNotFound) {
 				return c.JSON(http.StatusNotFound, map[string]string{

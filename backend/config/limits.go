@@ -35,6 +35,11 @@ const (
 	DefaultDBTimeout   = 5 * time.Second
 	MigrationDBTimeout = 30 * time.Second
 
+	// UserDeleteDBTimeout bounds the multi-statement account-deletion
+	// transaction, which touches several tables and so needs more headroom
+	// than a single DefaultDBTimeout query.
+	UserDeleteDBTimeout = 10 * time.Second
+
 	// Sync cooldown — minimum interval between sync requests per user
 	SyncCooldown = 5 * time.Minute
 

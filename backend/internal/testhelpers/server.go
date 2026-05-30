@@ -4,6 +4,7 @@ package testhelpers
 
 import (
 	"bytes"
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"sync"
@@ -152,7 +153,7 @@ func SetupTestServer(t *testing.T, repos *Repos) *TestServer {
 func (ts *TestServer) AuthToken(t *testing.T, username, password string) string {
 	t.Helper()
 	email := username + "@test.com"
-	resp, err := ts.AuthSvc.Register(email, username, password)
+	resp, err := ts.AuthSvc.Register(context.Background(), email, username, password)
 	if err != nil {
 		t.Fatalf("AuthToken: %v", err)
 	}

@@ -46,7 +46,7 @@ func (h *StudyImportHandler) PreviewStudyHandler(c *echo.Context) error {
 	}
 
 	userID := c.Get("userID").(string)
-	authToken := h.studyImportService.GetLichessTokenForUser(userID)
+	authToken := h.studyImportService.GetLichessTokenForUser(c.Request().Context(), userID)
 
 	info, err := h.studyImportService.PreviewStudy(studyID, authToken)
 	if err != nil {
@@ -87,10 +87,10 @@ func (h *StudyImportHandler) ImportStudyHandler(c *echo.Context) error {
 	}
 
 	userID := c.Get("userID").(string)
-	authToken := h.studyImportService.GetLichessTokenForUser(userID)
+	authToken := h.studyImportService.GetLichessTokenForUser(c.Request().Context(), userID)
 
 	if req.MergeAsOne {
-		mergeResult, err := h.studyImportService.ImportStudyChaptersMerged(userID, studyID, authToken, req.ChapterIndices, req.MergeName, req.IncludeComments, req.IncludeHints, req.RenameStrategy, req.OwnerName)
+		mergeResult, err := h.studyImportService.ImportStudyChaptersMerged(c.Request().Context(), userID, studyID, authToken, req.ChapterIndices, req.MergeName, req.IncludeComments, req.IncludeHints, req.RenameStrategy, req.OwnerName)
 		if err != nil {
 			if conflictErr := asConflictError(err); conflictErr != nil {
 				return c.JSON(http.StatusConflict, map[string]interface{}{
@@ -131,7 +131,7 @@ func (h *StudyImportHandler) ImportStudyHandler(c *echo.Context) error {
 		return c.JSON(http.StatusCreated, response)
 	}
 
-	result, err := h.studyImportService.ImportStudyChaptersWithCategory(userID, studyID, authToken, req.ChapterIndices, req.CreateCategory, req.CategoryName, req.IncludeComments, req.IncludeHints, req.RenameStrategy, req.OwnerName)
+	result, err := h.studyImportService.ImportStudyChaptersWithCategory(c.Request().Context(), userID, studyID, authToken, req.ChapterIndices, req.CreateCategory, req.CategoryName, req.IncludeComments, req.IncludeHints, req.RenameStrategy, req.OwnerName)
 	if err != nil {
 		if conflictErr := asConflictError(err); conflictErr != nil {
 			return c.JSON(http.StatusConflict, map[string]interface{}{
@@ -188,7 +188,7 @@ func (h *StudyImportHandler) BrowseStudiesHandler(c *echo.Context) error {
 	}
 
 	userID := c.Get("userID").(string)
-	authToken := h.studyImportService.GetLichessTokenForUser(userID)
+	authToken := h.studyImportService.GetLichessTokenForUser(c.Request().Context(), userID)
 
 	var result *models.LichessStudySearchResponse
 	var err error

@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"crypto/sha256"
 	"fmt"
 	"log/slog"
@@ -74,7 +75,7 @@ func WithDismissedGapRepo(repo repository.DismissedGapRepository) ImportServiceO
 }
 
 // ParseAndAnalyze parses PGN data and analyzes games against repertoires
-func (s *ImportService) ParseAndAnalyze(filename string, username string, userID string, pgnData string) (*models.AnalysisSummary, []models.GameAnalysis, error) {
+func (s *ImportService) ParseAndAnalyze(ctx context.Context, filename string, username string, userID string, pgnData string) (*models.AnalysisSummary, []models.GameAnalysis, error) {
 	games, err := s.parsePGN(pgnData)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to parse PGN: %w", err)
@@ -91,11 +92,11 @@ func (s *ImportService) ParseAndAnalyze(filename string, username string, userID
 	// Get all repertoires upfront
 	whiteColor := models.ColorWhite
 	blackColor := models.ColorBlack
-	whiteRepertoires, err := s.repertoireService.ListRepertoires(userID, &whiteColor)
+	whiteRepertoires, err := s.repertoireService.ListRepertoires(ctx, userID, &whiteColor)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get white repertoires: %w", err)
 	}
-	blackRepertoires, err := s.repertoireService.ListRepertoires(userID, &blackColor)
+	blackRepertoires, err := s.repertoireService.ListRepertoires(ctx, userID, &blackColor)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get black repertoires: %w", err)
 	}
@@ -148,7 +149,7 @@ func (s *ImportService) ParseAndAnalyze(filename string, username string, userID
 			fingerprints[i] = ComputeFingerprint(r.Headers, r.Moves)
 		}
 
-		existing, err := s.fingerprintRepo.CheckExisting(userID, fingerprints)
+		existing, err := s.fingerprintRepo.CheckExisting(ctx, userID, fingerprints)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to check fingerprints: %w", err)
 		}
@@ -176,7 +177,7 @@ func (s *ImportService) ParseAndAnalyze(filename string, username string, userID
 		results = filtered
 	}
 
-	summary, err := s.analysisRepo.Save(userID, username, filename, len(results), results)
+	summary, err := s.analysisRepo.Save(ctx, userID, username, filename, len(results), results)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to save analysis: %w", err)
 	}
@@ -191,7 +192,7 @@ func (s *ImportService) ParseAndAnalyze(filename string, username string, userID
 				GameIndex:   r.GameIndex,
 			}
 		}
-		if err := s.fingerprintRepo.SaveBatch(userID, summary.ID, entries); err != nil {
+		if err := s.fingerprintRepo.SaveBatch(ctx, userID, summary.ID, entries); err != nil {
 			// Log but don't fail the import
 			slog.Warn("failed to save fingerprints", "analysis_id", summary.ID, "error", err)
 		}
@@ -199,7 +200,7 @@ func (s *ImportService) ParseAndAnalyze(filename string, username string, userID
 
 	// Enqueue engine analysis if available
 	if s.engineService != nil {
-		s.engineService.EnqueueAnalysis(userID, summary.ID, len(results))
+		s.engineService.EnqueueAnalysis(ctx, userID, summary.ID, len(results))
 	}
 
 	return summary, results, nil
@@ -574,9 +575,9 @@ func (s *ImportService) GetLegalMoves(fen string) ([]string, error) {
 
 // AnalyzeTrainingMoves takes a sequence of SAN moves from an explorer training session,
 // finds the best matching repertoire for the user, and returns per-move analysis.
-func (s *ImportService) AnalyzeTrainingMoves(userID string, moves []string, userColor models.Color) (*models.TrainingAnalyzeResponse, error) {
+func (s *ImportService) AnalyzeTrainingMoves(ctx context.Context, userID string, moves []string, userColor models.Color) (*models.TrainingAnalyzeResponse, error) {
 	// Load repertoires for the user's color
-	repertoires, err := s.repertoireService.ListRepertoires(userID, &userColor)
+	repertoires, err := s.repertoireService.ListRepertoires(ctx, userID, &userColor)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load repertoires: %w", err)
 	}
@@ -690,8 +691,8 @@ func (s *ImportService) analyzeGameFromChess(game *chess.Game, repertoire *model
 }
 
 // GetAnalyses returns all analyses summaries for a user
-func (s *ImportService) GetAnalyses(userID string) ([]models.AnalysisSummary, error) {
-	analyses, err := s.analysisRepo.GetAll(userID)
+func (s *ImportService) GetAnalyses(ctx context.Context, userID string) ([]models.AnalysisSummary, error) {
+	analyses, err := s.analysisRepo.GetAll(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get analyses: %w", err)
 	}
@@ -699,18 +700,18 @@ func (s *ImportService) GetAnalyses(userID string) ([]models.AnalysisSummary, er
 }
 
 // GetAnalysisByID returns detailed analysis by ID
-func (s *ImportService) GetAnalysisByID(id string) (*models.AnalysisDetail, error) {
-	return s.analysisRepo.GetByID(id)
+func (s *ImportService) GetAnalysisByID(ctx context.Context, id string) (*models.AnalysisDetail, error) {
+	return s.analysisRepo.GetByID(ctx, id)
 }
 
 // DeleteAnalysis deletes an analysis by ID
-func (s *ImportService) DeleteAnalysis(id string) error {
-	return s.analysisRepo.Delete(id)
+func (s *ImportService) DeleteAnalysis(ctx context.Context, id string) error {
+	return s.analysisRepo.Delete(ctx, id)
 }
 
 // GetAllGames returns all games from all analyses with pagination for a user
-func (s *ImportService) GetAllGames(userID string, limit, offset int, timeClass, repertoire, source string, onlyNew bool) (*models.GamesResponse, error) {
-	response, err := s.analysisRepo.GetAllGames(userID, limit, offset, timeClass, repertoire, source, onlyNew)
+func (s *ImportService) GetAllGames(ctx context.Context, userID string, limit, offset int, timeClass, repertoire, source string, onlyNew bool) (*models.GamesResponse, error) {
+	response, err := s.analysisRepo.GetAllGames(ctx, userID, limit, offset, timeClass, repertoire, source, onlyNew)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get games: %w", err)
 	}
@@ -718,18 +719,18 @@ func (s *ImportService) GetAllGames(userID string, limit, offset int, timeClass,
 }
 
 // GetDistinctRepertoires returns a sorted list of distinct repertoires for a user
-func (s *ImportService) GetDistinctRepertoires(userID string) ([]models.RepertoireFilterOption, error) {
-	return s.analysisRepo.GetDistinctRepertoires(userID)
+func (s *ImportService) GetDistinctRepertoires(ctx context.Context, userID string) ([]models.RepertoireFilterOption, error) {
+	return s.analysisRepo.GetDistinctRepertoires(ctx, userID)
 }
 
 // MarkGameViewed marks a specific game as viewed by the user
-func (s *ImportService) MarkGameViewed(userID, analysisID string, gameIndex int) error {
-	return s.analysisRepo.MarkGameViewed(userID, analysisID, gameIndex)
+func (s *ImportService) MarkGameViewed(ctx context.Context, userID, analysisID string, gameIndex int) error {
+	return s.analysisRepo.MarkGameViewed(ctx, userID, analysisID, gameIndex)
 }
 
 // CheckOwnership verifies that an analysis belongs to the given user
-func (s *ImportService) CheckOwnership(id string, userID string) error {
-	belongs, err := s.analysisRepo.BelongsToUser(id, userID)
+func (s *ImportService) CheckOwnership(ctx context.Context, id string, userID string) error {
+	belongs, err := s.analysisRepo.BelongsToUser(ctx, id, userID)
 	if err != nil {
 		return fmt.Errorf("failed to check ownership: %w", err)
 	}
@@ -740,8 +741,8 @@ func (s *ImportService) CheckOwnership(id string, userID string) error {
 }
 
 // ReanalyzeGame re-analyzes a specific game against a different repertoire
-func (s *ImportService) ReanalyzeGame(analysisID string, gameIndex int, repertoireID string) (*models.GameAnalysis, error) {
-	detail, err := s.analysisRepo.GetByID(analysisID)
+func (s *ImportService) ReanalyzeGame(ctx context.Context, analysisID string, gameIndex int, repertoireID string) (*models.GameAnalysis, error) {
+	detail, err := s.analysisRepo.GetByID(ctx, analysisID)
 	if err != nil {
 		return nil, err
 	}
@@ -759,7 +760,7 @@ func (s *ImportService) ReanalyzeGame(analysisID string, gameIndex int, repertoi
 		return nil, repository.ErrGameNotFound
 	}
 
-	repertoire, err := s.repertoireService.GetRepertoire(repertoireID)
+	repertoire, err := s.repertoireService.GetRepertoire(ctx, repertoireID)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrRepertoireNotFound, err)
 	}
@@ -771,7 +772,7 @@ func (s *ImportService) ReanalyzeGame(analysisID string, gameIndex int, repertoi
 	reanalyzedGame := s.reanalyzeGameFromMoves(targetGame, repertoire)
 
 	detail.Results[targetIdx] = reanalyzedGame
-	err = s.analysisRepo.UpdateResults(analysisID, detail.Results)
+	err = s.analysisRepo.UpdateResults(ctx, analysisID, detail.Results)
 	if err != nil {
 		return nil, fmt.Errorf("failed to save reanalyzed game: %w", err)
 	}
@@ -855,19 +856,19 @@ func (s *ImportService) reanalyzeGameWithIndex(game *models.GameAnalysis, reperR
 // enriched their repertoire from. Genuine improvements (e.g. error -> in-repertoire) and
 // re-tagging of games that were already errors still apply. Manual re-analysis passes
 // false to force a full re-tag.
-func (s *ImportService) ReanalyzeAllGames(userID string, preserveAnalysed bool) (int, error) {
-	analyses, err := s.analysisRepo.GetAllGamesRaw(userID)
+func (s *ImportService) ReanalyzeAllGames(ctx context.Context, userID string, preserveAnalysed bool) (int, error) {
+	analyses, err := s.analysisRepo.GetAllGamesRaw(ctx, userID)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get analyses: %w", err)
 	}
 
 	whiteColor := models.ColorWhite
 	blackColor := models.ColorBlack
-	whiteRepertoires, err := s.repertoireService.ListRepertoires(userID, &whiteColor)
+	whiteRepertoires, err := s.repertoireService.ListRepertoires(ctx, userID, &whiteColor)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get white repertoires: %w", err)
 	}
-	blackRepertoires, err := s.repertoireService.ListRepertoires(userID, &blackColor)
+	blackRepertoires, err := s.repertoireService.ListRepertoires(ctx, userID, &blackColor)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get black repertoires: %w", err)
 	}
@@ -918,7 +919,7 @@ func (s *ImportService) ReanalyzeAllGames(userID string, preserveAnalysed bool) 
 		}
 
 		if modified {
-			if err := s.analysisRepo.UpdateResults(a.ID, a.Results); err != nil {
+			if err := s.analysisRepo.UpdateResults(ctx, a.ID, a.Results); err != nil {
 				return 0, fmt.Errorf("failed to update analysis %s: %w", a.ID, err)
 			}
 		}
@@ -1058,19 +1059,19 @@ func ComputeFingerprint(headers models.PGNHeaders, moves []models.MoveAnalysis) 
 }
 
 // DismissMistake marks a mistake as dismissed for a user
-func (s *ImportService) DismissMistake(userID, fen, playedMove string) error {
+func (s *ImportService) DismissMistake(ctx context.Context, userID, fen, playedMove string) error {
 	if s.dismissedMistakeRepo == nil {
 		return fmt.Errorf("dismissed mistake repository not configured")
 	}
-	return s.dismissedMistakeRepo.Dismiss(userID, fen, playedMove)
+	return s.dismissedMistakeRepo.Dismiss(ctx, userID, fen, playedMove)
 }
 
 // DismissGap marks an opponent gap as dismissed for a user
-func (s *ImportService) DismissGap(userID, fen, opponentMove, repertoireID string) error {
+func (s *ImportService) DismissGap(ctx context.Context, userID, fen, opponentMove, repertoireID string) error {
 	if s.dismissedGapRepo == nil {
 		return fmt.Errorf("dismissed gap repository not configured")
 	}
-	return s.dismissedGapRepo.Dismiss(userID, fen, opponentMove, repertoireID)
+	return s.dismissedGapRepo.Dismiss(ctx, userID, fen, opponentMove, repertoireID)
 }
 
 // collectRepertoireMoves extracts all parent FEN + child move combinations from a repertoire tree
@@ -1088,7 +1089,7 @@ func collectRepertoireMoves(node *models.RepertoireNode, moves map[string]bool) 
 }
 
 // GetInsights computes worst opening mistakes using engine evaluations
-func (s *ImportService) GetInsights(userID string) (*models.InsightsResponse, error) {
+func (s *ImportService) GetInsights(ctx context.Context, userID string) (*models.InsightsResponse, error) {
 	response := &models.InsightsResponse{
 		WorstMistakes:      []models.OpeningMistake{},
 		EngineAnalysisDone: true,
@@ -1103,7 +1104,7 @@ func (s *ImportService) GetInsights(userID string) (*models.InsightsResponse, er
 	var dismissedMistakes map[string]bool
 	if s.dismissedMistakeRepo != nil {
 		var err error
-		dismissedMistakes, err = s.dismissedMistakeRepo.GetDismissed(userID)
+		dismissedMistakes, err = s.dismissedMistakeRepo.GetDismissed(ctx, userID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get dismissed mistakes: %w", err)
 		}
@@ -1112,7 +1113,7 @@ func (s *ImportService) GetInsights(userID string) (*models.InsightsResponse, er
 	// Get repertoire moves to filter them out (moves in repertoire are intentional, not mistakes)
 	repertoireMoves := make(map[string]bool)
 	if s.repertoireService != nil {
-		repertoires, err := s.repertoireService.ListRepertoires(userID, nil)
+		repertoires, err := s.repertoireService.ListRepertoires(ctx, userID, nil)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get repertoires: %w", err)
 		}
@@ -1122,7 +1123,7 @@ func (s *ImportService) GetInsights(userID string) (*models.InsightsResponse, er
 	}
 
 	// Get engine evals and raw game data
-	insightsData, err := s.engineService.GetInsightsData(userID)
+	insightsData, err := s.engineService.GetInsightsData(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get engine evals: %w", err)
 	}
@@ -1131,7 +1132,7 @@ func (s *ImportService) GetInsights(userID string) (*models.InsightsResponse, er
 	response.EngineAnalysisCompleted = insightsData.Completed
 	engineEvals := insightsData.Evals
 
-	analyses, err := s.analysisRepo.GetAllGamesRaw(userID)
+	analyses, err := s.analysisRepo.GetAllGamesRaw(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get analyses: %w", err)
 	}
@@ -1350,8 +1351,8 @@ func findBranchForGame(root *models.RepertoireNode, moves []models.MoveAnalysis)
 }
 
 // GetDashboardStats computes aggregate and per-repertoire stats for the dashboard.
-func (s *ImportService) GetDashboardStats(userID string) (*models.DashboardStatsResponse, error) {
-	analyses, err := s.analysisRepo.GetAllGamesRaw(userID)
+func (s *ImportService) GetDashboardStats(ctx context.Context, userID string) (*models.DashboardStatsResponse, error) {
+	analyses, err := s.analysisRepo.GetAllGamesRaw(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get analyses: %w", err)
 	}
@@ -1524,7 +1525,7 @@ func (s *ImportService) GetDashboardStats(userID string) (*models.DashboardStats
 
 				// Lazy-load repertoire tree
 				if _, cached := repTreeCache[repID]; !cached {
-					rep, err := s.repertoireService.GetRepertoire(repID)
+					rep, err := s.repertoireService.GetRepertoire(ctx, repID)
 					if err != nil {
 						// Repertoire may have been deleted; skip branch stats
 						repTreeCache[repID] = nil
@@ -1618,7 +1619,7 @@ func (s *ImportService) GetDashboardStats(userID string) (*models.DashboardStats
 	var dismissedGaps map[string]bool
 	if s.dismissedGapRepo != nil {
 		var err error
-		dismissedGaps, err = s.dismissedGapRepo.GetDismissed(userID)
+		dismissedGaps, err = s.dismissedGapRepo.GetDismissed(ctx, userID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get dismissed gaps: %w", err)
 		}

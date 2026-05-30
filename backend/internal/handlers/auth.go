@@ -68,7 +68,7 @@ func (h *AuthHandler) RegisterHandler(c *echo.Context) error {
 		return nil
 	}
 
-	resp, err := h.authService.Register(req.Email, req.Username, req.Password)
+	resp, err := h.authService.Register(c.Request().Context(), req.Email, req.Username, req.Password)
 	if err != nil {
 		if errors.Is(err, services.ErrInvalidEmail) {
 			return BadRequestResponse(c, err.Error())
@@ -110,7 +110,7 @@ func (h *AuthHandler) LoginHandler(c *echo.Context) error {
 		return nil
 	}
 
-	resp, err := h.authService.Login(req.Email, req.Password)
+	resp, err := h.authService.Login(c.Request().Context(), req.Email, req.Password)
 	if err != nil {
 		if errors.Is(err, services.ErrInvalidCredentials) {
 			return ErrorResponse(c, http.StatusUnauthorized, "invalid credentials")
@@ -133,7 +133,7 @@ func (h *AuthHandler) LoginHandler(c *echo.Context) error {
 func (h *AuthHandler) MeHandler(c *echo.Context) error {
 	userID := c.Get("userID").(string)
 
-	user, err := h.authService.GetUserByID(userID)
+	user, err := h.authService.GetUserByID(c.Request().Context(), userID)
 	if err != nil {
 		if errors.Is(err, repository.ErrUserNotFound) {
 			return ErrorResponse(c, http.StatusUnauthorized, "user not found")
@@ -164,7 +164,7 @@ func (h *AuthHandler) UpdateProfileHandler(c *echo.Context) error {
 		}
 	}
 
-	user, err := h.authService.UpdateProfile(userID, req)
+	user, err := h.authService.UpdateProfile(c.Request().Context(), userID, req)
 	if err != nil {
 		if errors.Is(err, repository.ErrUserNotFound) {
 			return ErrorResponse(c, http.StatusUnauthorized, "user not found")
@@ -186,7 +186,7 @@ func (h *AuthHandler) ForgotPasswordHandler(c *echo.Context) error {
 	}
 
 	// Always return success to prevent email enumeration
-	_ = h.authService.RequestPasswordReset(req.Email)
+	_ = h.authService.RequestPasswordReset(c.Request().Context(), req.Email)
 
 	return c.JSON(http.StatusOK, map[string]string{
 		"message": "If an account with that email exists, a password reset link has been sent.",
@@ -206,7 +206,7 @@ func (h *AuthHandler) ResetPasswordHandler(c *echo.Context) error {
 		return nil
 	}
 
-	err := h.authService.ResetPassword(req.Token, req.NewPassword)
+	err := h.authService.ResetPassword(c.Request().Context(), req.Token, req.NewPassword)
 	if err != nil {
 		if errors.Is(err, services.ErrResetTokenInvalid) {
 			return BadRequestResponse(c, "invalid reset token")
@@ -243,7 +243,7 @@ func (h *AuthHandler) ChangePasswordHandler(c *echo.Context) error {
 		return nil
 	}
 
-	err := h.authService.ChangePassword(userID, req.CurrentPassword, req.NewPassword)
+	err := h.authService.ChangePassword(c.Request().Context(), userID, req.CurrentPassword, req.NewPassword)
 	if err != nil {
 		if errors.Is(err, services.ErrIncorrectPassword) {
 			return BadRequestResponse(c, "current password is incorrect")
@@ -273,7 +273,7 @@ func (h *AuthHandler) DeleteAccountHandler(c *echo.Context) error {
 		return BadRequestResponse(c, "invalid request body")
 	}
 
-	err := h.authService.DeleteAccount(userID, req.Password, req.Username)
+	err := h.authService.DeleteAccount(c.Request().Context(), userID, req.Password, req.Username)
 	if err != nil {
 		if errors.Is(err, services.ErrIncorrectPassword) {
 			return BadRequestResponse(c, "incorrect password")
@@ -293,7 +293,7 @@ func (h *AuthHandler) DeleteAccountHandler(c *echo.Context) error {
 func (h *AuthHandler) HasPasswordHandler(c *echo.Context) error {
 	userID := c.Get("userID").(string)
 
-	hasPassword, err := h.authService.HasPassword(userID)
+	hasPassword, err := h.authService.HasPassword(c.Request().Context(), userID)
 	if err != nil {
 		if errors.Is(err, repository.ErrUserNotFound) {
 			return ErrorResponse(c, http.StatusUnauthorized, "user not found")
@@ -312,7 +312,7 @@ func (h *AuthHandler) RefreshHandler(c *echo.Context) error {
 		return ErrorResponse(c, http.StatusUnauthorized, "no refresh token")
 	}
 
-	resp, err := h.authService.RefreshTokens(cookie.Value)
+	resp, err := h.authService.RefreshTokens(c.Request().Context(), cookie.Value)
 	if err != nil {
 		h.clearRefreshTokenCookie(c)
 		return ErrorResponse(c, http.StatusUnauthorized, "invalid refresh token")
@@ -331,7 +331,7 @@ func (h *AuthHandler) RefreshHandler(c *echo.Context) error {
 func (h *AuthHandler) LogoutHandler(c *echo.Context) error {
 	cookie, err := c.Cookie(refreshTokenCookieName)
 	if err == nil && cookie.Value != "" {
-		_ = h.authService.RevokeRefreshToken(cookie.Value)
+		_ = h.authService.RevokeRefreshToken(c.Request().Context(), cookie.Value)
 	}
 
 	h.clearRefreshTokenCookie(c)

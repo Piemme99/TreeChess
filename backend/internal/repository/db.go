@@ -72,9 +72,13 @@ func (db *DB) Close() {
 	}
 }
 
-// dbContext creates a context with default timeout for database operations
-func dbContext() (context.Context, context.CancelFunc) {
-	return context.WithTimeout(context.Background(), config.DefaultDBTimeout)
+// dbContext derives a context with the default per-query timeout from the
+// caller-supplied parent context. Deriving from the caller (rather than
+// context.Background()) means an in-flight query is cancelled when the caller's
+// context is cancelled — e.g. when an HTTP client disconnects or the background
+// worker is shut down — while still bounding every query by DefaultDBTimeout.
+func dbContext(ctx context.Context) (context.Context, context.CancelFunc) {
+	return context.WithTimeout(ctx, config.DefaultDBTimeout)
 }
 
 // migrationLockID is an arbitrary constant used as the PostgreSQL advisory lock key.

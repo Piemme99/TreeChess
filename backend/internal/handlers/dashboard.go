@@ -34,7 +34,7 @@ func (h *DashboardHandler) DismissGap(c *echo.Context) error {
 		return BadRequestResponse(c, "fen, opponentMove, and repertoireId are required")
 	}
 
-	if err := h.importService.DismissGap(userID, req.FEN, req.OpponentMove, req.RepertoireID); err != nil {
+	if err := h.importService.DismissGap(c.Request().Context(), userID, req.FEN, req.OpponentMove, req.RepertoireID); err != nil {
 		return InternalErrorResponse(c, "failed to dismiss gap")
 	}
 
@@ -44,7 +44,7 @@ func (h *DashboardHandler) DismissGap(c *echo.Context) error {
 func (h *DashboardHandler) GetStats(c *echo.Context) error {
 	userID := c.Get("userID").(string)
 
-	stats, err := h.importService.GetDashboardStats(userID)
+	stats, err := h.importService.GetDashboardStats(c.Request().Context(), userID)
 	if err != nil {
 		return InternalErrorResponse(c, "failed to get dashboard stats")
 	}

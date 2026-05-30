@@ -62,7 +62,7 @@ func (h *TrainingExplorerHandler) GetOpening(c *echo.Context) error {
 	}
 
 	userID, _ := c.Get("userID").(string)
-	user, err := h.userRepo.GetByID(userID)
+	user, err := h.userRepo.GetByID(c.Request().Context(), userID)
 	if err != nil || user == nil {
 		return InternalErrorResponse(c, "could not load user")
 	}
@@ -118,4 +118,3 @@ func mapFetchError(c *echo.Context, err error) error {
 		"code":  "upstream_error",
 	})
 }
-

@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"time"
@@ -21,8 +22,8 @@ func NewPostgresEngineEvalRepo(pool *pgxpool.Pool) *PostgresEngineEvalRepo {
 }
 
 // CreatePendingBatch creates pending engine eval rows for all games in an analysis
-func (r *PostgresEngineEvalRepo) CreatePendingBatch(userID, analysisID string, gameCount int) error {
-	ctx, cancel := dbContext()
+func (r *PostgresEngineEvalRepo) CreatePendingBatch(ctx context.Context, userID, analysisID string, gameCount int) error {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	for i := 0; i < gameCount; i++ {
@@ -40,8 +41,8 @@ func (r *PostgresEngineEvalRepo) CreatePendingBatch(userID, analysisID string, g
 }
 
 // GetPending returns up to limit pending engine evals
-func (r *PostgresEngineEvalRepo) GetPending(limit int) ([]models.EngineEval, error) {
-	ctx, cancel := dbContext()
+func (r *PostgresEngineEvalRepo) GetPending(ctx context.Context, limit int) ([]models.EngineEval, error) {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	rows, err := r.pool.Query(ctx,
@@ -72,8 +73,8 @@ func (r *PostgresEngineEvalRepo) GetPending(limit int) ([]models.EngineEval, err
 }
 
 // MarkProcessing marks an engine eval as processing
-func (r *PostgresEngineEvalRepo) MarkProcessing(id string) error {
-	ctx, cancel := dbContext()
+func (r *PostgresEngineEvalRepo) MarkProcessing(ctx context.Context, id string) error {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	_, err := r.pool.Exec(ctx,
@@ -87,8 +88,8 @@ func (r *PostgresEngineEvalRepo) MarkProcessing(id string) error {
 }
 
 // SaveEvals saves completed evaluations for an engine eval
-func (r *PostgresEngineEvalRepo) SaveEvals(id string, evals []models.ExplorerMoveStats) error {
-	ctx, cancel := dbContext()
+func (r *PostgresEngineEvalRepo) SaveEvals(ctx context.Context, id string, evals []models.ExplorerMoveStats) error {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	evalsJSON, err := json.Marshal(evals)
@@ -107,8 +108,8 @@ func (r *PostgresEngineEvalRepo) SaveEvals(id string, evals []models.ExplorerMov
 }
 
 // MarkFailed marks an engine eval as failed
-func (r *PostgresEngineEvalRepo) MarkFailed(id string) error {
-	ctx, cancel := dbContext()
+func (r *PostgresEngineEvalRepo) MarkFailed(ctx context.Context, id string) error {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	_, err := r.pool.Exec(ctx,
@@ -124,8 +125,8 @@ func (r *PostgresEngineEvalRepo) MarkFailed(id string) error {
 // ResetStaleProcessing resets any evals stuck in 'processing' back to 'pending'.
 // This recovers from server crashes/restarts that interrupted in-flight evaluations.
 // Returns the number of rows reset.
-func (r *PostgresEngineEvalRepo) ResetStaleProcessing() (int, error) {
-	ctx, cancel := dbContext()
+func (r *PostgresEngineEvalRepo) ResetStaleProcessing(ctx context.Context) (int, error) {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	tag, err := r.pool.Exec(ctx,
@@ -139,8 +140,8 @@ func (r *PostgresEngineEvalRepo) ResetStaleProcessing() (int, error) {
 }
 
 // GetByUser returns all engine evals for a user
-func (r *PostgresEngineEvalRepo) GetByUser(userID string) ([]models.EngineEval, error) {
-	ctx, cancel := dbContext()
+func (r *PostgresEngineEvalRepo) GetByUser(ctx context.Context, userID string) ([]models.EngineEval, error) {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	rows, err := r.pool.Query(ctx,

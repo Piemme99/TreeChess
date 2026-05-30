@@ -93,7 +93,7 @@ func (h *ImportHandler) UploadHandler(c *echo.Context) error {
 	}
 
 	userID := c.Get("userID").(string)
-	summary, _, err := h.importService.ParseAndAnalyze(file.Filename, username, userID, string(pgnData))
+	summary, _, err := h.importService.ParseAndAnalyze(c.Request().Context(), file.Filename, username, userID, string(pgnData))
 	if err != nil {
 		if errors.Is(err, services.ErrAllGamesDuplicate) {
 			return ErrorResponse(c, http.StatusConflict, "all games have already been imported")
@@ -116,7 +116,7 @@ func (h *ImportHandler) UploadHandler(c *echo.Context) error {
 
 func (h *ImportHandler) ListAnalysesHandler(c *echo.Context) error {
 	userID := c.Get("userID").(string)
-	analyses, err := h.importService.GetAnalyses(userID)
+	analyses, err := h.importService.GetAnalyses(c.Request().Context(), userID)
 	if err != nil {
 		return InternalErrorResponse(c, "failed to list analyses")
 	}
@@ -142,11 +142,11 @@ func (h *ImportHandler) GetAnalysisHandler(c *echo.Context) error {
 		return nil
 	}
 
-	if err := h.importService.CheckOwnership(id, userID); err != nil {
+	if err := h.importService.CheckOwnership(c.Request().Context(), id, userID); err != nil {
 		return NotFoundResponse(c, "analysis")
 	}
 
-	detail, err := h.importService.GetAnalysisByID(id)
+	detail, err := h.importService.GetAnalysisByID(c.Request().Context(), id)
 	if err != nil {
 		if errors.Is(err, repository.ErrAnalysisNotFound) {
 			return NotFoundResponse(c, "analysis")
@@ -171,11 +171,11 @@ func (h *ImportHandler) DeleteAnalysisHandler(c *echo.Context) error {
 		return nil
 	}
 
-	if err := h.importService.CheckOwnership(id, userID); err != nil {
+	if err := h.importService.CheckOwnership(c.Request().Context(), id, userID); err != nil {
 		return NotFoundResponse(c, "analysis")
 	}
 
-	err := h.importService.DeleteAnalysis(id)
+	err := h.importService.DeleteAnalysis(c.Request().Context(), id)
 	if err != nil {
 		if errors.Is(err, repository.ErrAnalysisNotFound) {
 			return NotFoundResponse(c, "analysis")
@@ -255,7 +255,7 @@ func (h *ImportHandler) GetLegalMovesHandler(c *echo.Context) error {
 func (h *ImportHandler) GetDistinctRepertoiresHandler(c *echo.Context) error {
 	userID := c.Get("userID").(string)
 
-	repertoires, err := h.importService.GetDistinctRepertoires(userID)
+	repertoires, err := h.importService.GetDistinctRepertoires(c.Request().Context(), userID)
 	if err != nil {
 		return InternalErrorResponse(c, "failed to get repertoires")
 	}
@@ -278,7 +278,7 @@ func (h *ImportHandler) GetGamesHandler(c *echo.Context) error {
 	source := c.QueryParam("source")
 	onlyNew := c.QueryParam("new") == "true"
 
-	response, err := h.importService.GetAllGames(userID, limit, offset, timeClass, repertoire, source, onlyNew)
+	response, err := h.importService.GetAllGames(c.Request().Context(), userID, limit, offset, timeClass, repertoire, source, onlyNew)
 	if err != nil {
 		return InternalErrorResponse(c, "failed to get games")
 	}
@@ -293,7 +293,7 @@ func (h *ImportHandler) ReanalyzeGameHandler(c *echo.Context) error {
 		return nil
 	}
 
-	if err := h.importService.CheckOwnership(analysisID, userID); err != nil {
+	if err := h.importService.CheckOwnership(c.Request().Context(), analysisID, userID); err != nil {
 		return NotFoundResponse(c, "analysis")
 	}
 
@@ -319,12 +319,12 @@ func (h *ImportHandler) ReanalyzeGameHandler(c *echo.Context) error {
 
 	// Verify the user owns the target repertoire to prevent leaking other users' repertoire data
 	if h.repertoireService != nil {
-		if err := h.repertoireService.CheckOwnership(req.RepertoireID, userID); err != nil {
+		if err := h.repertoireService.CheckOwnership(c.Request().Context(), req.RepertoireID, userID); err != nil {
 			return NotFoundResponse(c, "repertoire")
 		}
 	}
 
-	reanalyzed, err := h.importService.ReanalyzeGame(analysisID, gameIndex, req.RepertoireID)
+	reanalyzed, err := h.importService.ReanalyzeGame(c.Request().Context(), analysisID, gameIndex, req.RepertoireID)
 	if err != nil {
 		if errors.Is(err, repository.ErrAnalysisNotFound) {
 			return NotFoundResponse(c, "analysis")
@@ -351,7 +351,7 @@ func (h *ImportHandler) MarkGameViewedHandler(c *echo.Context) error {
 		return nil
 	}
 
-	if err := h.importService.CheckOwnership(analysisID, userID); err != nil {
+	if err := h.importService.CheckOwnership(c.Request().Context(), analysisID, userID); err != nil {
 		return NotFoundResponse(c, "analysis")
 	}
 
@@ -361,7 +361,7 @@ func (h *ImportHandler) MarkGameViewedHandler(c *echo.Context) error {
 		return BadRequestResponse(c, "gameIndex must be a non-negative integer")
 	}
 
-	if err := h.importService.MarkGameViewed(userID, analysisID, gameIndex); err != nil {
+	if err := h.importService.MarkGameViewed(c.Request().Context(), userID, analysisID, gameIndex); err != nil {
 		return InternalErrorResponse(c, "failed to mark game as viewed")
 	}
 
@@ -371,7 +371,7 @@ func (h *ImportHandler) MarkGameViewedHandler(c *echo.Context) error {
 func (h *ImportHandler) GetInsightsHandler(c *echo.Context) error {
 	userID := c.Get("userID").(string)
 
-	insights, err := h.importService.GetInsights(userID)
+	insights, err := h.importService.GetInsights(c.Request().Context(), userID)
 	if err != nil {
 		return InternalErrorResponse(c, "failed to get insights")
 	}
@@ -397,7 +397,7 @@ func (h *ImportHandler) DismissMistakeHandler(c *echo.Context) error {
 		return BadRequestResponse(c, "fen and playedMove are required")
 	}
 
-	if err := h.importService.DismissMistake(userID, req.FEN, req.PlayedMove); err != nil {
+	if err := h.importService.DismissMistake(c.Request().Context(), userID, req.FEN, req.PlayedMove); err != nil {
 		return InternalErrorResponse(c, "failed to dismiss mistake")
 	}
 
@@ -407,7 +407,7 @@ func (h *ImportHandler) DismissMistakeHandler(c *echo.Context) error {
 func (h *ImportHandler) ReanalyzeAllGamesHandler(c *echo.Context) error {
 	userID := c.Get("userID").(string)
 
-	count, err := h.importService.ReanalyzeAllGames(userID, false)
+	count, err := h.importService.ReanalyzeAllGames(c.Request().Context(), userID, false)
 	if err != nil {
 		return InternalErrorResponse(c, "failed to reanalyze games")
 	}
@@ -449,7 +449,7 @@ func (h *ImportHandler) LichessImportHandler(c *echo.Context) error {
 	filename := fmt.Sprintf("lichess_%s.pgn", req.Username)
 
 	userID := c.Get("userID").(string)
-	summary, _, err := h.importService.ParseAndAnalyze(filename, req.Username, userID, pgnData)
+	summary, _, err := h.importService.ParseAndAnalyze(c.Request().Context(), filename, req.Username, userID, pgnData)
 	if err != nil {
 		if errors.Is(err, services.ErrAllGamesDuplicate) {
 			return ErrorResponse(c, http.StatusConflict, "all games have already been imported")
@@ -503,7 +503,7 @@ func (h *ImportHandler) ChesscomImportHandler(c *echo.Context) error {
 	filename := fmt.Sprintf("chesscom_%s.pgn", req.Username)
 
 	userID := c.Get("userID").(string)
-	summary, _, err := h.importService.ParseAndAnalyze(filename, req.Username, userID, pgnData)
+	summary, _, err := h.importService.ParseAndAnalyze(c.Request().Context(), filename, req.Username, userID, pgnData)
 	if err != nil {
 		if errors.Is(err, services.ErrAllGamesDuplicate) {
 			return ErrorResponse(c, http.StatusConflict, "all games have already been imported")

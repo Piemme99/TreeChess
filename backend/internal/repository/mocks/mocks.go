@@ -12,574 +12,574 @@ import (
 
 // MockFingerprintRepo is a mock implementation of GameFingerprintRepository for testing
 type MockFingerprintRepo struct {
-	CheckExistingFunc func(userID string, fingerprints []string) (map[string]bool, error)
-	SaveBatchFunc     func(userID, analysisID string, entries []repository.FingerprintEntry) error
+	CheckExistingFunc func(ctx context.Context, userID string, fingerprints []string) (map[string]bool, error)
+	SaveBatchFunc     func(ctx context.Context, userID, analysisID string, entries []repository.FingerprintEntry) error
 }
 
-func (m *MockFingerprintRepo) CheckExisting(userID string, fingerprints []string) (map[string]bool, error) {
+func (m *MockFingerprintRepo) CheckExisting(ctx context.Context, userID string, fingerprints []string) (map[string]bool, error) {
 	if m.CheckExistingFunc != nil {
-		return m.CheckExistingFunc(userID, fingerprints)
+		return m.CheckExistingFunc(ctx, userID, fingerprints)
 	}
 	return map[string]bool{}, nil
 }
 
-func (m *MockFingerprintRepo) SaveBatch(userID, analysisID string, entries []repository.FingerprintEntry) error {
+func (m *MockFingerprintRepo) SaveBatch(ctx context.Context, userID, analysisID string, entries []repository.FingerprintEntry) error {
 	if m.SaveBatchFunc != nil {
-		return m.SaveBatchFunc(userID, analysisID, entries)
+		return m.SaveBatchFunc(ctx, userID, analysisID, entries)
 	}
 	return nil
 }
 
 // MockEngineEvalRepo is a mock implementation of EngineEvalRepository for testing
 type MockEngineEvalRepo struct {
-	CreatePendingBatchFunc   func(userID, analysisID string, gameCount int) error
-	GetPendingFunc           func(limit int) ([]models.EngineEval, error)
-	MarkProcessingFunc       func(id string) error
-	SaveEvalsFunc            func(id string, evals []models.ExplorerMoveStats) error
-	MarkFailedFunc           func(id string) error
-	GetByUserFunc            func(userID string) ([]models.EngineEval, error)
-	ResetStaleProcessingFunc func() (int, error)
+	CreatePendingBatchFunc   func(ctx context.Context, userID, analysisID string, gameCount int) error
+	GetPendingFunc           func(ctx context.Context, limit int) ([]models.EngineEval, error)
+	MarkProcessingFunc       func(ctx context.Context, id string) error
+	SaveEvalsFunc            func(ctx context.Context, id string, evals []models.ExplorerMoveStats) error
+	MarkFailedFunc           func(ctx context.Context, id string) error
+	GetByUserFunc            func(ctx context.Context, userID string) ([]models.EngineEval, error)
+	ResetStaleProcessingFunc func(ctx context.Context) (int, error)
 }
 
-func (m *MockEngineEvalRepo) CreatePendingBatch(userID, analysisID string, gameCount int) error {
+func (m *MockEngineEvalRepo) CreatePendingBatch(ctx context.Context, userID, analysisID string, gameCount int) error {
 	if m.CreatePendingBatchFunc != nil {
-		return m.CreatePendingBatchFunc(userID, analysisID, gameCount)
+		return m.CreatePendingBatchFunc(ctx, userID, analysisID, gameCount)
 	}
 	return nil
 }
 
-func (m *MockEngineEvalRepo) GetPending(limit int) ([]models.EngineEval, error) {
+func (m *MockEngineEvalRepo) GetPending(ctx context.Context, limit int) ([]models.EngineEval, error) {
 	if m.GetPendingFunc != nil {
-		return m.GetPendingFunc(limit)
+		return m.GetPendingFunc(ctx, limit)
 	}
 	return nil, nil
 }
 
-func (m *MockEngineEvalRepo) MarkProcessing(id string) error {
+func (m *MockEngineEvalRepo) MarkProcessing(ctx context.Context, id string) error {
 	if m.MarkProcessingFunc != nil {
-		return m.MarkProcessingFunc(id)
+		return m.MarkProcessingFunc(ctx, id)
 	}
 	return nil
 }
 
-func (m *MockEngineEvalRepo) SaveEvals(id string, evals []models.ExplorerMoveStats) error {
+func (m *MockEngineEvalRepo) SaveEvals(ctx context.Context, id string, evals []models.ExplorerMoveStats) error {
 	if m.SaveEvalsFunc != nil {
-		return m.SaveEvalsFunc(id, evals)
+		return m.SaveEvalsFunc(ctx, id, evals)
 	}
 	return nil
 }
 
-func (m *MockEngineEvalRepo) MarkFailed(id string) error {
+func (m *MockEngineEvalRepo) MarkFailed(ctx context.Context, id string) error {
 	if m.MarkFailedFunc != nil {
-		return m.MarkFailedFunc(id)
+		return m.MarkFailedFunc(ctx, id)
 	}
 	return nil
 }
 
-func (m *MockEngineEvalRepo) GetByUser(userID string) ([]models.EngineEval, error) {
+func (m *MockEngineEvalRepo) GetByUser(ctx context.Context, userID string) ([]models.EngineEval, error) {
 	if m.GetByUserFunc != nil {
-		return m.GetByUserFunc(userID)
+		return m.GetByUserFunc(ctx, userID)
 	}
 	return nil, nil
 }
 
-func (m *MockEngineEvalRepo) ResetStaleProcessing() (int, error) {
+func (m *MockEngineEvalRepo) ResetStaleProcessing(ctx context.Context) (int, error) {
 	if m.ResetStaleProcessingFunc != nil {
-		return m.ResetStaleProcessingFunc()
+		return m.ResetStaleProcessingFunc(ctx)
 	}
 	return 0, nil
 }
 
 // MockRepertoireRepo is a mock implementation of RepertoireRepository for testing
 type MockRepertoireRepo struct {
-	GetByIDFunc                   func(id string) (*models.Repertoire, error)
-	GetByColorFunc                func(userID string, color models.Color) ([]models.Repertoire, error)
-	GetAllFunc                    func(userID string) ([]models.Repertoire, error)
-	CreateFunc                    func(userID string, name string, color models.Color) (*models.Repertoire, error)
-	CreateWithCategoryFunc        func(userID, name string, color models.Color, categoryID *string) (*models.Repertoire, error)
-	CreateWithIsPublicFunc        func(userID, name string, color models.Color, isPublic bool) (*models.Repertoire, error)
-	CreateWithIsPublicAndDescFunc func(userID, name, description string, color models.Color, isPublic bool) (*models.Repertoire, error)
-	SaveFunc                      func(id string, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error)
-	UpdateNameFunc                func(id string, userID string, name string) (*models.Repertoire, error)
-	UpdateDescriptionFunc         func(id string, userID string, description string) (*models.Repertoire, error)
-	UpdateCategoryFunc            func(id string, userID string, categoryID *string) (*models.Repertoire, error)
-	UpdateVisibilityFunc          func(id string, userID string, isPublic bool) (*models.Repertoire, error)
-	DeleteFunc                    func(id string, userID string) error
-	CountFunc                     func(userID string) (int, error)
-	ExistsFunc                    func(id string) (bool, error)
-	BelongsToUserFunc             func(id string, userID string) (bool, error)
-	GetByCategoryFunc             func(categoryID string) ([]models.Repertoire, error)
-	GetUncategorizedFunc          func(userID string, color models.Color) ([]models.Repertoire, error)
-	GetAllPublicFunc              func() ([]models.Repertoire, error)
-	GetPublicByIDFunc             func(id string) (*models.Repertoire, error)
-	GetOwnerIDFunc                func(id string) (string, error)
-	UpdateOriginFunc              func(id string, origin *models.RepertoireOrigin) error
+	GetByIDFunc                   func(ctx context.Context, id string) (*models.Repertoire, error)
+	GetByColorFunc                func(ctx context.Context, userID string, color models.Color) ([]models.Repertoire, error)
+	GetAllFunc                    func(ctx context.Context, userID string) ([]models.Repertoire, error)
+	CreateFunc                    func(ctx context.Context, userID string, name string, color models.Color) (*models.Repertoire, error)
+	CreateWithCategoryFunc        func(ctx context.Context, userID, name string, color models.Color, categoryID *string) (*models.Repertoire, error)
+	CreateWithIsPublicFunc        func(ctx context.Context, userID, name string, color models.Color, isPublic bool) (*models.Repertoire, error)
+	CreateWithIsPublicAndDescFunc func(ctx context.Context, userID, name, description string, color models.Color, isPublic bool) (*models.Repertoire, error)
+	SaveFunc                      func(ctx context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error)
+	UpdateNameFunc                func(ctx context.Context, id string, userID string, name string) (*models.Repertoire, error)
+	UpdateDescriptionFunc         func(ctx context.Context, id string, userID string, description string) (*models.Repertoire, error)
+	UpdateCategoryFunc            func(ctx context.Context, id string, userID string, categoryID *string) (*models.Repertoire, error)
+	UpdateVisibilityFunc          func(ctx context.Context, id string, userID string, isPublic bool) (*models.Repertoire, error)
+	DeleteFunc                    func(ctx context.Context, id string, userID string) error
+	CountFunc                     func(ctx context.Context, userID string) (int, error)
+	ExistsFunc                    func(ctx context.Context, id string) (bool, error)
+	BelongsToUserFunc             func(ctx context.Context, id string, userID string) (bool, error)
+	GetByCategoryFunc             func(ctx context.Context, categoryID string) ([]models.Repertoire, error)
+	GetUncategorizedFunc          func(ctx context.Context, userID string, color models.Color) ([]models.Repertoire, error)
+	GetAllPublicFunc              func(ctx context.Context) ([]models.Repertoire, error)
+	GetPublicByIDFunc             func(ctx context.Context, id string) (*models.Repertoire, error)
+	GetOwnerIDFunc                func(ctx context.Context, id string) (string, error)
+	UpdateOriginFunc              func(ctx context.Context, id string, origin *models.RepertoireOrigin) error
 }
 
-func (m *MockRepertoireRepo) GetByID(id string) (*models.Repertoire, error) {
+func (m *MockRepertoireRepo) GetByID(ctx context.Context, id string) (*models.Repertoire, error) {
 	if m.GetByIDFunc != nil {
-		return m.GetByIDFunc(id)
+		return m.GetByIDFunc(ctx, id)
 	}
 	return nil, nil
 }
 
-func (m *MockRepertoireRepo) GetByColor(userID string, color models.Color) ([]models.Repertoire, error) {
+func (m *MockRepertoireRepo) GetByColor(ctx context.Context, userID string, color models.Color) ([]models.Repertoire, error) {
 	if m.GetByColorFunc != nil {
-		return m.GetByColorFunc(userID, color)
+		return m.GetByColorFunc(ctx, userID, color)
 	}
 	return nil, nil
 }
 
-func (m *MockRepertoireRepo) GetAll(userID string) ([]models.Repertoire, error) {
+func (m *MockRepertoireRepo) GetAll(ctx context.Context, userID string) ([]models.Repertoire, error) {
 	if m.GetAllFunc != nil {
-		return m.GetAllFunc(userID)
+		return m.GetAllFunc(ctx, userID)
 	}
 	return nil, nil
 }
 
-func (m *MockRepertoireRepo) Create(userID string, name string, color models.Color) (*models.Repertoire, error) {
+func (m *MockRepertoireRepo) Create(ctx context.Context, userID string, name string, color models.Color) (*models.Repertoire, error) {
 	if m.CreateFunc != nil {
-		return m.CreateFunc(userID, name, color)
+		return m.CreateFunc(ctx, userID, name, color)
 	}
 	return nil, nil
 }
 
-func (m *MockRepertoireRepo) CreateWithCategory(userID, name string, color models.Color, categoryID *string) (*models.Repertoire, error) {
+func (m *MockRepertoireRepo) CreateWithCategory(ctx context.Context, userID, name string, color models.Color, categoryID *string) (*models.Repertoire, error) {
 	if m.CreateWithCategoryFunc != nil {
-		return m.CreateWithCategoryFunc(userID, name, color, categoryID)
+		return m.CreateWithCategoryFunc(ctx, userID, name, color, categoryID)
 	}
 	// Fall back to CreateFunc if not set
 	if m.CreateFunc != nil {
-		return m.CreateFunc(userID, name, color)
+		return m.CreateFunc(ctx, userID, name, color)
 	}
 	return nil, nil
 }
 
-func (m *MockRepertoireRepo) Save(id string, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
+func (m *MockRepertoireRepo) Save(ctx context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
 	if m.SaveFunc != nil {
-		return m.SaveFunc(id, userID, treeData, metadata)
+		return m.SaveFunc(ctx, id, userID, treeData, metadata)
 	}
 	return nil, nil
 }
 
-func (m *MockRepertoireRepo) UpdateName(id string, userID string, name string) (*models.Repertoire, error) {
+func (m *MockRepertoireRepo) UpdateName(ctx context.Context, id string, userID string, name string) (*models.Repertoire, error) {
 	if m.UpdateNameFunc != nil {
-		return m.UpdateNameFunc(id, userID, name)
+		return m.UpdateNameFunc(ctx, id, userID, name)
 	}
 	return nil, nil
 }
 
-func (m *MockRepertoireRepo) UpdateDescription(id string, userID string, description string) (*models.Repertoire, error) {
+func (m *MockRepertoireRepo) UpdateDescription(ctx context.Context, id string, userID string, description string) (*models.Repertoire, error) {
 	if m.UpdateDescriptionFunc != nil {
-		return m.UpdateDescriptionFunc(id, userID, description)
+		return m.UpdateDescriptionFunc(ctx, id, userID, description)
 	}
 	return nil, nil
 }
 
-func (m *MockRepertoireRepo) UpdateCategory(id string, userID string, categoryID *string) (*models.Repertoire, error) {
+func (m *MockRepertoireRepo) UpdateCategory(ctx context.Context, id string, userID string, categoryID *string) (*models.Repertoire, error) {
 	if m.UpdateCategoryFunc != nil {
-		return m.UpdateCategoryFunc(id, userID, categoryID)
+		return m.UpdateCategoryFunc(ctx, id, userID, categoryID)
 	}
 	return nil, nil
 }
 
-func (m *MockRepertoireRepo) Delete(id string, userID string) error {
+func (m *MockRepertoireRepo) Delete(ctx context.Context, id string, userID string) error {
 	if m.DeleteFunc != nil {
-		return m.DeleteFunc(id, userID)
+		return m.DeleteFunc(ctx, id, userID)
 	}
 	return nil
 }
 
-func (m *MockRepertoireRepo) Count(userID string) (int, error) {
+func (m *MockRepertoireRepo) Count(ctx context.Context, userID string) (int, error) {
 	if m.CountFunc != nil {
-		return m.CountFunc(userID)
+		return m.CountFunc(ctx, userID)
 	}
 	return 0, nil
 }
 
-func (m *MockRepertoireRepo) Exists(id string) (bool, error) {
+func (m *MockRepertoireRepo) Exists(ctx context.Context, id string) (bool, error) {
 	if m.ExistsFunc != nil {
-		return m.ExistsFunc(id)
+		return m.ExistsFunc(ctx, id)
 	}
 	return false, nil
 }
 
-func (m *MockRepertoireRepo) BelongsToUser(id string, userID string) (bool, error) {
+func (m *MockRepertoireRepo) BelongsToUser(ctx context.Context, id string, userID string) (bool, error) {
 	if m.BelongsToUserFunc != nil {
-		return m.BelongsToUserFunc(id, userID)
+		return m.BelongsToUserFunc(ctx, id, userID)
 	}
 	return true, nil
 }
 
-func (m *MockRepertoireRepo) GetByCategory(categoryID string) ([]models.Repertoire, error) {
+func (m *MockRepertoireRepo) GetByCategory(ctx context.Context, categoryID string) ([]models.Repertoire, error) {
 	if m.GetByCategoryFunc != nil {
-		return m.GetByCategoryFunc(categoryID)
+		return m.GetByCategoryFunc(ctx, categoryID)
 	}
 	return nil, nil
 }
 
-func (m *MockRepertoireRepo) GetUncategorized(userID string, color models.Color) ([]models.Repertoire, error) {
+func (m *MockRepertoireRepo) GetUncategorized(ctx context.Context, userID string, color models.Color) ([]models.Repertoire, error) {
 	if m.GetUncategorizedFunc != nil {
-		return m.GetUncategorizedFunc(userID, color)
+		return m.GetUncategorizedFunc(ctx, userID, color)
 	}
 	return nil, nil
 }
 
-func (m *MockRepertoireRepo) CreateWithIsPublic(userID, name string, color models.Color, isPublic bool) (*models.Repertoire, error) {
+func (m *MockRepertoireRepo) CreateWithIsPublic(ctx context.Context, userID, name string, color models.Color, isPublic bool) (*models.Repertoire, error) {
 	if m.CreateWithIsPublicFunc != nil {
-		return m.CreateWithIsPublicFunc(userID, name, color, isPublic)
+		return m.CreateWithIsPublicFunc(ctx, userID, name, color, isPublic)
 	}
 	if m.CreateFunc != nil {
-		return m.CreateFunc(userID, name, color)
+		return m.CreateFunc(ctx, userID, name, color)
 	}
 	return nil, nil
 }
 
-func (m *MockRepertoireRepo) CreateWithIsPublicAndDescription(userID, name, description string, color models.Color, isPublic bool) (*models.Repertoire, error) {
+func (m *MockRepertoireRepo) CreateWithIsPublicAndDescription(ctx context.Context, userID, name, description string, color models.Color, isPublic bool) (*models.Repertoire, error) {
 	if m.CreateWithIsPublicAndDescFunc != nil {
-		return m.CreateWithIsPublicAndDescFunc(userID, name, description, color, isPublic)
+		return m.CreateWithIsPublicAndDescFunc(ctx, userID, name, description, color, isPublic)
 	}
 	if m.CreateWithIsPublicFunc != nil {
-		return m.CreateWithIsPublicFunc(userID, name, color, isPublic)
+		return m.CreateWithIsPublicFunc(ctx, userID, name, color, isPublic)
 	}
 	if m.CreateFunc != nil {
-		return m.CreateFunc(userID, name, color)
+		return m.CreateFunc(ctx, userID, name, color)
 	}
 	return nil, nil
 }
 
-func (m *MockRepertoireRepo) UpdateVisibility(id string, userID string, isPublic bool) (*models.Repertoire, error) {
+func (m *MockRepertoireRepo) UpdateVisibility(ctx context.Context, id string, userID string, isPublic bool) (*models.Repertoire, error) {
 	if m.UpdateVisibilityFunc != nil {
-		return m.UpdateVisibilityFunc(id, userID, isPublic)
+		return m.UpdateVisibilityFunc(ctx, id, userID, isPublic)
 	}
 	return nil, nil
 }
 
-func (m *MockRepertoireRepo) GetAllPublic() ([]models.Repertoire, error) {
+func (m *MockRepertoireRepo) GetAllPublic(ctx context.Context) ([]models.Repertoire, error) {
 	if m.GetAllPublicFunc != nil {
-		return m.GetAllPublicFunc()
+		return m.GetAllPublicFunc(ctx)
 	}
 	return nil, nil
 }
 
-func (m *MockRepertoireRepo) GetPublicByID(id string) (*models.Repertoire, error) {
+func (m *MockRepertoireRepo) GetPublicByID(ctx context.Context, id string) (*models.Repertoire, error) {
 	if m.GetPublicByIDFunc != nil {
-		return m.GetPublicByIDFunc(id)
+		return m.GetPublicByIDFunc(ctx, id)
 	}
 	return nil, nil
 }
 
-func (m *MockRepertoireRepo) GetOwnerID(id string) (string, error) {
+func (m *MockRepertoireRepo) GetOwnerID(ctx context.Context, id string) (string, error) {
 	if m.GetOwnerIDFunc != nil {
-		return m.GetOwnerIDFunc(id)
+		return m.GetOwnerIDFunc(ctx, id)
 	}
 	return "", nil
 }
 
-func (m *MockRepertoireRepo) UpdateOrigin(id string, origin *models.RepertoireOrigin) error {
+func (m *MockRepertoireRepo) UpdateOrigin(ctx context.Context, id string, origin *models.RepertoireOrigin) error {
 	if m.UpdateOriginFunc != nil {
-		return m.UpdateOriginFunc(id, origin)
+		return m.UpdateOriginFunc(ctx, id, origin)
 	}
 	return nil
 }
 
 // MockAnalysisRepo is a mock implementation of AnalysisRepository for testing
 type MockAnalysisRepo struct {
-	SaveFunc                   func(userID string, username, filename string, gameCount int, results []models.GameAnalysis) (*models.AnalysisSummary, error)
-	GetAllFunc                 func(userID string) ([]models.AnalysisSummary, error)
-	GetByIDFunc                func(id string) (*models.AnalysisDetail, error)
-	DeleteFunc                 func(id string) error
-	GetAllGamesFunc            func(userID string, limit, offset int, timeClass, opening, source string, onlyNew bool) (*models.GamesResponse, error)
-	UpdateResultsFunc          func(analysisID string, results []models.GameAnalysis) error
-	BelongsToUserFunc          func(id string, userID string) (bool, error)
-	GetDistinctRepertoiresFunc func(userID string) ([]models.RepertoireFilterOption, error)
-	MarkGameViewedFunc         func(userID, analysisID string, gameIndex int) error
-	GetViewedGamesFunc         func(userID string) (map[string]bool, error)
-	GetAllGamesRawFunc         func(userID string) ([]models.RawAnalysis, error)
+	SaveFunc                   func(ctx context.Context, userID string, username, filename string, gameCount int, results []models.GameAnalysis) (*models.AnalysisSummary, error)
+	GetAllFunc                 func(ctx context.Context, userID string) ([]models.AnalysisSummary, error)
+	GetByIDFunc                func(ctx context.Context, id string) (*models.AnalysisDetail, error)
+	DeleteFunc                 func(ctx context.Context, id string) error
+	GetAllGamesFunc            func(ctx context.Context, userID string, limit, offset int, timeClass, opening, source string, onlyNew bool) (*models.GamesResponse, error)
+	UpdateResultsFunc          func(ctx context.Context, analysisID string, results []models.GameAnalysis) error
+	BelongsToUserFunc          func(ctx context.Context, id string, userID string) (bool, error)
+	GetDistinctRepertoiresFunc func(ctx context.Context, userID string) ([]models.RepertoireFilterOption, error)
+	MarkGameViewedFunc         func(ctx context.Context, userID, analysisID string, gameIndex int) error
+	GetViewedGamesFunc         func(ctx context.Context, userID string) (map[string]bool, error)
+	GetAllGamesRawFunc         func(ctx context.Context, userID string) ([]models.RawAnalysis, error)
 }
 
-func (m *MockAnalysisRepo) Save(userID string, username, filename string, gameCount int, results []models.GameAnalysis) (*models.AnalysisSummary, error) {
+func (m *MockAnalysisRepo) Save(ctx context.Context, userID string, username, filename string, gameCount int, results []models.GameAnalysis) (*models.AnalysisSummary, error) {
 	if m.SaveFunc != nil {
-		return m.SaveFunc(userID, username, filename, gameCount, results)
+		return m.SaveFunc(ctx, userID, username, filename, gameCount, results)
 	}
 	return nil, nil
 }
 
-func (m *MockAnalysisRepo) GetAll(userID string) ([]models.AnalysisSummary, error) {
+func (m *MockAnalysisRepo) GetAll(ctx context.Context, userID string) ([]models.AnalysisSummary, error) {
 	if m.GetAllFunc != nil {
-		return m.GetAllFunc(userID)
+		return m.GetAllFunc(ctx, userID)
 	}
 	return nil, nil
 }
 
-func (m *MockAnalysisRepo) GetByID(id string) (*models.AnalysisDetail, error) {
+func (m *MockAnalysisRepo) GetByID(ctx context.Context, id string) (*models.AnalysisDetail, error) {
 	if m.GetByIDFunc != nil {
-		return m.GetByIDFunc(id)
+		return m.GetByIDFunc(ctx, id)
 	}
 	return nil, nil
 }
 
-func (m *MockAnalysisRepo) Delete(id string) error {
+func (m *MockAnalysisRepo) Delete(ctx context.Context, id string) error {
 	if m.DeleteFunc != nil {
-		return m.DeleteFunc(id)
+		return m.DeleteFunc(ctx, id)
 	}
 	return nil
 }
 
-func (m *MockAnalysisRepo) GetAllGames(userID string, limit, offset int, timeClass, opening, source string, onlyNew bool) (*models.GamesResponse, error) {
+func (m *MockAnalysisRepo) GetAllGames(ctx context.Context, userID string, limit, offset int, timeClass, opening, source string, onlyNew bool) (*models.GamesResponse, error) {
 	if m.GetAllGamesFunc != nil {
-		return m.GetAllGamesFunc(userID, limit, offset, timeClass, opening, source, onlyNew)
+		return m.GetAllGamesFunc(ctx, userID, limit, offset, timeClass, opening, source, onlyNew)
 	}
 	return nil, nil
 }
 
-func (m *MockAnalysisRepo) UpdateResults(analysisID string, results []models.GameAnalysis) error {
+func (m *MockAnalysisRepo) UpdateResults(ctx context.Context, analysisID string, results []models.GameAnalysis) error {
 	if m.UpdateResultsFunc != nil {
-		return m.UpdateResultsFunc(analysisID, results)
+		return m.UpdateResultsFunc(ctx, analysisID, results)
 	}
 	return nil
 }
 
-func (m *MockAnalysisRepo) BelongsToUser(id string, userID string) (bool, error) {
+func (m *MockAnalysisRepo) BelongsToUser(ctx context.Context, id string, userID string) (bool, error) {
 	if m.BelongsToUserFunc != nil {
-		return m.BelongsToUserFunc(id, userID)
+		return m.BelongsToUserFunc(ctx, id, userID)
 	}
 	return true, nil
 }
 
-func (m *MockAnalysisRepo) GetDistinctRepertoires(userID string) ([]models.RepertoireFilterOption, error) {
+func (m *MockAnalysisRepo) GetDistinctRepertoires(ctx context.Context, userID string) ([]models.RepertoireFilterOption, error) {
 	if m.GetDistinctRepertoiresFunc != nil {
-		return m.GetDistinctRepertoiresFunc(userID)
+		return m.GetDistinctRepertoiresFunc(ctx, userID)
 	}
 	return nil, nil
 }
 
-func (m *MockAnalysisRepo) MarkGameViewed(userID, analysisID string, gameIndex int) error {
+func (m *MockAnalysisRepo) MarkGameViewed(ctx context.Context, userID, analysisID string, gameIndex int) error {
 	if m.MarkGameViewedFunc != nil {
-		return m.MarkGameViewedFunc(userID, analysisID, gameIndex)
+		return m.MarkGameViewedFunc(ctx, userID, analysisID, gameIndex)
 	}
 	return nil
 }
 
-func (m *MockAnalysisRepo) GetViewedGames(userID string) (map[string]bool, error) {
+func (m *MockAnalysisRepo) GetViewedGames(ctx context.Context, userID string) (map[string]bool, error) {
 	if m.GetViewedGamesFunc != nil {
-		return m.GetViewedGamesFunc(userID)
+		return m.GetViewedGamesFunc(ctx, userID)
 	}
 	return map[string]bool{}, nil
 }
 
-func (m *MockAnalysisRepo) GetAllGamesRaw(userID string) ([]models.RawAnalysis, error) {
+func (m *MockAnalysisRepo) GetAllGamesRaw(ctx context.Context, userID string) ([]models.RawAnalysis, error) {
 	if m.GetAllGamesRawFunc != nil {
-		return m.GetAllGamesRawFunc(userID)
+		return m.GetAllGamesRawFunc(ctx, userID)
 	}
 	return nil, nil
 }
 
 // MockUserRepo is a mock implementation of UserRepository for testing
 type MockUserRepo struct {
-	CreateFunc               func(email, username, passwordHash string) (*models.User, error)
-	GetByUsernameFunc        func(username string) (*models.User, error)
-	GetByEmailFunc           func(email string) (*models.User, error)
-	GetByIDFunc              func(id string) (*models.User, error)
-	ExistsFunc               func(username string) (bool, error)
-	EmailExistsFunc          func(email string) (bool, error)
-	FindByOAuthFunc          func(provider, oauthID string) (*models.User, error)
-	CreateOAuthFunc          func(provider, oauthID, username string) (*models.User, error)
-	UpdateProfileFunc        func(userID string, lichess, chesscom *string, timeFormatPrefs []string) (*models.User, error)
-	UpdateSyncTimestampsFunc func(userID string, lichessSyncAt, chesscomSyncAt *time.Time) error
-	ResetSyncTimestampsFunc  func(userID string) error
-	UpdateLichessTokenFunc   func(userID, token string) error
-	UpdatePasswordFunc       func(userID, passwordHash string) error
-	DeleteFunc               func(id string) error
+	CreateFunc               func(ctx context.Context, email, username, passwordHash string) (*models.User, error)
+	GetByUsernameFunc        func(ctx context.Context, username string) (*models.User, error)
+	GetByEmailFunc           func(ctx context.Context, email string) (*models.User, error)
+	GetByIDFunc              func(ctx context.Context, id string) (*models.User, error)
+	ExistsFunc               func(ctx context.Context, username string) (bool, error)
+	EmailExistsFunc          func(ctx context.Context, email string) (bool, error)
+	FindByOAuthFunc          func(ctx context.Context, provider, oauthID string) (*models.User, error)
+	CreateOAuthFunc          func(ctx context.Context, provider, oauthID, username string) (*models.User, error)
+	UpdateProfileFunc        func(ctx context.Context, userID string, lichess, chesscom *string, timeFormatPrefs []string) (*models.User, error)
+	UpdateSyncTimestampsFunc func(ctx context.Context, userID string, lichessSyncAt, chesscomSyncAt *time.Time) error
+	ResetSyncTimestampsFunc  func(ctx context.Context, userID string) error
+	UpdateLichessTokenFunc   func(ctx context.Context, userID, token string) error
+	UpdatePasswordFunc       func(ctx context.Context, userID, passwordHash string) error
+	DeleteFunc               func(ctx context.Context, id string) error
 }
 
-func (m *MockUserRepo) Create(email, username, passwordHash string) (*models.User, error) {
+func (m *MockUserRepo) Create(ctx context.Context, email, username, passwordHash string) (*models.User, error) {
 	if m.CreateFunc != nil {
-		return m.CreateFunc(email, username, passwordHash)
+		return m.CreateFunc(ctx, email, username, passwordHash)
 	}
 	return nil, nil
 }
 
-func (m *MockUserRepo) GetByUsername(username string) (*models.User, error) {
+func (m *MockUserRepo) GetByUsername(ctx context.Context, username string) (*models.User, error) {
 	if m.GetByUsernameFunc != nil {
-		return m.GetByUsernameFunc(username)
+		return m.GetByUsernameFunc(ctx, username)
 	}
 	return nil, nil
 }
 
-func (m *MockUserRepo) GetByEmail(email string) (*models.User, error) {
+func (m *MockUserRepo) GetByEmail(ctx context.Context, email string) (*models.User, error) {
 	if m.GetByEmailFunc != nil {
-		return m.GetByEmailFunc(email)
+		return m.GetByEmailFunc(ctx, email)
 	}
 	return nil, nil
 }
 
-func (m *MockUserRepo) GetByID(id string) (*models.User, error) {
+func (m *MockUserRepo) GetByID(ctx context.Context, id string) (*models.User, error) {
 	if m.GetByIDFunc != nil {
-		return m.GetByIDFunc(id)
+		return m.GetByIDFunc(ctx, id)
 	}
 	return nil, nil
 }
 
-func (m *MockUserRepo) Exists(username string) (bool, error) {
+func (m *MockUserRepo) Exists(ctx context.Context, username string) (bool, error) {
 	if m.ExistsFunc != nil {
-		return m.ExistsFunc(username)
+		return m.ExistsFunc(ctx, username)
 	}
 	return false, nil
 }
 
-func (m *MockUserRepo) EmailExists(email string) (bool, error) {
+func (m *MockUserRepo) EmailExists(ctx context.Context, email string) (bool, error) {
 	if m.EmailExistsFunc != nil {
-		return m.EmailExistsFunc(email)
+		return m.EmailExistsFunc(ctx, email)
 	}
 	return false, nil
 }
 
-func (m *MockUserRepo) FindByOAuth(provider, oauthID string) (*models.User, error) {
+func (m *MockUserRepo) FindByOAuth(ctx context.Context, provider, oauthID string) (*models.User, error) {
 	if m.FindByOAuthFunc != nil {
-		return m.FindByOAuthFunc(provider, oauthID)
+		return m.FindByOAuthFunc(ctx, provider, oauthID)
 	}
 	return nil, nil
 }
 
-func (m *MockUserRepo) CreateOAuth(provider, oauthID, username string) (*models.User, error) {
+func (m *MockUserRepo) CreateOAuth(ctx context.Context, provider, oauthID, username string) (*models.User, error) {
 	if m.CreateOAuthFunc != nil {
-		return m.CreateOAuthFunc(provider, oauthID, username)
+		return m.CreateOAuthFunc(ctx, provider, oauthID, username)
 	}
 	return nil, nil
 }
 
-func (m *MockUserRepo) UpdateProfile(userID string, lichess, chesscom *string, timeFormatPrefs []string) (*models.User, error) {
+func (m *MockUserRepo) UpdateProfile(ctx context.Context, userID string, lichess, chesscom *string, timeFormatPrefs []string) (*models.User, error) {
 	if m.UpdateProfileFunc != nil {
-		return m.UpdateProfileFunc(userID, lichess, chesscom, timeFormatPrefs)
+		return m.UpdateProfileFunc(ctx, userID, lichess, chesscom, timeFormatPrefs)
 	}
 	return nil, nil
 }
 
-func (m *MockUserRepo) UpdateSyncTimestamps(userID string, lichessSyncAt, chesscomSyncAt *time.Time) error {
+func (m *MockUserRepo) UpdateSyncTimestamps(ctx context.Context, userID string, lichessSyncAt, chesscomSyncAt *time.Time) error {
 	if m.UpdateSyncTimestampsFunc != nil {
-		return m.UpdateSyncTimestampsFunc(userID, lichessSyncAt, chesscomSyncAt)
+		return m.UpdateSyncTimestampsFunc(ctx, userID, lichessSyncAt, chesscomSyncAt)
 	}
 	return nil
 }
 
-func (m *MockUserRepo) ResetSyncTimestamps(userID string) error {
+func (m *MockUserRepo) ResetSyncTimestamps(ctx context.Context, userID string) error {
 	if m.ResetSyncTimestampsFunc != nil {
-		return m.ResetSyncTimestampsFunc(userID)
+		return m.ResetSyncTimestampsFunc(ctx, userID)
 	}
 	return nil
 }
 
-func (m *MockUserRepo) UpdateLichessToken(userID, token string) error {
+func (m *MockUserRepo) UpdateLichessToken(ctx context.Context, userID, token string) error {
 	if m.UpdateLichessTokenFunc != nil {
-		return m.UpdateLichessTokenFunc(userID, token)
+		return m.UpdateLichessTokenFunc(ctx, userID, token)
 	}
 	return nil
 }
 
-func (m *MockUserRepo) UpdatePassword(userID, passwordHash string) error {
+func (m *MockUserRepo) UpdatePassword(ctx context.Context, userID, passwordHash string) error {
 	if m.UpdatePasswordFunc != nil {
-		return m.UpdatePasswordFunc(userID, passwordHash)
+		return m.UpdatePasswordFunc(ctx, userID, passwordHash)
 	}
 	return nil
 }
 
-func (m *MockUserRepo) Delete(id string) error {
+func (m *MockUserRepo) Delete(ctx context.Context, id string) error {
 	if m.DeleteFunc != nil {
-		return m.DeleteFunc(id)
+		return m.DeleteFunc(ctx, id)
 	}
 	return nil
 }
 
 // MockCategoryRepo is a mock implementation of CategoryRepository for testing
 type MockCategoryRepo struct {
-	GetByIDFunc           func(id string) (*models.Category, error)
-	GetByUserAndColorFunc func(userID string, color models.Color) ([]models.Category, error)
-	GetAllFunc            func(userID string) ([]models.Category, error)
-	CreateFunc            func(userID, name string, color models.Color) (*models.Category, error)
-	UpdateNameFunc        func(id, name string) (*models.Category, error)
-	DeleteFunc            func(id string) error
-	BelongsToUserFunc     func(id, userID string) (bool, error)
-	ExistsFunc            func(id string) (bool, error)
-	CountFunc             func(userID string) (int, error)
+	GetByIDFunc           func(ctx context.Context, id string) (*models.Category, error)
+	GetByUserAndColorFunc func(ctx context.Context, userID string, color models.Color) ([]models.Category, error)
+	GetAllFunc            func(ctx context.Context, userID string) ([]models.Category, error)
+	CreateFunc            func(ctx context.Context, userID, name string, color models.Color) (*models.Category, error)
+	UpdateNameFunc        func(ctx context.Context, id, name string) (*models.Category, error)
+	DeleteFunc            func(ctx context.Context, id string) error
+	BelongsToUserFunc     func(ctx context.Context, id, userID string) (bool, error)
+	ExistsFunc            func(ctx context.Context, id string) (bool, error)
+	CountFunc             func(ctx context.Context, userID string) (int, error)
 }
 
-func (m *MockCategoryRepo) GetByID(id string) (*models.Category, error) {
+func (m *MockCategoryRepo) GetByID(ctx context.Context, id string) (*models.Category, error) {
 	if m.GetByIDFunc != nil {
-		return m.GetByIDFunc(id)
+		return m.GetByIDFunc(ctx, id)
 	}
 	return nil, nil
 }
 
-func (m *MockCategoryRepo) GetByUserAndColor(userID string, color models.Color) ([]models.Category, error) {
+func (m *MockCategoryRepo) GetByUserAndColor(ctx context.Context, userID string, color models.Color) ([]models.Category, error) {
 	if m.GetByUserAndColorFunc != nil {
-		return m.GetByUserAndColorFunc(userID, color)
+		return m.GetByUserAndColorFunc(ctx, userID, color)
 	}
 	return nil, nil
 }
 
-func (m *MockCategoryRepo) GetAll(userID string) ([]models.Category, error) {
+func (m *MockCategoryRepo) GetAll(ctx context.Context, userID string) ([]models.Category, error) {
 	if m.GetAllFunc != nil {
-		return m.GetAllFunc(userID)
+		return m.GetAllFunc(ctx, userID)
 	}
 	return nil, nil
 }
 
-func (m *MockCategoryRepo) Create(userID, name string, color models.Color) (*models.Category, error) {
+func (m *MockCategoryRepo) Create(ctx context.Context, userID, name string, color models.Color) (*models.Category, error) {
 	if m.CreateFunc != nil {
-		return m.CreateFunc(userID, name, color)
+		return m.CreateFunc(ctx, userID, name, color)
 	}
 	return nil, nil
 }
 
-func (m *MockCategoryRepo) UpdateName(id, name string) (*models.Category, error) {
+func (m *MockCategoryRepo) UpdateName(ctx context.Context, id, name string) (*models.Category, error) {
 	if m.UpdateNameFunc != nil {
-		return m.UpdateNameFunc(id, name)
+		return m.UpdateNameFunc(ctx, id, name)
 	}
 	return nil, nil
 }
 
-func (m *MockCategoryRepo) Delete(id string) error {
+func (m *MockCategoryRepo) Delete(ctx context.Context, id string) error {
 	if m.DeleteFunc != nil {
-		return m.DeleteFunc(id)
+		return m.DeleteFunc(ctx, id)
 	}
 	return nil
 }
 
-func (m *MockCategoryRepo) BelongsToUser(id, userID string) (bool, error) {
+func (m *MockCategoryRepo) BelongsToUser(ctx context.Context, id, userID string) (bool, error) {
 	if m.BelongsToUserFunc != nil {
-		return m.BelongsToUserFunc(id, userID)
+		return m.BelongsToUserFunc(ctx, id, userID)
 	}
 	return true, nil
 }
 
-func (m *MockCategoryRepo) Exists(id string) (bool, error) {
+func (m *MockCategoryRepo) Exists(ctx context.Context, id string) (bool, error) {
 	if m.ExistsFunc != nil {
-		return m.ExistsFunc(id)
+		return m.ExistsFunc(ctx, id)
 	}
 	return false, nil
 }
 
-func (m *MockCategoryRepo) Count(userID string) (int, error) {
+func (m *MockCategoryRepo) Count(ctx context.Context, userID string) (int, error) {
 	if m.CountFunc != nil {
-		return m.CountFunc(userID)
+		return m.CountFunc(ctx, userID)
 	}
 	return 0, nil
 }
 
 // MockPasswordResetRepo is a mock implementation of PasswordResetRepository for testing
 type MockPasswordResetRepo struct {
-	CreateFunc              func(userID, tokenHash string, expiresAt time.Time) (*models.PasswordResetToken, error)
-	GetByTokenHashFunc      func(tokenHash string) (*models.PasswordResetToken, error)
-	MarkUsedFunc            func(id string) error
-	DeleteByUserIDFunc      func(userID string) error
-	DeleteExpiredFunc       func() error
-	CountRecentByUserIDFunc func(userID string, since time.Time) (int, error)
+	CreateFunc              func(ctx context.Context, userID, tokenHash string, expiresAt time.Time) (*models.PasswordResetToken, error)
+	GetByTokenHashFunc      func(ctx context.Context, tokenHash string) (*models.PasswordResetToken, error)
+	MarkUsedFunc            func(ctx context.Context, id string) error
+	DeleteByUserIDFunc      func(ctx context.Context, userID string) error
+	DeleteExpiredFunc       func(ctx context.Context) error
+	CountRecentByUserIDFunc func(ctx context.Context, userID string, since time.Time) (int, error)
 }
 
-func (m *MockPasswordResetRepo) Create(userID, tokenHash string, expiresAt time.Time) (*models.PasswordResetToken, error) {
+func (m *MockPasswordResetRepo) Create(ctx context.Context, userID, tokenHash string, expiresAt time.Time) (*models.PasswordResetToken, error) {
 	if m.CreateFunc != nil {
-		return m.CreateFunc(userID, tokenHash, expiresAt)
+		return m.CreateFunc(ctx, userID, tokenHash, expiresAt)
 	}
 	return &models.PasswordResetToken{
 		ID:        "reset-123",
@@ -589,54 +589,54 @@ func (m *MockPasswordResetRepo) Create(userID, tokenHash string, expiresAt time.
 	}, nil
 }
 
-func (m *MockPasswordResetRepo) GetByTokenHash(tokenHash string) (*models.PasswordResetToken, error) {
+func (m *MockPasswordResetRepo) GetByTokenHash(ctx context.Context, tokenHash string) (*models.PasswordResetToken, error) {
 	if m.GetByTokenHashFunc != nil {
-		return m.GetByTokenHashFunc(tokenHash)
+		return m.GetByTokenHashFunc(ctx, tokenHash)
 	}
 	return nil, repository.ErrResetTokenNotFound
 }
 
-func (m *MockPasswordResetRepo) MarkUsed(id string) error {
+func (m *MockPasswordResetRepo) MarkUsed(ctx context.Context, id string) error {
 	if m.MarkUsedFunc != nil {
-		return m.MarkUsedFunc(id)
+		return m.MarkUsedFunc(ctx, id)
 	}
 	return nil
 }
 
-func (m *MockPasswordResetRepo) DeleteByUserID(userID string) error {
+func (m *MockPasswordResetRepo) DeleteByUserID(ctx context.Context, userID string) error {
 	if m.DeleteByUserIDFunc != nil {
-		return m.DeleteByUserIDFunc(userID)
+		return m.DeleteByUserIDFunc(ctx, userID)
 	}
 	return nil
 }
 
-func (m *MockPasswordResetRepo) DeleteExpired() error {
+func (m *MockPasswordResetRepo) DeleteExpired(ctx context.Context) error {
 	if m.DeleteExpiredFunc != nil {
-		return m.DeleteExpiredFunc()
+		return m.DeleteExpiredFunc(ctx)
 	}
 	return nil
 }
 
-func (m *MockPasswordResetRepo) CountRecentByUserID(userID string, since time.Time) (int, error) {
+func (m *MockPasswordResetRepo) CountRecentByUserID(ctx context.Context, userID string, since time.Time) (int, error) {
 	if m.CountRecentByUserIDFunc != nil {
-		return m.CountRecentByUserIDFunc(userID, since)
+		return m.CountRecentByUserIDFunc(ctx, userID, since)
 	}
 	return 0, nil
 }
 
 // MockRefreshTokenRepo is a mock implementation of RefreshTokenRepository for testing
 type MockRefreshTokenRepo struct {
-	CreateFunc         func(userID, tokenHash string, expiresAt time.Time) (*models.RefreshToken, error)
-	GetByTokenHashFunc func(tokenHash string) (*models.RefreshToken, error)
-	DeleteFunc         func(id string) error
-	DeleteByUserIDFunc func(userID string) error
-	DeleteExpiredFunc  func() error
-	CountByUserIDFunc  func(userID string) (int, error)
+	CreateFunc         func(ctx context.Context, userID, tokenHash string, expiresAt time.Time) (*models.RefreshToken, error)
+	GetByTokenHashFunc func(ctx context.Context, tokenHash string) (*models.RefreshToken, error)
+	DeleteFunc         func(ctx context.Context, id string) error
+	DeleteByUserIDFunc func(ctx context.Context, userID string) error
+	DeleteExpiredFunc  func(ctx context.Context) error
+	CountByUserIDFunc  func(ctx context.Context, userID string) (int, error)
 }
 
-func (m *MockRefreshTokenRepo) Create(userID, tokenHash string, expiresAt time.Time) (*models.RefreshToken, error) {
+func (m *MockRefreshTokenRepo) Create(ctx context.Context, userID, tokenHash string, expiresAt time.Time) (*models.RefreshToken, error) {
 	if m.CreateFunc != nil {
-		return m.CreateFunc(userID, tokenHash, expiresAt)
+		return m.CreateFunc(ctx, userID, tokenHash, expiresAt)
 	}
 	return &models.RefreshToken{
 		ID:        "refresh-123",
@@ -646,37 +646,37 @@ func (m *MockRefreshTokenRepo) Create(userID, tokenHash string, expiresAt time.T
 	}, nil
 }
 
-func (m *MockRefreshTokenRepo) GetByTokenHash(tokenHash string) (*models.RefreshToken, error) {
+func (m *MockRefreshTokenRepo) GetByTokenHash(ctx context.Context, tokenHash string) (*models.RefreshToken, error) {
 	if m.GetByTokenHashFunc != nil {
-		return m.GetByTokenHashFunc(tokenHash)
+		return m.GetByTokenHashFunc(ctx, tokenHash)
 	}
 	return nil, repository.ErrRefreshTokenNotFound
 }
 
-func (m *MockRefreshTokenRepo) Delete(id string) error {
+func (m *MockRefreshTokenRepo) Delete(ctx context.Context, id string) error {
 	if m.DeleteFunc != nil {
-		return m.DeleteFunc(id)
+		return m.DeleteFunc(ctx, id)
 	}
 	return nil
 }
 
-func (m *MockRefreshTokenRepo) DeleteByUserID(userID string) error {
+func (m *MockRefreshTokenRepo) DeleteByUserID(ctx context.Context, userID string) error {
 	if m.DeleteByUserIDFunc != nil {
-		return m.DeleteByUserIDFunc(userID)
+		return m.DeleteByUserIDFunc(ctx, userID)
 	}
 	return nil
 }
 
-func (m *MockRefreshTokenRepo) DeleteExpired() error {
+func (m *MockRefreshTokenRepo) DeleteExpired(ctx context.Context) error {
 	if m.DeleteExpiredFunc != nil {
-		return m.DeleteExpiredFunc()
+		return m.DeleteExpiredFunc(ctx)
 	}
 	return nil
 }
 
-func (m *MockRefreshTokenRepo) CountByUserID(userID string) (int, error) {
+func (m *MockRefreshTokenRepo) CountByUserID(ctx context.Context, userID string) (int, error) {
 	if m.CountByUserIDFunc != nil {
-		return m.CountByUserIDFunc(userID)
+		return m.CountByUserIDFunc(ctx, userID)
 	}
 	return 0, nil
 }

@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -46,13 +47,13 @@ func TestOAuthService_GenerateAuthURL_StateNonEmpty(t *testing.T) {
 func TestOAuthService_FindOrCreateUser_ExistingUser(t *testing.T) {
 	existingUser := &models.User{ID: "user-123", Username: "lichessplayer"}
 	mockRepo := &mocks.MockUserRepo{
-		FindByOAuthFunc: func(provider, oauthID string) (*models.User, error) {
+		FindByOAuthFunc: func(_ context.Context, provider, oauthID string) (*models.User, error) {
 			return existingUser, nil
 		},
 	}
 	oauthSvc, _ := newTestOAuthService(mockRepo)
 
-	resp, isNew, err := oauthSvc.FindOrCreateUser("lichess", "oauth-123", "lichessplayer")
+	resp, isNew, err := oauthSvc.FindOrCreateUser(context.Background(), "lichess", "oauth-123", "lichessplayer")
 
 	require.NoError(t, err)
 	assert.False(t, isNew)
@@ -62,19 +63,19 @@ func TestOAuthService_FindOrCreateUser_ExistingUser(t *testing.T) {
 
 func TestOAuthService_FindOrCreateUser_NewUser(t *testing.T) {
 	mockRepo := &mocks.MockUserRepo{
-		FindByOAuthFunc: func(provider, oauthID string) (*models.User, error) {
+		FindByOAuthFunc: func(_ context.Context, provider, oauthID string) (*models.User, error) {
 			return nil, repository.ErrUserNotFound
 		},
-		ExistsFunc: func(username string) (bool, error) {
+		ExistsFunc: func(_ context.Context, username string) (bool, error) {
 			return false, nil
 		},
-		CreateOAuthFunc: func(provider, oauthID, username string) (*models.User, error) {
+		CreateOAuthFunc: func(_ context.Context, provider, oauthID, username string) (*models.User, error) {
 			return &models.User{ID: "new-user", Username: username}, nil
 		},
 	}
 	oauthSvc, _ := newTestOAuthService(mockRepo)
 
-	resp, isNew, err := oauthSvc.FindOrCreateUser("lichess", "oauth-new", "newplayer")
+	resp, isNew, err := oauthSvc.FindOrCreateUser(context.Background(), "lichess", "oauth-new", "newplayer")
 
 	require.NoError(t, err)
 	assert.True(t, isNew)
@@ -88,19 +89,19 @@ func TestOAuthService_FindOrCreateUser_NewUser(t *testing.T) {
 // This fails if the sentinel is compared with != instead of errors.Is.
 func TestOAuthService_FindOrCreateUser_WrappedNotFound(t *testing.T) {
 	mockRepo := &mocks.MockUserRepo{
-		FindByOAuthFunc: func(provider, oauthID string) (*models.User, error) {
+		FindByOAuthFunc: func(_ context.Context, provider, oauthID string) (*models.User, error) {
 			return nil, fmt.Errorf("lookup failed: %w", repository.ErrUserNotFound)
 		},
-		ExistsFunc: func(username string) (bool, error) {
+		ExistsFunc: func(_ context.Context, username string) (bool, error) {
 			return false, nil
 		},
-		CreateOAuthFunc: func(provider, oauthID, username string) (*models.User, error) {
+		CreateOAuthFunc: func(_ context.Context, provider, oauthID, username string) (*models.User, error) {
 			return &models.User{ID: "new-user", Username: username}, nil
 		},
 	}
 	oauthSvc, _ := newTestOAuthService(mockRepo)
 
-	resp, isNew, err := oauthSvc.FindOrCreateUser("lichess", "oauth-new", "newplayer")
+	resp, isNew, err := oauthSvc.FindOrCreateUser(context.Background(), "lichess", "oauth-new", "newplayer")
 
 	require.NoError(t, err)
 	assert.True(t, isNew)
@@ -110,22 +111,22 @@ func TestOAuthService_FindOrCreateUser_WrappedNotFound(t *testing.T) {
 func TestOAuthService_FindOrCreateUser_UsernameCollision(t *testing.T) {
 	callCount := 0
 	mockRepo := &mocks.MockUserRepo{
-		FindByOAuthFunc: func(provider, oauthID string) (*models.User, error) {
+		FindByOAuthFunc: func(_ context.Context, provider, oauthID string) (*models.User, error) {
 			return nil, repository.ErrUserNotFound
 		},
-		ExistsFunc: func(username string) (bool, error) {
+		ExistsFunc: func(_ context.Context, username string) (bool, error) {
 			callCount++
 			// First call with original name returns true (collision),
 			// second call with suffixed name returns false
 			return callCount <= 1, nil
 		},
-		CreateOAuthFunc: func(provider, oauthID, username string) (*models.User, error) {
+		CreateOAuthFunc: func(_ context.Context, provider, oauthID, username string) (*models.User, error) {
 			return &models.User{ID: "new-user", Username: username}, nil
 		},
 	}
 	oauthSvc, _ := newTestOAuthService(mockRepo)
 
-	resp, isNew, err := oauthSvc.FindOrCreateUser("lichess", "oauth-new", "player")
+	resp, isNew, err := oauthSvc.FindOrCreateUser(context.Background(), "lichess", "oauth-new", "player")
 
 	require.NoError(t, err)
 	assert.True(t, isNew)
@@ -134,13 +135,13 @@ func TestOAuthService_FindOrCreateUser_UsernameCollision(t *testing.T) {
 
 func TestOAuthService_FindOrCreateUser_FindError(t *testing.T) {
 	mockRepo := &mocks.MockUserRepo{
-		FindByOAuthFunc: func(provider, oauthID string) (*models.User, error) {
+		FindByOAuthFunc: func(_ context.Context, provider, oauthID string) (*models.User, error) {
 			return nil, assert.AnError
 		},
 	}
 	oauthSvc, _ := newTestOAuthService(mockRepo)
 
-	_, _, err := oauthSvc.FindOrCreateUser("lichess", "oauth-123", "player")
+	_, _, err := oauthSvc.FindOrCreateUser(context.Background(), "lichess", "oauth-123", "player")
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to find OAuth user")
@@ -148,16 +149,16 @@ func TestOAuthService_FindOrCreateUser_FindError(t *testing.T) {
 
 func TestOAuthService_FindOrCreateUser_ExistsCheckError(t *testing.T) {
 	mockRepo := &mocks.MockUserRepo{
-		FindByOAuthFunc: func(provider, oauthID string) (*models.User, error) {
+		FindByOAuthFunc: func(_ context.Context, provider, oauthID string) (*models.User, error) {
 			return nil, repository.ErrUserNotFound
 		},
-		ExistsFunc: func(username string) (bool, error) {
+		ExistsFunc: func(_ context.Context, username string) (bool, error) {
 			return false, assert.AnError
 		},
 	}
 	oauthSvc, _ := newTestOAuthService(mockRepo)
 
-	_, _, err := oauthSvc.FindOrCreateUser("lichess", "oauth-new", "player")
+	_, _, err := oauthSvc.FindOrCreateUser(context.Background(), "lichess", "oauth-new", "player")
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to check username")
