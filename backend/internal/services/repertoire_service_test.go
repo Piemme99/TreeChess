@@ -1525,7 +1525,6 @@ func TestRepertoireService_ListRepertoires_All(t *testing.T) {
 
 func TestRepertoireService_RenameRepertoire_Success(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		ExistsFunc: func(id string) (bool, error) { return true, nil },
 		UpdateNameFunc: func(id, userID, name string) (*models.Repertoire, error) {
 			return &models.Repertoire{ID: id, Name: name}, nil
 		},
@@ -1539,8 +1538,12 @@ func TestRepertoireService_RenameRepertoire_Success(t *testing.T) {
 }
 
 func TestRepertoireService_RenameRepertoire_NotFound(t *testing.T) {
+	// The repository's user-scoped UPDATE returns ErrRepertoireNotFound when no
+	// row matches (id, userID); the service maps it to ErrNotFound.
 	mockRepo := &mocks.MockRepertoireRepo{
-		ExistsFunc: func(id string) (bool, error) { return false, nil },
+		UpdateNameFunc: func(id, userID, name string) (*models.Repertoire, error) {
+			return nil, repository.ErrRepertoireNotFound
+		},
 	}
 	svc := NewRepertoireService(mockRepo)
 
@@ -2339,12 +2342,12 @@ func TestRepertoireService_ImportRepertoire_Success(t *testing.T) {
 			return "other-user", nil
 		},
 		CountFunc: func(userID string) (int, error) { return 5, nil },
-		CreateWithIsPublicFunc: func(userID, name string, color models.Color, isPublic bool) (*models.Repertoire, error) {
+		CreateRepertoireFunc: func(userID string, params repository.CreateRepertoireParams) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID:       "new-rep",
-				Name:     name,
-				Color:    color,
-				IsPublic: isPublic,
+				Name:     params.Name,
+				Color:    params.Color,
+				IsPublic: params.IsPublic,
 			}, nil
 		},
 		SaveFunc: func(id string, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
@@ -2410,9 +2413,9 @@ func TestRepertoireService_ImportRepertoire_DeepClone(t *testing.T) {
 		},
 		GetOwnerIDFunc: func(id string) (string, error) { return "other-user", nil },
 		CountFunc:      func(userID string) (int, error) { return 0, nil },
-		CreateWithIsPublicFunc: func(userID, name string, color models.Color, isPublic bool) (*models.Repertoire, error) {
-			assert.False(t, isPublic, "Imported repertoire should be private")
-			return &models.Repertoire{ID: "new", Name: name, Color: color, IsPublic: isPublic}, nil
+		CreateRepertoireFunc: func(userID string, params repository.CreateRepertoireParams) (*models.Repertoire, error) {
+			assert.False(t, params.IsPublic, "Imported repertoire should be private")
+			return &models.Repertoire{ID: "new", Name: params.Name, Color: params.Color, IsPublic: params.IsPublic}, nil
 		},
 		SaveFunc: func(id string, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
 			savedTree = treeData
@@ -2514,8 +2517,8 @@ func TestRepertoireService_ImportRepertoire_OwnerLookupError(t *testing.T) {
 func TestRepertoireService_CreateRepertoireWithVisibility_Public(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
 		CountFunc: func(userID string) (int, error) { return 0, nil },
-		CreateWithIsPublicFunc: func(userID, name string, color models.Color, isPublic bool) (*models.Repertoire, error) {
-			return &models.Repertoire{ID: "new-rep", Name: name, Color: color, IsPublic: isPublic}, nil
+		CreateRepertoireFunc: func(userID string, params repository.CreateRepertoireParams) (*models.Repertoire, error) {
+			return &models.Repertoire{ID: "new-rep", Name: params.Name, Color: params.Color, IsPublic: params.IsPublic}, nil
 		},
 	}
 	svc := NewRepertoireService(mockRepo)
@@ -2530,8 +2533,8 @@ func TestRepertoireService_CreateRepertoireWithVisibility_Public(t *testing.T) {
 func TestRepertoireService_CreateRepertoireWithVisibility_Private(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
 		CountFunc: func(userID string) (int, error) { return 0, nil },
-		CreateWithIsPublicFunc: func(userID, name string, color models.Color, isPublic bool) (*models.Repertoire, error) {
-			return &models.Repertoire{ID: "new-rep", Name: name, Color: color, IsPublic: isPublic}, nil
+		CreateRepertoireFunc: func(userID string, params repository.CreateRepertoireParams) (*models.Repertoire, error) {
+			return &models.Repertoire{ID: "new-rep", Name: params.Name, Color: params.Color, IsPublic: params.IsPublic}, nil
 		},
 	}
 	svc := NewRepertoireService(mockRepo)
@@ -2578,9 +2581,9 @@ func TestRepertoireService_CreateRepertoire_DefaultsToPrivate(t *testing.T) {
 	var receivedIsPublic bool
 	mockRepo := &mocks.MockRepertoireRepo{
 		CountFunc: func(userID string) (int, error) { return 0, nil },
-		CreateWithIsPublicFunc: func(userID, name string, color models.Color, isPublic bool) (*models.Repertoire, error) {
-			receivedIsPublic = isPublic
-			return &models.Repertoire{ID: "new-rep", Name: name, Color: color, IsPublic: isPublic}, nil
+		CreateRepertoireFunc: func(userID string, params repository.CreateRepertoireParams) (*models.Repertoire, error) {
+			receivedIsPublic = params.IsPublic
+			return &models.Repertoire{ID: "new-rep", Name: params.Name, Color: params.Color, IsPublic: params.IsPublic}, nil
 		},
 	}
 	svc := NewRepertoireService(mockRepo)

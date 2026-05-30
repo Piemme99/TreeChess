@@ -92,28 +92,26 @@ func (m *MockEngineEvalRepo) ResetStaleProcessing() (int, error) {
 
 // MockRepertoireRepo is a mock implementation of RepertoireRepository for testing
 type MockRepertoireRepo struct {
-	GetByIDFunc                   func(id string) (*models.Repertoire, error)
-	GetByColorFunc                func(userID string, color models.Color) ([]models.Repertoire, error)
-	GetAllFunc                    func(userID string) ([]models.Repertoire, error)
-	CreateFunc                    func(userID string, name string, color models.Color) (*models.Repertoire, error)
-	CreateWithCategoryFunc        func(userID, name string, color models.Color, categoryID *string) (*models.Repertoire, error)
-	CreateWithIsPublicFunc        func(userID, name string, color models.Color, isPublic bool) (*models.Repertoire, error)
-	CreateWithIsPublicAndDescFunc func(userID, name, description string, color models.Color, isPublic bool) (*models.Repertoire, error)
-	SaveFunc                      func(id string, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error)
-	UpdateNameFunc                func(id string, userID string, name string) (*models.Repertoire, error)
-	UpdateDescriptionFunc         func(id string, userID string, description string) (*models.Repertoire, error)
-	UpdateCategoryFunc            func(id string, userID string, categoryID *string) (*models.Repertoire, error)
-	UpdateVisibilityFunc          func(id string, userID string, isPublic bool) (*models.Repertoire, error)
-	DeleteFunc                    func(id string, userID string) error
-	CountFunc                     func(userID string) (int, error)
-	ExistsFunc                    func(id string) (bool, error)
-	BelongsToUserFunc             func(id string, userID string) (bool, error)
-	GetByCategoryFunc             func(categoryID string) ([]models.Repertoire, error)
-	GetUncategorizedFunc          func(userID string, color models.Color) ([]models.Repertoire, error)
-	GetAllPublicFunc              func() ([]models.Repertoire, error)
-	GetPublicByIDFunc             func(id string) (*models.Repertoire, error)
-	GetOwnerIDFunc                func(id string) (string, error)
-	UpdateOriginFunc              func(id string, origin *models.RepertoireOrigin) error
+	GetByIDFunc           func(id string) (*models.Repertoire, error)
+	GetByColorFunc        func(userID string, color models.Color) ([]models.Repertoire, error)
+	GetAllFunc            func(userID string) ([]models.Repertoire, error)
+	CreateFunc            func(userID string, name string, color models.Color) (*models.Repertoire, error)
+	CreateRepertoireFunc  func(userID string, params repository.CreateRepertoireParams) (*models.Repertoire, error)
+	SaveFunc              func(id string, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error)
+	UpdateNameFunc        func(id string, userID string, name string) (*models.Repertoire, error)
+	UpdateDescriptionFunc func(id string, userID string, description string) (*models.Repertoire, error)
+	UpdateCategoryFunc    func(id string, userID string, categoryID *string) (*models.Repertoire, error)
+	UpdateVisibilityFunc  func(id string, userID string, isPublic bool) (*models.Repertoire, error)
+	DeleteFunc            func(id string, userID string) error
+	CountFunc             func(userID string) (int, error)
+	ExistsFunc            func(id string) (bool, error)
+	BelongsToUserFunc     func(id string, userID string) (bool, error)
+	GetByCategoryFunc     func(categoryID string) ([]models.Repertoire, error)
+	GetUncategorizedFunc  func(userID string, color models.Color) ([]models.Repertoire, error)
+	GetAllPublicFunc      func() ([]models.Repertoire, error)
+	GetPublicByIDFunc     func(id string) (*models.Repertoire, error)
+	GetOwnerIDFunc        func(id string) (string, error)
+	UpdateOriginFunc      func(id string, origin *models.RepertoireOrigin) error
 }
 
 func (m *MockRepertoireRepo) GetByID(id string) (*models.Repertoire, error) {
@@ -144,13 +142,13 @@ func (m *MockRepertoireRepo) Create(userID string, name string, color models.Col
 	return nil, nil
 }
 
-func (m *MockRepertoireRepo) CreateWithCategory(userID, name string, color models.Color, categoryID *string) (*models.Repertoire, error) {
-	if m.CreateWithCategoryFunc != nil {
-		return m.CreateWithCategoryFunc(userID, name, color, categoryID)
+func (m *MockRepertoireRepo) CreateRepertoire(userID string, params repository.CreateRepertoireParams) (*models.Repertoire, error) {
+	if m.CreateRepertoireFunc != nil {
+		return m.CreateRepertoireFunc(userID, params)
 	}
-	// Fall back to CreateFunc if not set
+	// Fall back to CreateFunc if not set, mapping the params to the simple form.
 	if m.CreateFunc != nil {
-		return m.CreateFunc(userID, name, color)
+		return m.CreateFunc(userID, params.Name, params.Color)
 	}
 	return nil, nil
 }
@@ -221,29 +219,6 @@ func (m *MockRepertoireRepo) GetByCategory(categoryID string) ([]models.Repertoi
 func (m *MockRepertoireRepo) GetUncategorized(userID string, color models.Color) ([]models.Repertoire, error) {
 	if m.GetUncategorizedFunc != nil {
 		return m.GetUncategorizedFunc(userID, color)
-	}
-	return nil, nil
-}
-
-func (m *MockRepertoireRepo) CreateWithIsPublic(userID, name string, color models.Color, isPublic bool) (*models.Repertoire, error) {
-	if m.CreateWithIsPublicFunc != nil {
-		return m.CreateWithIsPublicFunc(userID, name, color, isPublic)
-	}
-	if m.CreateFunc != nil {
-		return m.CreateFunc(userID, name, color)
-	}
-	return nil, nil
-}
-
-func (m *MockRepertoireRepo) CreateWithIsPublicAndDescription(userID, name, description string, color models.Color, isPublic bool) (*models.Repertoire, error) {
-	if m.CreateWithIsPublicAndDescFunc != nil {
-		return m.CreateWithIsPublicAndDescFunc(userID, name, description, color, isPublic)
-	}
-	if m.CreateWithIsPublicFunc != nil {
-		return m.CreateWithIsPublicFunc(userID, name, color, isPublic)
-	}
-	if m.CreateFunc != nil {
-		return m.CreateFunc(userID, name, color)
 	}
 	return nil, nil
 }

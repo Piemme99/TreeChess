@@ -628,3 +628,38 @@ func TestParsePGNToTree_Annotations(t *testing.T) {
 	assert.Len(t, nf3.Arrows, 0)
 	assert.Len(t, nf3.Highlights, 0)
 }
+
+func TestSplitPGNHeadersAndMovetext(t *testing.T) {
+	t.Run("standard headers", func(t *testing.T) {
+		headers, movetext := splitPGNHeadersAndMovetext("[Event \"Test\"]\n[Site \"Lichess\"]\n\n1. e4 e5 *")
+		assert.Equal(t, "Test", headers["Event"])
+		assert.Equal(t, "Lichess", headers["Site"])
+		assert.Contains(t, movetext, "1. e4 e5")
+	})
+
+	t.Run("value containing closing bracket", func(t *testing.T) {
+		// A `]` inside the value (e.g. a URL) must not truncate the value.
+		headers, _ := splitPGNHeadersAndMovetext("[Site \"https://example.com/a]b\"]\n\n1. e4 *")
+		assert.Equal(t, "https://example.com/a]b", headers["Site"])
+	})
+
+	t.Run("missing closing bracket", func(t *testing.T) {
+		// A tag with no closing `]` is still recognised and parsed.
+		headers, movetext := splitPGNHeadersAndMovetext("[Event \"No Bracket\"\n\n1. d4 *")
+		assert.Equal(t, "No Bracket", headers["Event"])
+		assert.Contains(t, movetext, "1. d4")
+	})
+
+	t.Run("value with inner quotes", func(t *testing.T) {
+		// The value is read up to the final quote on the line.
+		headers, _ := splitPGNHeadersAndMovetext("[Opening \"King\"s Pawn\"]\n\n1. e4 *")
+		assert.Equal(t, "King\"s Pawn", headers["Opening"])
+	})
+
+	t.Run("non-header line stops parsing", func(t *testing.T) {
+		// Once movetext begins, later bracketed lines are not treated as headers.
+		headers, movetext := splitPGNHeadersAndMovetext("[Event \"X\"]\n\n1. e4 e5\n[Event \"Y\"]")
+		assert.Equal(t, "X", headers["Event"])
+		assert.Contains(t, movetext, "[Event \"Y\"]")
+	})
+}

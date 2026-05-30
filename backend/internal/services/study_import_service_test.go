@@ -307,7 +307,7 @@ func TestStudyImportService_ImportStudyChaptersWithCategory_ImportsCustomStart(t
 	}
 	svc := NewStudyImportService(mockLichess, mockRepSvc, nil, &mocks.MockUserRepo{})
 
-	result, err := svc.ImportStudyChaptersWithCategory("user-1", "testid01", "", []int{0, 1, 2}, false, "", false, true, RenameStrategyAbort)
+	result, err := svc.ImportStudyChaptersWithCategory("user-1", "testid01", "", StudyImportOptions{ChapterIndices: []int{0, 1, 2}, IncludeHints: true, RenameStrategy: RenameStrategyAbort})
 
 	require.NoError(t, err)
 	require.NotNil(t, result)
@@ -340,7 +340,7 @@ func TestStudyImportService_ImportStudyChaptersMerged_ReturnsSkipped(t *testing.
 	}
 	svc := NewStudyImportService(mockLichess, mockRepSvc, nil, &mocks.MockUserRepo{})
 
-	result, err := svc.ImportStudyChaptersMerged("user-1", "testid01", "", []int{0, 1, 2}, "Merged", false, true, RenameStrategyAbort)
+	result, err := svc.ImportStudyChaptersMerged("user-1", "testid01", "", StudyImportOptions{ChapterIndices: []int{0, 1, 2}, MergeName: "Merged", IncludeHints: true, RenameStrategy: RenameStrategyAbort})
 
 	require.NoError(t, err)
 	require.NotNil(t, result)
@@ -372,7 +372,7 @@ func TestStudyImportService_ImportStudyChaptersMerged_AllChaptersSkipped(t *test
 	}
 	svc := NewStudyImportService(mockLichess, &smocks.MockRepertoireService{}, nil, &mocks.MockUserRepo{})
 
-	_, err := svc.ImportStudyChaptersMerged("user-1", "testid01", "", []int{0, 1}, "Merged", false, true, RenameStrategyAbort)
+	_, err := svc.ImportStudyChaptersMerged("user-1", "testid01", "", StudyImportOptions{ChapterIndices: []int{0, 1}, MergeName: "Merged", IncludeHints: true, RenameStrategy: RenameStrategyAbort})
 
 	assert.ErrorIs(t, err, ErrAllChaptersSkipped)
 }
@@ -409,7 +409,7 @@ func TestStudyImportService_ImportStudyChaptersWithCategory_AbortsOnConflict(t *
 	}
 	svc := NewStudyImportService(mockLichess, mockRepSvc, nil, &mocks.MockUserRepo{})
 
-	_, err := svc.ImportStudyChaptersWithCategory("user-1", "testid01", "", []int{0, 1}, false, "", false, false, RenameStrategyAbort)
+	_, err := svc.ImportStudyChaptersWithCategory("user-1", "testid01", "", StudyImportOptions{ChapterIndices: []int{0, 1}, RenameStrategy: RenameStrategyAbort})
 
 	var conflictErr *StudyImportConflictError
 	require.ErrorAs(t, err, &conflictErr)
@@ -442,7 +442,7 @@ func TestStudyImportService_ImportStudyChaptersWithCategory_AutoSuffixRenames(t 
 	}
 	svc := NewStudyImportService(mockLichess, mockRepSvc, nil, &mocks.MockUserRepo{})
 
-	result, err := svc.ImportStudyChaptersWithCategory("user-1", "testid01", "", []int{0, 1}, false, "", false, false, RenameStrategyAutoSuffix)
+	result, err := svc.ImportStudyChaptersWithCategory("user-1", "testid01", "", StudyImportOptions{ChapterIndices: []int{0, 1}, RenameStrategy: RenameStrategyAutoSuffix})
 
 	require.NoError(t, err)
 	require.NotNil(t, result)
@@ -482,7 +482,7 @@ func TestStudyImportService_ImportStudyChaptersWithCategory_AutoSuffixHandlesDup
 	}
 	svc := NewStudyImportService(mockLichess, mockRepSvc, nil, &mocks.MockUserRepo{})
 
-	_, err := svc.ImportStudyChaptersWithCategory("user-1", "testid01", "", []int{0, 1}, false, "", false, false, RenameStrategyAutoSuffix)
+	_, err := svc.ImportStudyChaptersWithCategory("user-1", "testid01", "", StudyImportOptions{ChapterIndices: []int{0, 1}, RenameStrategy: RenameStrategyAutoSuffix})
 
 	require.NoError(t, err)
 	require.Len(t, createdNames, 2)
@@ -505,7 +505,7 @@ func TestStudyImportService_ImportStudyChaptersMerged_AbortsOnConflict(t *testin
 	}
 	svc := NewStudyImportService(mockLichess, mockRepSvc, nil, &mocks.MockUserRepo{})
 
-	_, err := svc.ImportStudyChaptersMerged("user-1", "testid01", "", []int{0, 1}, "", false, false, RenameStrategyAbort)
+	_, err := svc.ImportStudyChaptersMerged("user-1", "testid01", "", StudyImportOptions{ChapterIndices: []int{0, 1}, RenameStrategy: RenameStrategyAbort})
 
 	var conflictErr *StudyImportConflictError
 	require.ErrorAs(t, err, &conflictErr)
@@ -533,7 +533,7 @@ func TestStudyImportService_ImportStudyChaptersMerged_AutoSuffixRenames(t *testi
 	}
 	svc := NewStudyImportService(mockLichess, mockRepSvc, nil, &mocks.MockUserRepo{})
 
-	result, err := svc.ImportStudyChaptersMerged("user-1", "testid01", "", []int{0, 1}, "", false, false, RenameStrategyAutoSuffix)
+	result, err := svc.ImportStudyChaptersMerged("user-1", "testid01", "", StudyImportOptions{ChapterIndices: []int{0, 1}, RenameStrategy: RenameStrategyAutoSuffix})
 
 	require.NoError(t, err)
 	require.NotNil(t, result)

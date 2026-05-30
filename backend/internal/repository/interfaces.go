@@ -13,6 +13,19 @@ type FingerprintEntry struct {
 	GameIndex   int
 }
 
+// CreateRepertoireParams holds the optional attributes for creating a
+// repertoire. It collapses the former CreateWithCategory /
+// CreateWithIsPublicAndDescription / CreateWithIsPublic variants into one
+// self-documenting parameter object. The zero value (empty description, private,
+// no category) matches a plain create.
+type CreateRepertoireParams struct {
+	Name        string
+	Description string
+	Color       models.Color
+	IsPublic    bool
+	CategoryID  *string
+}
+
 // UserRepository defines the interface for user data operations
 type UserRepository interface {
 	Create(email, username, passwordHash string) (*models.User, error)

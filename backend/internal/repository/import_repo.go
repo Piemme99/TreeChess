@@ -470,17 +470,17 @@ func isSynced(filename string) bool {
 }
 
 // computeGameStatus determines the overall status of a game based on the first actionable move
-func computeGameStatus(game models.GameAnalysis) string {
+func computeGameStatus(game models.GameAnalysis) models.GameStatus {
 	if game.MatchedRepertoire == nil && len(game.Moves) > 0 {
-		return "new-opening"
+		return models.GameStatusNewOpening
 	}
 	for _, move := range game.Moves {
-		if move.Status == "out-of-repertoire" {
-			return "error"
+		if move.Status == models.MoveStatusOutOfRepertoire {
+			return models.GameStatusError
 		}
-		if move.Status == "opponent-new" {
-			return "new-line"
+		if move.Status == models.MoveStatusOpponentNew {
+			return models.GameStatusNewLine
 		}
 	}
-	return "in-repertoire"
+	return models.GameStatusInRepertoire
 }

@@ -1,7 +1,6 @@
 package repository
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"time"
@@ -275,7 +274,7 @@ func (r *PostgresUserRepo) UpdatePassword(userID, passwordHash string) error {
 }
 
 func (r *PostgresUserRepo) Delete(id string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := accountDeletionContext()
 	defer cancel()
 
 	tx, err := r.pool.Begin(ctx)

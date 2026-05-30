@@ -87,11 +87,15 @@ func TestAnalysisDetail_JSON(t *testing.T) {
 	assert.Equal(t, detail.ID, decoded.ID)
 	assert.Equal(t, detail.Username, decoded.Username)
 	assert.Len(t, decoded.Results, 1)
-	assert.Equal(t, "out-of-repertoire", decoded.Results[0].Moves[0].Status)
+	assert.Equal(t, models.MoveStatusOutOfRepertoire, decoded.Results[0].Moves[0].Status)
 }
 
 func TestMoveAnalysis_StatusValues(t *testing.T) {
-	validStatuses := []string{"in-repertoire", "out-of-repertoire", "opponent-new"}
+	validStatuses := []models.MoveStatus{
+		models.MoveStatusInRepertoire,
+		models.MoveStatusOutOfRepertoire,
+		models.MoveStatusOpponentNew,
+	}
 
 	for _, status := range validStatuses {
 		ma := models.MoveAnalysis{
@@ -179,7 +183,7 @@ func TestComputeGameStatus_AllInRepertoire(t *testing.T) {
 
 	status := computeGameStatus(game)
 
-	assert.Equal(t, "in-repertoire", status)
+	assert.Equal(t, models.GameStatusInRepertoire, status)
 }
 
 func TestComputeGameStatus_OutOfRepertoire(t *testing.T) {
@@ -196,7 +200,7 @@ func TestComputeGameStatus_OutOfRepertoire(t *testing.T) {
 
 	status := computeGameStatus(game)
 
-	assert.Equal(t, "error", status)
+	assert.Equal(t, models.GameStatusError, status)
 }
 
 func TestComputeGameStatus_OpponentNew(t *testing.T) {
@@ -212,7 +216,7 @@ func TestComputeGameStatus_OpponentNew(t *testing.T) {
 
 	status := computeGameStatus(game)
 
-	assert.Equal(t, "new-line", status)
+	assert.Equal(t, models.GameStatusNewLine, status)
 }
 
 func TestComputeGameStatus_EmptyMoves(t *testing.T) {
@@ -223,7 +227,7 @@ func TestComputeGameStatus_EmptyMoves(t *testing.T) {
 
 	status := computeGameStatus(game)
 
-	assert.Equal(t, "in-repertoire", status)
+	assert.Equal(t, models.GameStatusInRepertoire, status)
 }
 
 func TestComputeGameStatus_NewOpening(t *testing.T) {
@@ -239,7 +243,7 @@ func TestComputeGameStatus_NewOpening(t *testing.T) {
 
 	status := computeGameStatus(game)
 
-	assert.Equal(t, "new-opening", status)
+	assert.Equal(t, models.GameStatusNewOpening, status)
 }
 
 func TestComputeGameStatus_OutOfRepertoireFirst(t *testing.T) {
@@ -255,7 +259,7 @@ func TestComputeGameStatus_OutOfRepertoireFirst(t *testing.T) {
 
 	status := computeGameStatus(game)
 
-	assert.Equal(t, "error", status) // out-of-repertoire should result in "error"
+	assert.Equal(t, models.GameStatusError, status) // out-of-repertoire should result in "error"
 }
 
 func TestComputeGameStatus_OpponentNewFirst(t *testing.T) {
@@ -271,18 +275,18 @@ func TestComputeGameStatus_OpponentNewFirst(t *testing.T) {
 
 	status := computeGameStatus(game)
 
-	assert.Equal(t, "new-line", status) // First non-in-repertoire determines status
+	assert.Equal(t, models.GameStatusNewLine, status) // First non-in-repertoire determines status
 }
 
 func TestComputeGameStatus_SingleMove(t *testing.T) {
 	tests := []struct {
 		name     string
-		status   string
-		expected string
+		status   models.MoveStatus
+		expected models.GameStatus
 	}{
-		{"in-repertoire move", "in-repertoire", "in-repertoire"},
-		{"out-of-repertoire move", "out-of-repertoire", "error"},
-		{"opponent-new move", "opponent-new", "new-line"},
+		{"in-repertoire move", models.MoveStatusInRepertoire, models.GameStatusInRepertoire},
+		{"out-of-repertoire move", models.MoveStatusOutOfRepertoire, models.GameStatusError},
+		{"opponent-new move", models.MoveStatusOpponentNew, models.GameStatusNewLine},
 	}
 
 	for _, tt := range tests {
@@ -327,7 +331,7 @@ func TestComputeGameStatus_LongGame(t *testing.T) {
 
 	status := computeGameStatus(game)
 
-	assert.Equal(t, "error", status)
+	assert.Equal(t, models.GameStatusError, status)
 }
 
 // Additional repository-related tests

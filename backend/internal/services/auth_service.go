@@ -20,6 +20,13 @@ import (
 var usernamePattern = regexp.MustCompile(`^[a-zA-Z0-9_-]{3,50}$`)
 var emailPattern = regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
 
+// dummyBcryptHash is a valid bcrypt hash (of an arbitrary password) at the
+// default cost. It is used to run a constant-time-ish bcrypt comparison for
+// login attempts against accounts that do not exist or that have no password
+// (OAuth-only). Without it, those branches would return before any hashing
+// happens, leaking account existence/type through response timing.
+const dummyBcryptHash = "$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy"
+
 var (
 	ErrInvalidUsername      = fmt.Errorf("username must be 3-50 alphanumeric characters, hyphens or underscores")
 	ErrInvalidEmail         = fmt.Errorf("invalid email format")
@@ -117,12 +124,19 @@ func (s *AuthService) Login(email, password string) (*models.AuthResponse, error
 	user, err := s.userRepo.GetByEmail(email)
 	if err != nil {
 		if errors.Is(err, repository.ErrUserNotFound) {
+			// Run a dummy comparison so a missing account takes roughly the
+			// same time as an existing one, avoiding a timing side-channel
+			// that would reveal whether the email is registered.
+			_ = bcrypt.CompareHashAndPassword([]byte(dummyBcryptHash), []byte(password))
 			return nil, ErrInvalidCredentials
 		}
 		return nil, err
 	}
 
 	if user.PasswordHash == "" && user.OAuthProvider != nil {
+		// Run a dummy comparison so OAuth-only accounts don't return faster
+		// than password accounts, which would leak the account type.
+		_ = bcrypt.CompareHashAndPassword([]byte(dummyBcryptHash), []byte(password))
 		return nil, ErrOAuthOnly
 	}
 

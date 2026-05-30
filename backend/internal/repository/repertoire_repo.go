@@ -215,24 +215,17 @@ func (r *PostgresRepertoireRepo) GetAll(userID string) ([]models.Repertoire, err
 	return r.scanRepertoires(rows)
 }
 
-// Create creates a new repertoire with a name and color for a user
+// Create creates a new private, uncategorized repertoire with a name and color.
+// It is a thin convenience wrapper over CreateRepertoire.
 func (r *PostgresRepertoireRepo) Create(userID string, name string, color models.Color) (*models.Repertoire, error) {
-	return r.CreateWithCategory(userID, name, color, nil)
+	return r.CreateRepertoire(userID, CreateRepertoireParams{Name: name, Color: color})
 }
 
-// CreateWithIsPublic creates a new repertoire with explicit visibility
-func (r *PostgresRepertoireRepo) CreateWithIsPublic(userID string, name string, color models.Color, isPublic bool) (*models.Repertoire, error) {
-	return r.createRepertoire(userID, name, "", color, nil, isPublic)
-}
-
-// CreateWithIsPublicAndDescription creates a new repertoire with explicit visibility and description
-func (r *PostgresRepertoireRepo) CreateWithIsPublicAndDescription(userID string, name string, description string, color models.Color, isPublic bool) (*models.Repertoire, error) {
-	return r.createRepertoire(userID, name, description, color, nil, isPublic)
-}
-
-// CreateWithCategory creates a new repertoire with a name, color, and optional category for a user
-func (r *PostgresRepertoireRepo) CreateWithCategory(userID string, name string, color models.Color, categoryID *string) (*models.Repertoire, error) {
-	return r.createRepertoire(userID, name, "", color, categoryID, false)
+// CreateRepertoire creates a new repertoire from the given parameters. It is the
+// single entry point that replaced the former CreateWithCategory /
+// CreateWithIsPublic / CreateWithIsPublicAndDescription variants.
+func (r *PostgresRepertoireRepo) CreateRepertoire(userID string, params CreateRepertoireParams) (*models.Repertoire, error) {
+	return r.createRepertoire(userID, params.Name, params.Description, params.Color, params.CategoryID, params.IsPublic)
 }
 
 // createRepertoire is the internal implementation for creating repertoires
@@ -366,6 +359,9 @@ func (r *PostgresRepertoireRepo) Save(id string, userID string, treeData models.
 		&rep.UpdatedAt,
 	)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrRepertoireNotFound
+		}
 		return nil, fmt.Errorf("failed to save repertoire: %w", err)
 	}
 
@@ -407,6 +403,9 @@ func (r *PostgresRepertoireRepo) UpdateName(id string, userID string, name strin
 		&rep.UpdatedAt,
 	)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrRepertoireNotFound
+		}
 		return nil, fmt.Errorf("failed to update repertoire name: %w", err)
 	}
 

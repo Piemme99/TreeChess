@@ -105,7 +105,7 @@ func TestMoveAnalysis_StatusValues(t *testing.T) {
 		IsUserMove: true,
 	}
 
-	assert.Contains(t, []string{"in-repertoire", "out-of-repertoire", "opponent-new"}, ma.Status)
+	assert.Contains(t, []MoveStatus{MoveStatusInRepertoire, MoveStatusOutOfRepertoire, MoveStatusOpponentNew}, ma.Status)
 }
 
 func TestGameAnalysis_MultipleMoves(t *testing.T) {

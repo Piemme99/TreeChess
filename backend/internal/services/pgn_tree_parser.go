@@ -15,6 +15,14 @@ import (
 var (
 	calRegex = regexp.MustCompile(`\[%cal\s+([A-Za-z0-9,]+)\]`)
 	cslRegex = regexp.MustCompile(`\[%csl\s+([A-Za-z0-9,]+)\]`)
+
+	// pgnTagRegex matches a single PGN tag-pair line of the form
+	//   [Key "value"]
+	// The key is a tag-symbol token (letters, digits, underscore). The value is
+	// captured greedily up to the last double quote on the line, so values that
+	// themselves contain a `]` (e.g. a URL) are read correctly. The trailing `]`
+	// is optional so a tag with a missing closing bracket is still parsed.
+	pgnTagRegex = regexp.MustCompile(`^\[\s*([A-Za-z0-9_]+)\s+"(.*)"\s*\]?\s*$`)
 )
 
 // annotationColorMap maps Lichess single-char color codes to hex colors.
@@ -449,15 +457,12 @@ loop:
 	for i, line := range lines {
 		trimmed := strings.TrimSpace(line)
 		switch {
-		case strings.HasPrefix(trimmed, "[") && strings.HasSuffix(trimmed, "]"):
-			// Parse header tag
-			content := trimmed[1 : len(trimmed)-1]
-			parts := strings.SplitN(content, " ", 2)
-			if len(parts) == 2 {
-				key := parts[0]
-				value := strings.Trim(parts[1], "\"")
-				headers[key] = value
-			}
+		case pgnTagRegex.MatchString(trimmed):
+			// Parse header tag. Capture group 1 is the key, group 2 is the
+			// quoted value (read up to the final quote, tolerating `]` inside
+			// the value and a missing closing bracket).
+			m := pgnTagRegex.FindStringSubmatch(trimmed)
+			headers[m[1]] = m[2]
 			movetextStart = i + 1
 		case trimmed == "" && movetextStart == i:
 			movetextStart = i + 1

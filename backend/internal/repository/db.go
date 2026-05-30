@@ -77,6 +77,13 @@ func dbContext() (context.Context, context.CancelFunc) {
 	return context.WithTimeout(context.Background(), config.DefaultDBTimeout)
 }
 
+// accountDeletionContext creates a context with the longer timeout used for the
+// multi-table account-deletion transaction, keeping the duration configurable
+// in one place rather than inlined at the call site.
+func accountDeletionContext() (context.Context, context.CancelFunc) {
+	return context.WithTimeout(context.Background(), config.AccountDeletionTimeout)
+}
+
 // migrationLockID is an arbitrary constant used as the PostgreSQL advisory lock key.
 // This ensures only one instance runs migrations at a time.
 const migrationLockID = 1001
@@ -101,6 +108,10 @@ func (db *DB) runMigrations() error {
 		_, _ = conn.Exec(ctx, "SELECT pg_advisory_unlock($1)", migrationLockID)
 	}()
 
+	// Migrations are an ordered, append-only list of idempotent (IF NOT EXISTS /
+	// ADD COLUMN IF NOT EXISTS) statements run on every boot. This is intentional:
+	// no versioning/rollback/down-migrations. If a versioned migration tool is ever
+	// needed, it must be tracked in its own dedicated issue — do not bundle it here.
 	schema := `
 		-- Create users table
 		CREATE TABLE IF NOT EXISTS users (

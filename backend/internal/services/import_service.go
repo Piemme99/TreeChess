@@ -380,13 +380,13 @@ func (s *ImportService) analyzeGame(gameIndex int, game *chess.Game, repertoireR
 		currentFEN := normalizeFEN(position.String())
 		isUserMove := (ply%2 == 0 && userColor == models.ColorWhite) || (ply%2 == 1 && userColor == models.ColorBlack)
 
-		var status string
+		var status models.MoveStatus
 		var expectedMove string
 
 		node := s.findNodeInRepertoire(repertoireRoot, currentFEN)
 		if node == nil || len(node.Children) == 0 {
 			// Position not in tree or is a leaf — repertoire has ended
-			status = "out-of-book"
+			status = models.MoveStatusOutOfBook
 		} else {
 			// Position has children — check if the played move matches
 			found := false
@@ -398,13 +398,13 @@ func (s *ImportService) analyzeGame(gameIndex int, game *chess.Game, repertoireR
 			}
 			switch {
 			case found:
-				status = "in-repertoire"
+				status = models.MoveStatusInRepertoire
 			case isUserMove:
-				status = "out-of-repertoire"
+				status = models.MoveStatusOutOfRepertoire
 				// Expected move is the explicit main-line child (fallback: first child).
 				expectedMove = expectedMoveForNode(node)
 			default:
-				status = "opponent-new"
+				status = models.MoveStatusOpponentNew
 			}
 		}
 
@@ -645,15 +645,15 @@ func (s *ImportService) analyzeGameFromChess(game *chess.Game, repertoire *model
 		currentFEN := normalizeFEN(position.String())
 		isUserMove := (ply%2 == 0 && userColor == models.ColorWhite) || (ply%2 == 1 && userColor == models.ColorBlack)
 
-		var status string
+		var status models.MoveStatus
 		var expectedMove string
 
 		if repertoire == nil {
-			status = "out-of-book"
+			status = models.MoveStatusOutOfBook
 		} else {
 			node := s.findNodeInRepertoire(repertoire.TreeData, currentFEN)
 			if node == nil || len(node.Children) == 0 {
-				status = "out-of-book"
+				status = models.MoveStatusOutOfBook
 			} else {
 				found := false
 				for _, child := range node.Children {
@@ -664,12 +664,12 @@ func (s *ImportService) analyzeGameFromChess(game *chess.Game, repertoire *model
 				}
 				switch {
 				case found:
-					status = "in-repertoire"
+					status = models.MoveStatusInRepertoire
 				case isUserMove:
-					status = "out-of-repertoire"
+					status = models.MoveStatusOutOfRepertoire
 					expectedMove = expectedMoveForNode(node)
 				default:
-					status = "opponent-new"
+					status = models.MoveStatusOpponentNew
 				}
 			}
 		}
@@ -805,12 +805,12 @@ func (s *ImportService) reanalyzeGameWithIndex(game *models.GameAnalysis, reperR
 	}
 
 	for i, move := range game.Moves {
-		var status string
+		var status models.MoveStatus
 		var expectedMove string
 
 		node := index[move.FEN]
 		if node == nil || len(node.Children) == 0 {
-			status = "out-of-book"
+			status = models.MoveStatusOutOfBook
 		} else {
 			found := false
 			for _, child := range node.Children {
@@ -821,15 +821,15 @@ func (s *ImportService) reanalyzeGameWithIndex(game *models.GameAnalysis, reperR
 			}
 			switch {
 			case found:
-				status = "in-repertoire"
+				status = models.MoveStatusInRepertoire
 				if move.IsUserMove {
 					result.MatchScore++
 				}
 			case move.IsUserMove:
-				status = "out-of-repertoire"
+				status = models.MoveStatusOutOfRepertoire
 				expectedMove = expectedMoveForNode(node)
 			default:
-				status = "opponent-new"
+				status = models.MoveStatusOpponentNew
 			}
 		}
 
@@ -909,7 +909,7 @@ func (s *ImportService) ReanalyzeAllGames(userID string, preserveAnalysed bool) 
 
 			// Don't let auto re-analysis retroactively flag a previously non-error game
 			// as an opening error against prep that was added after it was played.
-			if preserveAnalysed && gameStatusFromGame(reanalyzed) == "error" && gameStatusFromGame(*game) != "error" {
+			if preserveAnalysed && gameStatusFromGame(reanalyzed) == models.GameStatusError && gameStatusFromGame(*game) != models.GameStatusError {
 				continue
 			}
 
@@ -1170,12 +1170,12 @@ func (s *ImportService) GetInsights(userID string) (*models.InsightsResponse, er
 			}
 
 			for _, stat := range stats {
-				// Skip the very first move (ply 1-2) - opening choice, not a mistake
-				if stat.PlyNumber <= 2 {
+				// Skip the opening plies (opening choice, not a mistake).
+				if stat.PlyNumber <= config.InsightOpeningPlyFloor {
 					continue
 				}
-				// Only count as mistake if winrate drop >= 2%
-				if stat.WinrateDrop < 0.02 {
+				// Only count as a mistake if the winrate drop is significant.
+				if stat.WinrateDrop < config.InsightMinWinrateDrop {
 					continue
 				}
 
@@ -1199,7 +1199,7 @@ func (s *ImportService) GetInsights(userID string) (*models.InsightsResponse, er
 						data.winrateDrop = stat.WinrateDrop
 						data.bestMove = stat.BestMove
 					}
-					if len(data.games) < 5 {
+					if len(data.games) < config.InsightMaxSampleGames {
 						data.games = append(data.games, models.GameRef{
 							AnalysisID: a.ID,
 							GameIndex:  game.GameIndex,
@@ -1216,7 +1216,7 @@ func (s *ImportService) GetInsights(userID string) (*models.InsightsResponse, er
 	}
 
 	// Convert to slice, filter, and score: winrateDrop * frequency²
-	// Only keep mistakes that appeared in at least 2 games (recurring patterns)
+	// Only keep mistakes that recurred across enough games (recurring patterns).
 	for key, data := range mistakeGroups {
 		// Skip dismissed mistakes and moves that exist in repertoires
 		moveKey := key.FEN + "|" + key.PlayedMove
@@ -1225,7 +1225,7 @@ func (s *ImportService) GetInsights(userID string) (*models.InsightsResponse, er
 		}
 
 		freq := len(data.seen)
-		if freq < 2 {
+		if freq < config.InsightMinMistakeOccurrences {
 			continue
 		}
 		score := data.winrateDrop * float64(freq) * float64(freq)
@@ -1240,10 +1240,10 @@ func (s *ImportService) GetInsights(userID string) (*models.InsightsResponse, er
 		})
 	}
 
-	// Sort by score desc, take top 2
+	// Sort by score desc, take the top mistakes.
 	sortMistakes(response.WorstMistakes)
-	if len(response.WorstMistakes) > 2 {
-		response.WorstMistakes = response.WorstMistakes[:2]
+	if len(response.WorstMistakes) > config.InsightMaxWorstMistakes {
+		response.WorstMistakes = response.WorstMistakes[:config.InsightMaxWorstMistakes]
 	}
 
 	return response, nil
@@ -1257,15 +1257,29 @@ func sortMistakes(mistakes []models.OpeningMistake) {
 	}
 }
 
+// ensureFullFEN normalizes a FEN to its full 6-field form by appending the
+// missing trailing fields (halfmove clock and/or fullmove number) with sensible
+// defaults. A full FEN has six space-separated fields:
+//
+//	<piece placement> <active color> <castling> <en passant> <halfmove> <fullmove>
+//
+// Inputs with 4 fields (placement..en-passant) get " 0 1" appended; inputs with
+// 5 fields (missing only the fullmove number) get " 1" appended. Inputs that are
+// already complete are returned unchanged. Inputs with fewer than 4 fields are
+// structurally malformed and are returned unchanged so that downstream FEN
+// validation (chess.FEN) reports a real error rather than having it masked by an
+// artificially "completed" 7-field string.
 func ensureFullFEN(fen string) string {
 	parts := strings.Fields(fen)
-	if len(parts) >= 6 {
+	switch len(parts) {
+	case 4:
+		return fen + " 0 1"
+	case 5:
+		return fen + " 1"
+	default:
+		// 6+ fields are already full; <4 fields are malformed — leave as-is.
 		return fen
 	}
-	if len(parts) == 4 {
-		return fen + " 0 1"
-	}
-	return fen + " 0 1"
 }
 
 // classifyOutcome returns "win", "loss", or "draw" based on the PGN Result header and user's color.
@@ -1289,19 +1303,19 @@ func classifyOutcome(result string, userColor models.Color) string {
 }
 
 // gameStatusFromGame replicates the repository.computeGameStatus logic.
-func gameStatusFromGame(game models.GameAnalysis) string {
+func gameStatusFromGame(game models.GameAnalysis) models.GameStatus {
 	if game.MatchedRepertoire == nil && len(game.Moves) > 0 {
-		return "new-opening"
+		return models.GameStatusNewOpening
 	}
 	for _, move := range game.Moves {
-		if move.Status == "out-of-repertoire" {
-			return "error"
+		if move.Status == models.MoveStatusOutOfRepertoire {
+			return models.GameStatusError
 		}
-		if move.Status == "opponent-new" {
-			return "new-line"
+		if move.Status == models.MoveStatusOpponentNew {
+			return models.GameStatusNewLine
 		}
 	}
-	return "in-repertoire"
+	return models.GameStatusInRepertoire
 }
 
 // findBranchForGame follows the game's moves through the repertoire tree and returns
@@ -1317,7 +1331,7 @@ func findBranchForGame(root *models.RepertoireNode, moves []models.MoveAnalysis)
 	}
 
 	for _, move := range moves {
-		if move.Status != "in-repertoire" {
+		if move.Status != models.MoveStatusInRepertoire {
 			break
 		}
 
@@ -1428,7 +1442,7 @@ func (s *ImportService) GetDashboardStats(userID string) (*models.DashboardStats
 			}
 
 			status := gameStatusFromGame(game)
-			inRep := status == "in-repertoire"
+			inRep := status == models.GameStatusInRepertoire
 
 			if inRep {
 				resp.InRepCount++
@@ -1483,10 +1497,10 @@ func (s *ImportService) GetDashboardStats(userID string) (*models.DashboardStats
 			if hasMatchedRep {
 				lastInRepMove := ""
 				for _, move := range game.Moves {
-					if move.Status == "in-repertoire" {
+					if move.Status == models.MoveStatusInRepertoire {
 						lastInRepMove = move.SAN
 					}
-					if move.Status == "opponent-new" {
+					if move.Status == models.MoveStatusOpponentNew {
 						gapKey := move.FEN + "|" + move.SAN + "|" + game.MatchedRepertoire.ID
 						acc, ok := gapMap[gapKey]
 						if !ok {
@@ -1512,7 +1526,7 @@ func (s *ImportService) GetDashboardStats(userID string) (*models.DashboardStats
 						}
 						break // Only count the first opponent-new per game
 					}
-					if move.Status == "out-of-repertoire" {
+					if move.Status == models.MoveStatusOutOfRepertoire {
 						break // User deviated first, no opponent gap for this game
 					}
 				}
@@ -1624,10 +1638,10 @@ func (s *ImportService) GetDashboardStats(userID string) (*models.DashboardStats
 		}
 	}
 
-	// Only include gaps that appeared in at least 2 games
+	// Only include gaps that recurred across enough games.
 	for _, acc := range gapMap {
 		total := acc.wins + acc.losses + acc.draws
-		if total < 2 {
+		if total < config.InsightMinGapOccurrences {
 			continue
 		}
 		// Skip dismissed gaps
@@ -1659,9 +1673,9 @@ func (s *ImportService) GetDashboardStats(userID string) (*models.DashboardStats
 			resp.OpponentGaps[j], resp.OpponentGaps[j-1] = resp.OpponentGaps[j-1], resp.OpponentGaps[j]
 		}
 	}
-	// Keep top 10
-	if len(resp.OpponentGaps) > 10 {
-		resp.OpponentGaps = resp.OpponentGaps[:10]
+	// Keep the most frequent opponent gaps.
+	if len(resp.OpponentGaps) > config.InsightMaxOpponentGaps {
+		resp.OpponentGaps = resp.OpponentGaps[:config.InsightMaxOpponentGaps]
 	}
 
 	// --- Build branch stats sorted by gameCount desc ---

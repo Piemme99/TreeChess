@@ -412,7 +412,7 @@ func TestAnalyzeGame_BlackRepertoire(t *testing.T) {
 
 	assert.Len(t, analysis.Moves, 2)
 	assert.False(t, analysis.Moves[0].IsUserMove)
-	assert.Equal(t, "out-of-book", analysis.Moves[0].Status) // Root has no children → out-of-book
+	assert.Equal(t, models.MoveStatusOutOfBook, analysis.Moves[0].Status) // Root has no children → out-of-book
 	assert.True(t, analysis.Moves[1].IsUserMove)
 }
 
@@ -438,8 +438,8 @@ func TestAnalyzeGame_NoRepertoire(t *testing.T) {
 	analysis := svc.analyzeGame(0, games[0], root, models.ColorWhite)
 
 	assert.Len(t, analysis.Moves, 2)
-	assert.Equal(t, "out-of-book", analysis.Moves[0].Status) // Root has no children → out-of-book
-	assert.Equal(t, "out-of-book", analysis.Moves[1].Status) // Still no tree → out-of-book
+	assert.Equal(t, models.MoveStatusOutOfBook, analysis.Moves[0].Status) // Root has no children → out-of-book
+	assert.Equal(t, models.MoveStatusOutOfBook, analysis.Moves[1].Status) // Still no tree → out-of-book
 }
 
 func strPtr(s string) *string {
@@ -660,13 +660,25 @@ func TestEnsureFullFEN_FourParts(t *testing.T) {
 	assert.Equal(t, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", result)
 }
 
-func TestEnsureFullFEN_ShortFEN(t *testing.T) {
+func TestEnsureFullFEN_FiveParts(t *testing.T) {
+	// Five fields: only the fullmove number is missing.
+	fivePartFEN := "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0"
+
+	result := ensureFullFEN(fivePartFEN)
+
+	// Should append only the fullmove number, producing a valid 6-field FEN.
+	assert.Equal(t, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", result)
+}
+
+func TestEnsureFullFEN_MalformedShortFEN(t *testing.T) {
+	// Fewer than four fields is structurally malformed; ensureFullFEN must not
+	// fabricate a "valid-looking" FEN, so it returns the input unchanged and
+	// lets downstream FEN validation report the real error.
 	shortFEN := "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR"
 
 	result := ensureFullFEN(shortFEN)
 
-	// Should add " 0 1" suffix
-	assert.Contains(t, result, "0 1")
+	assert.Equal(t, shortFEN, result)
 }
 
 func TestFindNodeInRepertoire_DeepSearch(t *testing.T) {
@@ -803,7 +815,7 @@ func TestAnalyzeGame_InRepertoire(t *testing.T) {
 	analysis := svc.analyzeGame(0, games[0], root, models.ColorWhite)
 
 	assert.Len(t, analysis.Moves, 2)
-	assert.Equal(t, "in-repertoire", analysis.Moves[0].Status)
+	assert.Equal(t, models.MoveStatusInRepertoire, analysis.Moves[0].Status)
 	assert.True(t, analysis.Moves[0].IsUserMove)
 }
 
@@ -839,7 +851,7 @@ func TestAnalyzeGame_WithExpectedMove(t *testing.T) {
 	analysis := svc.analyzeGame(0, games[0], root, models.ColorWhite)
 
 	assert.Len(t, analysis.Moves, 2)
-	assert.Equal(t, "out-of-repertoire", analysis.Moves[0].Status)
+	assert.Equal(t, models.MoveStatusOutOfRepertoire, analysis.Moves[0].Status)
 	assert.Equal(t, "e4", analysis.Moves[0].ExpectedMove)
 }
 
@@ -887,7 +899,7 @@ func TestAnalyzeGame_ExpectedMovePrefersMainLine(t *testing.T) {
 	analysis := svc.analyzeGame(0, games[0], root, models.ColorWhite)
 
 	require.GreaterOrEqual(t, len(analysis.Moves), 1)
-	assert.Equal(t, "out-of-repertoire", analysis.Moves[0].Status)
+	assert.Equal(t, models.MoveStatusOutOfRepertoire, analysis.Moves[0].Status)
 	assert.Equal(t, "e4", analysis.Moves[0].ExpectedMove, "expected move should follow IsMainLine, not insertion order")
 }
 
@@ -1458,18 +1470,18 @@ func TestAnalyzeGame_RepertoireExhaustion(t *testing.T) {
 
 	require.Len(t, analysis.Moves, 4)
 	// Move 0 (e4): root has child e4 → in-repertoire
-	assert.Equal(t, "in-repertoire", analysis.Moves[0].Status)
+	assert.Equal(t, models.MoveStatusInRepertoire, analysis.Moves[0].Status)
 	// Move 1 (e5): e4-node has child e5 → in-repertoire
-	assert.Equal(t, "in-repertoire", analysis.Moves[1].Status)
+	assert.Equal(t, models.MoveStatusInRepertoire, analysis.Moves[1].Status)
 	// Move 2 (Nf3): e5-node is a leaf (no children) → out-of-book
-	assert.Equal(t, "out-of-book", analysis.Moves[2].Status)
+	assert.Equal(t, models.MoveStatusOutOfBook, analysis.Moves[2].Status)
 	// Move 3 (Nc6): position not in tree → out-of-book
-	assert.Equal(t, "out-of-book", analysis.Moves[3].Status)
+	assert.Equal(t, models.MoveStatusOutOfBook, analysis.Moves[3].Status)
 
 	// Game status should be "ok" because there are no deviations
 	analysis.MatchedRepertoire = &models.RepertoireRef{ID: "rep-1", Name: "Test"}
 	status := gameStatusFromGame(analysis)
-	assert.Equal(t, "in-repertoire", status)
+	assert.Equal(t, models.GameStatusInRepertoire, status)
 }
 
 func TestAnalyzeGame_TrueDeviation(t *testing.T) {
@@ -1514,15 +1526,15 @@ func TestAnalyzeGame_TrueDeviation(t *testing.T) {
 
 	require.Len(t, analysis.Moves, 2)
 	// Move 0 (d4): root has children but d4 not among them → out-of-repertoire
-	assert.Equal(t, "out-of-repertoire", analysis.Moves[0].Status)
+	assert.Equal(t, models.MoveStatusOutOfRepertoire, analysis.Moves[0].Status)
 	assert.Equal(t, "e4", analysis.Moves[0].ExpectedMove)
 	// Move 1 (d5): position after d4 not in tree → out-of-book
-	assert.Equal(t, "out-of-book", analysis.Moves[1].Status)
+	assert.Equal(t, models.MoveStatusOutOfBook, analysis.Moves[1].Status)
 
 	// Game status should be "error" because of the out-of-repertoire move
 	analysis.MatchedRepertoire = &models.RepertoireRef{ID: "rep-1", Name: "Test"}
 	status := gameStatusFromGame(analysis)
-	assert.Equal(t, "error", status)
+	assert.Equal(t, models.GameStatusError, status)
 }
 
 func TestGameStatusFromGame_IgnoresOutOfBook(t *testing.T) {
@@ -1538,7 +1550,7 @@ func TestGameStatusFromGame_IgnoresOutOfBook(t *testing.T) {
 	}
 
 	status := gameStatusFromGame(game)
-	assert.Equal(t, "in-repertoire", status)
+	assert.Equal(t, models.GameStatusInRepertoire, status)
 }
 
 func TestGameStatusFromGame_OutOfRepertoireIsError(t *testing.T) {
@@ -1552,7 +1564,7 @@ func TestGameStatusFromGame_OutOfRepertoireIsError(t *testing.T) {
 	}
 
 	status := gameStatusFromGame(game)
-	assert.Equal(t, "error", status)
+	assert.Equal(t, models.GameStatusError, status)
 }
 
 func TestGameStatusFromGame_OpponentNewIsNewLine(t *testing.T) {
@@ -1566,7 +1578,7 @@ func TestGameStatusFromGame_OpponentNewIsNewLine(t *testing.T) {
 	}
 
 	status := gameStatusFromGame(game)
-	assert.Equal(t, "new-line", status)
+	assert.Equal(t, models.GameStatusNewLine, status)
 }
 
 func TestGameStatusFromGame_NewOpening(t *testing.T) {
@@ -1580,7 +1592,7 @@ func TestGameStatusFromGame_NewOpening(t *testing.T) {
 	}
 
 	status := gameStatusFromGame(game)
-	assert.Equal(t, "new-opening", status)
+	assert.Equal(t, models.GameStatusNewOpening, status)
 }
 
 // --- ReanalyzeAllGames tests ---
@@ -1657,8 +1669,8 @@ func TestReanalyzeAllGames_Basic(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 1, count)
 	require.Len(t, updatedResults, 1)
-	assert.Equal(t, "in-repertoire", updatedResults[0].Moves[0].Status) // e4 is in repertoire
-	assert.Equal(t, "in-repertoire", updatedResults[0].Moves[1].Status) // e5 is in repertoire
+	assert.Equal(t, models.MoveStatusInRepertoire, updatedResults[0].Moves[0].Status) // e4 is in repertoire
+	assert.Equal(t, models.MoveStatusInRepertoire, updatedResults[0].Moves[1].Status) // e5 is in repertoire
 	assert.NotNil(t, updatedResults[0].MatchedRepertoire)
 	assert.Equal(t, "rep-w", updatedResults[0].MatchedRepertoire.ID)
 	assert.Equal(t, 1, updatedResults[0].MatchScore) // 1 user move matched (e4)
@@ -1727,8 +1739,8 @@ func TestReanalyzeAllGames_SharesIndexAcrossManyGames(t *testing.T) {
 	assert.Equal(t, 3, count)
 	require.Len(t, updatedResults, 3)
 	for i := range updatedResults {
-		assert.Equal(t, "in-repertoire", updatedResults[i].Moves[0].Status, "game %d move e4", i)
-		assert.Equal(t, "in-repertoire", updatedResults[i].Moves[1].Status, "game %d move e5", i)
+		assert.Equal(t, models.MoveStatusInRepertoire, updatedResults[i].Moves[0].Status, "game %d move e4", i)
+		assert.Equal(t, models.MoveStatusInRepertoire, updatedResults[i].Moves[1].Status, "game %d move e5", i)
 		require.NotNil(t, updatedResults[i].MatchedRepertoire)
 		assert.Equal(t, "rep-w", updatedResults[i].MatchedRepertoire.ID)
 		assert.Equal(t, 1, updatedResults[i].MatchScore)
@@ -1781,7 +1793,7 @@ func TestReanalyzeAllGames_NoRepertoires(t *testing.T) {
 	require.Len(t, updatedResults, 1)
 	assert.Nil(t, updatedResults[0].MatchedRepertoire)
 	assert.Equal(t, 0, updatedResults[0].MatchScore)
-	assert.Equal(t, "out-of-book", updatedResults[0].Moves[0].Status)
+	assert.Equal(t, models.MoveStatusOutOfBook, updatedResults[0].Moves[0].Status)
 }
 
 func TestReanalyzeAllGames_EmptyAnalyses(t *testing.T) {
@@ -1902,8 +1914,8 @@ func TestReanalyzeAllGames_PreserveAnalysed(t *testing.T) {
 		updated, results := run(false)
 		require.True(t, updated)
 		require.Len(t, results, 1)
-		assert.Equal(t, "out-of-repertoire", results[0].Moves[2].Status)
-		assert.Equal(t, "error", gameStatusFromGame(results[0]))
+		assert.Equal(t, models.MoveStatusOutOfRepertoire, results[0].Moves[2].Status)
+		assert.Equal(t, models.GameStatusError, gameStatusFromGame(results[0]))
 	})
 }
 
@@ -2516,19 +2528,19 @@ func TestAnalyzeTrainingMoves_MatchesRepertoire(t *testing.T) {
 	require.Len(t, resp.Moves, 4)
 	// e4 -> in-repertoire (user move)
 	assert.Equal(t, "e4", resp.Moves[0].SAN)
-	assert.Equal(t, "in-repertoire", resp.Moves[0].Status)
+	assert.Equal(t, models.MoveStatusInRepertoire, resp.Moves[0].Status)
 	assert.True(t, resp.Moves[0].IsUserMove)
 	// e5 -> in-repertoire (opponent)
 	assert.Equal(t, "e5", resp.Moves[1].SAN)
-	assert.Equal(t, "in-repertoire", resp.Moves[1].Status)
+	assert.Equal(t, models.MoveStatusInRepertoire, resp.Moves[1].Status)
 	assert.False(t, resp.Moves[1].IsUserMove)
 	// Nf3 -> in-repertoire (user move)
 	assert.Equal(t, "Nf3", resp.Moves[2].SAN)
-	assert.Equal(t, "in-repertoire", resp.Moves[2].Status)
+	assert.Equal(t, models.MoveStatusInRepertoire, resp.Moves[2].Status)
 	assert.True(t, resp.Moves[2].IsUserMove)
 	// Nc6 -> out-of-book (leaf, no children)
 	assert.Equal(t, "Nc6", resp.Moves[3].SAN)
-	assert.Equal(t, "out-of-book", resp.Moves[3].Status)
+	assert.Equal(t, models.MoveStatusOutOfBook, resp.Moves[3].Status)
 	assert.False(t, resp.Moves[3].IsUserMove)
 }
 
@@ -2549,8 +2561,8 @@ func TestAnalyzeTrainingMoves_NoMatchingRepertoire(t *testing.T) {
 	assert.Nil(t, resp.MatchedRepertoire)
 	assert.Equal(t, 0, resp.MatchScore)
 	require.Len(t, resp.Moves, 2)
-	assert.Equal(t, "out-of-book", resp.Moves[0].Status)
-	assert.Equal(t, "out-of-book", resp.Moves[1].Status)
+	assert.Equal(t, models.MoveStatusOutOfBook, resp.Moves[0].Status)
+	assert.Equal(t, models.MoveStatusOutOfBook, resp.Moves[1].Status)
 }
 
 func TestAnalyzeTrainingMoves_DetectsOutOfRepertoire(t *testing.T) {
@@ -2617,9 +2629,9 @@ func TestAnalyzeTrainingMoves_DetectsOutOfRepertoire(t *testing.T) {
 	assert.Equal(t, 1, resp.MatchScore) // only e4 matched
 
 	require.Len(t, resp.Moves, 3)
-	assert.Equal(t, "in-repertoire", resp.Moves[0].Status)     // e4
-	assert.Equal(t, "in-repertoire", resp.Moves[1].Status)     // e5
-	assert.Equal(t, "out-of-repertoire", resp.Moves[2].Status) // Bc4 (expected Nf3)
+	assert.Equal(t, models.MoveStatusInRepertoire, resp.Moves[0].Status)    // e4
+	assert.Equal(t, models.MoveStatusInRepertoire, resp.Moves[1].Status)    // e5
+	assert.Equal(t, models.MoveStatusOutOfRepertoire, resp.Moves[2].Status) // Bc4 (expected Nf3)
 	assert.Equal(t, "Nf3", resp.Moves[2].ExpectedMove)
 	assert.True(t, resp.Moves[2].IsUserMove)
 }
@@ -2694,13 +2706,13 @@ func TestAnalyzeTrainingMoves_BlackRepertoire(t *testing.T) {
 
 	require.Len(t, resp.Moves, 3)
 	// e4 -> in-repertoire (opponent move for black user)
-	assert.Equal(t, "in-repertoire", resp.Moves[0].Status)
+	assert.Equal(t, models.MoveStatusInRepertoire, resp.Moves[0].Status)
 	assert.False(t, resp.Moves[0].IsUserMove)
 	// e5 -> in-repertoire (user move)
-	assert.Equal(t, "in-repertoire", resp.Moves[1].Status)
+	assert.Equal(t, models.MoveStatusInRepertoire, resp.Moves[1].Status)
 	assert.True(t, resp.Moves[1].IsUserMove)
 	// Nf3 -> out-of-book (leaf)
-	assert.Equal(t, "out-of-book", resp.Moves[2].Status)
+	assert.Equal(t, models.MoveStatusOutOfBook, resp.Moves[2].Status)
 	assert.False(t, resp.Moves[2].IsUserMove)
 }
 

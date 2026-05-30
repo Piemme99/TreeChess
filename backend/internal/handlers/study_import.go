@@ -90,7 +90,14 @@ func (h *StudyImportHandler) ImportStudyHandler(c *echo.Context) error {
 	authToken := h.studyImportService.GetLichessTokenForUser(userID)
 
 	if req.MergeAsOne {
-		mergeResult, err := h.studyImportService.ImportStudyChaptersMerged(userID, studyID, authToken, req.ChapterIndices, req.MergeName, req.IncludeComments, req.IncludeHints, req.RenameStrategy, req.OwnerName)
+		mergeResult, err := h.studyImportService.ImportStudyChaptersMerged(userID, studyID, authToken, services.StudyImportOptions{
+			ChapterIndices:  req.ChapterIndices,
+			MergeName:       req.MergeName,
+			IncludeComments: req.IncludeComments,
+			IncludeHints:    req.IncludeHints,
+			RenameStrategy:  req.RenameStrategy,
+			OwnerName:       req.OwnerName,
+		})
 		if err != nil {
 			if conflictErr := asConflictError(err); conflictErr != nil {
 				return c.JSON(http.StatusConflict, map[string]interface{}{
@@ -131,7 +138,15 @@ func (h *StudyImportHandler) ImportStudyHandler(c *echo.Context) error {
 		return c.JSON(http.StatusCreated, response)
 	}
 
-	result, err := h.studyImportService.ImportStudyChaptersWithCategory(userID, studyID, authToken, req.ChapterIndices, req.CreateCategory, req.CategoryName, req.IncludeComments, req.IncludeHints, req.RenameStrategy, req.OwnerName)
+	result, err := h.studyImportService.ImportStudyChaptersWithCategory(userID, studyID, authToken, services.StudyImportOptions{
+		ChapterIndices:  req.ChapterIndices,
+		CreateCategory:  req.CreateCategory,
+		CategoryName:    req.CategoryName,
+		IncludeComments: req.IncludeComments,
+		IncludeHints:    req.IncludeHints,
+		RenameStrategy:  req.RenameStrategy,
+		OwnerName:       req.OwnerName,
+	})
 	if err != nil {
 		if conflictErr := asConflictError(err); conflictErr != nil {
 			return c.JSON(http.StatusConflict, map[string]interface{}{

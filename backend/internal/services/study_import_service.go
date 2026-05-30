@@ -11,6 +11,34 @@ import (
 	"github.com/kumquat/backend/internal/repository"
 )
 
+// StudyImportOptions bundles the tuning/behaviour parameters for importing a
+// Lichess study. It replaces a long positional parameter list (which had two
+// adjacent untyped bools) so call sites are self-documenting.
+type StudyImportOptions struct {
+	// ChapterIndices selects which chapters (0-based) to import.
+	ChapterIndices []int
+	// IncludeComments keeps per-move comments from the study.
+	IncludeComments bool
+	// IncludeHints keeps arrow/highlight annotations from the study.
+	IncludeHints bool
+	// RenameStrategy controls behaviour when a target name collides with an
+	// existing repertoire for the same user+color. See the RenameStrategy*
+	// constants; an empty value defaults to abort.
+	RenameStrategy string
+	// OwnerName is the resolved owner display name; empty falls back to the
+	// study's owner (or the importing user).
+	OwnerName string
+
+	// CreateCategory, when true (per-chapter import only), creates a category and
+	// assigns the imported repertoires to it.
+	CreateCategory bool
+	// CategoryName is the name of the category to create when CreateCategory is set.
+	CategoryName string
+
+	// MergeName is the name of the single repertoire produced by a merged import.
+	MergeName string
+}
+
 // StudyImportService handles importing Lichess studies as repertoires.
 type StudyImportService struct {
 	lichessService    LichessGameFetcher
@@ -212,7 +240,11 @@ func (s *StudyImportService) existingNamesByColor(userID string) (map[models.Col
 
 // ImportStudyChapters imports selected chapters from a Lichess study as new repertoires.
 func (s *StudyImportService) ImportStudyChapters(userID, studyID, authToken string, chapterIndices []int) ([]models.Repertoire, error) {
-	result, err := s.ImportStudyChaptersWithCategory(userID, studyID, authToken, chapterIndices, false, "", false, true, RenameStrategyAbort)
+	result, err := s.ImportStudyChaptersWithCategory(userID, studyID, authToken, StudyImportOptions{
+		ChapterIndices: chapterIndices,
+		IncludeHints:   true,
+		RenameStrategy: RenameStrategyAbort,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -228,14 +260,16 @@ type parsedChapter struct {
 }
 
 // ImportStudyChaptersWithCategory imports selected chapters with optional category creation.
-// When createCategory is true and chapters are not being merged, it creates a category
-// and assigns all imported repertoires to it.
-//
-// renameStrategy controls behavior when a target name collides with an existing
-// repertoire for the same user+color. See the RenameStrategy* constants.
-// The optional ownerName variadic preserves backward compatibility with callers
-// that don't pass an explicit owner — only the first value is honored.
-func (s *StudyImportService) ImportStudyChaptersWithCategory(userID, studyID, authToken string, chapterIndices []int, createCategory bool, categoryName string, includeComments, includeHints bool, renameStrategy string, ownerName ...string) (*StudyImportResult, error) {
+// When opts.CreateCategory is true, it creates a category and assigns all
+// imported repertoires to it. See StudyImportOptions for the behaviour knobs.
+func (s *StudyImportService) ImportStudyChaptersWithCategory(userID, studyID, authToken string, opts StudyImportOptions) (*StudyImportResult, error) {
+	chapterIndices := opts.ChapterIndices
+	createCategory := opts.CreateCategory
+	categoryName := opts.CategoryName
+	includeComments := opts.IncludeComments
+	includeHints := opts.IncludeHints
+	renameStrategy := opts.RenameStrategy
+
 	pgnData, err := s.lichessService.FetchStudyPGN(studyID, authToken)
 	if err != nil {
 		return nil, err
@@ -377,10 +411,8 @@ func (s *StudyImportService) ImportStudyChaptersWithCategory(userID, studyID, au
 		categoryID = &cat.ID
 	}
 
-	resolvedOwner := ""
-	if len(ownerName) > 0 && ownerName[0] != "" {
-		resolvedOwner = ownerName[0]
-	} else {
+	resolvedOwner := opts.OwnerName
+	if resolvedOwner == "" {
 		meta, metaErr := s.lichessService.FetchStudyMetadata(studyID, authToken)
 		if metaErr == nil && meta != nil {
 			resolvedOwner = meta.Owner.Name
@@ -442,11 +474,16 @@ type MergedStudyImportResult struct {
 	Skipped    []models.SkippedStudyChapter `json:"skipped,omitempty"`
 }
 
-// ImportStudyChaptersMerged imports selected chapters from a Lichess study and merges them into a single repertoire.
-//
-// renameStrategy controls behavior when the merged repertoire name collides
-// with an existing repertoire for the same user+color. See RenameStrategy* constants.
-func (s *StudyImportService) ImportStudyChaptersMerged(userID, studyID, authToken string, chapterIndices []int, mergeName string, includeComments, includeHints bool, renameStrategy string, ownerName ...string) (*MergedStudyImportResult, error) {
+// ImportStudyChaptersMerged imports selected chapters from a Lichess study and
+// merges them into a single repertoire named opts.MergeName. See
+// StudyImportOptions for the behaviour knobs.
+func (s *StudyImportService) ImportStudyChaptersMerged(userID, studyID, authToken string, opts StudyImportOptions) (*MergedStudyImportResult, error) {
+	chapterIndices := opts.ChapterIndices
+	mergeName := opts.MergeName
+	includeComments := opts.IncludeComments
+	includeHints := opts.IncludeHints
+	renameStrategy := opts.RenameStrategy
+
 	pgnData, err := s.lichessService.FetchStudyPGN(studyID, authToken)
 	if err != nil {
 		return nil, err
@@ -571,10 +608,8 @@ func (s *StudyImportService) ImportStudyChaptersMerged(userID, studyID, authToke
 	}
 
 	// Set Lichess origin
-	resolvedOwner := ""
-	if len(ownerName) > 0 && ownerName[0] != "" {
-		resolvedOwner = ownerName[0]
-	} else {
+	resolvedOwner := opts.OwnerName
+	if resolvedOwner == "" {
 		meta, metaErr := s.lichessService.FetchStudyMetadata(studyID, authToken)
 		if metaErr == nil && meta != nil {
 			resolvedOwner = meta.Owner.Name

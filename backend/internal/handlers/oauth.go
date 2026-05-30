@@ -103,7 +103,9 @@ func (h *OAuthHandler) Callback(c *echo.Context) error {
 		return h.redirectWithError(c, "OAuth state mismatch")
 	}
 
-	// Clear the cookie
+	// Clear the cookie. The attributes (Path, SameSite, Secure, HttpOnly) must
+	// match those used when the cookie was set so browsers reliably overwrite
+	// and expire it.
 	c.SetCookie(&http.Cookie{
 		Name:     oauthCookieName,
 		Value:    "",
@@ -111,6 +113,7 @@ func (h *OAuthHandler) Callback(c *echo.Context) error {
 		MaxAge:   -1,
 		HttpOnly: true,
 		Secure:   h.secureCookies,
+		SameSite: http.SameSiteLaxMode,
 	})
 
 	username, lichessID, accessToken, err := h.oauthService.HandleCallback(c.Request().Context(), code, cookieData.CodeVerifier)

@@ -57,9 +57,7 @@ var (
 // RepertoireRepository interface for repository operations
 type RepertoireRepository interface {
 	repository.RepertoireRepository
-	CreateWithCategory(userID, name string, color models.Color, categoryID *string) (*models.Repertoire, error)
-	CreateWithIsPublic(userID, name string, color models.Color, isPublic bool) (*models.Repertoire, error)
-	CreateWithIsPublicAndDescription(userID, name, description string, color models.Color, isPublic bool) (*models.Repertoire, error)
+	CreateRepertoire(userID string, params repository.CreateRepertoireParams) (*models.Repertoire, error)
 	UpdateCategory(id string, userID string, categoryID *string) (*models.Repertoire, error)
 	UpdateVisibility(id string, userID string, isPublic bool) (*models.Repertoire, error)
 	UpdateOrigin(id string, origin *models.RepertoireOrigin) error
@@ -97,6 +95,17 @@ func (s *RepertoireService) ReanalysisQueue() ReanalysisNotifier {
 
 // notifyReanalysis is a no-op when no queue is attached, so unit tests that
 // construct RepertoireService directly remain unaffected.
+//
+// It is invoked by the move-tree mutators (AddNode, DeleteNode, ExtractSubtree,
+// MergeRepertoires, MergeTranspositions, DeleteRepertoire, ...) because those
+// change the set of moves used for adherence analysis.
+//
+// It is intentionally NOT invoked by the cosmetic / view-state mutators
+// (UpdateNodeComment, UpdateNodeBranchName, UpdateNodeBranchColor,
+// UpdateNodeAnnotations, ToggleNodeCollapsed, ExpandToNode, SetMainLine,
+// ClearMainLine). Those edit comments, branch labels/colors, arrows/highlights,
+// collapse state, and main-line flags — none of which alter the analyzable move
+// tree — so re-running analysis would be wasted work.
 func (s *RepertoireService) notifyReanalysis(userID string) {
 	if s.queue != nil {
 		s.queue.Notify(userID)
@@ -136,7 +145,12 @@ func (s *RepertoireService) CreateRepertoireWithVisibility(userID string, name s
 		return nil, ErrLimitReached
 	}
 
-	return s.repo.CreateWithIsPublicAndDescription(userID, name, description, color, isPublic)
+	return s.repo.CreateRepertoire(userID, repository.CreateRepertoireParams{
+		Name:        name,
+		Description: description,
+		Color:       color,
+		IsPublic:    isPublic,
+	})
 }
 
 // CreateRepertoireWithCategory creates a new repertoire with the given name, color, and optional category
@@ -162,7 +176,11 @@ func (s *RepertoireService) CreateRepertoireWithCategory(userID, name string, co
 		return nil, ErrLimitReached
 	}
 
-	return s.repo.CreateWithCategory(userID, name, color, categoryID)
+	return s.repo.CreateRepertoire(userID, repository.CreateRepertoireParams{
+		Name:       name,
+		Color:      color,
+		CategoryID: categoryID,
+	})
 }
 
 // AssignToCategory assigns a repertoire to a category (or removes from category if categoryID is nil)
@@ -215,26 +233,32 @@ func (s *RepertoireService) CheckOwnership(id string, userID string) error {
 	return nil
 }
 
-// UpdateDescription updates the description of a repertoire
+// UpdateDescription updates the description of a repertoire.
+//
+// Existence is enforced by the user-scoped UPDATE in the repository: if no row
+// matches the (id, userID) pair the repo returns repository.ErrRepertoireNotFound,
+// which is mapped to ErrNotFound here. This avoids a separate unscoped Exists()
+// pre-check (which could report "exists" for a repertoire owned by another user).
 func (s *RepertoireService) UpdateDescription(userID, id string, description string) (*models.Repertoire, error) {
 	description = strings.TrimSpace(description)
 	if len(description) > config.MaxRepertoireDescriptionLen {
 		return nil, ErrDescriptionTooLong
 	}
 
-	// Check if repertoire exists
-	exists, err := s.repo.Exists(id)
+	rep, err := s.repo.UpdateDescription(id, userID, description)
 	if err != nil {
-		return nil, fmt.Errorf("failed to check repertoire existence: %w", err)
+		if errors.Is(err, repository.ErrRepertoireNotFound) {
+			return nil, fmt.Errorf("%w: %s", ErrNotFound, id)
+		}
+		return nil, err
 	}
-	if !exists {
-		return nil, fmt.Errorf("%w: %s", ErrNotFound, id)
-	}
-
-	return s.repo.UpdateDescription(id, userID, description)
+	return rep, nil
 }
 
-// RenameRepertoire updates the name of a repertoire
+// RenameRepertoire updates the name of a repertoire.
+//
+// As with UpdateDescription, existence is enforced by the user-scoped UPDATE in
+// the repository rather than a separate unscoped Exists() pre-check.
 func (s *RepertoireService) RenameRepertoire(userID, id string, name string) (*models.Repertoire, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
@@ -244,16 +268,14 @@ func (s *RepertoireService) RenameRepertoire(userID, id string, name string) (*m
 		return nil, ErrNameTooLong
 	}
 
-	// Check if repertoire exists
-	exists, err := s.repo.Exists(id)
+	rep, err := s.repo.UpdateName(id, userID, name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to check repertoire existence: %w", err)
+		if errors.Is(err, repository.ErrRepertoireNotFound) {
+			return nil, fmt.Errorf("%w: %s", ErrNotFound, id)
+		}
+		return nil, err
 	}
-	if !exists {
-		return nil, fmt.Errorf("%w: %s", ErrNotFound, id)
-	}
-
-	return s.repo.UpdateName(id, userID, name)
+	return rep, nil
 }
 
 // DeleteRepertoire deletes a repertoire by ID
@@ -1226,7 +1248,11 @@ func (s *RepertoireService) ImportRepertoire(userID, sourceRepertoireID string) 
 	}
 
 	// Create a new repertoire for the user (private by default when importing)
-	newRep, err := s.repo.CreateWithIsPublicAndDescription(userID, source.Name, source.Description, source.Color, false)
+	newRep, err := s.repo.CreateRepertoire(userID, repository.CreateRepertoireParams{
+		Name:        source.Name,
+		Description: source.Description,
+		Color:       source.Color,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create imported repertoire: %w", err)
 	}
