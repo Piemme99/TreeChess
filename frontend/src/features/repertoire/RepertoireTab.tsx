@@ -6,13 +6,12 @@ import { StudyImportModal } from './shared/components/StudyImportModal';
 import { Loading, ColorDot } from '../../shared/components/UI';
 import { fadeUp } from '../../shared/utils/animations';
 import { usePageTitle } from '../../shared/hooks/usePageTitle';
-import type { Color } from '../../types';
+import type { Color, Repertoire, Category } from '../../types';
 
 export function RepertoireTab() {
   usePageTitle('Repertoires');
   const { whiteRepertoires, blackRepertoires, whiteCategories, blackCategories, loading, repertoires, categories, refresh } = useRepertoires();
   const [showStudyModal, setShowStudyModal] = useState(false);
-  const [activeTab, setActiveTab] = useState<Color>('white');
 
   if (loading && repertoires.length === 0 && categories.length === 0) {
     return (
@@ -22,54 +21,41 @@ export function RepertoireTab() {
     );
   }
 
+  // White and Black are shown at the same hierarchy level (no extra click for
+  // Black) — each colour gets its own section with a self-contained selector.
+  const sections: { color: Color; label: string; reps: Repertoire[]; cats: Category[] }[] = [
+    { color: 'white', label: 'White', reps: whiteRepertoires, cats: whiteCategories },
+    { color: 'black', label: 'Black', reps: blackRepertoires, cats: blackCategories },
+  ];
+
   return (
     <div className="max-w-[960px] mx-auto w-full flex flex-col py-8 px-4 gap-6">
       <motion.h1 variants={fadeUp} initial="hidden" animate="visible" custom={0} className="text-2xl font-bold text-text font-display">Repertoires</motion.h1>
 
-      {/* Tabs */}
-      <motion.div variants={fadeUp} initial="hidden" animate="visible" custom={1} className="flex border-b border-primary/10">
-        <button
-          className={`flex items-center gap-2 px-6 py-3 text-base font-medium transition-colors border-b-2 -mb-px ${
-            activeTab === 'white'
-              ? 'border-primary text-text'
-              : 'border-transparent text-text-muted hover:text-text hover:border-primary/20'
-          }`}
-          onClick={() => setActiveTab('white')}
+      {sections.map((section, i) => (
+        <motion.section
+          key={section.color}
+          variants={fadeUp}
+          initial="hidden"
+          animate="visible"
+          custom={i + 1}
+          className={i > 0 ? 'pt-2 border-t border-primary/10' : undefined}
         >
-          <ColorDot color="white" size="md" />
-          <span>White</span>
-          <span className="text-xs bg-primary-light text-primary px-2 py-0.5 rounded-full text-text-muted">
-            {whiteRepertoires.length}
-          </span>
-        </button>
-        <button
-          className={`flex items-center gap-2 px-6 py-3 text-base font-medium transition-colors border-b-2 -mb-px ${
-            activeTab === 'black'
-              ? 'border-primary text-text'
-              : 'border-transparent text-text-muted hover:text-text hover:border-primary/20'
-          }`}
-          onClick={() => setActiveTab('black')}
-        >
-          <ColorDot color="black" size="md" />
-          <span>Black</span>
-          <span className="text-xs bg-primary-light text-primary px-2 py-0.5 rounded-full text-text-muted">
-            {blackRepertoires.length}
-          </span>
-        </button>
-      </motion.div>
-
-      {/* Tab content */}
-      <motion.div variants={fadeUp} initial="hidden" animate="visible" custom={2} className="mt-2">
-        {activeTab === 'white' ? (
-          <RepertoireSelector color="white" repertoires={whiteRepertoires} categories={whiteCategories} onImportStudy={() => {
-            setShowStudyModal(true);
-          }} />
-        ) : (
-          <RepertoireSelector color="black" repertoires={blackRepertoires} categories={blackCategories} onImportStudy={() => {
-            setShowStudyModal(true);
-          }} />
-        )}
-      </motion.div>
+          <div className="flex items-center gap-2 mb-4">
+            <ColorDot color={section.color} size="md" />
+            <h2 className="text-lg font-semibold text-text font-display">{section.label}</h2>
+            <span className="text-xs bg-primary-light text-text-muted px-2 py-0.5 rounded-full">
+              {section.reps.length}
+            </span>
+          </div>
+          <RepertoireSelector
+            color={section.color}
+            repertoires={section.reps}
+            categories={section.cats}
+            onImportStudy={() => setShowStudyModal(true)}
+          />
+        </motion.section>
+      ))}
 
       <StudyImportModal
         isOpen={showStudyModal}
