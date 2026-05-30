@@ -7,9 +7,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/notnil/chess"
 	"github.com/kumquat/backend/internal/models"
+	"github.com/kumquat/backend/internal/repository"
 	"github.com/kumquat/backend/internal/repository/mocks"
+	"github.com/notnil/chess"
 )
 
 func TestImportService_ParsePGN(t *testing.T) {
@@ -976,6 +977,104 @@ func TestComputeFingerprint_LichessSitePriority(t *testing.T) {
 	fp := ComputeFingerprint(headers, moves)
 
 	assert.Equal(t, "https://lichess.org/abcdefgh", fp)
+}
+
+// --- In-batch deduplication tests ---
+
+// TestParseAndAnalyze_InBatchDuplicate verifies that a PGN containing the same
+// game twice within a single import is persisted only once (issue #121).
+func TestParseAndAnalyze_InBatchDuplicate(t *testing.T) {
+	// No repertoires for either color -> games are analyzed with an empty tree.
+	repertoireRepo := &mocks.MockRepertoireRepo{
+		GetByColorFunc: func(userID string, color models.Color) ([]models.Repertoire, error) {
+			return nil, nil
+		},
+	}
+	repertoireSvc := NewRepertoireService(repertoireRepo)
+
+	// CheckExisting returns no already-persisted games (empty DB).
+	fingerprintRepo := &mocks.MockFingerprintRepo{}
+
+	var savedResults []models.GameAnalysis
+	var savedGameCount int
+	analysisRepo := &mocks.MockAnalysisRepo{
+		SaveFunc: func(userID, username, filename string, gameCount int, results []models.GameAnalysis) (*models.AnalysisSummary, error) {
+			savedGameCount = gameCount
+			savedResults = results
+			return &models.AnalysisSummary{ID: "analysis-1", GameCount: gameCount}, nil
+		},
+	}
+
+	var savedEntries []repository.FingerprintEntry
+	fingerprintRepo.SaveBatchFunc = func(userID, analysisID string, entries []repository.FingerprintEntry) error {
+		savedEntries = entries
+		return nil
+	}
+
+	svc := NewImportService(repertoireSvc, analysisRepo, WithFingerprintRepo(fingerprintRepo))
+
+	// The exact same game appears twice in the same upload (e.g. concatenated PGNs).
+	game := `[Event "Test"]
+[White "Hero"]
+[Black "Villain"]
+[Date "2024.01.01"]
+[Result "1-0"]
+
+1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 1-0`
+	pgnData := game + "\n\n" + game
+
+	summary, results, err := svc.ParseAndAnalyze("dup.pgn", "Hero", "user-1", pgnData)
+
+	require.NoError(t, err)
+	require.NotNil(t, summary)
+
+	// Only one game persisted despite two identical games in the batch.
+	assert.Len(t, results, 1, "duplicate in-batch game should be filtered out")
+	assert.Len(t, savedResults, 1, "analysis Save must receive exactly one game")
+	assert.Equal(t, 1, savedGameCount, "persisted game count must be 1")
+	assert.Equal(t, 1, summary.GameCount)
+	assert.Equal(t, 1, summary.SkippedDuplicates, "the in-batch duplicate must be counted as skipped")
+
+	// Only one fingerprint row is written.
+	assert.Len(t, savedEntries, 1, "exactly one fingerprint entry should be saved")
+}
+
+// TestParseAndAnalyze_NoFingerprintRepo verifies behavior is unchanged (no
+// dedup) when the fingerprint repository is not configured.
+func TestParseAndAnalyze_NoFingerprintRepo(t *testing.T) {
+	repertoireRepo := &mocks.MockRepertoireRepo{
+		GetByColorFunc: func(userID string, color models.Color) ([]models.Repertoire, error) {
+			return nil, nil
+		},
+	}
+	repertoireSvc := NewRepertoireService(repertoireRepo)
+
+	var savedGameCount int
+	analysisRepo := &mocks.MockAnalysisRepo{
+		SaveFunc: func(userID, username, filename string, gameCount int, results []models.GameAnalysis) (*models.AnalysisSummary, error) {
+			savedGameCount = gameCount
+			return &models.AnalysisSummary{ID: "analysis-1", GameCount: gameCount}, nil
+		},
+	}
+
+	svc := NewImportService(repertoireSvc, analysisRepo)
+
+	game := `[Event "Test"]
+[White "Hero"]
+[Black "Villain"]
+[Date "2024.01.01"]
+[Result "1-0"]
+
+1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 1-0`
+	pgnData := game + "\n\n" + game
+
+	summary, results, err := svc.ParseAndAnalyze("dup.pgn", "Hero", "user-1", pgnData)
+
+	require.NoError(t, err)
+	require.NotNil(t, summary)
+	// Without a fingerprint repo there is no dedup, so both games are kept.
+	assert.Len(t, results, 2)
+	assert.Equal(t, 2, savedGameCount)
 }
 
 // --- GetInsights tests ---
