@@ -103,7 +103,7 @@ export function GameAnalysisPage() {
     goPrev,
     goNext,
     goLast
-  } = useChessNavigation(game, showFullGame, initialPly);
+  } = useChessNavigation(game, showFullGame, initialPly, analysisId);
 
   const { currentFEN, lastMove } = useFENComputed(game, currentMoveIndex);
 
