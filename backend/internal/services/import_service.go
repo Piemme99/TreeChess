@@ -392,10 +392,8 @@ func (s *ImportService) analyzeGame(gameIndex int, game *chess.Game, repertoireR
 				status = "in-repertoire"
 			case isUserMove:
 				status = "out-of-repertoire"
-				// Expected move is the first child's move
-				if len(node.Children) > 0 && node.Children[0].Move != nil {
-					expectedMove = *node.Children[0].Move
-				}
+				// Expected move is the explicit main-line child (fallback: first child).
+				expectedMove = expectedMoveForNode(node)
 			default:
 				status = "opponent-new"
 			}
@@ -415,6 +413,33 @@ func (s *ImportService) analyzeGame(gameIndex int, game *chess.Game, repertoireR
 	}
 
 	return analysis
+}
+
+// expectedMoveForNode returns the SAN of the move the repertoire expects from a
+// position, preferring the explicit main-line child and falling back to the
+// first child by insertion order. This mirrors the frontend convention of
+// `children.find(isMainLine) ?? children[0]` so that out-of-repertoire feedback
+// never contradicts the user's chosen main line.
+func expectedMoveForNode(node *models.RepertoireNode) string {
+	if node == nil {
+		return ""
+	}
+	var fallback *models.RepertoireNode
+	for _, child := range node.Children {
+		if child == nil || child.Move == nil {
+			continue
+		}
+		if child.IsMainLine {
+			return *child.Move
+		}
+		if fallback == nil {
+			fallback = child
+		}
+	}
+	if fallback != nil {
+		return *fallback.Move
+	}
+	return ""
 }
 
 // NormalizeFEN strips half-move and full-move counters from a FEN string,
@@ -609,9 +634,7 @@ func (s *ImportService) analyzeGameFromChess(game *chess.Game, repertoire *model
 					status = "in-repertoire"
 				case isUserMove:
 					status = "out-of-repertoire"
-					if len(node.Children) > 0 && node.Children[0].Move != nil {
-						expectedMove = *node.Children[0].Move
-					}
+					expectedMove = expectedMoveForNode(node)
 				default:
 					status = "opponent-new"
 				}
@@ -760,9 +783,7 @@ func (s *ImportService) reanalyzeGameFromMoves(game *models.GameAnalysis, repert
 				}
 			case move.IsUserMove:
 				status = "out-of-repertoire"
-				if len(node.Children) > 0 && node.Children[0].Move != nil {
-					expectedMove = *node.Children[0].Move
-				}
+				expectedMove = expectedMoveForNode(node)
 			default:
 				status = "opponent-new"
 			}

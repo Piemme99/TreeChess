@@ -759,6 +759,90 @@ func TestAnalyzeGame_WithExpectedMove(t *testing.T) {
 	assert.Equal(t, "e4", analysis.Moves[0].ExpectedMove)
 }
 
+// TestAnalyzeGame_ExpectedMovePrefersMainLine verifies that the expected move
+// surfaced on an out-of-repertoire move follows the explicit IsMainLine child,
+// not insertion order, so review never contradicts the user's chosen main line.
+func TestAnalyzeGame_ExpectedMovePrefersMainLine(t *testing.T) {
+	svc := NewImportService(nil, nil)
+
+	// User plays d4, but the repertoire's main line is e4 (added second).
+	pgnData := `[Event "Test"]
+[White "A"]
+[Black "B"]
+1. d4 d5 1-0`
+
+	games, err := svc.parsePGN(pgnData)
+	require.NoError(t, err)
+	require.Len(t, games, 1)
+
+	moveC4 := "c4"
+	moveE4 := "e4"
+	root := models.RepertoireNode{
+		ID:          "root",
+		FEN:         "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -",
+		ColorToMove: models.ChessColorWhite,
+		Children: []*models.RepertoireNode{
+			// First by insertion order, but NOT the main line.
+			{
+				ID:          "c4",
+				FEN:         "rnbqkbnr/pppppppp/8/8/2P5/8/PP1PPPPP/RNBQKBNR b KQkq c3",
+				Move:        &moveC4,
+				ColorToMove: models.ChessColorBlack,
+			},
+			// Explicit main line — should be the expected move.
+			{
+				ID:          "e4",
+				FEN:         "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3",
+				Move:        &moveE4,
+				ColorToMove: models.ChessColorBlack,
+				IsMainLine:  true,
+			},
+		},
+	}
+
+	analysis := svc.analyzeGame(0, games[0], root, models.ColorWhite)
+
+	require.GreaterOrEqual(t, len(analysis.Moves), 1)
+	assert.Equal(t, "out-of-repertoire", analysis.Moves[0].Status)
+	assert.Equal(t, "e4", analysis.Moves[0].ExpectedMove, "expected move should follow IsMainLine, not insertion order")
+}
+
+// TestExpectedMoveForNode covers the helper directly across edge cases.
+func TestExpectedMoveForNode(t *testing.T) {
+	a := "a"
+	b := "b"
+	c := "c"
+
+	t.Run("nil node", func(t *testing.T) {
+		assert.Equal(t, "", expectedMoveForNode(nil))
+	})
+
+	t.Run("no children", func(t *testing.T) {
+		assert.Equal(t, "", expectedMoveForNode(&models.RepertoireNode{}))
+	})
+
+	t.Run("falls back to first child when none is main line", func(t *testing.T) {
+		node := &models.RepertoireNode{Children: []*models.RepertoireNode{
+			{Move: &a}, {Move: &b},
+		}}
+		assert.Equal(t, "a", expectedMoveForNode(node))
+	})
+
+	t.Run("prefers main line over insertion order", func(t *testing.T) {
+		node := &models.RepertoireNode{Children: []*models.RepertoireNode{
+			{Move: &a}, {Move: &b, IsMainLine: true}, {Move: &c},
+		}}
+		assert.Equal(t, "b", expectedMoveForNode(node))
+	})
+
+	t.Run("skips children without a move", func(t *testing.T) {
+		node := &models.RepertoireNode{Children: []*models.RepertoireNode{
+			{Move: nil}, {Move: &b},
+		}}
+		assert.Equal(t, "b", expectedMoveForNode(node))
+	})
+}
+
 func TestParsePGN_WithComments(t *testing.T) {
 	svc := NewImportService(nil, nil)
 

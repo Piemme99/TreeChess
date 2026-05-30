@@ -910,6 +910,86 @@ func TestRepertoireService_AddNode_Success(t *testing.T) {
 	assert.Equal(t, "e4", *rep.TreeData.Children[0].Move)
 }
 
+// TestRepertoireService_AddNode_DerivesMoveNumber verifies that AddNode computes
+// MoveNumber server-side from the parent (full-move counter), ignoring a bogus
+// client-supplied value, so transposition keys stay consistent.
+func TestRepertoireService_AddNode_DerivesMoveNumber(t *testing.T) {
+	moveE4 := "e4"
+	moveE5 := "e5"
+	// root (move 0, white to move) -> e4 (move 1, black to move) -> e5 (move 1, white to move)
+	mockRepo := &mocks.MockRepertoireRepo{
+		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+			return &models.Repertoire{
+				ID:    id,
+				Color: models.ColorWhite,
+				TreeData: models.RepertoireNode{
+					ID:          "root",
+					FEN:         "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -",
+					MoveNumber:  0,
+					ColorToMove: models.ChessColorWhite,
+					Children: []*models.RepertoireNode{
+						{
+							ID:          "e4",
+							FEN:         "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3",
+							Move:        &moveE4,
+							MoveNumber:  1,
+							ColorToMove: models.ChessColorBlack,
+							Children: []*models.RepertoireNode{
+								{
+									ID:          "e5",
+									FEN:         "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6",
+									Move:        &moveE5,
+									MoveNumber:  1,
+									ColorToMove: models.ChessColorWhite,
+									Children:    []*models.RepertoireNode{},
+								},
+							},
+						},
+					},
+				},
+			}, nil
+		},
+		SaveFunc: func(id string, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
+			return &models.Repertoire{ID: id, TreeData: treeData, Metadata: metadata}, nil
+		},
+	}
+	svc := NewRepertoireService(mockRepo)
+
+	// White move from root: derived MoveNumber must be 1, regardless of the
+	// (deliberately wrong) client value 99.
+	rep, err := svc.AddNode("user-1", "rep-1", models.AddNodeRequest{
+		ParentID:   "root",
+		Move:       "d4",
+		MoveNumber: 99,
+	})
+	require.NoError(t, err)
+	d4 := findNodeByMove(&rep.TreeData, "d4")
+	require.NotNil(t, d4)
+	assert.Equal(t, 1, d4.MoveNumber, "white move from root should be full-move 1")
+
+	// Black move from e4 (parent MoveNumber 1, black to move): completes move 1.
+	rep, err = svc.AddNode("user-1", "rep-1", models.AddNodeRequest{
+		ParentID:   "e4",
+		Move:       "c5",
+		MoveNumber: 0,
+	})
+	require.NoError(t, err)
+	c5 := findNodeByMove(&rep.TreeData, "c5")
+	require.NotNil(t, c5)
+	assert.Equal(t, 1, c5.MoveNumber, "black move completing first full move should be move 1")
+
+	// White move from e5 (parent MoveNumber 1, white to move): starts move 2.
+	rep, err = svc.AddNode("user-1", "rep-1", models.AddNodeRequest{
+		ParentID:   "e5",
+		Move:       "Nf3",
+		MoveNumber: 0,
+	})
+	require.NoError(t, err)
+	nf3 := findNodeByMove(&rep.TreeData, "Nf3")
+	require.NotNil(t, nf3)
+	assert.Equal(t, 2, nf3.MoveNumber, "second white move should be full-move 2")
+}
+
 func TestRepertoireService_AddNode_RepertoireNotFound(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
 		GetByIDFunc: func(id string) (*models.Repertoire, error) {
@@ -2509,4 +2589,20 @@ func TestRepertoireService_CreateRepertoire_DefaultsToPrivate(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.False(t, receivedIsPublic, "CreateRepertoire should default to private (isPublic=false)")
+}
+
+// findNodeByMove recursively finds the first node whose Move equals the given SAN.
+func findNodeByMove(root *models.RepertoireNode, san string) *models.RepertoireNode {
+	if root == nil {
+		return nil
+	}
+	if root.Move != nil && *root.Move == san {
+		return root
+	}
+	for _, child := range root.Children {
+		if found := findNodeByMove(child, san); found != nil {
+			return found
+		}
+	}
+	return nil
 }
