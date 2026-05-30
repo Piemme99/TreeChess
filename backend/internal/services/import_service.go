@@ -698,14 +698,14 @@ func (s *ImportService) GetAnalyses(userID string) ([]models.AnalysisSummary, er
 	return analyses, nil
 }
 
-// GetAnalysisByID returns detailed analysis by ID
-func (s *ImportService) GetAnalysisByID(id string) (*models.AnalysisDetail, error) {
-	return s.analysisRepo.GetByID(id)
+// GetAnalysisByID returns detailed analysis by ID, scoped to the owning user
+func (s *ImportService) GetAnalysisByID(id string, userID string) (*models.AnalysisDetail, error) {
+	return s.analysisRepo.GetByID(id, userID)
 }
 
-// DeleteAnalysis deletes an analysis by ID
-func (s *ImportService) DeleteAnalysis(id string) error {
-	return s.analysisRepo.Delete(id)
+// DeleteAnalysis deletes an analysis by ID, scoped to the owning user
+func (s *ImportService) DeleteAnalysis(id string, userID string) error {
+	return s.analysisRepo.Delete(id, userID)
 }
 
 // GetAllGames returns all games from all analyses with pagination for a user
@@ -739,9 +739,9 @@ func (s *ImportService) CheckOwnership(id string, userID string) error {
 	return nil
 }
 
-// ReanalyzeGame re-analyzes a specific game against a different repertoire
-func (s *ImportService) ReanalyzeGame(analysisID string, gameIndex int, repertoireID string) (*models.GameAnalysis, error) {
-	detail, err := s.analysisRepo.GetByID(analysisID)
+// ReanalyzeGame re-analyzes a specific game against a different repertoire, scoped to the owning user
+func (s *ImportService) ReanalyzeGame(analysisID string, userID string, gameIndex int, repertoireID string) (*models.GameAnalysis, error) {
+	detail, err := s.analysisRepo.GetByID(analysisID, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -759,7 +759,7 @@ func (s *ImportService) ReanalyzeGame(analysisID string, gameIndex int, repertoi
 		return nil, repository.ErrGameNotFound
 	}
 
-	repertoire, err := s.repertoireService.GetRepertoire(repertoireID)
+	repertoire, err := s.repertoireService.GetRepertoire(repertoireID, userID)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrRepertoireNotFound, err)
 	}
@@ -771,7 +771,7 @@ func (s *ImportService) ReanalyzeGame(analysisID string, gameIndex int, repertoi
 	reanalyzedGame := s.reanalyzeGameFromMoves(targetGame, repertoire)
 
 	detail.Results[targetIdx] = reanalyzedGame
-	err = s.analysisRepo.UpdateResults(analysisID, detail.Results)
+	err = s.analysisRepo.UpdateResults(analysisID, userID, detail.Results)
 	if err != nil {
 		return nil, fmt.Errorf("failed to save reanalyzed game: %w", err)
 	}
@@ -918,7 +918,7 @@ func (s *ImportService) ReanalyzeAllGames(userID string, preserveAnalysed bool) 
 		}
 
 		if modified {
-			if err := s.analysisRepo.UpdateResults(a.ID, a.Results); err != nil {
+			if err := s.analysisRepo.UpdateResults(a.ID, userID, a.Results); err != nil {
 				return 0, fmt.Errorf("failed to update analysis %s: %w", a.ID, err)
 			}
 		}
@@ -1524,7 +1524,7 @@ func (s *ImportService) GetDashboardStats(userID string) (*models.DashboardStats
 
 				// Lazy-load repertoire tree
 				if _, cached := repTreeCache[repID]; !cached {
-					rep, err := s.repertoireService.GetRepertoire(repID)
+					rep, err := s.repertoireService.GetRepertoire(repID, userID)
 					if err != nil {
 						// Repertoire may have been deleted; skip branch stats
 						repTreeCache[repID] = nil

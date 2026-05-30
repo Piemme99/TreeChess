@@ -148,7 +148,7 @@ func (m *MockRepertoireService) SaveTree(userID, repertoireID string, treeData m
 	return nil, nil
 }
 
-func (m *MockRepertoireService) SetOrigin(repertoireID string, origin *models.RepertoireOrigin) error {
+func (m *MockRepertoireService) SetOrigin(repertoireID, userID string, origin *models.RepertoireOrigin) error {
 	if m.SetOriginFunc != nil {
 		return m.SetOriginFunc(repertoireID, origin)
 	}

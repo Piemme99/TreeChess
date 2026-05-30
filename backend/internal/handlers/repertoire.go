@@ -125,7 +125,7 @@ func GetRepertoireHandler(svc *services.RepertoireService) echo.HandlerFunc {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "repertoire not found"})
 		}
 
-		rep, err := svc.GetRepertoire(idParam)
+		rep, err := svc.GetRepertoire(idParam, userID)
 		if err != nil {
 			if errors.Is(err, services.ErrNotFound) {
 				return c.JSON(http.StatusNotFound, map[string]string{

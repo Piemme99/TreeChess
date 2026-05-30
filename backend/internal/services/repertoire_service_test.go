@@ -838,7 +838,7 @@ func TestRepertoireService_GetRepertoire_Success(t *testing.T) {
 	}
 	svc := NewRepertoireService(mockRepo)
 
-	rep, err := svc.GetRepertoire("rep-1")
+	rep, err := svc.GetRepertoire("rep-1", "user-1")
 
 	require.NoError(t, err)
 	assert.Equal(t, "rep-1", rep.ID)
@@ -852,7 +852,7 @@ func TestRepertoireService_GetRepertoire_NotFound(t *testing.T) {
 	}
 	svc := NewRepertoireService(mockRepo)
 
-	_, err := svc.GetRepertoire("nonexistent")
+	_, err := svc.GetRepertoire("nonexistent", "user-1")
 
 	assert.Error(t, err)
 	assert.ErrorIs(t, err, ErrNotFound)
@@ -866,7 +866,7 @@ func TestRepertoireService_GetRepertoire_RepoError(t *testing.T) {
 	}
 	svc := NewRepertoireService(mockRepo)
 
-	_, err := svc.GetRepertoire("rep-1")
+	_, err := svc.GetRepertoire("rep-1", "user-1")
 
 	assert.Error(t, err)
 	assert.ErrorIs(t, err, assert.AnError)

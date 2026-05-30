@@ -413,7 +413,7 @@ func (s *StudyImportService) ImportStudyChaptersWithCategory(userID, studyID, au
 			return nil, fmt.Errorf("failed to save tree for chapter %d: %w", pc.index, saveErr)
 		}
 
-		if setErr := s.repertoireService.SetOrigin(saved.ID, origin); setErr != nil {
+		if setErr := s.repertoireService.SetOrigin(saved.ID, userID, origin); setErr != nil {
 			slog.Error("failed to set origin on imported repertoire", "repertoire_id", saved.ID, "error", setErr)
 		} else {
 			saved.Origin = origin
@@ -586,7 +586,7 @@ func (s *StudyImportService) ImportStudyChaptersMerged(userID, studyID, authToke
 		URL:     fmt.Sprintf("https://lichess.org/study/%s", studyID),
 		Creator: resolvedOwner,
 	}
-	if setErr := s.repertoireService.SetOrigin(saved.ID, origin); setErr != nil {
+	if setErr := s.repertoireService.SetOrigin(saved.ID, userID, origin); setErr != nil {
 		slog.Error("failed to set origin on merged repertoire", "repertoire_id", saved.ID, "error", setErr)
 	} else {
 		saved.Origin = origin

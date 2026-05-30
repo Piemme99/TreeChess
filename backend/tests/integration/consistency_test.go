@@ -46,11 +46,11 @@ func TestCascadeDelete_Analysis(t *testing.T) {
 	assert.NotEmpty(t, viewed)
 
 	// Delete the analysis
-	err = importSvc.DeleteAnalysis(summary.ID)
+	err = importSvc.DeleteAnalysis(summary.ID, user.ID)
 	require.NoError(t, err)
 
 	// Verify all cascaded deletes
-	_, err = repos.Analysis.GetByID(summary.ID)
+	_, err = repos.Analysis.GetByID(summary.ID, user.ID)
 	assert.ErrorIs(t, err, repository.ErrAnalysisNotFound)
 
 	evals, err = repos.EngineEval.GetByUser(user.ID)
@@ -145,7 +145,7 @@ func TestConcurrentRepertoireWrites(t *testing.T) {
 	close(errCh)
 
 	// Some may have conflicted, but the final state should be consistent
-	got, err := svc.GetRepertoire(rep.ID)
+	got, err := svc.GetRepertoire(rep.ID, user.ID)
 	require.NoError(t, err)
 
 	// Root -> e4 -> children

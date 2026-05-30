@@ -33,7 +33,7 @@ type UserRepository interface {
 
 // RepertoireRepository defines the interface for repertoire data operations
 type RepertoireRepository interface {
-	GetByID(id string) (*models.Repertoire, error)
+	GetByID(id string, userID string) (*models.Repertoire, error)
 	GetByColor(userID string, color models.Color) ([]models.Repertoire, error)
 	GetAll(userID string) ([]models.Repertoire, error)
 	Create(userID string, name string, color models.Color) (*models.Repertoire, error)
@@ -88,10 +88,10 @@ type DismissedGapRepository interface {
 type AnalysisRepository interface {
 	Save(userID string, username, filename string, gameCount int, results []models.GameAnalysis) (*models.AnalysisSummary, error)
 	GetAll(userID string) ([]models.AnalysisSummary, error)
-	GetByID(id string) (*models.AnalysisDetail, error)
-	Delete(id string) error
+	GetByID(id string, userID string) (*models.AnalysisDetail, error)
+	Delete(id string, userID string) error
 	GetAllGames(userID string, limit, offset int, timeClass, repertoire, source string, onlyNew bool) (*models.GamesResponse, error)
-	UpdateResults(analysisID string, results []models.GameAnalysis) error
+	UpdateResults(analysisID string, userID string, results []models.GameAnalysis) error
 	BelongsToUser(id string, userID string) (bool, error)
 	GetDistinctRepertoires(userID string) ([]models.RepertoireFilterOption, error)
 	MarkGameViewed(userID, analysisID string, gameIndex int) error

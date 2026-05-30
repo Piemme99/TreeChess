@@ -18,7 +18,7 @@ const (
 	getRepertoireByIDSQL = `
 		SELECT id, name, description, color, is_public, category_id, tree_data, metadata, origin_type, origin_url, origin_creator, created_at, updated_at
 		FROM repertoires
-		WHERE id = $1
+		WHERE id = $1 AND user_id = $2
 	`
 	getRepertoiresByColorSQL = `
 		SELECT id, name, description, color, is_public, category_id, tree_data, metadata, origin_type, origin_url, origin_creator, created_at, updated_at
@@ -87,7 +87,7 @@ const (
 	updateRepertoireOriginSQL = `
 		UPDATE repertoires
 		SET origin_type = $2, origin_url = $3, origin_creator = $4
-		WHERE id = $1
+		WHERE id = $1 AND user_id = $5
 	`
 	getAllPublicRepertoiresSQL = `
 		SELECT r.id, r.name, r.description, r.color, r.is_public, NULL AS category_id, r.tree_data, r.metadata, r.origin_type, r.origin_url, r.origin_creator, r.created_at, r.updated_at,
@@ -143,8 +143,8 @@ func buildOrigin(originType, originURL, originCreator *string) *models.Repertoir
 	return origin
 }
 
-// GetByID retrieves a repertoire by its UUID
-func (r *PostgresRepertoireRepo) GetByID(id string) (*models.Repertoire, error) {
+// GetByID retrieves a repertoire by its UUID, scoped to the owning user
+func (r *PostgresRepertoireRepo) GetByID(id string, userID string) (*models.Repertoire, error) {
 	ctx, cancel := dbContext()
 	defer cancel()
 
@@ -152,7 +152,7 @@ func (r *PostgresRepertoireRepo) GetByID(id string) (*models.Repertoire, error) 
 	var treeDataJSON, metadataJSON []byte
 	var originType, originURL, originCreator *string
 
-	err := r.pool.QueryRow(ctx, getRepertoireByIDSQL, id).Scan(
+	err := r.pool.QueryRow(ctx, getRepertoireByIDSQL, id, userID).Scan(
 		&rep.ID,
 		&rep.Name,
 		&rep.Description,
@@ -705,8 +705,8 @@ func (r *PostgresRepertoireRepo) UpdateVisibility(id string, userID string, isPu
 	return &rep, nil
 }
 
-// UpdateOrigin sets the origin fields on a repertoire
-func (r *PostgresRepertoireRepo) UpdateOrigin(id string, origin *models.RepertoireOrigin) error {
+// UpdateOrigin sets the origin fields on a repertoire, scoped to the owning user
+func (r *PostgresRepertoireRepo) UpdateOrigin(id string, userID string, origin *models.RepertoireOrigin) error {
 	ctx, cancel := dbContext()
 	defer cancel()
 
@@ -721,9 +721,12 @@ func (r *PostgresRepertoireRepo) UpdateOrigin(id string, origin *models.Repertoi
 		}
 	}
 
-	_, err := r.pool.Exec(ctx, updateRepertoireOriginSQL, id, originType, originURL, originCreator)
+	result, err := r.pool.Exec(ctx, updateRepertoireOriginSQL, id, originType, originURL, originCreator, userID)
 	if err != nil {
 		return fmt.Errorf("failed to update repertoire origin: %w", err)
+	}
+	if result.RowsAffected() == 0 {
+		return ErrRepertoireNotFound
 	}
 	return nil
 }

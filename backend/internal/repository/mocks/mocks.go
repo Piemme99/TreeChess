@@ -116,7 +116,7 @@ type MockRepertoireRepo struct {
 	UpdateOriginFunc              func(id string, origin *models.RepertoireOrigin) error
 }
 
-func (m *MockRepertoireRepo) GetByID(id string) (*models.Repertoire, error) {
+func (m *MockRepertoireRepo) GetByID(id string, userID string) (*models.Repertoire, error) {
 	if m.GetByIDFunc != nil {
 		return m.GetByIDFunc(id)
 	}
@@ -276,7 +276,7 @@ func (m *MockRepertoireRepo) GetOwnerID(id string) (string, error) {
 	return "", nil
 }
 
-func (m *MockRepertoireRepo) UpdateOrigin(id string, origin *models.RepertoireOrigin) error {
+func (m *MockRepertoireRepo) UpdateOrigin(id string, userID string, origin *models.RepertoireOrigin) error {
 	if m.UpdateOriginFunc != nil {
 		return m.UpdateOriginFunc(id, origin)
 	}
@@ -312,14 +312,14 @@ func (m *MockAnalysisRepo) GetAll(userID string) ([]models.AnalysisSummary, erro
 	return nil, nil
 }
 
-func (m *MockAnalysisRepo) GetByID(id string) (*models.AnalysisDetail, error) {
+func (m *MockAnalysisRepo) GetByID(id string, userID string) (*models.AnalysisDetail, error) {
 	if m.GetByIDFunc != nil {
 		return m.GetByIDFunc(id)
 	}
 	return nil, nil
 }
 
-func (m *MockAnalysisRepo) Delete(id string) error {
+func (m *MockAnalysisRepo) Delete(id string, userID string) error {
 	if m.DeleteFunc != nil {
 		return m.DeleteFunc(id)
 	}
@@ -333,7 +333,7 @@ func (m *MockAnalysisRepo) GetAllGames(userID string, limit, offset int, timeCla
 	return nil, nil
 }
 
-func (m *MockAnalysisRepo) UpdateResults(analysisID string, results []models.GameAnalysis) error {
+func (m *MockAnalysisRepo) UpdateResults(analysisID string, userID string, results []models.GameAnalysis) error {
 	if m.UpdateResultsFunc != nil {
 		return m.UpdateResultsFunc(analysisID, results)
 	}
@@ -504,7 +504,7 @@ type MockCategoryRepo struct {
 	CountFunc             func(userID string) (int, error)
 }
 
-func (m *MockCategoryRepo) GetByID(id string) (*models.Category, error) {
+func (m *MockCategoryRepo) GetByID(id, userID string) (*models.Category, error) {
 	if m.GetByIDFunc != nil {
 		return m.GetByIDFunc(id)
 	}
@@ -532,14 +532,14 @@ func (m *MockCategoryRepo) Create(userID, name string, color models.Color) (*mod
 	return nil, nil
 }
 
-func (m *MockCategoryRepo) UpdateName(id, name string) (*models.Category, error) {
+func (m *MockCategoryRepo) UpdateName(id, userID, name string) (*models.Category, error) {
 	if m.UpdateNameFunc != nil {
 		return m.UpdateNameFunc(id, name)
 	}
 	return nil, nil
 }
 
-func (m *MockCategoryRepo) Delete(id string) error {
+func (m *MockCategoryRepo) Delete(id, userID string) error {
 	if m.DeleteFunc != nil {
 		return m.DeleteFunc(id)
 	}

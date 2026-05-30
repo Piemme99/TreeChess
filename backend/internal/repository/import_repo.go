@@ -30,11 +30,11 @@ const (
 	getAnalysisByIDSQL = `
 		SELECT id, username, filename, game_count, results, uploaded_at
 		FROM analyses
-		WHERE id = $1
+		WHERE id = $1 AND user_id = $2
 	`
 	deleteAnalysisSQL = `
 		DELETE FROM analyses
-		WHERE id = $1
+		WHERE id = $1 AND user_id = $2
 	`
 	getAllGamesSQL = `
 		SELECT id, filename, results, uploaded_at
@@ -48,7 +48,7 @@ const (
 	updateAnalysisResultsSQL = `
 		UPDATE analyses
 		SET results = $2, game_count = $3
-		WHERE id = $1
+		WHERE id = $1 AND user_id = $4
 	`
 )
 
@@ -126,15 +126,15 @@ func (r *PostgresAnalysisRepo) GetAll(userID string) ([]models.AnalysisSummary, 
 	return analyses, nil
 }
 
-// GetByID returns analysis details by ID
-func (r *PostgresAnalysisRepo) GetByID(id string) (*models.AnalysisDetail, error) {
+// GetByID returns analysis details by ID, scoped to the owning user
+func (r *PostgresAnalysisRepo) GetByID(id string, userID string) (*models.AnalysisDetail, error) {
 	ctx, cancel := dbContext()
 	defer cancel()
 
 	var detail models.AnalysisDetail
 	var resultsJSON []byte
 
-	err := r.pool.QueryRow(ctx, getAnalysisByIDSQL, id).Scan(
+	err := r.pool.QueryRow(ctx, getAnalysisByIDSQL, id, userID).Scan(
 		&detail.ID,
 		&detail.Username,
 		&detail.Filename,
@@ -156,12 +156,12 @@ func (r *PostgresAnalysisRepo) GetByID(id string) (*models.AnalysisDetail, error
 	return &detail, nil
 }
 
-// Delete deletes an analysis by ID
-func (r *PostgresAnalysisRepo) Delete(id string) error {
+// Delete deletes an analysis by ID, scoped to the owning user
+func (r *PostgresAnalysisRepo) Delete(id string, userID string) error {
 	ctx, cancel := dbContext()
 	defer cancel()
 
-	result, err := r.pool.Exec(ctx, deleteAnalysisSQL, id)
+	result, err := r.pool.Exec(ctx, deleteAnalysisSQL, id, userID)
 	if err != nil {
 		return fmt.Errorf("failed to delete analysis: %w", err)
 	}
@@ -284,8 +284,8 @@ func (r *PostgresAnalysisRepo) GetAllGames(userID string, limit, offset int, tim
 	}, nil
 }
 
-// UpdateResults updates the results array of an existing analysis
-func (r *PostgresAnalysisRepo) UpdateResults(analysisID string, results []models.GameAnalysis) error {
+// UpdateResults updates the results array of an existing analysis, scoped to the owning user
+func (r *PostgresAnalysisRepo) UpdateResults(analysisID string, userID string, results []models.GameAnalysis) error {
 	ctx, cancel := dbContext()
 	defer cancel()
 
@@ -294,7 +294,7 @@ func (r *PostgresAnalysisRepo) UpdateResults(analysisID string, results []models
 		return fmt.Errorf("failed to marshal results: %w", err)
 	}
 
-	result, err := r.pool.Exec(ctx, updateAnalysisResultsSQL, analysisID, resultsJSON, len(results))
+	result, err := r.pool.Exec(ctx, updateAnalysisResultsSQL, analysisID, resultsJSON, len(results), userID)
 	if err != nil {
 		return fmt.Errorf("failed to update analysis results: %w", err)
 	}
