@@ -52,6 +52,21 @@ interface StaticBoardProps {
 
 const DEFAULT_ARROW_COLOR = 'rgb(255,170,0)';
 
+// Allowlist of color formats safe to interpolate into raw SVG markup. Matches
+// #rgb / #rgba / #rrggbb / #rrggbbaa hex, rgb()/rgba() functions, and plain
+// CSS named colors (letters only). Anything else (e.g. markup, url(), unclosed
+// quotes) is rejected to prevent SVG/attribute injection.
+const SAFE_COLOR_RE =
+  /^(#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})|rgba?\([\d.,\s%]+\)|[a-z]+)$/i;
+
+/** Returns a color string safe to interpolate into raw SVG, or the default. */
+function safeArrowColor(color: string | undefined): string {
+  if (color && SAFE_COLOR_RE.test(color.trim())) {
+    return color.trim();
+  }
+  return DEFAULT_ARROW_COLOR;
+}
+
 // Board dimensions in the viewBox coordinate system
 const SQUARE_SIZE = 45; // 360 / 8
 
@@ -86,7 +101,7 @@ function buildArrowsSVG(arrows: [string, string, string?][], flipped: boolean): 
   for (let i = 0; i < arrows.length; i++) {
     const [from, to, color] = arrows[i];
     if (from === to) continue;
-    const arrowColor = color || DEFAULT_ARROW_COLOR;
+    const arrowColor = safeArrowColor(color);
     const markerId = `ah${i}`;
     const p1 = squareToPixel(from, flipped);
     const p2 = squareToPixel(to, flipped);
