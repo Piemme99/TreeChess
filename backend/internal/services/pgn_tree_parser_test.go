@@ -443,6 +443,92 @@ func TestParsePGNToTree_CommentsAttached(t *testing.T) {
 	assert.Nil(t, nf3.Comment)
 }
 
+// assertWellFormedTree walks the parsed tree and asserts the invariants we rely
+// on downstream: no nil child pointers, every node has a non-empty FEN, and every
+// non-root node carries a move. It is used by the malformed-input tests to pin the
+// parser's "degrade gracefully, never produce a broken tree" behaviour.
+func assertWellFormedTree(t *testing.T, node *models.RepertoireNode, isRoot bool) {
+	t.Helper()
+	require.NotNil(t, node, "tree node must not be nil")
+	assert.NotEmpty(t, node.FEN, "every node must have a FEN")
+	if isRoot {
+		assert.Nil(t, node.Move, "root node must not have a move")
+	} else {
+		require.NotNil(t, node.Move, "non-root node must have a move")
+		assert.NotEmpty(t, *node.Move, "non-root node move must be non-empty")
+	}
+	for _, child := range node.Children {
+		require.NotNil(t, child, "child pointers must not be nil")
+		assertWellFormedTree(t, child, false)
+	}
+}
+
+// TestParsePGNToTree_MalformedInput pins the parser's defensive handling of
+// untrusted, structurally broken movetext. None of these inputs may panic; the
+// parser must either return an error or a well-formed tree.
+func TestParsePGNToTree_MalformedInput(t *testing.T) {
+	tests := []struct {
+		name string
+		pgn  string
+	}{
+		{"unbalanced open paren", `1. e4 e5 (1... c5 2. Nf3 *`},
+		{"unbalanced close paren", `1. e4 e5) 2. Nf3 *`},
+		{"extra close parens", `1. e4 e5 (1... c5) ) ) 2. Nf3 *`},
+		{"orphan variation at start", `(1. e4 e5) 2. Nf3 *`},
+		{"orphan close before any move", `) 1. e4 *`},
+		{"only parens", `( ( ) )`},
+		{"unterminated comment", `1. e4 {this comment never closes e5 2. Nf3`},
+		{"unterminated comment with paren inside", `1. e4 {comment ( with paren e5 *`},
+		{"comment closed but paren open", `1. e4 {ok} (1... c5 *`},
+		{"empty parens between moves", `1. e4 () e5 *`},
+		{"nested unbalanced parens", `1. e4 e5 (1... c5 (2. Nf3 *`},
+		{"variation start at very beginning then valid", `( ) 1. e4 e5 *`},
+		{"only garbage tokens", `??? !!! $$$ ...`},
+		{"dangling NAG and comment", `1. e4 $ { ! ? *`},
+		{"unterminated line comment", `1. e4 ; trailing comment with no newline`},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.NotPanics(t, func() {
+				root, headers, err := ParsePGNToTree(tt.pgn)
+				if err != nil {
+					// An error is an acceptable outcome for malformed input.
+					return
+				}
+				// On success the tree must be structurally sound.
+				assert.NotNil(t, headers)
+				assertWellFormedTree(t, &root, true)
+			}, "parser must not panic on malformed input")
+		})
+	}
+}
+
+// TestTokenizePGNMovetext_MalformedInput ensures the tokenizer itself never
+// panics on broken movetext (the first line of defence against untrusted input).
+func TestTokenizePGNMovetext_MalformedInput(t *testing.T) {
+	inputs := []string{
+		`1. e4 {unterminated comment`,
+		`1. e4 (`,
+		`)`,
+		`((((`,
+		`))))`,
+		`$`,
+		`1. e4 ; line comment no newline`,
+		``,
+		`{`,
+		`(((1. e4`,
+	}
+
+	for _, in := range inputs {
+		t.Run(in, func(t *testing.T) {
+			require.NotPanics(t, func() {
+				_ = tokenizePGNMovetext(in)
+			}, "tokenizer must not panic on malformed movetext")
+		})
+	}
+}
+
 func TestParseAnnotations(t *testing.T) {
 	t.Run("single arrow", func(t *testing.T) {
 		cleaned, arrows, highlights := parseAnnotations("[%cal Gb4e1]")
