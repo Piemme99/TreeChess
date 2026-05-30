@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback } from 'react';
+import { useMemo, useState, useCallback, useEffect } from 'react';
 import { Button, Loading } from '../../../shared/components/UI';
 import type { GameSummary, GameStatus, Color, TimeClass } from '../../../types';
 import { formatSource } from '../utils/dateUtils';
@@ -29,6 +29,12 @@ export interface GamesListProps {
   onNextPage: () => void;
   onPrevPage: () => void;
   onGameReanalyzed?: () => void;
+  // When a bulk "re-analyze all" is running, disable per-row reanalyze to avoid
+  // firing concurrent duplicate mutations against the same games.
+  reanalyzeAllActive?: boolean;
+  // Reports whether any per-row reanalyze is in flight so the parent can lock
+  // the "re-analyze all" action.
+  onReanalyzingChange?: (active: boolean) => void;
 }
 
 function StatusBadge({ status }: { status: GameStatus }) {
@@ -56,11 +62,12 @@ function TimeClassBadge({ timeClass }: { timeClass?: TimeClass }) {
 
 const gridCols = 'grid grid-cols-[16px_1fr_64px_80px_70px_36px] md:grid-cols-[16px_1fr_150px_100px_64px_80px_70px_36px] items-center gap-x-3 px-4';
 
-function GameRow({ game, onViewClick, onReanalyze, reanalyzing, showNewBadge }: {
+function GameRow({ game, onViewClick, onReanalyze, reanalyzing, reanalyzeDisabled, showNewBadge }: {
   game: GameSummary;
   onViewClick: (analysisId: string, gameIndex: number) => void;
   onReanalyze: (analysisId: string, gameIndex: number, repertoireId: string) => void;
   reanalyzing: boolean;
+  reanalyzeDisabled: boolean;
   showNewBadge?: boolean;
 }) {
   const outcome = gameOutcome(game.result, game.userColor);
@@ -110,7 +117,7 @@ function GameRow({ game, onViewClick, onReanalyze, reanalyzing, showNewBadge }: 
           <button
             className={`flex items-center justify-center w-7 h-7 p-0 border-none rounded-sm bg-transparent text-text-muted cursor-pointer transition-colors duration-150 hover:not-disabled:text-primary hover:not-disabled:bg-bg disabled:cursor-default ${reanalyzing ? '[&_svg]:animate-spin' : ''}`}
             onClick={() => onReanalyze(game.analysisId, game.gameIndex, game.repertoireId!)}
-            disabled={reanalyzing}
+            disabled={reanalyzing || reanalyzeDisabled}
             title="Re-analyze against current repertoire"
           >
             <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -134,11 +141,19 @@ export function GamesList({
   totalPages,
   onNextPage,
   onPrevPage,
-  onGameReanalyzed
+  onGameReanalyzed,
+  reanalyzeAllActive = false,
+  onReanalyzingChange
 }: GamesListProps) {
   const [reanalyzingKeys, setReanalyzingKeys] = useState<Set<GameKey>>(new Set());
 
+  // Report per-row reanalyze activity so the parent can lock the bulk action.
+  useEffect(() => {
+    onReanalyzingChange?.(reanalyzingKeys.size > 0);
+  }, [reanalyzingKeys, onReanalyzingChange]);
+
   const handleReanalyze = useCallback(async (analysisId: string, gameIndex: number, repertoireId: string) => {
+    if (reanalyzeAllActive) return;
     const key = toKey(analysisId, gameIndex);
     setReanalyzingKeys((prev) => new Set(prev).add(key));
     try {
@@ -154,7 +169,7 @@ export function GamesList({
         return next;
       });
     }
-  }, [onGameReanalyzed]);
+  }, [onGameReanalyzed, reanalyzeAllActive]);
 
   const { newGames, analyzedGames } = useMemo(() => {
     const newG: GameSummary[] = [];
@@ -199,6 +214,7 @@ export function GamesList({
             onViewClick={onViewClick}
             onReanalyze={handleReanalyze}
             reanalyzing={reanalyzingKeys.has(key)}
+            reanalyzeDisabled={reanalyzeAllActive}
             showNewBadge={showNew}
           />
         );

@@ -33,6 +33,8 @@ export function GameAnalysisPage() {
   // Moves grafted in this analyse-session (persists while stepping between games).
   const [movesAddedThisSession, setMovesAddedThisSession] = useState(0);
   const addingRef = useRef(false);
+  // Mirror of addingRef for rendering an in-flight affordance on the add button.
+  const [adding, setAdding] = useState(false);
 
   // After an in-place add, the repertoire change triggers a debounced background
   // re-analysis; refresh the session's results once it finishes so move statuses
@@ -162,6 +164,7 @@ export function GameAnalysisPage() {
     }
 
     addingRef.current = true;
+    setAdding(true);
     try {
       const result = await addLineToRepertoire(game.matchedRepertoire.id, line);
 
@@ -192,6 +195,7 @@ export function GameAnalysisPage() {
       }
     } finally {
       addingRef.current = false;
+      setAdding(false);
     }
   }, [game, updateGame]);
 
@@ -345,6 +349,7 @@ export function GameAnalysisPage() {
             maxDisplayedIndex={maxDisplayedMoveIndex}
             onMoveClick={goToMove}
             onAddToRepertoire={game.matchedRepertoire ? handleAddToRepertoire : undefined}
+            addingToRepertoire={adding}
             onOpenInRepertoire={game.matchedRepertoire ? handleOpenInRepertoire : undefined}
             onCreateAndAdd={handleCreateAndAdd}
             onImportSuccess={handleImportSuccess}
