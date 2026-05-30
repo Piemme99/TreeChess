@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { useNavigate, useLocation } from 'react-router';
 import { DndContext, DragEndEvent, DragOverlay, useDraggable, useDroppable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
@@ -88,7 +89,18 @@ export function RepertoireSelector({ color, repertoires, categories, onImportStu
     toggleCategoryExpanded,
     expandedCategories,
     assignRepertoireToCategory
-  } = useRepertoireStore();
+  } = useRepertoireStore(
+    useShallow((s) => ({
+      createRepertoire: s.createRepertoire,
+      deleteRepertoire: s.deleteRepertoire,
+      renameRepertoire: s.renameRepertoire,
+      mergeRepertoires: s.mergeRepertoires,
+      createCategory: s.createCategory,
+      toggleCategoryExpanded: s.toggleCategoryExpanded,
+      expandedCategories: s.expandedCategories,
+      assignRepertoireToCategory: s.assignRepertoireToCategory,
+    }))
+  );
   const [draggedRepertoire, setDraggedRepertoire] = useState<Repertoire | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [isCreatingCategory, setIsCreatingCategory] = useState(false);

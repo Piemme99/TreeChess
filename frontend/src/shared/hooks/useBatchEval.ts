@@ -46,58 +46,53 @@ export function useBatchEval(
   const workerRef = useRef<Worker | null>(null);
   const abortedRef = useRef(false);
 
-  // Compute deltas from position evals using Win% classification
-  const computeDeltas = useCallback((posEvals: PositionEval[], numMoves: number, color: 'w' | 'b') => {
-    const result: MoveEvalDelta[] = [];
-    for (let i = 0; i < numMoves; i++) {
-      const before = posEvals[i];
-      const after = posEvals[i + 1];
+  // Compute the delta for a single move `i` (between posEvals[i] and posEvals[i+1])
+  // using Win% classification. Returns a placeholder when either end is missing.
+  const computeDelta = useCallback((posEvals: PositionEval[], i: number, color: 'w' | 'b'): MoveEvalDelta => {
+    const before = posEvals[i];
+    const after = posEvals[i + 1];
 
-      if (!before || !after) {
-        result.push({ cpLoss: null, scoreAfter: after?.score ?? null, mateAfter: after?.mate ?? null, classification: null });
-        continue;
-      }
-
-      // Determine if this is a user move
-      const isUserMove = (i % 2 === 0 && color === 'w') || (i % 2 === 1 && color === 'b');
-
-      if (!isUserMove) {
-        // Opponent moves — no loss to compute
-        result.push({ cpLoss: null, scoreAfter: after.score, mateAfter: after.mate, classification: null });
-        continue;
-      }
-
-      // Handle mate scores: treat as large cp values for legacy cpLoss
-      const scoreBefore = before.mate !== null
-        ? (before.mate > 0 ? 10000 : -10000)
-        : (before.score ?? 0);
-      const scoreAfter = after.mate !== null
-        ? (after.mate > 0 ? 10000 : -10000)
-        : (after.score ?? 0);
-
-      // cpLoss from the user's perspective (legacy, kept for backward compat):
-      const rawLoss = color === 'w'
-        ? scoreBefore - scoreAfter
-        : scoreAfter - scoreBefore;
-
-      // Win%-based classification using the new unified system.
-      // Both evals are already normalized to white's perspective.
-      const classification = classifyMoveFromEvals(
-        before.score,
-        before.mate,
-        after.score,
-        after.mate,
-        color,
-      );
-
-      result.push({
-        cpLoss: Math.max(0, rawLoss),
-        scoreAfter: after.score,
-        mateAfter: after.mate,
-        classification,
-      });
+    if (!before || !after) {
+      return { cpLoss: null, scoreAfter: after?.score ?? null, mateAfter: after?.mate ?? null, classification: null };
     }
-    return result;
+
+    // Determine if this is a user move
+    const isUserMove = (i % 2 === 0 && color === 'w') || (i % 2 === 1 && color === 'b');
+
+    if (!isUserMove) {
+      // Opponent moves — no loss to compute
+      return { cpLoss: null, scoreAfter: after.score, mateAfter: after.mate, classification: null };
+    }
+
+    // Handle mate scores: treat as large cp values for legacy cpLoss
+    const scoreBefore = before.mate !== null
+      ? (before.mate > 0 ? 10000 : -10000)
+      : (before.score ?? 0);
+    const scoreAfter = after.mate !== null
+      ? (after.mate > 0 ? 10000 : -10000)
+      : (after.score ?? 0);
+
+    // cpLoss from the user's perspective (legacy, kept for backward compat):
+    const rawLoss = color === 'w'
+      ? scoreBefore - scoreAfter
+      : scoreAfter - scoreBefore;
+
+    // Win%-based classification using the new unified system.
+    // Both evals are already normalized to white's perspective.
+    const classification = classifyMoveFromEvals(
+      before.score,
+      before.mate,
+      after.score,
+      after.mate,
+      color,
+    );
+
+    return {
+      cpLoss: Math.max(0, rawLoss),
+      scoreAfter: after.score,
+      mateAfter: after.mate,
+      classification,
+    };
   }, []);
 
   useEffect(() => {
@@ -118,6 +113,16 @@ export function useBatchEval(
     let pendingScore: number | null = null;
     let pendingMate: number | null = null;
     const numMoves = fens.length - 1;
+
+    // Deltas are accumulated incrementally: each new position eval only affects
+    // the delta of the preceding move, so we avoid recomputing all deltas (O(n^2))
+    // on every bestmove.
+    const deltasAcc: MoveEvalDelta[] = Array.from({ length: numMoves }, () => ({
+      cpLoss: null,
+      scoreAfter: null,
+      mateAfter: null,
+      classification: null,
+    }));
 
     function send(cmd: string) {
       worker.postMessage(cmd);
@@ -173,10 +178,18 @@ export function useBatchEval(
         pendingScore = null;
         pendingMate = null;
 
+        // The newly-pushed position eval completes the delta of the preceding
+        // move (whose `after` position just became available). Recompute only
+        // that single delta rather than all of them.
+        const completedMoveIndex = positionEvals.length - 2;
+        if (completedMoveIndex >= 0 && completedMoveIndex < numMoves) {
+          deltasAcc[completedMoveIndex] = computeDelta(positionEvals, completedMoveIndex, userColor);
+        }
+
         // Update state progressively
         setEvals([...positionEvals]);
         setProgress(positionEvals.length);
-        setDeltas(computeDeltas(positionEvals, numMoves, userColor));
+        setDeltas([...deltasAcc]);
 
         currentIndex++;
         if (currentIndex < fens.length) {
@@ -199,7 +212,7 @@ export function useBatchEval(
       worker.terminate();
       workerRef.current = null;
     };
-  }, [enabled, fens, userColor, computeDeltas]);
+  }, [enabled, fens, userColor, computeDelta]);
 
   return { evals, deltas, progress, total: fens.length, done };
 }

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { memo, useState, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router';
 import { Chess } from 'chess.js';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -50,7 +50,18 @@ interface MistakeCardProps {
   onDismiss?: (fen: string, playedMove: string) => void;
 }
 
-function MistakeCard({ mistake, index, onDismiss }: MistakeCardProps) {
+function gamesEqual(a: OpeningMistake['games'], b: OpeningMistake['games']): boolean {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i].analysisId !== b[i].analysisId || a[i].gameIndex !== b[i].gameIndex || a[i].plyNumber !== b[i].plyNumber) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function MistakeCardComponent({ mistake, index, onDismiss }: MistakeCardProps) {
   const [expanded, setExpanded] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
@@ -169,6 +180,23 @@ function MistakeCard({ mistake, index, onDismiss }: MistakeCardProps) {
     </motion.div>
   );
 }
+
+// Memoized to avoid re-rendering unchanged cards on each 5s insights poll tick.
+// Insights are re-fetched periodically and produce fresh object references, so we
+// compare by the rendered values rather than relying on referential equality.
+const MistakeCard = memo(MistakeCardComponent, (prev, next) => {
+  const a = prev.mistake;
+  const b = next.mistake;
+  return (
+    prev.onDismiss === next.onDismiss &&
+    a.fen === b.fen &&
+    a.playedMove === b.playedMove &&
+    a.bestMove === b.bestMove &&
+    a.winrateDrop === b.winrateDrop &&
+    a.frequency === b.frequency &&
+    gamesEqual(a.games, b.games)
+  );
+});
 
 export function MistakesList({ insights, limit, title = 'Weak Spots', viewAllPath, onDismiss }: MistakesListProps) {
   const navigate = useNavigate();

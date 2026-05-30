@@ -7,7 +7,8 @@ interface PublicRouteProps {
 }
 
 export function PublicRoute({ children }: PublicRouteProps) {
-  const { isAuthenticated, loading } = useAuthStore();
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const loading = useAuthStore((s) => s.loading);
 
   if (loading) {
     return (

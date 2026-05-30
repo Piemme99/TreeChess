@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { useParams, useNavigate, useLocation } from 'react-router';
 import { useRepertoireStore, useRepertoireById } from '../../../../stores/repertoireStore';
 import { exploreApi } from '../../../../services/api';
@@ -56,7 +57,18 @@ export function useRepertoireLoader() {
     selectNode,
     updateRepertoire,
     setLoading
-  } = useRepertoireStore();
+  } = useRepertoireStore(
+    useShallow((s) => ({
+      selectedRepertoireId: s.selectedRepertoireId,
+      selectedNodeId: s.selectedNodeId,
+      loading: s.loading,
+      fetchRepertoire: s.fetchRepertoire,
+      selectRepertoire: s.selectRepertoire,
+      selectNode: s.selectNode,
+      updateRepertoire: s.updateRepertoire,
+      setLoading: s.setLoading,
+    }))
+  );
 
   const repertoire = useRepertoireById(id || null);
   const initializedRef = useRef(false);

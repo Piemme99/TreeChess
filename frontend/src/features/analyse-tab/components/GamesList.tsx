@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback, useEffect } from 'react';
+import { memo, useMemo, useState, useCallback, useEffect } from 'react';
 import { Button, Loading } from '../../../shared/components/UI';
 import type { GameSummary, GameStatus, Color, TimeClass } from '../../../types';
 import { formatSource } from '../utils/dateUtils';
@@ -37,15 +37,15 @@ export interface GamesListProps {
   onReanalyzingChange?: (active: boolean) => void;
 }
 
-function StatusBadge({ status }: { status: GameStatus }) {
-  const config: Record<GameStatus, { label: string; className: string }> = {
-    'in-repertoire': { label: 'In repertoire', className: 'py-1 px-2 rounded-full text-xs font-medium bg-success-light text-success' },
-    'error': { label: 'Opening error', className: 'py-1 px-2 rounded-full text-xs font-medium bg-danger-light text-danger' },
-    'new-line': { label: 'New line', className: 'py-1 px-2 rounded-full text-xs font-medium bg-info-light text-info' },
-    'new-opening': { label: 'New opening', className: 'py-1 px-2 rounded-full text-xs font-medium bg-warning-light text-warning' }
-  };
+const STATUS_BADGE_CONFIG: Record<GameStatus, { label: string; className: string }> = {
+  'in-repertoire': { label: 'In repertoire', className: 'py-1 px-2 rounded-full text-xs font-medium bg-success-light text-success' },
+  'error': { label: 'Opening error', className: 'py-1 px-2 rounded-full text-xs font-medium bg-danger-light text-danger' },
+  'new-line': { label: 'New line', className: 'py-1 px-2 rounded-full text-xs font-medium bg-info-light text-info' },
+  'new-opening': { label: 'New opening', className: 'py-1 px-2 rounded-full text-xs font-medium bg-warning-light text-warning' }
+};
 
-  const { label, className } = config[status];
+function StatusBadge({ status }: { status: GameStatus }) {
+  const { label, className } = STATUS_BADGE_CONFIG[status];
   return <span className={className}>{label}</span>;
 }
 
@@ -62,7 +62,7 @@ function TimeClassBadge({ timeClass }: { timeClass?: TimeClass }) {
 
 const gridCols = 'grid grid-cols-[16px_1fr_64px_80px_70px_36px] md:grid-cols-[16px_1fr_150px_100px_64px_80px_70px_36px] items-center gap-x-3 px-4';
 
-function GameRow({ game, onViewClick, onReanalyze, reanalyzing, reanalyzeDisabled, showNewBadge }: {
+const GameRow = memo(function GameRow({ game, onViewClick, onReanalyze, reanalyzing, reanalyzeDisabled, showNewBadge }: {
   game: GameSummary;
   onViewClick: (analysisId: string, gameIndex: number) => void;
   onReanalyze: (analysisId: string, gameIndex: number, repertoireId: string) => void;
@@ -129,7 +129,7 @@ function GameRow({ game, onViewClick, onReanalyze, reanalyzing, reanalyzeDisable
       </div>
     </div>
   );
-}
+});
 
 export function GamesList({
   games,
