@@ -55,6 +55,9 @@ func (r *DismissedMistakeRepo) GetDismissed(userID string) (map[string]bool, err
 		key := fen + "|" + playedMove
 		dismissed[key] = true
 	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating dismissed mistakes: %w", err)
+	}
 
 	return dismissed, nil
 }

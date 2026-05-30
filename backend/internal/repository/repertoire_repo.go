@@ -4,11 +4,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/kumquat/backend/internal/models"
@@ -598,18 +598,17 @@ func (r *PostgresRepertoireRepo) BelongsToUser(id string, userID string) (bool, 
 
 // scanRepertoires is a helper to scan multiple repertoire rows
 // isRepertoireNameConflict detects a Postgres unique-constraint violation on the
-// repertoires (user_id, name, color) tuple. The unique index name in db.go is auto-generated
-// by the inline UNIQUE() clause, so we match on the SQLSTATE code + the offending column hints.
+// repertoires (user_id, name, color) tuple. It unwraps to the structured
+// *pgconn.PgError and branches on the SQLSTATE code (23505 = unique_violation) plus
+// the offending table name, rather than matching on (locale-dependent) error text.
+// Restricting to the repertoires table prevents other unique constraints
+// (categories, etc.) from being misclassified as a repertoire name conflict.
 func isRepertoireNameConflict(err error) bool {
-	if err == nil {
-		return false
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		return pgErr.Code == pgUniqueViolation && pgErr.TableName == "repertoires"
 	}
-	msg := err.Error()
-	if !strings.Contains(msg, "23505") && !strings.Contains(msg, "duplicate key") {
-		return false
-	}
-	// Restrict to the repertoires table so other unique constraints (categories, etc.) don't get swallowed
-	return strings.Contains(msg, "repertoires")
+	return false
 }
 
 func (r *PostgresRepertoireRepo) scanRepertoires(rows interface {

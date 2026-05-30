@@ -1,6 +1,7 @@
 package services
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -79,6 +80,31 @@ func TestOAuthService_FindOrCreateUser_NewUser(t *testing.T) {
 	assert.True(t, isNew)
 	assert.Equal(t, "newplayer", resp.User.Username)
 	assert.NotEmpty(t, resp.Token)
+}
+
+// TestOAuthService_FindOrCreateUser_WrappedNotFound ensures a wrapped
+// ErrUserNotFound from FindByOAuth is still treated as "no existing user" (and a
+// new account is created), rather than being misclassified as a hard failure.
+// This fails if the sentinel is compared with != instead of errors.Is.
+func TestOAuthService_FindOrCreateUser_WrappedNotFound(t *testing.T) {
+	mockRepo := &mocks.MockUserRepo{
+		FindByOAuthFunc: func(provider, oauthID string) (*models.User, error) {
+			return nil, fmt.Errorf("lookup failed: %w", repository.ErrUserNotFound)
+		},
+		ExistsFunc: func(username string) (bool, error) {
+			return false, nil
+		},
+		CreateOAuthFunc: func(provider, oauthID, username string) (*models.User, error) {
+			return &models.User{ID: "new-user", Username: username}, nil
+		},
+	}
+	oauthSvc, _ := newTestOAuthService(mockRepo)
+
+	resp, isNew, err := oauthSvc.FindOrCreateUser("lichess", "oauth-new", "newplayer")
+
+	require.NoError(t, err)
+	assert.True(t, isNew)
+	assert.Equal(t, "newplayer", resp.User.Username)
 }
 
 func TestOAuthService_FindOrCreateUser_UsernameCollision(t *testing.T) {

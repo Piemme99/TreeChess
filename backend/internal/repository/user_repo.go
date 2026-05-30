@@ -4,11 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/kumquat/backend/internal/models"
@@ -321,20 +321,26 @@ func (r *PostgresUserRepo) Delete(id string) error {
 	return nil
 }
 
-// isDuplicateKeyError checks if the error is a PostgreSQL unique constraint violation
+// pgUniqueViolation is the SQLSTATE code for a unique-constraint violation.
+const pgUniqueViolation = "23505"
+
+// isDuplicateKeyError checks if the error is a PostgreSQL unique constraint violation.
+// It uses errors.As to unwrap to the structured *pgconn.PgError and branches on the
+// SQLSTATE code rather than matching on (locale-dependent) error text.
 func isDuplicateKeyError(err error) bool {
-	if err == nil {
-		return false
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		return pgErr.Code == pgUniqueViolation
 	}
-	errStr := err.Error()
-	return strings.Contains(errStr, "23505") || strings.Contains(errStr, "duplicate key")
+	return false
 }
 
-// isDuplicateEmailError checks if the duplicate key error is specifically for the email field
+// isDuplicateEmailError checks if the duplicate key error is specifically for the
+// email field by inspecting the violated constraint name (idx_users_email).
 func isDuplicateEmailError(err error) bool {
-	if err == nil {
-		return false
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		return pgErr.ConstraintName == "idx_users_email"
 	}
-	errStr := err.Error()
-	return strings.Contains(errStr, "idx_users_email") || strings.Contains(errStr, "email")
+	return false
 }

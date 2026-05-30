@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"log/slog"
 	"regexp"
@@ -115,7 +116,7 @@ func (s *AuthService) Register(email, username, password string) (*models.AuthRe
 func (s *AuthService) Login(email, password string) (*models.AuthResponse, error) {
 	user, err := s.userRepo.GetByEmail(email)
 	if err != nil {
-		if err == repository.ErrUserNotFound {
+		if errors.Is(err, repository.ErrUserNotFound) {
 			return nil, ErrInvalidCredentials
 		}
 		return nil, err
@@ -328,10 +329,16 @@ func (s *AuthService) ResetPassword(rawToken, newPassword string) error {
 	}
 
 	// Delete all reset tokens for this user (invalidate any other pending resets)
-	_ = s.resetRepo.DeleteByUserID(resetToken.UserID)
+	if err := s.resetRepo.DeleteByUserID(resetToken.UserID); err != nil {
+		slog.Error("failed to delete reset tokens after password reset", "user_id", resetToken.UserID, "error", err)
+	}
 
-	// Revoke all refresh tokens to force re-login on all devices
-	_ = s.RevokeAllRefreshTokens(resetToken.UserID)
+	// Revoke all refresh tokens to force re-login on all devices. A failure here
+	// leaves pre-existing sessions alive after a compromise-recovery flow, so log
+	// it loudly even though the password change itself already succeeded.
+	if err := s.RevokeAllRefreshTokens(resetToken.UserID); err != nil {
+		slog.Error("failed to revoke refresh tokens after password reset", "user_id", resetToken.UserID, "error", err)
+	}
 
 	return nil
 }
@@ -370,11 +377,17 @@ func (s *AuthService) ChangePassword(userID, currentPassword, newPassword string
 
 	// Invalidate any pending password reset tokens
 	if s.resetRepo != nil {
-		_ = s.resetRepo.DeleteByUserID(userID)
+		if err := s.resetRepo.DeleteByUserID(userID); err != nil {
+			slog.Error("failed to delete reset tokens after password change", "user_id", userID, "error", err)
+		}
 	}
 
-	// Revoke all refresh tokens to force re-login on all devices
-	_ = s.RevokeAllRefreshTokens(userID)
+	// Revoke all refresh tokens to force re-login on all devices. A failure here
+	// leaves pre-existing sessions alive after a compromise-recovery flow, so log
+	// it loudly even though the password change itself already succeeded.
+	if err := s.RevokeAllRefreshTokens(userID); err != nil {
+		slog.Error("failed to revoke refresh tokens after password change", "user_id", userID, "error", err)
+	}
 
 	return nil
 }
