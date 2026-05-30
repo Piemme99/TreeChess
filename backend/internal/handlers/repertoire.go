@@ -15,25 +15,24 @@ import (
 // GET /api/repertoires?color=white|black
 func ListRepertoiresHandler(svc *services.RepertoireService) echo.HandlerFunc {
 	return func(c *echo.Context) error {
-		userID := c.Get("userID").(string)
+		userID, ok := mustUserID(c)
+		if !ok {
+			return nil
+		}
 		colorParam := c.QueryParam("color")
 
 		var colorFilter *models.Color
 		if colorParam != "" {
 			color := models.Color(colorParam)
 			if color != models.ColorWhite && color != models.ColorBlack {
-				return c.JSON(http.StatusBadRequest, map[string]string{
-					"error": "invalid color. must be 'white' or 'black'",
-				})
+				return BadRequestResponse(c, "invalid color. must be 'white' or 'black'")
 			}
 			colorFilter = &color
 		}
 
 		repertoires, err := svc.ListRepertoires(userID, colorFilter)
 		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]string{
-				"error": "failed to list repertoires",
-			})
+			return InternalErrorResponse(c, "failed to list repertoires")
 		}
 
 		// Return empty array instead of null
@@ -49,25 +48,22 @@ func ListRepertoiresHandler(svc *services.RepertoireService) echo.HandlerFunc {
 // POST /api/repertoires
 func CreateRepertoireHandler(svc *services.RepertoireService) echo.HandlerFunc {
 	return func(c *echo.Context) error {
-		userID := c.Get("userID").(string)
+		userID, ok := mustUserID(c)
+		if !ok {
+			return nil
+		}
 
 		var req models.CreateRepertoireRequest
 		if err := c.Bind(&req); err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]string{
-				"error": "invalid request body",
-			})
+			return BadRequestResponse(c, "invalid request body")
 		}
 
 		if req.Name == "" {
-			return c.JSON(http.StatusBadRequest, map[string]string{
-				"error": "name is required",
-			})
+			return BadRequestResponse(c, "name is required")
 		}
 
 		if req.Color != models.ColorWhite && req.Color != models.ColorBlack {
-			return c.JSON(http.StatusBadRequest, map[string]string{
-				"error": "invalid color. must be 'white' or 'black'",
-			})
+			return BadRequestResponse(c, "invalid color. must be 'white' or 'black'")
 		}
 
 		// Default isPublic to false if not provided (private by default)
@@ -78,29 +74,18 @@ func CreateRepertoireHandler(svc *services.RepertoireService) echo.HandlerFunc {
 
 		rep, err := svc.CreateRepertoireWithVisibility(userID, req.Name, req.Description, req.Color, isPublic)
 		if err != nil {
-			if errors.Is(err, services.ErrLimitReached) {
-				return c.JSON(http.StatusConflict, map[string]string{
-					"error": "maximum repertoire limit reached (50)",
-				})
+			switch {
+			case errors.Is(err, services.ErrLimitReached):
+				return ConflictResponse(c, "maximum repertoire limit reached (50)")
+			case errors.Is(err, services.ErrNameRequired):
+				return BadRequestResponse(c, "name is required")
+			case errors.Is(err, services.ErrNameTooLong):
+				return BadRequestResponse(c, "name must be 100 characters or less")
+			case errors.Is(err, services.ErrDescriptionTooLong):
+				return BadRequestResponse(c, "description must be 500 characters or less")
+			default:
+				return InternalErrorResponse(c, "failed to create repertoire")
 			}
-			if errors.Is(err, services.ErrNameRequired) {
-				return c.JSON(http.StatusBadRequest, map[string]string{
-					"error": "name is required",
-				})
-			}
-			if errors.Is(err, services.ErrNameTooLong) {
-				return c.JSON(http.StatusBadRequest, map[string]string{
-					"error": "name must be 100 characters or less",
-				})
-			}
-			if errors.Is(err, services.ErrDescriptionTooLong) {
-				return c.JSON(http.StatusBadRequest, map[string]string{
-					"error": "description must be 500 characters or less",
-				})
-			}
-			return c.JSON(http.StatusInternalServerError, map[string]string{
-				"error": "failed to create repertoire",
-			})
 		}
 
 		return c.JSON(http.StatusCreated, rep)
@@ -111,30 +96,22 @@ func CreateRepertoireHandler(svc *services.RepertoireService) echo.HandlerFunc {
 // GET /api/repertoire/:id
 func GetRepertoireHandler(svc *services.RepertoireService) echo.HandlerFunc {
 	return func(c *echo.Context) error {
-		userID := c.Get("userID").(string)
-		idParam := c.Param("id")
-
-		// Validate ID is a valid UUID
-		if _, err := uuid.Parse(idParam); err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]string{
-				"error": "id must be a valid UUID",
-			})
+		userID, ok := mustUserID(c)
+		if !ok {
+			return nil
+		}
+		idParam, ok := ValidateUUIDParam(c, "id")
+		if !ok {
+			return nil
 		}
 
-		if err := svc.CheckOwnership(idParam, userID); err != nil {
-			return c.JSON(http.StatusNotFound, map[string]string{"error": "repertoire not found"})
+		if !requireOwnership(c, svc, idParam, userID) {
+			return nil
 		}
 
 		rep, err := svc.GetRepertoire(idParam)
 		if err != nil {
-			if errors.Is(err, services.ErrNotFound) {
-				return c.JSON(http.StatusNotFound, map[string]string{
-					"error": "repertoire not found",
-				})
-			}
-			return c.JSON(http.StatusInternalServerError, map[string]string{
-				"error": "failed to get repertoire",
-			})
+			return mapRepertoireServiceError(c, err, "failed to get repertoire")
 		}
 
 		return c.JSON(http.StatusOK, rep)
@@ -145,31 +122,26 @@ func GetRepertoireHandler(svc *services.RepertoireService) echo.HandlerFunc {
 // PATCH /api/repertoire/:id
 func UpdateRepertoireHandler(svc *services.RepertoireService) echo.HandlerFunc {
 	return func(c *echo.Context) error {
-		userID := c.Get("userID").(string)
-		idParam := c.Param("id")
-
-		// Validate ID is a valid UUID
-		if _, err := uuid.Parse(idParam); err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]string{
-				"error": "id must be a valid UUID",
-			})
+		userID, ok := mustUserID(c)
+		if !ok {
+			return nil
+		}
+		idParam, ok := ValidateUUIDParam(c, "id")
+		if !ok {
+			return nil
 		}
 
-		if err := svc.CheckOwnership(idParam, userID); err != nil {
-			return c.JSON(http.StatusNotFound, map[string]string{"error": "repertoire not found"})
+		if !requireOwnership(c, svc, idParam, userID) {
+			return nil
 		}
 
 		var req models.UpdateRepertoireRequest
 		if err := c.Bind(&req); err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]string{
-				"error": "invalid request body",
-			})
+			return BadRequestResponse(c, "invalid request body")
 		}
 
 		if req.Name == nil && req.Description == nil {
-			return c.JSON(http.StatusBadRequest, map[string]string{
-				"error": "at least one of name or description must be provided",
-			})
+			return BadRequestResponse(c, "at least one of name or description must be provided")
 		}
 
 		// Start with the current repertoire state
@@ -180,24 +152,14 @@ func UpdateRepertoireHandler(svc *services.RepertoireService) echo.HandlerFunc {
 		if req.Name != nil {
 			rep, err = svc.RenameRepertoire(userID, idParam, *req.Name)
 			if err != nil {
-				if errors.Is(err, services.ErrNotFound) {
-					return c.JSON(http.StatusNotFound, map[string]string{
-						"error": "repertoire not found",
-					})
+				switch {
+				case errors.Is(err, services.ErrNameRequired):
+					return BadRequestResponse(c, "name is required")
+				case errors.Is(err, services.ErrNameTooLong):
+					return BadRequestResponse(c, "name must be 100 characters or less")
+				default:
+					return mapRepertoireServiceError(c, err, "failed to update repertoire")
 				}
-				if errors.Is(err, services.ErrNameRequired) {
-					return c.JSON(http.StatusBadRequest, map[string]string{
-						"error": "name is required",
-					})
-				}
-				if errors.Is(err, services.ErrNameTooLong) {
-					return c.JSON(http.StatusBadRequest, map[string]string{
-						"error": "name must be 100 characters or less",
-					})
-				}
-				return c.JSON(http.StatusInternalServerError, map[string]string{
-					"error": "failed to update repertoire",
-				})
 			}
 		}
 
@@ -205,19 +167,10 @@ func UpdateRepertoireHandler(svc *services.RepertoireService) echo.HandlerFunc {
 		if req.Description != nil {
 			rep, err = svc.UpdateDescription(userID, idParam, *req.Description)
 			if err != nil {
-				if errors.Is(err, services.ErrNotFound) {
-					return c.JSON(http.StatusNotFound, map[string]string{
-						"error": "repertoire not found",
-					})
-				}
 				if errors.Is(err, services.ErrDescriptionTooLong) {
-					return c.JSON(http.StatusBadRequest, map[string]string{
-						"error": "description must be 500 characters or less",
-					})
+					return BadRequestResponse(c, "description must be 500 characters or less")
 				}
-				return c.JSON(http.StatusInternalServerError, map[string]string{
-					"error": "failed to update repertoire",
-				})
+				return mapRepertoireServiceError(c, err, "failed to update repertoire")
 			}
 		}
 
@@ -229,30 +182,21 @@ func UpdateRepertoireHandler(svc *services.RepertoireService) echo.HandlerFunc {
 // DELETE /api/repertoire/:id
 func DeleteRepertoireHandler(svc *services.RepertoireService) echo.HandlerFunc {
 	return func(c *echo.Context) error {
-		userID := c.Get("userID").(string)
-		idParam := c.Param("id")
-
-		// Validate ID is a valid UUID
-		if _, err := uuid.Parse(idParam); err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]string{
-				"error": "id must be a valid UUID",
-			})
+		userID, ok := mustUserID(c)
+		if !ok {
+			return nil
+		}
+		idParam, ok := ValidateUUIDParam(c, "id")
+		if !ok {
+			return nil
 		}
 
-		if err := svc.CheckOwnership(idParam, userID); err != nil {
-			return c.JSON(http.StatusNotFound, map[string]string{"error": "repertoire not found"})
+		if !requireOwnership(c, svc, idParam, userID) {
+			return nil
 		}
 
-		err := svc.DeleteRepertoire(userID, idParam)
-		if err != nil {
-			if errors.Is(err, services.ErrNotFound) {
-				return c.JSON(http.StatusNotFound, map[string]string{
-					"error": "repertoire not found",
-				})
-			}
-			return c.JSON(http.StatusInternalServerError, map[string]string{
-				"error": "failed to delete repertoire",
-			})
+		if err := svc.DeleteRepertoire(userID, idParam); err != nil {
+			return mapRepertoireServiceError(c, err, "failed to delete repertoire")
 		}
 
 		return c.NoContent(http.StatusNoContent)
@@ -263,71 +207,46 @@ func DeleteRepertoireHandler(svc *services.RepertoireService) echo.HandlerFunc {
 // POST /api/repertoire/:id/node
 func AddNodeHandler(svc *services.RepertoireService) echo.HandlerFunc {
 	return func(c *echo.Context) error {
-		userID := c.Get("userID").(string)
-		idParam := c.Param("id")
-
-		// Validate repertoire ID is a valid UUID
-		if _, err := uuid.Parse(idParam); err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]string{
-				"error": "repertoire id must be a valid UUID",
-			})
+		userID, ok := mustUserID(c)
+		if !ok {
+			return nil
+		}
+		idParam, ok := validateRepertoireID(c)
+		if !ok {
+			return nil
 		}
 
-		if err := svc.CheckOwnership(idParam, userID); err != nil {
-			return c.JSON(http.StatusNotFound, map[string]string{"error": "repertoire not found"})
+		if !requireOwnership(c, svc, idParam, userID) {
+			return nil
 		}
 
 		var req models.AddNodeRequest
 		if err := c.Bind(&req); err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]string{
-				"error": "invalid request body",
-			})
+			return BadRequestResponse(c, "invalid request body")
 		}
 
-		if req.ParentID == "" {
-			return c.JSON(http.StatusBadRequest, map[string]string{
-				"error": "parentId is required",
-			})
+		if !RequireField(c, "parentId", req.ParentID) {
+			return nil
 		}
-
-		// Validate parentId is a valid UUID
-		if _, err := uuid.Parse(req.ParentID); err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]string{
-				"error": "parentId must be a valid UUID",
-			})
+		if !ValidateUUIDField(c, "parentId", req.ParentID) {
+			return nil
 		}
-
-		if req.Move == "" {
-			return c.JSON(http.StatusBadRequest, map[string]string{
-				"error": "move is required",
-			})
+		if !RequireField(c, "move", req.Move) {
+			return nil
 		}
 
 		rep, err := svc.AddNode(userID, idParam, req)
 		if err != nil {
-			if errors.Is(err, services.ErrNotFound) {
-				return c.JSON(http.StatusNotFound, map[string]string{
-					"error": "repertoire not found",
-				})
+			switch {
+			case errors.Is(err, services.ErrParentNotFound):
+				return NotFoundResponse(c, "parent node")
+			case errors.Is(err, services.ErrInvalidMove):
+				return BadRequestResponse(c, err.Error())
+			case errors.Is(err, services.ErrMoveExists):
+				return ConflictResponse(c, "move already exists in repertoire")
+			default:
+				return mapRepertoireServiceError(c, err, "failed to add node")
 			}
-			if errors.Is(err, services.ErrParentNotFound) {
-				return c.JSON(http.StatusNotFound, map[string]string{
-					"error": "parent node not found",
-				})
-			}
-			if errors.Is(err, services.ErrInvalidMove) {
-				return c.JSON(http.StatusBadRequest, map[string]string{
-					"error": err.Error(),
-				})
-			}
-			if errors.Is(err, services.ErrMoveExists) {
-				return c.JSON(http.StatusConflict, map[string]string{
-					"error": "move already exists in repertoire",
-				})
-			}
-			return c.JSON(http.StatusInternalServerError, map[string]string{
-				"error": "failed to add node",
-			})
 		}
 
 		return c.JSON(http.StatusOK, rep)
@@ -347,33 +266,28 @@ func ListTemplatesHandler() echo.HandlerFunc {
 // POST /api/repertoires/seed
 func SeedHandler(svc *services.RepertoireService) echo.HandlerFunc {
 	return func(c *echo.Context) error {
-		userID := c.Get("userID").(string)
+		userID, ok := mustUserID(c)
+		if !ok {
+			return nil
+		}
 
 		var req struct {
 			TemplateIDs []string `json:"templateIds"`
 		}
 		if err := c.Bind(&req); err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]string{
-				"error": "invalid request body",
-			})
+			return BadRequestResponse(c, "invalid request body")
 		}
 
 		if len(req.TemplateIDs) == 0 {
-			return c.JSON(http.StatusBadRequest, map[string]string{
-				"error": "templateIds is required",
-			})
+			return BadRequestResponse(c, "templateIds is required")
 		}
 
 		repertoires, err := svc.SeedRepertoires(userID, req.TemplateIDs)
 		if err != nil {
 			if errors.Is(err, services.ErrLimitReached) {
-				return c.JSON(http.StatusConflict, map[string]string{
-					"error": "maximum repertoire limit reached (50)",
-				})
+				return ConflictResponse(c, "maximum repertoire limit reached (50)")
 			}
-			return c.JSON(http.StatusBadRequest, map[string]string{
-				"error": "failed to seed repertoires",
-			})
+			return BadRequestResponse(c, "failed to seed repertoires")
 		}
 
 		return c.JSON(http.StatusCreated, repertoires)
@@ -384,70 +298,43 @@ func SeedHandler(svc *services.RepertoireService) echo.HandlerFunc {
 // POST /api/repertoires/:id/extract
 func ExtractSubtreeHandler(svc *services.RepertoireService) echo.HandlerFunc {
 	return func(c *echo.Context) error {
-		userID := c.Get("userID").(string)
-		idParam := c.Param("id")
-
-		// Validate repertoire ID is a valid UUID
-		if _, err := uuid.Parse(idParam); err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]string{
-				"error": "repertoire id must be a valid UUID",
-			})
+		userID, ok := mustUserID(c)
+		if !ok {
+			return nil
+		}
+		idParam, ok := validateRepertoireID(c)
+		if !ok {
+			return nil
 		}
 
-		if err := svc.CheckOwnership(idParam, userID); err != nil {
-			return c.JSON(http.StatusNotFound, map[string]string{"error": "repertoire not found"})
+		if !requireOwnership(c, svc, idParam, userID) {
+			return nil
 		}
 
 		var req models.ExtractSubtreeRequest
 		if err := c.Bind(&req); err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]string{
-				"error": "invalid request body",
-			})
+			return BadRequestResponse(c, "invalid request body")
 		}
 
-		if req.NodeID == "" {
-			return c.JSON(http.StatusBadRequest, map[string]string{
-				"error": "nodeId is required",
-			})
+		if !RequireField(c, "nodeId", req.NodeID) {
+			return nil
 		}
-
-		// Validate nodeId is a valid UUID
-		if _, err := uuid.Parse(req.NodeID); err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]string{
-				"error": "nodeId must be a valid UUID",
-			})
+		if !ValidateUUIDField(c, "nodeId", req.NodeID) {
+			return nil
 		}
 
 		result, err := svc.ExtractSubtree(userID, idParam, req.NodeID, req.Name)
 		if err != nil {
-			if errors.Is(err, services.ErrCannotExtractRoot) {
-				return c.JSON(http.StatusBadRequest, map[string]string{
-					"error": "cannot extract root node",
-				})
+			switch {
+			case errors.Is(err, services.ErrCannotExtractRoot):
+				return BadRequestResponse(c, "cannot extract root node")
+			case errors.Is(err, services.ErrLimitReached):
+				return ConflictResponse(c, "maximum repertoire limit reached (50)")
+			case errors.Is(err, services.ErrNameTooLong):
+				return BadRequestResponse(c, "name must be 100 characters or less")
+			default:
+				return mapRepertoireServiceError(c, err, "failed to extract subtree")
 			}
-			if errors.Is(err, services.ErrNodeNotFound) {
-				return c.JSON(http.StatusNotFound, map[string]string{
-					"error": "node not found",
-				})
-			}
-			if errors.Is(err, services.ErrLimitReached) {
-				return c.JSON(http.StatusConflict, map[string]string{
-					"error": "maximum repertoire limit reached (50)",
-				})
-			}
-			if errors.Is(err, services.ErrNameTooLong) {
-				return c.JSON(http.StatusBadRequest, map[string]string{
-					"error": "name must be 100 characters or less",
-				})
-			}
-			if errors.Is(err, services.ErrNotFound) {
-				return c.JSON(http.StatusNotFound, map[string]string{
-					"error": "repertoire not found",
-				})
-			}
-			return c.JSON(http.StatusInternalServerError, map[string]string{
-				"error": "failed to extract subtree",
-			})
 		}
 
 		return c.JSON(http.StatusCreated, result)
@@ -458,76 +345,50 @@ func ExtractSubtreeHandler(svc *services.RepertoireService) echo.HandlerFunc {
 // POST /api/repertoires/merge
 func MergeRepertoiresHandler(svc *services.RepertoireService) echo.HandlerFunc {
 	return func(c *echo.Context) error {
-		userID := c.Get("userID").(string)
+		userID, ok := mustUserID(c)
+		if !ok {
+			return nil
+		}
 
 		var req models.MergeRepertoiresRequest
 		if err := c.Bind(&req); err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]string{
-				"error": "invalid request body",
-			})
+			return BadRequestResponse(c, "invalid request body")
 		}
 
 		if len(req.IDs) < 2 {
-			return c.JSON(http.StatusBadRequest, map[string]string{
-				"error": "at least two repertoire IDs are required",
-			})
+			return BadRequestResponse(c, "at least two repertoire IDs are required")
 		}
 
 		if req.Name == "" {
-			return c.JSON(http.StatusBadRequest, map[string]string{
-				"error": "name is required",
-			})
+			return BadRequestResponse(c, "name is required")
 		}
 
 		// Validate all IDs are valid UUIDs and check ownership
 		for _, id := range req.IDs {
 			if _, err := uuid.Parse(id); err != nil {
-				return c.JSON(http.StatusBadRequest, map[string]string{
-					"error": "all IDs must be valid UUIDs",
-				})
+				return BadRequestResponse(c, "all IDs must be valid UUIDs")
 			}
 			if err := svc.CheckOwnership(id, userID); err != nil {
-				return c.JSON(http.StatusNotFound, map[string]string{
-					"error": "repertoire not found",
-				})
+				return NotFoundResponse(c, "repertoire")
 			}
 		}
 
 		result, err := svc.MergeRepertoires(userID, req.IDs, req.Name)
 		if err != nil {
-			if errors.Is(err, services.ErrMergeMinimumTwo) {
-				return c.JSON(http.StatusBadRequest, map[string]string{
-					"error": err.Error(),
-				})
+			switch {
+			case errors.Is(err, services.ErrMergeMinimumTwo):
+				return BadRequestResponse(c, err.Error())
+			case errors.Is(err, services.ErrMergeColorMismatch):
+				return BadRequestResponse(c, "cannot merge repertoires of different colors")
+			case errors.Is(err, services.ErrMergeDuplicateIDs):
+				return BadRequestResponse(c, "duplicate repertoire IDs")
+			case errors.Is(err, services.ErrNameRequired):
+				return BadRequestResponse(c, "name is required")
+			case errors.Is(err, services.ErrNameTooLong):
+				return BadRequestResponse(c, "name must be 100 characters or less")
+			default:
+				return mapRepertoireServiceError(c, err, "failed to merge repertoires")
 			}
-			if errors.Is(err, services.ErrMergeColorMismatch) {
-				return c.JSON(http.StatusBadRequest, map[string]string{
-					"error": "cannot merge repertoires of different colors",
-				})
-			}
-			if errors.Is(err, services.ErrMergeDuplicateIDs) {
-				return c.JSON(http.StatusBadRequest, map[string]string{
-					"error": "duplicate repertoire IDs",
-				})
-			}
-			if errors.Is(err, services.ErrNameRequired) {
-				return c.JSON(http.StatusBadRequest, map[string]string{
-					"error": "name is required",
-				})
-			}
-			if errors.Is(err, services.ErrNameTooLong) {
-				return c.JSON(http.StatusBadRequest, map[string]string{
-					"error": "name must be 100 characters or less",
-				})
-			}
-			if errors.Is(err, services.ErrNotFound) {
-				return c.JSON(http.StatusNotFound, map[string]string{
-					"error": "repertoire not found",
-				})
-			}
-			return c.JSON(http.StatusInternalServerError, map[string]string{
-				"error": "failed to merge repertoires",
-			})
 		}
 
 		return c.JSON(http.StatusCreated, result)
@@ -538,30 +399,22 @@ func MergeRepertoiresHandler(svc *services.RepertoireService) echo.HandlerFunc {
 // POST /api/repertoires/:id/merge-transpositions
 func MergeTranspositionsHandler(svc *services.RepertoireService) echo.HandlerFunc {
 	return func(c *echo.Context) error {
-		userID := c.Get("userID").(string)
-		idParam := c.Param("id")
-
-		// Validate repertoire ID is a valid UUID
-		if _, err := uuid.Parse(idParam); err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]string{
-				"error": "repertoire id must be a valid UUID",
-			})
+		userID, ok := mustUserID(c)
+		if !ok {
+			return nil
+		}
+		idParam, ok := validateRepertoireID(c)
+		if !ok {
+			return nil
 		}
 
-		if err := svc.CheckOwnership(idParam, userID); err != nil {
-			return c.JSON(http.StatusNotFound, map[string]string{"error": "repertoire not found"})
+		if !requireOwnership(c, svc, idParam, userID) {
+			return nil
 		}
 
 		rep, err := svc.MergeTranspositions(userID, idParam)
 		if err != nil {
-			if errors.Is(err, services.ErrNotFound) {
-				return c.JSON(http.StatusNotFound, map[string]string{
-					"error": "repertoire not found",
-				})
-			}
-			return c.JSON(http.StatusInternalServerError, map[string]string{
-				"error": "failed to merge transpositions",
-			})
+			return mapRepertoireServiceError(c, err, "failed to merge transpositions")
 		}
 
 		return c.JSON(http.StatusOK, rep)
@@ -572,52 +425,21 @@ func MergeTranspositionsHandler(svc *services.RepertoireService) echo.HandlerFun
 // PATCH /api/repertoires/:id/nodes/:nodeId/comment
 func UpdateNodeCommentHandler(svc *services.RepertoireService) echo.HandlerFunc {
 	return func(c *echo.Context) error {
-		userID := c.Get("userID").(string)
-		idParam := c.Param("id")
-		nodeID := c.Param("nodeId")
-
-		// Validate repertoire ID is a valid UUID
-		if _, err := uuid.Parse(idParam); err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]string{
-				"error": "repertoire id must be a valid UUID",
-			})
-		}
-
-		// Validate nodeId is a valid UUID
-		if _, err := uuid.Parse(nodeID); err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]string{
-				"error": "node id must be a valid UUID",
-			})
-		}
-
-		if err := svc.CheckOwnership(idParam, userID); err != nil {
-			return c.JSON(http.StatusNotFound, map[string]string{"error": "repertoire not found"})
+		target, ok := withNode(c, svc)
+		if !ok {
+			return nil
 		}
 
 		var req struct {
 			Comment string `json:"comment"`
 		}
 		if err := c.Bind(&req); err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]string{
-				"error": "invalid request body",
-			})
+			return BadRequestResponse(c, "invalid request body")
 		}
 
-		rep, err := svc.UpdateNodeComment(userID, idParam, nodeID, req.Comment)
+		rep, err := svc.UpdateNodeComment(target.UserID, target.RepID, target.NodeID, req.Comment)
 		if err != nil {
-			if errors.Is(err, services.ErrNotFound) {
-				return c.JSON(http.StatusNotFound, map[string]string{
-					"error": "repertoire not found",
-				})
-			}
-			if errors.Is(err, services.ErrNodeNotFound) {
-				return c.JSON(http.StatusNotFound, map[string]string{
-					"error": "node not found",
-				})
-			}
-			return c.JSON(http.StatusInternalServerError, map[string]string{
-				"error": "failed to update comment",
-			})
+			return mapRepertoireServiceError(c, err, "failed to update comment")
 		}
 
 		return c.JSON(http.StatusOK, rep)
@@ -628,52 +450,21 @@ func UpdateNodeCommentHandler(svc *services.RepertoireService) echo.HandlerFunc 
 // PATCH /api/repertoires/:id/nodes/:nodeId/branch-name
 func UpdateNodeBranchNameHandler(svc *services.RepertoireService) echo.HandlerFunc {
 	return func(c *echo.Context) error {
-		userID := c.Get("userID").(string)
-		idParam := c.Param("id")
-		nodeID := c.Param("nodeId")
-
-		// Validate repertoire ID is a valid UUID
-		if _, err := uuid.Parse(idParam); err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]string{
-				"error": "repertoire id must be a valid UUID",
-			})
-		}
-
-		// Validate nodeId is a valid UUID
-		if _, err := uuid.Parse(nodeID); err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]string{
-				"error": "node id must be a valid UUID",
-			})
-		}
-
-		if err := svc.CheckOwnership(idParam, userID); err != nil {
-			return c.JSON(http.StatusNotFound, map[string]string{"error": "repertoire not found"})
+		target, ok := withNode(c, svc)
+		if !ok {
+			return nil
 		}
 
 		var req struct {
 			BranchName string `json:"branchName"`
 		}
 		if err := c.Bind(&req); err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]string{
-				"error": "invalid request body",
-			})
+			return BadRequestResponse(c, "invalid request body")
 		}
 
-		rep, err := svc.UpdateNodeBranchName(userID, idParam, nodeID, req.BranchName)
+		rep, err := svc.UpdateNodeBranchName(target.UserID, target.RepID, target.NodeID, req.BranchName)
 		if err != nil {
-			if errors.Is(err, services.ErrNotFound) {
-				return c.JSON(http.StatusNotFound, map[string]string{
-					"error": "repertoire not found",
-				})
-			}
-			if errors.Is(err, services.ErrNodeNotFound) {
-				return c.JSON(http.StatusNotFound, map[string]string{
-					"error": "node not found",
-				})
-			}
-			return c.JSON(http.StatusInternalServerError, map[string]string{
-				"error": "failed to update branch name",
-			})
+			return mapRepertoireServiceError(c, err, "failed to update branch name")
 		}
 
 		return c.JSON(http.StatusOK, rep)
@@ -684,57 +475,24 @@ func UpdateNodeBranchNameHandler(svc *services.RepertoireService) echo.HandlerFu
 // PATCH /api/repertoires/:id/nodes/:nodeId/branch-color
 func UpdateNodeBranchColorHandler(svc *services.RepertoireService) echo.HandlerFunc {
 	return func(c *echo.Context) error {
-		userID := c.Get("userID").(string)
-		idParam := c.Param("id")
-		nodeID := c.Param("nodeId")
-
-		// Validate repertoire ID is a valid UUID
-		if _, err := uuid.Parse(idParam); err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]string{
-				"error": "repertoire id must be a valid UUID",
-			})
-		}
-
-		// Validate nodeId is a valid UUID
-		if _, err := uuid.Parse(nodeID); err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]string{
-				"error": "node id must be a valid UUID",
-			})
-		}
-
-		if err := svc.CheckOwnership(idParam, userID); err != nil {
-			return c.JSON(http.StatusNotFound, map[string]string{"error": "repertoire not found"})
+		target, ok := withNode(c, svc)
+		if !ok {
+			return nil
 		}
 
 		var req struct {
 			BranchColor string `json:"branchColor"`
 		}
 		if err := c.Bind(&req); err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]string{
-				"error": "invalid request body",
-			})
+			return BadRequestResponse(c, "invalid request body")
 		}
 
-		rep, err := svc.UpdateNodeBranchColor(userID, idParam, nodeID, req.BranchColor)
+		rep, err := svc.UpdateNodeBranchColor(target.UserID, target.RepID, target.NodeID, req.BranchColor)
 		if err != nil {
-			if errors.Is(err, services.ErrNotFound) {
-				return c.JSON(http.StatusNotFound, map[string]string{
-					"error": "repertoire not found",
-				})
-			}
-			if errors.Is(err, services.ErrNodeNotFound) {
-				return c.JSON(http.StatusNotFound, map[string]string{
-					"error": "node not found",
-				})
-			}
 			if errors.Is(err, services.ErrInvalidBranchColor) {
-				return c.JSON(http.StatusBadRequest, map[string]string{
-					"error": "invalid branch color",
-				})
+				return BadRequestResponse(c, "invalid branch color")
 			}
-			return c.JSON(http.StatusInternalServerError, map[string]string{
-				"error": "failed to update branch color",
-			})
+			return mapRepertoireServiceError(c, err, "failed to update branch color")
 		}
 
 		return c.JSON(http.StatusOK, rep)
@@ -745,26 +503,9 @@ func UpdateNodeBranchColorHandler(svc *services.RepertoireService) echo.HandlerF
 // PATCH /api/repertoires/:id/nodes/:nodeId/annotations
 func UpdateNodeAnnotationsHandler(svc *services.RepertoireService) echo.HandlerFunc {
 	return func(c *echo.Context) error {
-		userID := c.Get("userID").(string)
-		idParam := c.Param("id")
-		nodeID := c.Param("nodeId")
-
-		// Validate repertoire ID is a valid UUID
-		if _, err := uuid.Parse(idParam); err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]string{
-				"error": "repertoire id must be a valid UUID",
-			})
-		}
-
-		// Validate nodeId is a valid UUID
-		if _, err := uuid.Parse(nodeID); err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]string{
-				"error": "node id must be a valid UUID",
-			})
-		}
-
-		if err := svc.CheckOwnership(idParam, userID); err != nil {
-			return c.JSON(http.StatusNotFound, map[string]string{"error": "repertoire not found"})
+		target, ok := withNode(c, svc)
+		if !ok {
+			return nil
 		}
 
 		var req struct {
@@ -772,31 +513,15 @@ func UpdateNodeAnnotationsHandler(svc *services.RepertoireService) echo.HandlerF
 			Highlights []models.SquareHighlight `json:"highlights"`
 		}
 		if err := c.Bind(&req); err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]string{
-				"error": "invalid request body",
-			})
+			return BadRequestResponse(c, "invalid request body")
 		}
 
-		rep, err := svc.UpdateNodeAnnotations(userID, idParam, nodeID, req.Arrows, req.Highlights)
+		rep, err := svc.UpdateNodeAnnotations(target.UserID, target.RepID, target.NodeID, req.Arrows, req.Highlights)
 		if err != nil {
-			if errors.Is(err, services.ErrNotFound) {
-				return c.JSON(http.StatusNotFound, map[string]string{
-					"error": "repertoire not found",
-				})
-			}
-			if errors.Is(err, services.ErrNodeNotFound) {
-				return c.JSON(http.StatusNotFound, map[string]string{
-					"error": "node not found",
-				})
-			}
 			if errors.Is(err, services.ErrInvalidAnnotation) {
-				return c.JSON(http.StatusBadRequest, map[string]string{
-					"error": "invalid annotation",
-				})
+				return BadRequestResponse(c, "invalid annotation")
 			}
-			return c.JSON(http.StatusInternalServerError, map[string]string{
-				"error": "failed to update annotations",
-			})
+			return mapRepertoireServiceError(c, err, "failed to update annotations")
 		}
 
 		return c.JSON(http.StatusOK, rep)
@@ -807,43 +532,14 @@ func UpdateNodeAnnotationsHandler(svc *services.RepertoireService) echo.HandlerF
 // POST /api/repertoires/:id/nodes/:nodeId/toggle-collapsed
 func ToggleNodeCollapsedHandler(svc *services.RepertoireService) echo.HandlerFunc {
 	return func(c *echo.Context) error {
-		userID := c.Get("userID").(string)
-		idParam := c.Param("id")
-		nodeID := c.Param("nodeId")
-
-		// Validate repertoire ID is a valid UUID
-		if _, err := uuid.Parse(idParam); err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]string{
-				"error": "repertoire id must be a valid UUID",
-			})
+		target, ok := withNode(c, svc)
+		if !ok {
+			return nil
 		}
 
-		// Validate nodeId is a valid UUID
-		if _, err := uuid.Parse(nodeID); err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]string{
-				"error": "node id must be a valid UUID",
-			})
-		}
-
-		if err := svc.CheckOwnership(idParam, userID); err != nil {
-			return c.JSON(http.StatusNotFound, map[string]string{"error": "repertoire not found"})
-		}
-
-		rep, err := svc.ToggleNodeCollapsed(userID, idParam, nodeID)
+		rep, err := svc.ToggleNodeCollapsed(target.UserID, target.RepID, target.NodeID)
 		if err != nil {
-			if errors.Is(err, services.ErrNotFound) {
-				return c.JSON(http.StatusNotFound, map[string]string{
-					"error": "repertoire not found",
-				})
-			}
-			if errors.Is(err, services.ErrNodeNotFound) {
-				return c.JSON(http.StatusNotFound, map[string]string{
-					"error": "node not found",
-				})
-			}
-			return c.JSON(http.StatusInternalServerError, map[string]string{
-				"error": "failed to toggle collapsed state",
-			})
+			return mapRepertoireServiceError(c, err, "failed to toggle collapsed state")
 		}
 
 		return c.JSON(http.StatusOK, rep)
@@ -854,43 +550,14 @@ func ToggleNodeCollapsedHandler(svc *services.RepertoireService) echo.HandlerFun
 // POST /api/repertoires/:id/nodes/:nodeId/expand-to
 func ExpandToNodeHandler(svc *services.RepertoireService) echo.HandlerFunc {
 	return func(c *echo.Context) error {
-		userID := c.Get("userID").(string)
-		idParam := c.Param("id")
-		nodeID := c.Param("nodeId")
-
-		// Validate repertoire ID is a valid UUID
-		if _, err := uuid.Parse(idParam); err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]string{
-				"error": "repertoire id must be a valid UUID",
-			})
+		target, ok := withNode(c, svc)
+		if !ok {
+			return nil
 		}
 
-		// Validate nodeId is a valid UUID
-		if _, err := uuid.Parse(nodeID); err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]string{
-				"error": "node id must be a valid UUID",
-			})
-		}
-
-		if err := svc.CheckOwnership(idParam, userID); err != nil {
-			return c.JSON(http.StatusNotFound, map[string]string{"error": "repertoire not found"})
-		}
-
-		rep, err := svc.ExpandToNode(userID, idParam, nodeID)
+		rep, err := svc.ExpandToNode(target.UserID, target.RepID, target.NodeID)
 		if err != nil {
-			if errors.Is(err, services.ErrNotFound) {
-				return c.JSON(http.StatusNotFound, map[string]string{
-					"error": "repertoire not found",
-				})
-			}
-			if errors.Is(err, services.ErrNodeNotFound) {
-				return c.JSON(http.StatusNotFound, map[string]string{
-					"error": "node not found",
-				})
-			}
-			return c.JSON(http.StatusInternalServerError, map[string]string{
-				"error": "failed to expand to node",
-			})
+			return mapRepertoireServiceError(c, err, "failed to expand to node")
 		}
 
 		return c.JSON(http.StatusOK, rep)
@@ -901,43 +568,14 @@ func ExpandToNodeHandler(svc *services.RepertoireService) echo.HandlerFunc {
 // POST /api/repertoires/:id/nodes/:nodeId/set-main-line
 func SetMainLineHandler(svc *services.RepertoireService) echo.HandlerFunc {
 	return func(c *echo.Context) error {
-		userID := c.Get("userID").(string)
-		idParam := c.Param("id")
-		nodeID := c.Param("nodeId")
-
-		// Validate repertoire ID is a valid UUID
-		if _, err := uuid.Parse(idParam); err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]string{
-				"error": "repertoire id must be a valid UUID",
-			})
+		target, ok := withNode(c, svc)
+		if !ok {
+			return nil
 		}
 
-		// Validate nodeId is a valid UUID
-		if _, err := uuid.Parse(nodeID); err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]string{
-				"error": "node id must be a valid UUID",
-			})
-		}
-
-		if err := svc.CheckOwnership(idParam, userID); err != nil {
-			return c.JSON(http.StatusNotFound, map[string]string{"error": "repertoire not found"})
-		}
-
-		rep, err := svc.SetMainLine(userID, idParam, nodeID)
+		rep, err := svc.SetMainLine(target.UserID, target.RepID, target.NodeID)
 		if err != nil {
-			if errors.Is(err, services.ErrNotFound) {
-				return c.JSON(http.StatusNotFound, map[string]string{
-					"error": "repertoire not found",
-				})
-			}
-			if errors.Is(err, services.ErrNodeNotFound) {
-				return c.JSON(http.StatusNotFound, map[string]string{
-					"error": "node not found",
-				})
-			}
-			return c.JSON(http.StatusInternalServerError, map[string]string{
-				"error": "failed to set main line",
-			})
+			return mapRepertoireServiceError(c, err, "failed to set main line")
 		}
 
 		return c.JSON(http.StatusOK, rep)
@@ -948,30 +586,22 @@ func SetMainLineHandler(svc *services.RepertoireService) echo.HandlerFunc {
 // POST /api/repertoires/:id/clear-main-line
 func ClearMainLineHandler(svc *services.RepertoireService) echo.HandlerFunc {
 	return func(c *echo.Context) error {
-		userID := c.Get("userID").(string)
-		idParam := c.Param("id")
-
-		// Validate repertoire ID is a valid UUID
-		if _, err := uuid.Parse(idParam); err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]string{
-				"error": "repertoire id must be a valid UUID",
-			})
+		userID, ok := mustUserID(c)
+		if !ok {
+			return nil
+		}
+		idParam, ok := validateRepertoireID(c)
+		if !ok {
+			return nil
 		}
 
-		if err := svc.CheckOwnership(idParam, userID); err != nil {
-			return c.JSON(http.StatusNotFound, map[string]string{"error": "repertoire not found"})
+		if !requireOwnership(c, svc, idParam, userID) {
+			return nil
 		}
 
 		rep, err := svc.ClearMainLine(userID, idParam)
 		if err != nil {
-			if errors.Is(err, services.ErrNotFound) {
-				return c.JSON(http.StatusNotFound, map[string]string{
-					"error": "repertoire not found",
-				})
-			}
-			return c.JSON(http.StatusInternalServerError, map[string]string{
-				"error": "failed to clear main line",
-			})
+			return mapRepertoireServiceError(c, err, "failed to clear main line")
 		}
 
 		return c.JSON(http.StatusOK, rep)
@@ -982,48 +612,17 @@ func ClearMainLineHandler(svc *services.RepertoireService) echo.HandlerFunc {
 // DELETE /api/repertoire/:id/node/:nodeId
 func DeleteNodeHandler(svc *services.RepertoireService) echo.HandlerFunc {
 	return func(c *echo.Context) error {
-		userID := c.Get("userID").(string)
-		idParam := c.Param("id")
-		nodeID := c.Param("nodeId")
-
-		// Validate repertoire ID is a valid UUID
-		if _, err := uuid.Parse(idParam); err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]string{
-				"error": "repertoire id must be a valid UUID",
-			})
+		target, ok := withNode(c, svc)
+		if !ok {
+			return nil
 		}
 
-		// Validate nodeId is a valid UUID
-		if _, err := uuid.Parse(nodeID); err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]string{
-				"error": "node id must be a valid UUID",
-			})
-		}
-
-		if err := svc.CheckOwnership(idParam, userID); err != nil {
-			return c.JSON(http.StatusNotFound, map[string]string{"error": "repertoire not found"})
-		}
-
-		rep, err := svc.DeleteNode(userID, idParam, nodeID)
+		rep, err := svc.DeleteNode(target.UserID, target.RepID, target.NodeID)
 		if err != nil {
-			if errors.Is(err, services.ErrNotFound) {
-				return c.JSON(http.StatusNotFound, map[string]string{
-					"error": "repertoire not found",
-				})
-			}
 			if errors.Is(err, services.ErrCannotDeleteRoot) {
-				return c.JSON(http.StatusBadRequest, map[string]string{
-					"error": "cannot delete root node",
-				})
+				return BadRequestResponse(c, "cannot delete root node")
 			}
-			if errors.Is(err, services.ErrNodeNotFound) {
-				return c.JSON(http.StatusNotFound, map[string]string{
-					"error": "node not found",
-				})
-			}
-			return c.JSON(http.StatusInternalServerError, map[string]string{
-				"error": "failed to delete node",
-			})
+			return mapRepertoireServiceError(c, err, "failed to delete node")
 		}
 
 		return c.JSON(http.StatusOK, rep)
@@ -1034,38 +633,29 @@ func DeleteNodeHandler(svc *services.RepertoireService) echo.HandlerFunc {
 // PATCH /api/repertoires/:id/visibility
 func UpdateVisibilityHandler(svc *services.RepertoireService) echo.HandlerFunc {
 	return func(c *echo.Context) error {
-		userID := c.Get("userID").(string)
-		idParam := c.Param("id")
-
-		if _, err := uuid.Parse(idParam); err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]string{
-				"error": "id must be a valid UUID",
-			})
+		userID, ok := mustUserID(c)
+		if !ok {
+			return nil
+		}
+		idParam, ok := ValidateUUIDParam(c, "id")
+		if !ok {
+			return nil
 		}
 
-		if err := svc.CheckOwnership(idParam, userID); err != nil {
-			return c.JSON(http.StatusNotFound, map[string]string{"error": "repertoire not found"})
+		if !requireOwnership(c, svc, idParam, userID) {
+			return nil
 		}
 
 		var req struct {
 			IsPublic bool `json:"isPublic"`
 		}
 		if err := c.Bind(&req); err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]string{
-				"error": "invalid request body",
-			})
+			return BadRequestResponse(c, "invalid request body")
 		}
 
 		rep, err := svc.UpdateVisibility(userID, idParam, req.IsPublic)
 		if err != nil {
-			if errors.Is(err, services.ErrNotFound) {
-				return c.JSON(http.StatusNotFound, map[string]string{
-					"error": "repertoire not found",
-				})
-			}
-			return c.JSON(http.StatusInternalServerError, map[string]string{
-				"error": "failed to update visibility",
-			})
+			return mapRepertoireServiceError(c, err, "failed to update visibility")
 		}
 
 		return c.JSON(http.StatusOK, rep)

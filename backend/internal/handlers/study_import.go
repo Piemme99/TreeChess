@@ -45,7 +45,10 @@ func (h *StudyImportHandler) PreviewStudyHandler(c *echo.Context) error {
 		return BadRequestResponse(c, "invalid Lichess study URL")
 	}
 
-	userID := c.Get("userID").(string)
+	userID, ok := mustUserID(c)
+	if !ok {
+		return nil
+	}
 	authToken := h.studyImportService.GetLichessTokenForUser(userID)
 
 	info, err := h.studyImportService.PreviewStudy(studyID, authToken)
@@ -86,7 +89,10 @@ func (h *StudyImportHandler) ImportStudyHandler(c *echo.Context) error {
 		return BadRequestResponse(c, "at least one chapter must be selected")
 	}
 
-	userID := c.Get("userID").(string)
+	userID, ok := mustUserID(c)
+	if !ok {
+		return nil
+	}
 	authToken := h.studyImportService.GetLichessTokenForUser(userID)
 
 	if req.MergeAsOne {
@@ -187,7 +193,10 @@ func (h *StudyImportHandler) BrowseStudiesHandler(c *echo.Context) error {
 		}
 	}
 
-	userID := c.Get("userID").(string)
+	userID, ok := mustUserID(c)
+	if !ok {
+		return nil
+	}
 	authToken := h.studyImportService.GetLichessTokenForUser(userID)
 
 	var result *models.LichessStudySearchResponse

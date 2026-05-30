@@ -15,7 +15,10 @@ import (
 // GET /api/categories?color=white|black
 func ListCategoriesHandler(svc *services.CategoryService) echo.HandlerFunc {
 	return func(c *echo.Context) error {
-		userID := c.Get("userID").(string)
+		userID, ok := mustUserID(c)
+		if !ok {
+			return nil
+		}
 		colorParam := c.QueryParam("color")
 
 		var colorFilter *models.Color
@@ -45,7 +48,10 @@ func ListCategoriesHandler(svc *services.CategoryService) echo.HandlerFunc {
 // POST /api/categories
 func CreateCategoryHandler(svc *services.CategoryService) echo.HandlerFunc {
 	return func(c *echo.Context) error {
-		userID := c.Get("userID").(string)
+		userID, ok := mustUserID(c)
+		if !ok {
+			return nil
+		}
 
 		var req models.CreateCategoryRequest
 		if err := c.Bind(&req); err != nil {
@@ -82,7 +88,10 @@ func CreateCategoryHandler(svc *services.CategoryService) echo.HandlerFunc {
 // GET /api/categories/:id
 func GetCategoryHandler(svc *services.CategoryService) echo.HandlerFunc {
 	return func(c *echo.Context) error {
-		userID := c.Get("userID").(string)
+		userID, ok := mustUserID(c)
+		if !ok {
+			return nil
+		}
 		idParam := c.Param("id")
 
 		// Validate ID is a valid UUID
@@ -110,7 +119,10 @@ func GetCategoryHandler(svc *services.CategoryService) echo.HandlerFunc {
 // PATCH /api/categories/:id
 func UpdateCategoryHandler(svc *services.CategoryService) echo.HandlerFunc {
 	return func(c *echo.Context) error {
-		userID := c.Get("userID").(string)
+		userID, ok := mustUserID(c)
+		if !ok {
+			return nil
+		}
 		idParam := c.Param("id")
 
 		// Validate ID is a valid UUID
@@ -149,7 +161,10 @@ func UpdateCategoryHandler(svc *services.CategoryService) echo.HandlerFunc {
 // DELETE /api/categories/:id
 func DeleteCategoryHandler(svc *services.CategoryService) echo.HandlerFunc {
 	return func(c *echo.Context) error {
-		userID := c.Get("userID").(string)
+		userID, ok := mustUserID(c)
+		if !ok {
+			return nil
+		}
 		idParam := c.Param("id")
 
 		// Validate ID is a valid UUID
@@ -177,7 +192,10 @@ func DeleteCategoryHandler(svc *services.CategoryService) echo.HandlerFunc {
 // PATCH /api/repertoires/:id/category
 func AssignCategoryHandler(svc *services.RepertoireService, catSvc *services.CategoryService) echo.HandlerFunc {
 	return func(c *echo.Context) error {
-		userID := c.Get("userID").(string)
+		userID, ok := mustUserID(c)
+		if !ok {
+			return nil
+		}
 		idParam := c.Param("id")
 
 		// Validate repertoire ID is a valid UUID

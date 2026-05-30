@@ -23,7 +23,10 @@ type DismissGapRequest struct {
 }
 
 func (h *DashboardHandler) DismissGap(c *echo.Context) error {
-	userID := c.Get("userID").(string)
+	userID, ok := mustUserID(c)
+	if !ok {
+		return nil
+	}
 
 	var req DismissGapRequest
 	if err := c.Bind(&req); err != nil {
@@ -42,7 +45,10 @@ func (h *DashboardHandler) DismissGap(c *echo.Context) error {
 }
 
 func (h *DashboardHandler) GetStats(c *echo.Context) error {
-	userID := c.Get("userID").(string)
+	userID, ok := mustUserID(c)
+	if !ok {
+		return nil
+	}
 
 	stats, err := h.importService.GetDashboardStats(userID)
 	if err != nil {
