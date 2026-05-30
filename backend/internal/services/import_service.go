@@ -777,8 +777,16 @@ func (s *ImportService) reanalyzeGameFromMoves(game *models.GameAnalysis, repert
 	return result
 }
 
-// ReanalyzeAllGames re-analyzes all imported games against the user's current repertoires
-func (s *ImportService) ReanalyzeAllGames(userID string) (int, error) {
+// ReanalyzeAllGames re-analyzes all imported games against the user's current repertoires.
+//
+// When preserveAnalysed is true (auto re-analysis triggered by repertoire edits), a
+// game's stored analysis is left untouched whenever re-analysis would newly flag it as
+// an "error". This avoids retroactively tagging historical games against prep that did
+// not exist when they were played — for example a game the user reviewed and then
+// enriched their repertoire from. Genuine improvements (e.g. error -> in-repertoire) and
+// re-tagging of games that were already errors still apply. Manual re-analysis passes
+// false to force a full re-tag.
+func (s *ImportService) ReanalyzeAllGames(userID string, preserveAnalysed bool) (int, error) {
 	analyses, err := s.analysisRepo.GetAllGamesRaw(userID)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get analyses: %w", err)
@@ -829,6 +837,12 @@ func (s *ImportService) ReanalyzeAllGames(userID string) (int, error) {
 			})
 			reanalyzed.MatchedRepertoire = reperRef
 			reanalyzed.MatchScore = matchScore
+
+			// Don't let auto re-analysis retroactively flag a previously non-error game
+			// as an opening error against prep that was added after it was played.
+			if preserveAnalysed && gameStatusFromGame(reanalyzed) == "error" && gameStatusFromGame(*game) != "error" {
+				continue
+			}
 
 			a.Results[i] = reanalyzed
 			modified = true
