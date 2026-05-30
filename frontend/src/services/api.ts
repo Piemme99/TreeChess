@@ -56,7 +56,10 @@ export function getAccessToken(): string | null {
   return accessToken;
 }
 
-const api = axios.create({
+// Exported so tests can install a custom axios adapter and exercise the real
+// request/response interceptors (token injection, 401-refresh coalescing).
+// Production code uses the named *Api objects below, not this instance directly.
+export const api = axios.create({
   baseURL: API_BASE,
   timeout: 30000,
   headers: {
