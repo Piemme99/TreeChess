@@ -2,7 +2,7 @@ import { useRef, useEffect, useCallback } from 'react';
 import { toast } from '../../../../stores/toastStore';
 import { findNodeByFEN, findNode } from '../utils/nodeUtils';
 import { repertoireApi } from '../../../../services/api';
-import { makeMove, getShortFEN } from '../../../../shared/utils/chess';
+import { makeMove, getShortFEN, deriveChildMoveNumber } from '../../../../shared/utils/chess';
 import type { Repertoire, RepertoireNode, AddNodeRequest } from '../../../../types';
 
 interface PendingMoveEntry {
@@ -71,7 +71,7 @@ export function usePendingAddNode(
         parentId: parentNode.id,
         move: moveSAN,
         fen: getShortFEN(newFEN),
-        moveNumber: parentNode.moveNumber + (parentNode.colorToMove === 'b' ? 1 : 0),
+        moveNumber: deriveChildMoveNumber(parentNode.moveNumber, parentNode.colorToMove),
         colorToMove: parentNode.colorToMove === 'w' ? 'b' : 'w'
       };
 
@@ -136,7 +136,7 @@ export function usePendingAddNode(
           parentId: parentNode.id,
           move: entry.moveSAN,
           fen: getShortFEN(newFEN),
-          moveNumber: parentNode.moveNumber + (parentNode.colorToMove === 'b' ? 1 : 0),
+          moveNumber: deriveChildMoveNumber(parentNode.moveNumber, parentNode.colorToMove),
           colorToMove: parentNode.colorToMove === 'w' ? 'b' : 'w'
         };
 

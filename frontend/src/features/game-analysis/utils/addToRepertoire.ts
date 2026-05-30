@@ -1,6 +1,6 @@
 import { repertoireApi } from '../../../services/api';
 import { findNodeByFEN } from '../../repertoire/edit/utils/nodeUtils';
-import { makeMove, getShortFEN } from '../../../shared/utils/chess';
+import { makeMove, getShortFEN, deriveChildMoveNumber } from '../../../shared/utils/chess';
 import type { AddNodeRequest, RepertoireNode } from '../../../types';
 
 /**
@@ -75,7 +75,7 @@ export async function addLineToRepertoire(
         parentId: parentNode.id,
         move: entry.moveSAN,
         fen: getShortFEN(newFEN),
-        moveNumber: parentNode.moveNumber + (parentNode.colorToMove === 'b' ? 1 : 0),
+        moveNumber: deriveChildMoveNumber(parentNode.moveNumber, parentNode.colorToMove),
         colorToMove: parentNode.colorToMove === 'w' ? 'b' : 'w'
       };
 

@@ -91,18 +91,18 @@ describe('addLineToRepertoire', () => {
 
     // First POST grafts e4 onto the root.
     //   parent root: moveNumber 0, colorToMove 'w'
-    //   → moveNumber = 0 + (w ? 0) = 0; colorToMove flips to 'b'.
+    //   → deriveChildMoveNumber(0, 'w') = 1; colorToMove flips to 'b'.
     expect(mockedAddNode).toHaveBeenNthCalledWith(1, 'rep-1', {
       parentId: 'root',
       move: 'e4',
       fen: FEN_E4,
-      moveNumber: 0,
+      moveNumber: 1,
       colorToMove: 'b',
     } satisfies AddNodeRequest);
 
     // Second POST grafts e5 onto the freshly added e4 node.
-    //   parent e4 (from the previous request): moveNumber 0, colorToMove 'b'
-    //   → moveNumber = 0 + (b ? 1) = 1; colorToMove flips to 'w'.
+    //   parent e4 (from the previous request): moveNumber 1, colorToMove 'b'
+    //   → deriveChildMoveNumber(1, 'b') = 1; colorToMove flips to 'w'.
     expect(mockedAddNode).toHaveBeenNthCalledWith(2, 'rep-1', {
       parentId: 'added-0',
       move: 'e5',
