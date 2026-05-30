@@ -58,6 +58,9 @@ func main() {
 	// a position).
 	engineSvc := services.NewEngineService(engineEvalRepo, analysisRepo, openingCacheRepo)
 
+	// Periodic cleanup of expired refresh/reset tokens and stale explorer cache.
+	cleanupSvc := services.NewCleanupService(refreshTokenRepo, passwordResetRepo, openingCacheRepo, cfg.CleanupInterval)
+
 	// Initialize services
 	authSvc := services.NewAuthService(userRepo, cfg.JWTSecret, cfg.JWTExpiry)
 	authSvc.WithRefreshTokens(refreshTokenRepo)
@@ -280,6 +283,9 @@ func main() {
 	// Start opening analysis worker
 	workerCtx, workerCancel := context.WithCancel(context.Background())
 	go engineSvc.RunWorker(workerCtx)
+
+	// Start periodic cleanup worker (expired tokens + stale explorer cache)
+	go cleanupSvc.RunWorker(workerCtx)
 
 	// Start metrics server in a goroutine
 	metricsAddr := fmt.Sprintf(":%d", cfg.MetricsPort)

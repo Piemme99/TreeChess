@@ -45,6 +45,10 @@ func (c *stubExplorerCache) Put(_ context.Context, key string, payload []byte, _
 	return nil
 }
 
+func (c *stubExplorerCache) DeleteExpired(_ context.Context) error {
+	return nil
+}
+
 // stubFetcher implements services.OpeningExplorerFetcher.
 type stubFetcher struct {
 	calls       int
@@ -232,4 +236,3 @@ func TestTrainingExplorerHandler_UpstreamUnauthorized_Returns403LichessTokenInva
 	assert.Equal(t, http.StatusForbidden, rec.Code)
 	assert.Contains(t, rec.Body.String(), `"code":"lichess_token_invalid"`)
 }
-
