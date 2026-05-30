@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { Chess } from 'chess.js';
 import { useNavigate, useLocation } from 'react-router';
-import { ensureFullFEN } from '../../shared/utils/chess';
+import { ensureFullFEN, formatNodeNotation } from '../../shared/utils/chess';
 import { Button, Loading } from '../../shared/components/UI';
 import { RepertoireTree } from './shared/components/RepertoireTree';
 import { MoveHistory } from './shared/components/MoveHistory';
@@ -317,7 +317,7 @@ export function RepertoireEdit() {
               {selectedNode && (
                 <span className="font-mono text-sm text-text font-medium">
                   {selectedNode.move
-                    ? `${selectedNode.moveNumber}${selectedNode.colorToMove === 'w' ? '.' : '...'} ${selectedNode.move}`
+                    ? formatNodeNotation(selectedNode.moveNumber, selectedNode.colorToMove, selectedNode.move)
                     : 'Starting Position'}
                 </span>
               )}
