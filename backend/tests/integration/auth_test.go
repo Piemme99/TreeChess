@@ -493,6 +493,55 @@ func TestAuth_DeleteAccount_CascadesData(t *testing.T) {
 	assert.Contains(t, rec6.Body.String(), "[]")
 }
 
+// TestAuth_DeleteAccount_WithDismissedGap is a regression test for issue #118:
+// dismissed_gaps.user_id has no ON DELETE CASCADE, so account deletion used to
+// fail with a foreign-key violation for any user who had dismissed a gap.
+func TestAuth_DeleteAccount_WithDismissedGap(t *testing.T) {
+	testDB.TruncateAll(t)
+	repos := testDB.Repos()
+	ts := testhelpers.SetupTestServer(t, repos)
+
+	// Register and capture the user ID so we can inspect dismissed_gaps directly.
+	rec := ts.DoRequest(testhelpers.AuthRequest(
+		http.MethodPost, "/api/auth/register",
+		registerJSON("sam@test.com", "sam", "password123"), ""))
+	require.Equal(t, http.StatusCreated, rec.Code)
+	var authResp models.AuthResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &authResp))
+	token := authResp.Token
+	userID := authResp.User.ID
+	require.NotEmpty(t, userID)
+
+	// Dismiss an opponent gap (the dashboard handler ultimately calls this repo).
+	require.NoError(t, repos.DismissedGap.Dismiss(
+		userID,
+		"rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1",
+		"c5",
+		"00000000-0000-0000-0000-000000000001",
+	))
+
+	// Sanity-check the gap was actually persisted.
+	dismissed, err := repos.DismissedGap.GetDismissed(userID)
+	require.NoError(t, err)
+	require.Len(t, dismissed, 1, "gap should be dismissed before deletion")
+
+	// Delete the account — previously this returned 500 due to the FK violation.
+	delBody, _ := json.Marshal(models.DeleteAccountRequest{Password: "password123"})
+	recDel := ts.DoRequest(testhelpers.AuthRequest(http.MethodDelete, "/api/auth/account", delBody, token))
+	require.Equal(t, http.StatusNoContent, recDel.Code, "deletion must succeed even with a dismissed gap")
+
+	// The dismissed_gaps rows for the user must be gone.
+	dismissedAfter, err := repos.DismissedGap.GetDismissed(userID)
+	require.NoError(t, err)
+	assert.Empty(t, dismissedAfter, "dismissed_gaps rows should be removed with the account")
+
+	// Login should now fail — the account is deleted.
+	recLogin := ts.DoRequest(testhelpers.AuthRequest(
+		http.MethodPost, "/api/auth/login",
+		loginJSON("sam@test.com", "password123"), ""))
+	assert.Equal(t, http.StatusUnauthorized, recLogin.Code)
+}
+
 func TestAuth_DeleteAccount_Unauthenticated(t *testing.T) {
 	testDB.TruncateAll(t)
 	repos := testDB.Repos()
