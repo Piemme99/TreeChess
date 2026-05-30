@@ -3,10 +3,76 @@ package handlers
 import (
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v5"
+	"github.com/notnil/chess"
 )
+
+// MaxFENLength caps the raw FEN string length before parsing. A legal FEN is
+// well under 100 characters; this is a cheap guard against unbounded
+// attacker-controlled input feeding the chess parser or a cache key.
+const MaxFENLength = 100
+
+// MaxChessMoveLength caps a SAN move string. The longest legal SAN (e.g.
+// "exd8=Q+") is well under this bound; it guards against unbounded input being
+// persisted as part of a dismiss row.
+const MaxChessMoveLength = 16
+
+// validExplorerVariants is the allowlist of Lichess Opening Explorer variants.
+// Anything outside this set is rejected before it can widen the cache key-space
+// or reach the upstream API.
+var validExplorerVariants = map[string]bool{
+	"standard":      true,
+	"chess960":      true,
+	"crazyhouse":    true,
+	"antichess":     true,
+	"atomic":        true,
+	"horde":         true,
+	"kingOfTheHill": true,
+	"racingKings":   true,
+	"threeCheck":    true,
+}
+
+// IsValidExplorerVariant reports whether variant is an allowed Lichess
+// Opening Explorer variant.
+func IsValidExplorerVariant(variant string) bool {
+	return validExplorerVariants[variant]
+}
+
+// ensureFullFEN appends the side-to-move / castling fields' trailing counters
+// when a board-only FEN (4 fields) is supplied, mirroring the services package
+// helper so handler-level validation accepts the same inputs the services do.
+func ensureFullFEN(fen string) string {
+	if len(strings.Fields(fen)) >= 6 {
+		return fen
+	}
+	return fen + " 0 1"
+}
+
+// ValidateFEN parses fen (capped at MaxFENLength) with the chess library and
+// returns true if it is a legal position. It does not write a response.
+func ValidateFEN(fen string) bool {
+	if fen == "" || len(fen) > MaxFENLength {
+		return false
+	}
+	if _, err := chess.FEN(ensureFullFEN(fen)); err != nil {
+		return false
+	}
+	return true
+}
+
+// ValidateFENField validates a request/query FEN value: it must be non-empty,
+// at most MaxFENLength characters, and parse as a legal position. On failure it
+// sends a 400 response and returns false.
+func ValidateFENField(c *echo.Context, fieldName, value string) bool {
+	if !ValidateFEN(value) {
+		_ = BadRequestResponse(c, fieldName+" must be a valid FEN")
+		return false
+	}
+	return true
+}
 
 // ErrorResponse sends a JSON error response with the given status code and message
 func ErrorResponse(c *echo.Context, status int, message string) error {

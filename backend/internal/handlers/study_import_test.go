@@ -319,3 +319,47 @@ func TestImportStudyHandler_LimitReached(t *testing.T) {
 
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 }
+
+func doBrowseStudies(t *testing.T, capturedPage *int, pageQuery string) *httptest.ResponseRecorder {
+	t.Helper()
+	mockLichess := &smocks.MockLichessService{
+		BrowseAllStudiesFunc: func(sort string, page int, authToken string) (*models.LichessStudySearchResponse, error) {
+			*capturedPage = page
+			return &models.LichessStudySearchResponse{}, nil
+		},
+	}
+	handler := newTestStudyImportHandler(mockLichess, &smocks.MockRepertoireService{}, &mocks.MockUserRepo{})
+
+	e := echo.New()
+	target := "/api/studies/browse"
+	if pageQuery != "" {
+		target += "?page=" + pageQuery
+	}
+	req := httptest.NewRequest(http.MethodGet, target, nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.Set("userID", testUserID)
+	require.NoError(t, handler.BrowseStudiesHandler(c))
+	return rec
+}
+
+func TestBrowseStudiesHandler_CapsLargePage(t *testing.T) {
+	var page int
+	rec := doBrowseStudies(t, &page, "100000")
+	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Equal(t, 100, page, "page must be capped at 100")
+}
+
+func TestBrowseStudiesHandler_DefaultsToOne(t *testing.T) {
+	var page int
+	rec := doBrowseStudies(t, &page, "")
+	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Equal(t, 1, page, "missing page must default to 1")
+}
+
+func TestBrowseStudiesHandler_RejectsNonPositivePageToDefault(t *testing.T) {
+	var page int
+	rec := doBrowseStudies(t, &page, "0")
+	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Equal(t, 1, page, "page below the minimum must fall back to the default")
+}

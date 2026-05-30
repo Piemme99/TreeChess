@@ -397,6 +397,13 @@ func (h *ImportHandler) DismissMistakeHandler(c *echo.Context) error {
 		return BadRequestResponse(c, "fen and playedMove are required")
 	}
 
+	if !ValidateFENField(c, "fen", req.FEN) {
+		return nil
+	}
+	if len(req.PlayedMove) > MaxChessMoveLength {
+		return BadRequestResponse(c, "playedMove is invalid")
+	}
+
 	if err := h.importService.DismissMistake(userID, req.FEN, req.PlayedMove); err != nil {
 		return InternalErrorResponse(c, "failed to dismiss mistake")
 	}

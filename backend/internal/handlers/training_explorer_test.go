@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 
@@ -16,6 +17,10 @@ import (
 	"github.com/kumquat/backend/internal/repository/mocks"
 	"github.com/kumquat/backend/internal/services"
 )
+
+// explorerTestFEN is a legal FEN used by explorer tests that exercise cache /
+// upstream behaviour rather than FEN validation itself.
+const explorerTestFEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 
 // stubExplorerCache is a minimal in-memory implementation of
 // repository.OpeningExplorerCacheRepository for handler tests.
@@ -148,7 +153,7 @@ func TestTrainingExplorerHandler_CacheMissUnlinkedUserReturns403(t *testing.T) {
 	}
 	h := newTrainingExplorerHandler(t, fetcher, cache, userRepo)
 
-	rec := doRequest(t, h, "user-1", "anyfen")
+	rec := doRequest(t, h, "user-1", explorerTestFEN)
 
 	assert.Equal(t, http.StatusForbidden, rec.Code)
 	assert.Contains(t, rec.Body.String(), `"code":"lichess_not_linked"`)
@@ -167,9 +172,10 @@ func TestTrainingExplorerHandler_CacheHitServesUnlinkedUser(t *testing.T) {
 		},
 	}
 	h := newTrainingExplorerHandler(t, fetcher, cache, userRepo)
-	cache.store[services.CanonicalKey(services.DefaultOpeningQuery("f1"))] = cachedBody
+	validFEN := "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1"
+	cache.store[services.CanonicalKey(services.DefaultOpeningQuery(validFEN))] = cachedBody
 
-	rec := doRequest(t, h, "user-1", "f1")
+	rec := doRequest(t, h, "user-1", validFEN)
 
 	assert.Equal(t, http.StatusOK, rec.Code)
 	assert.JSONEq(t, string(cachedBody), rec.Body.String())
@@ -199,7 +205,7 @@ func TestTrainingExplorerHandler_UpstreamRateLimited_PropagatesRetryAfter(t *tes
 	}
 	h := newTrainingExplorerHandler(t, fetcher, cache, userRepo)
 
-	rec := doRequest(t, h, "user-1", "f")
+	rec := doRequest(t, h, "user-1", explorerTestFEN)
 
 	assert.Equal(t, http.StatusTooManyRequests, rec.Code)
 	assert.Contains(t, rec.Body.String(), `"code":"rate_limited"`)
@@ -216,7 +222,7 @@ func TestTrainingExplorerHandler_UpstreamUnavailable_Returns502(t *testing.T) {
 	}
 	h := newTrainingExplorerHandler(t, fetcher, cache, userRepo)
 
-	rec := doRequest(t, h, "user-1", "f")
+	rec := doRequest(t, h, "user-1", explorerTestFEN)
 
 	assert.Equal(t, http.StatusBadGateway, rec.Code)
 	assert.Contains(t, rec.Body.String(), `"code":"upstream_unavailable"`)
@@ -231,8 +237,85 @@ func TestTrainingExplorerHandler_UpstreamUnauthorized_Returns403LichessTokenInva
 	}
 	h := newTrainingExplorerHandler(t, fetcher, cache, userRepo)
 
-	rec := doRequest(t, h, "user-1", "f")
+	rec := doRequest(t, h, "user-1", explorerTestFEN)
 
 	assert.Equal(t, http.StatusForbidden, rec.Code)
 	assert.Contains(t, rec.Body.String(), `"code":"lichess_token_invalid"`)
+}
+
+func TestTrainingExplorerHandler_MalformedFen_Returns400WithoutUpstream(t *testing.T) {
+	cache := newStubCache()
+	fetcher := &stubFetcher{}
+	userRepo := &mocks.MockUserRepo{
+		GetByIDFunc: func(id string) (*models.User, error) {
+			t.Fatalf("user repo must not be consulted for an invalid FEN")
+			return nil, nil
+		},
+	}
+	h := newTrainingExplorerHandler(t, fetcher, cache, userRepo)
+
+	rec := doRequest(t, h, "user-1", "not a real fen")
+
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+	assert.Contains(t, rec.Body.String(), `"code":"invalid_fen"`)
+	assert.Equal(t, 0, fetcher.calls, "upstream must not be called for invalid FEN")
+	assert.Equal(t, 0, cache.putCalls, "invalid FEN must not populate the cache")
+}
+
+func TestTrainingExplorerHandler_OversizedFen_Returns400(t *testing.T) {
+	h := newTrainingExplorerHandler(t, &stubFetcher{}, newStubCache(), &mocks.MockUserRepo{})
+
+	oversized := strings.Repeat("p", MaxFENLength+1)
+	rec := doRequest(t, h, "user-1", oversized)
+
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+	assert.Contains(t, rec.Body.String(), `"code":"invalid_fen"`)
+}
+
+func TestTrainingExplorerHandler_UnknownVariant_Returns400(t *testing.T) {
+	cache := newStubCache()
+	fetcher := &stubFetcher{}
+	userRepo := &mocks.MockUserRepo{
+		GetByIDFunc: func(id string) (*models.User, error) {
+			t.Fatalf("user repo must not be consulted for an unknown variant")
+			return nil, nil
+		},
+	}
+	h := newTrainingExplorerHandler(t, fetcher, cache, userRepo)
+
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet,
+		"/api/training/opening?fen="+url.QueryEscape(explorerTestFEN)+"&variant=bogus", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.Set("userID", "user-1")
+	require.NoError(t, h.GetOpening(c))
+
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+	assert.Contains(t, rec.Body.String(), `"code":"invalid_variant"`)
+	assert.Equal(t, 0, fetcher.calls)
+}
+
+func TestTrainingExplorerHandler_KnownVariant_Accepted(t *testing.T) {
+	cache := newStubCache()
+	fetcher := &stubFetcher{
+		returnStats: &services.OpeningStats{White: 1, Draws: 0, Black: 0, Moves: []services.OpeningMove{}},
+	}
+	user := &models.User{ID: "user-1", LichessAccessToken: ptr("tok")}
+	userRepo := &mocks.MockUserRepo{
+		GetByIDFunc: func(id string) (*models.User, error) { return user, nil },
+	}
+	h := newTrainingExplorerHandler(t, fetcher, cache, userRepo)
+
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet,
+		"/api/training/opening?fen="+url.QueryEscape(explorerTestFEN)+"&variant=atomic", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.Set("userID", "user-1")
+	require.NoError(t, h.GetOpening(c))
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Equal(t, 1, fetcher.calls)
+	assert.Equal(t, "atomic", fetcher.lastQuery.Variant)
 }

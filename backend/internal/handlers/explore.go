@@ -27,6 +27,12 @@ func ImportExploreTemplateHandler(svc *services.RepertoireService) echo.HandlerF
 		userID := c.Get("userID").(string)
 		templateID := c.Param("id")
 
+		// Validate the template id against the known set so an unknown id
+		// returns 404 rather than being conflated with a generic 400.
+		if services.GetTemplate(templateID) == nil {
+			return NotFoundResponse(c, "template")
+		}
+
 		repertoires, err := svc.SeedRepertoires(userID, []string{templateID})
 		if err != nil {
 			if errors.Is(err, services.ErrLimitReached) {

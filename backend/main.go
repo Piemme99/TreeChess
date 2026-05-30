@@ -129,7 +129,7 @@ func buildServices(cfg config.Config, db *repository.DB) *appServices {
 		trainingHandler:         handlers.NewTrainingHandler(importSvc),
 		trainingExplorerHandler: handlers.NewTrainingExplorerHandler(explorerSvc, openingCacheRepo, userRepo, cfg.LichessExplorerCacheTTL),
 		importHandler:           importHandler,
-		dashboardHandler:        handlers.NewDashboardHandler(importSvc),
+		dashboardHandler:        handlers.NewDashboardHandler(importSvc, repertoireSvc),
 		categorySvc:             categorySvc,
 	}
 }

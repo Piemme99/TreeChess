@@ -392,6 +392,51 @@ func TestAuthService_UpdateProfile(t *testing.T) {
 	assert.Equal(t, &lichess, user.LichessUsername)
 }
 
+func TestAuthService_UpdateProfile_RejectsInvalidUsernames(t *testing.T) {
+	updateCalled := false
+	mockRepo := &mocks.MockUserRepo{
+		UpdateProfileFunc: func(userID string, l, c *string, timeFormatPrefs []string) (*models.User, error) {
+			updateCalled = true
+			return &models.User{ID: userID}, nil
+		},
+	}
+	svc := newTestAuthService(mockRepo)
+
+	cases := []struct {
+		name string
+		req  models.UpdateProfileRequest
+	}{
+		{"lichess path traversal", models.UpdateProfileRequest{LichessUsername: strPtr("../../etc/passwd")}},
+		{"lichess slash", models.UpdateProfileRequest{LichessUsername: strPtr("a/b")}},
+		{"lichess too short", models.UpdateProfileRequest{LichessUsername: strPtr("ab")}},
+		{"lichess query injection", models.UpdateProfileRequest{LichessUsername: strPtr("user?foo=bar")}},
+		{"chesscom hash", models.UpdateProfileRequest{ChesscomUsername: strPtr("user#frag")}},
+		{"chesscom dotdot", models.UpdateProfileRequest{ChesscomUsername: strPtr("..")}},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			updateCalled = false
+			_, err := svc.UpdateProfile("user-123", tc.req)
+			require.ErrorIs(t, err, ErrInvalidUsername)
+			assert.False(t, updateCalled, "repository must not be called for an invalid username")
+		})
+	}
+}
+
+func TestAuthService_UpdateProfile_AllowsEmptyUsernameToUnlink(t *testing.T) {
+	empty := ""
+	mockRepo := &mocks.MockUserRepo{
+		UpdateProfileFunc: func(userID string, l, c *string, timeFormatPrefs []string) (*models.User, error) {
+			return &models.User{ID: userID, LichessUsername: l}, nil
+		},
+	}
+	svc := newTestAuthService(mockRepo)
+
+	_, err := svc.UpdateProfile("user-123", models.UpdateProfileRequest{LichessUsername: &empty})
+	require.NoError(t, err)
+}
+
 func TestAuthService_UpdateProfile_ResetsSync_WhenNewFormatsAdded(t *testing.T) {
 	lichess := "lichessuser"
 	var resetCalled bool

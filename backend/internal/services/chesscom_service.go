@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -46,8 +47,10 @@ func (s *ChesscomService) FetchGames(username string, options models.ChesscomImp
 		maxGames = maxAllowedGames
 	}
 
-	// Step 1: Fetch list of monthly archives
-	archivesURL := fmt.Sprintf("%s/player/%s/games/archives", chesscomAPIBaseURL, strings.ToLower(username))
+	// Step 1: Fetch list of monthly archives. Escape the username so a value
+	// containing '/', '?', '#' or '..' cannot alter the upstream request path
+	// (mirrors the Lichess service's use of url.PathEscape).
+	archivesURL := fmt.Sprintf("%s/player/%s/games/archives", chesscomAPIBaseURL, url.PathEscape(strings.ToLower(username)))
 	archivesResp, err := s.doRequest(archivesURL)
 	if err != nil {
 		return "", err
