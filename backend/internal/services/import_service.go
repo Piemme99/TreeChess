@@ -145,10 +145,14 @@ func (s *ImportService) ParseAndAnalyze(filename string, username string, userID
 		}
 
 		var filtered []models.GameAnalysis
+		seen := make(map[string]bool)
 		for i, r := range results {
-			if !existing[fingerprints[i]] {
-				filtered = append(filtered, r)
+			fp := fingerprints[i]
+			if existing[fp] || seen[fp] {
+				continue
 			}
+			seen[fp] = true
+			filtered = append(filtered, r)
 		}
 		skippedDuplicates = len(results) - len(filtered)
 
