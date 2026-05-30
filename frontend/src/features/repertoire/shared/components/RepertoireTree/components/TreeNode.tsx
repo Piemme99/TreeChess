@@ -1,4 +1,5 @@
 import { memo, useCallback } from 'react';
+import type { KeyboardEvent } from 'react';
 import type { RepertoireNode } from '../../../../../../types';
 import type { LayoutNode } from '../utils/types';
 import { NODE_RADIUS } from '../constants';
@@ -40,13 +41,29 @@ export const TreeNode = memo(function TreeNode({
     () => onMouseEnter?.(layoutNode),
     [onMouseEnter, layoutNode]
   );
+  const handleKeyDown = useCallback(
+    (event: KeyboardEvent) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        onClick(layoutNode.node);
+      }
+    },
+    [onClick, layoutNode.node]
+  );
+
+  const nodeLabel = isRoot ? 'Start position' : `Move ${layoutNode.node.move}`;
 
   return (
     <g
       className="tree-node"
       transform={`translate(${layoutNode.x}, ${layoutNode.y})`}
+      role="button"
+      tabIndex={0}
+      aria-label={nodeLabel}
+      aria-current={isSelected ? 'true' : undefined}
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
+      onKeyDown={handleKeyDown}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={onMouseLeave}
       style={{ cursor: 'pointer' }}
