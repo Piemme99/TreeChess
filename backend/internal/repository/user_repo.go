@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/kumquat/backend/internal/crypto"
 	"github.com/kumquat/backend/internal/models"
 )
 
@@ -72,17 +73,31 @@ const (
 		UPDATE users SET password_hash = $2, password_changed_at = NOW()
 		WHERE id = $1
 	`
+
+	// lichessTokenKeyInfo is the HKDF info label used to derive the AES key that
+	// encrypts the Lichess access token at rest. It is intentionally distinct from
+	// the OAuth cookie label so the two keys are independent (key separation).
+	lichessTokenKeyInfo = "lichess-token-encryption"
 )
 
 type PostgresUserRepo struct {
 	pool *pgxpool.Pool
+	// encryptKey is the 32-byte AES-256 key used to encrypt the Lichess access
+	// token before it is written, and to decrypt it after it is read.
+	encryptKey []byte
 }
 
-func NewPostgresUserRepo(pool *pgxpool.Pool) *PostgresUserRepo {
-	return &PostgresUserRepo{pool: pool}
+// NewPostgresUserRepo builds a user repository. jwtSecret is used to derive the
+// key that encrypts the stored Lichess access token at rest.
+func NewPostgresUserRepo(pool *pgxpool.Pool, jwtSecret string) *PostgresUserRepo {
+	key, err := crypto.DeriveKey(jwtSecret, lichessTokenKeyInfo)
+	if err != nil {
+		panic("failed to derive Lichess token encryption key: " + err.Error())
+	}
+	return &PostgresUserRepo{pool: pool, encryptKey: key}
 }
 
-func scanUser(scan func(dest ...any) error) (*models.User, error) {
+func (r *PostgresUserRepo) scanUser(scan func(dest ...any) error) (*models.User, error) {
 	var user models.User
 	var passwordHash *string
 	err := scan(
@@ -97,7 +112,27 @@ func scanUser(scan func(dest ...any) error) (*models.User, error) {
 	if passwordHash != nil {
 		user.PasswordHash = *passwordHash
 	}
+	if user.LichessAccessToken != nil {
+		decrypted := r.decryptToken(*user.LichessAccessToken)
+		user.LichessAccessToken = &decrypted
+	}
 	return &user, nil
+}
+
+// decryptToken returns the plaintext Lichess access token from its stored form.
+// Tokens are stored AES-256-GCM encrypted (base64), but pre-existing rows may
+// still hold a plaintext token from before encryption was introduced. If the
+// stored value is not valid ciphertext, it is returned as-is; such rows get
+// re-encrypted on the next UpdateLichessToken.
+func (r *PostgresUserRepo) decryptToken(stored string) string {
+	if stored == "" {
+		return ""
+	}
+	plaintext, err := crypto.Decrypt(r.encryptKey, stored)
+	if err != nil {
+		return stored
+	}
+	return string(plaintext)
 }
 
 func (r *PostgresUserRepo) Create(email, username, passwordHash string) (*models.User, error) {
@@ -105,7 +140,7 @@ func (r *PostgresUserRepo) Create(email, username, passwordHash string) (*models
 	defer cancel()
 
 	id := uuid.New().String()
-	user, err := scanUser(r.pool.QueryRow(ctx, createUserSQL, id, username, email, passwordHash).Scan)
+	user, err := r.scanUser(r.pool.QueryRow(ctx, createUserSQL, id, username, email, passwordHash).Scan)
 	if err != nil {
 		if isDuplicateKeyError(err) {
 			if isDuplicateEmailError(err) {
@@ -122,7 +157,7 @@ func (r *PostgresUserRepo) GetByUsername(username string) (*models.User, error) 
 	ctx, cancel := dbContext()
 	defer cancel()
 
-	user, err := scanUser(r.pool.QueryRow(ctx, getUserByUsernameSQL, username).Scan)
+	user, err := r.scanUser(r.pool.QueryRow(ctx, getUserByUsernameSQL, username).Scan)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrUserNotFound
@@ -136,7 +171,7 @@ func (r *PostgresUserRepo) GetByEmail(email string) (*models.User, error) {
 	ctx, cancel := dbContext()
 	defer cancel()
 
-	user, err := scanUser(r.pool.QueryRow(ctx, getUserByEmailSQL, email).Scan)
+	user, err := r.scanUser(r.pool.QueryRow(ctx, getUserByEmailSQL, email).Scan)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrUserNotFound
@@ -150,7 +185,7 @@ func (r *PostgresUserRepo) GetByID(id string) (*models.User, error) {
 	ctx, cancel := dbContext()
 	defer cancel()
 
-	user, err := scanUser(r.pool.QueryRow(ctx, getUserByIDSQL, id).Scan)
+	user, err := r.scanUser(r.pool.QueryRow(ctx, getUserByIDSQL, id).Scan)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrUserNotFound
@@ -164,7 +199,7 @@ func (r *PostgresUserRepo) FindByOAuth(provider, oauthID string) (*models.User, 
 	ctx, cancel := dbContext()
 	defer cancel()
 
-	user, err := scanUser(r.pool.QueryRow(ctx, findByOAuthSQL, provider, oauthID).Scan)
+	user, err := r.scanUser(r.pool.QueryRow(ctx, findByOAuthSQL, provider, oauthID).Scan)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrUserNotFound
@@ -185,7 +220,7 @@ func (r *PostgresUserRepo) CreateOAuth(provider, oauthID, username string) (*mod
 	}
 
 	id := uuid.New().String()
-	user, err := scanUser(r.pool.QueryRow(ctx, createOAuthUserSQL, id, username, provider, oauthID, lichessUsername).Scan)
+	user, err := r.scanUser(r.pool.QueryRow(ctx, createOAuthUserSQL, id, username, provider, oauthID, lichessUsername).Scan)
 	if err != nil {
 		if isDuplicateKeyError(err) {
 			return nil, ErrUsernameExists
@@ -199,7 +234,7 @@ func (r *PostgresUserRepo) UpdateProfile(userID string, lichess, chesscom *strin
 	ctx, cancel := dbContext()
 	defer cancel()
 
-	user, err := scanUser(r.pool.QueryRow(ctx, updateProfileSQL, userID, lichess, chesscom, timeFormatPrefs).Scan)
+	user, err := r.scanUser(r.pool.QueryRow(ctx, updateProfileSQL, userID, lichess, chesscom, timeFormatPrefs).Scan)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update profile: %w", err)
 	}
@@ -232,7 +267,18 @@ func (r *PostgresUserRepo) UpdateLichessToken(userID, token string) error {
 	ctx, cancel := dbContext()
 	defer cancel()
 
-	_, err := r.pool.Exec(ctx, updateLichessTokenSQL, userID, token)
+	// Encrypt the token at rest. An empty token (e.g. on unlink) is stored as-is
+	// so the column reads back empty without a spurious decrypt attempt.
+	stored := token
+	if token != "" {
+		encrypted, err := crypto.Encrypt(r.encryptKey, []byte(token))
+		if err != nil {
+			return fmt.Errorf("failed to encrypt Lichess token: %w", err)
+		}
+		stored = encrypted
+	}
+
+	_, err := r.pool.Exec(ctx, updateLichessTokenSQL, userID, stored)
 	if err != nil {
 		return fmt.Errorf("failed to update Lichess token: %w", err)
 	}

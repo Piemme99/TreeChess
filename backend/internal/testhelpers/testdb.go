@@ -19,17 +19,17 @@ import (
 
 // Repos holds all real repository implementations for integration tests.
 type Repos struct {
-	User                  *repository.PostgresUserRepo
-	Repertoire            *repository.PostgresRepertoireRepo
-	Analysis              *repository.PostgresAnalysisRepo
-	Fingerprint           *repository.PostgresFingerprintRepo
-	EngineEval            *repository.PostgresEngineEvalRepo
-	RefreshToken          *repository.PostgresRefreshTokenRepo
-	PasswordReset         *repository.PostgresPasswordResetRepo
-	Category              *repository.PostgresCategoryRepo
-	DismissedMistake      *repository.DismissedMistakeRepo
-	DismissedGap          *repository.DismissedGapRepo
-	OpeningExplorerCache  *repository.PostgresOpeningExplorerCacheRepo
+	User                 *repository.PostgresUserRepo
+	Repertoire           *repository.PostgresRepertoireRepo
+	Analysis             *repository.PostgresAnalysisRepo
+	Fingerprint          *repository.PostgresFingerprintRepo
+	EngineEval           *repository.PostgresEngineEvalRepo
+	RefreshToken         *repository.PostgresRefreshTokenRepo
+	PasswordReset        *repository.PostgresPasswordResetRepo
+	Category             *repository.PostgresCategoryRepo
+	DismissedMistake     *repository.DismissedMistakeRepo
+	DismissedGap         *repository.DismissedGapRepo
+	OpeningExplorerCache *repository.PostgresOpeningExplorerCacheRepo
 }
 
 // TestDB wraps a testcontainer PostgreSQL instance with a connection pool and repos.
@@ -135,7 +135,7 @@ func (tdb *TestDB) TruncateAll(t *testing.T) {
 func (tdb *TestDB) Repos() *Repos {
 	if tdb.repos == nil {
 		tdb.repos = &Repos{
-			User:                 repository.NewPostgresUserRepo(tdb.Pool),
+			User:                 repository.NewPostgresUserRepo(tdb.Pool, testJWTSecret),
 			Repertoire:           repository.NewPostgresRepertoireRepo(tdb.Pool),
 			Analysis:             repository.NewPostgresAnalysisRepo(tdb.Pool),
 			Fingerprint:          repository.NewPostgresFingerprintRepo(tdb.Pool),

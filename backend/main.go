@@ -63,7 +63,7 @@ type appServices struct {
 // test rather than silently disabling auto-re-analysis.
 func buildServices(cfg config.Config, db *repository.DB) *appServices {
 	// Repositories
-	userRepo := repository.NewPostgresUserRepo(db.Pool)
+	userRepo := repository.NewPostgresUserRepo(db.Pool, cfg.JWTSecret)
 	repertoireRepo := repository.NewPostgresRepertoireRepo(db.Pool)
 	categoryRepo := repository.NewPostgresCategoryRepo(db.Pool)
 	analysisRepo := repository.NewPostgresAnalysisRepo(db.Pool)
