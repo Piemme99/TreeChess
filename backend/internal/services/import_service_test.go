@@ -203,6 +203,87 @@ func TestFindNodeInRepertoire_ReturnsNodeWithChildren(t *testing.T) {
 	assert.Equal(t, "e4", *result.Children[0].Move)
 }
 
+func TestBuildFENIndex_LookupMatchesFindNode(t *testing.T) {
+	svc := NewImportService(nil, nil)
+
+	moveE4 := "e4"
+	moveE5 := "e5"
+	root := models.RepertoireNode{
+		ID:  "root",
+		FEN: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -",
+		Children: []*models.RepertoireNode{
+			{
+				ID:   "e4",
+				FEN:  "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3",
+				Move: &moveE4,
+				Children: []*models.RepertoireNode{
+					{
+						ID:   "e5",
+						FEN:  "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6",
+						Move: &moveE5,
+					},
+				},
+			},
+		},
+	}
+
+	index := buildFENIndex(&root)
+
+	// Every node reachable in the tree resolves to the same node the recursive
+	// search would return. findNodeInRepertoire takes root by value, so for the
+	// root FEN it returns a pointer into its local copy; compare by node identity
+	// (ID) rather than pointer to stay robust to that copy.
+	for _, fen := range []string{
+		"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -",
+		"rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3",
+		"rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6",
+	} {
+		recursive := svc.findNodeInRepertoire(root, fen)
+		indexed := index[fen]
+		require.NotNil(t, recursive, "findNodeInRepertoire should find %s", fen)
+		require.NotNil(t, indexed, "index should contain %s", fen)
+		assert.Equal(t, recursive.ID, indexed.ID, "index lookup must match findNodeInRepertoire for %s", fen)
+	}
+}
+
+func TestBuildFENIndex_MissingFEN(t *testing.T) {
+	root := models.RepertoireNode{
+		ID:  "root",
+		FEN: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -",
+	}
+
+	index := buildFENIndex(&root)
+
+	node, ok := index["rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6"]
+	assert.False(t, ok)
+	assert.Nil(t, node)
+}
+
+func TestBuildFENIndex_TranspositionKeepsFirstPreOrderNode(t *testing.T) {
+	// Two distinct nodes share the same FEN (a transposition). A pre-order DFS
+	// reaches "first" before "second"; the index must keep "first" so it agrees
+	// with findNodeInRepertoire's first-match semantics.
+	svc := NewImportService(nil, nil)
+
+	moveA := "a"
+	moveB := "b"
+	sharedFEN := "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6"
+	root := models.RepertoireNode{
+		ID:  "root",
+		FEN: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -",
+		Children: []*models.RepertoireNode{
+			{ID: "first", FEN: sharedFEN, Move: &moveA},
+			{ID: "second", FEN: sharedFEN, Move: &moveB},
+		},
+	}
+
+	index := buildFENIndex(&root)
+
+	require.NotNil(t, index[sharedFEN])
+	assert.Equal(t, "first", index[sharedFEN].ID)
+	assert.Same(t, svc.findNodeInRepertoire(root, sharedFEN), index[sharedFEN])
+}
+
 func TestPGNWithNewlines(t *testing.T) {
 	svc := NewImportService(nil, nil)
 
@@ -1580,6 +1661,77 @@ func TestReanalyzeAllGames_Basic(t *testing.T) {
 	assert.Equal(t, 1, updatedResults[0].MatchScore) // 1 user move matched (e4)
 }
 
+func TestReanalyzeAllGames_SharesIndexAcrossManyGames(t *testing.T) {
+	// Re-analysing several games against the same repertoire must produce identical
+	// results to the single-game path, confirming the shared per-repertoire FEN index
+	// is reused correctly rather than rebuilt or skewed across games.
+	moveE4 := "e4"
+	moveE5 := "e5"
+	startFEN := "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -"
+	afterE4 := "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3"
+	afterE5 := "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6"
+
+	whiteRepertoire := models.Repertoire{
+		ID: "rep-w", Name: "White Rep", Color: models.ColorWhite,
+		TreeData: models.RepertoireNode{
+			ID: "root", FEN: startFEN,
+			Children: []*models.RepertoireNode{
+				{ID: "e4", FEN: afterE4, Move: &moveE4, Children: []*models.RepertoireNode{
+					{ID: "e5", FEN: afterE5, Move: &moveE5},
+				}},
+			},
+		},
+	}
+
+	makeGame := func(idx int) models.GameAnalysis {
+		return models.GameAnalysis{
+			GameIndex: idx,
+			UserColor: models.ColorWhite,
+			Headers:   models.PGNHeaders{"White": "User", "Black": "Opp", "Result": "1-0"},
+			Moves: []models.MoveAnalysis{
+				{PlyNumber: 0, SAN: "e4", FEN: startFEN, IsUserMove: true, Status: "out-of-book"},
+				{PlyNumber: 1, SAN: "e5", FEN: afterE4, IsUserMove: false, Status: "out-of-book"},
+			},
+		}
+	}
+
+	analyses := []models.RawAnalysis{
+		{ID: "a1", Results: []models.GameAnalysis{makeGame(0), makeGame(1), makeGame(2)}},
+	}
+
+	var updatedResults []models.GameAnalysis
+	mockAnalysisRepo := &mocks.MockAnalysisRepo{
+		GetAllGamesRawFunc: func(userID string) ([]models.RawAnalysis, error) { return analyses, nil },
+		UpdateResultsFunc: func(analysisID string, results []models.GameAnalysis) error {
+			updatedResults = results
+			return nil
+		},
+	}
+	mockRepRepo := &mocks.MockRepertoireRepo{
+		GetByColorFunc: func(userID string, color models.Color) ([]models.Repertoire, error) {
+			if color == models.ColorWhite {
+				return []models.Repertoire{whiteRepertoire}, nil
+			}
+			return nil, nil
+		},
+	}
+
+	svc := NewImportService(NewRepertoireService(mockRepRepo), mockAnalysisRepo)
+
+	count, err := svc.ReanalyzeAllGames("user-1", false)
+
+	require.NoError(t, err)
+	assert.Equal(t, 3, count)
+	require.Len(t, updatedResults, 3)
+	for i := range updatedResults {
+		assert.Equal(t, "in-repertoire", updatedResults[i].Moves[0].Status, "game %d move e4", i)
+		assert.Equal(t, "in-repertoire", updatedResults[i].Moves[1].Status, "game %d move e5", i)
+		require.NotNil(t, updatedResults[i].MatchedRepertoire)
+		assert.Equal(t, "rep-w", updatedResults[i].MatchedRepertoire.ID)
+		assert.Equal(t, 1, updatedResults[i].MatchScore)
+	}
+}
+
 func TestReanalyzeAllGames_NoRepertoires(t *testing.T) {
 	analyses := []models.RawAnalysis{
 		{
@@ -1806,11 +1958,11 @@ func TestFindBestMatchingRepertoireFromStored(t *testing.T) {
 		},
 	}
 
-	best, score := svc.findBestMatchingRepertoireFromStored(game, []models.Repertoire{repA, repB, repC})
+	best, score := svc.findBestMatchingRepertoireFromStored(game, indexRepertoires([]models.Repertoire{repA, repB, repC}))
 
 	require.NotNil(t, best)
 	// repA and repB both match 1 user move (e4), repA wins by order
-	assert.Equal(t, "rep-a", best.ID)
+	assert.Equal(t, "rep-a", best.repertoire.ID)
 	assert.Equal(t, 1, score)
 }
 
@@ -1961,7 +2113,7 @@ func TestFindBestMatchingRepertoireFromStored_RejectsAllUnmatched(t *testing.T) 
 		},
 	}
 
-	best, score := svc.findBestMatchingRepertoireFromStored(game, []models.Repertoire{repA})
+	best, score := svc.findBestMatchingRepertoireFromStored(game, indexRepertoires([]models.Repertoire{repA}))
 
 	assert.Nil(t, best, "should not match any repertoire when opponent's first move is not covered")
 	assert.Equal(t, 0, score)
