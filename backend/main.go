@@ -110,7 +110,7 @@ func buildServices(cfg config.Config, db *repository.DB) *appServices {
 	lichessSvc := services.NewLichessService()
 	chesscomSvc := services.NewChesscomService()
 	syncSvc := services.NewSyncService(userRepo, importSvc, lichessSvc, chesscomSvc)
-	studyImportSvc := services.NewStudyImportService(lichessSvc, repertoireSvc, categoryRepo, userRepo)
+	studyImportSvc := services.NewStudyImportService(lichessSvc, repertoireSvc, userRepo)
 	explorerSvc := services.NewLichessExplorerService(cfg.LichessExplorerBaseURL, nil)
 
 	// Handlers

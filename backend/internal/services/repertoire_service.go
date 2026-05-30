@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"regexp"
@@ -558,28 +559,39 @@ func (s *RepertoireService) ExtractSubtree(userID, repertoireID, nodeID, name st
 	// Build new tree: spine + subtree
 	newTree := buildSpineWithSubtree(path)
 
-	// Create new repertoire
-	newRep, err := s.repo.Create(userID, name, rep.Color)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create extracted repertoire: %w", err)
-	}
-
-	newMetadata := calculateMetadata(newTree)
-	savedNew, err := s.repo.Save(newRep.ID, userID, newTree, newMetadata)
-	if err != nil {
-		return nil, fmt.Errorf("failed to save extracted repertoire: %w", err)
-	}
-
-	// Prune original: remove the target node and its subtree
+	// Prune original: remove the target node and its subtree. Computed before the
+	// transaction so a tree-shape error aborts without touching the database.
 	prunedTree := deleteNodeRecursive(rep.TreeData, nodeID)
 	if prunedTree == nil {
 		return nil, fmt.Errorf("%w: %s", ErrNodeNotFound, nodeID)
 	}
 
-	prunedMetadata := calculateMetadata(*prunedTree)
-	savedOriginal, err := s.repo.Save(repertoireID, userID, *prunedTree, prunedMetadata)
+	// Create the extracted repertoire and prune the original atomically: a
+	// failure after the create must not leave a duplicated subtree (extracted
+	// copy kept while the original still contains it).
+	var savedNew, savedOriginal *models.Repertoire
+	err = s.repo.WithinTx(context.Background(), func(tx repository.RepertoireTx) error {
+		newRep, err := tx.Create(userID, name, rep.Color)
+		if err != nil {
+			return fmt.Errorf("failed to create extracted repertoire: %w", err)
+		}
+
+		newMetadata := calculateMetadata(newTree)
+		savedNew, err = tx.Save(newRep.ID, userID, newTree, newMetadata)
+		if err != nil {
+			return fmt.Errorf("failed to save extracted repertoire: %w", err)
+		}
+
+		prunedMetadata := calculateMetadata(*prunedTree)
+		savedOriginal, err = tx.Save(repertoireID, userID, *prunedTree, prunedMetadata)
+		if err != nil {
+			return fmt.Errorf("failed to save pruned repertoire: %w", err)
+		}
+
+		return nil
+	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to save pruned repertoire: %w", err)
+		return nil, err
 	}
 
 	s.notifyReanalysis(userID)
@@ -705,29 +717,40 @@ func (s *RepertoireService) MergeRepertoires(userID string, ids []string, name s
 		}
 	}
 
-	// Create new repertoire
-	newRep, err := s.repo.Create(userID, name, color)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create merged repertoire: %w", err)
-	}
-
-	// Pairwise merge each source tree into the new repertoire's tree
-	for _, rep := range repertoires {
-		mergeNodes(&newRep.TreeData, &rep.TreeData)
-	}
-
-	// Calculate metadata and save
-	metadata := calculateMetadata(newRep.TreeData)
-	saved, err := s.repo.Save(newRep.ID, userID, newRep.TreeData, metadata)
-	if err != nil {
-		return nil, fmt.Errorf("failed to save merged repertoire: %w", err)
-	}
-
-	// Delete all source repertoires
-	for _, id := range ids {
-		if err := s.repo.Delete(id, userID); err != nil {
-			return nil, fmt.Errorf("failed to delete source repertoire %s: %w", id, err)
+	// Create + populate + delete-sources atomically: a mid-sequence failure must
+	// not leave an orphan merged repertoire with some sources gone and others
+	// kept. Everything below runs inside a single transaction that rolls back on
+	// any error.
+	var saved *models.Repertoire
+	err := s.repo.WithinTx(context.Background(), func(tx repository.RepertoireTx) error {
+		newRep, err := tx.Create(userID, name, color)
+		if err != nil {
+			return fmt.Errorf("failed to create merged repertoire: %w", err)
 		}
+
+		// Pairwise merge each source tree into the new repertoire's tree
+		for _, rep := range repertoires {
+			mergeNodes(&newRep.TreeData, &rep.TreeData)
+		}
+
+		// Calculate metadata and save
+		metadata := calculateMetadata(newRep.TreeData)
+		saved, err = tx.Save(newRep.ID, userID, newRep.TreeData, metadata)
+		if err != nil {
+			return fmt.Errorf("failed to save merged repertoire: %w", err)
+		}
+
+		// Delete all source repertoires
+		for _, id := range ids {
+			if err := tx.Delete(id, userID); err != nil {
+				return fmt.Errorf("failed to delete source repertoire %s: %w", id, err)
+			}
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	s.notifyReanalysis(userID)
@@ -1257,4 +1280,61 @@ func (s *RepertoireService) ImportRepertoire(userID, sourceRepertoireID string) 
 // SetOrigin sets the origin on a repertoire
 func (s *RepertoireService) SetOrigin(repertoireID string, origin *models.RepertoireOrigin) error {
 	return s.repo.UpdateOrigin(repertoireID, origin)
+}
+
+// PersistStudyImport creates the optional category and all repertoires (each
+// with its tree and origin) inside a single transaction. A failure at any point
+// rolls everything back, so a partial study import never leaves an orphan
+// category or repertoires behind. notifyReanalysis fires only after commit.
+func (s *RepertoireService) PersistStudyImport(userID string, plan models.StudyImportPlan) (*models.StudyImportPersistResult, error) {
+	result := &models.StudyImportPersistResult{}
+
+	err := s.repo.WithinTx(context.Background(), func(tx repository.RepertoireTx) error {
+		var categoryID *string
+		if plan.Category != nil {
+			cat, err := tx.CreateCategory(userID, plan.Category.Name, plan.Category.Color)
+			if err != nil {
+				return fmt.Errorf("failed to create category: %w", err)
+			}
+			result.Category = cat
+			categoryID = &cat.ID
+		}
+
+		for _, spec := range plan.Repertoires {
+			var rep *models.Repertoire
+			var err error
+			if categoryID != nil && spec.UseCategory {
+				rep, err = tx.CreateWithCategory(userID, spec.Name, spec.Color, categoryID)
+			} else {
+				rep, err = tx.Create(userID, spec.Name, spec.Color)
+			}
+			if err != nil {
+				return fmt.Errorf("failed to create repertoire %q: %w", spec.Name, err)
+			}
+
+			metadata := calculateMetadata(spec.Tree)
+			saved, err := tx.Save(rep.ID, userID, spec.Tree, metadata)
+			if err != nil {
+				return fmt.Errorf("failed to save repertoire %q: %w", spec.Name, err)
+			}
+
+			if spec.Origin != nil {
+				if err := tx.UpdateOrigin(saved.ID, spec.Origin); err != nil {
+					return fmt.Errorf("failed to set origin on repertoire %q: %w", spec.Name, err)
+				}
+				saved.Origin = spec.Origin
+			}
+
+			result.Repertoires = append(result.Repertoires, *saved)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	s.notifyReanalysis(userID)
+
+	return result, nil
 }

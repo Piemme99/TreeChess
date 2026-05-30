@@ -1,6 +1,8 @@
 package mocks
 
 import (
+	"fmt"
+
 	"github.com/kumquat/backend/internal/models"
 )
 
@@ -121,6 +123,15 @@ type MockRepertoireService struct {
 	SaveTreeFunc                     func(userID, repertoireID string, treeData models.RepertoireNode) (*models.Repertoire, error)
 	SetOriginFunc                    func(repertoireID string, origin *models.RepertoireOrigin) error
 	ListRepertoiresFunc              func(userID string, color *models.Color) ([]models.Repertoire, error)
+	// CreateCategoryFunc backs the category creation performed inside the default
+	// PersistStudyImport. Optional; when nil a category with a fixed ID is returned.
+	CreateCategoryFunc func(userID, name string, color models.Color) (*models.Category, error)
+	// PersistStudyImportFunc overrides the default PersistStudyImport behavior,
+	// letting tests inject a failure (to assert the import surfaces an error and
+	// leaves nothing partial). When nil, PersistStudyImport replays the plan
+	// against CreateRepertoire(WithCategory)/SaveTree/SetOrigin so existing tests
+	// that only set those funcs keep working.
+	PersistStudyImportFunc func(userID string, plan models.StudyImportPlan) (*models.StudyImportPersistResult, error)
 }
 
 func (m *MockRepertoireService) CreateRepertoire(userID, name string, color models.Color) (*models.Repertoire, error) {
@@ -160,4 +171,68 @@ func (m *MockRepertoireService) ListRepertoires(userID string, color *models.Col
 		return m.ListRepertoiresFunc(userID, color)
 	}
 	return nil, nil
+}
+
+// PersistStudyImport replays the plan against the create/save/origin funcs so
+// existing tests that only configure those funcs keep working. Set
+// PersistStudyImportFunc to model an atomic failure instead.
+func (m *MockRepertoireService) PersistStudyImport(userID string, plan models.StudyImportPlan) (*models.StudyImportPersistResult, error) {
+	if m.PersistStudyImportFunc != nil {
+		return m.PersistStudyImportFunc(userID, plan)
+	}
+
+	result := &models.StudyImportPersistResult{}
+	var categoryID *string
+	if plan.Category != nil {
+		var cat *models.Category
+		var err error
+		if m.CreateCategoryFunc != nil {
+			cat, err = m.CreateCategoryFunc(userID, plan.Category.Name, plan.Category.Color)
+		} else {
+			cat = &models.Category{ID: "cat-1", Name: plan.Category.Name, Color: plan.Category.Color}
+		}
+		if err != nil {
+			return nil, fmt.Errorf("failed to create category: %w", err)
+		}
+		result.Category = cat
+		if cat != nil {
+			categoryID = &cat.ID
+		}
+	}
+
+	for _, spec := range plan.Repertoires {
+		var rep *models.Repertoire
+		var err error
+		if categoryID != nil && spec.UseCategory {
+			rep, err = m.CreateRepertoireWithCategory(userID, spec.Name, spec.Color, categoryID)
+		} else {
+			rep, err = m.CreateRepertoire(userID, spec.Name, spec.Color)
+		}
+		if err != nil {
+			return nil, fmt.Errorf("failed to create repertoire %q: %w", spec.Name, err)
+		}
+
+		repID := ""
+		if rep != nil {
+			repID = rep.ID
+		}
+		saved, err := m.SaveTree(userID, repID, spec.Tree)
+		if err != nil {
+			return nil, fmt.Errorf("failed to save repertoire %q: %w", spec.Name, err)
+		}
+		if saved == nil {
+			saved = &models.Repertoire{ID: repID, Name: spec.Name, Color: spec.Color, TreeData: spec.Tree}
+		}
+
+		if spec.Origin != nil {
+			if err := m.SetOrigin(saved.ID, spec.Origin); err != nil {
+				return nil, fmt.Errorf("failed to set origin on repertoire %q: %w", spec.Name, err)
+			}
+			saved.Origin = spec.Origin
+		}
+
+		result.Repertoires = append(result.Repertoires, *saved)
+	}
+
+	return result, nil
 }

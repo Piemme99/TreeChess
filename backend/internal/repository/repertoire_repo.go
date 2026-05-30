@@ -118,14 +118,21 @@ const (
 	`
 )
 
-// PostgresRepertoireRepo implements RepertoireRepository using PostgreSQL
+// PostgresRepertoireRepo implements RepertoireRepository using PostgreSQL.
+//
+// db is the executor every query runs against: normally the connection pool
+// (each call auto-committed), or a pgx.Tx when the repo is bound to a
+// transaction by a unit-of-work (see WithinTx). pool is only set on the
+// pool-backed instance and is used by WithinTx to open transactions; tx-bound
+// instances leave it nil.
 type PostgresRepertoireRepo struct {
+	db   pgxExecutor
 	pool *pgxpool.Pool
 }
 
 // NewPostgresRepertoireRepo creates a new PostgreSQL repertoire repository
 func NewPostgresRepertoireRepo(pool *pgxpool.Pool) *PostgresRepertoireRepo {
-	return &PostgresRepertoireRepo{pool: pool}
+	return &PostgresRepertoireRepo{db: pool, pool: pool}
 }
 
 // buildOrigin constructs a RepertoireOrigin from nullable scan values, returning nil if no origin is set.
@@ -152,7 +159,7 @@ func (r *PostgresRepertoireRepo) GetByID(id string) (*models.Repertoire, error) 
 	var treeDataJSON, metadataJSON []byte
 	var originType, originURL, originCreator *string
 
-	err := r.pool.QueryRow(ctx, getRepertoireByIDSQL, id).Scan(
+	err := r.db.QueryRow(ctx, getRepertoireByIDSQL, id).Scan(
 		&rep.ID,
 		&rep.Name,
 		&rep.Description,
@@ -192,7 +199,7 @@ func (r *PostgresRepertoireRepo) GetByColor(userID string, color models.Color) (
 	ctx, cancel := dbContext()
 	defer cancel()
 
-	rows, err := r.pool.Query(ctx, getRepertoiresByColorSQL, userID, string(color))
+	rows, err := r.db.Query(ctx, getRepertoiresByColorSQL, userID, string(color))
 	if err != nil {
 		return nil, fmt.Errorf("failed to query repertoires: %w", err)
 	}
@@ -206,7 +213,7 @@ func (r *PostgresRepertoireRepo) GetAll(userID string) ([]models.Repertoire, err
 	ctx, cancel := dbContext()
 	defer cancel()
 
-	rows, err := r.pool.Query(ctx, getAllRepertoiresSQL, userID)
+	rows, err := r.db.Query(ctx, getAllRepertoiresSQL, userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query repertoires: %w", err)
 	}
@@ -291,7 +298,7 @@ func (r *PostgresRepertoireRepo) createRepertoire(userID string, name string, de
 	}
 
 	var originType, originURL, originCreator *string
-	err = r.pool.QueryRow(ctx, query, args...).Scan(
+	err = r.db.QueryRow(ctx, query, args...).Scan(
 		&rep.ID,
 		&rep.Name,
 		&rep.Description,
@@ -345,7 +352,7 @@ func (r *PostgresRepertoireRepo) Save(id string, userID string, treeData models.
 	var newTreeDataJSON, newMetadataJSON []byte
 	var originType, originURL, originCreator *string
 
-	err = r.pool.QueryRow(ctx, updateRepertoireByIDSQL,
+	err = r.db.QueryRow(ctx, updateRepertoireByIDSQL,
 		id,
 		treeDataJSON,
 		metadataJSON,
@@ -391,7 +398,7 @@ func (r *PostgresRepertoireRepo) UpdateName(id string, userID string, name strin
 	var treeDataJSON, metadataJSON []byte
 	var originType, originURL, originCreator *string
 
-	err := r.pool.QueryRow(ctx, updateRepertoireNameSQL, id, name, userID).Scan(
+	err := r.db.QueryRow(ctx, updateRepertoireNameSQL, id, name, userID).Scan(
 		&rep.ID,
 		&rep.Name,
 		&rep.Description,
@@ -432,7 +439,7 @@ func (r *PostgresRepertoireRepo) UpdateDescription(id string, userID string, des
 	var treeDataJSON, metadataJSON []byte
 	var originType, originURL, originCreator *string
 
-	err := r.pool.QueryRow(ctx, updateRepertoireDescriptionSQL, id, description, userID).Scan(
+	err := r.db.QueryRow(ctx, updateRepertoireDescriptionSQL, id, description, userID).Scan(
 		&rep.ID,
 		&rep.Name,
 		&rep.Description,
@@ -476,7 +483,7 @@ func (r *PostgresRepertoireRepo) UpdateCategory(id string, userID string, catego
 	var treeDataJSON, metadataJSON []byte
 	var originType, originURL, originCreator *string
 
-	err := r.pool.QueryRow(ctx, updateRepertoireCategorySQL, id, categoryID, userID).Scan(
+	err := r.db.QueryRow(ctx, updateRepertoireCategorySQL, id, categoryID, userID).Scan(
 		&rep.ID,
 		&rep.Name,
 		&rep.Description,
@@ -516,7 +523,7 @@ func (r *PostgresRepertoireRepo) GetByCategory(categoryID string) ([]models.Repe
 	ctx, cancel := dbContext()
 	defer cancel()
 
-	rows, err := r.pool.Query(ctx, getRepertoiresByCategorySQL, categoryID)
+	rows, err := r.db.Query(ctx, getRepertoiresByCategorySQL, categoryID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query repertoires by category: %w", err)
 	}
@@ -530,7 +537,7 @@ func (r *PostgresRepertoireRepo) GetUncategorized(userID string, color models.Co
 	ctx, cancel := dbContext()
 	defer cancel()
 
-	rows, err := r.pool.Query(ctx, getUncategorizedRepertoiresSQL, userID, string(color))
+	rows, err := r.db.Query(ctx, getUncategorizedRepertoiresSQL, userID, string(color))
 	if err != nil {
 		return nil, fmt.Errorf("failed to query uncategorized repertoires: %w", err)
 	}
@@ -544,7 +551,7 @@ func (r *PostgresRepertoireRepo) Delete(id string, userID string) error {
 	ctx, cancel := dbContext()
 	defer cancel()
 
-	result, err := r.pool.Exec(ctx, deleteRepertoireSQL, id, userID)
+	result, err := r.db.Exec(ctx, deleteRepertoireSQL, id, userID)
 	if err != nil {
 		return fmt.Errorf("failed to delete repertoire: %w", err)
 	}
@@ -562,7 +569,7 @@ func (r *PostgresRepertoireRepo) Count(userID string) (int, error) {
 	defer cancel()
 
 	var count int
-	err := r.pool.QueryRow(ctx, countRepertoiresSQL, userID).Scan(&count)
+	err := r.db.QueryRow(ctx, countRepertoiresSQL, userID).Scan(&count)
 	if err != nil {
 		return 0, fmt.Errorf("failed to count repertoires: %w", err)
 	}
@@ -576,7 +583,7 @@ func (r *PostgresRepertoireRepo) Exists(id string) (bool, error) {
 	defer cancel()
 
 	var exists bool
-	err := r.pool.QueryRow(ctx, checkRepertoireExistsByIDSQL, id).Scan(&exists)
+	err := r.db.QueryRow(ctx, checkRepertoireExistsByIDSQL, id).Scan(&exists)
 	if err != nil {
 		return false, fmt.Errorf("failed to check repertoire existence: %w", err)
 	}
@@ -589,7 +596,7 @@ func (r *PostgresRepertoireRepo) BelongsToUser(id string, userID string) (bool, 
 	defer cancel()
 
 	var belongs bool
-	err := r.pool.QueryRow(ctx, belongsToUserRepertoireSQL, id, userID).Scan(&belongs)
+	err := r.db.QueryRow(ctx, belongsToUserRepertoireSQL, id, userID).Scan(&belongs)
 	if err != nil {
 		return false, fmt.Errorf("failed to check repertoire ownership: %w", err)
 	}
@@ -670,7 +677,7 @@ func (r *PostgresRepertoireRepo) UpdateVisibility(id string, userID string, isPu
 	var treeDataJSON, metadataJSON []byte
 	var originType, originURL, originCreator *string
 
-	err := r.pool.QueryRow(ctx, updateRepertoireVisibilitySQL, id, isPublic, userID).Scan(
+	err := r.db.QueryRow(ctx, updateRepertoireVisibilitySQL, id, isPublic, userID).Scan(
 		&rep.ID,
 		&rep.Name,
 		&rep.Description,
@@ -721,7 +728,7 @@ func (r *PostgresRepertoireRepo) UpdateOrigin(id string, origin *models.Repertoi
 		}
 	}
 
-	_, err := r.pool.Exec(ctx, updateRepertoireOriginSQL, id, originType, originURL, originCreator)
+	_, err := r.db.Exec(ctx, updateRepertoireOriginSQL, id, originType, originURL, originCreator)
 	if err != nil {
 		return fmt.Errorf("failed to update repertoire origin: %w", err)
 	}
@@ -733,7 +740,7 @@ func (r *PostgresRepertoireRepo) GetAllPublic() ([]models.Repertoire, error) {
 	ctx, cancel := dbContext()
 	defer cancel()
 
-	rows, err := r.pool.Query(ctx, getAllPublicRepertoiresSQL)
+	rows, err := r.db.Query(ctx, getAllPublicRepertoiresSQL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query public repertoires: %w", err)
 	}
@@ -751,7 +758,7 @@ func (r *PostgresRepertoireRepo) GetPublicByID(id string) (*models.Repertoire, e
 	var treeDataJSON, metadataJSON []byte
 	var originType, originURL, originCreator *string
 
-	err := r.pool.QueryRow(ctx, getPublicRepertoireByIDSQL, id).Scan(
+	err := r.db.QueryRow(ctx, getPublicRepertoireByIDSQL, id).Scan(
 		&rep.ID,
 		&rep.Name,
 		&rep.Description,
@@ -793,7 +800,7 @@ func (r *PostgresRepertoireRepo) GetOwnerID(id string) (string, error) {
 	defer cancel()
 
 	var ownerID string
-	err := r.pool.QueryRow(ctx, `SELECT user_id FROM repertoires WHERE id = $1`, id).Scan(&ownerID)
+	err := r.db.QueryRow(ctx, `SELECT user_id FROM repertoires WHERE id = $1`, id).Scan(&ownerID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return "", ErrRepertoireNotFound

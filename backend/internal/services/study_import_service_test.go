@@ -71,7 +71,7 @@ func TestStudyImportService_PreviewStudy_Success(t *testing.T) {
 			return pgnData, nil
 		},
 	}
-	svc := NewStudyImportService(mockLichess, &smocks.MockRepertoireService{}, nil, &mocks.MockUserRepo{})
+	svc := NewStudyImportService(mockLichess, &smocks.MockRepertoireService{}, &mocks.MockUserRepo{})
 
 	info, err := svc.PreviewStudy("testid01", "")
 
@@ -92,7 +92,7 @@ func TestStudyImportService_PreviewStudy_FetchError(t *testing.T) {
 			return "", ErrLichessStudyNotFound
 		},
 	}
-	svc := NewStudyImportService(mockLichess, &smocks.MockRepertoireService{}, nil, &mocks.MockUserRepo{})
+	svc := NewStudyImportService(mockLichess, &smocks.MockRepertoireService{}, &mocks.MockUserRepo{})
 
 	_, err := svc.PreviewStudy("testid01", "")
 
@@ -105,7 +105,7 @@ func TestStudyImportService_PreviewStudy_EmptyPGN(t *testing.T) {
 			return "", nil
 		},
 	}
-	svc := NewStudyImportService(mockLichess, &smocks.MockRepertoireService{}, nil, &mocks.MockUserRepo{})
+	svc := NewStudyImportService(mockLichess, &smocks.MockRepertoireService{}, &mocks.MockUserRepo{})
 
 	_, err := svc.PreviewStudy("testid01", "")
 
@@ -155,7 +155,7 @@ func TestStudyImportService_ImportStudyChapters_Success(t *testing.T) {
 		},
 	}
 
-	svc := NewStudyImportService(mockLichess, mockRepSvc, nil, &mocks.MockUserRepo{})
+	svc := NewStudyImportService(mockLichess, mockRepSvc, &mocks.MockUserRepo{})
 	reps, err := svc.ImportStudyChapters("user-1", "testid01", "", []int{0, 2})
 
 	require.NoError(t, err)
@@ -169,7 +169,7 @@ func TestStudyImportService_ImportStudyChapters_FetchError(t *testing.T) {
 			return "", ErrLichessStudyForbidden
 		},
 	}
-	svc := NewStudyImportService(mockLichess, &smocks.MockRepertoireService{}, nil, &mocks.MockUserRepo{})
+	svc := NewStudyImportService(mockLichess, &smocks.MockRepertoireService{}, &mocks.MockUserRepo{})
 
 	_, err := svc.ImportStudyChapters("user-1", "testid01", "", []int{0})
 
@@ -182,7 +182,7 @@ func TestStudyImportService_ImportStudyChapters_EmptyChapters(t *testing.T) {
 			return "", nil
 		},
 	}
-	svc := NewStudyImportService(mockLichess, &smocks.MockRepertoireService{}, nil, &mocks.MockUserRepo{})
+	svc := NewStudyImportService(mockLichess, &smocks.MockRepertoireService{}, &mocks.MockUserRepo{})
 
 	_, err := svc.ImportStudyChapters("user-1", "testid01", "", []int{0})
 
@@ -202,7 +202,7 @@ func TestStudyImportService_GetLichessTokenForUser_Found(t *testing.T) {
 			}, nil
 		},
 	}
-	svc := NewStudyImportService(&smocks.MockLichessService{}, &smocks.MockRepertoireService{}, nil, mockUserRepo)
+	svc := NewStudyImportService(&smocks.MockLichessService{}, &smocks.MockRepertoireService{}, mockUserRepo)
 
 	result := svc.GetLichessTokenForUser("user-1")
 
@@ -218,7 +218,7 @@ func TestStudyImportService_GetLichessTokenForUser_NoToken(t *testing.T) {
 			}, nil
 		},
 	}
-	svc := NewStudyImportService(&smocks.MockLichessService{}, &smocks.MockRepertoireService{}, nil, mockUserRepo)
+	svc := NewStudyImportService(&smocks.MockLichessService{}, &smocks.MockRepertoireService{}, mockUserRepo)
 
 	result := svc.GetLichessTokenForUser("user-1")
 
@@ -231,7 +231,7 @@ func TestStudyImportService_GetLichessTokenForUser_UserNotFound(t *testing.T) {
 			return nil, fmt.Errorf("not found")
 		},
 	}
-	svc := NewStudyImportService(&smocks.MockLichessService{}, &smocks.MockRepertoireService{}, nil, mockUserRepo)
+	svc := NewStudyImportService(&smocks.MockLichessService{}, &smocks.MockRepertoireService{}, mockUserRepo)
 
 	result := svc.GetLichessTokenForUser("nonexistent")
 
@@ -266,7 +266,7 @@ func TestStudyImportService_PreviewStudy_FlagsCustomStartingPositionChapters(t *
 			return studyPGNWithCustomStartingPositions, nil
 		},
 	}
-	svc := NewStudyImportService(mockLichess, &smocks.MockRepertoireService{}, nil, &mocks.MockUserRepo{})
+	svc := NewStudyImportService(mockLichess, &smocks.MockRepertoireService{}, &mocks.MockUserRepo{})
 
 	info, err := svc.PreviewStudy("testid01", "")
 
@@ -305,7 +305,7 @@ func TestStudyImportService_ImportStudyChaptersWithCategory_ImportsCustomStart(t
 			return &models.Repertoire{ID: repertoireID, TreeData: treeData}, nil
 		},
 	}
-	svc := NewStudyImportService(mockLichess, mockRepSvc, nil, &mocks.MockUserRepo{})
+	svc := NewStudyImportService(mockLichess, mockRepSvc, &mocks.MockUserRepo{})
 
 	result, err := svc.ImportStudyChaptersWithCategory("user-1", "testid01", "", []int{0, 1, 2}, false, "", false, true, RenameStrategyAbort)
 
@@ -338,7 +338,7 @@ func TestStudyImportService_ImportStudyChaptersMerged_ReturnsSkipped(t *testing.
 			return &models.Repertoire{ID: repertoireID, TreeData: treeData}, nil
 		},
 	}
-	svc := NewStudyImportService(mockLichess, mockRepSvc, nil, &mocks.MockUserRepo{})
+	svc := NewStudyImportService(mockLichess, mockRepSvc, &mocks.MockUserRepo{})
 
 	result, err := svc.ImportStudyChaptersMerged("user-1", "testid01", "", []int{0, 1, 2}, "Merged", false, true, RenameStrategyAbort)
 
@@ -370,7 +370,7 @@ func TestStudyImportService_ImportStudyChaptersMerged_AllChaptersSkipped(t *test
 			return pgnAllCustom, nil
 		},
 	}
-	svc := NewStudyImportService(mockLichess, &smocks.MockRepertoireService{}, nil, &mocks.MockUserRepo{})
+	svc := NewStudyImportService(mockLichess, &smocks.MockRepertoireService{}, &mocks.MockUserRepo{})
 
 	_, err := svc.ImportStudyChaptersMerged("user-1", "testid01", "", []int{0, 1}, "Merged", false, true, RenameStrategyAbort)
 
@@ -407,7 +407,7 @@ func TestStudyImportService_ImportStudyChaptersWithCategory_AbortsOnConflict(t *
 			return &models.Repertoire{ID: repertoireID, TreeData: treeData}, nil
 		},
 	}
-	svc := NewStudyImportService(mockLichess, mockRepSvc, nil, &mocks.MockUserRepo{})
+	svc := NewStudyImportService(mockLichess, mockRepSvc, &mocks.MockUserRepo{})
 
 	_, err := svc.ImportStudyChaptersWithCategory("user-1", "testid01", "", []int{0, 1}, false, "", false, false, RenameStrategyAbort)
 
@@ -440,7 +440,7 @@ func TestStudyImportService_ImportStudyChaptersWithCategory_AutoSuffixRenames(t 
 			return &models.Repertoire{ID: repertoireID, TreeData: treeData}, nil
 		},
 	}
-	svc := NewStudyImportService(mockLichess, mockRepSvc, nil, &mocks.MockUserRepo{})
+	svc := NewStudyImportService(mockLichess, mockRepSvc, &mocks.MockUserRepo{})
 
 	result, err := svc.ImportStudyChaptersWithCategory("user-1", "testid01", "", []int{0, 1}, false, "", false, false, RenameStrategyAutoSuffix)
 
@@ -480,7 +480,7 @@ func TestStudyImportService_ImportStudyChaptersWithCategory_AutoSuffixHandlesDup
 			return &models.Repertoire{ID: repertoireID, TreeData: treeData}, nil
 		},
 	}
-	svc := NewStudyImportService(mockLichess, mockRepSvc, nil, &mocks.MockUserRepo{})
+	svc := NewStudyImportService(mockLichess, mockRepSvc, &mocks.MockUserRepo{})
 
 	_, err := svc.ImportStudyChaptersWithCategory("user-1", "testid01", "", []int{0, 1}, false, "", false, false, RenameStrategyAutoSuffix)
 
@@ -503,7 +503,7 @@ func TestStudyImportService_ImportStudyChaptersMerged_AbortsOnConflict(t *testin
 			return nil, nil
 		},
 	}
-	svc := NewStudyImportService(mockLichess, mockRepSvc, nil, &mocks.MockUserRepo{})
+	svc := NewStudyImportService(mockLichess, mockRepSvc, &mocks.MockUserRepo{})
 
 	_, err := svc.ImportStudyChaptersMerged("user-1", "testid01", "", []int{0, 1}, "", false, false, RenameStrategyAbort)
 
@@ -531,7 +531,7 @@ func TestStudyImportService_ImportStudyChaptersMerged_AutoSuffixRenames(t *testi
 			return &models.Repertoire{ID: repertoireID, TreeData: treeData}, nil
 		},
 	}
-	svc := NewStudyImportService(mockLichess, mockRepSvc, nil, &mocks.MockUserRepo{})
+	svc := NewStudyImportService(mockLichess, mockRepSvc, &mocks.MockUserRepo{})
 
 	result, err := svc.ImportStudyChaptersMerged("user-1", "testid01", "", []int{0, 1}, "", false, false, RenameStrategyAutoSuffix)
 
@@ -557,7 +557,7 @@ func TestStudyImportService_ImportStudyChapters_CreateError(t *testing.T) {
 		},
 	}
 
-	svc := NewStudyImportService(mockLichess, mockRepSvc, nil, &mocks.MockUserRepo{})
+	svc := NewStudyImportService(mockLichess, mockRepSvc, &mocks.MockUserRepo{})
 	_, err := svc.ImportStudyChapters("user-1", "testid01", "", []int{0})
 
 	assert.Error(t, err)

@@ -133,3 +133,36 @@ type AddNodeRequest struct {
 	// FEN and ColorToMove are computed by the backend from the parent position
 	// They are optional in the request and will be overridden
 }
+
+// StudyImportRepertoireSpec describes one repertoire to persist as part of a
+// study import: its name/color, whether it should be assigned to the optional
+// category created in the same transaction, the parsed tree, and an origin.
+type StudyImportRepertoireSpec struct {
+	Name        string
+	Color       Color
+	UseCategory bool
+	Tree        RepertoireNode
+	Origin      *RepertoireOrigin
+}
+
+// StudyImportCategorySpec describes a category to create in the import transaction.
+type StudyImportCategorySpec struct {
+	Name  string
+	Color Color
+}
+
+// StudyImportPlan is the fully validated set of writes for a study import. The
+// caller resolves name conflicts and limits before building this plan; the plan
+// is then executed atomically (see RepertoireManager.PersistStudyImport).
+type StudyImportPlan struct {
+	// Category, when non-nil, is created first and assigned to every spec whose
+	// UseCategory is true.
+	Category    *StudyImportCategorySpec
+	Repertoires []StudyImportRepertoireSpec
+}
+
+// StudyImportPersistResult is the outcome of a successful study import persist.
+type StudyImportPersistResult struct {
+	Category    *Category
+	Repertoires []Repertoire
+}

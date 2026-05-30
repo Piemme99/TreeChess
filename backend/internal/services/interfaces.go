@@ -32,4 +32,7 @@ type RepertoireManager interface {
 	SaveTree(userID, repertoireID string, treeData models.RepertoireNode) (*models.Repertoire, error)
 	SetOrigin(repertoireID string, origin *models.RepertoireOrigin) error
 	ListRepertoires(userID string, color *models.Color) ([]models.Repertoire, error)
+	// PersistStudyImport atomically creates the optional category and all
+	// repertoires in a study import, rolling back on any failure.
+	PersistStudyImport(userID string, plan models.StudyImportPlan) (*models.StudyImportPersistResult, error)
 }

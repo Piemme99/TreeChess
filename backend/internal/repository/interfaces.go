@@ -44,6 +44,9 @@ type RepertoireRepository interface {
 	Count(userID string) (int, error)
 	Exists(id string) (bool, error)
 	BelongsToUser(id string, userID string) (bool, error)
+	// WithinTx runs fn inside a single transaction, committing on nil error and
+	// rolling back otherwise, so multi-step mutations leave no partial state.
+	WithinTx(ctx context.Context, fn func(tx RepertoireTx) error) error
 }
 
 // GameFingerprintRepository defines the interface for game fingerprint operations

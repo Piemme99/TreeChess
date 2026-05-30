@@ -67,14 +67,25 @@ type CategoryRepository interface {
 	Count(userID string) (int, error)
 }
 
-// PostgresCategoryRepo implements CategoryRepository using PostgreSQL
+// PostgresCategoryRepo implements CategoryRepository using PostgreSQL.
+//
+// db is the executor every query runs against: normally the connection pool,
+// or a pgx.Tx when the repo is bound to a transaction by a unit-of-work so a
+// category Create participates in the same transaction as the repertoires it
+// groups (see PostgresRepertoireRepo.WithinTx).
 type PostgresCategoryRepo struct {
-	pool *pgxpool.Pool
+	db pgxExecutor
 }
 
 // NewPostgresCategoryRepo creates a new PostgreSQL category repository
 func NewPostgresCategoryRepo(pool *pgxpool.Pool) *PostgresCategoryRepo {
-	return &PostgresCategoryRepo{pool: pool}
+	return &PostgresCategoryRepo{db: pool}
+}
+
+// newTxCategoryRepo creates a category repo bound to an open transaction. All of
+// its queries run on tx so they participate in the surrounding unit-of-work.
+func newTxCategoryRepo(tx pgxExecutor) *PostgresCategoryRepo {
+	return &PostgresCategoryRepo{db: tx}
 }
 
 // GetByID retrieves a category by its UUID
@@ -83,7 +94,7 @@ func (r *PostgresCategoryRepo) GetByID(id string) (*models.Category, error) {
 	defer cancel()
 
 	var cat models.Category
-	err := r.pool.QueryRow(ctx, getCategoryByIDSQL, id).Scan(
+	err := r.db.QueryRow(ctx, getCategoryByIDSQL, id).Scan(
 		&cat.ID,
 		&cat.Name,
 		&cat.Color,
@@ -105,7 +116,7 @@ func (r *PostgresCategoryRepo) GetByUserAndColor(userID string, color models.Col
 	ctx, cancel := dbContext()
 	defer cancel()
 
-	rows, err := r.pool.Query(ctx, getCategoriesByUserAndColorSQL, userID, string(color))
+	rows, err := r.db.Query(ctx, getCategoriesByUserAndColorSQL, userID, string(color))
 	if err != nil {
 		return nil, fmt.Errorf("failed to query categories: %w", err)
 	}
@@ -119,7 +130,7 @@ func (r *PostgresCategoryRepo) GetAll(userID string) ([]models.Category, error) 
 	ctx, cancel := dbContext()
 	defer cancel()
 
-	rows, err := r.pool.Query(ctx, getAllCategoriesByUserSQL, userID)
+	rows, err := r.db.Query(ctx, getAllCategoriesByUserSQL, userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query categories: %w", err)
 	}
@@ -136,7 +147,7 @@ func (r *PostgresCategoryRepo) Create(userID, name string, color models.Color) (
 	id := uuid.New().String()
 	var cat models.Category
 
-	err := r.pool.QueryRow(ctx, createCategorySQL, id, userID, name, string(color)).Scan(
+	err := r.db.QueryRow(ctx, createCategorySQL, id, userID, name, string(color)).Scan(
 		&cat.ID,
 		&cat.Name,
 		&cat.Color,
@@ -156,7 +167,7 @@ func (r *PostgresCategoryRepo) UpdateName(id, name string) (*models.Category, er
 	defer cancel()
 
 	var cat models.Category
-	err := r.pool.QueryRow(ctx, updateCategoryNameSQL, id, name).Scan(
+	err := r.db.QueryRow(ctx, updateCategoryNameSQL, id, name).Scan(
 		&cat.ID,
 		&cat.Name,
 		&cat.Color,
@@ -178,7 +189,7 @@ func (r *PostgresCategoryRepo) Delete(id string) error {
 	ctx, cancel := dbContext()
 	defer cancel()
 
-	result, err := r.pool.Exec(ctx, deleteCategorySQL, id)
+	result, err := r.db.Exec(ctx, deleteCategorySQL, id)
 	if err != nil {
 		return fmt.Errorf("failed to delete category: %w", err)
 	}
@@ -196,7 +207,7 @@ func (r *PostgresCategoryRepo) BelongsToUser(id, userID string) (bool, error) {
 	defer cancel()
 
 	var belongs bool
-	err := r.pool.QueryRow(ctx, belongsToUserCategorySQL, id, userID).Scan(&belongs)
+	err := r.db.QueryRow(ctx, belongsToUserCategorySQL, id, userID).Scan(&belongs)
 	if err != nil {
 		return false, fmt.Errorf("failed to check category ownership: %w", err)
 	}
@@ -209,7 +220,7 @@ func (r *PostgresCategoryRepo) Exists(id string) (bool, error) {
 	defer cancel()
 
 	var exists bool
-	err := r.pool.QueryRow(ctx, checkCategoryExistsByIDSQL, id).Scan(&exists)
+	err := r.db.QueryRow(ctx, checkCategoryExistsByIDSQL, id).Scan(&exists)
 	if err != nil {
 		return false, fmt.Errorf("failed to check category existence: %w", err)
 	}
@@ -222,7 +233,7 @@ func (r *PostgresCategoryRepo) Count(userID string) (int, error) {
 	defer cancel()
 
 	var count int
-	err := r.pool.QueryRow(ctx, countCategoriesByUserSQL, userID).Scan(&count)
+	err := r.db.QueryRow(ctx, countCategoriesByUserSQL, userID).Scan(&count)
 	if err != nil {
 		return 0, fmt.Errorf("failed to count categories: %w", err)
 	}

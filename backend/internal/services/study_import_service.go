@@ -12,19 +12,22 @@ import (
 )
 
 // StudyImportService handles importing Lichess studies as repertoires.
+//
+// Category creation no longer goes through a standalone category repository:
+// it is performed inside the repertoire service's import transaction (see
+// RepertoireManager.PersistStudyImport) so a partial import never leaves an
+// orphan category behind.
 type StudyImportService struct {
 	lichessService    LichessGameFetcher
 	repertoireService RepertoireManager
-	categoryRepo      repository.CategoryRepository
 	userRepo          repository.UserRepository
 }
 
 // NewStudyImportService creates a new study import service.
-func NewStudyImportService(lichessSvc LichessGameFetcher, repertoireSvc RepertoireManager, categoryRepo repository.CategoryRepository, userRepo repository.UserRepository) *StudyImportService {
+func NewStudyImportService(lichessSvc LichessGameFetcher, repertoireSvc RepertoireManager, userRepo repository.UserRepository) *StudyImportService {
 	return &StudyImportService{
 		lichessService:    lichessSvc,
 		repertoireService: repertoireSvc,
-		categoryRepo:      categoryRepo,
 		userRepo:          userRepo,
 	}
 }
@@ -357,10 +360,12 @@ func (s *StudyImportService) ImportStudyChaptersWithCategory(userID, studyID, au
 		detectedColor = models.ColorBlack
 	}
 
-	// Phase 4: create the category (if requested) and the repertoires.
-	var category *models.Category
-	var categoryID *string
-	if createCategory && s.categoryRepo != nil && len(parsed) > 0 {
+	// Phase 4: build the write plan (optional category + one spec per chapter)
+	// and persist it atomically. PersistStudyImport rolls everything back on any
+	// failure, so a partial import never leaves an orphan category or
+	// repertoires behind.
+	var categorySpec *models.StudyImportCategorySpec
+	if createCategory && len(parsed) > 0 {
 		catName := categoryName
 		if catName == "" {
 			catName = studyName
@@ -368,13 +373,7 @@ func (s *StudyImportService) ImportStudyChaptersWithCategory(userID, studyID, au
 		if catName == "" {
 			catName = "Imported Study"
 		}
-
-		cat, catErr := s.categoryRepo.Create(userID, catName, detectedColor)
-		if catErr != nil {
-			return nil, fmt.Errorf("failed to create category: %w", catErr)
-		}
-		category = cat
-		categoryID = &cat.ID
+		categorySpec = &models.StudyImportCategorySpec{Name: catName, Color: detectedColor}
 	}
 
 	resolvedOwner := ""
@@ -393,38 +392,28 @@ func (s *StudyImportService) ImportStudyChaptersWithCategory(userID, studyID, au
 		Creator: resolvedOwner,
 	}
 
-	var created []models.Repertoire
+	specs := make([]models.StudyImportRepertoireSpec, 0, len(parsed))
 	for idx, pc := range parsed {
-		name := targetNames[idx]
+		specs = append(specs, models.StudyImportRepertoireSpec{
+			Name:        targetNames[idx],
+			Color:       pc.color,
+			UseCategory: pc.color == detectedColor,
+			Tree:        pc.root,
+			Origin:      origin,
+		})
+	}
 
-		var rep *models.Repertoire
-		var createErr error
-		if categoryID != nil && pc.color == detectedColor {
-			rep, createErr = s.repertoireService.CreateRepertoireWithCategory(userID, name, pc.color, categoryID)
-		} else {
-			rep, createErr = s.repertoireService.CreateRepertoire(userID, name, pc.color)
-		}
-		if createErr != nil {
-			return nil, fmt.Errorf("failed to create repertoire for chapter %d: %w", pc.index, createErr)
-		}
-
-		saved, saveErr := s.repertoireService.SaveTree(userID, rep.ID, pc.root)
-		if saveErr != nil {
-			return nil, fmt.Errorf("failed to save tree for chapter %d: %w", pc.index, saveErr)
-		}
-
-		if setErr := s.repertoireService.SetOrigin(saved.ID, origin); setErr != nil {
-			slog.Error("failed to set origin on imported repertoire", "repertoire_id", saved.ID, "error", setErr)
-		} else {
-			saved.Origin = origin
-		}
-
-		created = append(created, *saved)
+	persisted, err := s.repertoireService.PersistStudyImport(userID, models.StudyImportPlan{
+		Category:    categorySpec,
+		Repertoires: specs,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to import study chapters: %w", err)
 	}
 
 	return &StudyImportResult{
-		Repertoires: created,
-		Category:    category,
+		Repertoires: persisted.Repertoires,
+		Category:    persisted.Category,
 		Skipped:     skipped,
 	}, nil
 }
@@ -552,25 +541,13 @@ func (s *StudyImportService) ImportStudyChaptersMerged(userID, studyID, authToke
 		}
 	}
 
-	// Create one repertoire
-	rep, err := s.repertoireService.CreateRepertoire(userID, mergeName, detectedColor)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create repertoire: %w", err)
-	}
-
 	// Start with the first tree, merge the rest into it
 	merged := parsedTrees[0]
 	for i := 1; i < len(parsedTrees); i++ {
 		mergeNodes(&merged, &parsedTrees[i])
 	}
 
-	// Save the merged tree
-	saved, err := s.repertoireService.SaveTree(userID, rep.ID, merged)
-	if err != nil {
-		return nil, fmt.Errorf("failed to save merged tree: %w", err)
-	}
-
-	// Set Lichess origin
+	// Resolve Lichess origin
 	resolvedOwner := ""
 	if len(ownerName) > 0 && ownerName[0] != "" {
 		resolvedOwner = ownerName[0]
@@ -586,14 +563,23 @@ func (s *StudyImportService) ImportStudyChaptersMerged(userID, studyID, authToke
 		URL:     fmt.Sprintf("https://lichess.org/study/%s", studyID),
 		Creator: resolvedOwner,
 	}
-	if setErr := s.repertoireService.SetOrigin(saved.ID, origin); setErr != nil {
-		slog.Error("failed to set origin on merged repertoire", "repertoire_id", saved.ID, "error", setErr)
-	} else {
-		saved.Origin = origin
+
+	// Create + save tree + set origin atomically for the single merged
+	// repertoire, so a failure mid-write leaves nothing behind.
+	persisted, err := s.repertoireService.PersistStudyImport(userID, models.StudyImportPlan{
+		Repertoires: []models.StudyImportRepertoireSpec{{
+			Name:   mergeName,
+			Color:  detectedColor,
+			Tree:   merged,
+			Origin: origin,
+		}},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to import merged study: %w", err)
 	}
 
 	return &MergedStudyImportResult{
-		Repertoire: saved,
+		Repertoire: &persisted.Repertoires[0],
 		Skipped:    skipped,
 	}, nil
 }
