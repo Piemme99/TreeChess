@@ -1,12 +1,15 @@
 package services
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/kumquat/backend/config"
 	"github.com/kumquat/backend/internal/models"
 	"github.com/kumquat/backend/internal/repository"
 	"github.com/kumquat/backend/internal/repository/mocks"
@@ -2699,4 +2702,71 @@ func TestAnalyzeTrainingMoves_BlackRepertoire(t *testing.T) {
 	// Nf3 -> out-of-book (leaf)
 	assert.Equal(t, "out-of-book", resp.Moves[2].Status)
 	assert.False(t, resp.Moves[2].IsUserMove)
+}
+
+// syntheticPGN returns a PGN string containing n games where the given
+// username plays White. Each game uses a distinct move so fingerprints differ.
+func syntheticPGN(username string, n int) string {
+	// A small pool of distinct legal opening lines so games are unique enough
+	// to produce distinct fingerprints.
+	openings := []string{
+		"1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 1-0",
+		"1. d4 d5 2. c4 e6 3. Nc3 Nf6 1-0",
+		"1. c4 e5 2. Nc3 Nf6 3. Nf3 Nc6 1-0",
+		"1. Nf3 d5 2. g3 g6 3. Bg2 Bg7 1-0",
+		"1. e4 c5 2. Nf3 d6 3. d4 cxd4 1-0",
+	}
+	var b strings.Builder
+	for i := 0; i < n; i++ {
+		fmt.Fprintf(&b, "[Event \"Game %d\"]\n", i)
+		b.WriteString("[Site \"Test\"]\n")
+		fmt.Fprintf(&b, "[Date \"2024.01.%02d\"]\n", (i%28)+1)
+		fmt.Fprintf(&b, "[White \"%s\"]\n", username)
+		fmt.Fprintf(&b, "[Black \"opponent%d\"]\n", i)
+		b.WriteString("[Result \"1-0\"]\n\n")
+		b.WriteString(openings[i%len(openings)])
+		b.WriteString("\n\n")
+	}
+	return b.String()
+}
+
+// TestParseAndAnalyze_RejectsTooManyGames verifies that an import exceeding
+// config.MaxGamesPerImport is rejected with ErrTooManyGames rather than being
+// allowed to proceed to the DB layer (where it could hit Postgres's
+// 65535-parameter limit).
+func TestParseAndAnalyze_RejectsTooManyGames(t *testing.T) {
+	repSvc := NewRepertoireService(&mocks.MockRepertoireRepo{})
+	svc := NewImportService(repSvc, &mocks.MockAnalysisRepo{})
+
+	pgn := syntheticPGN("bigimporter", config.MaxGamesPerImport+1)
+
+	_, _, err := svc.ParseAndAnalyze("big.pgn", "bigimporter", "user-1", pgn)
+
+	require.Error(t, err)
+	assert.ErrorIs(t, err, ErrTooManyGames)
+}
+
+// TestParseAndAnalyze_AcceptsAtLimit verifies the boundary: exactly
+// MaxGamesPerImport games is not rejected by the size guard. We keep the
+// repertoire/analysis mocks permissive so the call proceeds past the guard.
+func TestParseAndAnalyze_AcceptsAtLimit(t *testing.T) {
+	repSvc := NewRepertoireService(&mocks.MockRepertoireRepo{
+		GetByColorFunc: func(string, models.Color) ([]models.Repertoire, error) {
+			return nil, nil
+		},
+	})
+	analysisRepo := &mocks.MockAnalysisRepo{
+		SaveFunc: func(_ string, username, filename string, gameCount int, _ []models.GameAnalysis) (*models.AnalysisSummary, error) {
+			return &models.AnalysisSummary{ID: "a-1", Username: username, Filename: filename, GameCount: gameCount}, nil
+		},
+	}
+	svc := NewImportService(repSvc, analysisRepo)
+
+	pgn := syntheticPGN("atlimit", config.MaxGamesPerImport)
+
+	summary, _, err := svc.ParseAndAnalyze("limit.pgn", "atlimit", "user-1", pgn)
+
+	require.NoError(t, err)
+	require.NotNil(t, summary)
+	assert.Equal(t, config.MaxGamesPerImport, summary.GameCount)
 }

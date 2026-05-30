@@ -9,12 +9,15 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/kumquat/backend/config"
 	"github.com/kumquat/backend/internal/models"
+	"github.com/kumquat/backend/internal/repository"
 	"github.com/kumquat/backend/internal/services"
 	"github.com/kumquat/backend/internal/testhelpers"
 )
@@ -382,4 +385,90 @@ func TestImportPipeline_HandlerLevel_Upload(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, float64(1), resp["gameCount"])
 	assert.NotEmpty(t, resp["id"])
+}
+
+// TestFingerprintRepo_ChunkedBatchOps exercises SaveBatch and CheckExisting
+// with far more rows than config.DBBatchSize. Before chunking, SaveBatch would
+// emit one INSERT with 4*N parameters (failing past ~16k games) and
+// CheckExisting one IN-clause with N parameters (failing past ~65k). This test
+// proves the chunked implementation handles a count that spans multiple
+// chunks without hitting Postgres's 65535-parameter limit.
+func TestFingerprintRepo_ChunkedBatchOps(t *testing.T) {
+	testDB.TruncateAll(t)
+	repos := testDB.Repos()
+	user := testhelpers.SeedUser(t, repos, "chunkuser", "password123")
+
+	// Create a real analysis row so the analysis_id FK is satisfied.
+	summary, err := repos.Analysis.Save(user.ID, "chunkuser", "chunk.pgn", 0, []models.GameAnalysis{})
+	require.NoError(t, err)
+
+	// 2500 entries forces 3 chunks at DBBatchSize=1000.
+	const total = 2*config.DBBatchSize + 500
+	entries := make([]repository.FingerprintEntry, total)
+	want := make([]string, total)
+	for i := 0; i < total; i++ {
+		fp := fmt.Sprintf("fp-%05d", i)
+		entries[i] = repository.FingerprintEntry{Fingerprint: fp, GameIndex: i}
+		want[i] = fp
+	}
+
+	// SaveBatch must succeed across all chunks.
+	require.NoError(t, repos.Fingerprint.SaveBatch(user.ID, summary.ID, entries))
+
+	// CheckExisting must report every fingerprint as existing.
+	existing, err := repos.Fingerprint.CheckExisting(user.ID, want)
+	require.NoError(t, err)
+	assert.Len(t, existing, total)
+	for _, fp := range want {
+		assert.True(t, existing[fp], "expected %s to be reported as existing", fp)
+	}
+
+	// A fingerprint that was never inserted must not be reported.
+	missing, err := repos.Fingerprint.CheckExisting(user.ID, []string{"never-inserted"})
+	require.NoError(t, err)
+	assert.False(t, missing["never-inserted"])
+}
+
+// TestImportPipeline_LargeSyntheticPGN imports a synthetic multi-game PGN with
+// more games than DBBatchSize, end-to-end, proving the full import path
+// (parse -> dedup CheckExisting -> persist SaveBatch) never hits a Postgres
+// parameter-limit crash on a large import.
+func TestImportPipeline_LargeSyntheticPGN(t *testing.T) {
+	testDB.TruncateAll(t)
+	repos := testDB.Repos()
+	user := testhelpers.SeedUser(t, repos, "largeuser", "password123")
+
+	repertoireSvc := services.NewRepertoireService(repos.Repertoire)
+	importSvc := services.NewImportService(repertoireSvc, repos.Analysis,
+		services.WithFingerprintRepo(repos.Fingerprint),
+	)
+
+	const games = config.DBBatchSize + 200 // spans 2 SaveBatch/CheckExisting chunks
+	pgn := largeSyntheticPGN("largeuser", games)
+
+	summary, results, err := importSvc.ParseAndAnalyze("large.pgn", "largeuser", user.ID, pgn)
+	require.NoError(t, err)
+	require.NotNil(t, summary)
+	assert.Equal(t, games, summary.GameCount)
+	assert.Len(t, results, games)
+
+	// Re-importing the same PGN must detect all as duplicates (CheckExisting
+	// chunking working) rather than crashing.
+	_, _, err = importSvc.ParseAndAnalyze("large2.pgn", "largeuser", user.ID, pgn)
+	assert.ErrorIs(t, err, services.ErrAllGamesDuplicate)
+}
+
+// largeSyntheticPGN builds a PGN with n unique games where username plays White.
+func largeSyntheticPGN(username string, n int) string {
+	var b strings.Builder
+	for i := 0; i < n; i++ {
+		fmt.Fprintf(&b, "[Event \"Game %d\"]\n", i)
+		b.WriteString("[Site \"Test\"]\n")
+		fmt.Fprintf(&b, "[White \"%s\"]\n", username)
+		fmt.Fprintf(&b, "[Black \"opp%d\"]\n", i)
+		b.WriteString("[Result \"1-0\"]\n\n")
+		// Vary the third move so each game has a distinct fingerprint.
+		fmt.Fprintf(&b, "1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 4. Ba4 Nf6 5. O-O Be7 { game %d } 1-0\n\n", i)
+	}
+	return b.String()
 }

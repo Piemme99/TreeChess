@@ -8,12 +8,17 @@ import (
 
 	"github.com/notnil/chess"
 
+	"github.com/kumquat/backend/config"
 	"github.com/kumquat/backend/internal/models"
 	"github.com/kumquat/backend/internal/repository"
 )
 
 // ErrAllGamesDuplicate is returned when all games in an import already exist
 var ErrAllGamesDuplicate = fmt.Errorf("all games have already been imported")
+
+// ErrTooManyGames is returned when a single import exceeds
+// config.MaxGamesPerImport games.
+var ErrTooManyGames = fmt.Errorf("import exceeds the maximum of %d games", config.MaxGamesPerImport)
 
 // ImportService handles game import and analysis business logic
 type ImportService struct {
@@ -77,6 +82,10 @@ func (s *ImportService) ParseAndAnalyze(filename string, username string, userID
 
 	if len(games) == 0 {
 		return nil, nil, fmt.Errorf("no games found in PGN")
+	}
+
+	if len(games) > config.MaxGamesPerImport {
+		return nil, nil, ErrTooManyGames
 	}
 
 	// Get all repertoires upfront
