@@ -50,7 +50,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     } catch (err: unknown) {
       const message = getErrorMessage(err, 'Login failed');
       set({ error: message });
-      throw new Error(message);
+      throw new Error(message, { cause: err });
     }
   },
 
@@ -69,7 +69,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     } catch (err: unknown) {
       const message = getErrorMessage(err, 'Registration failed');
       set({ error: message });
-      throw new Error(message);
+      throw new Error(message, { cause: err });
     }
   },
 

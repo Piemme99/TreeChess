@@ -25,7 +25,7 @@ function clearTimer() {
 }
 
 async function tick(set: (partial: Partial<ReanalysisState>) => void) {
-  let status: ReanalysisStatus | null = null;
+  let status: ReanalysisStatus;
   try {
     status = await gamesApi.reanalysisStatus();
   } catch {
