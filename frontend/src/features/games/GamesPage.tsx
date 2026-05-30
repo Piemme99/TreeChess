@@ -52,6 +52,7 @@ export function GamesPage() {
   const {
     games,
     loading,
+    newTotal,
     markGameViewed,
     nextPage,
     prevPage,
@@ -230,6 +231,7 @@ export function GamesPage() {
             totalPages={totalPages}
             onNextPage={nextPage}
             onPrevPage={prevPage}
+            newGamesTotal={newTotal}
             onGameReanalyzed={refresh}
             reanalyzeAllActive={reanalyzingAll}
             onReanalyzingChange={setRowReanalyzing}
