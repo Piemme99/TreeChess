@@ -11,6 +11,7 @@ interface AuthState {
   needsOnboarding: boolean;
   syncing: boolean;
   lastSyncResult: SyncResult | null;
+  lastSyncError: string | null;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, username: string, password: string) => Promise<void>;
   handleOAuthToken: (token: string, isNew?: boolean) => Promise<void>;
@@ -31,6 +32,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   needsOnboarding: false,
   syncing: false,
   lastSyncResult: null,
+  lastSyncError: null,
 
   login: async (email: string, password: string) => {
     set({ error: null });
@@ -159,12 +161,17 @@ export const useAuthStore = create<AuthState>((set) => ({
     if (useAuthStore.getState().syncing) {
       return;
     }
-    set({ syncing: true, lastSyncResult: null });
+    set({ syncing: true, lastSyncResult: null, lastSyncError: null });
     try {
       const result = await syncApi.sync();
       set({ syncing: false, lastSyncResult: result });
-    } catch {
-      set({ syncing: false });
+    } catch (err) {
+      // Background sync is fire-and-forget from login/register/OAuth/onboarding,
+      // so a toast on every failure would be intrusive. Surface the error via
+      // `lastSyncError` (rendered non-intrusively on the Dashboard) and log it.
+      const message = getErrorMessage(err, 'Failed to sync games');
+      console.warn('Game sync failed:', message);
+      set({ syncing: false, lastSyncError: message });
     }
   },
 }));

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useShallow } from 'zustand/react/shallow';
 import { useRepertoires } from '../repertoire/shared/hooks/useRepertoires';
@@ -17,6 +17,7 @@ import { useInsights } from '../games/hooks/useInsights';
 import { fadeUp } from '../../shared/utils/animations';
 import { usePageTitle } from '../../shared/hooks/usePageTitle';
 import { useReanalysisCompletion } from '../../shared/hooks';
+import { toast } from '../../stores/toastStore';
 
 export function Dashboard() {
   usePageTitle('Dashboard');
@@ -25,8 +26,9 @@ export function Dashboard() {
   );
   const { repertoires, loading: repLoading } = useRepertoires();
   const { games, loading: gamesLoading, refresh: refreshGames } = useGames();
-  const { stats, refresh: refreshStats } = useDashboardStats();
-  const { insights, refresh: refreshInsights } = useInsights();
+  const { stats, error: statsError, refresh: refreshStats } = useDashboardStats();
+  const { insights, error: insightsError, refresh: refreshInsights } = useInsights();
+  const { lastSyncError } = useAuthStore(useShallow((s) => ({ lastSyncError: s.lastSyncError })));
   const [showSyncResult, setShowSyncResult] = useState(false);
 
   useReanalysisCompletion(useCallback(() => {
@@ -34,6 +36,24 @@ export function Dashboard() {
     refreshStats();
     refreshInsights();
   }, [refreshGames, refreshStats, refreshInsights]));
+
+  // These hooks poll/refresh, so toast only when transitioning *into* an error
+  // state — otherwise a persistent failure would re-toast on every poll tick.
+  const prevStatsError = useRef<string | null>(null);
+  useEffect(() => {
+    if (statsError && !prevStatsError.current) {
+      toast.error(statsError);
+    }
+    prevStatsError.current = statsError;
+  }, [statsError]);
+
+  const prevInsightsError = useRef<string | null>(null);
+  useEffect(() => {
+    if (insightsError && !prevInsightsError.current) {
+      toast.error(insightsError);
+    }
+    prevInsightsError.current = insightsError;
+  }, [insightsError]);
 
   useEffect(() => {
     if (lastSyncResult) {
@@ -78,6 +98,11 @@ export function Dashboard() {
       {showSyncResult && !syncing && (
         <motion.div variants={fadeUp} initial="hidden" animate="visible" custom={0} className="py-2 px-4 rounded-xl text-sm text-center bg-success-light text-success animate-sync-fade-out">
           {syncMessage()}
+        </motion.div>
+      )}
+      {lastSyncError && !syncing && (
+        <motion.div variants={fadeUp} initial="hidden" animate="visible" custom={0} className="py-2 px-4 rounded-xl text-sm text-center bg-danger-light text-danger">
+          {lastSyncError}
         </motion.div>
       )}
 

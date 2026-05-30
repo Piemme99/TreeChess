@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router';
 import { motion } from 'framer-motion';
 import { useAuthStore } from '../../stores/authStore';
@@ -62,12 +62,22 @@ export function GamesPage() {
     refresh
   } = useGames(timeClassFilter || undefined, repertoireFilter || undefined, sourceFilter || undefined);
 
-  const { insights, refresh: refreshInsights } = useInsights();
+  const { insights, error: insightsError, refresh: refreshInsights } = useInsights();
 
   useReanalysisCompletion(useCallback(() => {
     refresh();
     refreshInsights();
   }, [refresh, refreshInsights]));
+
+  // useInsights polls while analysis is in progress, so toast only on the
+  // transition into an error state rather than on every poll tick.
+  const prevInsightsError = useRef<string | null>(null);
+  useEffect(() => {
+    if (insightsError && !prevInsightsError.current) {
+      toast.error(insightsError);
+    }
+    prevInsightsError.current = insightsError;
+  }, [insightsError]);
 
   useEffect(() => {
     const controller = new AbortController();

@@ -39,8 +39,10 @@ export const useExploreStore = create<ExploreState>((set) => ({
     try {
       const templates = await exploreApi.listTemplates();
       set({ starterTemplates: templates });
-    } catch {
-      // Silently fail — starter templates are non-critical
+    } catch (err) {
+      // Starter templates are non-critical content, so don't toast — but log
+      // so the failure isn't entirely silent and can be diagnosed.
+      console.warn('Failed to fetch starter templates:', err);
     }
   },
 
