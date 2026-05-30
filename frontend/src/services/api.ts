@@ -533,6 +533,16 @@ export const gamesApi = {
     return response.data.repertoires;
   },
 
+  // Games tagged "New" (synced from a platform and not yet viewed) across all
+  // imports — the set the analyse-session steps through.
+  listNew: async (limit = 100, offset = 0, options?: RequestOptions): Promise<GamesResponse> => {
+    const response = await api.get('/games', {
+      params: { limit, offset, new: 'true' },
+      signal: options?.signal
+    });
+    return response.data;
+  },
+
   reanalyze: async (analysisId: string, gameIndex: number, repertoireId: string): Promise<GameAnalysis> => {
     const response = await api.post(`/games/${analysisId}/${gameIndex}/reanalyze`, { repertoireId });
     return response.data;

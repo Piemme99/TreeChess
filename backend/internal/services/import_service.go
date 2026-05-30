@@ -649,8 +649,8 @@ func (s *ImportService) DeleteAnalysis(id string) error {
 }
 
 // GetAllGames returns all games from all analyses with pagination for a user
-func (s *ImportService) GetAllGames(userID string, limit, offset int, timeClass, repertoire, source string) (*models.GamesResponse, error) {
-	response, err := s.analysisRepo.GetAllGames(userID, limit, offset, timeClass, repertoire, source)
+func (s *ImportService) GetAllGames(userID string, limit, offset int, timeClass, repertoire, source string, onlyNew bool) (*models.GamesResponse, error) {
+	response, err := s.analysisRepo.GetAllGames(userID, limit, offset, timeClass, repertoire, source, onlyNew)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get games: %w", err)
 	}

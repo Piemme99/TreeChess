@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router';
 import { motion } from 'framer-motion';
 import { fadeUp } from '../../shared/utils/animations';
@@ -8,13 +8,18 @@ import { useFENComputed } from './hooks/useFENComputed';
 import { computeFEN, computeFENPath, STARTING_FEN } from './utils/fenCalculator';
 import { GameBoardSection } from './components/GameBoardSection';
 import { GameNavigation } from './components/GameNavigation';
+import { SessionNavigation } from './components/SessionNavigation';
 import { RepertoireSelector } from './components/RepertoireSelector';
 import { Button, Loading } from '../../shared/components/UI';
 import { GameMoveList } from './components/GameMoveList';
 import { useEngine } from '../../shared/hooks/useEngine';
+import { useReanalysisCompletion } from '../../shared/hooks';
+import { useNewGamesSession } from './hooks/useNewGamesSession';
+import { addLineToRepertoire, type LineMove } from './utils/addToRepertoire';
+import { countDivergences } from './utils/session';
 import { toast } from '../../stores/toastStore';
 import { usePageTitle } from '../../shared/hooks/usePageTitle';
-import type { GameAnalysis, MoveAnalysis } from '../../types';
+import type { GameAnalysis, GameSummary, MoveAnalysis } from '../../types';
 
 export function GameAnalysisPage() {
   usePageTitle('Game Analysis');
@@ -23,7 +28,19 @@ export function GameAnalysisPage() {
   const location = useLocation();
   const [searchParams] = useSearchParams();
 
-  const { analysis, loading, reanalyzeGame } = useGameLoader();
+  const { id: analysisId, analysis, loading, reanalyzeGame, updateGame, reload } = useGameLoader();
+
+  // Moves grafted in this analyse-session (persists while stepping between games).
+  const [movesAddedThisSession, setMovesAddedThisSession] = useState(0);
+  const addingRef = useRef(false);
+
+  // After an in-place add, the repertoire change triggers a debounced background
+  // re-analysis; refresh the session's results once it finishes so move statuses
+  // become authoritative (the optimistic highlight is replaced by the real one).
+  useReanalysisCompletion(reload);
+
+  // The ordered list of "New" games (across imports) this session steps through.
+  const { sessionGames } = useNewGamesSession();
 
   // Read initial ply from query parameter
   const initialPly = useMemo(() => {
@@ -111,13 +128,12 @@ export function GameAnalysisPage() {
     navigate(`/repertoire/${game.matchedRepertoire.id}/edit`, { state: { from: location.pathname + location.search } });
   }, [game, navigate, location]);
 
-  const handleAddToRepertoire = useCallback((_move: MoveAnalysis, clickedIndex: number) => {
-    if (!game || !game.userColor) return;
-
-    if (!game.matchedRepertoire) {
-      toast.error('No matching repertoire found for this game. Create a repertoire first.');
-      return;
-    }
+  // Add the line from the divergence up to the clicked move onto the matched
+  // repertoire IN PLACE — no navigation. The user stays in the analyse-session;
+  // a toast reports what was grafted and the move statuses update optimistically.
+  const handleAddToRepertoire = useCallback(async (_move: MoveAnalysis, clickedIndex: number) => {
+    if (!game || !game.userColor || !game.matchedRepertoire) return;
+    if (addingRef.current) return;
 
     // Find the divergence index: first non-in-repertoire move
     const divergenceIndex = game.moves.findIndex(
@@ -135,31 +151,82 @@ export function GameAnalysisPage() {
     }
 
     const endIndex = clickedIndex;
+    const repName = game.matchedRepertoire.name;
 
-    const gameInfo = `${game.headers.White || '?'} vs ${game.headers.Black || '?'}`;
-
-    // Build array of moves from divergence to clicked move
-    const moves: { parentFEN: string; moveSAN: string; resultFEN: string }[] = [];
+    // Build the line from divergence to clicked move
+    const line: LineMove[] = [];
     for (let i = startIndex; i <= endIndex; i++) {
       const parentFEN = i === 0 ? STARTING_FEN : computeFEN(game.moves, i - 1);
       const resultFEN = computeFEN(game.moves, i);
-      moves.push({
-        parentFEN,
-        moveSAN: game.moves[i].san,
-        resultFEN
-      });
+      line.push({ parentFEN, moveSAN: game.moves[i].san, resultFEN });
     }
 
-    const context = {
-      repertoireId: game.matchedRepertoire.id,
-      repertoireName: game.matchedRepertoire.name,
-      gameInfo,
-      moves
-    };
-    sessionStorage.setItem('pendingAddNode', JSON.stringify(context));
+    addingRef.current = true;
+    try {
+      const result = await addLineToRepertoire(game.matchedRepertoire.id, line);
 
-    navigate(`/repertoire/${game.matchedRepertoire.id}/edit`, { state: { from: location.pathname + location.search } });
-  }, [game, navigate, location]);
+      // Optimistically mark the moves we processed as in-repertoire so the user
+      // gets immediate feedback; the background re-analysis reconciles later.
+      const processed = result.added.length + result.skipped.length;
+      if (processed > 0) {
+        const updatedMoves = game.moves.map((m, i) =>
+          i >= startIndex && i < startIndex + processed
+            ? { ...m, status: 'in-repertoire' as const }
+            : m
+        );
+        updateGame(game.gameIndex, { ...game, moves: updatedMoves });
+        setMovesAddedThisSession((n) => n + result.added.length);
+      }
+
+      if (result.error) {
+        if (result.added.length > 0) {
+          toast.warning(`Added ${result.added.join(', ')} to ${repName}, then stopped: ${result.error}`);
+        } else {
+          toast.error(result.error);
+        }
+      } else if (result.added.length > 0) {
+        const tail = result.skipped.length ? ` (${result.skipped.length} already there)` : '';
+        toast.success(`Added ${result.added.join(', ')} to ${repName}${tail}`);
+      } else {
+        toast.info(`Already in ${repName}`);
+      }
+    } finally {
+      addingRef.current = false;
+    }
+  }, [game, updateGame]);
+
+  // Step to another game in the session, preserving the original entry point so
+  // the Back button still returns to the list the user came from.
+  const handleSelectGame = useCallback((targetAnalysisId: string, targetGameIndex: number) => {
+    navigate(`/analyse/${targetAnalysisId}/game/${targetGameIndex}`, {
+      state: { from: location.state?.from || '/games' }
+    });
+  }, [navigate, location]);
+
+  // Anchor the current game in the session even if it's no longer "New" (the
+  // Games tab marks a game viewed on click-through, which would otherwise drop
+  // the entry game out of the New-games list and break navigation).
+  const sessionList = useMemo<GameSummary[]>(() => {
+    if (!game || !analysisId) return sessionGames;
+    const present = sessionGames.some(
+      (g) => g.analysisId === analysisId && g.gameIndex === game.gameIndex
+    );
+    if (present) return sessionGames;
+    const current: GameSummary = {
+      analysisId,
+      gameIndex: game.gameIndex,
+      white: game.headers.White || '?',
+      black: game.headers.Black || '?',
+      result: game.headers.Result || '*',
+      date: game.headers.Date || '',
+      userColor: game.userColor,
+      status: countDivergences(game) > 0 ? 'new-line' : 'in-repertoire',
+      importedAt: '',
+      source: 'pgn',
+      synced: false,
+    };
+    return [current, ...sessionGames];
+  }, [sessionGames, game, analysisId]);
 
   // Handle creating a new repertoire and adding the current moves to it
   const handleCreateAndAdd = useCallback((repertoireId: string) => {
@@ -202,7 +269,10 @@ export function GameAnalysisPage() {
     toast.success('Repertoire imported! Select it from the dropdown above to analyze.');
   }, []);
 
-  if (loading) {
+  // Full-page spinner only on the initial load (nothing to show yet). Background
+  // refreshes — e.g. the post-add re-analysis reload — keep the current view
+  // mounted and swap the data in place, avoiding a whole-page flicker.
+  if (loading && !analysis) {
     return (
       <div className="max-w-[1400px] mx-auto min-h-full flex flex-col">
         <Loading size="lg" text="Loading game..." />
@@ -237,6 +307,15 @@ export function GameAnalysisPage() {
         <span className="text-xl font-semibold font-display">Game {gameIdx + 1}: {opponent}</span>
         <span className="font-mono text-text-muted">{result}</span>
       </motion.div>
+
+      {/* Session navigation: step between New games (across imports) in place */}
+      <SessionNavigation
+        sessionGames={sessionList}
+        currentAnalysisId={analysisId}
+        currentGameIndex={game.gameIndex}
+        onSelect={handleSelectGame}
+        movesAddedThisSession={movesAddedThisSession}
+      />
 
       {/* Repertoire selector with reanalyze option */}
       <motion.div variants={fadeUp} initial="hidden" animate="visible" custom={1}>

@@ -173,7 +173,7 @@ func (r *PostgresAnalysisRepo) Delete(id string) error {
 }
 
 // GetAllGames returns all games from all analyses with pagination for a user
-func (r *PostgresAnalysisRepo) GetAllGames(userID string, limit, offset int, timeClass, repertoire, source string) (*models.GamesResponse, error) {
+func (r *PostgresAnalysisRepo) GetAllGames(userID string, limit, offset int, timeClass, repertoire, source string, onlyNew bool) (*models.GamesResponse, error) {
 	ctx, cancel := dbContext()
 	defer cancel()
 
@@ -245,7 +245,12 @@ func (r *PostgresAnalysisRepo) GetAllGames(userID string, limit, offset int, tim
 				summary.RepertoireName = game.MatchedRepertoire.Name
 				summary.RepertoireID = game.MatchedRepertoire.ID
 			}
-			allGames = append(allGames, summary)
+			// "New" games are synced and not yet viewed — the set the analyse
+				// session steps through.
+				if onlyNew && !summary.Synced {
+					continue
+				}
+				allGames = append(allGames, summary)
 		}
 	}
 

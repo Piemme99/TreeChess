@@ -231,12 +231,12 @@ func TestImportPipeline_ListGames_Pagination(t *testing.T) {
 	}
 
 	// Get all games with limit/offset
-	page1, err := importSvc.GetAllGames(user.ID, 5, 0, "", "", "")
+	page1, err := importSvc.GetAllGames(user.ID, 5, 0, "", "", "", false)
 	require.NoError(t, err)
 	assert.Equal(t, 9, page1.Total)
 	assert.Len(t, page1.Games, 5)
 
-	page2, err := importSvc.GetAllGames(user.ID, 5, 5, "", "", "")
+	page2, err := importSvc.GetAllGames(user.ID, 5, 5, "", "", "", false)
 	require.NoError(t, err)
 	assert.Len(t, page2.Games, 4)
 }
@@ -269,17 +269,17 @@ func TestImportPipeline_ListGames_SourceFilter(t *testing.T) {
 	require.NoError(t, err)
 
 	// Filter by source=pgn
-	pgnGames, err := importSvc.GetAllGames(user.ID, 20, 0, "", "", "pgn")
+	pgnGames, err := importSvc.GetAllGames(user.ID, 20, 0, "", "", "pgn", false)
 	require.NoError(t, err)
 	assert.Equal(t, 1, pgnGames.Total)
 
 	// Filter by source=lichess
-	lichessGames, err := importSvc.GetAllGames(user.ID, 20, 0, "", "", "lichess")
+	lichessGames, err := importSvc.GetAllGames(user.ID, 20, 0, "", "", "lichess", false)
 	require.NoError(t, err)
 	assert.Equal(t, 1, lichessGames.Total)
 
 	// No filter returns all
-	allGames, err := importSvc.GetAllGames(user.ID, 20, 0, "", "", "")
+	allGames, err := importSvc.GetAllGames(user.ID, 20, 0, "", "", "", false)
 	require.NoError(t, err)
 	assert.Equal(t, 2, allGames.Total)
 }
