@@ -12,6 +12,17 @@ const (
 	// File upload limits
 	MaxPGNFileSize = 10 * 1024 * 1024 // 10MB
 
+	// MaxGamesPerImport bounds the number of games accepted from a single PGN
+	// import. A 10MB PGN can hold tens of thousands of games; without this
+	// limit a single oversized import can exhaust memory and exceed Postgres's
+	// 65535-parameter limit during batch deduplication / persistence.
+	MaxGamesPerImport = 5000
+
+	// DBBatchSize is the maximum number of rows (and therefore parameter
+	// groups) included in a single batched DB query. Kept well below
+	// Postgres's 65535-parameter limit even at 4 parameters per row.
+	DBBatchSize = 1000
+
 	// Pagination defaults
 	DefaultGamesLimit = 20
 	MaxGamesLimit     = 100

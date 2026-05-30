@@ -406,6 +406,45 @@ describe('authStore', () => {
       expect(getState().isAuthenticated).toBe(true);
     });
 
+    it('clears loading even when doCheckAuth throws before setting state', async () => {
+      // If the very first call (getAccessToken / me) throws synchronously
+      // before any `set`, the app must not be wedged on the spinner.
+      mockGetAccessToken.mockImplementation(() => {
+        throw new Error('boom');
+      });
+
+      await getState().checkAuth();
+
+      expect(getState().loading).toBe(false);
+    });
+
+    it('clears loading after the timeout when the auth check hangs forever', async () => {
+      // Simulate /auth/refresh stalling: a promise that never settles. Without
+      // the timeout escape, both route guards would render Loading forever.
+      const existingUser = createUser();
+      useAuthStore.setState({
+        user: existingUser,
+        isAuthenticated: true,
+        loading: true,
+      });
+      mockGetAccessToken.mockReturnValue(null);
+      mockAuthApi.refresh.mockReturnValue(new Promise(() => {}));
+
+      vi.useFakeTimers();
+      try {
+        const promise = getState().checkAuth();
+        // Advance past the 10s timeout ceiling.
+        await vi.advanceTimersByTimeAsync(10000);
+        await promise;
+      } finally {
+        vi.useRealTimers();
+      }
+
+      // Loading is cleared so guards can render; auth state is untouched
+      // because the hanging refresh never resolved or rejected.
+      expect(getState().loading).toBe(false);
+    });
+
     it('triggers sync after successful auth with platform usernames', async () => {
       const user = createUser({ chesscomUsername: 'chessUser' });
       mockGetAccessToken.mockReturnValue('tok');
