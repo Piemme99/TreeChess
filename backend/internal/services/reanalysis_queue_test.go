@@ -127,6 +127,44 @@ func TestReanalysisQueue_RunnerErrorDoesNotBlockSubsequentRuns(t *testing.T) {
 	assert.Equal(t, int32(2), calls.Load(), "errors should not prevent future runs")
 }
 
+func TestReanalysisQueue_PanicIsContainedAndStateReleased(t *testing.T) {
+	var calls atomic.Int32
+	q := NewReanalysisQueue(func(userID string) error {
+		calls.Add(1)
+		panic("simulated nil-deref over user JSONB")
+	}, 10*time.Millisecond)
+
+	q.Notify("u1")
+
+	// The panic must be recovered on the timer goroutine, not crash the process,
+	// and the queue must return to a fully idle state for the user.
+	require.True(t, q.WaitIdle("u1", time.Second), "queue state should be released after a panic")
+	assert.Equal(t, int32(1), calls.Load())
+
+	final := q.Status("u1")
+	assert.False(t, final.InProgress, "user must not be left stuck in progress after a panic")
+	assert.False(t, final.Pending)
+}
+
+func TestReanalysisQueue_PanicDoesNotBlockSubsequentRuns(t *testing.T) {
+	var calls atomic.Int32
+	q := NewReanalysisQueue(func(userID string) error {
+		if calls.Add(1) == 1 {
+			panic("boom")
+		}
+		return nil
+	}, 10*time.Millisecond)
+
+	q.Notify("u1")
+	require.True(t, q.WaitIdle("u1", time.Second))
+
+	// A later edit must still schedule and complete a run despite the earlier panic.
+	q.Notify("u1")
+	require.True(t, q.WaitIdle("u1", time.Second))
+
+	assert.Equal(t, int32(2), calls.Load(), "a panic should not wedge future runs")
+}
+
 func TestReanalysisQueue_EmptyUserIDIsIgnored(t *testing.T) {
 	var calls atomic.Int32
 	q := NewReanalysisQueue(func(userID string) error {
