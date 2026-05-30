@@ -2,6 +2,7 @@ package services
 
 import (
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -739,56 +740,53 @@ func (s *ImportService) CheckOwnership(id string, userID string) error {
 	return nil
 }
 
-// ReanalyzeGame re-analyzes a specific game against a different repertoire
+// ReanalyzeGame re-analyzes a specific game against a different repertoire.
+//
+// The read-modify-write of the analysis results runs inside the repository's
+// row-locked MutateResults transaction so it cannot clobber (or be clobbered
+// by) a concurrent auto re-analysis touching the same analysis. The game is
+// located and its color validated against the freshly-locked data, not a stale
+// snapshot.
 func (s *ImportService) ReanalyzeGame(analysisID string, gameIndex int, repertoireID string) (*models.GameAnalysis, error) {
-	detail, err := s.analysisRepo.GetByID(analysisID)
-	if err != nil {
-		return nil, err
-	}
-
-	var targetGame *models.GameAnalysis
-	var targetIdx int
-	for i := range detail.Results {
-		if detail.Results[i].GameIndex == gameIndex {
-			targetGame = &detail.Results[i]
-			targetIdx = i
-			break
-		}
-	}
-	if targetGame == nil {
-		return nil, repository.ErrGameNotFound
-	}
-
 	repertoire, err := s.repertoireService.GetRepertoire(repertoireID)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrRepertoireNotFound, err)
 	}
 
-	if repertoire.Color != targetGame.UserColor {
-		return nil, ErrColorMismatch
-	}
+	// Build the FEN index once, outside the transaction, so the locked window
+	// stays as short as possible.
+	index := buildFENIndex(&repertoire.TreeData)
+	reperRef := &models.RepertoireRef{ID: repertoire.ID, Name: repertoire.Name}
 
-	reanalyzedGame := s.reanalyzeGameFromMoves(targetGame, repertoire)
+	var reanalyzedGame models.GameAnalysis
+	err = s.analysisRepo.MutateResults(analysisID, func(current []models.GameAnalysis) ([]models.GameAnalysis, bool, error) {
+		targetIdx := -1
+		for i := range current {
+			if current[i].GameIndex == gameIndex {
+				targetIdx = i
+				break
+			}
+		}
+		if targetIdx == -1 {
+			return nil, false, repository.ErrGameNotFound
+		}
 
-	detail.Results[targetIdx] = reanalyzedGame
-	err = s.analysisRepo.UpdateResults(analysisID, detail.Results)
+		if repertoire.Color != current[targetIdx].UserColor {
+			return nil, false, ErrColorMismatch
+		}
+
+		reanalyzedGame = s.reanalyzeGameWithIndex(&current[targetIdx], reperRef, index)
+		current[targetIdx] = reanalyzedGame
+		return current, true, nil
+	})
 	if err != nil {
+		if errors.Is(err, repository.ErrGameNotFound) || errors.Is(err, ErrColorMismatch) || errors.Is(err, repository.ErrAnalysisNotFound) {
+			return nil, err
+		}
 		return nil, fmt.Errorf("failed to save reanalyzed game: %w", err)
 	}
 
 	return &reanalyzedGame, nil
-}
-
-// reanalyzeGameFromMoves re-analyzes a game using its stored moves against a new repertoire.
-// It builds a one-shot FEN index for the repertoire tree; callers that re-analyze many
-// games against the same tree should build the index once and call
-// reanalyzeGameWithIndex instead.
-func (s *ImportService) reanalyzeGameFromMoves(game *models.GameAnalysis, repertoire *models.Repertoire) models.GameAnalysis {
-	index := buildFENIndex(&repertoire.TreeData)
-	return s.reanalyzeGameWithIndex(game, &models.RepertoireRef{
-		ID:   repertoire.ID,
-		Name: repertoire.Name,
-	}, index)
 }
 
 // reanalyzeGameWithIndex re-analyzes a game using its stored moves against a prebuilt
@@ -878,49 +876,61 @@ func (s *ImportService) ReanalyzeAllGames(userID string, preserveAnalysed bool) 
 	whiteIndexed := indexRepertoires(whiteRepertoires)
 	blackIndexed := indexRepertoires(blackRepertoires)
 
+	// Each analysis is re-analyzed under its own row-locked transaction
+	// (MutateResults) rather than overwriting the unlocked snapshot read above.
+	// This serializes against the manual single-game path and any concurrent
+	// auto run, so the two cannot clobber each other's writes. The snapshot is
+	// used only to enumerate which analyses to process; the mutation always
+	// operates on the freshly-locked results.
 	totalGames := 0
 	for _, a := range analyses {
-		modified := false
-		for i := range a.Results {
-			game := &a.Results[i]
-			totalGames++
+		analysisID := a.ID
+		err := s.analysisRepo.MutateResults(analysisID, func(current []models.GameAnalysis) ([]models.GameAnalysis, bool, error) {
+			modified := false
+			for i := range current {
+				game := &current[i]
+				totalGames++
 
-			var repertoires []indexedRepertoire
-			if game.UserColor == models.ColorWhite {
-				repertoires = whiteIndexed
-			} else {
-				repertoires = blackIndexed
-			}
-
-			best, matchScore := s.findBestMatchingRepertoireFromStored(game, repertoires)
-
-			var reperRef *models.RepertoireRef
-			var index map[string]*models.RepertoireNode
-			if best != nil {
-				reperRef = &models.RepertoireRef{
-					ID:   best.repertoire.ID,
-					Name: best.repertoire.Name,
+				var repertoires []indexedRepertoire
+				if game.UserColor == models.ColorWhite {
+					repertoires = whiteIndexed
+				} else {
+					repertoires = blackIndexed
 				}
-				index = best.index
+
+				best, matchScore := s.findBestMatchingRepertoireFromStored(game, repertoires)
+
+				var reperRef *models.RepertoireRef
+				var index map[string]*models.RepertoireNode
+				if best != nil {
+					reperRef = &models.RepertoireRef{
+						ID:   best.repertoire.ID,
+						Name: best.repertoire.Name,
+					}
+					index = best.index
+				}
+
+				reanalyzed := s.reanalyzeGameWithIndex(game, reperRef, index)
+				reanalyzed.MatchScore = matchScore
+
+				// Don't let auto re-analysis retroactively flag a previously non-error game
+				// as an opening error against prep that was added after it was played.
+				if preserveAnalysed && gameStatusFromGame(reanalyzed) == "error" && gameStatusFromGame(*game) != "error" {
+					continue
+				}
+
+				current[i] = reanalyzed
+				modified = true
 			}
-
-			reanalyzed := s.reanalyzeGameWithIndex(game, reperRef, index)
-			reanalyzed.MatchScore = matchScore
-
-			// Don't let auto re-analysis retroactively flag a previously non-error game
-			// as an opening error against prep that was added after it was played.
-			if preserveAnalysed && gameStatusFromGame(reanalyzed) == "error" && gameStatusFromGame(*game) != "error" {
+			return current, modified, nil
+		})
+		if err != nil {
+			// The analysis may have been deleted between the snapshot read and the
+			// locked mutation; skip it rather than failing the whole run.
+			if errors.Is(err, repository.ErrAnalysisNotFound) {
 				continue
 			}
-
-			a.Results[i] = reanalyzed
-			modified = true
-		}
-
-		if modified {
-			if err := s.analysisRepo.UpdateResults(a.ID, a.Results); err != nil {
-				return 0, fmt.Errorf("failed to update analysis %s: %w", a.ID, err)
-			}
+			return 0, fmt.Errorf("failed to update analysis %s: %w", analysisID, err)
 		}
 	}
 

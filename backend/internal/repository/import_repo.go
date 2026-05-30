@@ -50,6 +50,15 @@ const (
 		SET results = $2, game_count = $3
 		WHERE id = $1
 	`
+	// lockAnalysisResultsSQL reads the current results under a row-level lock so a
+	// read-modify-write cycle cannot interleave with a concurrent writer. The
+	// matching write must run inside the same transaction.
+	lockAnalysisResultsSQL = `
+		SELECT results
+		FROM analyses
+		WHERE id = $1
+		FOR UPDATE
+	`
 )
 
 // PostgresAnalysisRepo implements AnalysisRepository using PostgreSQL
@@ -301,6 +310,74 @@ func (r *PostgresAnalysisRepo) UpdateResults(analysisID string, results []models
 
 	if result.RowsAffected() == 0 {
 		return ErrAnalysisNotFound
+	}
+
+	return nil
+}
+
+// MutateResults applies mutate to an analysis's results under a row-level lock,
+// then persists the new results — all within a single transaction.
+//
+// The read (FOR UPDATE) and the write share one transaction, so concurrent
+// callers serialize on the row lock instead of racing a read-modify-write
+// against a stale copy. This is what protects the results JSONB from lost
+// updates when manual and auto re-analysis fire for the same analysis at once:
+// each caller mutates the freshly-locked array, never an outdated snapshot.
+//
+// mutate receives the current results and returns the new results plus a
+// changed flag. When changed is false the row is left untouched (no write, no
+// game_count change) and the transaction still commits cleanly, releasing the
+// lock. If mutate returns an error the transaction is rolled back.
+func (r *PostgresAnalysisRepo) MutateResults(analysisID string, mutate ResultsMutator) error {
+	ctx, cancel := dbContext()
+	defer cancel()
+
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	// Rollback is a no-op after a successful Commit, so deferring it
+	// unconditionally is safe and guarantees the lock is released on any error
+	// path (including panics).
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	var resultsJSON []byte
+	err = tx.QueryRow(ctx, lockAnalysisResultsSQL, analysisID).Scan(&resultsJSON)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrAnalysisNotFound
+		}
+		return fmt.Errorf("failed to lock analysis results: %w", err)
+	}
+
+	var current []models.GameAnalysis
+	if err := json.Unmarshal(resultsJSON, &current); err != nil {
+		return fmt.Errorf("failed to unmarshal results: %w", err)
+	}
+
+	updated, changed, err := mutate(current)
+	if err != nil {
+		return err
+	}
+	if !changed {
+		// Nothing to persist; commit to release the row lock.
+		if err := tx.Commit(ctx); err != nil {
+			return fmt.Errorf("failed to commit transaction: %w", err)
+		}
+		return nil
+	}
+
+	updatedJSON, err := json.Marshal(updated)
+	if err != nil {
+		return fmt.Errorf("failed to marshal results: %w", err)
+	}
+
+	if _, err := tx.Exec(ctx, updateAnalysisResultsSQL, analysisID, updatedJSON, len(updated)); err != nil {
+		return fmt.Errorf("failed to update analysis results: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
 	return nil

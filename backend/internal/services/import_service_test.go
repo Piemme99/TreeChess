@@ -3,6 +3,7 @@ package services
 import (
 	"fmt"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -2769,4 +2770,260 @@ func TestParseAndAnalyze_AcceptsAtLimit(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, summary)
 	assert.Equal(t, config.MaxGamesPerImport, summary.GameCount)
+}
+
+// --- Lost-update race fix (issue #120) ---
+
+// lockingAnalysisRepo is a test double that backs MutateResults with an
+// in-memory results store guarded by a mutex, mirroring the real repository's
+// SELECT ... FOR UPDATE row lock. Each mutation reads the latest stored slice,
+// applies the mutator, and writes the result back atomically — so two
+// concurrent read-modify-write callers serialize instead of clobbering each
+// other. It exists to prove the manual and auto re-analysis paths cannot lose
+// each other's writes without needing a real PostgreSQL instance.
+type lockingAnalysisRepo struct {
+	mocks.MockAnalysisRepo
+
+	mu     sync.Mutex
+	store  map[string][]models.GameAnalysis
+	writes int // number of persisted (changed) mutations, for assertions
+}
+
+func newLockingAnalysisRepo(initial map[string][]models.GameAnalysis) *lockingAnalysisRepo {
+	store := make(map[string][]models.GameAnalysis, len(initial))
+	for id, results := range initial {
+		store[id] = cloneResults(results)
+	}
+	r := &lockingAnalysisRepo{store: store}
+	// Enumeration for ReanalyzeAllGames reads from the same store under the lock.
+	r.GetAllGamesRawFunc = func(string) ([]models.RawAnalysis, error) {
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		out := make([]models.RawAnalysis, 0, len(r.store))
+		for id, results := range r.store {
+			out = append(out, models.RawAnalysis{ID: id, Results: cloneResults(results)})
+		}
+		return out, nil
+	}
+	return r
+}
+
+func (r *lockingAnalysisRepo) MutateResults(analysisID string, mutate repository.ResultsMutator) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	current, ok := r.store[analysisID]
+	if !ok {
+		return repository.ErrAnalysisNotFound
+	}
+
+	updated, changed, err := mutate(cloneResults(current))
+	if err != nil {
+		return err
+	}
+	if !changed {
+		return nil
+	}
+	r.store[analysisID] = cloneResults(updated)
+	r.writes++
+	return nil
+}
+
+func (r *lockingAnalysisRepo) snapshot(analysisID string) []models.GameAnalysis {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return cloneResults(r.store[analysisID])
+}
+
+func cloneResults(results []models.GameAnalysis) []models.GameAnalysis {
+	if results == nil {
+		return nil
+	}
+	out := make([]models.GameAnalysis, len(results))
+	copy(out, results)
+	return out
+}
+
+// reanalyzeFixture builds a single white repertoire and two stored games sharing
+// it, used by the lost-update tests below.
+func reanalyzeFixture() (white, black models.Repertoire, analysisID string, games []models.GameAnalysis) {
+	moveE4 := "e4"
+	moveE5 := "e5"
+	moveD4 := "d4"
+	startFEN := "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -"
+	afterE4 := "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3"
+	afterE5 := "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6"
+	afterD4 := "rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq d3"
+
+	white = models.Repertoire{
+		ID: "rep-e4", Name: "e4 Rep", Color: models.ColorWhite,
+		TreeData: models.RepertoireNode{
+			ID: "root", FEN: startFEN,
+			Children: []*models.RepertoireNode{
+				{ID: "e4", FEN: afterE4, Move: &moveE4, Children: []*models.RepertoireNode{
+					{ID: "e5", FEN: afterE5, Move: &moveE5},
+				}},
+			},
+		},
+	}
+	black = models.Repertoire{
+		ID: "rep-d4", Name: "d4 Rep", Color: models.ColorWhite,
+		TreeData: models.RepertoireNode{
+			ID: "root", FEN: startFEN,
+			Children: []*models.RepertoireNode{
+				{ID: "d4", FEN: afterD4, Move: &moveD4},
+			},
+		},
+	}
+
+	makeGame := func(idx int) models.GameAnalysis {
+		return models.GameAnalysis{
+			GameIndex: idx,
+			UserColor: models.ColorWhite,
+			Headers:   models.PGNHeaders{"White": "User", "Black": "Opp", "Result": "1-0"},
+			Moves: []models.MoveAnalysis{
+				{PlyNumber: 0, SAN: "e4", FEN: startFEN, IsUserMove: true, Status: "out-of-book"},
+				{PlyNumber: 1, SAN: "e5", FEN: afterE4, IsUserMove: false, Status: "out-of-book"},
+			},
+		}
+	}
+
+	return white, black, "a1", []models.GameAnalysis{makeGame(0), makeGame(1)}
+}
+
+// TestReanalyzeGame_RoutesThroughMutateResults verifies the manual single-game
+// path performs its read-modify-write inside the row-locked MutateResults
+// transaction (rather than the old GetByID + UpdateResults pair) and persists
+// the new repertoire match.
+func TestReanalyzeGame_RoutesThroughMutateResults(t *testing.T) {
+	whiteRep, _, analysisID, games := reanalyzeFixture()
+
+	repo := newLockingAnalysisRepo(map[string][]models.GameAnalysis{analysisID: games})
+	mockRepRepo := &mocks.MockRepertoireRepo{
+		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+			if id == whiteRep.ID {
+				r := whiteRep
+				return &r, nil
+			}
+			return nil, repository.ErrRepertoireNotFound
+		},
+	}
+	svc := NewImportService(NewRepertoireService(mockRepRepo), repo)
+
+	reanalyzed, err := svc.ReanalyzeGame(analysisID, 0, whiteRep.ID)
+
+	require.NoError(t, err)
+	require.NotNil(t, reanalyzed)
+	require.NotNil(t, reanalyzed.MatchedRepertoire)
+	assert.Equal(t, whiteRep.ID, reanalyzed.MatchedRepertoire.ID)
+	assert.Equal(t, "in-repertoire", reanalyzed.Moves[0].Status)
+
+	persisted := repo.snapshot(analysisID)
+	require.Len(t, persisted, 2)
+	require.NotNil(t, persisted[0].MatchedRepertoire)
+	assert.Equal(t, whiteRep.ID, persisted[0].MatchedRepertoire.ID, "manual reanalyze must be persisted")
+	// The untouched game keeps its original (un-matched) state.
+	assert.Nil(t, persisted[1].MatchedRepertoire)
+	assert.Equal(t, 1, repo.writes)
+}
+
+// TestReanalyzeGame_GameNotFound propagates the sentinel without writing.
+func TestReanalyzeGame_GameNotFound(t *testing.T) {
+	whiteRep, _, analysisID, games := reanalyzeFixture()
+	repo := newLockingAnalysisRepo(map[string][]models.GameAnalysis{analysisID: games})
+	mockRepRepo := &mocks.MockRepertoireRepo{
+		GetByIDFunc: func(string) (*models.Repertoire, error) { r := whiteRep; return &r, nil },
+	}
+	svc := NewImportService(NewRepertoireService(mockRepRepo), repo)
+
+	_, err := svc.ReanalyzeGame(analysisID, 99, whiteRep.ID)
+
+	require.ErrorIs(t, err, repository.ErrGameNotFound)
+	assert.Equal(t, 0, repo.writes)
+}
+
+// TestReanalyzeGame_ColorMismatch propagates the sentinel without writing.
+func TestReanalyzeGame_ColorMismatch(t *testing.T) {
+	whiteRep, _, analysisID, games := reanalyzeFixture()
+	blackRep := whiteRep
+	blackRep.ID = "rep-black"
+	blackRep.Color = models.ColorBlack
+	repo := newLockingAnalysisRepo(map[string][]models.GameAnalysis{analysisID: games})
+	mockRepRepo := &mocks.MockRepertoireRepo{
+		GetByIDFunc: func(string) (*models.Repertoire, error) { r := blackRep; return &r, nil },
+	}
+	svc := NewImportService(NewRepertoireService(mockRepRepo), repo)
+
+	_, err := svc.ReanalyzeGame(analysisID, 0, blackRep.ID)
+
+	require.ErrorIs(t, err, ErrColorMismatch)
+	assert.Equal(t, 0, repo.writes)
+}
+
+// TestReanalyze_InterleavedManualAndAuto_NoLostUpdate runs the manual
+// single-game path and the auto reanalyze-all path concurrently against the
+// same analysis many times. Because both write through the row-locked
+// MutateResults, neither can clobber the other: every game ends up matched to a
+// repertoire (no game is left in its initial out-of-book state, which would be
+// the symptom of a lost update overwriting a completed re-tag).
+func TestReanalyze_InterleavedManualAndAuto_NoLostUpdate(t *testing.T) {
+	whiteRep, otherRep, analysisID, games := reanalyzeFixture()
+
+	repo := newLockingAnalysisRepo(map[string][]models.GameAnalysis{analysisID: games})
+	mockRepRepo := &mocks.MockRepertoireRepo{
+		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+			switch id {
+			case whiteRep.ID:
+				r := whiteRep
+				return &r, nil
+			case otherRep.ID:
+				r := otherRep
+				return &r, nil
+			}
+			return nil, repository.ErrRepertoireNotFound
+		},
+		// ReanalyzeAllGames matches games against all of the user's repertoires.
+		GetByColorFunc: func(_ string, color models.Color) ([]models.Repertoire, error) {
+			if color == models.ColorWhite {
+				return []models.Repertoire{whiteRep, otherRep}, nil
+			}
+			return nil, nil
+		},
+	}
+	svc := NewImportService(NewRepertoireService(mockRepRepo), repo)
+
+	const iterations = 50
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	// Manual single-game reanalysis hammering game 0 against the d4 repertoire.
+	go func() {
+		defer wg.Done()
+		for i := 0; i < iterations; i++ {
+			_, err := svc.ReanalyzeGame(analysisID, 0, otherRep.ID)
+			assert.NoError(t, err)
+		}
+	}()
+
+	// Auto reanalyze-all (preserveAnalysed=false) running in parallel.
+	go func() {
+		defer wg.Done()
+		for i := 0; i < iterations; i++ {
+			_, err := svc.ReanalyzeAllGames("user-1", false)
+			assert.NoError(t, err)
+		}
+	}()
+
+	wg.Wait()
+
+	// Whatever interleaving occurred, the persisted results must be internally
+	// consistent: both games present, each carrying a repertoire match produced
+	// by one of the writers. A lost update would manifest as a game reverting to
+	// its initial out-of-book / nil-match state.
+	persisted := repo.snapshot(analysisID)
+	require.Len(t, persisted, 2)
+	for i := range persisted {
+		require.NotNil(t, persisted[i].MatchedRepertoire, "game %d lost its repertoire match (lost update)", i)
+		assert.Contains(t, []string{whiteRep.ID, otherRep.ID}, persisted[i].MatchedRepertoire.ID)
+	}
 }

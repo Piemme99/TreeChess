@@ -84,6 +84,12 @@ type DismissedGapRepository interface {
 	GetDismissed(userID string) (map[string]bool, error)
 }
 
+// ResultsMutator transforms an analysis's current results into the results to
+// persist. It is invoked with the freshly-locked results inside MutateResults'
+// transaction. It returns the new results and a changed flag; when changed is
+// false the row is left untouched. Returning an error aborts the transaction.
+type ResultsMutator func(current []models.GameAnalysis) (updated []models.GameAnalysis, changed bool, err error)
+
 // AnalysisRepository defines the interface for analysis data operations
 type AnalysisRepository interface {
 	Save(userID string, username, filename string, gameCount int, results []models.GameAnalysis) (*models.AnalysisSummary, error)
@@ -92,6 +98,10 @@ type AnalysisRepository interface {
 	Delete(id string) error
 	GetAllGames(userID string, limit, offset int, timeClass, repertoire, source string, onlyNew bool) (*models.GamesResponse, error)
 	UpdateResults(analysisID string, results []models.GameAnalysis) error
+	// MutateResults applies a mutation to an analysis's results within a single
+	// row-locked transaction, preventing lost-update races between concurrent
+	// re-analysis paths. See PostgresAnalysisRepo.MutateResults.
+	MutateResults(analysisID string, mutate ResultsMutator) error
 	BelongsToUser(id string, userID string) (bool, error)
 	GetDistinctRepertoires(userID string) ([]models.RepertoireFilterOption, error)
 	MarkGameViewed(userID, analysisID string, gameIndex int) error
