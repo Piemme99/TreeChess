@@ -106,8 +106,12 @@ export function GamesPage() {
   }, [navigate, markGameViewed, location]);
 
   const [reanalyzingAll, setReanalyzingAll] = useState(false);
+  // True while any per-row reanalyze is in flight (reported by GamesList); used
+  // to lock the bulk "re-analyze all" action so the two can't run concurrently.
+  const [rowReanalyzing, setRowReanalyzing] = useState(false);
 
   const handleReanalyzeAll = useCallback(async () => {
+    if (reanalyzingAll || rowReanalyzing) return;
     setReanalyzingAll(true);
     try {
       const result = await gamesApi.reanalyzeAll();
@@ -120,7 +124,7 @@ export function GamesPage() {
     } finally {
       setReanalyzingAll(false);
     }
-  }, [refresh, refreshInsights]);
+  }, [refresh, refreshInsights, reanalyzingAll, rowReanalyzing]);
 
   const hasGames = games.length > 0 || loading;
 
@@ -207,7 +211,7 @@ export function GamesPage() {
             variant="secondary"
             size="sm"
             onClick={handleReanalyzeAll}
-            disabled={reanalyzingAll || loading}
+            disabled={reanalyzingAll || rowReanalyzing || loading}
           >
             {reanalyzingAll ? 'Re-analyzing...' : 'Re-analyze all'}
           </Button>
@@ -227,6 +231,8 @@ export function GamesPage() {
             onNextPage={nextPage}
             onPrevPage={prevPage}
             onGameReanalyzed={refresh}
+            reanalyzeAllActive={reanalyzingAll}
+            onReanalyzingChange={setRowReanalyzing}
           />
         </motion.section>
       ) : (

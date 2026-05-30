@@ -149,6 +149,15 @@ api.interceptors.response.use(
       }
     }
 
+    // A 401 on an already-retried request means the freshly-refreshed token
+    // was itself rejected on replay. Treat this as definitive: the refresh
+    // branch above is skipped (_retry is true), so without this the app would
+    // sit silently 401-ing. Clear state and signal the app to route to /login.
+    if (error.response?.status === 401 && originalRequest._retry) {
+      accessToken = null;
+      window.dispatchEvent(new Event('auth:unauthorized'));
+    }
+
     return Promise.reject(error);
   }
 );

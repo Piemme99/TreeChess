@@ -8,7 +8,9 @@ import {
   getLegalMoves,
   makeMove,
   createPositionFromFEN,
-  getMoveSAN
+  getMoveSAN,
+  deriveChildMoveNumber,
+  formatNodeNotation
 } from './chess';
 
 describe('STARTING_FEN', () => {
@@ -196,5 +198,52 @@ describe('getMoveSAN', () => {
     // May include check symbol if the promotion gives check
     expect(getMoveSAN(promoFen, 'a7', 'a8', 'q')).toMatch(/^a8=Q\+?$/);
     expect(getMoveSAN(promoFen, 'a7', 'a8', 'n')).toBe('a8=N');
+  });
+});
+
+describe('deriveChildMoveNumber', () => {
+  // Canonical convention (matches backend deriveMoveNumber / PGN parser / templates):
+  // root = 0, white move = parent + 1, black move = parent.
+  // colorToMove is the side to move *at the parent* (the side playing the child).
+
+  it('numbers the first white move (e4) as 1 from a root of 0', () => {
+    // root: White to move, moveNumber 0
+    expect(deriveChildMoveNumber(0, 'w')).toBe(1);
+  });
+
+  it('numbers black replies (e5) the same as the preceding white move', () => {
+    // after e4: e4 node has moveNumber 1, Black to move
+    expect(deriveChildMoveNumber(1, 'b')).toBe(1);
+  });
+
+  it('increments to the next full move for the second white move (Nf3)', () => {
+    // after e4 e5: e5 node has moveNumber 1, White to move
+    expect(deriveChildMoveNumber(1, 'w')).toBe(2);
+  });
+
+  it('matches the full 1. e4 e5 2. Nf3 Nc6 sequence', () => {
+    const e4 = deriveChildMoveNumber(0, 'w'); // root: white to move
+    expect(e4).toBe(1);
+    const e5 = deriveChildMoveNumber(e4, 'b'); // e4: black to move
+    expect(e5).toBe(1);
+    const nf3 = deriveChildMoveNumber(e5, 'w'); // e5: white to move
+    expect(nf3).toBe(2);
+    const nc6 = deriveChildMoveNumber(nf3, 'b'); // Nf3: black to move
+    expect(nc6).toBe(2);
+  });
+});
+
+describe('formatNodeNotation', () => {
+  // colorToMove is the side to move *after* this node's move:
+  // a white move leaves Black to move ('b') -> single dot; a black move -> ellipsis.
+
+  it('formats a white move with a single dot', () => {
+    expect(formatNodeNotation(1, 'b', 'e4')).toBe('1. e4');
+    expect(formatNodeNotation(2, 'b', 'Nf3')).toBe('2. Nf3');
+  });
+
+  it('formats a black move with an ellipsis', () => {
+    expect(formatNodeNotation(1, 'w', 'c5')).toBe('1... c5');
+    expect(formatNodeNotation(2, 'w', 'Nc6')).toBe('2... Nc6');
   });
 });

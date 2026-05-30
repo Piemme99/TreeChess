@@ -128,4 +128,45 @@ export function getFullMoveNumber(fen: string): number {
   return 1;
 }
 
+/**
+ * Computes the full-move number for a child move played from a parent node,
+ * matching the backend's canonical convention (`deriveMoveNumber` in
+ * repertoire_service.go and the PGN parser / template numbering):
+ *
+ *   - the root node has moveNumber 0
+ *   - a white move (parent's side to move is White) starts a new full move:
+ *     parent.moveNumber + 1  (e.g. e4 -> 1, Nf3 -> 2)
+ *   - a black move (parent's side to move is Black) completes the current full
+ *     move: parent.moveNumber  (e.g. e5 -> 1, Nc6 -> 2)
+ *
+ * `parentColorToMove` is the side to move *at the parent* (the side that plays
+ * the child move); this is the `colorToMove` stored on the parent node.
+ *
+ * Note: AddNode now server-derives MoveNumber and ignores the client value, but
+ * grafted subtrees saved via SaveTree are persisted verbatim, and the value is
+ * also used for optimistic display, so the frontend must agree with the backend.
+ */
+export function deriveChildMoveNumber(
+  parentMoveNumber: number,
+  parentColorToMove: 'w' | 'b'
+): number {
+  return parentColorToMove === 'w' ? parentMoveNumber + 1 : parentMoveNumber;
+}
+
+/**
+ * Formats a repertoire node's move in standard algebraic notation with its move
+ * number, e.g. "1. e4" or "1... c5". Matches the dot/ellipsis convention used by
+ * MoveHistory: `colorToMove` is the side to move *after* this node's move, so a
+ * white move leaves Black to move (`colorToMove === 'b'`) and gets a single dot,
+ * while a black move (`colorToMove === 'w'`) gets an ellipsis.
+ */
+export function formatNodeNotation(
+  moveNumber: number,
+  colorToMove: 'w' | 'b',
+  move: string
+): string {
+  const separator = colorToMove === 'b' ? '.' : '...';
+  return `${moveNumber}${separator} ${move}`;
+}
+
 
