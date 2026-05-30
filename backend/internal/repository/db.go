@@ -282,6 +282,10 @@ func (db *DB) runMigrations() error {
 		`CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user ON refresh_tokens(user_id)`,
 		`CREATE INDEX IF NOT EXISTS idx_refresh_tokens_hash ON refresh_tokens(token_hash)`,
 		`CREATE INDEX IF NOT EXISTS idx_refresh_tokens_expires ON refresh_tokens(expires_at)`,
+		// Mark rotated tokens as consumed instead of hard-deleting them, so a replayed
+		// (stolen) token can be distinguished from an unknown one and trigger family-wide
+		// revocation. Consumed rows are purged on expiry.
+		`ALTER TABLE refresh_tokens ADD COLUMN IF NOT EXISTS consumed BOOLEAN NOT NULL DEFAULT false`,
 		// Add description column to repertoires
 		`ALTER TABLE repertoires ADD COLUMN IF NOT EXISTS description TEXT NOT NULL DEFAULT ''`,
 		// Track origin of imported repertoires (e.g. from Lichess studies)
