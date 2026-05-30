@@ -93,9 +93,18 @@ func buildServices(cfg config.Config, db *repository.DB) *appServices {
 	importSvc := services.NewImportService(repertoireSvc, analysisRepo,
 		services.WithFingerprintRepo(fingerprintRepo),
 		services.WithEngineService(engineSvc),
-		services.WithDismissedMistakeRepo(dismissedMistakeRepo),
-		services.WithDismissedGapRepo(dismissedGapRepo),
 	)
+
+	// Focused services carved out of the former ImportService god object so each
+	// handler depends only on the data it actually reads (issue #128).
+	dashboardSvc := services.NewDashboardStatsService(repertoireSvc, analysisRepo,
+		services.WithDashboardDismissedGapRepo(dismissedGapRepo),
+	)
+	insightsSvc := services.NewInsightsService(repertoireSvc, analysisRepo,
+		services.WithInsightsEngineService(engineSvc),
+		services.WithInsightsDismissedMistakeRepo(dismissedMistakeRepo),
+	)
+	trainingSvc := services.NewTrainingService(repertoireSvc)
 
 	// Auto re-analyse games whenever a repertoire mutates (issue #45).
 	// In-memory debounce coalesces rapid edits into one run per user.
@@ -115,7 +124,8 @@ func buildServices(cfg config.Config, db *repository.DB) *appServices {
 
 	// Handlers
 	importHandler := handlers.NewImportHandler(importSvc, repertoireSvc, lichessSvc, chesscomSvc).
-		WithReanalysisQueue(reanalysisQueue)
+		WithReanalysisQueue(reanalysisQueue).
+		WithInsightsService(insightsSvc)
 
 	return &appServices{
 		engineSvc:               engineSvc,
@@ -126,10 +136,10 @@ func buildServices(cfg config.Config, db *repository.DB) *appServices {
 		oauthHandler:            handlers.NewOAuthHandler(oauthSvc, userRepo, cfg.FrontendURL, cfg.JWTSecret, cfg.SecureCookies),
 		syncHandler:             handlers.NewSyncHandler(syncSvc),
 		studyImportHandler:      handlers.NewStudyImportHandler(studyImportSvc),
-		trainingHandler:         handlers.NewTrainingHandler(importSvc),
+		trainingHandler:         handlers.NewTrainingHandler(trainingSvc),
 		trainingExplorerHandler: handlers.NewTrainingExplorerHandler(explorerSvc, openingCacheRepo, userRepo, cfg.LichessExplorerCacheTTL),
 		importHandler:           importHandler,
-		dashboardHandler:        handlers.NewDashboardHandler(importSvc),
+		dashboardHandler:        handlers.NewDashboardHandler(dashboardSvc),
 		categorySvc:             categorySvc,
 	}
 }

@@ -81,6 +81,9 @@ func SetupTestServer(t *testing.T, repos *Repos) *TestServer {
 		services.WithFingerprintRepo(repos.Fingerprint),
 		services.WithEngineService(engineSvc),
 	)
+	insightsSvc := services.NewInsightsService(repertoireSvc, repos.Analysis,
+		services.WithInsightsEngineService(engineSvc),
+	)
 	categorySvc := services.NewCategoryService(repos.Category, repos.Repertoire)
 
 	e := echo.New()
@@ -126,7 +129,8 @@ func SetupTestServer(t *testing.T, repos *Repos) *TestServer {
 	protected.DELETE("/api/categories/:id", handlers.DeleteCategoryHandler(categorySvc))
 
 	// Import routes
-	importHandler := handlers.NewImportHandler(importSvc, repertoireSvc, nil, nil)
+	importHandler := handlers.NewImportHandler(importSvc, repertoireSvc, nil, nil).
+		WithInsightsService(insightsSvc)
 	protected.POST("/api/imports", importHandler.UploadHandler)
 	protected.GET("/api/analyses", importHandler.ListAnalysesHandler)
 	protected.GET("/api/analyses/:id", importHandler.GetAnalysisHandler)
