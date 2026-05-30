@@ -88,6 +88,13 @@ func (s *RepertoireService) WithReanalysisQueue(q ReanalysisNotifier) *Repertoir
 	return s
 }
 
+// ReanalysisQueue returns the currently attached re-analysis notifier, or nil if
+// auto-re-analysis is disabled. Exposed so wiring can be asserted in tests,
+// guarding against a silent mis-wire that would disable auto-re-analysis.
+func (s *RepertoireService) ReanalysisQueue() ReanalysisNotifier {
+	return s.queue
+}
+
 // notifyReanalysis is a no-op when no queue is attached, so unit tests that
 // construct RepertoireService directly remain unaffected.
 func (s *RepertoireService) notifyReanalysis(userID string) {
