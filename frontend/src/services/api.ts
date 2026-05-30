@@ -2,6 +2,8 @@ import axios from 'axios';
 import type { AxiosRequestConfig } from 'axios';
 import type {
   Repertoire,
+  ArrowAnnotation,
+  SquareHighlightAnnotation,
   AddNodeRequest,
   Color,
   AnalysisSummary,
@@ -294,6 +296,16 @@ export const repertoireApi = {
 
   updateNodeBranchColor: async (id: string, nodeId: string, branchColor: string): Promise<Repertoire> => {
     const response = await api.patch(`/repertoires/${id}/nodes/${nodeId}/branch-color`, { branchColor });
+    return response.data;
+  },
+
+  updateNodeAnnotations: async (
+    id: string,
+    nodeId: string,
+    arrows: ArrowAnnotation[],
+    highlights: SquareHighlightAnnotation[],
+  ): Promise<Repertoire> => {
+    const response = await api.patch(`/repertoires/${id}/nodes/${nodeId}/annotations`, { arrows, highlights });
     return response.data;
   },
 

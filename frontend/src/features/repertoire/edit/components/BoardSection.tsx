@@ -1,9 +1,11 @@
-import { useRef, useState, useEffect, useMemo } from 'react';
+import { useRef, useState, useEffect, useMemo, useCallback } from 'react';
 import { ExternalLink } from 'lucide-react';
 import { ChessBoard } from '../../../../shared/components/Board/ChessBoard';
+import type { BoardDrawModifiers } from '../../../../shared/components/Board/ChessBoard';
 import { OpeningLabel } from '../../../../shared/components/OpeningLabel';
 import { useChess } from '../../../../shared/hooks/useChess';
 import { findNode, findPathToNode } from '../utils/nodeUtils';
+import { colorFromModifiers } from '../utils/annotations';
 import { EvalBar } from './EvalBar';
 import type { RepertoireNode, Color, Repertoire, EngineEvaluation } from '../../../../types';
 
@@ -19,6 +21,9 @@ interface BoardSectionProps {
   pendingMoveArrow?: [string, string, string][];
   exploring?: boolean;
   explorationFens?: string[];
+  allowDrawing?: boolean;
+  onDrawArrow?: (from: string, to: string, color: string) => void;
+  onDrawHighlight?: (square: string, color: string) => void;
 }
 
 export function BoardSection({
@@ -32,7 +37,10 @@ export function BoardSection({
   engineEvaluation,
   pendingMoveArrow = [],
   exploring = false,
-  explorationFens = []
+  explorationFens = [],
+  allowDrawing = false,
+  onDrawArrow,
+  onDrawHighlight
 }: BoardSectionProps) {
   const { getLegalMoves } = useChess();
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -74,6 +82,14 @@ export function BoardSection({
     () => [...annotationArrows, ...bestMoveArrow, ...pendingMoveArrow],
     [annotationArrows, bestMoveArrow, pendingMoveArrow]
   );
+
+  const handleDrawArrow = useCallback((from: string, to: string, mods: BoardDrawModifiers) => {
+    onDrawArrow?.(from, to, colorFromModifiers(mods));
+  }, [onDrawArrow]);
+
+  const handleDrawHighlight = useCallback((square: string, mods: BoardDrawModifiers) => {
+    onDrawHighlight?.(square, colorFromModifiers(mods));
+  }, [onDrawHighlight]);
 
   const handleSquareClick = (square: string) => {
     if (!color || !selectedNode) return;
@@ -144,6 +160,9 @@ export function BoardSection({
             width={boardSize}
             customArrows={allArrows}
             annotationSquareStyles={annotationSquareStyles}
+            allowDrawing={allowDrawing}
+            onDrawArrow={handleDrawArrow}
+            onDrawHighlight={handleDrawHighlight}
           />
         </div>
       </div>

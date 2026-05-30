@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { repertoireApi } from '../../../../services/api';
 import { toast } from '../../../../stores/toastStore';
+import { toggleArrow, toggleHighlight } from '../utils/annotations';
 import type { Repertoire, RepertoireNode } from '../../../../types';
 
 interface UseNodeAnnotationResult {
@@ -12,6 +13,9 @@ interface UseNodeAnnotationResult {
   handleBranchNameChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   handleBranchNameBlur: () => void;
   handleBranchColorChange: (hex: string | null) => void;
+  drawArrow: (from: string, to: string, color: string) => void;
+  drawHighlight: (square: string, color: string) => void;
+  clearAnnotations: () => void;
 }
 
 /**
@@ -95,6 +99,30 @@ export function useNodeAnnotation(
       .catch(() => toast.error('Failed to save branch color'));
   }, [repertoireId, selectedNodeId, setRepertoire]);
 
+  const saveAnnotations = useCallback(
+    (arrows: RepertoireNode['arrows'], highlights: RepertoireNode['highlights']) => {
+      if (!repertoireId || !selectedNodeId) return;
+      repertoireApi.updateNodeAnnotations(repertoireId, selectedNodeId, arrows || [], highlights || [])
+        .then((updated) => setRepertoire(updated))
+        .catch(() => toast.error('Failed to save annotation'));
+    },
+    [repertoireId, selectedNodeId, setRepertoire],
+  );
+
+  const drawArrow = useCallback((from: string, to: string, color: string) => {
+    const next = toggleArrow(selectedNode?.arrows || [], from, to, color);
+    saveAnnotations(next, selectedNode?.highlights || []);
+  }, [selectedNode?.arrows, selectedNode?.highlights, saveAnnotations]);
+
+  const drawHighlight = useCallback((square: string, color: string) => {
+    const next = toggleHighlight(selectedNode?.highlights || [], square, color);
+    saveAnnotations(selectedNode?.arrows || [], next);
+  }, [selectedNode?.arrows, selectedNode?.highlights, saveAnnotations]);
+
+  const clearAnnotations = useCallback(() => {
+    saveAnnotations([], []);
+  }, [saveAnnotations]);
+
   return {
     commentText,
     branchNameText,
@@ -104,5 +132,8 @@ export function useNodeAnnotation(
     handleBranchNameChange,
     handleBranchNameBlur,
     handleBranchColorChange,
+    drawArrow,
+    drawHighlight,
+    clearAnnotations,
   };
 }

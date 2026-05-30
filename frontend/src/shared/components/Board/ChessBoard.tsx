@@ -1,7 +1,13 @@
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { Chessboard } from 'react-chessboard';
 import type { Arrow } from 'react-chessboard';
 import { Chess, Square } from 'chess.js';
+
+export interface BoardDrawModifiers {
+  shiftKey: boolean;
+  ctrlKey: boolean;
+  altKey: boolean;
+}
 
 interface ChessBoardProps {
   fen: string;
@@ -16,6 +22,12 @@ interface ChessBoardProps {
   bestMoveTo?: string;
   customArrows?: [string, string, string?][];
   annotationSquareStyles?: Record<string, React.CSSProperties>;
+  /** Enable right-click/drag drawing of annotation arrows and highlights. */
+  allowDrawing?: boolean;
+  /** Right-drag from one square to another (with modifier keys held). */
+  onDrawArrow?: (from: string, to: string, mods: BoardDrawModifiers) => void;
+  /** Right-click on a single square (with modifier keys held). */
+  onDrawHighlight?: (square: string, mods: BoardDrawModifiers) => void;
 }
 
 const DEFAULT_ARROW_COLOR = '#ffaa00';
@@ -32,8 +44,12 @@ export function ChessBoard({
   bestMoveFrom,
   bestMoveTo,
   customArrows = [],
-  annotationSquareStyles
+  annotationSquareStyles,
+  allowDrawing = false,
+  onDrawArrow,
+  onDrawHighlight
 }: ChessBoardProps) {
+  const rightDrawStart = useRef<{ square: string; mods: BoardDrawModifiers } | null>(null);
   const [game, setGame] = useState(() => {
     try {
       return new Chess(fen);
@@ -191,6 +207,36 @@ export function ChessBoard({
     return styles;
   }, [game, internalSelectedSquare, highlightSquares, lastMove, bestMoveFrom, bestMoveTo, annotationSquareStyles]);
 
+  // Right-button press records the drag start square + held modifiers.
+  const handleSquareMouseDown = useCallback(
+    ({ square }: { piece: unknown; square: string }, e: React.MouseEvent) => {
+      if (e.button !== 2) return;
+      rightDrawStart.current = {
+        square,
+        mods: { shiftKey: e.shiftKey, ctrlKey: e.ctrlKey, altKey: e.altKey },
+      };
+    },
+    []
+  );
+
+  // Right-button release on the same square toggles a highlight; on a different
+  // square draws an arrow. Colour is derived (by the caller) from the modifiers
+  // held at the start of the gesture.
+  const handleSquareMouseUp = useCallback(
+    ({ square }: { piece: unknown; square: string }, e: React.MouseEvent) => {
+      if (e.button !== 2) return;
+      const start = rightDrawStart.current;
+      rightDrawStart.current = null;
+      if (!start) return;
+      if (square === start.square) {
+        onDrawHighlight?.(square, start.mods);
+      } else {
+        onDrawArrow?.(start.square, square, start.mods);
+      }
+    },
+    [onDrawArrow, onDrawHighlight]
+  );
+
   // Convert tuple arrows [from, to, color?] to v5 Arrow objects {startSquare, endSquare, color}
   const arrows: Arrow[] = useMemo(() =>
     customArrows.map(([from, to, color]) => ({
@@ -214,6 +260,11 @@ export function ChessBoard({
           animationDurationInMs: 200,
           allowDragging: interactive,
           canDragPiece: () => interactive,
+          // We manage annotation drawing ourselves via the mouse handlers below,
+          // so disable the library's own internal (non-persisted) arrow drawing.
+          allowDrawingArrows: false,
+          onSquareMouseDown: allowDrawing ? handleSquareMouseDown : undefined,
+          onSquareMouseUp: allowDrawing ? handleSquareMouseUp : undefined,
         }}
       />
     </div>

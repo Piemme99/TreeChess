@@ -83,6 +83,7 @@ export function RepertoireEdit() {
     handleCommentChange, handleCommentBlur,
     handleBranchNameChange, handleBranchNameBlur,
     handleBranchColorChange,
+    drawArrow, drawHighlight, clearAnnotations,
   } = useNodeAnnotation(id, selectedNodeId, selectedNode, setRepertoire);
 
   // When previewing an alternate line, swap the board's best-move arrow to that line's first move.
@@ -286,6 +287,9 @@ export function RepertoireEdit() {
               pendingMoveArrow={readOnly || exploration.exploring ? [] : pendingMoveArrow}
               exploring={!readOnly && exploration.exploring}
               explorationFens={exploration.exploreFens}
+              allowDrawing={!readOnly && !exploration.exploring}
+              onDrawArrow={drawArrow}
+              onDrawHighlight={drawHighlight}
             />
           </div>
         </div>
@@ -378,6 +382,20 @@ export function RepertoireEdit() {
                 onBlur={handleCommentBlur}
                 rows={2}
               />
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[0.7rem] text-text-muted leading-tight">
+                  Right-click a square to highlight, or right-drag to draw an arrow. Hold Shift / Alt / Ctrl for red / blue / yellow.
+                </span>
+                {((selectedNode.arrows?.length ?? 0) > 0 || (selectedNode.highlights?.length ?? 0) > 0) && (
+                  <button
+                    onClick={clearAnnotations}
+                    title="Remove all arrows and highlights on this position"
+                    className="shrink-0 text-[0.7rem] text-text-muted hover:text-text underline decoration-dotted"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
             </div>
           )}
 

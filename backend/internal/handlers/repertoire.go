@@ -741,6 +741,68 @@ func UpdateNodeBranchColorHandler(svc *services.RepertoireService) echo.HandlerF
 	}
 }
 
+// UpdateNodeAnnotationsHandler replaces the arrows and highlights on a specific node
+// PATCH /api/repertoires/:id/nodes/:nodeId/annotations
+func UpdateNodeAnnotationsHandler(svc *services.RepertoireService) echo.HandlerFunc {
+	return func(c *echo.Context) error {
+		userID := c.Get("userID").(string)
+		idParam := c.Param("id")
+		nodeID := c.Param("nodeId")
+
+		// Validate repertoire ID is a valid UUID
+		if _, err := uuid.Parse(idParam); err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{
+				"error": "repertoire id must be a valid UUID",
+			})
+		}
+
+		// Validate nodeId is a valid UUID
+		if _, err := uuid.Parse(nodeID); err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{
+				"error": "node id must be a valid UUID",
+			})
+		}
+
+		if err := svc.CheckOwnership(idParam, userID); err != nil {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "repertoire not found"})
+		}
+
+		var req struct {
+			Arrows     []models.Arrow           `json:"arrows"`
+			Highlights []models.SquareHighlight `json:"highlights"`
+		}
+		if err := c.Bind(&req); err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{
+				"error": "invalid request body",
+			})
+		}
+
+		rep, err := svc.UpdateNodeAnnotations(userID, idParam, nodeID, req.Arrows, req.Highlights)
+		if err != nil {
+			if errors.Is(err, services.ErrNotFound) {
+				return c.JSON(http.StatusNotFound, map[string]string{
+					"error": "repertoire not found",
+				})
+			}
+			if errors.Is(err, services.ErrNodeNotFound) {
+				return c.JSON(http.StatusNotFound, map[string]string{
+					"error": "node not found",
+				})
+			}
+			if errors.Is(err, services.ErrInvalidAnnotation) {
+				return c.JSON(http.StatusBadRequest, map[string]string{
+					"error": "invalid annotation",
+				})
+			}
+			return c.JSON(http.StatusInternalServerError, map[string]string{
+				"error": "failed to update annotations",
+			})
+		}
+
+		return c.JSON(http.StatusOK, rep)
+	}
+}
+
 // ToggleNodeCollapsedHandler toggles the collapsed state on a specific node
 // POST /api/repertoires/:id/nodes/:nodeId/toggle-collapsed
 func ToggleNodeCollapsedHandler(svc *services.RepertoireService) echo.HandlerFunc {
