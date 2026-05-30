@@ -1,6 +1,8 @@
 import { useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router';
 import { toast } from '../../../stores/toastStore';
+import { stashPendingAddSequence } from '../../../shared/repertoireHandoff';
+import { makeMove } from '../../../shared/utils/chess';
 import { computeParentFEN } from '../utils/fenUtils';
 import type { GameAnalysis, MoveAnalysis } from '../../../types';
 
@@ -17,15 +19,18 @@ export function useAddToRepertoire() {
     }
 
     const parentFEN = computeParentFEN(game.moves, move);
+    const resultFEN = makeMove(parentFEN, move.san);
+    if (!resultFEN) {
+      toast.error(`Invalid move: ${move.san}`);
+      return;
+    }
 
-    const context = {
+    stashPendingAddSequence({
       repertoireId: game.matchedRepertoire.id,
       repertoireName: game.matchedRepertoire.name,
-      parentFEN,
-      moveSAN: move.san,
-      gameInfo: `${game.headers.White || '?'} vs ${game.headers.Black || '?'}`
-    };
-    sessionStorage.setItem('pendingAddNode', JSON.stringify(context));
+      gameInfo: `${game.headers.White || '?'} vs ${game.headers.Black || '?'}`,
+      moves: [{ parentFEN, moveSAN: move.san, resultFEN }],
+    });
 
     navigate(`/repertoire/${game.matchedRepertoire.id}/edit`, { state: { from: location.pathname } });
   }, [navigate, location]);

@@ -8,6 +8,13 @@ import { useEngine } from '../../../shared/hooks/useEngine';
 import { useBatchEval } from '../../../shared/hooks/useBatchEval';
 import { getMoveQualityDisplay, formatWinPercent } from '../../../shared/utils/moveClassification';
 import { STARTING_FEN } from '../../../shared/utils/chess';
+import {
+  buildLineFromDivergence,
+  findFirstDivergenceIndex,
+  isDivergence,
+  stashPendingAddSequence,
+  stashPendingNavigate,
+} from '../../../shared/repertoireHandoff';
 import { RotateCcw, ArrowUpDown, ExternalLink, ArrowLeft, BookOpen, Plus, Loader2 } from 'lucide-react';
 import type { MoveRecord } from '../hooks/useExplorerTraining';
 import type { MoveEvalDelta } from '../../../shared/hooks/useBatchEval';
@@ -225,46 +232,32 @@ export function ExplorerTrainingReview({
     return pairs;
   }, [moveHistory, repertoireComparison.moveAnalysis, batchEval.deltas]);
 
-  // "Add to Repertoire" handler — reuses the pendingAddNode sessionStorage mechanism
+  // "Add to Repertoire" handler — hands off the line via the shared handoff layer
   const handleAddToRepertoire = useCallback(() => {
     const { matchedRepertoire, moveAnalysis } = repertoireComparison;
     if (!matchedRepertoire || moveAnalysis.length === 0) return;
 
-    // Find divergence point
-    const divergenceIndex = moveAnalysis.findIndex(
-      m => m.status === 'opponent-new' || m.status === 'out-of-repertoire'
-    );
-
-    let startIndex: number;
-    if (divergenceIndex !== -1) {
-      startIndex = divergenceIndex;
-    } else {
-      const outOfBookIndex = moveAnalysis.findIndex(m => m.status === 'out-of-book');
+    // Start at the divergence; if the line never leaves the repertoire, fall back
+    // to the first out-of-book move so the user can still extend the repertoire.
+    let startIndex = findFirstDivergenceIndex(moveAnalysis);
+    if (startIndex === -1) {
+      const outOfBookIndex = moveAnalysis.findIndex((m) => m.status === 'out-of-book');
       if (outOfBookIndex === -1) return;
       startIndex = outOfBookIndex;
     }
 
     const endIndex = moveHistory.length - 1;
 
-    // Build move sequence with FENs
-    const moves: { parentFEN: string; moveSAN: string; resultFEN: string }[] = [];
-    for (let i = startIndex; i <= endIndex; i++) {
-      const parentFEN = i === 0 ? STARTING_FEN : computeFenAtIndex(moveHistory, i - 1);
-      const resultFEN = computeFenAtIndex(moveHistory, i);
-      moves.push({
-        parentFEN,
-        moveSAN: moveHistory[i].san,
-        resultFEN,
-      });
-    }
+    const moves = buildLineFromDivergence(moveHistory, startIndex, endIndex, (i) =>
+      computeFenAtIndex(moveHistory, i)
+    );
 
-    const context = {
+    stashPendingAddSequence({
       repertoireId: matchedRepertoire.id,
       repertoireName: matchedRepertoire.name,
       gameInfo: 'Explorer Training',
       moves,
-    };
-    sessionStorage.setItem('pendingAddNode', JSON.stringify(context));
+    });
     navigate(`/repertoire/${matchedRepertoire.id}/edit`, { state: { from: location.pathname } });
   }, [repertoireComparison, moveHistory, navigate, location]);
 
@@ -273,18 +266,17 @@ export function ExplorerTrainingReview({
     const { matchedRepertoire } = repertoireComparison;
     if (!matchedRepertoire) return;
     const fen = currentMoveIndex >= 0 ? computeFenAtIndex(moveHistory, currentMoveIndex) : STARTING_FEN;
-    sessionStorage.setItem('pendingNavigateToFen', JSON.stringify({
-      repertoireId: matchedRepertoire.id,
-      fen,
-    }));
+    stashPendingNavigate({ repertoireId: matchedRepertoire.id, fen });
     navigate(`/repertoire/${matchedRepertoire.id}/edit`, { state: { from: location.pathname } });
   }, [repertoireComparison, currentMoveIndex, moveHistory, navigate, location]);
 
-  // Determine if we have actionable moves to add
+  // Determine if we have actionable moves to add: a divergence (handled by the
+  // shared predicate) or an out-of-book move (the explicit extend-repertoire
+  // fallback — deliberately not part of `isDivergence`).
   const hasMovesToAdd = useMemo(() => {
     if (!repertoireComparison.matchedRepertoire || repertoireComparison.moveAnalysis.length === 0) return false;
     return repertoireComparison.moveAnalysis.some(
-      m => m.status === 'opponent-new' || m.status === 'out-of-repertoire' || m.status === 'out-of-book'
+      (m) => isDivergence(m.status) || m.status === 'out-of-book'
     );
   }, [repertoireComparison]);
 

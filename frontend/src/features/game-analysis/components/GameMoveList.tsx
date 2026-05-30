@@ -3,6 +3,7 @@ import { Button } from '../../../shared/components/UI';
 import { StudyImportModal } from '../../repertoire/shared/components/StudyImportModal';
 import { useRepertoireStore } from '../../../stores/repertoireStore';
 import { toast } from '../../../stores/toastStore';
+import { findFirstDivergenceIndex } from '../../../shared/repertoireHandoff';
 import type { MoveAnalysis, Color } from '../../../types';
 
 interface GameMoveListProps {
@@ -83,11 +84,9 @@ export function GameMoveList({
     [moves, maxDisplayedIndex]
   );
 
-  // Find the index of the first actionable move (opponent-new or out-of-repertoire)
+  // Find the index of the first actionable move (the divergence from the repertoire)
   const firstActionableIndex = useMemo(() => {
-    return displayedMoves.findIndex(
-      (m) => m.status === 'opponent-new' || m.status === 'out-of-repertoire'
-    );
+    return findFirstDivergenceIndex(displayedMoves);
   }, [displayedMoves]);
 
   // Get the Tailwind classes for a move based on its index and status
