@@ -1,6 +1,7 @@
 package mocks
 
 import (
+	"context"
 	"time"
 
 	"github.com/kumquat/backend/internal/models"
@@ -572,6 +573,7 @@ type MockPasswordResetRepo struct {
 	GetByTokenHashFunc      func(tokenHash string) (*models.PasswordResetToken, error)
 	MarkUsedFunc            func(id string) error
 	DeleteByUserIDFunc      func(userID string) error
+	DeleteExpiredFunc       func() error
 	CountRecentByUserIDFunc func(userID string, since time.Time) (int, error)
 }
 
@@ -608,9 +610,102 @@ func (m *MockPasswordResetRepo) DeleteByUserID(userID string) error {
 	return nil
 }
 
+func (m *MockPasswordResetRepo) DeleteExpired() error {
+	if m.DeleteExpiredFunc != nil {
+		return m.DeleteExpiredFunc()
+	}
+	return nil
+}
+
 func (m *MockPasswordResetRepo) CountRecentByUserID(userID string, since time.Time) (int, error) {
 	if m.CountRecentByUserIDFunc != nil {
 		return m.CountRecentByUserIDFunc(userID, since)
 	}
 	return 0, nil
+}
+
+// MockRefreshTokenRepo is a mock implementation of RefreshTokenRepository for testing
+type MockRefreshTokenRepo struct {
+	CreateFunc         func(userID, tokenHash string, expiresAt time.Time) (*models.RefreshToken, error)
+	GetByTokenHashFunc func(tokenHash string) (*models.RefreshToken, error)
+	DeleteFunc         func(id string) error
+	DeleteByUserIDFunc func(userID string) error
+	DeleteExpiredFunc  func() error
+	CountByUserIDFunc  func(userID string) (int, error)
+}
+
+func (m *MockRefreshTokenRepo) Create(userID, tokenHash string, expiresAt time.Time) (*models.RefreshToken, error) {
+	if m.CreateFunc != nil {
+		return m.CreateFunc(userID, tokenHash, expiresAt)
+	}
+	return &models.RefreshToken{
+		ID:        "refresh-123",
+		UserID:    userID,
+		TokenHash: tokenHash,
+		ExpiresAt: expiresAt,
+	}, nil
+}
+
+func (m *MockRefreshTokenRepo) GetByTokenHash(tokenHash string) (*models.RefreshToken, error) {
+	if m.GetByTokenHashFunc != nil {
+		return m.GetByTokenHashFunc(tokenHash)
+	}
+	return nil, repository.ErrRefreshTokenNotFound
+}
+
+func (m *MockRefreshTokenRepo) Delete(id string) error {
+	if m.DeleteFunc != nil {
+		return m.DeleteFunc(id)
+	}
+	return nil
+}
+
+func (m *MockRefreshTokenRepo) DeleteByUserID(userID string) error {
+	if m.DeleteByUserIDFunc != nil {
+		return m.DeleteByUserIDFunc(userID)
+	}
+	return nil
+}
+
+func (m *MockRefreshTokenRepo) DeleteExpired() error {
+	if m.DeleteExpiredFunc != nil {
+		return m.DeleteExpiredFunc()
+	}
+	return nil
+}
+
+func (m *MockRefreshTokenRepo) CountByUserID(userID string) (int, error) {
+	if m.CountByUserIDFunc != nil {
+		return m.CountByUserIDFunc(userID)
+	}
+	return 0, nil
+}
+
+// MockOpeningExplorerCacheRepo is a mock implementation of
+// OpeningExplorerCacheRepository for testing.
+type MockOpeningExplorerCacheRepo struct {
+	GetFunc           func(ctx context.Context, cacheKey string) ([]byte, bool, error)
+	PutFunc           func(ctx context.Context, cacheKey string, payload []byte, expiresAt time.Time) error
+	DeleteExpiredFunc func(ctx context.Context) error
+}
+
+func (m *MockOpeningExplorerCacheRepo) Get(ctx context.Context, cacheKey string) ([]byte, bool, error) {
+	if m.GetFunc != nil {
+		return m.GetFunc(ctx, cacheKey)
+	}
+	return nil, false, nil
+}
+
+func (m *MockOpeningExplorerCacheRepo) Put(ctx context.Context, cacheKey string, payload []byte, expiresAt time.Time) error {
+	if m.PutFunc != nil {
+		return m.PutFunc(ctx, cacheKey, payload, expiresAt)
+	}
+	return nil
+}
+
+func (m *MockOpeningExplorerCacheRepo) DeleteExpired(ctx context.Context) error {
+	if m.DeleteExpiredFunc != nil {
+		return m.DeleteExpiredFunc(ctx)
+	}
+	return nil
 }

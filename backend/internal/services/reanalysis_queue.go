@@ -129,6 +129,18 @@ func (q *ReanalysisQueue) startRun(userID string) {
 }
 
 func (q *ReanalysisQueue) runLoop(userID string) {
+	// runLoop executes on the timer goroutine spawned by time.AfterFunc, which is
+	// outside Echo's Recover() middleware. A panic in q.run (it processes
+	// user-supplied JSONB) would otherwise crash the whole server process and leave
+	// the user wedged with running=true forever. Recover, log, and release the
+	// queue state so the user isn't stuck "in progress".
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("auto-reanalysis panicked", "component", "reanalysis-queue", "user_id", userID, "panic", r)
+			q.releaseAfterPanic(userID)
+		}
+	}()
+
 	for {
 		if err := q.run(userID); err != nil {
 			slog.Error("auto-reanalysis failed", "component", "reanalysis-queue", "user_id", userID, "error", err)
@@ -150,6 +162,25 @@ func (q *ReanalysisQueue) runLoop(userID string) {
 		}
 		st.redo = false
 		q.mu.Unlock()
+	}
+}
+
+// releaseAfterPanic clears the in-flight state for a user after runLoop panics.
+// Without this the recovered goroutine would leave running=true, wedging the
+// user as permanently "in progress". A pending follow-up (redo) or a freshly
+// scheduled timer is preserved so the user can still recover on a later edit.
+func (q *ReanalysisQueue) releaseAfterPanic(userID string) {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+
+	st, ok := q.states[userID]
+	if !ok {
+		return
+	}
+	st.running = false
+	st.redo = false
+	if st.timer == nil {
+		delete(q.states, userID)
 	}
 }
 

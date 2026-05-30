@@ -37,6 +37,11 @@ const (
 		WHERE user_id = $1
 	`
 
+	deleteExpiredPasswordResetSQL = `
+		DELETE FROM password_reset_tokens
+		WHERE expires_at < NOW()
+	`
+
 	countRecentPasswordResetSQL = `
 		SELECT COUNT(*)
 		FROM password_reset_tokens
@@ -108,6 +113,19 @@ func (r *PostgresPasswordResetRepo) DeleteByUserID(userID string) error {
 	_, err := r.pool.Exec(ctx, deletePasswordResetByUserSQL, userID)
 	if err != nil {
 		return fmt.Errorf("failed to delete password reset tokens: %w", err)
+	}
+	return nil
+}
+
+// DeleteExpired removes all password reset tokens whose expiry has passed.
+// Used by the periodic cleanup worker to prevent unbounded table growth.
+func (r *PostgresPasswordResetRepo) DeleteExpired() error {
+	ctx, cancel := dbContext()
+	defer cancel()
+
+	_, err := r.pool.Exec(ctx, deleteExpiredPasswordResetSQL)
+	if err != nil {
+		return fmt.Errorf("failed to delete expired password reset tokens: %w", err)
 	}
 	return nil
 }

@@ -31,6 +31,7 @@ type Config struct {
 	MetricsPort              int
 	LichessExplorerBaseURL   string
 	LichessExplorerCacheTTL  time.Duration
+	CleanupInterval          time.Duration
 }
 
 // MustLoad loads configuration from environment variables
@@ -148,6 +149,20 @@ func MustLoad() Config {
 		explorerCacheTTL = time.Duration(hours) * time.Hour
 	}
 
+	// Interval at which the background worker purges expired refresh/reset
+	// tokens and stale opening-explorer cache rows.
+	cleanupInterval := time.Hour
+	if intervalStr := os.Getenv("CLEANUP_INTERVAL_MINUTES"); intervalStr != "" {
+		mins, err := strconv.Atoi(intervalStr)
+		if err != nil {
+			panic(fmt.Sprintf("Invalid CLEANUP_INTERVAL_MINUTES value: %s", intervalStr))
+		}
+		if mins <= 0 {
+			panic(fmt.Sprintf("CLEANUP_INTERVAL_MINUTES must be positive, got: %d", mins))
+		}
+		cleanupInterval = time.Duration(mins) * time.Minute
+	}
+
 	return Config{
 		Environment:              env,
 		DatabaseURL:              dbURL,
@@ -168,5 +183,6 @@ func MustLoad() Config {
 		MetricsPort:              metricsPort,
 		LichessExplorerBaseURL:   explorerBaseURL,
 		LichessExplorerCacheTTL:  explorerCacheTTL,
+		CleanupInterval:          cleanupInterval,
 	}
 }

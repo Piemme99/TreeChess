@@ -1,6 +1,7 @@
 package services
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -155,6 +156,23 @@ func TestAuthService_Login_UserNotFound(t *testing.T) {
 	assert.ErrorIs(t, err, ErrInvalidCredentials)
 }
 
+// TestAuthService_Login_WrappedUserNotFound guards the email-enumeration
+// protection: even if a lower layer wraps the sentinel with %w, Login must still
+// classify it as ErrInvalidCredentials (not leak a raw 500). This fails if the
+// sentinel is compared with == instead of errors.Is.
+func TestAuthService_Login_WrappedUserNotFound(t *testing.T) {
+	mockRepo := &mocks.MockUserRepo{
+		GetByEmailFunc: func(email string) (*models.User, error) {
+			return nil, fmt.Errorf("query failed: %w", repository.ErrUserNotFound)
+		},
+	}
+	svc := newTestAuthService(mockRepo)
+
+	_, err := svc.Login("nonexistent@example.com", "password123")
+
+	assert.ErrorIs(t, err, ErrInvalidCredentials)
+}
+
 func TestAuthService_Login_WrongPassword(t *testing.T) {
 	hash, _ := bcrypt.GenerateFromPassword([]byte("correctpassword"), bcrypt.MinCost)
 	mockRepo := &mocks.MockUserRepo{
@@ -214,6 +232,99 @@ func TestAuthService_ValidateToken_InvalidString(t *testing.T) {
 	svc := newTestAuthService(&mocks.MockUserRepo{})
 
 	_, err := svc.ValidateToken("not-a-valid-jwt-token")
+
+	assert.ErrorIs(t, err, ErrUnauthorized)
+}
+
+func TestAuthService_ValidateToken_TokenIssuedBeforePasswordChange(t *testing.T) {
+	// A token whose iat predates PasswordChangedAt must be rejected so that
+	// credentials captured before a password change can no longer be used.
+	passwordChangedAt := time.Now().Add(1 * time.Hour) // strictly after iat
+	mockRepo := &mocks.MockUserRepo{
+		GetByIDFunc: func(id string) (*models.User, error) {
+			return &models.User{
+				ID:                id,
+				Username:          "testuser",
+				PasswordChangedAt: &passwordChangedAt,
+			}, nil
+		},
+	}
+	svc := newTestAuthService(mockRepo)
+
+	user := &models.User{ID: "user-123", Username: "testuser"}
+	token, err := svc.generateToken(user)
+	require.NoError(t, err)
+
+	_, err = svc.ValidateToken(token)
+
+	assert.ErrorIs(t, err, ErrUnauthorized,
+		"token issued before the password change must be rejected")
+}
+
+func TestAuthService_ValidateToken_TokenIssuedAfterPasswordChange(t *testing.T) {
+	// A token whose iat is after PasswordChangedAt remains valid.
+	passwordChangedAt := time.Now().Add(-1 * time.Hour) // strictly before iat
+	mockRepo := &mocks.MockUserRepo{
+		GetByIDFunc: func(id string) (*models.User, error) {
+			return &models.User{
+				ID:                id,
+				Username:          "testuser",
+				PasswordChangedAt: &passwordChangedAt,
+			}, nil
+		},
+	}
+	svc := newTestAuthService(mockRepo)
+
+	user := &models.User{ID: "user-123", Username: "testuser"}
+	token, err := svc.generateToken(user)
+	require.NoError(t, err)
+
+	userID, err := svc.ValidateToken(token)
+
+	require.NoError(t, err)
+	assert.Equal(t, "user-123", userID,
+		"token issued after the password change must stay valid")
+}
+
+func TestAuthService_ValidateToken_NilPasswordChangedAt(t *testing.T) {
+	// Users who have never changed their password (nil PasswordChangedAt)
+	// must keep validating successfully.
+	mockRepo := &mocks.MockUserRepo{
+		GetByIDFunc: func(id string) (*models.User, error) {
+			return &models.User{
+				ID:                id,
+				Username:          "testuser",
+				PasswordChangedAt: nil,
+			}, nil
+		},
+	}
+	svc := newTestAuthService(mockRepo)
+
+	user := &models.User{ID: "user-123", Username: "testuser"}
+	token, err := svc.generateToken(user)
+	require.NoError(t, err)
+
+	userID, err := svc.ValidateToken(token)
+
+	require.NoError(t, err)
+	assert.Equal(t, "user-123", userID)
+}
+
+func TestAuthService_ValidateToken_UserLookupFailsDuringInvalidationCheck(t *testing.T) {
+	// If the user can no longer be loaded while checking the iat against
+	// PasswordChangedAt, the token must be rejected rather than accepted.
+	mockRepo := &mocks.MockUserRepo{
+		GetByIDFunc: func(id string) (*models.User, error) {
+			return nil, repository.ErrUserNotFound
+		},
+	}
+	svc := newTestAuthService(mockRepo)
+
+	user := &models.User{ID: "user-123", Username: "testuser"}
+	token, err := svc.generateToken(user)
+	require.NoError(t, err)
+
+	_, err = svc.ValidateToken(token)
 
 	assert.ErrorIs(t, err, ErrUnauthorized)
 }

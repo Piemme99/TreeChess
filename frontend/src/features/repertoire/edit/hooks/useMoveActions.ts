@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useChess } from '../../../../shared/hooks/useChess';
+import { deriveChildMoveNumber } from '../../../../shared/utils/chess';
 import { repertoireApi } from '../../../../services/api';
 import { toast } from '../../../../stores/toastStore';
 import { useRepertoireStore } from '../../../../stores/repertoireStore';
@@ -40,7 +41,7 @@ export function useMoveActions(
         parentId: selectedNode.id,
         move: move.san,
         fen: getShortFEN(newFEN),
-        moveNumber: selectedNode.moveNumber + (selectedNode.colorToMove === 'b' ? 1 : 0),
+        moveNumber: deriveChildMoveNumber(selectedNode.moveNumber, selectedNode.colorToMove),
         colorToMove: selectedNode.colorToMove === 'w' ? 'b' : 'w'
       };
 
@@ -90,7 +91,7 @@ export function useMoveActions(
           parentId: selectedNode.id,
           move: moveInput.trim(),
           fen: getShortFEN(newFEN),
-          moveNumber: selectedNode.moveNumber + (selectedNode.colorToMove === 'b' ? 1 : 0),
+          moveNumber: deriveChildMoveNumber(selectedNode.moveNumber, selectedNode.colorToMove),
           colorToMove: selectedNode.colorToMove === 'w' ? 'b' : 'w'
         };
 

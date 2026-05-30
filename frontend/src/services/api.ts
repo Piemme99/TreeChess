@@ -56,7 +56,10 @@ export function getAccessToken(): string | null {
   return accessToken;
 }
 
-const api = axios.create({
+// Exported so tests can install a custom axios adapter and exercise the real
+// request/response interceptors (token injection, 401-refresh coalescing).
+// Production code uses the named *Api objects below, not this instance directly.
+export const api = axios.create({
   baseURL: API_BASE,
   timeout: 30000,
   headers: {
@@ -147,6 +150,15 @@ api.interceptors.response.use(
         // will trigger another refresh once the backend is reachable again.
         return Promise.reject(error);
       }
+    }
+
+    // A 401 on an already-retried request means the freshly-refreshed token
+    // was itself rejected on replay. Treat this as definitive: the refresh
+    // branch above is skipped (_retry is true), so without this the app would
+    // sit silently 401-ing. Clear state and signal the app to route to /login.
+    if (error.response?.status === 401 && originalRequest._retry) {
+      accessToken = null;
+      window.dispatchEvent(new Event('auth:unauthorized'));
     }
 
     return Promise.reject(error);

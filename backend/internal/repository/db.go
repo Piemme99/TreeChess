@@ -212,7 +212,10 @@ func (db *DB) runMigrations() error {
 			dismissed_at TIMESTAMPTZ DEFAULT NOW(),
 			PRIMARY KEY (user_id, fen, played_move)
 		)`,
-		`CREATE INDEX IF NOT EXISTS idx_dismissed_mistakes_user ON dismissed_mistakes(user_id)`,
+		// Note: no single-column user_id index here — the (user_id, fen, played_move)
+		// primary key already covers user_id-prefixed lookups. A separate index would
+		// be redundant and only add write overhead. The historical idx_dismissed_mistakes_user
+		// is dropped below for existing databases.
 		`ALTER TABLE users ADD COLUMN IF NOT EXISTS time_format_prefs TEXT[] DEFAULT '{}'`,
 		`ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(255)`,
 		`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email) WHERE email IS NOT NULL`,
@@ -226,6 +229,7 @@ func (db *DB) runMigrations() error {
 		)`,
 		`CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_user ON password_reset_tokens(user_id)`,
 		`CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_hash ON password_reset_tokens(token_hash)`,
+		`CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_expires ON password_reset_tokens(expires_at)`,
 		// Categories table for grouping repertoires
 		`CREATE TABLE IF NOT EXISTS categories (
 			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -252,7 +256,10 @@ func (db *DB) runMigrations() error {
 			dismissed_at TIMESTAMPTZ DEFAULT NOW(),
 			PRIMARY KEY (user_id, fen, opponent_move, repertoire_id)
 		)`,
-		`CREATE INDEX IF NOT EXISTS idx_dismissed_gaps_user ON dismissed_gaps(user_id)`,
+		// Note: no single-column user_id index here — the
+		// (user_id, fen, opponent_move, repertoire_id) primary key already covers
+		// user_id-prefixed lookups, so a separate index would be redundant. The
+		// historical idx_dismissed_gaps_user is dropped below for existing databases.
 		// Add is_public column to repertoires (default false - private by default)
 		`ALTER TABLE repertoires ADD COLUMN IF NOT EXISTS is_public BOOLEAN NOT NULL DEFAULT false`,
 		`CREATE INDEX IF NOT EXISTS idx_repertoires_is_public ON repertoires(is_public) WHERE is_public = true`,
@@ -283,6 +290,12 @@ func (db *DB) runMigrations() error {
 			created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 		)`,
 		`CREATE INDEX IF NOT EXISTS idx_opening_explorer_cache_expires ON opening_explorer_cache(expires_at)`,
+		// Drop redundant single-column user_id indexes. Each duplicates the leading
+		// column of its table's composite primary key, so Postgres can already serve
+		// user_id-prefixed lookups from the PK index; the standalone indexes only added
+		// write overhead. Safe to drop on databases that never had them (IF EXISTS).
+		`DROP INDEX IF EXISTS idx_dismissed_mistakes_user`,
+		`DROP INDEX IF EXISTS idx_dismissed_gaps_user`,
 	}
 	for _, m := range migrations {
 		if _, err := conn.Exec(ctx, m); err != nil {

@@ -83,6 +83,35 @@ describe('addLineToRepertoire', () => {
     expect(mockedAddNode).toHaveBeenCalledTimes(2);
   });
 
+  it('builds each AddNodeRequest payload from the parent node (move number, color, parent id, short fen)', async () => {
+    // root: moveNumber 0, white to move.
+    wireGrowingTree(makeNode({ id: 'root' }));
+
+    await addLineToRepertoire('rep-1', E4_E5_LINE);
+
+    // First POST grafts e4 onto the root.
+    //   parent root: moveNumber 0, colorToMove 'w'
+    //   → deriveChildMoveNumber(0, 'w') = 1; colorToMove flips to 'b'.
+    expect(mockedAddNode).toHaveBeenNthCalledWith(1, 'rep-1', {
+      parentId: 'root',
+      move: 'e4',
+      fen: FEN_E4,
+      moveNumber: 1,
+      colorToMove: 'b',
+    } satisfies AddNodeRequest);
+
+    // Second POST grafts e5 onto the freshly added e4 node.
+    //   parent e4 (from the previous request): moveNumber 1, colorToMove 'b'
+    //   → deriveChildMoveNumber(1, 'b') = 1; colorToMove flips to 'w'.
+    expect(mockedAddNode).toHaveBeenNthCalledWith(2, 'rep-1', {
+      parentId: 'added-0',
+      move: 'e5',
+      fen: FEN_E4_E5,
+      moveNumber: 1,
+      colorToMove: 'w',
+    } satisfies AddNodeRequest);
+  });
+
   it('skips moves already present and only adds the missing tail', async () => {
     const e4Node = makeNode({ id: 'e4', fen: FEN_E4, move: 'e4', parentId: 'root', colorToMove: 'b', moveNumber: 1 });
     wireGrowingTree(makeNode({ id: 'root', children: [e4Node] }));

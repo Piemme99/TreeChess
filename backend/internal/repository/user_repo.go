@@ -4,11 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/kumquat/backend/internal/models"
@@ -290,22 +290,27 @@ func (r *PostgresUserRepo) Delete(id string) error {
 		return fmt.Errorf("failed to delete dismissed_mistakes: %w", err)
 	}
 
-	// 2. analyses (cascades to game_fingerprints, viewed_games, engine_evals via analysis_id FK)
+	// 2. dismissed_gaps (leaf table, only references users)
+	if _, err := tx.Exec(ctx, `DELETE FROM dismissed_gaps WHERE user_id = $1`, id); err != nil {
+		return fmt.Errorf("failed to delete dismissed_gaps: %w", err)
+	}
+
+	// 3. analyses (cascades to game_fingerprints, viewed_games, engine_evals via analysis_id FK)
 	if _, err := tx.Exec(ctx, `DELETE FROM analyses WHERE user_id = $1`, id); err != nil {
 		return fmt.Errorf("failed to delete analyses: %w", err)
 	}
 
-	// 3. repertoires (references users and categories)
+	// 4. repertoires (references users and categories)
 	if _, err := tx.Exec(ctx, `DELETE FROM repertoires WHERE user_id = $1`, id); err != nil {
 		return fmt.Errorf("failed to delete repertoires: %w", err)
 	}
 
-	// 4. categories (references users; repertoires already deleted)
+	// 5. categories (references users; repertoires already deleted)
 	if _, err := tx.Exec(ctx, `DELETE FROM categories WHERE user_id = $1`, id); err != nil {
 		return fmt.Errorf("failed to delete categories: %w", err)
 	}
 
-	// 5. user row (password_reset_tokens cascade automatically via ON DELETE CASCADE)
+	// 6. user row (password_reset_tokens cascade automatically via ON DELETE CASCADE)
 	result, err := tx.Exec(ctx, `DELETE FROM users WHERE id = $1`, id)
 	if err != nil {
 		return fmt.Errorf("failed to delete user: %w", err)
@@ -321,20 +326,26 @@ func (r *PostgresUserRepo) Delete(id string) error {
 	return nil
 }
 
-// isDuplicateKeyError checks if the error is a PostgreSQL unique constraint violation
+// pgUniqueViolation is the SQLSTATE code for a unique-constraint violation.
+const pgUniqueViolation = "23505"
+
+// isDuplicateKeyError checks if the error is a PostgreSQL unique constraint violation.
+// It uses errors.As to unwrap to the structured *pgconn.PgError and branches on the
+// SQLSTATE code rather than matching on (locale-dependent) error text.
 func isDuplicateKeyError(err error) bool {
-	if err == nil {
-		return false
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		return pgErr.Code == pgUniqueViolation
 	}
-	errStr := err.Error()
-	return strings.Contains(errStr, "23505") || strings.Contains(errStr, "duplicate key")
+	return false
 }
 
-// isDuplicateEmailError checks if the duplicate key error is specifically for the email field
+// isDuplicateEmailError checks if the duplicate key error is specifically for the
+// email field by inspecting the violated constraint name (idx_users_email).
 func isDuplicateEmailError(err error) bool {
-	if err == nil {
-		return false
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		return pgErr.ConstraintName == "idx_users_email"
 	}
-	errStr := err.Error()
-	return strings.Contains(errStr, "idx_users_email") || strings.Contains(errStr, "email")
+	return false
 }

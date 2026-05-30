@@ -6,22 +6,27 @@ const DEFAULT_OPENING_PLIES = 20;
 export function useChessNavigation(
   game: GameAnalysis | null,
   showFullGame: boolean,
-  initialPly?: number
+  initialPly?: number,
+  analysisId?: string
 ) {
   const [currentMoveIndex, setCurrentMoveIndex] = useState(-1);
-  // Tracks the gameIndex we last positioned, so stepping to another game in the
-  // same analyse-session resets the cursor instead of keeping the prior one.
-  const positionedGameRef = useRef<number | null>(null);
+  // Tracks the game we last positioned, keyed on a composite of analysisId and
+  // gameIndex. gameIndex is only unique within a single import, so stepping
+  // across analyses in an analyse-session (analysis A game 0 -> analysis B
+  // game 0) would otherwise short-circuit the reset and open the new game at
+  // the prior game's stale ply.
+  const positionedGameRef = useRef<string | null>(null);
 
   // Position the cursor once per game. The initial ply (e.g. a "worst mistake"
   // deep link) applies only to the first game shown; navigating to another game
   // in the session starts at the beginning.
   useEffect(() => {
     if (!game) return;
-    if (positionedGameRef.current === game.gameIndex) return;
+    const gameKey = `${analysisId ?? ''}:${game.gameIndex}`;
+    if (positionedGameRef.current === gameKey) return;
 
     const isFirstGame = positionedGameRef.current === null;
-    positionedGameRef.current = game.gameIndex;
+    positionedGameRef.current = gameKey;
 
     if (isFirstGame && initialPly !== undefined && initialPly >= 0) {
       // plyNumber is 0-indexed, same as move index
@@ -29,7 +34,7 @@ export function useChessNavigation(
     } else {
       setCurrentMoveIndex(-1);
     }
-  }, [game, initialPly]);
+  }, [game, initialPly, analysisId]);
 
   const maxDisplayedMoveIndex = useMemo(() => {
     if (!game) return -1;

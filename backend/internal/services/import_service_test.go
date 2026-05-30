@@ -1,15 +1,19 @@
 package services
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/notnil/chess"
+	"github.com/kumquat/backend/config"
 	"github.com/kumquat/backend/internal/models"
+	"github.com/kumquat/backend/internal/repository"
 	"github.com/kumquat/backend/internal/repository/mocks"
+	"github.com/notnil/chess"
 )
 
 func TestImportService_ParsePGN(t *testing.T) {
@@ -200,6 +204,87 @@ func TestFindNodeInRepertoire_ReturnsNodeWithChildren(t *testing.T) {
 	require.NotNil(t, result)
 	assert.Len(t, result.Children, 2)
 	assert.Equal(t, "e4", *result.Children[0].Move)
+}
+
+func TestBuildFENIndex_LookupMatchesFindNode(t *testing.T) {
+	svc := NewImportService(nil, nil)
+
+	moveE4 := "e4"
+	moveE5 := "e5"
+	root := models.RepertoireNode{
+		ID:  "root",
+		FEN: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -",
+		Children: []*models.RepertoireNode{
+			{
+				ID:   "e4",
+				FEN:  "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3",
+				Move: &moveE4,
+				Children: []*models.RepertoireNode{
+					{
+						ID:   "e5",
+						FEN:  "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6",
+						Move: &moveE5,
+					},
+				},
+			},
+		},
+	}
+
+	index := buildFENIndex(&root)
+
+	// Every node reachable in the tree resolves to the same node the recursive
+	// search would return. findNodeInRepertoire takes root by value, so for the
+	// root FEN it returns a pointer into its local copy; compare by node identity
+	// (ID) rather than pointer to stay robust to that copy.
+	for _, fen := range []string{
+		"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -",
+		"rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3",
+		"rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6",
+	} {
+		recursive := svc.findNodeInRepertoire(root, fen)
+		indexed := index[fen]
+		require.NotNil(t, recursive, "findNodeInRepertoire should find %s", fen)
+		require.NotNil(t, indexed, "index should contain %s", fen)
+		assert.Equal(t, recursive.ID, indexed.ID, "index lookup must match findNodeInRepertoire for %s", fen)
+	}
+}
+
+func TestBuildFENIndex_MissingFEN(t *testing.T) {
+	root := models.RepertoireNode{
+		ID:  "root",
+		FEN: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -",
+	}
+
+	index := buildFENIndex(&root)
+
+	node, ok := index["rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6"]
+	assert.False(t, ok)
+	assert.Nil(t, node)
+}
+
+func TestBuildFENIndex_TranspositionKeepsFirstPreOrderNode(t *testing.T) {
+	// Two distinct nodes share the same FEN (a transposition). A pre-order DFS
+	// reaches "first" before "second"; the index must keep "first" so it agrees
+	// with findNodeInRepertoire's first-match semantics.
+	svc := NewImportService(nil, nil)
+
+	moveA := "a"
+	moveB := "b"
+	sharedFEN := "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6"
+	root := models.RepertoireNode{
+		ID:  "root",
+		FEN: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -",
+		Children: []*models.RepertoireNode{
+			{ID: "first", FEN: sharedFEN, Move: &moveA},
+			{ID: "second", FEN: sharedFEN, Move: &moveB},
+		},
+	}
+
+	index := buildFENIndex(&root)
+
+	require.NotNil(t, index[sharedFEN])
+	assert.Equal(t, "first", index[sharedFEN].ID)
+	assert.Same(t, svc.findNodeInRepertoire(root, sharedFEN), index[sharedFEN])
 }
 
 func TestPGNWithNewlines(t *testing.T) {
@@ -758,6 +843,90 @@ func TestAnalyzeGame_WithExpectedMove(t *testing.T) {
 	assert.Equal(t, "e4", analysis.Moves[0].ExpectedMove)
 }
 
+// TestAnalyzeGame_ExpectedMovePrefersMainLine verifies that the expected move
+// surfaced on an out-of-repertoire move follows the explicit IsMainLine child,
+// not insertion order, so review never contradicts the user's chosen main line.
+func TestAnalyzeGame_ExpectedMovePrefersMainLine(t *testing.T) {
+	svc := NewImportService(nil, nil)
+
+	// User plays d4, but the repertoire's main line is e4 (added second).
+	pgnData := `[Event "Test"]
+[White "A"]
+[Black "B"]
+1. d4 d5 1-0`
+
+	games, err := svc.parsePGN(pgnData)
+	require.NoError(t, err)
+	require.Len(t, games, 1)
+
+	moveC4 := "c4"
+	moveE4 := "e4"
+	root := models.RepertoireNode{
+		ID:          "root",
+		FEN:         "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -",
+		ColorToMove: models.ChessColorWhite,
+		Children: []*models.RepertoireNode{
+			// First by insertion order, but NOT the main line.
+			{
+				ID:          "c4",
+				FEN:         "rnbqkbnr/pppppppp/8/8/2P5/8/PP1PPPPP/RNBQKBNR b KQkq c3",
+				Move:        &moveC4,
+				ColorToMove: models.ChessColorBlack,
+			},
+			// Explicit main line — should be the expected move.
+			{
+				ID:          "e4",
+				FEN:         "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3",
+				Move:        &moveE4,
+				ColorToMove: models.ChessColorBlack,
+				IsMainLine:  true,
+			},
+		},
+	}
+
+	analysis := svc.analyzeGame(0, games[0], root, models.ColorWhite)
+
+	require.GreaterOrEqual(t, len(analysis.Moves), 1)
+	assert.Equal(t, "out-of-repertoire", analysis.Moves[0].Status)
+	assert.Equal(t, "e4", analysis.Moves[0].ExpectedMove, "expected move should follow IsMainLine, not insertion order")
+}
+
+// TestExpectedMoveForNode covers the helper directly across edge cases.
+func TestExpectedMoveForNode(t *testing.T) {
+	a := "a"
+	b := "b"
+	c := "c"
+
+	t.Run("nil node", func(t *testing.T) {
+		assert.Equal(t, "", expectedMoveForNode(nil))
+	})
+
+	t.Run("no children", func(t *testing.T) {
+		assert.Equal(t, "", expectedMoveForNode(&models.RepertoireNode{}))
+	})
+
+	t.Run("falls back to first child when none is main line", func(t *testing.T) {
+		node := &models.RepertoireNode{Children: []*models.RepertoireNode{
+			{Move: &a}, {Move: &b},
+		}}
+		assert.Equal(t, "a", expectedMoveForNode(node))
+	})
+
+	t.Run("prefers main line over insertion order", func(t *testing.T) {
+		node := &models.RepertoireNode{Children: []*models.RepertoireNode{
+			{Move: &a}, {Move: &b, IsMainLine: true}, {Move: &c},
+		}}
+		assert.Equal(t, "b", expectedMoveForNode(node))
+	})
+
+	t.Run("skips children without a move", func(t *testing.T) {
+		node := &models.RepertoireNode{Children: []*models.RepertoireNode{
+			{Move: nil}, {Move: &b},
+		}}
+		assert.Equal(t, "b", expectedMoveForNode(node))
+	})
+}
+
 func TestParsePGN_WithComments(t *testing.T) {
 	svc := NewImportService(nil, nil)
 
@@ -976,6 +1145,104 @@ func TestComputeFingerprint_LichessSitePriority(t *testing.T) {
 	fp := ComputeFingerprint(headers, moves)
 
 	assert.Equal(t, "https://lichess.org/abcdefgh", fp)
+}
+
+// --- In-batch deduplication tests ---
+
+// TestParseAndAnalyze_InBatchDuplicate verifies that a PGN containing the same
+// game twice within a single import is persisted only once (issue #121).
+func TestParseAndAnalyze_InBatchDuplicate(t *testing.T) {
+	// No repertoires for either color -> games are analyzed with an empty tree.
+	repertoireRepo := &mocks.MockRepertoireRepo{
+		GetByColorFunc: func(userID string, color models.Color) ([]models.Repertoire, error) {
+			return nil, nil
+		},
+	}
+	repertoireSvc := NewRepertoireService(repertoireRepo)
+
+	// CheckExisting returns no already-persisted games (empty DB).
+	fingerprintRepo := &mocks.MockFingerprintRepo{}
+
+	var savedResults []models.GameAnalysis
+	var savedGameCount int
+	analysisRepo := &mocks.MockAnalysisRepo{
+		SaveFunc: func(userID, username, filename string, gameCount int, results []models.GameAnalysis) (*models.AnalysisSummary, error) {
+			savedGameCount = gameCount
+			savedResults = results
+			return &models.AnalysisSummary{ID: "analysis-1", GameCount: gameCount}, nil
+		},
+	}
+
+	var savedEntries []repository.FingerprintEntry
+	fingerprintRepo.SaveBatchFunc = func(userID, analysisID string, entries []repository.FingerprintEntry) error {
+		savedEntries = entries
+		return nil
+	}
+
+	svc := NewImportService(repertoireSvc, analysisRepo, WithFingerprintRepo(fingerprintRepo))
+
+	// The exact same game appears twice in the same upload (e.g. concatenated PGNs).
+	game := `[Event "Test"]
+[White "Hero"]
+[Black "Villain"]
+[Date "2024.01.01"]
+[Result "1-0"]
+
+1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 1-0`
+	pgnData := game + "\n\n" + game
+
+	summary, results, err := svc.ParseAndAnalyze("dup.pgn", "Hero", "user-1", pgnData)
+
+	require.NoError(t, err)
+	require.NotNil(t, summary)
+
+	// Only one game persisted despite two identical games in the batch.
+	assert.Len(t, results, 1, "duplicate in-batch game should be filtered out")
+	assert.Len(t, savedResults, 1, "analysis Save must receive exactly one game")
+	assert.Equal(t, 1, savedGameCount, "persisted game count must be 1")
+	assert.Equal(t, 1, summary.GameCount)
+	assert.Equal(t, 1, summary.SkippedDuplicates, "the in-batch duplicate must be counted as skipped")
+
+	// Only one fingerprint row is written.
+	assert.Len(t, savedEntries, 1, "exactly one fingerprint entry should be saved")
+}
+
+// TestParseAndAnalyze_NoFingerprintRepo verifies behavior is unchanged (no
+// dedup) when the fingerprint repository is not configured.
+func TestParseAndAnalyze_NoFingerprintRepo(t *testing.T) {
+	repertoireRepo := &mocks.MockRepertoireRepo{
+		GetByColorFunc: func(userID string, color models.Color) ([]models.Repertoire, error) {
+			return nil, nil
+		},
+	}
+	repertoireSvc := NewRepertoireService(repertoireRepo)
+
+	var savedGameCount int
+	analysisRepo := &mocks.MockAnalysisRepo{
+		SaveFunc: func(userID, username, filename string, gameCount int, results []models.GameAnalysis) (*models.AnalysisSummary, error) {
+			savedGameCount = gameCount
+			return &models.AnalysisSummary{ID: "analysis-1", GameCount: gameCount}, nil
+		},
+	}
+
+	svc := NewImportService(repertoireSvc, analysisRepo)
+
+	game := `[Event "Test"]
+[White "Hero"]
+[Black "Villain"]
+[Date "2024.01.01"]
+[Result "1-0"]
+
+1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 1-0`
+	pgnData := game + "\n\n" + game
+
+	summary, results, err := svc.ParseAndAnalyze("dup.pgn", "Hero", "user-1", pgnData)
+
+	require.NoError(t, err)
+	require.NotNil(t, summary)
+	// Without a fingerprint repo there is no dedup, so both games are kept.
+	assert.Len(t, results, 2)
+	assert.Equal(t, 2, savedGameCount)
 }
 
 // --- GetInsights tests ---
@@ -1397,6 +1664,77 @@ func TestReanalyzeAllGames_Basic(t *testing.T) {
 	assert.Equal(t, 1, updatedResults[0].MatchScore) // 1 user move matched (e4)
 }
 
+func TestReanalyzeAllGames_SharesIndexAcrossManyGames(t *testing.T) {
+	// Re-analysing several games against the same repertoire must produce identical
+	// results to the single-game path, confirming the shared per-repertoire FEN index
+	// is reused correctly rather than rebuilt or skewed across games.
+	moveE4 := "e4"
+	moveE5 := "e5"
+	startFEN := "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -"
+	afterE4 := "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3"
+	afterE5 := "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6"
+
+	whiteRepertoire := models.Repertoire{
+		ID: "rep-w", Name: "White Rep", Color: models.ColorWhite,
+		TreeData: models.RepertoireNode{
+			ID: "root", FEN: startFEN,
+			Children: []*models.RepertoireNode{
+				{ID: "e4", FEN: afterE4, Move: &moveE4, Children: []*models.RepertoireNode{
+					{ID: "e5", FEN: afterE5, Move: &moveE5},
+				}},
+			},
+		},
+	}
+
+	makeGame := func(idx int) models.GameAnalysis {
+		return models.GameAnalysis{
+			GameIndex: idx,
+			UserColor: models.ColorWhite,
+			Headers:   models.PGNHeaders{"White": "User", "Black": "Opp", "Result": "1-0"},
+			Moves: []models.MoveAnalysis{
+				{PlyNumber: 0, SAN: "e4", FEN: startFEN, IsUserMove: true, Status: "out-of-book"},
+				{PlyNumber: 1, SAN: "e5", FEN: afterE4, IsUserMove: false, Status: "out-of-book"},
+			},
+		}
+	}
+
+	analyses := []models.RawAnalysis{
+		{ID: "a1", Results: []models.GameAnalysis{makeGame(0), makeGame(1), makeGame(2)}},
+	}
+
+	var updatedResults []models.GameAnalysis
+	mockAnalysisRepo := &mocks.MockAnalysisRepo{
+		GetAllGamesRawFunc: func(userID string) ([]models.RawAnalysis, error) { return analyses, nil },
+		UpdateResultsFunc: func(analysisID string, results []models.GameAnalysis) error {
+			updatedResults = results
+			return nil
+		},
+	}
+	mockRepRepo := &mocks.MockRepertoireRepo{
+		GetByColorFunc: func(userID string, color models.Color) ([]models.Repertoire, error) {
+			if color == models.ColorWhite {
+				return []models.Repertoire{whiteRepertoire}, nil
+			}
+			return nil, nil
+		},
+	}
+
+	svc := NewImportService(NewRepertoireService(mockRepRepo), mockAnalysisRepo)
+
+	count, err := svc.ReanalyzeAllGames("user-1", false)
+
+	require.NoError(t, err)
+	assert.Equal(t, 3, count)
+	require.Len(t, updatedResults, 3)
+	for i := range updatedResults {
+		assert.Equal(t, "in-repertoire", updatedResults[i].Moves[0].Status, "game %d move e4", i)
+		assert.Equal(t, "in-repertoire", updatedResults[i].Moves[1].Status, "game %d move e5", i)
+		require.NotNil(t, updatedResults[i].MatchedRepertoire)
+		assert.Equal(t, "rep-w", updatedResults[i].MatchedRepertoire.ID)
+		assert.Equal(t, 1, updatedResults[i].MatchScore)
+	}
+}
+
 func TestReanalyzeAllGames_NoRepertoires(t *testing.T) {
 	analyses := []models.RawAnalysis{
 		{
@@ -1623,11 +1961,11 @@ func TestFindBestMatchingRepertoireFromStored(t *testing.T) {
 		},
 	}
 
-	best, score := svc.findBestMatchingRepertoireFromStored(game, []models.Repertoire{repA, repB, repC})
+	best, score := svc.findBestMatchingRepertoireFromStored(game, indexRepertoires([]models.Repertoire{repA, repB, repC}))
 
 	require.NotNil(t, best)
 	// repA and repB both match 1 user move (e4), repA wins by order
-	assert.Equal(t, "rep-a", best.ID)
+	assert.Equal(t, "rep-a", best.repertoire.ID)
 	assert.Equal(t, 1, score)
 }
 
@@ -1778,7 +2116,7 @@ func TestFindBestMatchingRepertoireFromStored_RejectsAllUnmatched(t *testing.T) 
 		},
 	}
 
-	best, score := svc.findBestMatchingRepertoireFromStored(game, []models.Repertoire{repA})
+	best, score := svc.findBestMatchingRepertoireFromStored(game, indexRepertoires([]models.Repertoire{repA}))
 
 	assert.Nil(t, best, "should not match any repertoire when opponent's first move is not covered")
 	assert.Equal(t, 0, score)
@@ -2364,4 +2702,71 @@ func TestAnalyzeTrainingMoves_BlackRepertoire(t *testing.T) {
 	// Nf3 -> out-of-book (leaf)
 	assert.Equal(t, "out-of-book", resp.Moves[2].Status)
 	assert.False(t, resp.Moves[2].IsUserMove)
+}
+
+// syntheticPGN returns a PGN string containing n games where the given
+// username plays White. Each game uses a distinct move so fingerprints differ.
+func syntheticPGN(username string, n int) string {
+	// A small pool of distinct legal opening lines so games are unique enough
+	// to produce distinct fingerprints.
+	openings := []string{
+		"1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 1-0",
+		"1. d4 d5 2. c4 e6 3. Nc3 Nf6 1-0",
+		"1. c4 e5 2. Nc3 Nf6 3. Nf3 Nc6 1-0",
+		"1. Nf3 d5 2. g3 g6 3. Bg2 Bg7 1-0",
+		"1. e4 c5 2. Nf3 d6 3. d4 cxd4 1-0",
+	}
+	var b strings.Builder
+	for i := 0; i < n; i++ {
+		fmt.Fprintf(&b, "[Event \"Game %d\"]\n", i)
+		b.WriteString("[Site \"Test\"]\n")
+		fmt.Fprintf(&b, "[Date \"2024.01.%02d\"]\n", (i%28)+1)
+		fmt.Fprintf(&b, "[White \"%s\"]\n", username)
+		fmt.Fprintf(&b, "[Black \"opponent%d\"]\n", i)
+		b.WriteString("[Result \"1-0\"]\n\n")
+		b.WriteString(openings[i%len(openings)])
+		b.WriteString("\n\n")
+	}
+	return b.String()
+}
+
+// TestParseAndAnalyze_RejectsTooManyGames verifies that an import exceeding
+// config.MaxGamesPerImport is rejected with ErrTooManyGames rather than being
+// allowed to proceed to the DB layer (where it could hit Postgres's
+// 65535-parameter limit).
+func TestParseAndAnalyze_RejectsTooManyGames(t *testing.T) {
+	repSvc := NewRepertoireService(&mocks.MockRepertoireRepo{})
+	svc := NewImportService(repSvc, &mocks.MockAnalysisRepo{})
+
+	pgn := syntheticPGN("bigimporter", config.MaxGamesPerImport+1)
+
+	_, _, err := svc.ParseAndAnalyze("big.pgn", "bigimporter", "user-1", pgn)
+
+	require.Error(t, err)
+	assert.ErrorIs(t, err, ErrTooManyGames)
+}
+
+// TestParseAndAnalyze_AcceptsAtLimit verifies the boundary: exactly
+// MaxGamesPerImport games is not rejected by the size guard. We keep the
+// repertoire/analysis mocks permissive so the call proceeds past the guard.
+func TestParseAndAnalyze_AcceptsAtLimit(t *testing.T) {
+	repSvc := NewRepertoireService(&mocks.MockRepertoireRepo{
+		GetByColorFunc: func(string, models.Color) ([]models.Repertoire, error) {
+			return nil, nil
+		},
+	})
+	analysisRepo := &mocks.MockAnalysisRepo{
+		SaveFunc: func(_ string, username, filename string, gameCount int, _ []models.GameAnalysis) (*models.AnalysisSummary, error) {
+			return &models.AnalysisSummary{ID: "a-1", Username: username, Filename: filename, GameCount: gameCount}, nil
+		},
+	}
+	svc := NewImportService(repSvc, analysisRepo)
+
+	pgn := syntheticPGN("atlimit", config.MaxGamesPerImport)
+
+	summary, _, err := svc.ParseAndAnalyze("limit.pgn", "atlimit", "user-1", pgn)
+
+	require.NoError(t, err)
+	require.NotNil(t, summary)
+	assert.Equal(t, config.MaxGamesPerImport, summary.GameCount)
 }

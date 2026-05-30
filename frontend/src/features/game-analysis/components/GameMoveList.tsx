@@ -11,6 +11,7 @@ interface GameMoveListProps {
   maxDisplayedIndex: number;
   onMoveClick: (index: number) => void;
   onAddToRepertoire?: (move: MoveAnalysis, moveIndex: number) => void;
+  addingToRepertoire?: boolean;
   onOpenInRepertoire?: (move: MoveAnalysis, moveIndex: number) => void;
   onCreateAndAdd?: (repertoireId: string) => void;
   onImportSuccess?: () => void;
@@ -27,6 +28,7 @@ export function GameMoveList({
   maxDisplayedIndex,
   onMoveClick,
   onAddToRepertoire,
+  addingToRepertoire = false,
   onOpenInRepertoire,
   onCreateAndAdd,
   onImportSuccess,
@@ -252,8 +254,10 @@ export function GameMoveList({
               variant="primary"
               size="sm"
               onClick={() => onAddToRepertoire(displayedMoves[currentMoveIndex], currentMoveIndex)}
+              loading={addingToRepertoire}
+              disabled={addingToRepertoire}
             >
-              {getAddButtonLabel(currentMoveIndex)}
+              {addingToRepertoire ? 'Adding…' : getAddButtonLabel(currentMoveIndex)}
             </Button>
           )}
         </div>

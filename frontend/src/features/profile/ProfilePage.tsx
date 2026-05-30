@@ -49,7 +49,7 @@ export function ProfilePage() {
     : deleteConfirmation.length >= 8;
 
   const handleDeleteAccount = useCallback(async () => {
-    if (!deleteConfirmationValid) return;
+    if (!deleteConfirmationValid || deleteLoading) return;
     setDeleteError('');
     setDeleteLoading(true);
     try {
@@ -70,7 +70,7 @@ export function ProfilePage() {
     } finally {
       setDeleteLoading(false);
     }
-  }, [deleteConfirmation, deleteConfirmationValid, isOAuthOnly, deleteAccount, navigate]);
+  }, [deleteConfirmation, deleteConfirmationValid, deleteLoading, isOAuthOnly, deleteAccount, navigate]);
 
   // Check if user has a password set
   useEffect(() => {
@@ -416,7 +416,7 @@ export function ProfilePage() {
                 data-lpignore="true"
                 className="w-full py-2 px-4 border border-border rounded-xl text-[0.9375rem] font-sans focus:outline-none focus:border-danger focus:ring-3 focus:ring-danger/20 mb-4"
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' && deleteConfirmationValid) {
+                  if (e.key === 'Enter' && deleteConfirmationValid && !deleteLoading) {
                     handleDeleteAccount();
                   }
                 }}

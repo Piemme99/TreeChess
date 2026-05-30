@@ -28,6 +28,10 @@ type appServices struct {
 	// engineSvc drives the background opening-analysis worker.
 	engineSvc *services.EngineService
 
+	// cleanupSvc drives the background worker that purges expired tokens and
+	// stale explorer cache entries.
+	cleanupSvc *services.CleanupService
+
 	// authSvc is needed by main() to build the JWT auth middleware.
 	authSvc *services.AuthService
 
@@ -75,6 +79,9 @@ func buildServices(cfg config.Config, db *repository.DB) *appServices {
 	// TrainingExplorerHandler when authenticated users request a position).
 	engineSvc := services.NewEngineService(engineEvalRepo, analysisRepo, openingCacheRepo)
 
+	// Periodic cleanup of expired refresh/reset tokens and stale explorer cache.
+	cleanupSvc := services.NewCleanupService(refreshTokenRepo, passwordResetRepo, openingCacheRepo, cfg.CleanupInterval)
+
 	// Services
 	authSvc := services.NewAuthService(userRepo, cfg.JWTSecret, cfg.JWTExpiry)
 	authSvc.WithRefreshTokens(refreshTokenRepo)
@@ -112,6 +119,7 @@ func buildServices(cfg config.Config, db *repository.DB) *appServices {
 
 	return &appServices{
 		engineSvc:               engineSvc,
+		cleanupSvc:              cleanupSvc,
 		authSvc:                 authSvc,
 		repertoireSvc:           repertoireSvc,
 		authHandler:             handlers.NewAuthHandler(authSvc, cfg.SecureCookies),
@@ -330,6 +338,9 @@ func main() {
 	// Start opening analysis worker
 	workerCtx, workerCancel := context.WithCancel(context.Background())
 	go svc.engineSvc.RunWorker(workerCtx)
+
+	// Start periodic cleanup worker (expired tokens + stale explorer cache)
+	go svc.cleanupSvc.RunWorker(workerCtx)
 
 	// Start metrics server in a goroutine
 	metricsAddr := fmt.Sprintf(":%d", cfg.MetricsPort)

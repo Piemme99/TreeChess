@@ -5,6 +5,8 @@ import (
 	"strings"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/kumquat/backend/config"
 )
 
 // PostgresFingerprintRepo implements GameFingerprintRepository using PostgreSQL
@@ -17,12 +19,31 @@ func NewPostgresFingerprintRepo(pool *pgxpool.Pool) *PostgresFingerprintRepo {
 	return &PostgresFingerprintRepo{pool: pool}
 }
 
-// CheckExisting returns which fingerprints already exist for the given user
+// CheckExisting returns which fingerprints already exist for the given user.
+// The lookup is chunked into batches of config.DBBatchSize so that a large
+// import never exceeds Postgres's 65535-parameter limit.
 func (r *PostgresFingerprintRepo) CheckExisting(userID string, fingerprints []string) (map[string]bool, error) {
+	existing := make(map[string]bool)
 	if len(fingerprints) == 0 {
-		return map[string]bool{}, nil
+		return existing, nil
 	}
 
+	for start := 0; start < len(fingerprints); start += config.DBBatchSize {
+		end := start + config.DBBatchSize
+		if end > len(fingerprints) {
+			end = len(fingerprints)
+		}
+		if err := r.checkExistingChunk(userID, fingerprints[start:end], existing); err != nil {
+			return nil, err
+		}
+	}
+
+	return existing, nil
+}
+
+// checkExistingChunk runs a single IN-clause lookup for one chunk of
+// fingerprints and records any matches into the provided map.
+func (r *PostgresFingerprintRepo) checkExistingChunk(userID string, fingerprints []string, existing map[string]bool) error {
 	ctx, cancel := dbContext()
 	defer cancel()
 
@@ -42,32 +63,48 @@ func (r *PostgresFingerprintRepo) CheckExisting(userID string, fingerprints []st
 
 	rows, err := r.pool.Query(ctx, query, params...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to check existing fingerprints: %w", err)
+		return fmt.Errorf("failed to check existing fingerprints: %w", err)
 	}
 	defer rows.Close()
 
-	existing := make(map[string]bool)
 	for rows.Next() {
 		var fp string
 		if err := rows.Scan(&fp); err != nil {
-			return nil, fmt.Errorf("failed to scan fingerprint: %w", err)
+			return fmt.Errorf("failed to scan fingerprint: %w", err)
 		}
 		existing[fp] = true
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("error iterating fingerprints: %w", err)
+		return fmt.Errorf("error iterating fingerprints: %w", err)
 	}
 
-	return existing, nil
+	return nil
 }
 
-// SaveBatch inserts multiple fingerprints in a single query
+// SaveBatch inserts multiple fingerprints, chunked into batches of
+// config.DBBatchSize so that a large import never exceeds Postgres's
+// 65535-parameter limit (4 parameters per row).
 func (r *PostgresFingerprintRepo) SaveBatch(userID, analysisID string, entries []FingerprintEntry) error {
 	if len(entries) == 0 {
 		return nil
 	}
 
+	for start := 0; start < len(entries); start += config.DBBatchSize {
+		end := start + config.DBBatchSize
+		if end > len(entries) {
+			end = len(entries)
+		}
+		if err := r.saveBatchChunk(userID, analysisID, entries[start:end]); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// saveBatchChunk inserts a single chunk of fingerprint entries in one query.
+func (r *PostgresFingerprintRepo) saveBatchChunk(userID, analysisID string, entries []FingerprintEntry) error {
 	ctx, cancel := dbContext()
 	defer cancel()
 

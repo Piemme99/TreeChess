@@ -298,11 +298,16 @@ func (s *RepertoireService) AddNode(userID, repertoireID string, req models.AddN
 	// Calculate colorToMove from resulting FEN
 	colorToMove := getColorToMoveFromFEN(resultingFEN)
 
+	// Derive MoveNumber server-side from the parent rather than trusting the
+	// client-supplied value: a wrong client value would silently corrupt the
+	// transposition key (which combines normalized FEN + MoveNumber).
+	moveNumber := deriveMoveNumber(parentNode)
+
 	newNode := &models.RepertoireNode{
 		ID:          uuid.New().String(),
 		FEN:         resultingFEN,
 		Move:        &req.Move,
-		MoveNumber:  req.MoveNumber,
+		MoveNumber:  moveNumber,
 		ColorToMove: colorToMove,
 		ParentID:    &req.ParentID,
 		Children:    []*models.RepertoireNode{},
@@ -437,6 +442,25 @@ func getColorToMoveFromFEN(fen string) models.ChessColor {
 		return models.ChessColorBlack
 	}
 	return models.ChessColorWhite
+}
+
+// deriveMoveNumber computes the full-move number of a move played from parent.
+// MoveNumber is the chess full-move counter of the move stored on the node, so:
+//   - playing a white move (parent has White to move) starts a new full move:
+//     parent.MoveNumber + 1
+//   - playing a black move (parent has Black to move) completes the current
+//     full move: parent.MoveNumber
+//
+// The parent's side to move is read from its FEN (always server-validated)
+// rather than the ColorToMove field, which may be unset on legacy nodes.
+func deriveMoveNumber(parent *models.RepertoireNode) int {
+	if parent == nil {
+		return 1
+	}
+	if getColorToMoveFromFEN(parent.FEN) == models.ChessColorWhite {
+		return parent.MoveNumber + 1
+	}
+	return parent.MoveNumber
 }
 
 func findNode(root *models.RepertoireNode, id string) *models.RepertoireNode {
