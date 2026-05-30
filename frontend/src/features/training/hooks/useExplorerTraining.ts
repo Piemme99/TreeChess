@@ -33,7 +33,7 @@ export interface MoveRecord {
   bestWinRate: number | null; // win rate of the best available move at this position
 }
 
-interface ExplorerState {
+export interface ExplorerState {
   phase: Phase;
   fen: string;
   orientation: 'white' | 'black';
@@ -47,13 +47,13 @@ interface ExplorerState {
   errorMessage: string | null;
 }
 
-interface UserMoveStats {
+export interface UserMoveStats {
   popularity?: number | null;
   winRate?: number | null;
   bestWinRate?: number | null;
 }
 
-type Action =
+export type Action =
   | { type: 'START_SESSION'; userColor: 'w' | 'b' }
   | { type: 'SET_USER_TURN'; feedbackMessage?: string; stats?: UserMoveStats }
   | { type: 'OPPONENT_MOVE_DONE'; san: string; from: string; to: string; resultFen: string; popularity: number | null; winRate: number | null; bestWinRate: number | null }
@@ -62,7 +62,7 @@ type Action =
   | { type: 'ERROR'; message: string }
   | { type: 'RESET' };
 
-const initialState: ExplorerState = {
+export const initialState: ExplorerState = {
   phase: 'idle',
   fen: STARTING_FEN,
   orientation: 'white',
@@ -76,14 +76,14 @@ const initialState: ExplorerState = {
   errorMessage: null,
 };
 
-function getVerdict(winRate: number): string {
+export function getVerdict(winRate: number): string {
   if (winRate >= 55) return 'Strong opening!';
   if (winRate >= 48) return 'Solid position';
   if (winRate >= 40) return 'Slightly passive';
   return 'Difficult position';
 }
 
-function updateLastMoveStats(history: MoveRecord[], stats: UserMoveStats): MoveRecord[] {
+export function updateLastMoveStats(history: MoveRecord[], stats: UserMoveStats): MoveRecord[] {
   if (history.length === 0) return history;
   const updated = [...history];
   const last = updated[updated.length - 1];
@@ -98,7 +98,7 @@ function updateLastMoveStats(history: MoveRecord[], stats: UserMoveStats): MoveR
 
 // --- Reducer ---
 
-function reducer(state: ExplorerState, action: Action): ExplorerState {
+export function reducer(state: ExplorerState, action: Action): ExplorerState {
   switch (action.type) {
     case 'START_SESSION': {
       const orientation = action.userColor === 'w' ? 'white' : 'black';

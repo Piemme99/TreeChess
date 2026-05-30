@@ -8,8 +8,24 @@ import {
   getLegalMoves,
   makeMove,
   createPositionFromFEN,
-  getMoveSAN
+  getMoveSAN,
+  ensureFullFEN,
+  getMainlineFEN
 } from './chess';
+import type { RepertoireNode } from '../../types';
+
+function node(partial: Partial<RepertoireNode>): RepertoireNode {
+  return {
+    id: 'n',
+    fen: STARTING_FEN,
+    move: null,
+    moveNumber: 0,
+    colorToMove: 'w',
+    parentId: null,
+    children: [],
+    ...partial,
+  } as RepertoireNode;
+}
 
 describe('STARTING_FEN', () => {
   it('should be the standard starting position', () => {
@@ -196,5 +212,77 @@ describe('getMoveSAN', () => {
     // May include check symbol if the promotion gives check
     expect(getMoveSAN(promoFen, 'a7', 'a8', 'q')).toMatch(/^a8=Q\+?$/);
     expect(getMoveSAN(promoFen, 'a7', 'a8', 'n')).toBe('a8=N');
+  });
+});
+
+describe('ensureFullFEN', () => {
+  it('leaves a complete 6-field FEN untouched', () => {
+    expect(ensureFullFEN(STARTING_FEN)).toBe(STARTING_FEN);
+  });
+
+  it('appends "0 1" to a 4-field FEN (short FEN)', () => {
+    const short = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -';
+    expect(ensureFullFEN(short)).toBe(`${short} 0 1`);
+  });
+
+  it('appends "0 1" to a 5-field FEN (boundary: still < 6 fields)', () => {
+    const five = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0';
+    // length === 5 → >= 4 branch → append "0 1"
+    expect(ensureFullFEN(five)).toBe(`${five} 0 1`);
+  });
+
+  it('returns the input unchanged when it has fewer than 4 fields', () => {
+    const board = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w';
+    expect(ensureFullFEN(board)).toBe(board);
+  });
+});
+
+describe('getMainlineFEN', () => {
+  // 1.e4 (mainline) with a 1.d4 sibling, then 1...e5 etc.
+  const fenE4 = makeMove(STARTING_FEN, 'e4')!;
+  const fenD4 = makeMove(STARTING_FEN, 'd4')!;
+  const fenE4E5 = makeMove(fenE4, 'e5')!;
+
+  it('returns the root FEN (full) when the root has no children', () => {
+    const root = node({ fen: getShortFEN(STARTING_FEN) });
+    // Short FEN gets completed to a full FEN.
+    expect(getMainlineFEN(root)).toBe(`${getShortFEN(STARTING_FEN)} 0 1`);
+  });
+
+  it('prefers the child flagged isMainLine over the first child', () => {
+    const root = node({
+      children: [
+        node({ id: 'd4', fen: fenD4, move: 'd4', colorToMove: 'b' }),
+        node({ id: 'e4', fen: fenE4, move: 'e4', colorToMove: 'b', isMainLine: true }),
+      ],
+    });
+    expect(getMainlineFEN(root, 1)).toBe(fenE4);
+  });
+
+  it('falls back to the first child when none is flagged isMainLine', () => {
+    const root = node({
+      children: [
+        node({ id: 'd4', fen: fenD4, move: 'd4', colorToMove: 'b' }),
+        node({ id: 'e4', fen: fenE4, move: 'e4', colorToMove: 'b' }),
+      ],
+    });
+    expect(getMainlineFEN(root, 1)).toBe(fenD4);
+  });
+
+  it('stops at maxDepth half-moves', () => {
+    const e5 = node({ id: 'e5', fen: fenE4E5, move: 'e5', colorToMove: 'w' });
+    const e4 = node({ id: 'e4', fen: fenE4, move: 'e4', colorToMove: 'b', children: [e5] });
+    const root = node({ children: [e4] });
+    // maxDepth 1 → stop after 1.e4, do not descend to 1...e5.
+    expect(getMainlineFEN(root, 1)).toBe(fenE4);
+    // maxDepth 2 → descend through both half-moves.
+    expect(getMainlineFEN(root, 2)).toBe(fenE4E5);
+  });
+
+  it('stops early when a node runs out of children before maxDepth', () => {
+    const e4 = node({ id: 'e4', fen: fenE4, move: 'e4', colorToMove: 'b' });
+    const root = node({ children: [e4] });
+    // Only one half-move available even though maxDepth is 6.
+    expect(getMainlineFEN(root, 6)).toBe(fenE4);
   });
 });
