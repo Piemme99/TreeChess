@@ -148,6 +148,14 @@ func (db *DB) runMigrations() error {
 		CREATE OR REPLACE FUNCTION check_repertoire_limit()
 		RETURNS TRIGGER AS $$
 		BEGIN
+			-- Serialize concurrent inserts for the same user before counting.
+			-- Without this, the COUNT(*) check below is a TOCTOU race: parallel
+			-- transactions each read a stale count under 50 and all insert,
+			-- overshooting the limit. The transaction-scoped advisory lock makes
+			-- same-user inserts mutually exclusive and is released automatically
+			-- at COMMIT/ROLLBACK. Different users hash to different keys, so they
+			-- do not contend.
+			PERFORM pg_advisory_xact_lock(hashtext('repertoire_limit:' || NEW.user_id::text));
 			IF (SELECT COUNT(*) FROM repertoires WHERE user_id = NEW.user_id) >= 50 THEN
 				RAISE EXCEPTION 'Maximum of 50 repertoires allowed';
 			END IF;

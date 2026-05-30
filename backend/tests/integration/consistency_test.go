@@ -162,8 +162,9 @@ func TestConcurrentRepertoireCreation_LimitRace(t *testing.T) {
 	repos := testDB.Repos()
 	user := testhelpers.SeedUser(t, repos, "raceuser", "password123")
 
-	// Create 49 repertoires first
-	for i := 0; i < 49; i++ {
+	// Seed 45 repertoires, leaving exactly 5 slots before the 50 limit.
+	const seeded = 45
+	for i := 0; i < seeded; i++ {
 		color := models.ColorWhite
 		if i%2 == 1 {
 			color = models.ColorBlack
@@ -172,11 +173,15 @@ func TestConcurrentRepertoireCreation_LimitRace(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	// 5 goroutines try to create the 50th and 51st simultaneously
+	// Many goroutines contend for the final 5 slots simultaneously. Without
+	// concurrency-safe limit enforcement, the trigger's COUNT(*) check is a
+	// TOCTOU race: parallel transactions each read a stale count below 50 and
+	// all insert, overshooting the limit.
+	const racers = 30
 	var wg sync.WaitGroup
-	successes := make(chan bool, 5)
+	successes := make(chan bool, racers)
 
-	for i := 0; i < 5; i++ {
+	for i := 0; i < racers; i++ {
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()
@@ -195,14 +200,15 @@ func TestConcurrentRepertoireCreation_LimitRace(t *testing.T) {
 		}
 	}
 
-	// At most 1 should succeed (50th slot), others should fail from trigger
-	assert.LessOrEqual(t, successCount, 1,
-		"at most 1 goroutine should succeed past the 50-repertoire limit")
+	// At most 5 should succeed (the remaining slots up to 50); the rest must be
+	// rejected by the limit trigger.
+	assert.LessOrEqual(t, successCount, 50-seeded,
+		"no goroutine should succeed past the 50-repertoire limit")
 
-	// Verify the final count is at most 50
+	// Verify the final count never exceeds the hard limit.
 	count, err := repos.Repertoire.Count(user.ID)
 	require.NoError(t, err)
-	assert.LessOrEqual(t, count, 50)
+	assert.LessOrEqual(t, count, 50, "repertoire count must never exceed the limit")
 }
 
 // countNodes recursively counts all nodes in a tree.
