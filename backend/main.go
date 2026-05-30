@@ -144,14 +144,28 @@ func buildServices(cfg config.Config, db *repository.DB) *appServices {
 	}
 }
 
+// proxyAwareIPExtractor derives the real client IP from the X-Forwarded-For
+// header while trusting only loopback, link-local and private-network hops (the
+// reverse proxy that fronts the app in the documented deployment). It walks
+// X-Forwarded-For from the proxy side inward and returns the nearest *untrusted*
+// address — i.e. the client IP as recorded by the trusted proxy — so a spoofed
+// client-supplied X-Forwarded-For entry cannot forge the rate-limit / logging
+// identity. With no proxy in front, it falls back to the TCP remote address.
+func proxyAwareIPExtractor() echo.IPExtractor {
+	return echo.ExtractIPFromXFFHeader(
+		echo.TrustLoopback(true),
+		echo.TrustLinkLocal(true),
+		echo.TrustPrivateNet(true),
+	)
+}
+
 // rateLimiter builds a per-IP, in-memory rate-limiter middleware that responds
 // with HTTP 429 and the given JSON error message when the limit is exceeded.
 //
-// Clients are keyed on ctx.RealIP(), which honours X-Forwarded-For. This is only
-// trustworthy when the app sits behind a reverse proxy that strips any
-// client-supplied X-Forwarded-For header before setting its own; deploying the
-// app directly on the public internet lets a client spoof the header and bypass
-// the limit. See the deployment notes in .env.example.
+// Clients are keyed on ctx.RealIP(). The server installs proxyAwareIPExtractor
+// (see newServer), so RealIP returns the real client IP recorded by the trusted
+// reverse proxy and a client-supplied X-Forwarded-For header cannot be used to
+// forge an identity and evade the limit. See the deployment notes in .env.example.
 func rateLimiter(rate float64, burst int, msg string) echo.MiddlewareFunc {
 	deny := func(ctx *echo.Context) error {
 		return ctx.JSON(http.StatusTooManyRequests, map[string]string{"error": msg})
@@ -295,6 +309,11 @@ func registerRoutes(e *echo.Echo, db *repository.DB, svc *appServices) {
 // routes. It is split out from main() so the wiring can be exercised in tests.
 func newServer(cfg config.Config, db *repository.DB, svc *appServices) *echo.Echo {
 	e := echo.New()
+
+	// Derive the client IP from X-Forwarded-For trusting only the reverse-proxy
+	// hop, so the rate limiter and request logger cannot be fooled by a
+	// client-supplied X-Forwarded-For header (see proxyAwareIPExtractor).
+	e.IPExtractor = proxyAwareIPExtractor()
 
 	// Middleware
 	e.Use(middleware.RequestLogger())
