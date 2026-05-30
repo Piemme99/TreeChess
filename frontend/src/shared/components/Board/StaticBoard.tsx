@@ -213,6 +213,7 @@ export const StaticBoard = memo(function StaticBoard({
       viewBox="0 0 360 360"
       className={className}
       style={{ width: '100%', height: '100%', display: 'block' }}
+      aria-hidden="true"
       dangerouslySetInnerHTML={{ __html: svgContent }}
     />
   );
