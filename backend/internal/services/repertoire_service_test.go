@@ -1927,6 +1927,116 @@ func TestRepertoireService_UpdateNodeBranchColor_RepertoireNotFound(t *testing.T
 	assert.ErrorIs(t, err, ErrNotFound)
 }
 
+// --- UpdateNodeAnnotations tests ---
+
+func annotationRepoWithNode() *mocks.MockRepertoireRepo {
+	return &mocks.MockRepertoireRepo{
+		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+			return &models.Repertoire{
+				ID: id,
+				TreeData: models.RepertoireNode{
+					ID:  "root",
+					FEN: "start",
+					Children: []*models.RepertoireNode{
+						{ID: "node-1", FEN: "fen1", Children: []*models.RepertoireNode{}},
+					},
+				},
+			}, nil
+		},
+		SaveFunc: func(id string, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
+			return &models.Repertoire{ID: id, TreeData: treeData}, nil
+		},
+	}
+}
+
+func TestRepertoireService_UpdateNodeAnnotations_Set(t *testing.T) {
+	svc := NewRepertoireService(annotationRepoWithNode())
+
+	arrows := []models.Arrow{{From: "e2", To: "e4", Color: "#15781B"}}
+	highlights := []models.SquareHighlight{{Square: "d4", Color: "#882020"}}
+
+	rep, err := svc.UpdateNodeAnnotations("user-1", "rep-1", "node-1", arrows, highlights)
+
+	require.NoError(t, err)
+	node := findNode(&rep.TreeData, "node-1")
+	require.NotNil(t, node)
+	require.Len(t, node.Arrows, 1)
+	assert.Equal(t, "e2", node.Arrows[0].From)
+	require.Len(t, node.Highlights, 1)
+	assert.Equal(t, "d4", node.Highlights[0].Square)
+}
+
+func TestRepertoireService_UpdateNodeAnnotations_Clear(t *testing.T) {
+	arrows := []models.Arrow{{From: "e2", To: "e4", Color: "#15781B"}}
+	mockRepo := &mocks.MockRepertoireRepo{
+		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+			return &models.Repertoire{
+				ID: id,
+				TreeData: models.RepertoireNode{
+					ID:  "root",
+					FEN: "start",
+					Children: []*models.RepertoireNode{
+						{ID: "node-1", FEN: "fen1", Arrows: arrows, Children: []*models.RepertoireNode{}},
+					},
+				},
+			}, nil
+		},
+		SaveFunc: func(id string, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
+			return &models.Repertoire{ID: id, TreeData: treeData}, nil
+		},
+	}
+	svc := NewRepertoireService(mockRepo)
+
+	rep, err := svc.UpdateNodeAnnotations("user-1", "rep-1", "node-1", nil, nil)
+
+	require.NoError(t, err)
+	node := findNode(&rep.TreeData, "node-1")
+	require.NotNil(t, node)
+	assert.Nil(t, node.Arrows)
+	assert.Nil(t, node.Highlights)
+}
+
+func TestRepertoireService_UpdateNodeAnnotations_InvalidColor(t *testing.T) {
+	svc := NewRepertoireService(annotationRepoWithNode())
+
+	arrows := []models.Arrow{{From: "e2", To: "e4", Color: "#FFFFFF"}}
+
+	_, err := svc.UpdateNodeAnnotations("user-1", "rep-1", "node-1", arrows, nil)
+
+	assert.ErrorIs(t, err, ErrInvalidAnnotation)
+}
+
+func TestRepertoireService_UpdateNodeAnnotations_InvalidSquare(t *testing.T) {
+	svc := NewRepertoireService(annotationRepoWithNode())
+
+	highlights := []models.SquareHighlight{{Square: "z9", Color: "#15781B"}}
+
+	_, err := svc.UpdateNodeAnnotations("user-1", "rep-1", "node-1", nil, highlights)
+
+	assert.ErrorIs(t, err, ErrInvalidAnnotation)
+}
+
+func TestRepertoireService_UpdateNodeAnnotations_NodeNotFound(t *testing.T) {
+	svc := NewRepertoireService(annotationRepoWithNode())
+
+	_, err := svc.UpdateNodeAnnotations("user-1", "rep-1", "nonexistent", nil, nil)
+
+	assert.ErrorIs(t, err, ErrNodeNotFound)
+}
+
+func TestRepertoireService_UpdateNodeAnnotations_RepertoireNotFound(t *testing.T) {
+	mockRepo := &mocks.MockRepertoireRepo{
+		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+			return nil, repository.ErrRepertoireNotFound
+		},
+	}
+	svc := NewRepertoireService(mockRepo)
+
+	_, err := svc.UpdateNodeAnnotations("user-1", "nonexistent", "node", nil, nil)
+
+	assert.ErrorIs(t, err, ErrNotFound)
+}
+
 func TestRepertoireService_ClearMainLine_RepertoireNotFound(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
 		GetByIDFunc: func(id string) (*models.Repertoire, error) {

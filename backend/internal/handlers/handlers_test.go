@@ -1093,6 +1093,77 @@ func TestUpdateNodeCommentHandler_Success(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rec.Code)
 }
 
+func TestUpdateNodeAnnotationsHandler_Success(t *testing.T) {
+	validUUID := "123e4567-e89b-12d3-a456-426614174000"
+	nodeUUID := "223e4567-e89b-12d3-a456-426614174000"
+	e := echo.New()
+	body := `{"arrows":[{"from":"e2","to":"e4","color":"#15781B"}],"highlights":[{"square":"d4","color":"#882020"}]}`
+	req := httptest.NewRequest(http.MethodPatch, "/api/repertoires/"+validUUID+"/nodes/"+nodeUUID+"/annotations", strings.NewReader(body))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.SetPathValues(echo.PathValues{{Name: "id", Value: validUUID}, {Name: "nodeId", Value: nodeUUID}})
+	setTestUserID(c)
+
+	mockRepo := &mocks.MockRepertoireRepo{
+		BelongsToUserFunc: func(id, userID string) (bool, error) { return true, nil },
+		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+			return &models.Repertoire{
+				ID: id,
+				TreeData: models.RepertoireNode{
+					ID:  "root",
+					FEN: "start",
+					Children: []*models.RepertoireNode{
+						{ID: nodeUUID, FEN: "fen1", Children: []*models.RepertoireNode{}},
+					},
+				},
+			}, nil
+		},
+		SaveFunc: func(id string, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
+			return &models.Repertoire{ID: id, TreeData: treeData, Metadata: metadata}, nil
+		},
+	}
+	svc := services.NewRepertoireService(mockRepo)
+	handler := UpdateNodeAnnotationsHandler(svc)
+	err := handler(c)
+
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, rec.Code)
+}
+
+func TestUpdateNodeAnnotationsHandler_InvalidAnnotation(t *testing.T) {
+	validUUID := "123e4567-e89b-12d3-a456-426614174000"
+	nodeUUID := "223e4567-e89b-12d3-a456-426614174000"
+	e := echo.New()
+	body := `{"arrows":[{"from":"e2","to":"e4","color":"#FFFFFF"}]}`
+	req := httptest.NewRequest(http.MethodPatch, "/api/repertoires/"+validUUID+"/nodes/"+nodeUUID+"/annotations", strings.NewReader(body))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.SetPathValues(echo.PathValues{{Name: "id", Value: validUUID}, {Name: "nodeId", Value: nodeUUID}})
+	setTestUserID(c)
+
+	mockRepo := &mocks.MockRepertoireRepo{
+		BelongsToUserFunc: func(id, userID string) (bool, error) { return true, nil },
+		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+			return &models.Repertoire{
+				ID: id,
+				TreeData: models.RepertoireNode{
+					ID:       "root",
+					FEN:      "start",
+					Children: []*models.RepertoireNode{{ID: nodeUUID, FEN: "fen1"}},
+				},
+			}, nil
+		},
+	}
+	svc := services.NewRepertoireService(mockRepo)
+	handler := UpdateNodeAnnotationsHandler(svc)
+	err := handler(c)
+
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
 func TestDeleteNodeHandler_CannotDeleteRoot(t *testing.T) {
 	e := echo.New()
 	validUUID := "123e4567-e89b-12d3-a456-426614174000"

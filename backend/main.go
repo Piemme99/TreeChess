@@ -207,6 +207,7 @@ func main() {
 	protected.PATCH("/api/repertoires/:id/nodes/:nodeId/comment", handlers.UpdateNodeCommentHandler(repertoireSvc))
 	protected.PATCH("/api/repertoires/:id/nodes/:nodeId/branch-name", handlers.UpdateNodeBranchNameHandler(repertoireSvc))
 	protected.PATCH("/api/repertoires/:id/nodes/:nodeId/branch-color", handlers.UpdateNodeBranchColorHandler(repertoireSvc))
+	protected.PATCH("/api/repertoires/:id/nodes/:nodeId/annotations", handlers.UpdateNodeAnnotationsHandler(repertoireSvc))
 	protected.POST("/api/repertoires/:id/nodes/:nodeId/toggle-collapsed", handlers.ToggleNodeCollapsedHandler(repertoireSvc))
 	protected.POST("/api/repertoires/:id/nodes/:nodeId/expand-to", handlers.ExpandToNodeHandler(repertoireSvc))
 	protected.POST("/api/repertoires/:id/nodes/:nodeId/set-main-line", handlers.SetMainLineHandler(repertoireSvc))

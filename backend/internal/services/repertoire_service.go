@@ -3,6 +3,7 @@ package services
 import (
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/google/uuid"
@@ -949,6 +950,64 @@ func (s *RepertoireService) UpdateNodeBranchColor(userID, repertoireID, nodeID, 
 		node.BranchColor = nil
 	} else {
 		node.BranchColor = &branchColor
+	}
+
+	metadata := calculateMetadata(rep.TreeData)
+	return s.repo.Save(repertoireID, userID, rep.TreeData, metadata)
+}
+
+// allowedAnnotationColors is the whitelist of valid annotation hex colors,
+// matching the Lichess palette produced by the PGN annotation parser.
+var allowedAnnotationColors = map[string]bool{
+	"#15781B": true, // green
+	"#882020": true, // red
+	"#003088": true, // blue
+	"#e68f00": true, // yellow
+}
+
+// annotationSquareRegex matches a valid algebraic board square (a1-h8).
+var annotationSquareRegex = regexp.MustCompile(`^[a-h][1-8]$`)
+
+// ErrInvalidAnnotation is returned when an arrow/highlight has an invalid square or color.
+var ErrInvalidAnnotation = fmt.Errorf("invalid annotation")
+
+// UpdateNodeAnnotations replaces the arrows and highlights on a specific node.
+// Both slices are validated (squares must be a1-h8, colors must be in the allowed
+// palette) and stored verbatim; empty slices clear the corresponding annotations.
+func (s *RepertoireService) UpdateNodeAnnotations(userID, repertoireID, nodeID string, arrows []models.Arrow, highlights []models.SquareHighlight) (*models.Repertoire, error) {
+	for _, a := range arrows {
+		if !annotationSquareRegex.MatchString(a.From) || !annotationSquareRegex.MatchString(a.To) || !allowedAnnotationColors[a.Color] {
+			return nil, fmt.Errorf("%w: arrow %s%s %s", ErrInvalidAnnotation, a.From, a.To, a.Color)
+		}
+	}
+	for _, h := range highlights {
+		if !annotationSquareRegex.MatchString(h.Square) || !allowedAnnotationColors[h.Color] {
+			return nil, fmt.Errorf("%w: highlight %s %s", ErrInvalidAnnotation, h.Square, h.Color)
+		}
+	}
+
+	rep, err := s.repo.GetByID(repertoireID)
+	if err != nil {
+		if errors.Is(err, repository.ErrRepertoireNotFound) {
+			return nil, fmt.Errorf("%w: %w", ErrNotFound, err)
+		}
+		return nil, err
+	}
+
+	node := findNode(&rep.TreeData, nodeID)
+	if node == nil {
+		return nil, fmt.Errorf("%w: %s", ErrNodeNotFound, nodeID)
+	}
+
+	if len(arrows) == 0 {
+		node.Arrows = nil
+	} else {
+		node.Arrows = arrows
+	}
+	if len(highlights) == 0 {
+		node.Highlights = nil
+	} else {
+		node.Highlights = highlights
 	}
 
 	metadata := calculateMetadata(rep.TreeData)
