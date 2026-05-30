@@ -17,15 +17,13 @@ func JWTAuth(validator TokenValidator) echo.MiddlewareFunc {
 		return func(c *echo.Context) error {
 			var tokenStr string
 
-			// Try Authorization header first (used by frontend for access token)
+			// Extract the access token from the Authorization header only.
+			// We intentionally do NOT fall back to a query param: putting the
+			// JWT in the URL leaks it into access logs, browser history, and
+			// the Referer header (see issue #124).
 			authHeader := c.Request().Header.Get("Authorization")
 			if after, ok := strings.CutPrefix(authHeader, "Bearer "); ok {
 				tokenStr = after
-			}
-
-			// Fallback to query param (for SSE/EventSource)
-			if tokenStr == "" {
-				tokenStr = c.QueryParam("token")
 			}
 
 			if tokenStr == "" {

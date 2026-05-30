@@ -164,34 +164,38 @@ describe('authStore', () => {
     });
   });
 
-  // --- handleOAuthToken ---
+  // --- completeOAuthLogin ---
 
-  describe('handleOAuthToken', () => {
-    it('sets token, fetches me, sets user on success', async () => {
+  // The OAuth callback no longer ships the JWT in the URL (issue #124); the
+  // frontend exchanges the httpOnly refresh cookie for an in-memory access
+  // token via authApi.refresh().
+  describe('completeOAuthLogin', () => {
+    it('exchanges the refresh cookie for a token and sets the user', async () => {
       const user = createUser();
-      mockAuthApi.me.mockResolvedValue(user);
+      mockAuthApi.refresh.mockResolvedValue(createAuthResponse({ user, token: 'oauth-access' }));
 
-      await getState().handleOAuthToken('oauth-token');
+      await getState().completeOAuthLogin();
 
-      expect(mockSetAccessToken).toHaveBeenCalledWith('oauth-token');
+      expect(mockAuthApi.refresh).toHaveBeenCalled();
+      expect(mockSetAccessToken).toHaveBeenCalledWith('oauth-access');
       expect(getState().user).toEqual(user);
       expect(getState().isAuthenticated).toBe(true);
       expect(getState().loading).toBe(false);
     });
 
     it('sets needsOnboarding when isNew is true', async () => {
-      mockAuthApi.me.mockResolvedValue(createUser());
+      mockAuthApi.refresh.mockResolvedValue(createAuthResponse({ user: createUser() }));
 
-      await getState().handleOAuthToken('oauth-token', true);
+      await getState().completeOAuthLogin(true);
 
       expect(getState().needsOnboarding).toBe(true);
     });
 
     it('triggers sync for returning OAuth user with platform usernames', async () => {
       const user = createUser({ lichessUsername: 'lichessUser' });
-      mockAuthApi.me.mockResolvedValue(user);
+      mockAuthApi.refresh.mockResolvedValue(createAuthResponse({ user }));
 
-      await getState().handleOAuthToken('oauth-token', false);
+      await getState().completeOAuthLogin(false);
 
       await vi.waitFor(() => {
         expect(mockSyncApi.sync).toHaveBeenCalled();
@@ -200,23 +204,24 @@ describe('authStore', () => {
 
     it('does NOT trigger sync for new OAuth user', async () => {
       const user = createUser({ lichessUsername: 'lichessUser' });
-      mockAuthApi.me.mockResolvedValue(user);
+      mockAuthApi.refresh.mockResolvedValue(createAuthResponse({ user }));
 
-      await getState().handleOAuthToken('oauth-token', true);
+      await getState().completeOAuthLogin(true);
 
       await new Promise((r) => setTimeout(r, 10));
       expect(mockSyncApi.sync).not.toHaveBeenCalled();
     });
 
-    it('clears token and sets error on me() failure', async () => {
-      mockAuthApi.me.mockRejectedValue(new Error('Invalid token'));
+    it('clears token and sets error when the refresh is rejected', async () => {
+      // 401 short-circuits the retry loop so the call fails fast.
+      mockAuthApi.refresh.mockRejectedValue({ response: { status: 401 } });
 
-      await expect(getState().handleOAuthToken('bad-token')).rejects.toThrow(
-        'Failed to verify OAuth token',
+      await expect(getState().completeOAuthLogin()).rejects.toThrow(
+        'Failed to complete OAuth sign-in',
       );
       expect(mockSetAccessToken).toHaveBeenCalledWith(null);
       expect(getState().isAuthenticated).toBe(false);
-      expect(getState().error).toBe('Failed to verify OAuth token');
+      expect(getState().error).toBe('Failed to complete OAuth sign-in');
     });
   });
 
