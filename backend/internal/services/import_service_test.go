@@ -11,6 +11,7 @@ import (
 
 	"github.com/kumquat/backend/config"
 	"github.com/kumquat/backend/internal/models"
+	"github.com/kumquat/backend/internal/repertoiretree"
 	"github.com/kumquat/backend/internal/repository"
 	"github.com/kumquat/backend/internal/repository/mocks"
 	"github.com/notnil/chess"
@@ -230,7 +231,7 @@ func TestBuildFENIndex_LookupMatchesFindNode(t *testing.T) {
 		},
 	}
 
-	index := buildFENIndex(&root)
+	index := repertoiretree.BuildFENIndex(&root)
 
 	// Every node reachable in the tree resolves to the same node the recursive
 	// search would return. findNodeInRepertoire takes root by value, so for the
@@ -255,7 +256,7 @@ func TestBuildFENIndex_MissingFEN(t *testing.T) {
 		FEN: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -",
 	}
 
-	index := buildFENIndex(&root)
+	index := repertoiretree.BuildFENIndex(&root)
 
 	node, ok := index["rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6"]
 	assert.False(t, ok)
@@ -280,7 +281,7 @@ func TestBuildFENIndex_TranspositionKeepsFirstPreOrderNode(t *testing.T) {
 		},
 	}
 
-	index := buildFENIndex(&root)
+	index := repertoiretree.BuildFENIndex(&root)
 
 	require.NotNil(t, index[sharedFEN])
 	assert.Equal(t, "first", index[sharedFEN].ID)
@@ -898,32 +899,32 @@ func TestExpectedMoveForNode(t *testing.T) {
 	c := "c"
 
 	t.Run("nil node", func(t *testing.T) {
-		assert.Equal(t, "", expectedMoveForNode(nil))
+		assert.Equal(t, "", repertoiretree.ExpectedMove(nil))
 	})
 
 	t.Run("no children", func(t *testing.T) {
-		assert.Equal(t, "", expectedMoveForNode(&models.RepertoireNode{}))
+		assert.Equal(t, "", repertoiretree.ExpectedMove(&models.RepertoireNode{}))
 	})
 
 	t.Run("falls back to first child when none is main line", func(t *testing.T) {
 		node := &models.RepertoireNode{Children: []*models.RepertoireNode{
 			{Move: &a}, {Move: &b},
 		}}
-		assert.Equal(t, "a", expectedMoveForNode(node))
+		assert.Equal(t, "a", repertoiretree.ExpectedMove(node))
 	})
 
 	t.Run("prefers main line over insertion order", func(t *testing.T) {
 		node := &models.RepertoireNode{Children: []*models.RepertoireNode{
 			{Move: &a}, {Move: &b, IsMainLine: true}, {Move: &c},
 		}}
-		assert.Equal(t, "b", expectedMoveForNode(node))
+		assert.Equal(t, "b", repertoiretree.ExpectedMove(node))
 	})
 
 	t.Run("skips children without a move", func(t *testing.T) {
 		node := &models.RepertoireNode{Children: []*models.RepertoireNode{
 			{Move: nil}, {Move: &b},
 		}}
-		assert.Equal(t, "b", expectedMoveForNode(node))
+		assert.Equal(t, "b", repertoiretree.ExpectedMove(node))
 	})
 }
 
@@ -1268,7 +1269,7 @@ func makeGameAnalysis(gameIndex int, headers models.PGNHeaders, moves []models.M
 
 func TestGetInsights_NoEngineService(t *testing.T) {
 	// Without engine service, GetInsights returns empty with engineAnalysisDone=true
-	svc := NewImportService(nil, nil)
+	svc := NewInsightsService(nil, nil)
 	insights, err := svc.GetInsights("user-1")
 
 	require.NoError(t, err)
@@ -1320,7 +1321,7 @@ func TestGetInsights_WithExplorerStats(t *testing.T) {
 	}
 
 	engineSvc := NewEngineService(mockEvalRepo, mockAnalysisRepo, nil)
-	svc := NewImportService(nil, mockAnalysisRepo, WithEngineService(engineSvc))
+	svc := NewInsightsService(nil, mockAnalysisRepo, WithInsightsEngineService(engineSvc))
 
 	insights, err := svc.GetInsights("user-1")
 
@@ -1378,7 +1379,7 @@ func TestGetInsights_RecurringMistake(t *testing.T) {
 	}
 
 	engineSvc := NewEngineService(mockEvalRepo, mockAnalysisRepo, nil)
-	svc := NewImportService(nil, mockAnalysisRepo, WithEngineService(engineSvc))
+	svc := NewInsightsService(nil, mockAnalysisRepo, WithInsightsEngineService(engineSvc))
 
 	insights, err := svc.GetInsights("user-1")
 
@@ -1404,7 +1405,7 @@ func TestGetInsights_Empty(t *testing.T) {
 	}
 
 	engineSvc := NewEngineService(mockEvalRepo, mockAnalysisRepo, nil)
-	svc := NewImportService(nil, mockAnalysisRepo, WithEngineService(engineSvc))
+	svc := NewInsightsService(nil, mockAnalysisRepo, WithInsightsEngineService(engineSvc))
 	insights, err := svc.GetInsights("user-1")
 
 	require.NoError(t, err)
@@ -2184,7 +2185,7 @@ func TestGetDashboardStats_OpeningErrorRate(t *testing.T) {
 	}
 
 	repSvc := NewRepertoireService(mockRepRepo)
-	svc := NewImportService(repSvc, mockAnalysisRepo)
+	svc := NewDashboardStatsService(repSvc, mockAnalysisRepo)
 
 	stats, err := svc.GetDashboardStats("user-1")
 	require.NoError(t, err)
@@ -2247,7 +2248,7 @@ func TestGetDashboardStats_OpponentGaps(t *testing.T) {
 	}
 
 	repSvc := NewRepertoireService(mockRepRepo)
-	svc := NewImportService(repSvc, mockAnalysisRepo)
+	svc := NewDashboardStatsService(repSvc, mockAnalysisRepo)
 
 	stats, err := svc.GetDashboardStats("user-1")
 	require.NoError(t, err)
@@ -2338,7 +2339,7 @@ func TestGetDashboardStats_BranchStats(t *testing.T) {
 	}
 
 	repSvc := NewRepertoireService(mockRepRepo)
-	svc := NewImportService(repSvc, mockAnalysisRepo)
+	svc := NewDashboardStatsService(repSvc, mockAnalysisRepo)
 
 	stats, err := svc.GetDashboardStats("user-1")
 	require.NoError(t, err)
@@ -2407,7 +2408,7 @@ func TestFindBranchForGame_FindsDeepestBranch(t *testing.T) {
 		{SAN: "Nf3", Status: "in-repertoire"},
 		{SAN: "d6", Status: "in-repertoire"},
 	}
-	assert.Equal(t, "Najdorf", findBranchForGame(root, moves1))
+	assert.Equal(t, "Najdorf", repertoiretree.FindBranch(root, moves1))
 
 	// Game goes e4 c5 Nf3 then out-of-book → should find "Sicilian"
 	moves2 := []models.MoveAnalysis{
@@ -2416,17 +2417,17 @@ func TestFindBranchForGame_FindsDeepestBranch(t *testing.T) {
 		{SAN: "Nf3", Status: "in-repertoire"},
 		{SAN: "Be7", Status: "out-of-book"},
 	}
-	assert.Equal(t, "Sicilian", findBranchForGame(root, moves2))
+	assert.Equal(t, "Sicilian", repertoiretree.FindBranch(root, moves2))
 
 	// Game goes e4 then opponent-new → no branch found (e4 node has no branch name)
 	moves3 := []models.MoveAnalysis{
 		{SAN: "e4", Status: "in-repertoire"},
 		{SAN: "d5", Status: "opponent-new"},
 	}
-	assert.Equal(t, "", findBranchForGame(root, moves3))
+	assert.Equal(t, "", repertoiretree.FindBranch(root, moves3))
 
 	// Empty moves → no branch
-	assert.Equal(t, "", findBranchForGame(root, nil))
+	assert.Equal(t, "", repertoiretree.FindBranch(root, nil))
 }
 
 func TestGetDashboardStats_EmptyData(t *testing.T) {
@@ -2436,7 +2437,7 @@ func TestGetDashboardStats_EmptyData(t *testing.T) {
 		},
 	}
 
-	svc := NewImportService(nil, mockAnalysisRepo)
+	svc := NewDashboardStatsService(nil, mockAnalysisRepo)
 
 	stats, err := svc.GetDashboardStats("user-1")
 	require.NoError(t, err)
@@ -2502,7 +2503,7 @@ func TestAnalyzeTrainingMoves_MatchesRepertoire(t *testing.T) {
 	}
 
 	repSvc := NewRepertoireService(mockRepRepo)
-	svc := NewImportService(repSvc, nil)
+	svc := NewTrainingService(repSvc)
 
 	resp, err := svc.AnalyzeTrainingMoves("user-1", []string{"e4", "e5", "Nf3", "Nc6"}, models.ColorWhite)
 
@@ -2540,7 +2541,7 @@ func TestAnalyzeTrainingMoves_NoMatchingRepertoire(t *testing.T) {
 	}
 
 	repSvc := NewRepertoireService(mockRepRepo)
-	svc := NewImportService(repSvc, nil)
+	svc := NewTrainingService(repSvc)
 
 	resp, err := svc.AnalyzeTrainingMoves("user-1", []string{"e4", "e5"}, models.ColorWhite)
 
@@ -2605,7 +2606,7 @@ func TestAnalyzeTrainingMoves_DetectsOutOfRepertoire(t *testing.T) {
 	}
 
 	repSvc := NewRepertoireService(mockRepRepo)
-	svc := NewImportService(repSvc, nil)
+	svc := NewTrainingService(repSvc)
 
 	// User plays Bc4 instead of Nf3
 	resp, err := svc.AnalyzeTrainingMoves("user-1", []string{"e4", "e5", "Bc4"}, models.ColorWhite)
@@ -2632,7 +2633,7 @@ func TestAnalyzeTrainingMoves_InvalidMove(t *testing.T) {
 	}
 
 	repSvc := NewRepertoireService(mockRepRepo)
-	svc := NewImportService(repSvc, nil)
+	svc := NewTrainingService(repSvc)
 
 	_, err := svc.AnalyzeTrainingMoves("user-1", []string{"e4", "e5", "INVALID"}, models.ColorWhite)
 
@@ -2682,7 +2683,7 @@ func TestAnalyzeTrainingMoves_BlackRepertoire(t *testing.T) {
 	}
 
 	repSvc := NewRepertoireService(mockRepRepo)
-	svc := NewImportService(repSvc, nil)
+	svc := NewTrainingService(repSvc)
 
 	resp, err := svc.AnalyzeTrainingMoves("user-1", []string{"e4", "e5", "Nf3"}, models.ColorBlack)
 
