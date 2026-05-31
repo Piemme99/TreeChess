@@ -218,6 +218,68 @@ func TestReanalyzeGame(t *testing.T) {
 	assert.Equal(t, d4Rep.ID, detail.Results[0].MatchedRepertoire.ID)
 }
 
+// TestReanalyze_InterleavedManualAndAuto_NoLostUpdate is the issue #120
+// regression test against a real PostgreSQL instance. It runs the manual
+// single-game path (ReanalyzeGame) and the auto reanalyze-all path
+// (ReanalyzeAllGames) concurrently against the same analysis many times. Both
+// perform a read-modify-write of the results JSONB; before the fix this was an
+// unguarded full-array overwrite that could silently drop a concurrent writer's
+// update. With the row-locked MutateResults transaction the writers serialize,
+// so every game must keep a repertoire match in the final persisted state — a
+// game reverting to its initial out-of-book / nil-match state would be the
+// signature of a lost update.
+func TestReanalyze_InterleavedManualAndAuto_NoLostUpdate(t *testing.T) {
+	testDB.TruncateAll(t)
+	repos := testDB.Repos()
+	user := testhelpers.SeedUser(t, repos, "raceuser", "password123")
+
+	repertoireSvc := services.NewRepertoireService(repos.Repertoire)
+	importSvc := services.NewImportService(repertoireSvc, repos.Analysis,
+		services.WithFingerprintRepo(repos.Fingerprint),
+	)
+
+	// Two white repertoires so the manual and auto paths assign different matches.
+	e4Rep, _ := repertoireSvc.CreateRepertoire(user.ID, "e4", models.ColorWhite)
+	_, _ = repertoireSvc.AddNode(user.ID, e4Rep.ID, models.AddNodeRequest{ParentID: e4Rep.TreeData.ID, Move: "e4", MoveNumber: 1})
+
+	d4Rep, _ := repertoireSvc.CreateRepertoire(user.ID, "d4", models.ColorWhite)
+	d4Rep, _ = repertoireSvc.AddNode(user.ID, d4Rep.ID, models.AddNodeRequest{ParentID: d4Rep.TreeData.ID, Move: "d4", MoveNumber: 1})
+
+	// Import a white game (e4 e5 ...), matched to the e4 repertoire.
+	pgn := testhelpers.SimplePGN("raceuser", "opponent")
+	summary, results, err := importSvc.ParseAndAnalyze("race.pgn", "raceuser", user.ID, pgn)
+	require.NoError(t, err)
+	require.Len(t, results, 1)
+
+	const iterations = 40
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	go func() {
+		defer wg.Done()
+		for i := 0; i < iterations; i++ {
+			_, err := importSvc.ReanalyzeGame(summary.ID, 0, d4Rep.ID)
+			assert.NoError(t, err)
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+		for i := 0; i < iterations; i++ {
+			_, err := importSvc.ReanalyzeAllGames(user.ID, false)
+			assert.NoError(t, err)
+		}
+	}()
+
+	wg.Wait()
+
+	detail, err := importSvc.GetAnalysisByID(summary.ID)
+	require.NoError(t, err)
+	require.Len(t, detail.Results, 1)
+	require.NotNil(t, detail.Results[0].MatchedRepertoire, "game lost its repertoire match (lost update)")
+	assert.Contains(t, []string{e4Rep.ID, d4Rep.ID}, detail.Results[0].MatchedRepertoire.ID)
+}
+
 func TestViewedGames_MarkIdempotent(t *testing.T) {
 	testDB.TruncateAll(t)
 	repos := testDB.Repos()

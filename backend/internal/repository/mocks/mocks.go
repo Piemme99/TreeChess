@@ -299,6 +299,7 @@ type MockAnalysisRepo struct {
 	DeleteFunc                 func(id string) error
 	GetAllGamesFunc            func(userID string, limit, offset int, timeClass, opening, source string, onlyNew bool) (*models.GamesResponse, error)
 	UpdateResultsFunc          func(analysisID string, results []models.GameAnalysis) error
+	MutateResultsFunc          func(analysisID string, mutate repository.ResultsMutator) error
 	BelongsToUserFunc          func(id string, userID string) (bool, error)
 	GetDistinctRepertoiresFunc func(userID string) ([]models.RepertoireFilterOption, error)
 	MarkGameViewedFunc         func(userID, analysisID string, gameIndex int) error
@@ -346,6 +347,60 @@ func (m *MockAnalysisRepo) UpdateResults(analysisID string, results []models.Gam
 		return m.UpdateResultsFunc(analysisID, results)
 	}
 	return nil
+}
+
+// MutateResults mimics the real repository's transactional read-modify-write.
+// When MutateResultsFunc is set it is used directly. Otherwise the mock resolves
+// the analysis's current results (via GetByIDFunc, falling back to a matching
+// entry from GetAllGamesRawFunc), runs the mutator, and persists the result via
+// UpdateResultsFunc when the mutator reports a change. This lets tests configured
+// only with GetByID/GetAllGamesRaw + UpdateResults exercise the mutate path
+// without extra wiring.
+func (m *MockAnalysisRepo) MutateResults(analysisID string, mutate repository.ResultsMutator) error {
+	if m.MutateResultsFunc != nil {
+		return m.MutateResultsFunc(analysisID, mutate)
+	}
+
+	current, err := m.resolveResults(analysisID)
+	if err != nil {
+		return err
+	}
+
+	updated, changed, err := mutate(current)
+	if err != nil {
+		return err
+	}
+	if !changed {
+		return nil
+	}
+	return m.UpdateResults(analysisID, updated)
+}
+
+// resolveResults reconstructs an analysis's current results for the default
+// MutateResults implementation, mirroring what a real SELECT ... FOR UPDATE
+// would return.
+func (m *MockAnalysisRepo) resolveResults(analysisID string) ([]models.GameAnalysis, error) {
+	if m.GetByIDFunc != nil {
+		detail, err := m.GetByIDFunc(analysisID)
+		if err != nil {
+			return nil, err
+		}
+		if detail != nil {
+			return detail.Results, nil
+		}
+	}
+	if m.GetAllGamesRawFunc != nil {
+		analyses, err := m.GetAllGamesRawFunc("")
+		if err != nil {
+			return nil, err
+		}
+		for i := range analyses {
+			if analyses[i].ID == analysisID {
+				return analyses[i].Results, nil
+			}
+		}
+	}
+	return nil, nil
 }
 
 func (m *MockAnalysisRepo) BelongsToUser(id string, userID string) (bool, error) {
