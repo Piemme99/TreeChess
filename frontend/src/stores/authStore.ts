@@ -172,7 +172,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       // Background sync is fire-and-forget from login/register/OAuth/onboarding,
       // so a toast on every failure would be intrusive. Surface the error via
       // `lastSyncError` (rendered non-intrusively on the Dashboard) and log it.
-      const message = getErrorMessage(err, 'Failed to sync games');
+      const message = getApiErrorMessage(err, 'Failed to sync games');
       console.warn('Game sync failed:', message);
       set({ syncing: false, lastSyncError: message });
     }

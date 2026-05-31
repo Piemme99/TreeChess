@@ -137,6 +137,7 @@ func GetRepertoireHandler(svc *services.RepertoireService) echo.HandlerFunc {
 			})
 		}
 
+		SetRepertoireETag(c, rep)
 		return c.JSON(http.StatusOK, rep)
 	}
 }
@@ -303,8 +304,17 @@ func AddNodeHandler(svc *services.RepertoireService) echo.HandlerFunc {
 			})
 		}
 
+		if ok, resp := checkIfMatch(c, svc, idParam); !ok {
+			return resp
+		}
+
 		rep, err := svc.AddNode(userID, idParam, req)
 		if err != nil {
+			if errors.Is(err, services.ErrConflict) {
+				return c.JSON(http.StatusConflict, map[string]string{
+					"error": "repertoire was modified by another write; please refresh",
+				})
+			}
 			if errors.Is(err, services.ErrNotFound) {
 				return c.JSON(http.StatusNotFound, map[string]string{
 					"error": "repertoire not found",
@@ -330,6 +340,7 @@ func AddNodeHandler(svc *services.RepertoireService) echo.HandlerFunc {
 			})
 		}
 
+		SetRepertoireETag(c, rep)
 		return c.JSON(http.StatusOK, rep)
 	}
 }
@@ -552,8 +563,17 @@ func MergeTranspositionsHandler(svc *services.RepertoireService) echo.HandlerFun
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "repertoire not found"})
 		}
 
+		if ok, resp := checkIfMatch(c, svc, idParam); !ok {
+			return resp
+		}
+
 		rep, err := svc.MergeTranspositions(userID, idParam)
 		if err != nil {
+			if errors.Is(err, services.ErrConflict) {
+				return c.JSON(http.StatusConflict, map[string]string{
+					"error": "repertoire was modified by another write; please refresh",
+				})
+			}
 			if errors.Is(err, services.ErrNotFound) {
 				return c.JSON(http.StatusNotFound, map[string]string{
 					"error": "repertoire not found",
@@ -564,6 +584,7 @@ func MergeTranspositionsHandler(svc *services.RepertoireService) echo.HandlerFun
 			})
 		}
 
+		SetRepertoireETag(c, rep)
 		return c.JSON(http.StatusOK, rep)
 	}
 }
@@ -603,24 +624,9 @@ func UpdateNodeCommentHandler(svc *services.RepertoireService) echo.HandlerFunc 
 			})
 		}
 
-		rep, err := svc.UpdateNodeComment(userID, idParam, nodeID, req.Comment)
-		if err != nil {
-			if errors.Is(err, services.ErrNotFound) {
-				return c.JSON(http.StatusNotFound, map[string]string{
-					"error": "repertoire not found",
-				})
-			}
-			if errors.Is(err, services.ErrNodeNotFound) {
-				return c.JSON(http.StatusNotFound, map[string]string{
-					"error": "node not found",
-				})
-			}
-			return c.JSON(http.StatusInternalServerError, map[string]string{
-				"error": "failed to update comment",
-			})
-		}
-
-		return c.JSON(http.StatusOK, rep)
+		return runNodeMutation(c, svc, idParam, func() (*models.Repertoire, error) {
+			return svc.UpdateNodeComment(userID, idParam, nodeID, req.Comment)
+		}, nil)
 	}
 }
 
@@ -659,24 +665,9 @@ func UpdateNodeBranchNameHandler(svc *services.RepertoireService) echo.HandlerFu
 			})
 		}
 
-		rep, err := svc.UpdateNodeBranchName(userID, idParam, nodeID, req.BranchName)
-		if err != nil {
-			if errors.Is(err, services.ErrNotFound) {
-				return c.JSON(http.StatusNotFound, map[string]string{
-					"error": "repertoire not found",
-				})
-			}
-			if errors.Is(err, services.ErrNodeNotFound) {
-				return c.JSON(http.StatusNotFound, map[string]string{
-					"error": "node not found",
-				})
-			}
-			return c.JSON(http.StatusInternalServerError, map[string]string{
-				"error": "failed to update branch name",
-			})
-		}
-
-		return c.JSON(http.StatusOK, rep)
+		return runNodeMutation(c, svc, idParam, func() (*models.Repertoire, error) {
+			return svc.UpdateNodeBranchName(userID, idParam, nodeID, req.BranchName)
+		}, nil)
 	}
 }
 
@@ -715,29 +706,16 @@ func UpdateNodeBranchColorHandler(svc *services.RepertoireService) echo.HandlerF
 			})
 		}
 
-		rep, err := svc.UpdateNodeBranchColor(userID, idParam, nodeID, req.BranchColor)
-		if err != nil {
-			if errors.Is(err, services.ErrNotFound) {
-				return c.JSON(http.StatusNotFound, map[string]string{
-					"error": "repertoire not found",
-				})
-			}
-			if errors.Is(err, services.ErrNodeNotFound) {
-				return c.JSON(http.StatusNotFound, map[string]string{
-					"error": "node not found",
-				})
-			}
+		return runNodeMutation(c, svc, idParam, func() (*models.Repertoire, error) {
+			return svc.UpdateNodeBranchColor(userID, idParam, nodeID, req.BranchColor)
+		}, func(err error) (bool, error) {
 			if errors.Is(err, services.ErrInvalidBranchColor) {
-				return c.JSON(http.StatusBadRequest, map[string]string{
+				return true, c.JSON(http.StatusBadRequest, map[string]string{
 					"error": "invalid branch color",
 				})
 			}
-			return c.JSON(http.StatusInternalServerError, map[string]string{
-				"error": "failed to update branch color",
-			})
-		}
-
-		return c.JSON(http.StatusOK, rep)
+			return false, nil
+		})
 	}
 }
 
@@ -777,29 +755,16 @@ func UpdateNodeAnnotationsHandler(svc *services.RepertoireService) echo.HandlerF
 			})
 		}
 
-		rep, err := svc.UpdateNodeAnnotations(userID, idParam, nodeID, req.Arrows, req.Highlights)
-		if err != nil {
-			if errors.Is(err, services.ErrNotFound) {
-				return c.JSON(http.StatusNotFound, map[string]string{
-					"error": "repertoire not found",
-				})
-			}
-			if errors.Is(err, services.ErrNodeNotFound) {
-				return c.JSON(http.StatusNotFound, map[string]string{
-					"error": "node not found",
-				})
-			}
+		return runNodeMutation(c, svc, idParam, func() (*models.Repertoire, error) {
+			return svc.UpdateNodeAnnotations(userID, idParam, nodeID, req.Arrows, req.Highlights)
+		}, func(err error) (bool, error) {
 			if errors.Is(err, services.ErrInvalidAnnotation) {
-				return c.JSON(http.StatusBadRequest, map[string]string{
+				return true, c.JSON(http.StatusBadRequest, map[string]string{
 					"error": "invalid annotation",
 				})
 			}
-			return c.JSON(http.StatusInternalServerError, map[string]string{
-				"error": "failed to update annotations",
-			})
-		}
-
-		return c.JSON(http.StatusOK, rep)
+			return false, nil
+		})
 	}
 }
 
@@ -829,24 +794,9 @@ func ToggleNodeCollapsedHandler(svc *services.RepertoireService) echo.HandlerFun
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "repertoire not found"})
 		}
 
-		rep, err := svc.ToggleNodeCollapsed(userID, idParam, nodeID)
-		if err != nil {
-			if errors.Is(err, services.ErrNotFound) {
-				return c.JSON(http.StatusNotFound, map[string]string{
-					"error": "repertoire not found",
-				})
-			}
-			if errors.Is(err, services.ErrNodeNotFound) {
-				return c.JSON(http.StatusNotFound, map[string]string{
-					"error": "node not found",
-				})
-			}
-			return c.JSON(http.StatusInternalServerError, map[string]string{
-				"error": "failed to toggle collapsed state",
-			})
-		}
-
-		return c.JSON(http.StatusOK, rep)
+		return runNodeMutation(c, svc, idParam, func() (*models.Repertoire, error) {
+			return svc.ToggleNodeCollapsed(userID, idParam, nodeID)
+		}, nil)
 	}
 }
 
@@ -876,24 +826,9 @@ func ExpandToNodeHandler(svc *services.RepertoireService) echo.HandlerFunc {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "repertoire not found"})
 		}
 
-		rep, err := svc.ExpandToNode(userID, idParam, nodeID)
-		if err != nil {
-			if errors.Is(err, services.ErrNotFound) {
-				return c.JSON(http.StatusNotFound, map[string]string{
-					"error": "repertoire not found",
-				})
-			}
-			if errors.Is(err, services.ErrNodeNotFound) {
-				return c.JSON(http.StatusNotFound, map[string]string{
-					"error": "node not found",
-				})
-			}
-			return c.JSON(http.StatusInternalServerError, map[string]string{
-				"error": "failed to expand to node",
-			})
-		}
-
-		return c.JSON(http.StatusOK, rep)
+		return runNodeMutation(c, svc, idParam, func() (*models.Repertoire, error) {
+			return svc.ExpandToNode(userID, idParam, nodeID)
+		}, nil)
 	}
 }
 
@@ -923,24 +858,9 @@ func SetMainLineHandler(svc *services.RepertoireService) echo.HandlerFunc {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "repertoire not found"})
 		}
 
-		rep, err := svc.SetMainLine(userID, idParam, nodeID)
-		if err != nil {
-			if errors.Is(err, services.ErrNotFound) {
-				return c.JSON(http.StatusNotFound, map[string]string{
-					"error": "repertoire not found",
-				})
-			}
-			if errors.Is(err, services.ErrNodeNotFound) {
-				return c.JSON(http.StatusNotFound, map[string]string{
-					"error": "node not found",
-				})
-			}
-			return c.JSON(http.StatusInternalServerError, map[string]string{
-				"error": "failed to set main line",
-			})
-		}
-
-		return c.JSON(http.StatusOK, rep)
+		return runNodeMutation(c, svc, idParam, func() (*models.Repertoire, error) {
+			return svc.SetMainLine(userID, idParam, nodeID)
+		}, nil)
 	}
 }
 
@@ -962,19 +882,9 @@ func ClearMainLineHandler(svc *services.RepertoireService) echo.HandlerFunc {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "repertoire not found"})
 		}
 
-		rep, err := svc.ClearMainLine(userID, idParam)
-		if err != nil {
-			if errors.Is(err, services.ErrNotFound) {
-				return c.JSON(http.StatusNotFound, map[string]string{
-					"error": "repertoire not found",
-				})
-			}
-			return c.JSON(http.StatusInternalServerError, map[string]string{
-				"error": "failed to clear main line",
-			})
-		}
-
-		return c.JSON(http.StatusOK, rep)
+		return runNodeMutation(c, svc, idParam, func() (*models.Repertoire, error) {
+			return svc.ClearMainLine(userID, idParam)
+		}, nil)
 	}
 }
 
@@ -1004,29 +914,16 @@ func DeleteNodeHandler(svc *services.RepertoireService) echo.HandlerFunc {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "repertoire not found"})
 		}
 
-		rep, err := svc.DeleteNode(userID, idParam, nodeID)
-		if err != nil {
-			if errors.Is(err, services.ErrNotFound) {
-				return c.JSON(http.StatusNotFound, map[string]string{
-					"error": "repertoire not found",
-				})
-			}
+		return runNodeMutation(c, svc, idParam, func() (*models.Repertoire, error) {
+			return svc.DeleteNode(userID, idParam, nodeID)
+		}, func(err error) (bool, error) {
 			if errors.Is(err, services.ErrCannotDeleteRoot) {
-				return c.JSON(http.StatusBadRequest, map[string]string{
+				return true, c.JSON(http.StatusBadRequest, map[string]string{
 					"error": "cannot delete root node",
 				})
 			}
-			if errors.Is(err, services.ErrNodeNotFound) {
-				return c.JSON(http.StatusNotFound, map[string]string{
-					"error": "node not found",
-				})
-			}
-			return c.JSON(http.StatusInternalServerError, map[string]string{
-				"error": "failed to delete node",
-			})
-		}
-
-		return c.JSON(http.StatusOK, rep)
+			return false, nil
+		})
 	}
 }
 
