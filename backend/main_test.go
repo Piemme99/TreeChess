@@ -116,3 +116,32 @@ func TestNewServer_RegistersRoutes(t *testing.T) {
 	assert.Equal(t, http.StatusUnauthorized, protected.Code,
 		"protected route should be registered and require auth")
 }
+
+// TestProxyAwareIPExtractor_IgnoresSpoofedXFF guards the rate-limiter identity
+// against X-Forwarded-For spoofing. In the documented deployment, nginx appends
+// the real client IP to any client-supplied X-Forwarded-For ($proxy_add_x_forwarded_for)
+// and connects to the backend from a private Docker address. The extractor must
+// trust only that proxy hop and return the real client IP, never the attacker's
+// left-most forged entry — otherwise a client could rotate the header to evade
+// the per-IP rate limit and brute-force the auth endpoints.
+func TestProxyAwareIPExtractor_IgnoresSpoofedXFF(t *testing.T) {
+	extract := proxyAwareIPExtractor()
+
+	t.Run("returns real client and ignores spoofed left-most XFF", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		// nginx (private Docker IP) is the trusted peer it connects from.
+		req.RemoteAddr = "172.18.0.5:54321"
+		// Attacker forged "1.2.3.4"; nginx appended the real client "203.0.113.7".
+		req.Header.Set("X-Forwarded-For", "1.2.3.4, 203.0.113.7")
+
+		got := extract(req)
+		assert.Equal(t, "203.0.113.7", got, "must use the proxy-recorded client IP")
+		assert.NotEqual(t, "1.2.3.4", got, "must never trust the client-supplied left-most XFF entry")
+	})
+
+	t.Run("falls back to remote address when no XFF is present", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		req.RemoteAddr = "203.0.113.7:443"
+		assert.Equal(t, "203.0.113.7", extract(req))
+	})
+}

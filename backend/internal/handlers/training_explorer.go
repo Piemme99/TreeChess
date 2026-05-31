@@ -118,4 +118,3 @@ func mapFetchError(c *echo.Context, err error) error {
 		"code":  "upstream_error",
 	})
 }
-

@@ -10,6 +10,9 @@ type RefreshToken struct {
 	TokenHash string    `json:"-"`
 	ExpiresAt time.Time `json:"expiresAt"`
 	CreatedAt time.Time `json:"createdAt"`
+	// Consumed marks a token that was rotated out. A consumed token presented again
+	// indicates reuse/theft and triggers family-wide revocation.
+	Consumed bool `json:"-"`
 }
 
 // TokenPair holds an access token (JWT) and a raw refresh token

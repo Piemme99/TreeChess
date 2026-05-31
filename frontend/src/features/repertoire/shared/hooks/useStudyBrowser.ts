@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { studyApi } from '../../../../services/api';
+import { getApiErrorMessage } from '../../../../shared/utils/apiError';
 import type { LichessStudyResult, LichessStudyPaginator, StudyBrowseOrder } from '../../../../types';
 
 export interface UseStudyBrowserReturn {
@@ -43,8 +44,7 @@ export function useStudyBrowser(): UseStudyBrowserReturn {
       setResults(data.paginator.currentPageResults);
       setPaginator(data.paginator);
     } catch (err) {
-      const axiosError = err as { response?: { data?: { error?: string } } };
-      setError(axiosError.response?.data?.error || 'Failed to load studies');
+      setError(getApiErrorMessage(err, 'Failed to load studies'));
       setResults([]);
       setPaginator(null);
     } finally {

@@ -16,12 +16,26 @@ var (
 	ErrExplorerUnavailable  = errors.New("lichess explorer is unavailable")
 )
 
+// RateLimitedError reports an upstream HTTP 429. RetryAfterSeconds carries the
+// parsed Retry-After header (0 when absent). An optional wrapped sentinel (e.g.
+// ErrLichessRateLimited) lets callers keep using errors.Is for platform-specific
+// handling while still extracting the retry delay via errors.As.
 type RateLimitedError struct {
 	RetryAfterSeconds int
+	wrapped           error
 }
 
 func (e *RateLimitedError) Error() string {
+	if e.wrapped != nil {
+		return fmt.Sprintf("%s (retry after %ds)", e.wrapped.Error(), e.RetryAfterSeconds)
+	}
 	return fmt.Sprintf("lichess explorer rate-limited (retry after %ds)", e.RetryAfterSeconds)
+}
+
+// Unwrap exposes the wrapped sentinel so errors.Is(err, ErrLichessRateLimited)
+// (and the chess.com equivalent) still matches.
+func (e *RateLimitedError) Unwrap() error {
+	return e.wrapped
 }
 
 type OpeningQuery struct {

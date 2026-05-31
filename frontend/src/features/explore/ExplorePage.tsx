@@ -4,7 +4,7 @@ import { Compass, Search } from 'lucide-react';
 import { useExploreStore } from '../../stores/exploreStore';
 import { ExploreRepertoireCard } from './ExploreRepertoireCard';
 import { StarterTemplateCard } from './StarterTemplateCard';
-import { Loading, EmptyState } from '../../shared/components/UI';
+import { Loading, EmptyState, Button } from '../../shared/components/UI';
 import type { Color } from '../../types';
 
 type ColorFilter = Color | 'all';
@@ -15,6 +15,7 @@ export function ExplorePage() {
     publicRepertoires,
     starterTemplates,
     loading,
+    error,
     fetchPublicRepertoires,
     fetchStarterTemplates,
     importRepertoire,
@@ -24,6 +25,7 @@ export function ExplorePage() {
       publicRepertoires: s.publicRepertoires,
       starterTemplates: s.starterTemplates,
       loading: s.loading,
+      error: s.error,
       fetchPublicRepertoires: s.fetchPublicRepertoires,
       fetchStarterTemplates: s.fetchStarterTemplates,
       importRepertoire: s.importRepertoire,
@@ -133,6 +135,20 @@ export function ExplorePage() {
         </div>
       </div>
 
+      {/* Fetch error — distinguishes a network/backend failure from a genuinely
+          empty community list, with a retry that re-runs the failed fetch. */}
+      {error && !loading && publicRepertoires.length === 0 && (
+        <EmptyState
+          icon="⚠️"
+          title="Couldn't load repertoires"
+          description={error.message || 'Something went wrong while loading public repertoires.'}
+        >
+          <Button variant="primary" onClick={() => fetchPublicRepertoires()}>
+            Retry
+          </Button>
+        </EmptyState>
+      )}
+
       {/* Search and filters */}
       {hasAnyContent && (
         <div className="flex items-center gap-3 mb-6">
@@ -185,7 +201,7 @@ export function ExplorePage() {
       )}
 
       {/* Empty state - nothing at all */}
-      {!hasAnyContent && !loading && (
+      {!hasAnyContent && !loading && !error && (
         <EmptyState
           icon="🧭"
           title="No public repertoires yet"

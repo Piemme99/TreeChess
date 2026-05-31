@@ -12,7 +12,7 @@ import { CategorySection } from './CategorySection';
 import { MergeSlot } from './MergeSlot';
 import { RepertoireCard } from './RepertoireCard';
 
-interface RepertoireSelectorProps {
+interface RepertoireManagerProps {
   color: Color;
   repertoires: Repertoire[];
   categories: Category[];
@@ -77,7 +77,7 @@ function DroppableUncategorized({
   );
 }
 
-export function RepertoireSelector({ color, repertoires, categories, onImportStudy }: RepertoireSelectorProps) {
+export function RepertoireManager({ color, repertoires, categories, onImportStudy }: RepertoireManagerProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const {

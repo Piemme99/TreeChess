@@ -3,6 +3,7 @@ import type { Repertoire, ExploreTemplate, ApiError } from '../types';
 import { exploreApi } from '../services/api';
 import { toast } from './toastStore';
 import { useRepertoireStore } from './repertoireStore';
+import { getApiErrorMessage } from '../shared/utils/apiError';
 
 interface ExploreState {
   publicRepertoires: Repertoire[];
@@ -39,8 +40,10 @@ export const useExploreStore = create<ExploreState>((set) => ({
     try {
       const templates = await exploreApi.listTemplates();
       set({ starterTemplates: templates });
-    } catch {
-      // Silently fail — starter templates are non-critical
+    } catch (err) {
+      // Starter templates are non-critical content, so don't toast — but log
+      // so the failure isn't entirely silent and can be diagnosed.
+      console.warn('Failed to fetch starter templates:', err);
     }
   },
 
@@ -52,8 +55,7 @@ export const useExploreStore = create<ExploreState>((set) => ({
       toast.success('Repertoire imported successfully');
       return imported;
     } catch (err) {
-      const message = (err as { response?: { data?: { error?: string } } })?.response?.data?.error
-        || 'Failed to import repertoire';
+      const message = getApiErrorMessage(err, 'Failed to import repertoire');
       toast.error(message);
       throw err;
     }
@@ -66,8 +68,7 @@ export const useExploreStore = create<ExploreState>((set) => ({
       toast.success('Repertoire imported successfully');
       return imported;
     } catch (err) {
-      const message = (err as { response?: { data?: { error?: string } } })?.response?.data?.error
-        || 'Failed to import template';
+      const message = getApiErrorMessage(err, 'Failed to import template');
       toast.error(message);
       throw err;
     }
