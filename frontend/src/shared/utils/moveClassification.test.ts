@@ -8,6 +8,7 @@ import {
   getMoveQualityDisplay,
   formatCpScore,
   formatEval,
+  normalizeEvalForUser,
   normalizeEvalForWhite,
 } from './moveClassification';
 
@@ -268,6 +269,51 @@ describe('formatEval', () => {
 
   it('prefers mate over cp when both present', () => {
     expect(formatEval(150, 3)).toBe('+M3');
+  });
+});
+
+describe('normalizeEvalForUser', () => {
+  it('keeps the score when side-to-move equals the user color (white)', () => {
+    expect(normalizeEvalForUser(120, null, 'w', 'w')).toEqual({ score: 120, mate: null });
+  });
+
+  it('keeps the score when side-to-move equals the user color (black)', () => {
+    expect(normalizeEvalForUser(120, null, 'b', 'b')).toEqual({ score: 120, mate: null });
+  });
+
+  it('flips the score for a white user when black is to move', () => {
+    expect(normalizeEvalForUser(120, null, 'b', 'w')).toEqual({ score: -120, mate: null });
+  });
+
+  it('flips the score for a black user when white is to move', () => {
+    expect(normalizeEvalForUser(120, null, 'w', 'b')).toEqual({ score: -120, mate: null });
+  });
+
+  it('flips mate for a white user when black is to move', () => {
+    expect(normalizeEvalForUser(null, 4, 'b', 'w')).toEqual({ score: null, mate: -4 });
+  });
+
+  it('flips mate for a black user when white is to move', () => {
+    expect(normalizeEvalForUser(null, 4, 'w', 'b')).toEqual({ score: null, mate: -4 });
+  });
+
+  it('preserves mate sign when side-to-move equals the user color', () => {
+    expect(normalizeEvalForUser(null, -2, 'b', 'b')).toEqual({ score: null, mate: -2 });
+  });
+
+  it('handles a negative score with a flip', () => {
+    expect(normalizeEvalForUser(-300, null, 'b', 'w')).toEqual({ score: 300, mate: null });
+  });
+
+  it('passes null score and mate through unchanged (both perspectives)', () => {
+    expect(normalizeEvalForUser(null, null, 'w', 'w')).toEqual({ score: null, mate: null });
+    expect(normalizeEvalForUser(null, null, 'w', 'b')).toEqual({ score: null, mate: null });
+  });
+
+  it('treats a 0 score as present (not null) and flips it to -0', () => {
+    const result = normalizeEvalForUser(0, null, 'b', 'w');
+    expect(result.score).toBe(-0);
+    expect(result.mate).toBeNull();
   });
 });
 

@@ -21,19 +21,19 @@ export const GameNavigation = memo(function GameNavigation({
 }: GameNavigationProps) {
   return (
     <div className="flex items-center justify-center gap-2 py-3 mt-4">
-      <button className={navBtnClass} onClick={goFirst} disabled={currentMoveIndex === -1}>
+      <button className={navBtnClass} onClick={goFirst} disabled={currentMoveIndex === -1} aria-label="Go to start">
         ⟪
       </button>
-      <button className={navBtnClass} onClick={goPrev} disabled={currentMoveIndex === -1}>
+      <button className={navBtnClass} onClick={goPrev} disabled={currentMoveIndex === -1} aria-label="Previous move">
         ⟨
       </button>
       <span className="font-mono text-sm text-text-muted min-w-[120px] text-center">
         Move {currentMoveIndex + 1} / {maxDisplayedMoveIndex + 1}
       </span>
-      <button className={navBtnClass} onClick={goNext} disabled={currentMoveIndex >= maxDisplayedMoveIndex}>
+      <button className={navBtnClass} onClick={goNext} disabled={currentMoveIndex >= maxDisplayedMoveIndex} aria-label="Next move">
         ⟩
       </button>
-      <button className={navBtnClass} onClick={goLast} disabled={currentMoveIndex >= maxDisplayedMoveIndex}>
+      <button className={navBtnClass} onClick={goLast} disabled={currentMoveIndex >= maxDisplayedMoveIndex} aria-label="Go to end">
         ⟫
       </button>
     </div>
