@@ -19,17 +19,17 @@ import (
 
 // Repos holds all real repository implementations for integration tests.
 type Repos struct {
-	User                  *repository.PostgresUserRepo
-	Repertoire            *repository.PostgresRepertoireRepo
-	Analysis              *repository.PostgresAnalysisRepo
-	Fingerprint           *repository.PostgresFingerprintRepo
-	EngineEval            *repository.PostgresEngineEvalRepo
-	RefreshToken          *repository.PostgresRefreshTokenRepo
-	PasswordReset         *repository.PostgresPasswordResetRepo
-	Category              *repository.PostgresCategoryRepo
-	DismissedMistake      *repository.DismissedMistakeRepo
-	DismissedGap          *repository.DismissedGapRepo
-	OpeningExplorerCache  *repository.PostgresOpeningExplorerCacheRepo
+	User                 *repository.PostgresUserRepo
+	Repertoire           *repository.PostgresRepertoireRepo
+	Analysis             *repository.PostgresAnalysisRepo
+	Fingerprint          *repository.PostgresFingerprintRepo
+	EngineEval           *repository.PostgresEngineEvalRepo
+	RefreshToken         *repository.PostgresRefreshTokenRepo
+	PasswordReset        *repository.PostgresPasswordResetRepo
+	Category             *repository.PostgresCategoryRepo
+	DismissedMistake     *repository.DismissedMistakeRepo
+	DismissedGap         *repository.DismissedGapRepo
+	OpeningExplorerCache *repository.PostgresOpeningExplorerCacheRepo
 }
 
 // TestDB wraps a testcontainer PostgreSQL instance with a connection pool and repos.
@@ -120,7 +120,7 @@ func (tdb *TestDB) TruncateAll(t *testing.T) {
 
 	_, err := tdb.Pool.Exec(ctx,
 		`TRUNCATE TABLE
-			engine_evals, viewed_games, game_fingerprints, analyses,
+			games, engine_evals, viewed_games, game_fingerprints, analyses,
 			dismissed_mistakes, dismissed_gaps,
 			refresh_tokens, password_reset_tokens,
 			opening_explorer_cache,
