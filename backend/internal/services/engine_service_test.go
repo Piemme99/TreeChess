@@ -123,7 +123,7 @@ func TestProcessPending_ClaimsAndSaves(t *testing.T) {
 		},
 	}
 	mockAnalysisRepo := &mocks.MockAnalysisRepo{
-		GetByIDFunc: func(id string) (*models.AnalysisDetail, error) {
+		GetByIDFunc: func(_ context.Context, id string) (*models.AnalysisDetail, error) {
 			return &models.AnalysisDetail{
 				Results: []models.GameAnalysis{{GameIndex: 0, UserColor: models.ColorWhite}},
 			}, nil
@@ -148,7 +148,7 @@ func TestProcessPending_AnalyzeErrorMarksFailed(t *testing.T) {
 		},
 	}
 	mockAnalysisRepo := &mocks.MockAnalysisRepo{
-		GetByIDFunc: func(id string) (*models.AnalysisDetail, error) {
+		GetByIDFunc: func(_ context.Context, id string) (*models.AnalysisDetail, error) {
 			return nil, errors.New("analysis not found")
 		},
 	}
@@ -161,7 +161,7 @@ func TestProcessPending_AnalyzeErrorMarksFailed(t *testing.T) {
 
 func TestGetInsightsData_ProcessingCountsAsIncomplete(t *testing.T) {
 	mockEvalRepo := &mocks.MockEngineEvalRepo{
-		GetByUserFunc: func(userID string) ([]models.EngineEval, error) {
+		GetByUserFunc: func(_ context.Context, userID string) ([]models.EngineEval, error) {
 			return []models.EngineEval{
 				{ID: "1", Status: "done"},
 				{ID: "2", Status: "done"},
@@ -172,7 +172,7 @@ func TestGetInsightsData_ProcessingCountsAsIncomplete(t *testing.T) {
 	mockAnalysisRepo := &mocks.MockAnalysisRepo{}
 
 	svc := NewEngineService(mockEvalRepo, mockAnalysisRepo, newStubExplorerCache())
-	data, err := svc.GetInsightsData("user-1")
+	data, err := svc.GetInsightsData(context.Background(), "user-1")
 
 	assert.NoError(t, err)
 	assert.Equal(t, 3, data.Total)
@@ -182,7 +182,7 @@ func TestGetInsightsData_ProcessingCountsAsIncomplete(t *testing.T) {
 
 func TestGetInsightsData_AllDoneWhenAllCompleted(t *testing.T) {
 	mockEvalRepo := &mocks.MockEngineEvalRepo{
-		GetByUserFunc: func(userID string) ([]models.EngineEval, error) {
+		GetByUserFunc: func(_ context.Context, userID string) ([]models.EngineEval, error) {
 			return []models.EngineEval{
 				{ID: "1", Status: "done"},
 				{ID: "2", Status: "failed"},
@@ -193,7 +193,7 @@ func TestGetInsightsData_AllDoneWhenAllCompleted(t *testing.T) {
 	mockAnalysisRepo := &mocks.MockAnalysisRepo{}
 
 	svc := NewEngineService(mockEvalRepo, mockAnalysisRepo, newStubExplorerCache())
-	data, err := svc.GetInsightsData("user-1")
+	data, err := svc.GetInsightsData(context.Background(), "user-1")
 
 	assert.NoError(t, err)
 	assert.Equal(t, 3, data.Total)
@@ -207,7 +207,7 @@ func TestEngineService_FetchExplorer_CacheHitReturnsStats(t *testing.T) {
 
 	svc := NewEngineService(&mocks.MockEngineEvalRepo{}, &mocks.MockAnalysisRepo{}, cache)
 
-	resp, err := svc.fetchExplorer("starting-fen")
+	resp, err := svc.fetchExplorer(context.Background(), "starting-fen")
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	assert.Equal(t, 7, resp.White)
@@ -220,7 +220,7 @@ func TestEngineService_FetchExplorer_CacheHitReturnsStats(t *testing.T) {
 func TestEngineService_FetchExplorer_CacheMissReturnsNilNoError(t *testing.T) {
 	svc := NewEngineService(&mocks.MockEngineEvalRepo{}, &mocks.MockAnalysisRepo{}, newStubExplorerCache())
 
-	resp, err := svc.fetchExplorer("missing-fen")
+	resp, err := svc.fetchExplorer(context.Background(), "missing-fen")
 	require.NoError(t, err)
 	assert.Nil(t, resp, "cache miss must surface as nil result so callers can skip the position without HTTP")
 }

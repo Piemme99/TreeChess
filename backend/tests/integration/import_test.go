@@ -4,6 +4,7 @@ package integration
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"mime/multipart"
@@ -35,15 +36,15 @@ func TestImportPipeline_FullCycle(t *testing.T) {
 	)
 
 	// Create white repertoire with e4 -> e5 -> Nf3
-	rep, _ := repertoireSvc.CreateRepertoire(user.ID, "White e4", models.ColorWhite)
-	rep, _ = repertoireSvc.AddNode(user.ID, rep.ID, models.AddNodeRequest{ParentID: rep.TreeData.ID, Move: "e4", MoveNumber: 1})
+	rep, _ := repertoireSvc.CreateRepertoire(context.Background(), user.ID, "White e4", models.ColorWhite)
+	rep, _ = repertoireSvc.AddNode(context.Background(), user.ID, rep.ID, models.AddNodeRequest{ParentID: rep.TreeData.ID, Move: "e4", MoveNumber: 1})
 	e4ID := rep.TreeData.Children[0].ID
-	rep, _ = repertoireSvc.AddNode(user.ID, rep.ID, models.AddNodeRequest{ParentID: e4ID, Move: "e5", MoveNumber: 1})
+	rep, _ = repertoireSvc.AddNode(context.Background(), user.ID, rep.ID, models.AddNodeRequest{ParentID: e4ID, Move: "e5", MoveNumber: 1})
 	e5ID := rep.TreeData.Children[0].Children[0].ID
-	_, _ = repertoireSvc.AddNode(user.ID, rep.ID, models.AddNodeRequest{ParentID: e5ID, Move: "Nf3", MoveNumber: 2})
+	_, _ = repertoireSvc.AddNode(context.Background(), user.ID, rep.ID, models.AddNodeRequest{ParentID: e5ID, Move: "Nf3", MoveNumber: 2})
 
 	pgn := testhelpers.SimplePGN("importuser", "opponent")
-	summary, results, err := importSvc.ParseAndAnalyze("test.pgn", "importuser", user.ID, pgn)
+	summary, results, err := importSvc.ParseAndAnalyze(context.Background(), "test.pgn", "importuser", user.ID, pgn)
 	require.NoError(t, err)
 
 	assert.Equal(t, 1, summary.GameCount)
@@ -77,7 +78,7 @@ func TestImportPipeline_FullCycle(t *testing.T) {
 	assert.Equal(t, rep.ID, game.MatchedRepertoire.ID)
 
 	// Verify analysis is persisted and retrievable
-	detail, err := importSvc.GetAnalysisByID(summary.ID)
+	detail, err := importSvc.GetAnalysisByID(context.Background(), summary.ID)
 	require.NoError(t, err)
 	assert.Equal(t, 1, detail.GameCount)
 	assert.Equal(t, "importuser", detail.Username)
@@ -95,10 +96,10 @@ func TestImportPipeline_AsBlack(t *testing.T) {
 	)
 
 	// Create a black repertoire with e4 -> e5
-	rep, _ := repertoireSvc.CreateRepertoire(user.ID, "Black vs e4", models.ColorBlack)
-	rep, _ = repertoireSvc.AddNode(user.ID, rep.ID, models.AddNodeRequest{ParentID: rep.TreeData.ID, Move: "e4", MoveNumber: 1})
+	rep, _ := repertoireSvc.CreateRepertoire(context.Background(), user.ID, "Black vs e4", models.ColorBlack)
+	rep, _ = repertoireSvc.AddNode(context.Background(), user.ID, rep.ID, models.AddNodeRequest{ParentID: rep.TreeData.ID, Move: "e4", MoveNumber: 1})
 	e4ID := rep.TreeData.Children[0].ID
-	_, _ = repertoireSvc.AddNode(user.ID, rep.ID, models.AddNodeRequest{ParentID: e4ID, Move: "e5", MoveNumber: 1})
+	_, _ = repertoireSvc.AddNode(context.Background(), user.ID, rep.ID, models.AddNodeRequest{ParentID: e4ID, Move: "e5", MoveNumber: 1})
 
 	// Import a game where user plays as black
 	pgn := `[Event "Test"]
@@ -110,7 +111,7 @@ func TestImportPipeline_AsBlack(t *testing.T) {
 
 1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 0-1`
 
-	summary, results, err := importSvc.ParseAndAnalyze("test.pgn", "blackuser", user.ID, pgn)
+	summary, results, err := importSvc.ParseAndAnalyze(context.Background(), "test.pgn", "blackuser", user.ID, pgn)
 	require.NoError(t, err)
 	assert.Equal(t, 1, summary.GameCount)
 	require.Len(t, results, 1)
@@ -134,11 +135,11 @@ func TestImportPipeline_FingerprintDedup(t *testing.T) {
 	pgn := testhelpers.SimplePGN("dedupuser", "opponent")
 
 	// First import
-	_, _, err := importSvc.ParseAndAnalyze("test.pgn", "dedupuser", user.ID, pgn)
+	_, _, err := importSvc.ParseAndAnalyze(context.Background(), "test.pgn", "dedupuser", user.ID, pgn)
 	require.NoError(t, err)
 
 	// Second import of same PGN → all duplicates
-	_, _, err = importSvc.ParseAndAnalyze("test2.pgn", "dedupuser", user.ID, pgn)
+	_, _, err = importSvc.ParseAndAnalyze(context.Background(), "test2.pgn", "dedupuser", user.ID, pgn)
 	assert.ErrorIs(t, err, services.ErrAllGamesDuplicate)
 }
 
@@ -154,7 +155,7 @@ func TestImportPipeline_FingerprintDedup_Partial(t *testing.T) {
 
 	// Import 2 games
 	twoGamePGN := testhelpers.TwoGamePGN("partialdedup", "opponent")
-	summary1, _, err := importSvc.ParseAndAnalyze("batch1.pgn", "partialdedup", user.ID, twoGamePGN)
+	summary1, _, err := importSvc.ParseAndAnalyze(context.Background(), "batch1.pgn", "partialdedup", user.ID, twoGamePGN)
 	require.NoError(t, err)
 	assert.Equal(t, 2, summary1.GameCount)
 
@@ -177,7 +178,7 @@ func TestImportPipeline_FingerprintDedup_Partial(t *testing.T) {
 
 1. d4 Nf6 2. c4 e6 3. Nc3 Bb4 0-1`
 
-	summary2, _, err := importSvc.ParseAndAnalyze("batch2.pgn", "partialdedup", user.ID, mixedPGN)
+	summary2, _, err := importSvc.ParseAndAnalyze(context.Background(), "batch2.pgn", "partialdedup", user.ID, mixedPGN)
 	require.NoError(t, err)
 	assert.Equal(t, 1, summary2.GameCount)
 	assert.Equal(t, 1, summary2.SkippedDuplicates)
@@ -196,20 +197,20 @@ func TestImportPipeline_DeleteAnalysis_CascadeAll(t *testing.T) {
 	)
 
 	pgn := testhelpers.SimplePGN("delanalysis", "opponent")
-	summary, _, err := importSvc.ParseAndAnalyze("test.pgn", "delanalysis", user.ID, pgn)
+	summary, _, err := importSvc.ParseAndAnalyze(context.Background(), "test.pgn", "delanalysis", user.ID, pgn)
 	require.NoError(t, err)
 
 	// Delete the analysis
-	err = importSvc.DeleteAnalysis(summary.ID)
+	err = importSvc.DeleteAnalysis(context.Background(), summary.ID)
 	require.NoError(t, err)
 
 	// Verify analysis is gone
-	analyses, err := importSvc.GetAnalyses(user.ID)
+	analyses, err := importSvc.GetAnalyses(context.Background(), user.ID)
 	require.NoError(t, err)
 	assert.Len(t, analyses, 0)
 
 	// Re-importing should succeed (fingerprints cascaded)
-	_, _, err = importSvc.ParseAndAnalyze("test2.pgn", "delanalysis", user.ID, pgn)
+	_, _, err = importSvc.ParseAndAnalyze(context.Background(), "test2.pgn", "delanalysis", user.ID, pgn)
 	require.NoError(t, err)
 }
 
@@ -229,17 +230,17 @@ func TestImportPipeline_ListGames_Pagination(t *testing.T) {
 			"paginuser",
 			fmt.Sprintf("opp%d", i),
 		)
-		_, _, err := importSvc.ParseAndAnalyze(fmt.Sprintf("batch%d.pgn", i), "paginuser", user.ID, pgn)
+		_, _, err := importSvc.ParseAndAnalyze(context.Background(), fmt.Sprintf("batch%d.pgn", i), "paginuser", user.ID, pgn)
 		require.NoError(t, err)
 	}
 
 	// Get all games with limit/offset
-	page1, err := importSvc.GetAllGames(user.ID, 5, 0, "", "", "", false)
+	page1, err := importSvc.GetAllGames(context.Background(), user.ID, 5, 0, "", "", "", false)
 	require.NoError(t, err)
 	assert.Equal(t, 9, page1.Total)
 	assert.Len(t, page1.Games, 5)
 
-	page2, err := importSvc.GetAllGames(user.ID, 5, 5, "", "", "", false)
+	page2, err := importSvc.GetAllGames(context.Background(), user.ID, 5, 5, "", "", "", false)
 	require.NoError(t, err)
 	assert.Len(t, page2.Games, 4)
 }
@@ -256,7 +257,7 @@ func TestImportPipeline_ListGames_SourceFilter(t *testing.T) {
 
 	// Import with regular PGN filename
 	pgn1 := testhelpers.SimplePGN("filteruser", "opp1")
-	_, _, err := importSvc.ParseAndAnalyze("my_games.pgn", "filteruser", user.ID, pgn1)
+	_, _, err := importSvc.ParseAndAnalyze(context.Background(), "my_games.pgn", "filteruser", user.ID, pgn1)
 	require.NoError(t, err)
 
 	// Import with lichess-style filename
@@ -268,21 +269,21 @@ func TestImportPipeline_ListGames_SourceFilter(t *testing.T) {
 [Result "1-0"]
 
 1. d4 d5 2. c4 e6 3. Nc3 Nf6 1-0`
-	_, _, err = importSvc.ParseAndAnalyze("lichess_filteruser.pgn", "filteruser", user.ID, pgn2)
+	_, _, err = importSvc.ParseAndAnalyze(context.Background(), "lichess_filteruser.pgn", "filteruser", user.ID, pgn2)
 	require.NoError(t, err)
 
 	// Filter by source=pgn
-	pgnGames, err := importSvc.GetAllGames(user.ID, 20, 0, "", "", "pgn", false)
+	pgnGames, err := importSvc.GetAllGames(context.Background(), user.ID, 20, 0, "", "", "pgn", false)
 	require.NoError(t, err)
 	assert.Equal(t, 1, pgnGames.Total)
 
 	// Filter by source=lichess
-	lichessGames, err := importSvc.GetAllGames(user.ID, 20, 0, "", "", "lichess", false)
+	lichessGames, err := importSvc.GetAllGames(context.Background(), user.ID, 20, 0, "", "", "lichess", false)
 	require.NoError(t, err)
 	assert.Equal(t, 1, lichessGames.Total)
 
 	// No filter returns all
-	allGames, err := importSvc.GetAllGames(user.ID, 20, 0, "", "", "", false)
+	allGames, err := importSvc.GetAllGames(context.Background(), user.ID, 20, 0, "", "", "", false)
 	require.NoError(t, err)
 	assert.Equal(t, 2, allGames.Total)
 }
@@ -298,15 +299,15 @@ func TestImportPipeline_MatchesBestRepertoire(t *testing.T) {
 	)
 
 	// Create e4 repertoire
-	e4Rep, _ := repertoireSvc.CreateRepertoire(user.ID, "e4 Rep", models.ColorWhite)
-	e4Rep, _ = repertoireSvc.AddNode(user.ID, e4Rep.ID, models.AddNodeRequest{ParentID: e4Rep.TreeData.ID, Move: "e4", MoveNumber: 1})
+	e4Rep, _ := repertoireSvc.CreateRepertoire(context.Background(), user.ID, "e4 Rep", models.ColorWhite)
+	e4Rep, _ = repertoireSvc.AddNode(context.Background(), user.ID, e4Rep.ID, models.AddNodeRequest{ParentID: e4Rep.TreeData.ID, Move: "e4", MoveNumber: 1})
 
 	// Create d4 repertoire
-	_, _ = repertoireSvc.CreateRepertoire(user.ID, "d4 Rep", models.ColorWhite)
+	_, _ = repertoireSvc.CreateRepertoire(context.Background(), user.ID, "d4 Rep", models.ColorWhite)
 
 	// Import an e4 game
 	pgn := testhelpers.SimplePGN("matchuser", "opponent")
-	_, results, err := importSvc.ParseAndAnalyze("test.pgn", "matchuser", user.ID, pgn)
+	_, results, err := importSvc.ParseAndAnalyze(context.Background(), "test.pgn", "matchuser", user.ID, pgn)
 	require.NoError(t, err)
 	require.Len(t, results, 1)
 
@@ -326,7 +327,7 @@ func TestImportPipeline_NoRepertoire_StillSaves(t *testing.T) {
 	)
 
 	pgn := testhelpers.SimplePGN("norepuser", "opponent")
-	summary, results, err := importSvc.ParseAndAnalyze("test.pgn", "norepuser", user.ID, pgn)
+	summary, results, err := importSvc.ParseAndAnalyze(context.Background(), "test.pgn", "norepuser", user.ID, pgn)
 	require.NoError(t, err)
 	assert.Equal(t, 1, summary.GameCount)
 	assert.Len(t, results, 1)
@@ -346,15 +347,15 @@ func TestImportPipeline_ReanalyzeColorMismatch(t *testing.T) {
 	)
 
 	// Create a BLACK repertoire
-	blackRep, _ := repertoireSvc.CreateRepertoire(user.ID, "Black Rep", models.ColorBlack)
+	blackRep, _ := repertoireSvc.CreateRepertoire(context.Background(), user.ID, "Black Rep", models.ColorBlack)
 
 	// Import a game where user plays WHITE
 	pgn := testhelpers.SimplePGN("mismatchuser", "opponent")
-	summary, _, err := importSvc.ParseAndAnalyze("test.pgn", "mismatchuser", user.ID, pgn)
+	summary, _, err := importSvc.ParseAndAnalyze(context.Background(), "test.pgn", "mismatchuser", user.ID, pgn)
 	require.NoError(t, err)
 
 	// Reanalyze a white game against a black repertoire → color mismatch
-	_, err = importSvc.ReanalyzeGame(summary.ID, 0, blackRep.ID)
+	_, err = importSvc.ReanalyzeGame(context.Background(), summary.ID, 0, blackRep.ID)
 	assert.ErrorIs(t, err, services.ErrColorMismatch)
 }
 
@@ -399,7 +400,7 @@ func TestFingerprintRepo_ChunkedBatchOps(t *testing.T) {
 	user := testhelpers.SeedUser(t, repos, "chunkuser", "password123")
 
 	// Create a real analysis row so the analysis_id FK is satisfied.
-	summary, err := repos.Analysis.Save(user.ID, "chunkuser", "chunk.pgn", 0, []models.GameAnalysis{})
+	summary, err := repos.Analysis.Save(context.Background(), user.ID, "chunkuser", "chunk.pgn", 0, []models.GameAnalysis{})
 	require.NoError(t, err)
 
 	// 2500 entries forces 3 chunks at DBBatchSize=1000.
@@ -413,10 +414,10 @@ func TestFingerprintRepo_ChunkedBatchOps(t *testing.T) {
 	}
 
 	// SaveBatch must succeed across all chunks.
-	require.NoError(t, repos.Fingerprint.SaveBatch(user.ID, summary.ID, entries))
+	require.NoError(t, repos.Fingerprint.SaveBatch(context.Background(), user.ID, summary.ID, entries))
 
 	// CheckExisting must report every fingerprint as existing.
-	existing, err := repos.Fingerprint.CheckExisting(user.ID, want)
+	existing, err := repos.Fingerprint.CheckExisting(context.Background(), user.ID, want)
 	require.NoError(t, err)
 	assert.Len(t, existing, total)
 	for _, fp := range want {
@@ -424,7 +425,7 @@ func TestFingerprintRepo_ChunkedBatchOps(t *testing.T) {
 	}
 
 	// A fingerprint that was never inserted must not be reported.
-	missing, err := repos.Fingerprint.CheckExisting(user.ID, []string{"never-inserted"})
+	missing, err := repos.Fingerprint.CheckExisting(context.Background(), user.ID, []string{"never-inserted"})
 	require.NoError(t, err)
 	assert.False(t, missing["never-inserted"])
 }
@@ -446,7 +447,7 @@ func TestImportPipeline_LargeSyntheticPGN(t *testing.T) {
 	const games = config.DBBatchSize + 200 // spans 2 SaveBatch/CheckExisting chunks
 	pgn := largeSyntheticPGN("largeuser", games)
 
-	summary, results, err := importSvc.ParseAndAnalyze("large.pgn", "largeuser", user.ID, pgn)
+	summary, results, err := importSvc.ParseAndAnalyze(context.Background(), "large.pgn", "largeuser", user.ID, pgn)
 	require.NoError(t, err)
 	require.NotNil(t, summary)
 	assert.Equal(t, games, summary.GameCount)
@@ -454,7 +455,7 @@ func TestImportPipeline_LargeSyntheticPGN(t *testing.T) {
 
 	// Re-importing the same PGN must detect all as duplicates (CheckExisting
 	// chunking working) rather than crashing.
-	_, _, err = importSvc.ParseAndAnalyze("large2.pgn", "largeuser", user.ID, pgn)
+	_, _, err = importSvc.ParseAndAnalyze(context.Background(), "large2.pgn", "largeuser", user.ID, pgn)
 	assert.ErrorIs(t, err, services.ErrAllGamesDuplicate)
 }
 

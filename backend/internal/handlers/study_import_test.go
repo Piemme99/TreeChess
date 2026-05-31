@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -150,10 +151,10 @@ func TestImportStudyHandler_Success(t *testing.T) {
 		},
 	}
 	mockRepSvc := &smocks.MockRepertoireService{
-		CreateRepertoireFunc: func(userID, name string, color models.Color) (*models.Repertoire, error) {
+		CreateRepertoireFunc: func(_ context.Context, userID, name string, color models.Color) (*models.Repertoire, error) {
 			return &models.Repertoire{ID: "rep-1", Name: name, Color: color}, nil
 		},
-		SaveTreeFunc: func(userID, repertoireID string, treeData models.RepertoireNode) (*models.Repertoire, error) {
+		SaveTreeFunc: func(_ context.Context, userID, repertoireID string, treeData models.RepertoireNode) (*models.Repertoire, error) {
 			return &models.Repertoire{ID: repertoireID, TreeData: treeData}, nil
 		},
 	}
@@ -215,10 +216,10 @@ func TestImportStudyHandler_NameConflict_Returns409(t *testing.T) {
 		FetchStudyPGNFunc: func(studyID, authToken string) (string, error) { return pgnData, nil },
 	}
 	mockRepSvc := &smocks.MockRepertoireService{
-		ListRepertoiresFunc: func(userID string, color *models.Color) ([]models.Repertoire, error) {
+		ListRepertoiresFunc: func(_ context.Context, userID string, color *models.Color) ([]models.Repertoire, error) {
 			return []models.Repertoire{{ID: "existing-1", Name: "Najdorf", Color: models.ColorWhite}}, nil
 		},
-		CreateRepertoireFunc: func(userID, name string, color models.Color) (*models.Repertoire, error) {
+		CreateRepertoireFunc: func(_ context.Context, userID, name string, color models.Color) (*models.Repertoire, error) {
 			t.Fatalf("create should not be called when conflict aborts the import")
 			return nil, nil
 		},
@@ -262,14 +263,14 @@ func TestImportStudyHandler_AutoSuffixSucceeds(t *testing.T) {
 	}
 	var createdName string
 	mockRepSvc := &smocks.MockRepertoireService{
-		ListRepertoiresFunc: func(userID string, color *models.Color) ([]models.Repertoire, error) {
+		ListRepertoiresFunc: func(_ context.Context, userID string, color *models.Color) ([]models.Repertoire, error) {
 			return []models.Repertoire{{ID: "existing-1", Name: "Najdorf", Color: models.ColorWhite}}, nil
 		},
-		CreateRepertoireFunc: func(userID, name string, color models.Color) (*models.Repertoire, error) {
+		CreateRepertoireFunc: func(_ context.Context, userID, name string, color models.Color) (*models.Repertoire, error) {
 			createdName = name
 			return &models.Repertoire{ID: "rep-1", Name: name, Color: color}, nil
 		},
-		SaveTreeFunc: func(userID, repertoireID string, treeData models.RepertoireNode) (*models.Repertoire, error) {
+		SaveTreeFunc: func(_ context.Context, userID, repertoireID string, treeData models.RepertoireNode) (*models.Repertoire, error) {
 			return &models.Repertoire{ID: repertoireID, TreeData: treeData}, nil
 		},
 	}
@@ -301,7 +302,7 @@ func TestImportStudyHandler_LimitReached(t *testing.T) {
 		},
 	}
 	mockRepSvc := &smocks.MockRepertoireService{
-		CreateRepertoireFunc: func(userID, name string, color models.Color) (*models.Repertoire, error) {
+		CreateRepertoireFunc: func(_ context.Context, userID, name string, color models.Color) (*models.Repertoire, error) {
 			return nil, fmt.Errorf("failed to create repertoire for chapter 0: %w", services.ErrLimitReached)
 		},
 	}

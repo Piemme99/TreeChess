@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"sync"
 	"testing"
 
@@ -32,7 +33,7 @@ func (f *fakeNotifier) Count() int {
 
 func newRepoWithEmptyTree(rootID string) *mocks.MockRepertoireRepo {
 	return &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID:    id,
 				Name:  "Test",
@@ -44,14 +45,14 @@ func newRepoWithEmptyTree(rootID string) *mocks.MockRepertoireRepo {
 				},
 			}, nil
 		},
-		SaveFunc: func(id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {
+		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID:       id,
 				TreeData: treeData,
 				Metadata: metadata,
 			}, nil
 		},
-		DeleteFunc: func(id, userID string) error {
+		DeleteFunc: func(_ context.Context, id, userID string) error {
 			return nil
 		},
 	}
@@ -62,7 +63,7 @@ func TestRepertoireService_AddNode_NotifiesQueue(t *testing.T) {
 	notifier := &fakeNotifier{}
 	svc := NewRepertoireService(newRepoWithEmptyTree(rootID)).WithReanalysisQueue(notifier)
 
-	_, err := svc.AddNode("user-1", "rep-1", models.AddNodeRequest{
+	_, err := svc.AddNode(context.Background(), "user-1", "rep-1", models.AddNodeRequest{
 		ParentID:   rootID,
 		Move:       "e4",
 		MoveNumber: 1,
@@ -80,7 +81,7 @@ func TestRepertoireService_SaveTree_NotifiesQueue(t *testing.T) {
 		ID:  "root-uuid",
 		FEN: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -",
 	}
-	_, err := svc.SaveTree("user-1", "rep-1", tree)
+	_, err := svc.SaveTree(context.Background(), "user-1", "rep-1", tree)
 	require.NoError(t, err)
 	assert.Equal(t, 1, notifier.Count())
 }
@@ -89,7 +90,7 @@ func TestRepertoireService_DeleteNode_NotifiesQueue(t *testing.T) {
 	move := "e4"
 	notifier := &fakeNotifier{}
 	repo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID:    id,
 				Color: models.ColorWhite,
@@ -101,13 +102,13 @@ func TestRepertoireService_DeleteNode_NotifiesQueue(t *testing.T) {
 				},
 			}, nil
 		},
-		SaveFunc: func(id, userID string, t models.RepertoireNode, m models.Metadata, expectedVersion int) (*models.Repertoire, error) {
+		SaveFunc: func(_ context.Context, id, userID string, t models.RepertoireNode, m models.Metadata, expectedVersion int) (*models.Repertoire, error) {
 			return &models.Repertoire{ID: id, TreeData: t, Metadata: m}, nil
 		},
 	}
 	svc := NewRepertoireService(repo).WithReanalysisQueue(notifier)
 
-	_, err := svc.DeleteNode("user-1", "rep-1", "child")
+	_, err := svc.DeleteNode(context.Background(), "user-1", "rep-1", "child")
 	require.NoError(t, err)
 	assert.Equal(t, 1, notifier.Count())
 }
@@ -115,11 +116,11 @@ func TestRepertoireService_DeleteNode_NotifiesQueue(t *testing.T) {
 func TestRepertoireService_DeleteRepertoire_NotifiesQueue(t *testing.T) {
 	notifier := &fakeNotifier{}
 	repo := &mocks.MockRepertoireRepo{
-		DeleteFunc: func(id, userID string) error { return nil },
+		DeleteFunc: func(_ context.Context, id, userID string) error { return nil },
 	}
 	svc := NewRepertoireService(repo).WithReanalysisQueue(notifier)
 
-	err := svc.DeleteRepertoire("user-1", "rep-1")
+	err := svc.DeleteRepertoire(context.Background(), "user-1", "rep-1")
 	require.NoError(t, err)
 	assert.Equal(t, 1, notifier.Count())
 }
@@ -128,7 +129,7 @@ func TestRepertoireService_NoQueue_DoesNotPanic(t *testing.T) {
 	rootID := "root-uuid"
 	svc := NewRepertoireService(newRepoWithEmptyTree(rootID))
 	// No queue attached — mutations must succeed without panicking.
-	_, err := svc.AddNode("user-1", "rep-1", models.AddNodeRequest{
+	_, err := svc.AddNode(context.Background(), "user-1", "rep-1", models.AddNodeRequest{
 		ParentID:   rootID,
 		Move:       "e4",
 		MoveNumber: 1,
@@ -139,7 +140,7 @@ func TestRepertoireService_NoQueue_DoesNotPanic(t *testing.T) {
 func TestRepertoireService_FailedMutation_DoesNotNotify(t *testing.T) {
 	notifier := &fakeNotifier{}
 	repo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID: id,
 				TreeData: models.RepertoireNode{
@@ -153,7 +154,7 @@ func TestRepertoireService_FailedMutation_DoesNotNotify(t *testing.T) {
 	svc := NewRepertoireService(repo).WithReanalysisQueue(notifier)
 
 	// Invalid SAN — AddNode returns an error before Save is ever called.
-	_, err := svc.AddNode("user-1", "rep-1", models.AddNodeRequest{
+	_, err := svc.AddNode(context.Background(), "user-1", "rep-1", models.AddNodeRequest{
 		ParentID:   "root",
 		Move:       "Zz9",
 		MoveNumber: 1,

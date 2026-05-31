@@ -17,14 +17,14 @@ func TestLichessToken_EncryptedAtRest(t *testing.T) {
 	testDB.TruncateAll(t)
 	repos := testDB.Repos()
 
-	user, err := repos.User.CreateOAuth("lichess", "lichess-id-1", "tokenuser")
+	user, err := repos.User.CreateOAuth(context.Background(), "lichess", "lichess-id-1", "tokenuser")
 	require.NoError(t, err)
 
 	const token = "fake-lichess-access-token"
-	require.NoError(t, repos.User.UpdateLichessToken(user.ID, token))
+	require.NoError(t, repos.User.UpdateLichessToken(context.Background(), user.ID, token))
 
 	// Reading back through the repository decrypts transparently.
-	fetched, err := repos.User.GetByID(user.ID)
+	fetched, err := repos.User.GetByID(context.Background(), user.ID)
 	require.NoError(t, err)
 	require.NotNil(t, fetched.LichessAccessToken)
 	assert.Equal(t, token, *fetched.LichessAccessToken)
@@ -44,7 +44,7 @@ func TestLichessToken_PlaintextFallback(t *testing.T) {
 	testDB.TruncateAll(t)
 	repos := testDB.Repos()
 
-	user, err := repos.User.CreateOAuth("lichess", "lichess-id-2", "legacyuser")
+	user, err := repos.User.CreateOAuth(context.Background(), "lichess", "lichess-id-2", "legacyuser")
 	require.NoError(t, err)
 
 	const legacy = "fake-legacy-plaintext-token"
@@ -52,7 +52,7 @@ func TestLichessToken_PlaintextFallback(t *testing.T) {
 		"UPDATE users SET lichess_access_token = $2 WHERE id = $1", user.ID, legacy)
 	require.NoError(t, err)
 
-	fetched, err := repos.User.GetByID(user.ID)
+	fetched, err := repos.User.GetByID(context.Background(), user.ID)
 	require.NoError(t, err)
 	require.NotNil(t, fetched.LichessAccessToken)
 	assert.Equal(t, legacy, *fetched.LichessAccessToken,

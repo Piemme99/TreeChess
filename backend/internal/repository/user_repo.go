@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/kumquat/backend/config"
 	"github.com/kumquat/backend/internal/crypto"
 	"github.com/kumquat/backend/internal/models"
 )
@@ -135,8 +136,8 @@ func (r *PostgresUserRepo) decryptToken(stored string) string {
 	return string(plaintext)
 }
 
-func (r *PostgresUserRepo) Create(email, username, passwordHash string) (*models.User, error) {
-	ctx, cancel := dbContext()
+func (r *PostgresUserRepo) Create(ctx context.Context, email, username, passwordHash string) (*models.User, error) {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	id := uuid.New().String()
@@ -153,8 +154,8 @@ func (r *PostgresUserRepo) Create(email, username, passwordHash string) (*models
 	return user, nil
 }
 
-func (r *PostgresUserRepo) GetByUsername(username string) (*models.User, error) {
-	ctx, cancel := dbContext()
+func (r *PostgresUserRepo) GetByUsername(ctx context.Context, username string) (*models.User, error) {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	user, err := r.scanUser(r.pool.QueryRow(ctx, getUserByUsernameSQL, username).Scan)
@@ -167,8 +168,8 @@ func (r *PostgresUserRepo) GetByUsername(username string) (*models.User, error) 
 	return user, nil
 }
 
-func (r *PostgresUserRepo) GetByEmail(email string) (*models.User, error) {
-	ctx, cancel := dbContext()
+func (r *PostgresUserRepo) GetByEmail(ctx context.Context, email string) (*models.User, error) {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	user, err := r.scanUser(r.pool.QueryRow(ctx, getUserByEmailSQL, email).Scan)
@@ -181,8 +182,8 @@ func (r *PostgresUserRepo) GetByEmail(email string) (*models.User, error) {
 	return user, nil
 }
 
-func (r *PostgresUserRepo) GetByID(id string) (*models.User, error) {
-	ctx, cancel := dbContext()
+func (r *PostgresUserRepo) GetByID(ctx context.Context, id string) (*models.User, error) {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	user, err := r.scanUser(r.pool.QueryRow(ctx, getUserByIDSQL, id).Scan)
@@ -195,8 +196,8 @@ func (r *PostgresUserRepo) GetByID(id string) (*models.User, error) {
 	return user, nil
 }
 
-func (r *PostgresUserRepo) FindByOAuth(provider, oauthID string) (*models.User, error) {
-	ctx, cancel := dbContext()
+func (r *PostgresUserRepo) FindByOAuth(ctx context.Context, provider, oauthID string) (*models.User, error) {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	user, err := r.scanUser(r.pool.QueryRow(ctx, findByOAuthSQL, provider, oauthID).Scan)
@@ -209,8 +210,8 @@ func (r *PostgresUserRepo) FindByOAuth(provider, oauthID string) (*models.User, 
 	return user, nil
 }
 
-func (r *PostgresUserRepo) CreateOAuth(provider, oauthID, username string) (*models.User, error) {
-	ctx, cancel := dbContext()
+func (r *PostgresUserRepo) CreateOAuth(ctx context.Context, provider, oauthID, username string) (*models.User, error) {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	// For Lichess OAuth, auto-populate lichess_username
@@ -230,8 +231,8 @@ func (r *PostgresUserRepo) CreateOAuth(provider, oauthID, username string) (*mod
 	return user, nil
 }
 
-func (r *PostgresUserRepo) UpdateProfile(userID string, lichess, chesscom *string, timeFormatPrefs []string) (*models.User, error) {
-	ctx, cancel := dbContext()
+func (r *PostgresUserRepo) UpdateProfile(ctx context.Context, userID string, lichess, chesscom *string, timeFormatPrefs []string) (*models.User, error) {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	user, err := r.scanUser(r.pool.QueryRow(ctx, updateProfileSQL, userID, lichess, chesscom, timeFormatPrefs).Scan)
@@ -241,8 +242,8 @@ func (r *PostgresUserRepo) UpdateProfile(userID string, lichess, chesscom *strin
 	return user, nil
 }
 
-func (r *PostgresUserRepo) UpdateSyncTimestamps(userID string, lichessSyncAt, chesscomSyncAt *time.Time) error {
-	ctx, cancel := dbContext()
+func (r *PostgresUserRepo) UpdateSyncTimestamps(ctx context.Context, userID string, lichessSyncAt, chesscomSyncAt *time.Time) error {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	_, err := r.pool.Exec(ctx, updateSyncTimestampsSQL, userID, lichessSyncAt, chesscomSyncAt)
@@ -252,8 +253,8 @@ func (r *PostgresUserRepo) UpdateSyncTimestamps(userID string, lichessSyncAt, ch
 	return nil
 }
 
-func (r *PostgresUserRepo) ResetSyncTimestamps(userID string) error {
-	ctx, cancel := dbContext()
+func (r *PostgresUserRepo) ResetSyncTimestamps(ctx context.Context, userID string) error {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	_, err := r.pool.Exec(ctx, resetSyncTimestampsSQL, userID)
@@ -263,8 +264,8 @@ func (r *PostgresUserRepo) ResetSyncTimestamps(userID string) error {
 	return nil
 }
 
-func (r *PostgresUserRepo) UpdateLichessToken(userID, token string) error {
-	ctx, cancel := dbContext()
+func (r *PostgresUserRepo) UpdateLichessToken(ctx context.Context, userID, token string) error {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	// Encrypt the token at rest. An empty token (e.g. on unlink) is stored as-is
@@ -285,8 +286,8 @@ func (r *PostgresUserRepo) UpdateLichessToken(userID, token string) error {
 	return nil
 }
 
-func (r *PostgresUserRepo) Exists(username string) (bool, error) {
-	ctx, cancel := dbContext()
+func (r *PostgresUserRepo) Exists(ctx context.Context, username string) (bool, error) {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	var exists bool
@@ -297,8 +298,8 @@ func (r *PostgresUserRepo) Exists(username string) (bool, error) {
 	return exists, nil
 }
 
-func (r *PostgresUserRepo) EmailExists(email string) (bool, error) {
-	ctx, cancel := dbContext()
+func (r *PostgresUserRepo) EmailExists(ctx context.Context, email string) (bool, error) {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	var exists bool
@@ -309,8 +310,8 @@ func (r *PostgresUserRepo) EmailExists(email string) (bool, error) {
 	return exists, nil
 }
 
-func (r *PostgresUserRepo) UpdatePassword(userID, passwordHash string) error {
-	ctx, cancel := dbContext()
+func (r *PostgresUserRepo) UpdatePassword(ctx context.Context, userID, passwordHash string) error {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	_, err := r.pool.Exec(ctx, updatePasswordSQL, userID, passwordHash)
@@ -320,8 +321,8 @@ func (r *PostgresUserRepo) UpdatePassword(userID, passwordHash string) error {
 	return nil
 }
 
-func (r *PostgresUserRepo) Delete(id string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+func (r *PostgresUserRepo) Delete(ctx context.Context, id string) error {
+	ctx, cancel := context.WithTimeout(ctx, config.UserDeleteDBTimeout)
 	defer cancel()
 
 	tx, err := r.pool.Begin(ctx)

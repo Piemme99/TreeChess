@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -33,17 +34,17 @@ func TestAddNode_ThreadsLoadedVersionToSave(t *testing.T) {
 	var savedExpectedVersion int
 
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
 			return repAtVersion(id, loadedVersion), nil
 		},
-		SaveFunc: func(id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {
+		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {
 			savedExpectedVersion = expectedVersion
 			return &models.Repertoire{ID: id, TreeData: treeData, Metadata: metadata, Version: expectedVersion + 1}, nil
 		},
 	}
 
 	svc := NewRepertoireService(mockRepo)
-	_, err := svc.AddNode("user-1", "rep-1", models.AddNodeRequest{ParentID: optLockRootID, Move: "e4"})
+	_, err := svc.AddNode(context.Background(), "user-1", "rep-1", models.AddNodeRequest{ParentID: optLockRootID, Move: "e4"})
 	require.NoError(t, err)
 	assert.Equal(t, loadedVersion, savedExpectedVersion, "Save must receive the version loaded by GetByID")
 }
@@ -52,16 +53,16 @@ func TestAddNode_ThreadsLoadedVersionToSave(t *testing.T) {
 // from the repository surfaces as the service-level ErrConflict sentinel.
 func TestAddNode_ConflictMapsToErrConflict(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
 			return repAtVersion(id, 1), nil
 		},
-		SaveFunc: func(id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {
+		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {
 			return nil, repository.ErrRepertoireConflict
 		},
 	}
 
 	svc := NewRepertoireService(mockRepo)
-	_, err := svc.AddNode("user-1", "rep-1", models.AddNodeRequest{ParentID: optLockRootID, Move: "e4"})
+	_, err := svc.AddNode(context.Background(), "user-1", "rep-1", models.AddNodeRequest{ParentID: optLockRootID, Move: "e4"})
 	assert.ErrorIs(t, err, ErrConflict)
 }
 
@@ -73,12 +74,12 @@ func TestNodeMutators_ConflictMapsToErrConflict(t *testing.T) {
 
 	newRepo := func() *mocks.MockRepertoireRepo {
 		return &mocks.MockRepertoireRepo{
-			GetByIDFunc: func(id string) (*models.Repertoire, error) {
+			GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
 				rep := repAtVersion(id, 3)
 				rep.TreeData = makeTree(optLockRootID, makeChild(childID, "e4"))
 				return rep, nil
 			},
-			SaveFunc: func(id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {
+			SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {
 				return nil, repository.ErrRepertoireConflict
 			},
 		}
@@ -86,35 +87,35 @@ func TestNodeMutators_ConflictMapsToErrConflict(t *testing.T) {
 
 	cases := map[string]func(svc *RepertoireService) error{
 		"DeleteNode": func(svc *RepertoireService) error {
-			_, err := svc.DeleteNode("user-1", "rep-1", childID)
+			_, err := svc.DeleteNode(context.Background(), "user-1", "rep-1", childID)
 			return err
 		},
 		"SaveTree": func(svc *RepertoireService) error {
-			_, err := svc.SaveTree("user-1", "rep-1", makeTree(optLockRootID))
+			_, err := svc.SaveTree(context.Background(), "user-1", "rep-1", makeTree(optLockRootID))
 			return err
 		},
 		"UpdateNodeComment": func(svc *RepertoireService) error {
-			_, err := svc.UpdateNodeComment("user-1", "rep-1", childID, "hi")
+			_, err := svc.UpdateNodeComment(context.Background(), "user-1", "rep-1", childID, "hi")
 			return err
 		},
 		"UpdateNodeBranchName": func(svc *RepertoireService) error {
-			_, err := svc.UpdateNodeBranchName("user-1", "rep-1", childID, "Mainline")
+			_, err := svc.UpdateNodeBranchName(context.Background(), "user-1", "rep-1", childID, "Mainline")
 			return err
 		},
 		"ToggleNodeCollapsed": func(svc *RepertoireService) error {
-			_, err := svc.ToggleNodeCollapsed("user-1", "rep-1", childID)
+			_, err := svc.ToggleNodeCollapsed(context.Background(), "user-1", "rep-1", childID)
 			return err
 		},
 		"SetMainLine": func(svc *RepertoireService) error {
-			_, err := svc.SetMainLine("user-1", "rep-1", childID)
+			_, err := svc.SetMainLine(context.Background(), "user-1", "rep-1", childID)
 			return err
 		},
 		"ClearMainLine": func(svc *RepertoireService) error {
-			_, err := svc.ClearMainLine("user-1", "rep-1")
+			_, err := svc.ClearMainLine(context.Background(), "user-1", "rep-1")
 			return err
 		},
 		"MergeTranspositions": func(svc *RepertoireService) error {
-			_, err := svc.MergeTranspositions("user-1", "rep-1")
+			_, err := svc.MergeTranspositions(context.Background(), "user-1", "rep-1")
 			return err
 		},
 	}
@@ -132,16 +133,16 @@ func TestNodeMutators_ConflictMapsToErrConflict(t *testing.T) {
 // other no-rows cause) maps to ErrNotFound rather than ErrConflict.
 func TestSave_NotFoundMapsToErrNotFound(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
 			return repAtVersion(id, 0), nil
 		},
-		SaveFunc: func(id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {
+		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {
 			return nil, repository.ErrRepertoireNotFound
 		},
 	}
 
 	svc := NewRepertoireService(mockRepo)
-	_, err := svc.AddNode("user-1", "rep-1", models.AddNodeRequest{ParentID: optLockRootID, Move: "e4"})
+	_, err := svc.AddNode(context.Background(), "user-1", "rep-1", models.AddNodeRequest{ParentID: optLockRootID, Move: "e4"})
 	assert.ErrorIs(t, err, ErrNotFound)
 	assert.NotErrorIs(t, err, ErrConflict)
 }

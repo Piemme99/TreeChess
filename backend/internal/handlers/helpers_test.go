@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -62,7 +63,7 @@ func TestMustUserID_EmptyString(t *testing.T) {
 func TestRequireOwnership_Owned(t *testing.T) {
 	c, rec := newTestContext()
 	svc := services.NewRepertoireService(&mocks.MockRepertoireRepo{
-		BelongsToUserFunc: func(id, userID string) (bool, error) { return true, nil },
+		BelongsToUserFunc: func(_ context.Context, id, userID string) (bool, error) { return true, nil },
 	})
 
 	ok := requireOwnership(c, svc, "rep-1", "user-1")
@@ -74,7 +75,7 @@ func TestRequireOwnership_Owned(t *testing.T) {
 func TestRequireOwnership_NotOwned(t *testing.T) {
 	c, rec := newTestContext()
 	svc := services.NewRepertoireService(&mocks.MockRepertoireRepo{
-		BelongsToUserFunc: func(id, userID string) (bool, error) { return false, nil },
+		BelongsToUserFunc: func(_ context.Context, id, userID string) (bool, error) { return false, nil },
 	})
 
 	ok := requireOwnership(c, svc, "rep-1", "user-1")

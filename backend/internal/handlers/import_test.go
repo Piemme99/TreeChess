@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"mime/multipart"
 	"net/http"
@@ -238,7 +239,7 @@ func TestListAnalysesHandler_Empty(t *testing.T) {
 	setTestUserID(c)
 
 	mockAnalysisRepo := &mocks.MockAnalysisRepo{
-		GetAllFunc: func(userID string) ([]models.AnalysisSummary, error) {
+		GetAllFunc: func(_ context.Context, userID string) ([]models.AnalysisSummary, error) {
 			return []models.AnalysisSummary{}, nil
 		},
 	}
@@ -265,7 +266,7 @@ func TestListAnalysesHandler_WithResults(t *testing.T) {
 	setTestUserID(c)
 
 	mockAnalysisRepo := &mocks.MockAnalysisRepo{
-		GetAllFunc: func(userID string) ([]models.AnalysisSummary, error) {
+		GetAllFunc: func(_ context.Context, userID string) ([]models.AnalysisSummary, error) {
 			return []models.AnalysisSummary{
 				{ID: "uuid-1", Username: "player1", Filename: "game1.pgn", GameCount: 5, UploadedAt: time.Now()},
 				{ID: "uuid-2", Username: "player2", Filename: "game2.pgn", GameCount: 10, UploadedAt: time.Now()},
@@ -297,10 +298,10 @@ func TestGetAnalysisHandler_NotFound(t *testing.T) {
 	setTestUserID(c)
 
 	mockAnalysisRepo := &mocks.MockAnalysisRepo{
-		BelongsToUserFunc: func(id string, userID string) (bool, error) {
+		BelongsToUserFunc: func(_ context.Context, id string, userID string) (bool, error) {
 			return true, nil
 		},
-		GetByIDFunc: func(id string) (*models.AnalysisDetail, error) {
+		GetByIDFunc: func(_ context.Context, id string) (*models.AnalysisDetail, error) {
 			return nil, repository.ErrAnalysisNotFound
 		},
 	}
@@ -323,10 +324,10 @@ func TestGetAnalysisHandler_Found(t *testing.T) {
 	setTestUserID(c)
 
 	mockAnalysisRepo := &mocks.MockAnalysisRepo{
-		BelongsToUserFunc: func(id string, userID string) (bool, error) {
+		BelongsToUserFunc: func(_ context.Context, id string, userID string) (bool, error) {
 			return true, nil
 		},
-		GetByIDFunc: func(id string) (*models.AnalysisDetail, error) {
+		GetByIDFunc: func(_ context.Context, id string) (*models.AnalysisDetail, error) {
 			return &models.AnalysisDetail{
 				ID:         id,
 				Username:   "testuser",
@@ -362,10 +363,10 @@ func TestDeleteAnalysisHandler_NotFound(t *testing.T) {
 	setTestUserID(c)
 
 	mockAnalysisRepo := &mocks.MockAnalysisRepo{
-		BelongsToUserFunc: func(id string, userID string) (bool, error) {
+		BelongsToUserFunc: func(_ context.Context, id string, userID string) (bool, error) {
 			return true, nil
 		},
-		DeleteFunc: func(id string) error {
+		DeleteFunc: func(_ context.Context, id string) error {
 			return repository.ErrAnalysisNotFound
 		},
 	}
@@ -388,10 +389,10 @@ func TestDeleteAnalysisHandler_Success(t *testing.T) {
 	setTestUserID(c)
 
 	mockAnalysisRepo := &mocks.MockAnalysisRepo{
-		BelongsToUserFunc: func(id string, userID string) (bool, error) {
+		BelongsToUserFunc: func(_ context.Context, id string, userID string) (bool, error) {
 			return true, nil
 		},
-		DeleteFunc: func(id string) error {
+		DeleteFunc: func(_ context.Context, id string) error {
 			return nil
 		},
 	}
@@ -697,7 +698,7 @@ func TestGetGamesHandler_DefaultPagination(t *testing.T) {
 	setTestUserID(c)
 
 	mockAnalysisRepo := &mocks.MockAnalysisRepo{
-		GetAllGamesFunc: func(userID string, limit, offset int, timeClass, opening, source string, onlyNew bool) (*models.GamesResponse, error) {
+		GetAllGamesFunc: func(_ context.Context, userID string, limit, offset int, timeClass, opening, source string, onlyNew bool) (*models.GamesResponse, error) {
 			return &models.GamesResponse{
 				Games:  []models.GameSummary{},
 				Total:  0,
@@ -728,7 +729,7 @@ func TestGetGamesHandler_WithGames(t *testing.T) {
 	setTestUserID(c)
 
 	mockAnalysisRepo := &mocks.MockAnalysisRepo{
-		GetAllGamesFunc: func(userID string, limit, offset int, timeClass, opening, source string, onlyNew bool) (*models.GamesResponse, error) {
+		GetAllGamesFunc: func(_ context.Context, userID string, limit, offset int, timeClass, opening, source string, onlyNew bool) (*models.GamesResponse, error) {
 			return &models.GamesResponse{
 				Games: []models.GameSummary{
 					{
@@ -773,7 +774,7 @@ func TestGetGamesHandler_CustomPagination(t *testing.T) {
 
 	var capturedLimit, capturedOffset int
 	mockAnalysisRepo := &mocks.MockAnalysisRepo{
-		GetAllGamesFunc: func(userID string, limit, offset int, timeClass, opening, source string, onlyNew bool) (*models.GamesResponse, error) {
+		GetAllGamesFunc: func(_ context.Context, userID string, limit, offset int, timeClass, opening, source string, onlyNew bool) (*models.GamesResponse, error) {
 			capturedLimit = limit
 			capturedOffset = offset
 			return &models.GamesResponse{
@@ -895,12 +896,12 @@ func TestUploadHandler_CaseInsensitivePGNExtension(t *testing.T) {
 	setTestUserID(c)
 
 	mockRepertoireRepo := &mocks.MockRepertoireRepo{
-		GetByColorFunc: func(userID string, color models.Color) ([]models.Repertoire, error) {
+		GetByColorFunc: func(_ context.Context, userID string, color models.Color) ([]models.Repertoire, error) {
 			return []models.Repertoire{}, nil
 		},
 	}
 	mockAnalysisRepo := &mocks.MockAnalysisRepo{
-		SaveFunc: func(userID string, username, filename string, gameCount int, results []models.GameAnalysis) (*models.AnalysisSummary, error) {
+		SaveFunc: func(_ context.Context, userID string, username, filename string, gameCount int, results []models.GameAnalysis) (*models.AnalysisSummary, error) {
 			return &models.AnalysisSummary{
 				ID:        "new-analysis-id",
 				Username:  username,

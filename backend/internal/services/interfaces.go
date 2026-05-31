@@ -1,6 +1,8 @@
 package services
 
 import (
+	"context"
+
 	"github.com/kumquat/backend/internal/models"
 )
 
@@ -22,14 +24,14 @@ type ChesscomGameFetcher interface {
 
 // GameImporter abstracts game parsing and analysis.
 type GameImporter interface {
-	ParseAndAnalyze(filename, username, userID, pgnData string) (*models.AnalysisSummary, []models.GameAnalysis, error)
+	ParseAndAnalyze(ctx context.Context, filename, username, userID, pgnData string) (*models.AnalysisSummary, []models.GameAnalysis, error)
 }
 
 // RepertoireManager abstracts repertoire creation and tree operations.
 type RepertoireManager interface {
-	CreateRepertoire(userID, name string, color models.Color) (*models.Repertoire, error)
-	CreateRepertoireWithCategory(userID, name string, color models.Color, categoryID *string) (*models.Repertoire, error)
-	SaveTree(userID, repertoireID string, treeData models.RepertoireNode) (*models.Repertoire, error)
-	SetOrigin(repertoireID string, origin *models.RepertoireOrigin) error
-	ListRepertoires(userID string, color *models.Color) ([]models.Repertoire, error)
+	CreateRepertoire(ctx context.Context, userID, name string, color models.Color) (*models.Repertoire, error)
+	CreateRepertoireWithCategory(ctx context.Context, userID, name string, color models.Color, categoryID *string) (*models.Repertoire, error)
+	SaveTree(ctx context.Context, userID, repertoireID string, treeData models.RepertoireNode) (*models.Repertoire, error)
+	SetOrigin(ctx context.Context, repertoireID string, origin *models.RepertoireOrigin) error
+	ListRepertoires(ctx context.Context, userID string, color *models.Color) ([]models.Repertoire, error)
 }

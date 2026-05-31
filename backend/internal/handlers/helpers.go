@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strconv"
@@ -115,7 +116,7 @@ func parseIfMatch(c *echo.Context) (version int, present bool, valid bool) {
 // versionFetcher is the minimal surface needed to enforce an If-Match
 // precondition: load the current version of a repertoire the caller owns.
 type versionFetcher interface {
-	GetRepertoire(id string) (*models.Repertoire, error)
+	GetRepertoire(ctx context.Context, id string) (*models.Repertoire, error)
 }
 
 // checkIfMatch enforces an optimistic-concurrency precondition before a tree
@@ -136,7 +137,7 @@ func checkIfMatch(c *echo.Context, svc versionFetcher, repertoireID string) (ok 
 		return false, BadRequestResponse(c, "If-Match must be a non-negative integer version")
 	}
 
-	current, err := svc.GetRepertoire(repertoireID)
+	current, err := svc.GetRepertoire(c.Request().Context(), repertoireID)
 	if err != nil {
 		return false, NotFoundResponse(c, "repertoire")
 	}
@@ -300,7 +301,7 @@ func mustUserID(c *echo.Context) (string, bool) {
 // response and returns false otherwise (errors are mapped to 404 to avoid leaking
 // the existence of other users' repertoires).
 func requireOwnership(c *echo.Context, svc *services.RepertoireService, repID, userID string) bool {
-	if err := svc.CheckOwnership(repID, userID); err != nil {
+	if err := svc.CheckOwnership(c.Request().Context(), repID, userID); err != nil {
 		_ = NotFoundResponse(c, "repertoire")
 		return false
 	}

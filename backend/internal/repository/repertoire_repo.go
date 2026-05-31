@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -148,8 +149,8 @@ func buildOrigin(originType, originURL, originCreator *string) *models.Repertoir
 }
 
 // GetByID retrieves a repertoire by its UUID
-func (r *PostgresRepertoireRepo) GetByID(id string) (*models.Repertoire, error) {
-	ctx, cancel := dbContext()
+func (r *PostgresRepertoireRepo) GetByID(ctx context.Context, id string) (*models.Repertoire, error) {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	var rep models.Repertoire
@@ -193,8 +194,8 @@ func (r *PostgresRepertoireRepo) GetByID(id string) (*models.Repertoire, error) 
 }
 
 // GetByColor retrieves all repertoires of a given color for a user
-func (r *PostgresRepertoireRepo) GetByColor(userID string, color models.Color) ([]models.Repertoire, error) {
-	ctx, cancel := dbContext()
+func (r *PostgresRepertoireRepo) GetByColor(ctx context.Context, userID string, color models.Color) ([]models.Repertoire, error) {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	rows, err := r.pool.Query(ctx, getRepertoiresByColorSQL, userID, string(color))
@@ -207,8 +208,8 @@ func (r *PostgresRepertoireRepo) GetByColor(userID string, color models.Color) (
 }
 
 // GetAll retrieves all repertoires for a user
-func (r *PostgresRepertoireRepo) GetAll(userID string) ([]models.Repertoire, error) {
-	ctx, cancel := dbContext()
+func (r *PostgresRepertoireRepo) GetAll(ctx context.Context, userID string) ([]models.Repertoire, error) {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	rows, err := r.pool.Query(ctx, getAllRepertoiresSQL, userID)
@@ -221,28 +222,28 @@ func (r *PostgresRepertoireRepo) GetAll(userID string) ([]models.Repertoire, err
 }
 
 // Create creates a new repertoire with a name and color for a user
-func (r *PostgresRepertoireRepo) Create(userID string, name string, color models.Color) (*models.Repertoire, error) {
-	return r.CreateWithCategory(userID, name, color, nil)
+func (r *PostgresRepertoireRepo) Create(ctx context.Context, userID string, name string, color models.Color) (*models.Repertoire, error) {
+	return r.CreateWithCategory(ctx, userID, name, color, nil)
 }
 
 // CreateWithIsPublic creates a new repertoire with explicit visibility
-func (r *PostgresRepertoireRepo) CreateWithIsPublic(userID string, name string, color models.Color, isPublic bool) (*models.Repertoire, error) {
-	return r.createRepertoire(userID, name, "", color, nil, isPublic)
+func (r *PostgresRepertoireRepo) CreateWithIsPublic(ctx context.Context, userID string, name string, color models.Color, isPublic bool) (*models.Repertoire, error) {
+	return r.createRepertoire(ctx, userID, name, "", color, nil, isPublic)
 }
 
 // CreateWithIsPublicAndDescription creates a new repertoire with explicit visibility and description
-func (r *PostgresRepertoireRepo) CreateWithIsPublicAndDescription(userID string, name string, description string, color models.Color, isPublic bool) (*models.Repertoire, error) {
-	return r.createRepertoire(userID, name, description, color, nil, isPublic)
+func (r *PostgresRepertoireRepo) CreateWithIsPublicAndDescription(ctx context.Context, userID string, name string, description string, color models.Color, isPublic bool) (*models.Repertoire, error) {
+	return r.createRepertoire(ctx, userID, name, description, color, nil, isPublic)
 }
 
 // CreateWithCategory creates a new repertoire with a name, color, and optional category for a user
-func (r *PostgresRepertoireRepo) CreateWithCategory(userID string, name string, color models.Color, categoryID *string) (*models.Repertoire, error) {
-	return r.createRepertoire(userID, name, "", color, categoryID, false)
+func (r *PostgresRepertoireRepo) CreateWithCategory(ctx context.Context, userID string, name string, color models.Color, categoryID *string) (*models.Repertoire, error) {
+	return r.createRepertoire(ctx, userID, name, "", color, categoryID, false)
 }
 
 // createRepertoire is the internal implementation for creating repertoires
-func (r *PostgresRepertoireRepo) createRepertoire(userID string, name string, description string, color models.Color, categoryID *string, isPublic bool) (*models.Repertoire, error) {
-	ctx, cancel := dbContext()
+func (r *PostgresRepertoireRepo) createRepertoire(ctx context.Context, userID string, name string, description string, color models.Color, categoryID *string, isPublic bool) (*models.Repertoire, error) {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	rootNode := models.RepertoireNode{
@@ -341,8 +342,8 @@ func (r *PostgresRepertoireRepo) createRepertoire(userID string, name string, de
 // the row exists, the caller's snapshot was stale and ErrRepertoireConflict is
 // returned; otherwise the repertoire is gone and ErrRepertoireNotFound is
 // returned.
-func (r *PostgresRepertoireRepo) Save(id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {
-	ctx, cancel := dbContext()
+func (r *PostgresRepertoireRepo) Save(ctx context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	treeDataJSON, err := json.Marshal(treeData)
@@ -383,7 +384,7 @@ func (r *PostgresRepertoireRepo) Save(id string, userID string, treeData models.
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			exists, existsErr := r.BelongsToUser(id, userID)
+			exists, existsErr := r.BelongsToUser(ctx, id, userID)
 			if existsErr != nil {
 				return nil, existsErr
 			}
@@ -409,8 +410,8 @@ func (r *PostgresRepertoireRepo) Save(id string, userID string, treeData models.
 }
 
 // UpdateName updates the name of a repertoire, scoped to user
-func (r *PostgresRepertoireRepo) UpdateName(id string, userID string, name string) (*models.Repertoire, error) {
-	ctx, cancel := dbContext()
+func (r *PostgresRepertoireRepo) UpdateName(ctx context.Context, id string, userID string, name string) (*models.Repertoire, error) {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	var rep models.Repertoire
@@ -451,8 +452,8 @@ func (r *PostgresRepertoireRepo) UpdateName(id string, userID string, name strin
 }
 
 // UpdateDescription updates the description of a repertoire, scoped to user
-func (r *PostgresRepertoireRepo) UpdateDescription(id string, userID string, description string) (*models.Repertoire, error) {
-	ctx, cancel := dbContext()
+func (r *PostgresRepertoireRepo) UpdateDescription(ctx context.Context, id string, userID string, description string) (*models.Repertoire, error) {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	var rep models.Repertoire
@@ -496,8 +497,8 @@ func (r *PostgresRepertoireRepo) UpdateDescription(id string, userID string, des
 }
 
 // UpdateCategory updates the category of a repertoire, scoped to user
-func (r *PostgresRepertoireRepo) UpdateCategory(id string, userID string, categoryID *string) (*models.Repertoire, error) {
-	ctx, cancel := dbContext()
+func (r *PostgresRepertoireRepo) UpdateCategory(ctx context.Context, id string, userID string, categoryID *string) (*models.Repertoire, error) {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	var rep models.Repertoire
@@ -541,8 +542,8 @@ func (r *PostgresRepertoireRepo) UpdateCategory(id string, userID string, catego
 }
 
 // GetByCategory retrieves all repertoires in a specific category
-func (r *PostgresRepertoireRepo) GetByCategory(categoryID string) ([]models.Repertoire, error) {
-	ctx, cancel := dbContext()
+func (r *PostgresRepertoireRepo) GetByCategory(ctx context.Context, categoryID string) ([]models.Repertoire, error) {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	rows, err := r.pool.Query(ctx, getRepertoiresByCategorySQL, categoryID)
@@ -555,8 +556,8 @@ func (r *PostgresRepertoireRepo) GetByCategory(categoryID string) ([]models.Repe
 }
 
 // GetUncategorized retrieves all repertoires without a category for a user and color
-func (r *PostgresRepertoireRepo) GetUncategorized(userID string, color models.Color) ([]models.Repertoire, error) {
-	ctx, cancel := dbContext()
+func (r *PostgresRepertoireRepo) GetUncategorized(ctx context.Context, userID string, color models.Color) ([]models.Repertoire, error) {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	rows, err := r.pool.Query(ctx, getUncategorizedRepertoiresSQL, userID, string(color))
@@ -569,8 +570,8 @@ func (r *PostgresRepertoireRepo) GetUncategorized(userID string, color models.Co
 }
 
 // Delete deletes a repertoire by ID, scoped to user
-func (r *PostgresRepertoireRepo) Delete(id string, userID string) error {
-	ctx, cancel := dbContext()
+func (r *PostgresRepertoireRepo) Delete(ctx context.Context, id string, userID string) error {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	result, err := r.pool.Exec(ctx, deleteRepertoireSQL, id, userID)
@@ -586,8 +587,8 @@ func (r *PostgresRepertoireRepo) Delete(id string, userID string) error {
 }
 
 // Count returns the total number of repertoires for a user
-func (r *PostgresRepertoireRepo) Count(userID string) (int, error) {
-	ctx, cancel := dbContext()
+func (r *PostgresRepertoireRepo) Count(ctx context.Context, userID string) (int, error) {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	var count int
@@ -600,8 +601,8 @@ func (r *PostgresRepertoireRepo) Count(userID string) (int, error) {
 }
 
 // Exists checks if a repertoire exists by ID
-func (r *PostgresRepertoireRepo) Exists(id string) (bool, error) {
-	ctx, cancel := dbContext()
+func (r *PostgresRepertoireRepo) Exists(ctx context.Context, id string) (bool, error) {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	var exists bool
@@ -613,8 +614,8 @@ func (r *PostgresRepertoireRepo) Exists(id string) (bool, error) {
 }
 
 // BelongsToUser checks if a repertoire belongs to a specific user
-func (r *PostgresRepertoireRepo) BelongsToUser(id string, userID string) (bool, error) {
-	ctx, cancel := dbContext()
+func (r *PostgresRepertoireRepo) BelongsToUser(ctx context.Context, id string, userID string) (bool, error) {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	var belongs bool
@@ -692,8 +693,8 @@ func (r *PostgresRepertoireRepo) scanRepertoires(rows interface {
 }
 
 // UpdateVisibility updates the is_public flag of a repertoire, scoped to user
-func (r *PostgresRepertoireRepo) UpdateVisibility(id string, userID string, isPublic bool) (*models.Repertoire, error) {
-	ctx, cancel := dbContext()
+func (r *PostgresRepertoireRepo) UpdateVisibility(ctx context.Context, id string, userID string, isPublic bool) (*models.Repertoire, error) {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	var rep models.Repertoire
@@ -737,8 +738,8 @@ func (r *PostgresRepertoireRepo) UpdateVisibility(id string, userID string, isPu
 }
 
 // UpdateOrigin sets the origin fields on a repertoire
-func (r *PostgresRepertoireRepo) UpdateOrigin(id string, origin *models.RepertoireOrigin) error {
-	ctx, cancel := dbContext()
+func (r *PostgresRepertoireRepo) UpdateOrigin(ctx context.Context, id string, origin *models.RepertoireOrigin) error {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	var originType, originURL, originCreator *string
@@ -760,8 +761,8 @@ func (r *PostgresRepertoireRepo) UpdateOrigin(id string, origin *models.Repertoi
 }
 
 // GetAllPublic retrieves all public repertoires with author usernames
-func (r *PostgresRepertoireRepo) GetAllPublic() ([]models.Repertoire, error) {
-	ctx, cancel := dbContext()
+func (r *PostgresRepertoireRepo) GetAllPublic(ctx context.Context) ([]models.Repertoire, error) {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	rows, err := r.pool.Query(ctx, getAllPublicRepertoiresSQL)
@@ -774,8 +775,8 @@ func (r *PostgresRepertoireRepo) GetAllPublic() ([]models.Repertoire, error) {
 }
 
 // GetPublicByID retrieves a single public repertoire by ID with author username
-func (r *PostgresRepertoireRepo) GetPublicByID(id string) (*models.Repertoire, error) {
-	ctx, cancel := dbContext()
+func (r *PostgresRepertoireRepo) GetPublicByID(ctx context.Context, id string) (*models.Repertoire, error) {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	var rep models.Repertoire
@@ -820,8 +821,8 @@ func (r *PostgresRepertoireRepo) GetPublicByID(id string) (*models.Repertoire, e
 }
 
 // GetOwnerID returns the user_id of a repertoire
-func (r *PostgresRepertoireRepo) GetOwnerID(id string) (string, error) {
-	ctx, cancel := dbContext()
+func (r *PostgresRepertoireRepo) GetOwnerID(ctx context.Context, id string) (string, error) {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	var ownerID string

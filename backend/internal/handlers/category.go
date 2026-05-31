@@ -30,7 +30,7 @@ func ListCategoriesHandler(svc *services.CategoryService) echo.HandlerFunc {
 			colorFilter = &color
 		}
 
-		categories, err := svc.ListCategories(userID, colorFilter)
+		categories, err := svc.ListCategories(c.Request().Context(), userID, colorFilter)
 		if err != nil {
 			return InternalErrorResponse(c, "failed to list categories")
 		}
@@ -66,7 +66,7 @@ func CreateCategoryHandler(svc *services.CategoryService) echo.HandlerFunc {
 			return BadRequestResponse(c, "invalid color. must be 'white' or 'black'")
 		}
 
-		cat, err := svc.CreateCategory(userID, req.Name, req.Color)
+		cat, err := svc.CreateCategory(c.Request().Context(), userID, req.Name, req.Color)
 		if err != nil {
 			if errors.Is(err, services.ErrCategoryLimit) {
 				return ConflictResponse(c, "maximum category limit reached (50)")
@@ -99,11 +99,11 @@ func GetCategoryHandler(svc *services.CategoryService) echo.HandlerFunc {
 			return BadRequestResponse(c, "id must be a valid UUID")
 		}
 
-		if err := svc.CheckOwnership(idParam, userID); err != nil {
+		if err := svc.CheckOwnership(c.Request().Context(), idParam, userID); err != nil {
 			return NotFoundResponse(c, "category")
 		}
 
-		catWithReps, err := svc.GetCategoryWithRepertoires(idParam)
+		catWithReps, err := svc.GetCategoryWithRepertoires(c.Request().Context(), idParam)
 		if err != nil {
 			if errors.Is(err, services.ErrCategoryNotFound) {
 				return NotFoundResponse(c, "category")
@@ -130,7 +130,7 @@ func UpdateCategoryHandler(svc *services.CategoryService) echo.HandlerFunc {
 			return BadRequestResponse(c, "id must be a valid UUID")
 		}
 
-		if err := svc.CheckOwnership(idParam, userID); err != nil {
+		if err := svc.CheckOwnership(c.Request().Context(), idParam, userID); err != nil {
 			return NotFoundResponse(c, "category")
 		}
 
@@ -139,7 +139,7 @@ func UpdateCategoryHandler(svc *services.CategoryService) echo.HandlerFunc {
 			return BadRequestResponse(c, "invalid request body")
 		}
 
-		cat, err := svc.RenameCategory(idParam, req.Name)
+		cat, err := svc.RenameCategory(c.Request().Context(), idParam, req.Name)
 		if err != nil {
 			if errors.Is(err, services.ErrCategoryNotFound) {
 				return NotFoundResponse(c, "category")
@@ -172,11 +172,11 @@ func DeleteCategoryHandler(svc *services.CategoryService) echo.HandlerFunc {
 			return BadRequestResponse(c, "id must be a valid UUID")
 		}
 
-		if err := svc.CheckOwnership(idParam, userID); err != nil {
+		if err := svc.CheckOwnership(c.Request().Context(), idParam, userID); err != nil {
 			return NotFoundResponse(c, "category")
 		}
 
-		err := svc.DeleteCategory(idParam)
+		err := svc.DeleteCategory(c.Request().Context(), idParam)
 		if err != nil {
 			if errors.Is(err, services.ErrCategoryNotFound) {
 				return NotFoundResponse(c, "category")
@@ -203,7 +203,7 @@ func AssignCategoryHandler(svc *services.RepertoireService, catSvc *services.Cat
 			return BadRequestResponse(c, "id must be a valid UUID")
 		}
 
-		if err := svc.CheckOwnership(idParam, userID); err != nil {
+		if err := svc.CheckOwnership(c.Request().Context(), idParam, userID); err != nil {
 			return NotFoundResponse(c, "repertoire")
 		}
 
@@ -217,7 +217,7 @@ func AssignCategoryHandler(svc *services.RepertoireService, catSvc *services.Cat
 			if _, err := uuid.Parse(*req.CategoryID); err != nil {
 				return BadRequestResponse(c, "categoryId must be a valid UUID")
 			}
-			if err := catSvc.CheckOwnership(*req.CategoryID, userID); err != nil {
+			if err := catSvc.CheckOwnership(c.Request().Context(), *req.CategoryID, userID); err != nil {
 				return NotFoundResponse(c, "category")
 			}
 		}
@@ -228,7 +228,7 @@ func AssignCategoryHandler(svc *services.RepertoireService, catSvc *services.Cat
 			categoryID = nil
 		}
 
-		rep, err := svc.AssignToCategory(userID, idParam, categoryID)
+		rep, err := svc.AssignToCategory(c.Request().Context(), userID, idParam, categoryID)
 		if err != nil {
 			if errors.Is(err, services.ErrNotFound) {
 				return NotFoundResponse(c, "repertoire")

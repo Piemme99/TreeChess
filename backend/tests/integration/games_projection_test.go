@@ -66,7 +66,7 @@ func TestGamesProjection_BoundedPagination(t *testing.T) {
 		for g := 0; g < gamesPer; g++ {
 			games[g] = makeProjectionGame(g, "projuser", fmt.Sprintf("opp-%d-%d", a, g), "600+0", nil)
 		}
-		_, err := repos.Analysis.Save(user.ID, "projuser", fmt.Sprintf("batch%d.pgn", a), gamesPer, games)
+		_, err := repos.Analysis.Save(context.Background(), user.ID, "projuser", fmt.Sprintf("batch%d.pgn", a), gamesPer, games)
 		require.NoError(t, err)
 	}
 
@@ -77,7 +77,7 @@ func TestGamesProjection_BoundedPagination(t *testing.T) {
 	const limit = 25
 	seen := 0
 	for offset := 0; offset < totalGames; offset += limit {
-		page, err := repos.Analysis.GetAllGames(user.ID, limit, offset, "", "", "", false)
+		page, err := repos.Analysis.GetAllGames(context.Background(), user.ID, limit, offset, "", "", "", false)
 		require.NoError(t, err)
 		assert.Equal(t, totalGames, page.Total)
 		assert.LessOrEqual(t, len(page.Games), limit, "page must never exceed the requested limit")
@@ -86,7 +86,7 @@ func TestGamesProjection_BoundedPagination(t *testing.T) {
 	assert.Equal(t, totalGames, seen, "pagination must enumerate every game exactly once")
 
 	// Offset past the end yields an empty (non-nil) slice with the real Total.
-	beyond, err := repos.Analysis.GetAllGames(user.ID, limit, totalGames+limit, "", "", "", false)
+	beyond, err := repos.Analysis.GetAllGames(context.Background(), user.ID, limit, totalGames+limit, "", "", "", false)
 	require.NoError(t, err)
 	assert.Empty(t, beyond.Games)
 	assert.Equal(t, totalGames, beyond.Total)
@@ -109,37 +109,37 @@ func TestGamesProjection_SQLFilters(t *testing.T) {
 		makeProjectionGame(1, "filterproj", "opp1", "300+0", repA),
 		makeProjectionGame(2, "filterproj", "opp2", "60+0", repB),
 	}
-	_, err := repos.Analysis.Save(user.ID, "filterproj", "my_games.pgn", len(pgnGames), pgnGames)
+	_, err := repos.Analysis.Save(context.Background(), user.ID, "filterproj", "my_games.pgn", len(pgnGames), pgnGames)
 	require.NoError(t, err)
 
 	// A synced lichess import: 1 rapid game, no matched repertoire.
 	syncGames := []models.GameAnalysis{
 		makeProjectionGame(0, "filterproj", "opp3", "900+0", nil),
 	}
-	_, err = repos.Analysis.Save(user.ID, "filterproj", "sync_lichess_filterproj.pgn", len(syncGames), syncGames)
+	_, err = repos.Analysis.Save(context.Background(), user.ID, "filterproj", "sync_lichess_filterproj.pgn", len(syncGames), syncGames)
 	require.NoError(t, err)
 
 	// Source filter.
-	pgnOnly, err := repos.Analysis.GetAllGames(user.ID, 50, 0, "", "", "pgn", false)
+	pgnOnly, err := repos.Analysis.GetAllGames(context.Background(), user.ID, 50, 0, "", "", "pgn", false)
 	require.NoError(t, err)
 	assert.Equal(t, 3, pgnOnly.Total)
 
-	lichessOnly, err := repos.Analysis.GetAllGames(user.ID, 50, 0, "", "", "lichess", false)
+	lichessOnly, err := repos.Analysis.GetAllGames(context.Background(), user.ID, 50, 0, "", "", "lichess", false)
 	require.NoError(t, err)
 	assert.Equal(t, 1, lichessOnly.Total)
 
 	// Time-class filter (blitz = the two 300+0 games).
-	blitz, err := repos.Analysis.GetAllGames(user.ID, 50, 0, "blitz", "", "", false)
+	blitz, err := repos.Analysis.GetAllGames(context.Background(), user.ID, 50, 0, "blitz", "", "", false)
 	require.NoError(t, err)
 	assert.Equal(t, 2, blitz.Total)
 
 	// Repertoire filter.
-	repBGames, err := repos.Analysis.GetAllGames(user.ID, 50, 0, "", repB.ID, "", false)
+	repBGames, err := repos.Analysis.GetAllGames(context.Background(), user.ID, 50, 0, "", repB.ID, "", false)
 	require.NoError(t, err)
 	assert.Equal(t, 1, repBGames.Total)
 
 	// Distinct repertoires (sorted by name) only includes matched repertoires.
-	dr, err := repos.Analysis.GetDistinctRepertoires(user.ID)
+	dr, err := repos.Analysis.GetDistinctRepertoires(context.Background(), user.ID)
 	require.NoError(t, err)
 	require.Len(t, dr, 2)
 	assert.Equal(t, "Repertoire A", dr[0].Name)
@@ -158,11 +158,11 @@ func TestGamesProjection_OnlyNewExcludesViewed(t *testing.T) {
 		makeProjectionGame(0, "newproj", "opp0", "300+0", nil),
 		makeProjectionGame(1, "newproj", "opp1", "300+0", nil),
 	}
-	summary, err := repos.Analysis.Save(user.ID, "newproj", "sync_lichess_newproj.pgn", len(syncGames), syncGames)
+	summary, err := repos.Analysis.Save(context.Background(), user.ID, "newproj", "sync_lichess_newproj.pgn", len(syncGames), syncGames)
 	require.NoError(t, err)
 
 	// Both synced games start as "new".
-	before, err := repos.Analysis.GetAllGames(user.ID, 50, 0, "", "", "", true)
+	before, err := repos.Analysis.GetAllGames(context.Background(), user.ID, 50, 0, "", "", "", true)
 	require.NoError(t, err)
 	assert.Equal(t, 2, before.Total)
 	for _, g := range before.Games {
@@ -170,9 +170,9 @@ func TestGamesProjection_OnlyNewExcludesViewed(t *testing.T) {
 	}
 
 	// Mark one viewed → it is no longer "new".
-	require.NoError(t, repos.Analysis.MarkGameViewed(user.ID, summary.ID, 0))
+	require.NoError(t, repos.Analysis.MarkGameViewed(context.Background(), user.ID, summary.ID, 0))
 
-	after, err := repos.Analysis.GetAllGames(user.ID, 50, 0, "", "", "", true)
+	after, err := repos.Analysis.GetAllGames(context.Background(), user.ID, 50, 0, "", "", "", true)
 	require.NoError(t, err)
 	assert.Equal(t, 1, after.Total)
 }
@@ -190,16 +190,16 @@ func TestGamesProjection_UpdateResultsRebuilds(t *testing.T) {
 		makeProjectionGame(1, "rebuildproj", "opp1", "300+0", nil),
 		makeProjectionGame(2, "rebuildproj", "opp2", "300+0", nil),
 	}
-	summary, err := repos.Analysis.Save(user.ID, "rebuildproj", "rebuild.pgn", len(initial), initial)
+	summary, err := repos.Analysis.Save(context.Background(), user.ID, "rebuildproj", "rebuild.pgn", len(initial), initial)
 	require.NoError(t, err)
 	assert.Equal(t, 3, countGamesRows(t, user.ID))
 
 	// Re-write with fewer games → projection shrinks, no stale rows remain.
 	reduced := initial[:1]
-	require.NoError(t, repos.Analysis.UpdateResults(summary.ID, reduced))
+	require.NoError(t, repos.Analysis.UpdateResults(context.Background(), summary.ID, reduced))
 	assert.Equal(t, 1, countGamesRows(t, user.ID))
 
-	page, err := repos.Analysis.GetAllGames(user.ID, 50, 0, "", "", "", false)
+	page, err := repos.Analysis.GetAllGames(context.Background(), user.ID, 50, 0, "", "", "", false)
 	require.NoError(t, err)
 	assert.Equal(t, 1, page.Total)
 }

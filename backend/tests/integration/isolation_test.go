@@ -3,6 +3,7 @@
 package integration
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"testing"
@@ -164,7 +165,7 @@ func TestUserIsolation_AnalysisAccess(t *testing.T) {
 
 	// User A imports a PGN via service
 	pgn := testhelpers.SimplePGN("usera_ana", "opponent")
-	summary, _, err := ts.ImportSvc.ParseAndAnalyze("test.pgn", "usera_ana", getUserID(t, ts, tokenA), pgn)
+	summary, _, err := ts.ImportSvc.ParseAndAnalyze(context.Background(), "test.pgn", "usera_ana", getUserID(t, ts, tokenA), pgn)
 	require.NoError(t, err)
 
 	// User A can access analysis
@@ -238,7 +239,7 @@ func TestUserIsolation_ListAnalyses(t *testing.T) {
 
 	// User A imports a PGN
 	pgn := testhelpers.SimplePGN("usera_analist", "opponent")
-	_, _, err := ts.ImportSvc.ParseAndAnalyze("test.pgn", "usera_analist", userIDA, pgn)
+	_, _, err := ts.ImportSvc.ParseAndAnalyze(context.Background(), "test.pgn", "usera_analist", userIDA, pgn)
 	require.NoError(t, err)
 
 	// User A sees 1 analysis
@@ -273,12 +274,12 @@ func TestRepertoireLimitTrigger(t *testing.T) {
 		if i%2 == 1 {
 			color = models.ColorBlack
 		}
-		_, err := repos.Repertoire.Create(user.ID, "Rep "+string(rune('A'+i%26))+string(rune('0'+i/26)), color)
+		_, err := repos.Repertoire.Create(context.Background(), user.ID, "Rep "+string(rune('A'+i%26))+string(rune('0'+i/26)), color)
 		require.NoError(t, err, "failed to create repertoire %d", i)
 	}
 
 	// 51st should fail (PostgreSQL trigger)
-	_, err := repos.Repertoire.Create(user.ID, "Too Many", models.ColorWhite)
+	_, err := repos.Repertoire.Create(context.Background(), user.ID, "Too Many", models.ColorWhite)
 	assert.Error(t, err)
 }
 
@@ -294,16 +295,16 @@ func TestRepertoireLimitTrigger_DifferentUsers(t *testing.T) {
 		if i%2 == 1 {
 			color = models.ColorBlack
 		}
-		_, err := repos.Repertoire.Create(userA.ID, "A Rep "+string(rune('0'+i/10))+string(rune('0'+i%10)), color)
+		_, err := repos.Repertoire.Create(context.Background(), userA.ID, "A Rep "+string(rune('0'+i/10))+string(rune('0'+i%10)), color)
 		require.NoError(t, err)
 	}
 
 	// User B can still create
-	_, err := repos.Repertoire.Create(userB.ID, "B Rep", models.ColorWhite)
+	_, err := repos.Repertoire.Create(context.Background(), userB.ID, "B Rep", models.ColorWhite)
 	assert.NoError(t, err)
 
 	// User A cannot
-	_, err = repos.Repertoire.Create(userA.ID, "Too Many", models.ColorWhite)
+	_, err = repos.Repertoire.Create(context.Background(), userA.ID, "Too Many", models.ColorWhite)
 	assert.Error(t, err)
 }
 

@@ -52,14 +52,14 @@ func (h *DashboardHandler) DismissGap(c *echo.Context) error {
 	// Reject dismissals targeting a repertoire the caller does not own. A
 	// missing or non-owned repertoire is reported as 404 to avoid leaking
 	// existence of other users' repertoires.
-	if err := h.repertoireService.CheckOwnership(req.RepertoireID, userID); err != nil {
+	if err := h.repertoireService.CheckOwnership(c.Request().Context(), req.RepertoireID, userID); err != nil {
 		if errors.Is(err, services.ErrNotFound) {
 			return NotFoundResponse(c, "repertoire")
 		}
 		return InternalErrorResponse(c, "failed to dismiss gap")
 	}
 
-	if err := h.dashboardService.DismissGap(userID, req.FEN, req.OpponentMove, req.RepertoireID); err != nil {
+	if err := h.dashboardService.DismissGap(c.Request().Context(), userID, req.FEN, req.OpponentMove, req.RepertoireID); err != nil {
 		return InternalErrorResponse(c, "failed to dismiss gap")
 	}
 
@@ -72,7 +72,7 @@ func (h *DashboardHandler) GetStats(c *echo.Context) error {
 		return nil
 	}
 
-	stats, err := h.dashboardService.GetDashboardStats(userID)
+	stats, err := h.dashboardService.GetDashboardStats(c.Request().Context(), userID)
 	if err != nil {
 		return InternalErrorResponse(c, "failed to get dashboard stats")
 	}

@@ -3,6 +3,7 @@
 package integration
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"testing"
@@ -29,40 +30,40 @@ func TestCascadeDelete_Analysis(t *testing.T) {
 	)
 
 	pgn := testhelpers.TwoGamePGN("cascadeuser", "opponent")
-	summary, _, err := importSvc.ParseAndAnalyze("test.pgn", "cascadeuser", user.ID, pgn)
+	summary, _, err := importSvc.ParseAndAnalyze(context.Background(), "test.pgn", "cascadeuser", user.ID, pgn)
 	require.NoError(t, err)
 
 	// Mark a game as viewed
-	err = importSvc.MarkGameViewed(user.ID, summary.ID, 0)
+	err = importSvc.MarkGameViewed(context.Background(), user.ID, summary.ID, 0)
 	require.NoError(t, err)
 
 	// Verify data exists
-	evals, err := repos.EngineEval.GetByUser(user.ID)
+	evals, err := repos.EngineEval.GetByUser(context.Background(), user.ID)
 	require.NoError(t, err)
 	assert.NotEmpty(t, evals)
 
-	viewed, err := repos.Analysis.GetViewedGames(user.ID)
+	viewed, err := repos.Analysis.GetViewedGames(context.Background(), user.ID)
 	require.NoError(t, err)
 	assert.NotEmpty(t, viewed)
 
 	// Delete the analysis
-	err = importSvc.DeleteAnalysis(summary.ID)
+	err = importSvc.DeleteAnalysis(context.Background(), summary.ID)
 	require.NoError(t, err)
 
 	// Verify all cascaded deletes
-	_, err = repos.Analysis.GetByID(summary.ID)
+	_, err = repos.Analysis.GetByID(context.Background(), summary.ID)
 	assert.ErrorIs(t, err, repository.ErrAnalysisNotFound)
 
-	evals, err = repos.EngineEval.GetByUser(user.ID)
+	evals, err = repos.EngineEval.GetByUser(context.Background(), user.ID)
 	require.NoError(t, err)
 	assert.Empty(t, evals)
 
-	viewed, err = repos.Analysis.GetViewedGames(user.ID)
+	viewed, err = repos.Analysis.GetViewedGames(context.Background(), user.ID)
 	require.NoError(t, err)
 	assert.Empty(t, viewed)
 
 	// Fingerprints should be gone (re-import should succeed)
-	_, _, err = importSvc.ParseAndAnalyze("test2.pgn", "cascadeuser", user.ID, pgn)
+	_, _, err = importSvc.ParseAndAnalyze(context.Background(), "test2.pgn", "cascadeuser", user.ID, pgn)
 	require.NoError(t, err)
 }
 
@@ -79,11 +80,11 @@ func TestUniqueFingerprint(t *testing.T) {
 	pgn := testhelpers.SimplePGN("uniquefp", "opponent")
 
 	// Import once
-	_, _, err := importSvc.ParseAndAnalyze("test.pgn", "uniquefp", user.ID, pgn)
+	_, _, err := importSvc.ParseAndAnalyze(context.Background(), "test.pgn", "uniquefp", user.ID, pgn)
 	require.NoError(t, err)
 
 	// Same fingerprint again should be rejected
-	_, _, err = importSvc.ParseAndAnalyze("test2.pgn", "uniquefp", user.ID, pgn)
+	_, _, err = importSvc.ParseAndAnalyze(context.Background(), "test2.pgn", "uniquefp", user.ID, pgn)
 	assert.ErrorIs(t, err, services.ErrAllGamesDuplicate)
 }
 
@@ -101,12 +102,12 @@ func TestFingerprintUniquePerUser(t *testing.T) {
 	pgnA := testhelpers.SimplePGN("fpusera", "opponent")
 
 	// User A imports
-	_, _, err := importSvc.ParseAndAnalyze("test.pgn", "fpusera", userA.ID, pgnA)
+	_, _, err := importSvc.ParseAndAnalyze(context.Background(), "test.pgn", "fpusera", userA.ID, pgnA)
 	require.NoError(t, err)
 
 	// User B imports a PGN where they appear as a player
 	pgnB := testhelpers.SimplePGN("fpuserb", "opponent")
-	_, _, err = importSvc.ParseAndAnalyze("test.pgn", "fpuserb", userB.ID, pgnB)
+	_, _, err = importSvc.ParseAndAnalyze(context.Background(), "test.pgn", "fpuserb", userB.ID, pgnB)
 	require.NoError(t, err)
 }
 
@@ -116,12 +117,12 @@ func TestConcurrentRepertoireWrites(t *testing.T) {
 	user := testhelpers.SeedUser(t, repos, "concuser", "password123")
 	svc := services.NewRepertoireService(repos.Repertoire)
 
-	rep, err := svc.CreateRepertoire(user.ID, "Concurrent", models.ColorWhite)
+	rep, err := svc.CreateRepertoire(context.Background(), user.ID, "Concurrent", models.ColorWhite)
 	require.NoError(t, err)
 	rootID := rep.TreeData.ID
 
 	// Add e4 first (shared parent)
-	rep, err = svc.AddNode(user.ID, rep.ID, models.AddNodeRequest{ParentID: rootID, Move: "e4", MoveNumber: 1})
+	rep, err = svc.AddNode(context.Background(), user.ID, rep.ID, models.AddNodeRequest{ParentID: rootID, Move: "e4", MoveNumber: 1})
 	require.NoError(t, err)
 	e4ID := rep.TreeData.Children[0].ID
 
@@ -134,7 +135,7 @@ func TestConcurrentRepertoireWrites(t *testing.T) {
 		wg.Add(1)
 		go func(m string) {
 			defer wg.Done()
-			_, err := svc.AddNode(user.ID, rep.ID, models.AddNodeRequest{ParentID: e4ID, Move: m, MoveNumber: 1})
+			_, err := svc.AddNode(context.Background(), user.ID, rep.ID, models.AddNodeRequest{ParentID: e4ID, Move: m, MoveNumber: 1})
 			if err != nil {
 				errCh <- err
 			}
@@ -145,7 +146,7 @@ func TestConcurrentRepertoireWrites(t *testing.T) {
 	close(errCh)
 
 	// Some may have conflicted, but the final state should be consistent
-	got, err := svc.GetRepertoire(rep.ID)
+	got, err := svc.GetRepertoire(context.Background(), rep.ID)
 	require.NoError(t, err)
 
 	// Root -> e4 -> children
@@ -169,7 +170,7 @@ func TestConcurrentRepertoireCreation_LimitRace(t *testing.T) {
 		if i%2 == 1 {
 			color = models.ColorBlack
 		}
-		_, err := repos.Repertoire.Create(user.ID, fmt.Sprintf("Rep%d", i), color)
+		_, err := repos.Repertoire.Create(context.Background(), user.ID, fmt.Sprintf("Rep%d", i), color)
 		require.NoError(t, err)
 	}
 
@@ -185,7 +186,7 @@ func TestConcurrentRepertoireCreation_LimitRace(t *testing.T) {
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()
-			_, err := repos.Repertoire.Create(user.ID, fmt.Sprintf("Race%d", idx), models.ColorWhite)
+			_, err := repos.Repertoire.Create(context.Background(), user.ID, fmt.Sprintf("Race%d", idx), models.ColorWhite)
 			successes <- (err == nil)
 		}(i)
 	}
@@ -206,7 +207,7 @@ func TestConcurrentRepertoireCreation_LimitRace(t *testing.T) {
 		"no goroutine should succeed past the 50-repertoire limit")
 
 	// Verify the final count never exceeds the hard limit.
-	count, err := repos.Repertoire.Count(user.ID)
+	count, err := repos.Repertoire.Count(context.Background(), user.ID)
 	require.NoError(t, err)
 	assert.LessOrEqual(t, count, 50, "repertoire count must never exceed the limit")
 }

@@ -17,10 +17,10 @@ func TestCleanup_PurgesAllThreeTables(t *testing.T) {
 	var refreshCalled, resetCalled, cacheCalled int
 
 	refreshRepo := &mocks.MockRefreshTokenRepo{
-		DeleteExpiredFunc: func() error { refreshCalled++; return nil },
+		DeleteExpiredFunc: func(_ context.Context) error { refreshCalled++; return nil },
 	}
 	resetRepo := &mocks.MockPasswordResetRepo{
-		DeleteExpiredFunc: func() error { resetCalled++; return nil },
+		DeleteExpiredFunc: func(_ context.Context) error { resetCalled++; return nil },
 	}
 	cacheRepo := &mocks.MockOpeningExplorerCacheRepo{
 		DeleteExpiredFunc: func(_ context.Context) error { cacheCalled++; return nil },
@@ -38,10 +38,10 @@ func TestCleanup_FailureOnOneTableDoesNotBlockOthers(t *testing.T) {
 	var resetCalled, cacheCalled int
 
 	refreshRepo := &mocks.MockRefreshTokenRepo{
-		DeleteExpiredFunc: func() error { return errors.New("refresh boom") },
+		DeleteExpiredFunc: func(_ context.Context) error { return errors.New("refresh boom") },
 	}
 	resetRepo := &mocks.MockPasswordResetRepo{
-		DeleteExpiredFunc: func() error { resetCalled++; return nil },
+		DeleteExpiredFunc: func(_ context.Context) error { resetCalled++; return nil },
 	}
 	cacheRepo := &mocks.MockOpeningExplorerCacheRepo{
 		DeleteExpiredFunc: func(_ context.Context) error { cacheCalled++; return nil },
@@ -65,7 +65,7 @@ func TestRunWorker_RunsImmediatePassThenStopsOnCancel(t *testing.T) {
 	calls := 0
 
 	refreshRepo := &mocks.MockRefreshTokenRepo{
-		DeleteExpiredFunc: func() error {
+		DeleteExpiredFunc: func(_ context.Context) error {
 			mu.Lock()
 			calls++
 			mu.Unlock()
@@ -104,7 +104,7 @@ func TestRunWorker_TicksRepeatedly(t *testing.T) {
 	calls := 0
 
 	refreshRepo := &mocks.MockRefreshTokenRepo{
-		DeleteExpiredFunc: func() error {
+		DeleteExpiredFunc: func(_ context.Context) error {
 			mu.Lock()
 			calls++
 			mu.Unlock()

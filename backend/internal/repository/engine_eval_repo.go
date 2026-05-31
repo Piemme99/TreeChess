@@ -112,8 +112,8 @@ func (r *PostgresEngineEvalRepo) ClaimPending(parent context.Context, limit int)
 // GetPending returns up to limit pending engine evals without claiming them.
 // The worker uses the atomic ClaimPending instead; GetPending remains for
 // read-only callers (e.g. tests) that must not mutate row state.
-func (r *PostgresEngineEvalRepo) GetPending(limit int) ([]models.EngineEval, error) {
-	ctx, cancel := dbContext()
+func (r *PostgresEngineEvalRepo) GetPending(ctx context.Context, limit int) ([]models.EngineEval, error) {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	rows, err := r.pool.Query(ctx,
@@ -145,8 +145,8 @@ func (r *PostgresEngineEvalRepo) GetPending(limit int) ([]models.EngineEval, err
 
 // MarkProcessing marks an engine eval as processing. The worker claims rows
 // atomically via ClaimPending; MarkProcessing remains for non-worker callers.
-func (r *PostgresEngineEvalRepo) MarkProcessing(id string) error {
-	ctx, cancel := dbContext()
+func (r *PostgresEngineEvalRepo) MarkProcessing(ctx context.Context, id string) error {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	_, err := r.pool.Exec(ctx,
@@ -212,8 +212,8 @@ func (r *PostgresEngineEvalRepo) ResetStaleProcessing(parent context.Context) (i
 }
 
 // GetByUser returns all engine evals for a user
-func (r *PostgresEngineEvalRepo) GetByUser(userID string) ([]models.EngineEval, error) {
-	ctx, cancel := dbContext()
+func (r *PostgresEngineEvalRepo) GetByUser(ctx context.Context, userID string) ([]models.EngineEval, error) {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	rows, err := r.pool.Query(ctx,

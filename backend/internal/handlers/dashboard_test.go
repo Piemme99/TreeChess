@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -22,7 +23,7 @@ const (
 
 func newTestDashboardHandler(belongsToUser bool) *DashboardHandler {
 	mockRepo := &mocks.MockRepertoireRepo{
-		BelongsToUserFunc: func(id, userID string) (bool, error) { return belongsToUser, nil },
+		BelongsToUserFunc: func(_ context.Context, id, userID string) (bool, error) { return belongsToUser, nil },
 	}
 	repertoireSvc := services.NewRepertoireService(mockRepo)
 	// No dismissed-gap repo is wired, so a fully-validated, owned dismissal still

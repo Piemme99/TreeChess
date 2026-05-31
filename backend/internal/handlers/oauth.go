@@ -115,14 +115,14 @@ func (h *OAuthHandler) Callback(c *echo.Context) error {
 		return h.redirectWithError(c, "failed to authenticate with Lichess")
 	}
 
-	resp, isNew, err := h.oauthService.FindOrCreateUser("lichess", lichessID, username)
+	resp, isNew, err := h.oauthService.FindOrCreateUser(c.Request().Context(), "lichess", lichessID, username)
 	if err != nil {
 		return h.redirectWithError(c, "failed to create account")
 	}
 
 	// Store the Lichess access token for API access (e.g. private studies)
 	if accessToken != "" {
-		if err := h.userRepo.UpdateLichessToken(resp.User.ID, accessToken); err != nil {
+		if err := h.userRepo.UpdateLichessToken(c.Request().Context(), resp.User.ID, accessToken); err != nil {
 			slog.Error("failed to store lichess token", "user_id", resp.User.ID, "error", err)
 		}
 	}

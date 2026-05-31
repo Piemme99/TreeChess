@@ -30,7 +30,7 @@ func ListRepertoiresHandler(svc *services.RepertoireService) echo.HandlerFunc {
 			colorFilter = &color
 		}
 
-		repertoires, err := svc.ListRepertoires(userID, colorFilter)
+		repertoires, err := svc.ListRepertoires(c.Request().Context(), userID, colorFilter)
 		if err != nil {
 			return InternalErrorResponse(c, "failed to list repertoires")
 		}
@@ -72,7 +72,7 @@ func CreateRepertoireHandler(svc *services.RepertoireService) echo.HandlerFunc {
 			isPublic = *req.IsPublic
 		}
 
-		rep, err := svc.CreateRepertoireWithVisibility(userID, req.Name, req.Description, req.Color, isPublic)
+		rep, err := svc.CreateRepertoireWithVisibility(c.Request().Context(), userID, req.Name, req.Description, req.Color, isPublic)
 		if err != nil {
 			switch {
 			case errors.Is(err, services.ErrLimitReached):
@@ -109,7 +109,7 @@ func GetRepertoireHandler(svc *services.RepertoireService) echo.HandlerFunc {
 			return nil
 		}
 
-		rep, err := svc.GetRepertoire(idParam)
+		rep, err := svc.GetRepertoire(c.Request().Context(), idParam)
 		if err != nil {
 			return mapRepertoireServiceError(c, err, "failed to get repertoire")
 		}
@@ -151,7 +151,7 @@ func UpdateRepertoireHandler(svc *services.RepertoireService) echo.HandlerFunc {
 
 		// Update name if provided
 		if req.Name != nil {
-			rep, err = svc.RenameRepertoire(userID, idParam, *req.Name)
+			rep, err = svc.RenameRepertoire(c.Request().Context(), userID, idParam, *req.Name)
 			if err != nil {
 				switch {
 				case errors.Is(err, services.ErrNameRequired):
@@ -166,7 +166,7 @@ func UpdateRepertoireHandler(svc *services.RepertoireService) echo.HandlerFunc {
 
 		// Update description if provided
 		if req.Description != nil {
-			rep, err = svc.UpdateDescription(userID, idParam, *req.Description)
+			rep, err = svc.UpdateDescription(c.Request().Context(), userID, idParam, *req.Description)
 			if err != nil {
 				if errors.Is(err, services.ErrDescriptionTooLong) {
 					return BadRequestResponse(c, "description must be 500 characters or less")
@@ -196,7 +196,7 @@ func DeleteRepertoireHandler(svc *services.RepertoireService) echo.HandlerFunc {
 			return nil
 		}
 
-		if err := svc.DeleteRepertoire(userID, idParam); err != nil {
+		if err := svc.DeleteRepertoire(c.Request().Context(), userID, idParam); err != nil {
 			return mapRepertoireServiceError(c, err, "failed to delete repertoire")
 		}
 
@@ -240,7 +240,7 @@ func AddNodeHandler(svc *services.RepertoireService) echo.HandlerFunc {
 			return resp
 		}
 
-		rep, err := svc.AddNode(userID, idParam, req)
+		rep, err := svc.AddNode(c.Request().Context(), userID, idParam, req)
 		if err != nil {
 			switch {
 			case errors.Is(err, services.ErrParentNotFound):
@@ -288,7 +288,7 @@ func SeedHandler(svc *services.RepertoireService) echo.HandlerFunc {
 			return BadRequestResponse(c, "templateIds is required")
 		}
 
-		repertoires, err := svc.SeedRepertoires(userID, req.TemplateIDs)
+		repertoires, err := svc.SeedRepertoires(c.Request().Context(), userID, req.TemplateIDs)
 		if err != nil {
 			if errors.Is(err, services.ErrLimitReached) {
 				return ConflictResponse(c, "maximum repertoire limit reached (50)")
@@ -329,7 +329,7 @@ func ExtractSubtreeHandler(svc *services.RepertoireService) echo.HandlerFunc {
 			return nil
 		}
 
-		result, err := svc.ExtractSubtree(userID, idParam, req.NodeID, req.Name)
+		result, err := svc.ExtractSubtree(c.Request().Context(), userID, idParam, req.NodeID, req.Name)
 		if err != nil {
 			switch {
 			case errors.Is(err, services.ErrCannotExtractRoot):
@@ -374,12 +374,12 @@ func MergeRepertoiresHandler(svc *services.RepertoireService) echo.HandlerFunc {
 			if _, err := uuid.Parse(id); err != nil {
 				return BadRequestResponse(c, "all IDs must be valid UUIDs")
 			}
-			if err := svc.CheckOwnership(id, userID); err != nil {
+			if err := svc.CheckOwnership(c.Request().Context(), id, userID); err != nil {
 				return NotFoundResponse(c, "repertoire")
 			}
 		}
 
-		result, err := svc.MergeRepertoires(userID, req.IDs, req.Name)
+		result, err := svc.MergeRepertoires(c.Request().Context(), userID, req.IDs, req.Name)
 		if err != nil {
 			switch {
 			case errors.Is(err, services.ErrMergeMinimumTwo):
@@ -422,7 +422,7 @@ func MergeTranspositionsHandler(svc *services.RepertoireService) echo.HandlerFun
 			return resp
 		}
 
-		rep, err := svc.MergeTranspositions(userID, idParam)
+		rep, err := svc.MergeTranspositions(c.Request().Context(), userID, idParam)
 		if err != nil {
 			return mapRepertoireServiceError(c, err, "failed to merge transpositions")
 		}
@@ -449,7 +449,7 @@ func UpdateNodeCommentHandler(svc *services.RepertoireService) echo.HandlerFunc 
 		}
 
 		return runNodeMutation(c, svc, target.RepID, func() (*models.Repertoire, error) {
-			return svc.UpdateNodeComment(target.UserID, target.RepID, target.NodeID, req.Comment)
+			return svc.UpdateNodeComment(c.Request().Context(), target.UserID, target.RepID, target.NodeID, req.Comment)
 		}, nil)
 	}
 }
@@ -471,7 +471,7 @@ func UpdateNodeBranchNameHandler(svc *services.RepertoireService) echo.HandlerFu
 		}
 
 		return runNodeMutation(c, svc, target.RepID, func() (*models.Repertoire, error) {
-			return svc.UpdateNodeBranchName(target.UserID, target.RepID, target.NodeID, req.BranchName)
+			return svc.UpdateNodeBranchName(c.Request().Context(), target.UserID, target.RepID, target.NodeID, req.BranchName)
 		}, nil)
 	}
 }
@@ -493,7 +493,7 @@ func UpdateNodeBranchColorHandler(svc *services.RepertoireService) echo.HandlerF
 		}
 
 		return runNodeMutation(c, svc, target.RepID, func() (*models.Repertoire, error) {
-			return svc.UpdateNodeBranchColor(target.UserID, target.RepID, target.NodeID, req.BranchColor)
+			return svc.UpdateNodeBranchColor(c.Request().Context(), target.UserID, target.RepID, target.NodeID, req.BranchColor)
 		}, func(err error) (bool, error) {
 			if errors.Is(err, services.ErrInvalidBranchColor) {
 				return true, BadRequestResponse(c, "invalid branch color")
@@ -521,7 +521,7 @@ func UpdateNodeAnnotationsHandler(svc *services.RepertoireService) echo.HandlerF
 		}
 
 		return runNodeMutation(c, svc, target.RepID, func() (*models.Repertoire, error) {
-			return svc.UpdateNodeAnnotations(target.UserID, target.RepID, target.NodeID, req.Arrows, req.Highlights)
+			return svc.UpdateNodeAnnotations(c.Request().Context(), target.UserID, target.RepID, target.NodeID, req.Arrows, req.Highlights)
 		}, func(err error) (bool, error) {
 			if errors.Is(err, services.ErrInvalidAnnotation) {
 				return true, BadRequestResponse(c, "invalid annotation")
@@ -541,7 +541,7 @@ func ToggleNodeCollapsedHandler(svc *services.RepertoireService) echo.HandlerFun
 		}
 
 		return runNodeMutation(c, svc, target.RepID, func() (*models.Repertoire, error) {
-			return svc.ToggleNodeCollapsed(target.UserID, target.RepID, target.NodeID)
+			return svc.ToggleNodeCollapsed(c.Request().Context(), target.UserID, target.RepID, target.NodeID)
 		}, nil)
 	}
 }
@@ -556,7 +556,7 @@ func ExpandToNodeHandler(svc *services.RepertoireService) echo.HandlerFunc {
 		}
 
 		return runNodeMutation(c, svc, target.RepID, func() (*models.Repertoire, error) {
-			return svc.ExpandToNode(target.UserID, target.RepID, target.NodeID)
+			return svc.ExpandToNode(c.Request().Context(), target.UserID, target.RepID, target.NodeID)
 		}, nil)
 	}
 }
@@ -571,7 +571,7 @@ func SetMainLineHandler(svc *services.RepertoireService) echo.HandlerFunc {
 		}
 
 		return runNodeMutation(c, svc, target.RepID, func() (*models.Repertoire, error) {
-			return svc.SetMainLine(target.UserID, target.RepID, target.NodeID)
+			return svc.SetMainLine(c.Request().Context(), target.UserID, target.RepID, target.NodeID)
 		}, nil)
 	}
 }
@@ -594,7 +594,7 @@ func ClearMainLineHandler(svc *services.RepertoireService) echo.HandlerFunc {
 		}
 
 		return runNodeMutation(c, svc, idParam, func() (*models.Repertoire, error) {
-			return svc.ClearMainLine(userID, idParam)
+			return svc.ClearMainLine(c.Request().Context(), userID, idParam)
 		}, nil)
 	}
 }
@@ -609,7 +609,7 @@ func DeleteNodeHandler(svc *services.RepertoireService) echo.HandlerFunc {
 		}
 
 		return runNodeMutation(c, svc, target.RepID, func() (*models.Repertoire, error) {
-			return svc.DeleteNode(target.UserID, target.RepID, target.NodeID)
+			return svc.DeleteNode(c.Request().Context(), target.UserID, target.RepID, target.NodeID)
 		}, func(err error) (bool, error) {
 			if errors.Is(err, services.ErrCannotDeleteRoot) {
 				return true, BadRequestResponse(c, "cannot delete root node")
@@ -643,7 +643,7 @@ func UpdateVisibilityHandler(svc *services.RepertoireService) echo.HandlerFunc {
 			return BadRequestResponse(c, "invalid request body")
 		}
 
-		rep, err := svc.UpdateVisibility(userID, idParam, req.IsPublic)
+		rep, err := svc.UpdateVisibility(c.Request().Context(), userID, idParam, req.IsPublic)
 		if err != nil {
 			return mapRepertoireServiceError(c, err, "failed to update visibility")
 		}

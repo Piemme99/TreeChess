@@ -63,8 +63,8 @@ func NewEngineService(
 }
 
 // EnqueueAnalysis creates pending eval rows for all games in an analysis
-func (s *EngineService) EnqueueAnalysis(userID, analysisID string, gameCount int) {
-	if err := s.evalRepo.CreatePendingBatch(context.Background(), userID, analysisID, gameCount); err != nil {
+func (s *EngineService) EnqueueAnalysis(ctx context.Context, userID, analysisID string, gameCount int) {
+	if err := s.evalRepo.CreatePendingBatch(ctx, userID, analysisID, gameCount); err != nil {
 		slog.Error("failed to enqueue analysis", "component", "opening-analysis", "analysis_id", analysisID, "error", err)
 	}
 }
@@ -127,7 +127,7 @@ func (s *EngineService) processPending(ctx context.Context) {
 	}
 
 	for _, eval := range pending {
-		stats, err := s.analyzeGameOpenings(eval.AnalysisID, eval.GameIndex)
+		stats, err := s.analyzeGameOpenings(ctx, eval.AnalysisID, eval.GameIndex)
 		if err != nil {
 			slog.Error("failed to analyze game", "component", "opening-analysis", "analysis_id", eval.AnalysisID, "game_index", eval.GameIndex, "error", err)
 			if markErr := s.evalRepo.MarkFailed(ctx, eval.ID); markErr != nil {
@@ -146,8 +146,8 @@ func (s *EngineService) processPending(ctx context.Context) {
 	}
 }
 
-func (s *EngineService) analyzeGameOpenings(analysisID string, gameIndex int) ([]models.ExplorerMoveStats, error) {
-	detail, err := s.analysisRepo.GetByID(analysisID)
+func (s *EngineService) analyzeGameOpenings(ctx context.Context, analysisID string, gameIndex int) ([]models.ExplorerMoveStats, error) {
+	detail, err := s.analysisRepo.GetByID(ctx, analysisID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get analysis: %w", err)
 	}
@@ -176,7 +176,7 @@ func (s *EngineService) analyzeGameOpenings(analysisID string, gameIndex int) ([
 		}
 
 		fen := ensureFullFEN(move.FEN)
-		resp, err := s.fetchExplorer(fen)
+		resp, err := s.fetchExplorer(ctx, fen)
 		if err != nil {
 			slog.Warn("explorer cache lookup error", "component", "opening-analysis", "ply", i, "error", err)
 			continue
@@ -264,11 +264,13 @@ func calcWinrate(white, draws, black int, userColor models.Color) float64 {
 // returns (nil, nil): callers must skip the position rather than treat the
 // miss as an error. The worker is intentionally cache-only — it never makes
 // upstream HTTP requests, so it never burns the user's rate-limit budget.
-func (s *EngineService) fetchExplorer(fen string) (*explorerResponse, error) {
+func (s *EngineService) fetchExplorer(ctx context.Context, fen string) (*explorerResponse, error) {
 	if s.cacheRepo == nil {
 		return nil, nil
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	// Bound the cache lookup, but derive from the caller (worker) ctx so the
+	// query is also cancelled when the worker is shut down.
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
 
 	key := CanonicalKey(DefaultOpeningQuery(fen))
@@ -296,8 +298,8 @@ type EngineInsightsData struct {
 }
 
 // GetInsightsData returns opening evals and completion status for a user
-func (s *EngineService) GetInsightsData(userID string) (*EngineInsightsData, error) {
-	evals, err := s.evalRepo.GetByUser(userID)
+func (s *EngineService) GetInsightsData(ctx context.Context, userID string) (*EngineInsightsData, error) {
+	evals, err := s.evalRepo.GetByUser(ctx, userID)
 	if err != nil {
 		return nil, err
 	}

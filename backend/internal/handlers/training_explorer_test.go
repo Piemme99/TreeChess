@@ -93,7 +93,7 @@ func TestTrainingExplorerHandler_CacheHitReturnsPayloadWithoutUpstream(t *testin
 	fetcher := &stubFetcher{}
 	userLookups := 0
 	userRepo := &mocks.MockUserRepo{
-		GetByIDFunc: func(id string) (*models.User, error) {
+		GetByIDFunc: func(_ context.Context, id string) (*models.User, error) {
 			userLookups++
 			return &models.User{ID: id}, nil
 		},
@@ -132,7 +132,7 @@ func TestTrainingExplorerHandler_CacheMissLinkedUserFetchesUpstreamAndCaches(t *
 	}
 	user := &models.User{ID: "user-1", LichessAccessToken: ptr("user-token-abc")}
 	userRepo := &mocks.MockUserRepo{
-		GetByIDFunc: func(id string) (*models.User, error) { return user, nil },
+		GetByIDFunc: func(_ context.Context, id string) (*models.User, error) { return user, nil },
 	}
 	h := newTrainingExplorerHandler(t, fetcher, cache, userRepo)
 
@@ -149,7 +149,7 @@ func TestTrainingExplorerHandler_CacheMissUnlinkedUserReturns403(t *testing.T) {
 	fetcher := &stubFetcher{}
 	user := &models.User{ID: "user-1", LichessAccessToken: nil}
 	userRepo := &mocks.MockUserRepo{
-		GetByIDFunc: func(id string) (*models.User, error) { return user, nil },
+		GetByIDFunc: func(_ context.Context, id string) (*models.User, error) { return user, nil },
 	}
 	h := newTrainingExplorerHandler(t, fetcher, cache, userRepo)
 
@@ -166,7 +166,7 @@ func TestTrainingExplorerHandler_CacheHitServesUnlinkedUser(t *testing.T) {
 	cachedBody := []byte(`{"white":1,"draws":0,"black":0,"moves":[]}`)
 	fetcher := &stubFetcher{}
 	userRepo := &mocks.MockUserRepo{
-		GetByIDFunc: func(id string) (*models.User, error) {
+		GetByIDFunc: func(_ context.Context, id string) (*models.User, error) {
 			t.Fatalf("user repo must not be consulted when cache hits")
 			return nil, nil
 		},
@@ -201,7 +201,7 @@ func TestTrainingExplorerHandler_UpstreamRateLimited_PropagatesRetryAfter(t *tes
 	fetcher := &stubFetcher{returnErr: &services.RateLimitedError{RetryAfterSeconds: 17}}
 	user := &models.User{ID: "user-1", LichessAccessToken: ptr("tok")}
 	userRepo := &mocks.MockUserRepo{
-		GetByIDFunc: func(id string) (*models.User, error) { return user, nil },
+		GetByIDFunc: func(_ context.Context, id string) (*models.User, error) { return user, nil },
 	}
 	h := newTrainingExplorerHandler(t, fetcher, cache, userRepo)
 
@@ -218,7 +218,7 @@ func TestTrainingExplorerHandler_UpstreamUnavailable_Returns502(t *testing.T) {
 	fetcher := &stubFetcher{returnErr: services.ErrExplorerUnavailable}
 	user := &models.User{ID: "user-1", LichessAccessToken: ptr("tok")}
 	userRepo := &mocks.MockUserRepo{
-		GetByIDFunc: func(id string) (*models.User, error) { return user, nil },
+		GetByIDFunc: func(_ context.Context, id string) (*models.User, error) { return user, nil },
 	}
 	h := newTrainingExplorerHandler(t, fetcher, cache, userRepo)
 
@@ -233,7 +233,7 @@ func TestTrainingExplorerHandler_UpstreamUnauthorized_Returns403LichessTokenInva
 	fetcher := &stubFetcher{returnErr: services.ErrExplorerUnauthorized}
 	user := &models.User{ID: "user-1", LichessAccessToken: ptr("stale-tok")}
 	userRepo := &mocks.MockUserRepo{
-		GetByIDFunc: func(id string) (*models.User, error) { return user, nil },
+		GetByIDFunc: func(_ context.Context, id string) (*models.User, error) { return user, nil },
 	}
 	h := newTrainingExplorerHandler(t, fetcher, cache, userRepo)
 
@@ -247,7 +247,7 @@ func TestTrainingExplorerHandler_MalformedFen_Returns400WithoutUpstream(t *testi
 	cache := newStubCache()
 	fetcher := &stubFetcher{}
 	userRepo := &mocks.MockUserRepo{
-		GetByIDFunc: func(id string) (*models.User, error) {
+		GetByIDFunc: func(_ context.Context, id string) (*models.User, error) {
 			t.Fatalf("user repo must not be consulted for an invalid FEN")
 			return nil, nil
 		},
@@ -276,7 +276,7 @@ func TestTrainingExplorerHandler_UnknownVariant_Returns400(t *testing.T) {
 	cache := newStubCache()
 	fetcher := &stubFetcher{}
 	userRepo := &mocks.MockUserRepo{
-		GetByIDFunc: func(id string) (*models.User, error) {
+		GetByIDFunc: func(_ context.Context, id string) (*models.User, error) {
 			t.Fatalf("user repo must not be consulted for an unknown variant")
 			return nil, nil
 		},
@@ -303,7 +303,7 @@ func TestTrainingExplorerHandler_KnownVariant_Accepted(t *testing.T) {
 	}
 	user := &models.User{ID: "user-1", LichessAccessToken: ptr("tok")}
 	userRepo := &mocks.MockUserRepo{
-		GetByIDFunc: func(id string) (*models.User, error) { return user, nil },
+		GetByIDFunc: func(_ context.Context, id string) (*models.User, error) { return user, nil },
 	}
 	h := newTrainingExplorerHandler(t, fetcher, cache, userRepo)
 

@@ -39,7 +39,7 @@ func (h *TrainingHandler) AnalyzeHandler(c *echo.Context) error {
 		return BadRequestResponse(c, "userColor must be \"white\" or \"black\"")
 	}
 
-	resp, err := h.trainingService.AnalyzeTrainingMoves(userID, req.Moves, req.UserColor)
+	resp, err := h.trainingService.AnalyzeTrainingMoves(c.Request().Context(), userID, req.Moves, req.UserColor)
 	if err != nil {
 		return InternalErrorResponse(c, "failed to analyze training moves")
 	}
