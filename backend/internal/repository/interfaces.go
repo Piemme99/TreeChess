@@ -63,13 +63,19 @@ type OpeningExplorerCacheRepository interface {
 
 // EngineEvalRepository defines the interface for engine evaluation operations
 type EngineEvalRepository interface {
-	CreatePendingBatch(userID, analysisID string, gameCount int) error
+	CreatePendingBatch(ctx context.Context, userID, analysisID string, gameCount int) error
+	// ClaimPending atomically marks up to limit pending evals as processing and
+	// returns them (FOR UPDATE SKIP LOCKED), so concurrent workers never claim
+	// the same row.
+	ClaimPending(ctx context.Context, limit int) ([]models.EngineEval, error)
+	// GetPending and MarkProcessing remain for non-worker callers; the worker
+	// uses the atomic ClaimPending instead.
 	GetPending(limit int) ([]models.EngineEval, error)
 	MarkProcessing(id string) error
-	SaveEvals(id string, evals []models.ExplorerMoveStats) error
-	MarkFailed(id string) error
+	SaveEvals(ctx context.Context, id string, evals []models.ExplorerMoveStats) error
+	MarkFailed(ctx context.Context, id string) error
 	GetByUser(userID string) ([]models.EngineEval, error)
-	ResetStaleProcessing() (int, error)
+	ResetStaleProcessing(ctx context.Context) (int, error)
 }
 
 // DismissedMistakeRepository defines the interface for dismissed mistake operations
