@@ -1,5 +1,4 @@
-import { Chess } from 'chess.js';
-import { STARTING_FEN } from '../../../shared/utils/chess';
+import { fenAfter } from '../../../shared/utils/chess';
 import type { MoveAnalysis } from '../../../types';
 
 /**
@@ -8,15 +7,5 @@ import type { MoveAnalysis } from '../../../types';
  */
 export function computeParentFEN(moves: MoveAnalysis[], targetMove: MoveAnalysis): string {
   const moveIndex = moves.findIndex((m) => m === targetMove);
-  if (moveIndex <= 0) return STARTING_FEN;
-
-  const chess = new Chess();
-  for (let i = 0; i < moveIndex; i++) {
-    try {
-      chess.move(moves[i].san);
-    } catch {
-      break;
-    }
-  }
-  return chess.fen();
+  return fenAfter(moves, moveIndex - 1);
 }

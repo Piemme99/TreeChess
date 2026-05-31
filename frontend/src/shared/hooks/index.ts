@@ -5,3 +5,4 @@ export { usePageTitle } from './usePageTitle';
 export { useEngine } from './useEngine';
 export { useBatchEval } from './useBatchEval';
 export { useReanalysisCompletion } from './useReanalysisCompletion';
+export { useFocusTrap } from './useFocusTrap';
