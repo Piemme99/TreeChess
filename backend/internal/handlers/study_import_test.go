@@ -20,7 +20,7 @@ import (
 )
 
 func newTestStudyImportHandler(lichess *smocks.MockLichessService, repSvc *smocks.MockRepertoireService, userRepo *mocks.MockUserRepo) *StudyImportHandler {
-	svc := services.NewStudyImportService(lichess, repSvc, nil, userRepo)
+	svc := services.NewStudyImportService(lichess, repSvc, userRepo)
 	return NewStudyImportHandler(svc)
 }
 

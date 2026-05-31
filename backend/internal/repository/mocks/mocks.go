@@ -122,6 +122,59 @@ type MockRepertoireRepo struct {
 	GetPublicByIDFunc             func(ctx context.Context, id string) (*models.Repertoire, error)
 	GetOwnerIDFunc                func(ctx context.Context, id string) (string, error)
 	UpdateOriginFunc              func(ctx context.Context, id string, userID string, origin *models.RepertoireOrigin) error
+	// CreateCategoryFunc backs the category Create exposed on the transaction
+	// surface (repository.RepertoireTx). Defaults to a no-op returning nil.
+	CreateCategoryFunc func(ctx context.Context, userID, name string, color models.Color) (*models.Category, error)
+	// WithinTxFunc overrides the default WithinTx behavior, letting tests inject
+	// a mid-transaction failure or assert rollback. When nil, WithinTx runs the
+	// closure against a transaction-bound repo that delegates to this mock's
+	// Create/Save/Delete/UpdateOrigin/CreateCategory funcs and "commits" by
+	// simply returning the closure's error.
+	WithinTxFunc func(ctx context.Context, fn func(tx repository.RepertoireTx) error) error
+}
+
+// mockRepertoireTx adapts MockRepertoireRepo to the repository.RepertoireTx
+// surface so closures passed to WithinTx exercise the same mock funcs.
+type mockRepertoireTx struct {
+	repo *MockRepertoireRepo
+}
+
+func (t *mockRepertoireTx) Create(ctx context.Context, userID string, name string, color models.Color) (*models.Repertoire, error) {
+	return t.repo.Create(ctx, userID, name, color)
+}
+
+func (t *mockRepertoireTx) CreateWithCategory(ctx context.Context, userID string, name string, color models.Color, categoryID *string) (*models.Repertoire, error) {
+	return t.repo.CreateWithCategory(ctx, userID, name, color, categoryID)
+}
+
+func (t *mockRepertoireTx) Save(ctx context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {
+	return t.repo.Save(ctx, id, userID, treeData, metadata, expectedVersion)
+}
+
+func (t *mockRepertoireTx) UpdateOrigin(ctx context.Context, id string, userID string, origin *models.RepertoireOrigin) error {
+	return t.repo.UpdateOrigin(ctx, id, userID, origin)
+}
+
+func (t *mockRepertoireTx) Delete(ctx context.Context, id string, userID string) error {
+	return t.repo.Delete(ctx, id, userID)
+}
+
+func (t *mockRepertoireTx) CreateCategory(ctx context.Context, userID, name string, color models.Color) (*models.Category, error) {
+	if t.repo.CreateCategoryFunc != nil {
+		return t.repo.CreateCategoryFunc(ctx, userID, name, color)
+	}
+	return nil, nil
+}
+
+// WithinTx runs fn against a transaction-bound view of the mock. By default it
+// behaves like a successful transaction: the closure runs and its error is
+// returned verbatim (a nil error means "committed"). Set WithinTxFunc to model
+// a failed commit or to assert rollback semantics.
+func (m *MockRepertoireRepo) WithinTx(ctx context.Context, fn func(tx repository.RepertoireTx) error) error {
+	if m.WithinTxFunc != nil {
+		return m.WithinTxFunc(ctx, fn)
+	}
+	return fn(&mockRepertoireTx{repo: m})
 }
 
 func (m *MockRepertoireRepo) GetByID(ctx context.Context, id string, userID string) (*models.Repertoire, error) {
