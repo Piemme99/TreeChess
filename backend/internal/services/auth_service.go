@@ -193,6 +193,16 @@ func (s *AuthService) GetUserByID(id string) (*models.User, error) {
 }
 
 func (s *AuthService) UpdateProfile(userID string, req models.UpdateProfileRequest) (*models.User, error) {
+	// Validate external platform usernames before they are stored and later
+	// interpolated into outbound API request paths. Empty/nil values clear the
+	// linkage and are allowed; non-empty values must match the username pattern.
+	if req.LichessUsername != nil && *req.LichessUsername != "" && !usernamePattern.MatchString(*req.LichessUsername) {
+		return nil, ErrInvalidUsername
+	}
+	if req.ChesscomUsername != nil && *req.ChesscomUsername != "" && !usernamePattern.MatchString(*req.ChesscomUsername) {
+		return nil, ErrInvalidUsername
+	}
+
 	// Check if new time formats were added — if so, reset sync timestamps
 	// so the next sync does a full re-fetch with the expanded format list
 	if len(req.TimeFormatPrefs) > 0 {

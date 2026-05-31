@@ -172,6 +172,9 @@ func (h *AuthHandler) UpdateProfileHandler(c *echo.Context) error {
 
 	user, err := h.authService.UpdateProfile(userID, req)
 	if err != nil {
+		if errors.Is(err, services.ErrInvalidUsername) {
+			return BadRequestResponse(c, err.Error())
+		}
 		if errors.Is(err, repository.ErrUserNotFound) {
 			return ErrorResponse(c, http.StatusUnauthorized, "user not found")
 		}
