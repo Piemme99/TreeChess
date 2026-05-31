@@ -16,6 +16,7 @@ import { useNodeAnnotation } from './edit/hooks/useNodeAnnotation';
 import { useExploration } from './edit/hooks/useExploration';
 import { findNode } from './edit/utils/nodeUtils';
 import { STARTING_FEN } from './edit/utils/constants';
+import { readPendingAddNode } from '../../shared/repertoireHandoff';
 import type { RepertoireNode } from '../../types';
 import { BoardSection } from './edit/components/BoardSection';
 import { ExploreBar } from './edit/components/ExploreBar';
@@ -102,18 +103,18 @@ export function RepertoireEdit() {
   const isRootNode = selectedNode?.id === repertoire?.treeData?.id;
 
   // Read pending move arrow from sessionStorage synchronously at mount.
-  // This avoids timing issues with effects and React batching.
+  // This avoids timing issues with effects and React batching. The arrow points
+  // at the first move of the pending line (its divergence from the repertoire).
   const pendingArrowFenRef = useRef<string | null>(null);
   const [pendingMoveArrow, setPendingMoveArrow] = useState<[string, string, string][]>(() => {
-    const raw = sessionStorage.getItem('pendingAddNode');
-    if (!raw) return [];
+    const pending = readPendingAddNode();
+    const firstMove = pending?.moves[0];
+    if (!firstMove) return [];
     try {
-      const data = JSON.parse(raw);
-      if ('moves' in data) return [];
-      const chess = new Chess(ensureFullFEN(data.parentFEN));
-      const move = chess.move(data.moveSAN);
+      const chess = new Chess(ensureFullFEN(firstMove.parentFEN));
+      const move = chess.move(firstMove.moveSAN);
       if (!move) return [];
-      pendingArrowFenRef.current = data.parentFEN.split(' ')[0];
+      pendingArrowFenRef.current = firstMove.parentFEN.split(' ')[0];
       return [[move.from, move.to, '#dc3545']];
     } catch {
       return [];

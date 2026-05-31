@@ -114,6 +114,7 @@ func GetRepertoireHandler(svc *services.RepertoireService) echo.HandlerFunc {
 			return mapRepertoireServiceError(c, err, "failed to get repertoire")
 		}
 
+		SetRepertoireETag(c, rep)
 		return c.JSON(http.StatusOK, rep)
 	}
 }
@@ -235,6 +236,10 @@ func AddNodeHandler(svc *services.RepertoireService) echo.HandlerFunc {
 			return nil
 		}
 
+		if ok, resp := checkIfMatch(c, svc, idParam); !ok {
+			return resp
+		}
+
 		rep, err := svc.AddNode(userID, idParam, req)
 		if err != nil {
 			switch {
@@ -249,6 +254,7 @@ func AddNodeHandler(svc *services.RepertoireService) echo.HandlerFunc {
 			}
 		}
 
+		SetRepertoireETag(c, rep)
 		return c.JSON(http.StatusOK, rep)
 	}
 }
@@ -412,11 +418,16 @@ func MergeTranspositionsHandler(svc *services.RepertoireService) echo.HandlerFun
 			return nil
 		}
 
+		if ok, resp := checkIfMatch(c, svc, idParam); !ok {
+			return resp
+		}
+
 		rep, err := svc.MergeTranspositions(userID, idParam)
 		if err != nil {
 			return mapRepertoireServiceError(c, err, "failed to merge transpositions")
 		}
 
+		SetRepertoireETag(c, rep)
 		return c.JSON(http.StatusOK, rep)
 	}
 }
@@ -437,12 +448,9 @@ func UpdateNodeCommentHandler(svc *services.RepertoireService) echo.HandlerFunc 
 			return BadRequestResponse(c, "invalid request body")
 		}
 
-		rep, err := svc.UpdateNodeComment(target.UserID, target.RepID, target.NodeID, req.Comment)
-		if err != nil {
-			return mapRepertoireServiceError(c, err, "failed to update comment")
-		}
-
-		return c.JSON(http.StatusOK, rep)
+		return runNodeMutation(c, svc, target.RepID, func() (*models.Repertoire, error) {
+			return svc.UpdateNodeComment(target.UserID, target.RepID, target.NodeID, req.Comment)
+		}, nil)
 	}
 }
 
@@ -462,12 +470,9 @@ func UpdateNodeBranchNameHandler(svc *services.RepertoireService) echo.HandlerFu
 			return BadRequestResponse(c, "invalid request body")
 		}
 
-		rep, err := svc.UpdateNodeBranchName(target.UserID, target.RepID, target.NodeID, req.BranchName)
-		if err != nil {
-			return mapRepertoireServiceError(c, err, "failed to update branch name")
-		}
-
-		return c.JSON(http.StatusOK, rep)
+		return runNodeMutation(c, svc, target.RepID, func() (*models.Repertoire, error) {
+			return svc.UpdateNodeBranchName(target.UserID, target.RepID, target.NodeID, req.BranchName)
+		}, nil)
 	}
 }
 
@@ -487,15 +492,14 @@ func UpdateNodeBranchColorHandler(svc *services.RepertoireService) echo.HandlerF
 			return BadRequestResponse(c, "invalid request body")
 		}
 
-		rep, err := svc.UpdateNodeBranchColor(target.UserID, target.RepID, target.NodeID, req.BranchColor)
-		if err != nil {
+		return runNodeMutation(c, svc, target.RepID, func() (*models.Repertoire, error) {
+			return svc.UpdateNodeBranchColor(target.UserID, target.RepID, target.NodeID, req.BranchColor)
+		}, func(err error) (bool, error) {
 			if errors.Is(err, services.ErrInvalidBranchColor) {
-				return BadRequestResponse(c, "invalid branch color")
+				return true, BadRequestResponse(c, "invalid branch color")
 			}
-			return mapRepertoireServiceError(c, err, "failed to update branch color")
-		}
-
-		return c.JSON(http.StatusOK, rep)
+			return false, nil
+		})
 	}
 }
 
@@ -516,15 +520,14 @@ func UpdateNodeAnnotationsHandler(svc *services.RepertoireService) echo.HandlerF
 			return BadRequestResponse(c, "invalid request body")
 		}
 
-		rep, err := svc.UpdateNodeAnnotations(target.UserID, target.RepID, target.NodeID, req.Arrows, req.Highlights)
-		if err != nil {
+		return runNodeMutation(c, svc, target.RepID, func() (*models.Repertoire, error) {
+			return svc.UpdateNodeAnnotations(target.UserID, target.RepID, target.NodeID, req.Arrows, req.Highlights)
+		}, func(err error) (bool, error) {
 			if errors.Is(err, services.ErrInvalidAnnotation) {
-				return BadRequestResponse(c, "invalid annotation")
+				return true, BadRequestResponse(c, "invalid annotation")
 			}
-			return mapRepertoireServiceError(c, err, "failed to update annotations")
-		}
-
-		return c.JSON(http.StatusOK, rep)
+			return false, nil
+		})
 	}
 }
 
@@ -537,12 +540,9 @@ func ToggleNodeCollapsedHandler(svc *services.RepertoireService) echo.HandlerFun
 			return nil
 		}
 
-		rep, err := svc.ToggleNodeCollapsed(target.UserID, target.RepID, target.NodeID)
-		if err != nil {
-			return mapRepertoireServiceError(c, err, "failed to toggle collapsed state")
-		}
-
-		return c.JSON(http.StatusOK, rep)
+		return runNodeMutation(c, svc, target.RepID, func() (*models.Repertoire, error) {
+			return svc.ToggleNodeCollapsed(target.UserID, target.RepID, target.NodeID)
+		}, nil)
 	}
 }
 
@@ -555,12 +555,9 @@ func ExpandToNodeHandler(svc *services.RepertoireService) echo.HandlerFunc {
 			return nil
 		}
 
-		rep, err := svc.ExpandToNode(target.UserID, target.RepID, target.NodeID)
-		if err != nil {
-			return mapRepertoireServiceError(c, err, "failed to expand to node")
-		}
-
-		return c.JSON(http.StatusOK, rep)
+		return runNodeMutation(c, svc, target.RepID, func() (*models.Repertoire, error) {
+			return svc.ExpandToNode(target.UserID, target.RepID, target.NodeID)
+		}, nil)
 	}
 }
 
@@ -573,12 +570,9 @@ func SetMainLineHandler(svc *services.RepertoireService) echo.HandlerFunc {
 			return nil
 		}
 
-		rep, err := svc.SetMainLine(target.UserID, target.RepID, target.NodeID)
-		if err != nil {
-			return mapRepertoireServiceError(c, err, "failed to set main line")
-		}
-
-		return c.JSON(http.StatusOK, rep)
+		return runNodeMutation(c, svc, target.RepID, func() (*models.Repertoire, error) {
+			return svc.SetMainLine(target.UserID, target.RepID, target.NodeID)
+		}, nil)
 	}
 }
 
@@ -599,12 +593,9 @@ func ClearMainLineHandler(svc *services.RepertoireService) echo.HandlerFunc {
 			return nil
 		}
 
-		rep, err := svc.ClearMainLine(userID, idParam)
-		if err != nil {
-			return mapRepertoireServiceError(c, err, "failed to clear main line")
-		}
-
-		return c.JSON(http.StatusOK, rep)
+		return runNodeMutation(c, svc, idParam, func() (*models.Repertoire, error) {
+			return svc.ClearMainLine(userID, idParam)
+		}, nil)
 	}
 }
 
@@ -617,15 +608,14 @@ func DeleteNodeHandler(svc *services.RepertoireService) echo.HandlerFunc {
 			return nil
 		}
 
-		rep, err := svc.DeleteNode(target.UserID, target.RepID, target.NodeID)
-		if err != nil {
+		return runNodeMutation(c, svc, target.RepID, func() (*models.Repertoire, error) {
+			return svc.DeleteNode(target.UserID, target.RepID, target.NodeID)
+		}, func(err error) (bool, error) {
 			if errors.Is(err, services.ErrCannotDeleteRoot) {
-				return BadRequestResponse(c, "cannot delete root node")
+				return true, BadRequestResponse(c, "cannot delete root node")
 			}
-			return mapRepertoireServiceError(c, err, "failed to delete node")
-		}
-
-		return c.JSON(http.StatusOK, rep)
+			return false, nil
+		})
 	}
 }
 

@@ -15,8 +15,15 @@ import { GameMoveList } from './components/GameMoveList';
 import { useEngine } from '../../shared/hooks/useEngine';
 import { useReanalysisCompletion } from '../../shared/hooks';
 import { useNewGamesSession } from './hooks/useNewGamesSession';
-import { addLineToRepertoire, type LineMove } from './utils/addToRepertoire';
 import { countDivergences } from './utils/session';
+import {
+  buildLineFromDivergence,
+  findFirstDivergenceIndex,
+  graftLine,
+  stashPendingAddSequence,
+  stashPendingNavigate,
+} from '../../shared/repertoireHandoff';
+import { useRepertoireStore } from '../../stores/repertoireStore';
 import { parseOpeningName } from './utils/parseOpeningName';
 import { toast } from '../../stores/toastStore';
 import { usePageTitle } from '../../shared/hooks/usePageTitle';
@@ -37,6 +44,7 @@ export function GameAnalysisPage() {
   const [searchParams] = useSearchParams();
 
   const { id: analysisId, analysis, loading, reanalyzeGame, updateGame, reload } = useGameLoader();
+  const updateRepertoire = useRepertoireStore((s) => s.updateRepertoire);
 
   // Moves grafted in this analyse-session (persists while stepping between games).
   const [movesAddedThisSession, setMovesAddedThisSession] = useState(0);
@@ -112,10 +120,7 @@ export function GameAnalysisPage() {
     if (!game?.matchedRepertoire) return;
 
     const fen = computeFEN(game.moves, clickedIndex);
-    sessionStorage.setItem('pendingNavigateToFen', JSON.stringify({
-      repertoireId: game.matchedRepertoire.id,
-      fen
-    }));
+    stashPendingNavigate({ repertoireId: game.matchedRepertoire.id, fen });
     navigate(`/repertoire/${game.matchedRepertoire.id}/edit`, { state: { from: location.pathname + location.search } });
   }, [game, navigate, location]);
 
@@ -127,19 +132,13 @@ export function GameAnalysisPage() {
     if (addingRef.current) return;
 
     const gameIndex = game.gameIndex;
-    const matchedRepertoireId = game.matchedRepertoire.id;
 
-    // Find the divergence index: first non-in-repertoire move
-    const divergenceIndex = game.moves.findIndex(
-      m => m.status === MoveStatus.OpponentNew || m.status === MoveStatus.OutOfRepertoire
-    );
-
-    let startIndex: number;
-    if (divergenceIndex !== -1) {
-      startIndex = divergenceIndex;
-    } else {
-      // No divergence - find first out-of-book move to extend repertoire
-      const outOfBookIndex = game.moves.findIndex(m => m.status === MoveStatus.OutOfBook);
+    // Start at the divergence (first move that leaves the repertoire); if the
+    // line never diverges, fall back to the first out-of-book move so the user
+    // can still extend the repertoire.
+    let startIndex = findFirstDivergenceIndex(game.moves);
+    if (startIndex === -1) {
+      const outOfBookIndex = game.moves.findIndex((m) => m.status === MoveStatus.OutOfBook);
       if (outOfBookIndex === -1) return;
       startIndex = outOfBookIndex;
     }
@@ -148,17 +147,20 @@ export function GameAnalysisPage() {
     const repName = game.matchedRepertoire.name;
 
     // Build the line from divergence to clicked move
-    const line: LineMove[] = [];
-    for (let i = startIndex; i <= endIndex; i++) {
-      const parentFEN = i === 0 ? STARTING_FEN : computeFEN(game.moves, i - 1);
-      const resultFEN = computeFEN(game.moves, i);
-      line.push({ parentFEN, moveSAN: game.moves[i].san, resultFEN });
-    }
+    const line = buildLineFromDivergence(game.moves, startIndex, endIndex, (i) =>
+      computeFEN(game.moves, i)
+    );
 
     addingRef.current = true;
     setAdding(true);
     try {
-      const result = await addLineToRepertoire(matchedRepertoireId, line);
+      const result = await graftLine(game.matchedRepertoire.id, line);
+
+      // Refresh the editor's cached repertoire so the grafted line shows up
+      // without a refetch when the user next opens it.
+      if (result.repertoire) {
+        updateRepertoire(result.repertoire);
+      }
 
       // Optimistically mark the moves we processed as in-repertoire so the user
       // gets immediate feedback; the background re-analysis reconciles later.
@@ -193,7 +195,7 @@ export function GameAnalysisPage() {
       addingRef.current = false;
       setAdding(false);
     }
-  }, [game, updateGame]);
+  }, [game, updateGame, updateRepertoire]);
 
   // Step to another game in the session, preserving the original entry point so
   // the Back button still returns to the list the user came from.
@@ -242,24 +244,16 @@ export function GameAnalysisPage() {
 
     const gameInfo = `${game.headers.White || '?'} vs ${game.headers.Black || '?'}`;
 
-    const moves: { parentFEN: string; moveSAN: string; resultFEN: string }[] = [];
-    for (let i = startIndex; i <= endIndex; i++) {
-      const parentFEN = i === 0 ? STARTING_FEN : computeFEN(game.moves, i - 1);
-      const resultFEN = computeFEN(game.moves, i);
-      moves.push({
-        parentFEN,
-        moveSAN: game.moves[i].san,
-        resultFEN
-      });
-    }
+    const moves = buildLineFromDivergence(game.moves, startIndex, endIndex, (i) =>
+      computeFEN(game.moves, i)
+    );
 
-    const context = {
+    stashPendingAddSequence({
       repertoireId,
       repertoireName: 'New Repertoire',
       gameInfo,
-      moves
-    };
-    sessionStorage.setItem('pendingAddNode', JSON.stringify(context));
+      moves,
+    });
 
     navigate(`/repertoire/${repertoireId}/edit`, { state: { from: location.pathname + location.search } });
   }, [game, currentMoveIndex, maxDisplayedMoveIndex, navigate, location]);

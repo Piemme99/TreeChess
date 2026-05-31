@@ -28,6 +28,9 @@ func (h *SyncHandler) HandleSync(c *echo.Context) error {
 		if errors.Is(err, services.ErrSyncCooldown) {
 			return ErrorResponse(c, http.StatusTooManyRequests, err.Error())
 		}
+		if errors.Is(err, services.ErrSyncInProgress) {
+			return ErrorResponse(c, http.StatusConflict, err.Error())
+		}
 		return InternalErrorResponse(c, "failed to sync games")
 	}
 

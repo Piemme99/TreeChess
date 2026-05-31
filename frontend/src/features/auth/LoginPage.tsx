@@ -3,7 +3,6 @@ import { useNavigate, useSearchParams, Link } from 'react-router';
 import { motion } from 'framer-motion';
 import { Crown } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
-import { OnboardingModal } from './OnboardingModal';
 import { fadeUp } from '../../shared/utils/animations';
 import { usePageTitle } from '../../shared/hooks/usePageTitle';
 
@@ -36,7 +35,7 @@ export function LoginPage() {
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  const { login, register, handleOAuthToken, needsOnboarding, clearOnboarding } = useAuthStore();
+  const { login, register, handleOAuthToken } = useAuthStore();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -269,14 +268,6 @@ export function LoginPage() {
           </button>
         </div>
       </motion.div>
-
-      <OnboardingModal
-        isOpen={needsOnboarding}
-        onClose={() => {
-          clearOnboarding();
-          navigate('/dashboard', { replace: true });
-        }}
-      />
     </div>
   );
 }

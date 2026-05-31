@@ -541,6 +541,99 @@ func TestRepertoire_Count(t *testing.T) {
 	assert.Equal(t, 3, count)
 }
 
+// TestRepertoireRepo_OptimisticLock_StaleSaveConflicts is the acceptance test
+// for issue #119: two contexts load the same repertoire at version N, the first
+// saves (bumping to N+1), and the second's save with the now-stale version N
+// must be rejected with ErrRepertoireConflict instead of silently overwriting.
+func TestRepertoireRepo_OptimisticLock_StaleSaveConflicts(t *testing.T) {
+	testDB.TruncateAll(t)
+	repos := testDB.Repos()
+	user := testhelpers.SeedUser(t, repos, "optlockuser", "password123")
+
+	rep, err := repos.Repertoire.Create(user.ID, "Lock Rep", models.ColorWhite)
+	require.NoError(t, err)
+	assert.Equal(t, 0, rep.Version, "freshly created repertoire starts at version 0")
+
+	// Two independent reads observe the same base version.
+	first, err := repos.Repertoire.GetByID(rep.ID)
+	require.NoError(t, err)
+	second, err := repos.Repertoire.GetByID(rep.ID)
+	require.NoError(t, err)
+	require.Equal(t, first.Version, second.Version)
+
+	// First write succeeds and bumps the version.
+	firstTree := first.TreeData
+	firstComment := "first writer"
+	firstTree.Comment = &firstComment
+	savedFirst, err := repos.Repertoire.Save(rep.ID, user.ID, firstTree, first.Metadata, first.Version)
+	require.NoError(t, err)
+	assert.Equal(t, first.Version+1, savedFirst.Version, "successful save bumps version")
+
+	// Second write, still holding the stale base version, must conflict.
+	secondTree := second.TreeData
+	secondComment := "second writer (stale)"
+	secondTree.Comment = &secondComment
+	_, err = repos.Repertoire.Save(rep.ID, user.ID, secondTree, second.Metadata, second.Version)
+	assert.ErrorIs(t, err, repository.ErrRepertoireConflict)
+
+	// The first writer's data must have survived (no silent lost update).
+	final, err := repos.Repertoire.GetByID(rep.ID)
+	require.NoError(t, err)
+	require.NotNil(t, final.TreeData.Comment)
+	assert.Equal(t, firstComment, *final.TreeData.Comment)
+	assert.Equal(t, savedFirst.Version, final.Version)
+
+	// Retrying the second write with the refreshed version now succeeds.
+	retryTree := final.TreeData
+	retryComment := "second writer (refreshed)"
+	retryTree.Comment = &retryComment
+	savedRetry, err := repos.Repertoire.Save(rep.ID, user.ID, retryTree, final.Metadata, final.Version)
+	require.NoError(t, err)
+	assert.Equal(t, final.Version+1, savedRetry.Version)
+}
+
+// TestRepertoireRepo_Save_NotFoundVsConflict ensures the no-rows case is
+// disambiguated: a missing repertoire yields ErrRepertoireNotFound, distinct
+// from the stale-version ErrRepertoireConflict.
+func TestRepertoireRepo_Save_NotFoundVsConflict(t *testing.T) {
+	testDB.TruncateAll(t)
+	repos := testDB.Repos()
+	user := testhelpers.SeedUser(t, repos, "optlocknf", "password123")
+
+	rep, err := repos.Repertoire.Create(user.ID, "NF Rep", models.ColorWhite)
+	require.NoError(t, err)
+
+	// Wrong (stale) version on an existing row -> conflict.
+	_, err = repos.Repertoire.Save(rep.ID, user.ID, rep.TreeData, rep.Metadata, rep.Version+99)
+	assert.ErrorIs(t, err, repository.ErrRepertoireConflict)
+
+	// Deleted row -> not found, regardless of version.
+	require.NoError(t, repos.Repertoire.Delete(rep.ID, user.ID))
+	_, err = repos.Repertoire.Save(rep.ID, user.ID, rep.TreeData, rep.Metadata, rep.Version)
+	assert.ErrorIs(t, err, repository.ErrRepertoireNotFound)
+}
+
+// TestRepertoireService_AddNode_BumpsVersion confirms the service mutation path
+// increments the persisted version end-to-end against a real database.
+func TestRepertoireService_AddNode_BumpsVersion(t *testing.T) {
+	testDB.TruncateAll(t)
+	repos := testDB.Repos()
+	user := testhelpers.SeedUser(t, repos, "versionbump", "password123")
+	svc := services.NewRepertoireService(repos.Repertoire)
+
+	rep, err := svc.CreateRepertoire(user.ID, "Bump Rep", models.ColorWhite)
+	require.NoError(t, err)
+	assert.Equal(t, 0, rep.Version)
+
+	updated, err := svc.AddNode(user.ID, rep.ID, models.AddNodeRequest{ParentID: rep.TreeData.ID, Move: "e4", MoveNumber: 1})
+	require.NoError(t, err)
+	assert.Equal(t, 1, updated.Version, "tree mutation should bump the version")
+
+	got, err := svc.GetRepertoire(rep.ID)
+	require.NoError(t, err)
+	assert.Equal(t, 1, got.Version)
+}
+
 func TestRepertoireService_CheckOwnership(t *testing.T) {
 	testDB.TruncateAll(t)
 	repos := testDB.Repos()
