@@ -18,7 +18,10 @@ func NewSyncHandler(syncSvc *services.SyncService) *SyncHandler {
 }
 
 func (h *SyncHandler) HandleSync(c *echo.Context) error {
-	userID := c.Get("userID").(string)
+	userID, ok := mustUserID(c)
+	if !ok {
+		return nil
+	}
 
 	result, err := h.syncService.Sync(userID)
 	if err != nil {

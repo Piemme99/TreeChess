@@ -21,7 +21,10 @@ func NewTrainingHandler(trainingSvc *services.TrainingService) *TrainingHandler 
 
 // AnalyzeHandler analyzes a sequence of moves from explorer training against the user's repertoires
 func (h *TrainingHandler) AnalyzeHandler(c *echo.Context) error {
-	userID := c.Get("userID").(string)
+	userID, ok := mustUserID(c)
+	if !ok {
+		return nil
+	}
 
 	var req models.TrainingAnalyzeRequest
 	if err := c.Bind(&req); err != nil {
