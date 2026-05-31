@@ -27,6 +27,7 @@ type reanalysisStatusReporter interface {
 
 type ImportHandler struct {
 	importService     *services.ImportService
+	insightsService   *services.InsightsService
 	repertoireService *services.RepertoireService
 	lichessService    *services.LichessService
 	chesscomService   *services.ChesscomService
@@ -40,6 +41,14 @@ func NewImportHandler(importSvc *services.ImportService, repertoireSvc *services
 		lichessService:    lichessSvc,
 		chesscomService:   chesscomSvc,
 	}
+}
+
+// WithInsightsService wires the focused insights service so the Games-tab
+// insights and dismiss-mistake endpoints no longer depend on the import
+// service. When nil, those handlers report a configuration error.
+func (h *ImportHandler) WithInsightsService(svc *services.InsightsService) *ImportHandler {
+	h.insightsService = svc
+	return h
 }
 
 // WithReanalysisQueue wires the auto-reanalysis queue so the ReanalysisStatusHandler
@@ -371,7 +380,11 @@ func (h *ImportHandler) MarkGameViewedHandler(c *echo.Context) error {
 func (h *ImportHandler) GetInsightsHandler(c *echo.Context) error {
 	userID := c.Get("userID").(string)
 
-	insights, err := h.importService.GetInsights(userID)
+	if h.insightsService == nil {
+		return InternalErrorResponse(c, "failed to get insights")
+	}
+
+	insights, err := h.insightsService.GetInsights(userID)
 	if err != nil {
 		return InternalErrorResponse(c, "failed to get insights")
 	}
@@ -397,7 +410,11 @@ func (h *ImportHandler) DismissMistakeHandler(c *echo.Context) error {
 		return BadRequestResponse(c, "fen and playedMove are required")
 	}
 
-	if err := h.importService.DismissMistake(userID, req.FEN, req.PlayedMove); err != nil {
+	if h.insightsService == nil {
+		return InternalErrorResponse(c, "failed to dismiss mistake")
+	}
+
+	if err := h.insightsService.DismissMistake(userID, req.FEN, req.PlayedMove); err != nil {
 		return InternalErrorResponse(c, "failed to dismiss mistake")
 	}
 

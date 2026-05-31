@@ -1,4 +1,5 @@
 import { useRef, useEffect, useMemo, useState, useCallback } from 'react';
+import type { KeyboardEvent } from 'react';
 import { Button } from '../../../shared/components/UI';
 import { StudyImportModal } from '../../repertoire/shared/components/StudyImportModal';
 import { useRepertoireStore } from '../../../stores/repertoireStore';
@@ -189,6 +190,14 @@ export function GameMoveList({
 
   const hiddenMovesCount = moves.length - displayedMoves.length;
 
+  // Activate a move cell on Enter/Space so the list is operable via the keyboard.
+  const handleMoveKeyDown = (event: KeyboardEvent, index: number) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      onMoveClick(index);
+    }
+  };
+
   return (
     <div className="flex flex-col flex-1 min-h-0">
       <div className="flex-1 overflow-y-auto flex flex-col gap-1">
@@ -199,8 +208,13 @@ export function GameMoveList({
             {pair.white && pair.whiteIndex !== undefined ? (
               <div
                 ref={currentMoveIndex === pair.whiteIndex ? selectedRef : null}
-                className={`flex-1 py-1 px-2 rounded-md cursor-pointer transition-all duration-150 flex items-center font-mono text-[0.9rem] hover:brightness-95 ${getMoveClasses(pair.whiteIndex, pair.white.status)} ${currentMoveIndex === pair.whiteIndex ? 'outline-2 outline-primary outline-offset-1' : ''}`}
+                role="button"
+                tabIndex={0}
+                aria-label={pair.white.san}
+                aria-current={currentMoveIndex === pair.whiteIndex ? 'true' : undefined}
+                className={`flex-1 py-1 px-2 rounded-md cursor-pointer transition-all duration-150 flex items-center font-mono text-[0.9rem] hover:brightness-95 focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-1 ${getMoveClasses(pair.whiteIndex, pair.white.status)} ${currentMoveIndex === pair.whiteIndex ? 'outline-2 outline-primary outline-offset-1' : ''}`}
                 onClick={() => onMoveClick(pair.whiteIndex!)}
+                onKeyDown={(e) => handleMoveKeyDown(e, pair.whiteIndex!)}
               >
                 <span className="font-medium">{pair.white.san}</span>
               </div>
@@ -211,8 +225,13 @@ export function GameMoveList({
             {pair.black && pair.blackIndex !== undefined ? (
               <div
                 ref={currentMoveIndex === pair.blackIndex ? selectedRef : null}
-                className={`flex-1 py-1 px-2 rounded-md cursor-pointer transition-all duration-150 flex items-center font-mono text-[0.9rem] hover:brightness-95 ${getMoveClasses(pair.blackIndex, pair.black.status)} ${currentMoveIndex === pair.blackIndex ? 'outline-2 outline-primary outline-offset-1' : ''}`}
+                role="button"
+                tabIndex={0}
+                aria-label={pair.black.san}
+                aria-current={currentMoveIndex === pair.blackIndex ? 'true' : undefined}
+                className={`flex-1 py-1 px-2 rounded-md cursor-pointer transition-all duration-150 flex items-center font-mono text-[0.9rem] hover:brightness-95 focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-1 ${getMoveClasses(pair.blackIndex, pair.black.status)} ${currentMoveIndex === pair.blackIndex ? 'outline-2 outline-primary outline-offset-1' : ''}`}
                 onClick={() => onMoveClick(pair.blackIndex!)}
+                onKeyDown={(e) => handleMoveKeyDown(e, pair.blackIndex!)}
               >
                 <span className="font-medium">{pair.black.san}</span>
               </div>

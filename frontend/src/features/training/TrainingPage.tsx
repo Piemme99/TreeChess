@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { useRepertoires } from '../repertoire/shared/hooks/useRepertoires';
 import { usePageTitle } from '../../shared/hooks/usePageTitle';
 import { Loading } from '../../shared/components/UI';
-import { RepertoireSelector } from './components/RepertoireSelector';
+import { TrainingRepertoirePicker } from './components/TrainingRepertoirePicker';
 import { TrainingBoard } from './components/TrainingBoard';
 import { TrainingComplete } from './components/TrainingComplete';
 import { ExplorerTrainingBoard } from './components/ExplorerTrainingBoard';
@@ -91,7 +91,7 @@ export function TrainingPage() {
           animate={{ opacity: 1 }}
           transition={{ duration: 0.3 }}
         >
-          <RepertoireSelector repertoires={repertoires} onSelect={handleSelectRepertoire} onBack={backToExplorer} />
+          <TrainingRepertoirePicker repertoires={repertoires} onSelect={handleSelectRepertoire} onBack={backToExplorer} />
         </motion.div>
       );
     }

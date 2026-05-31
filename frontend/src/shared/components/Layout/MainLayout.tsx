@@ -14,6 +14,7 @@ function PawnIcon({ className }: { className?: string }) {
 
 import { useAuthStore } from '../../../stores/authStore';
 import { ReanalysisIndicator } from '../ReanalysisIndicator';
+import { RouteErrorBoundary } from '../RouteErrorBoundary';
 
 const SIDEBAR_COLLAPSED_KEY = 'kumquat-sidebar-collapsed';
 
@@ -179,7 +180,9 @@ export function MainLayout() {
               : 'p-6'
         }`}
       >
-        <Outlet />
+        <RouteErrorBoundary>
+          <Outlet />
+        </RouteErrorBoundary>
       </main>
 
       <ReanalysisIndicator />
