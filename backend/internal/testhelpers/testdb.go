@@ -135,7 +135,7 @@ func (tdb *TestDB) TruncateAll(t *testing.T) {
 func (tdb *TestDB) Repos() *Repos {
 	if tdb.repos == nil {
 		tdb.repos = &Repos{
-			User:                 repository.NewPostgresUserRepo(tdb.Pool),
+			User:                 repository.NewPostgresUserRepo(tdb.Pool, testJWTSecret),
 			Repertoire:           repository.NewPostgresRepertoireRepo(tdb.Pool),
 			Analysis:             repository.NewPostgresAnalysisRepo(tdb.Pool),
 			Fingerprint:          repository.NewPostgresFingerprintRepo(tdb.Pool),
