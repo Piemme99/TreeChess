@@ -50,6 +50,10 @@ var (
 	ErrChesscomUserNotFound = fmt.Errorf("chess.com user not found")
 	ErrChesscomRateLimited  = fmt.Errorf("chess.com API rate limited, try again later")
 
+	// ErrUpstreamUnavailable flags a transient upstream failure (HTTP 5xx) that
+	// is safe to retry with backoff.
+	ErrUpstreamUnavailable = fmt.Errorf("upstream service temporarily unavailable")
+
 	// PGN parsing errors
 	ErrCustomStartingPosition = fmt.Errorf("chapter uses a custom starting position and cannot be imported as a repertoire")
 

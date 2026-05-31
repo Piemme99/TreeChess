@@ -185,13 +185,15 @@ func (s *LichessService) FetchGames(username string, options models.LichessImpor
 	defer func() { _ = resp.Body.Close() }()
 
 	// Handle response codes
-	switch resp.StatusCode {
-	case http.StatusOK:
+	switch {
+	case resp.StatusCode == http.StatusOK:
 		// Success - continue reading body
-	case http.StatusNotFound:
+	case resp.StatusCode == http.StatusNotFound:
 		return "", ErrLichessUserNotFound
-	case http.StatusTooManyRequests:
-		return "", ErrLichessRateLimited
+	case resp.StatusCode == http.StatusTooManyRequests:
+		return "", newRateLimitedError(resp, ErrLichessRateLimited)
+	case resp.StatusCode >= 500:
+		return "", fmt.Errorf("%w: lichess status %d", ErrUpstreamUnavailable, resp.StatusCode)
 	default:
 		return "", fmt.Errorf("lichess API error: %s", resp.Status)
 	}
