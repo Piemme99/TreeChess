@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -56,15 +57,15 @@ const (
 
 // CategoryRepository defines operations for categories
 type CategoryRepository interface {
-	GetByID(id, userID string) (*models.Category, error)
-	GetByUserAndColor(userID string, color models.Color) ([]models.Category, error)
-	GetAll(userID string) ([]models.Category, error)
-	Create(userID, name string, color models.Color) (*models.Category, error)
-	UpdateName(id, userID, name string) (*models.Category, error)
-	Delete(id, userID string) error
-	BelongsToUser(id, userID string) (bool, error)
-	Exists(id string) (bool, error)
-	Count(userID string) (int, error)
+	GetByID(ctx context.Context, id, userID string) (*models.Category, error)
+	GetByUserAndColor(ctx context.Context, userID string, color models.Color) ([]models.Category, error)
+	GetAll(ctx context.Context, userID string) ([]models.Category, error)
+	Create(ctx context.Context, userID, name string, color models.Color) (*models.Category, error)
+	UpdateName(ctx context.Context, id, userID, name string) (*models.Category, error)
+	Delete(ctx context.Context, id, userID string) error
+	BelongsToUser(ctx context.Context, id, userID string) (bool, error)
+	Exists(ctx context.Context, id string) (bool, error)
+	Count(ctx context.Context, userID string) (int, error)
 }
 
 // PostgresCategoryRepo implements CategoryRepository using PostgreSQL
@@ -78,8 +79,8 @@ func NewPostgresCategoryRepo(pool *pgxpool.Pool) *PostgresCategoryRepo {
 }
 
 // GetByID retrieves a category by its UUID, scoped to the owning user
-func (r *PostgresCategoryRepo) GetByID(id, userID string) (*models.Category, error) {
-	ctx, cancel := dbContext()
+func (r *PostgresCategoryRepo) GetByID(ctx context.Context, id, userID string) (*models.Category, error) {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	var cat models.Category
@@ -101,8 +102,8 @@ func (r *PostgresCategoryRepo) GetByID(id, userID string) (*models.Category, err
 }
 
 // GetByUserAndColor retrieves all categories of a given color for a user
-func (r *PostgresCategoryRepo) GetByUserAndColor(userID string, color models.Color) ([]models.Category, error) {
-	ctx, cancel := dbContext()
+func (r *PostgresCategoryRepo) GetByUserAndColor(ctx context.Context, userID string, color models.Color) ([]models.Category, error) {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	rows, err := r.pool.Query(ctx, getCategoriesByUserAndColorSQL, userID, string(color))
@@ -115,8 +116,8 @@ func (r *PostgresCategoryRepo) GetByUserAndColor(userID string, color models.Col
 }
 
 // GetAll retrieves all categories for a user
-func (r *PostgresCategoryRepo) GetAll(userID string) ([]models.Category, error) {
-	ctx, cancel := dbContext()
+func (r *PostgresCategoryRepo) GetAll(ctx context.Context, userID string) ([]models.Category, error) {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	rows, err := r.pool.Query(ctx, getAllCategoriesByUserSQL, userID)
@@ -129,8 +130,8 @@ func (r *PostgresCategoryRepo) GetAll(userID string) ([]models.Category, error) 
 }
 
 // Create creates a new category for a user
-func (r *PostgresCategoryRepo) Create(userID, name string, color models.Color) (*models.Category, error) {
-	ctx, cancel := dbContext()
+func (r *PostgresCategoryRepo) Create(ctx context.Context, userID, name string, color models.Color) (*models.Category, error) {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	id := uuid.New().String()
@@ -151,8 +152,8 @@ func (r *PostgresCategoryRepo) Create(userID, name string, color models.Color) (
 }
 
 // UpdateName updates the name of a category, scoped to the owning user
-func (r *PostgresCategoryRepo) UpdateName(id, userID, name string) (*models.Category, error) {
-	ctx, cancel := dbContext()
+func (r *PostgresCategoryRepo) UpdateName(ctx context.Context, id, userID, name string) (*models.Category, error) {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	var cat models.Category
@@ -174,8 +175,8 @@ func (r *PostgresCategoryRepo) UpdateName(id, userID, name string) (*models.Cate
 }
 
 // Delete deletes a category by ID, scoped to the owning user (repertoires will cascade delete)
-func (r *PostgresCategoryRepo) Delete(id, userID string) error {
-	ctx, cancel := dbContext()
+func (r *PostgresCategoryRepo) Delete(ctx context.Context, id, userID string) error {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	result, err := r.pool.Exec(ctx, deleteCategorySQL, id, userID)
@@ -191,8 +192,8 @@ func (r *PostgresCategoryRepo) Delete(id, userID string) error {
 }
 
 // BelongsToUser checks if a category belongs to a specific user
-func (r *PostgresCategoryRepo) BelongsToUser(id, userID string) (bool, error) {
-	ctx, cancel := dbContext()
+func (r *PostgresCategoryRepo) BelongsToUser(ctx context.Context, id, userID string) (bool, error) {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	var belongs bool
@@ -204,8 +205,8 @@ func (r *PostgresCategoryRepo) BelongsToUser(id, userID string) (bool, error) {
 }
 
 // Exists checks if a category exists by ID
-func (r *PostgresCategoryRepo) Exists(id string) (bool, error) {
-	ctx, cancel := dbContext()
+func (r *PostgresCategoryRepo) Exists(ctx context.Context, id string) (bool, error) {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	var exists bool
@@ -217,8 +218,8 @@ func (r *PostgresCategoryRepo) Exists(id string) (bool, error) {
 }
 
 // Count returns the total number of categories for a user
-func (r *PostgresCategoryRepo) Count(userID string) (int, error) {
-	ctx, cancel := dbContext()
+func (r *PostgresCategoryRepo) Count(ctx context.Context, userID string) (int, error) {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	var count int

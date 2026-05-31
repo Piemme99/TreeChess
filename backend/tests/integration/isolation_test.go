@@ -3,6 +3,7 @@
 package integration
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"strconv"
@@ -165,7 +166,7 @@ func TestUserIsolation_AnalysisAccess(t *testing.T) {
 
 	// User A imports a PGN via service
 	pgn := testhelpers.SimplePGN("usera_ana", "opponent")
-	summary, _, err := ts.ImportSvc.ParseAndAnalyze("test.pgn", "usera_ana", getUserID(t, ts, tokenA), pgn)
+	summary, _, err := ts.ImportSvc.ParseAndAnalyze(context.Background(), "test.pgn", "usera_ana", getUserID(t, ts, tokenA), pgn)
 	require.NoError(t, err)
 
 	// User A can access analysis
@@ -197,13 +198,13 @@ func TestUserIsolation_ReanalyzeGame(t *testing.T) {
 
 	// User A imports a PGN (usera plays white)
 	pgn := testhelpers.SimplePGN("usera_reana", "opponent")
-	summary, games, err := ts.ImportSvc.ParseAndAnalyze("test.pgn", "usera_reana", userIDA, pgn)
+	summary, games, err := ts.ImportSvc.ParseAndAnalyze(context.Background(), "test.pgn", "usera_reana", userIDA, pgn)
 	require.NoError(t, err)
 	require.NotEmpty(t, games)
 	gameIndex := games[0].GameIndex
 
 	// User B owns a white repertoire to reanalyze against
-	repB, err := repos.Repertoire.Create(userIDB, "UserB Rep", models.ColorWhite)
+	repB, err := repos.Repertoire.Create(context.Background(), userIDB, "UserB Rep", models.ColorWhite)
 	require.NoError(t, err)
 
 	// User B cannot reanalyze User A's game (404 at the ownership boundary)
@@ -231,13 +232,13 @@ func TestUserIsolation_MergeRepertoires(t *testing.T) {
 	userIDB := getUserID(t, ts, tokenB)
 
 	// User A owns two repertoires
-	repA1, err := repos.Repertoire.Create(userIDA, "A Merge 1", models.ColorWhite)
+	repA1, err := repos.Repertoire.Create(context.Background(), userIDA, "A Merge 1", models.ColorWhite)
 	require.NoError(t, err)
-	repA2, err := repos.Repertoire.Create(userIDA, "A Merge 2", models.ColorWhite)
+	repA2, err := repos.Repertoire.Create(context.Background(), userIDA, "A Merge 2", models.ColorWhite)
 	require.NoError(t, err)
 
 	// User B owns one repertoire
-	repB1, err := repos.Repertoire.Create(userIDB, "B Merge 1", models.ColorWhite)
+	repB1, err := repos.Repertoire.Create(context.Background(), userIDB, "B Merge 1", models.ColorWhite)
 	require.NoError(t, err)
 
 	// User B tries to merge one of their own repertoires with one of User A's
@@ -252,7 +253,7 @@ func TestUserIsolation_MergeRepertoires(t *testing.T) {
 	// User A's repertoires both survive (merge deletes sources, so this proves no
 	// cross-tenant tree was fetched or deleted).
 	for _, id := range []string{repA1.ID, repA2.ID} {
-		got, err := repos.Repertoire.GetByID(id, userIDA)
+		got, err := repos.Repertoire.GetByID(context.Background(), id, userIDA)
 		require.NoError(t, err, "User A repertoire %s should still exist", id)
 		assert.Equal(t, id, got.ID)
 	}
@@ -311,7 +312,7 @@ func TestUserIsolation_CategoryRename(t *testing.T) {
 	userIDA := getUserID(t, ts, tokenA)
 
 	// User A owns a category
-	cat, err := repos.Category.Create(userIDA, "UserA Category", models.ColorWhite)
+	cat, err := repos.Category.Create(context.Background(), userIDA, "UserA Category", models.ColorWhite)
 	require.NoError(t, err)
 
 	// User B cannot rename it
@@ -321,7 +322,7 @@ func TestUserIsolation_CategoryRename(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, rec.Code)
 
 	// The category name is unchanged
-	got, err := repos.Category.GetByID(cat.ID, userIDA)
+	got, err := repos.Category.GetByID(context.Background(), cat.ID, userIDA)
 	require.NoError(t, err)
 	assert.Equal(t, "UserA Category", got.Name)
 }
@@ -337,9 +338,9 @@ func TestUserIsolation_CategoryDeleteDoesNotCascadeCrossTenant(t *testing.T) {
 	userIDA := getUserID(t, ts, tokenA)
 
 	// User A owns a category with a repertoire inside it
-	cat, err := repos.Category.Create(userIDA, "UserA Category", models.ColorWhite)
+	cat, err := repos.Category.Create(context.Background(), userIDA, "UserA Category", models.ColorWhite)
 	require.NoError(t, err)
-	rep, err := repos.Repertoire.CreateWithCategory(userIDA, "Categorized Rep", models.ColorWhite, &cat.ID)
+	rep, err := repos.Repertoire.CreateWithCategory(context.Background(), userIDA, "Categorized Rep", models.ColorWhite, &cat.ID)
 	require.NoError(t, err)
 
 	// User B cannot delete the category — this is the destructive cascade path
@@ -348,11 +349,11 @@ func TestUserIsolation_CategoryDeleteDoesNotCascadeCrossTenant(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, rec.Code)
 
 	// The category and, crucially, User A's repertoire both survive the attempt
-	gotCat, err := repos.Category.GetByID(cat.ID, userIDA)
+	gotCat, err := repos.Category.GetByID(context.Background(), cat.ID, userIDA)
 	require.NoError(t, err)
 	assert.Equal(t, cat.ID, gotCat.ID)
 
-	gotRep, err := repos.Repertoire.GetByID(rep.ID, userIDA)
+	gotRep, err := repos.Repertoire.GetByID(context.Background(), rep.ID, userIDA)
 	require.NoError(t, err, "victim repertoire must not be cascade-deleted")
 	assert.Equal(t, rep.ID, gotRep.ID)
 }
@@ -412,7 +413,7 @@ func TestUserIsolation_ListAnalyses(t *testing.T) {
 
 	// User A imports a PGN
 	pgn := testhelpers.SimplePGN("usera_analist", "opponent")
-	_, _, err := ts.ImportSvc.ParseAndAnalyze("test.pgn", "usera_analist", userIDA, pgn)
+	_, _, err := ts.ImportSvc.ParseAndAnalyze(context.Background(), "test.pgn", "usera_analist", userIDA, pgn)
 	require.NoError(t, err)
 
 	// User A sees 1 analysis
@@ -447,12 +448,12 @@ func TestRepertoireLimitTrigger(t *testing.T) {
 		if i%2 == 1 {
 			color = models.ColorBlack
 		}
-		_, err := repos.Repertoire.Create(user.ID, "Rep "+string(rune('A'+i%26))+string(rune('0'+i/26)), color)
+		_, err := repos.Repertoire.Create(context.Background(), user.ID, "Rep "+string(rune('A'+i%26))+string(rune('0'+i/26)), color)
 		require.NoError(t, err, "failed to create repertoire %d", i)
 	}
 
 	// 51st should fail (PostgreSQL trigger)
-	_, err := repos.Repertoire.Create(user.ID, "Too Many", models.ColorWhite)
+	_, err := repos.Repertoire.Create(context.Background(), user.ID, "Too Many", models.ColorWhite)
 	assert.Error(t, err)
 }
 
@@ -468,16 +469,16 @@ func TestRepertoireLimitTrigger_DifferentUsers(t *testing.T) {
 		if i%2 == 1 {
 			color = models.ColorBlack
 		}
-		_, err := repos.Repertoire.Create(userA.ID, "A Rep "+string(rune('0'+i/10))+string(rune('0'+i%10)), color)
+		_, err := repos.Repertoire.Create(context.Background(), userA.ID, "A Rep "+string(rune('0'+i/10))+string(rune('0'+i%10)), color)
 		require.NoError(t, err)
 	}
 
 	// User B can still create
-	_, err := repos.Repertoire.Create(userB.ID, "B Rep", models.ColorWhite)
+	_, err := repos.Repertoire.Create(context.Background(), userB.ID, "B Rep", models.ColorWhite)
 	assert.NoError(t, err)
 
 	// User A cannot
-	_, err = repos.Repertoire.Create(userA.ID, "Too Many", models.ColorWhite)
+	_, err = repos.Repertoire.Create(context.Background(), userA.ID, "Too Many", models.ColorWhite)
 	assert.Error(t, err)
 }
 

@@ -47,8 +47,23 @@ func (h *TrainingExplorerHandler) GetOpening(c *echo.Context) error {
 		})
 	}
 
+	// Validate the FEN before it is used to build the (cached) query key.
+	// An unvalidated, unbounded FEN otherwise blows up the cache key-space.
+	if !ValidateFEN(fen) {
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "fen is not a valid position",
+			"code":  "invalid_fen",
+		})
+	}
+
 	query := services.DefaultOpeningQuery(fen)
-	if v := c.QueryParam("variant"); strings.TrimSpace(v) != "" {
+	if v := strings.TrimSpace(c.QueryParam("variant")); v != "" {
+		if !IsValidExplorerVariant(v) {
+			return c.JSON(http.StatusBadRequest, map[string]string{
+				"error": "unsupported variant",
+				"code":  "invalid_variant",
+			})
+		}
 		query.Variant = v
 	}
 
@@ -62,7 +77,7 @@ func (h *TrainingExplorerHandler) GetOpening(c *echo.Context) error {
 	}
 
 	userID, _ := c.Get("userID").(string)
-	user, err := h.userRepo.GetByID(userID)
+	user, err := h.userRepo.GetByID(c.Request().Context(), userID)
 	if err != nil || user == nil {
 		return InternalErrorResponse(c, "could not load user")
 	}
@@ -118,4 +133,3 @@ func mapFetchError(c *echo.Context, err error) error {
 		"code":  "upstream_error",
 	})
 }
-

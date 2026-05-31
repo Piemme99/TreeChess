@@ -1,6 +1,8 @@
 package mocks
 
 import (
+	"context"
+
 	"github.com/kumquat/backend/internal/models"
 )
 
@@ -104,60 +106,60 @@ func (m *MockChesscomService) FetchGames(username string, options models.Chessco
 
 // MockImportService implements services.GameImporter for testing
 type MockImportService struct {
-	ParseAndAnalyzeFunc func(filename, username, userID, pgnData string) (*models.AnalysisSummary, []models.GameAnalysis, error)
+	ParseAndAnalyzeFunc func(ctx context.Context, filename, username, userID, pgnData string) (*models.AnalysisSummary, []models.GameAnalysis, error)
 }
 
-func (m *MockImportService) ParseAndAnalyze(filename, username, userID, pgnData string) (*models.AnalysisSummary, []models.GameAnalysis, error) {
+func (m *MockImportService) ParseAndAnalyze(ctx context.Context, filename, username, userID, pgnData string) (*models.AnalysisSummary, []models.GameAnalysis, error) {
 	if m.ParseAndAnalyzeFunc != nil {
-		return m.ParseAndAnalyzeFunc(filename, username, userID, pgnData)
+		return m.ParseAndAnalyzeFunc(ctx, filename, username, userID, pgnData)
 	}
 	return &models.AnalysisSummary{}, nil, nil
 }
 
 // MockRepertoireService implements services.RepertoireManager for testing
 type MockRepertoireService struct {
-	CreateRepertoireFunc             func(userID, name string, color models.Color) (*models.Repertoire, error)
-	CreateRepertoireWithCategoryFunc func(userID, name string, color models.Color, categoryID *string) (*models.Repertoire, error)
-	SaveTreeFunc                     func(userID, repertoireID string, treeData models.RepertoireNode) (*models.Repertoire, error)
-	SetOriginFunc                    func(repertoireID string, origin *models.RepertoireOrigin) error
-	ListRepertoiresFunc              func(userID string, color *models.Color) ([]models.Repertoire, error)
+	CreateRepertoireFunc             func(ctx context.Context, userID, name string, color models.Color) (*models.Repertoire, error)
+	CreateRepertoireWithCategoryFunc func(ctx context.Context, userID, name string, color models.Color, categoryID *string) (*models.Repertoire, error)
+	SaveTreeFunc                     func(ctx context.Context, userID, repertoireID string, treeData models.RepertoireNode) (*models.Repertoire, error)
+	SetOriginFunc                    func(ctx context.Context, repertoireID, userID string, origin *models.RepertoireOrigin) error
+	ListRepertoiresFunc              func(ctx context.Context, userID string, color *models.Color) ([]models.Repertoire, error)
 }
 
-func (m *MockRepertoireService) CreateRepertoire(userID, name string, color models.Color) (*models.Repertoire, error) {
+func (m *MockRepertoireService) CreateRepertoire(ctx context.Context, userID, name string, color models.Color) (*models.Repertoire, error) {
 	if m.CreateRepertoireFunc != nil {
-		return m.CreateRepertoireFunc(userID, name, color)
+		return m.CreateRepertoireFunc(ctx, userID, name, color)
 	}
 	return nil, nil
 }
 
-func (m *MockRepertoireService) CreateRepertoireWithCategory(userID, name string, color models.Color, categoryID *string) (*models.Repertoire, error) {
+func (m *MockRepertoireService) CreateRepertoireWithCategory(ctx context.Context, userID, name string, color models.Color, categoryID *string) (*models.Repertoire, error) {
 	if m.CreateRepertoireWithCategoryFunc != nil {
-		return m.CreateRepertoireWithCategoryFunc(userID, name, color, categoryID)
+		return m.CreateRepertoireWithCategoryFunc(ctx, userID, name, color, categoryID)
 	}
 	// Fall back to CreateRepertoireFunc if not set
 	if m.CreateRepertoireFunc != nil {
-		return m.CreateRepertoireFunc(userID, name, color)
+		return m.CreateRepertoireFunc(ctx, userID, name, color)
 	}
 	return nil, nil
 }
 
-func (m *MockRepertoireService) SaveTree(userID, repertoireID string, treeData models.RepertoireNode) (*models.Repertoire, error) {
+func (m *MockRepertoireService) SaveTree(ctx context.Context, userID, repertoireID string, treeData models.RepertoireNode) (*models.Repertoire, error) {
 	if m.SaveTreeFunc != nil {
-		return m.SaveTreeFunc(userID, repertoireID, treeData)
+		return m.SaveTreeFunc(ctx, userID, repertoireID, treeData)
 	}
 	return nil, nil
 }
 
-func (m *MockRepertoireService) SetOrigin(repertoireID, userID string, origin *models.RepertoireOrigin) error {
+func (m *MockRepertoireService) SetOrigin(ctx context.Context, repertoireID, userID string, origin *models.RepertoireOrigin) error {
 	if m.SetOriginFunc != nil {
-		return m.SetOriginFunc(repertoireID, origin)
+		return m.SetOriginFunc(ctx, repertoireID, userID, origin)
 	}
 	return nil
 }
 
-func (m *MockRepertoireService) ListRepertoires(userID string, color *models.Color) ([]models.Repertoire, error) {
+func (m *MockRepertoireService) ListRepertoires(ctx context.Context, userID string, color *models.Color) ([]models.Repertoire, error) {
 	if m.ListRepertoiresFunc != nil {
-		return m.ListRepertoiresFunc(userID, color)
+		return m.ListRepertoiresFunc(ctx, userID, color)
 	}
 	return nil, nil
 }

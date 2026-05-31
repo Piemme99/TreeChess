@@ -1,3 +1,4 @@
+import { isDivergence } from '../../../shared/repertoireHandoff';
 import type { GameAnalysis } from '../../../types';
 
 /**
@@ -5,7 +6,5 @@ import type { GameAnalysis } from '../../../types';
  * "needs attention" signal surfaced as a badge in the session navigation.
  */
 export function countDivergences(game: GameAnalysis): number {
-  return game.moves.filter(
-    (m) => m.status === 'opponent-new' || m.status === 'out-of-repertoire'
-  ).length;
+  return game.moves.filter((m) => isDivergence(m.status)).length;
 }

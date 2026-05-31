@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -195,8 +196,8 @@ func uniqueNameWithSuffix(name string, taken map[string]bool) string {
 
 // existingNamesByColor builds a lookup table of {color -> {name -> existingRepertoireID}}
 // for the user, used to detect study-import conflicts before any writes.
-func (s *StudyImportService) existingNamesByColor(userID string) (map[models.Color]map[string]string, error) {
-	all, err := s.repertoireService.ListRepertoires(userID, nil)
+func (s *StudyImportService) existingNamesByColor(ctx context.Context, userID string) (map[models.Color]map[string]string, error) {
+	all, err := s.repertoireService.ListRepertoires(ctx, userID, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list existing repertoires: %w", err)
 	}
@@ -211,8 +212,8 @@ func (s *StudyImportService) existingNamesByColor(userID string) (map[models.Col
 }
 
 // ImportStudyChapters imports selected chapters from a Lichess study as new repertoires.
-func (s *StudyImportService) ImportStudyChapters(userID, studyID, authToken string, chapterIndices []int) ([]models.Repertoire, error) {
-	result, err := s.ImportStudyChaptersWithCategory(userID, studyID, authToken, chapterIndices, false, "", false, true, RenameStrategyAbort)
+func (s *StudyImportService) ImportStudyChapters(ctx context.Context, userID, studyID, authToken string, chapterIndices []int) ([]models.Repertoire, error) {
+	result, err := s.ImportStudyChaptersWithCategory(ctx, userID, studyID, authToken, chapterIndices, false, "", false, true, RenameStrategyAbort)
 	if err != nil {
 		return nil, err
 	}
@@ -235,7 +236,7 @@ type parsedChapter struct {
 // repertoire for the same user+color. See the RenameStrategy* constants.
 // The optional ownerName variadic preserves backward compatibility with callers
 // that don't pass an explicit owner — only the first value is honored.
-func (s *StudyImportService) ImportStudyChaptersWithCategory(userID, studyID, authToken string, chapterIndices []int, createCategory bool, categoryName string, includeComments, includeHints bool, renameStrategy string, ownerName ...string) (*StudyImportResult, error) {
+func (s *StudyImportService) ImportStudyChaptersWithCategory(ctx context.Context, userID, studyID, authToken string, chapterIndices []int, createCategory bool, categoryName string, includeComments, includeHints bool, renameStrategy string, ownerName ...string) (*StudyImportResult, error) {
 	pgnData, err := s.lichessService.FetchStudyPGN(studyID, authToken)
 	if err != nil {
 		return nil, err
@@ -301,7 +302,7 @@ func (s *StudyImportService) ImportStudyChaptersWithCategory(userID, studyID, au
 	}
 
 	// Phase 2: detect name conflicts against existing repertoires (per color).
-	existing, err := s.existingNamesByColor(userID)
+	existing, err := s.existingNamesByColor(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -369,7 +370,7 @@ func (s *StudyImportService) ImportStudyChaptersWithCategory(userID, studyID, au
 			catName = "Imported Study"
 		}
 
-		cat, catErr := s.categoryRepo.Create(userID, catName, detectedColor)
+		cat, catErr := s.categoryRepo.Create(ctx, userID, catName, detectedColor)
 		if catErr != nil {
 			return nil, fmt.Errorf("failed to create category: %w", catErr)
 		}
@@ -400,20 +401,20 @@ func (s *StudyImportService) ImportStudyChaptersWithCategory(userID, studyID, au
 		var rep *models.Repertoire
 		var createErr error
 		if categoryID != nil && pc.color == detectedColor {
-			rep, createErr = s.repertoireService.CreateRepertoireWithCategory(userID, name, pc.color, categoryID)
+			rep, createErr = s.repertoireService.CreateRepertoireWithCategory(ctx, userID, name, pc.color, categoryID)
 		} else {
-			rep, createErr = s.repertoireService.CreateRepertoire(userID, name, pc.color)
+			rep, createErr = s.repertoireService.CreateRepertoire(ctx, userID, name, pc.color)
 		}
 		if createErr != nil {
 			return nil, fmt.Errorf("failed to create repertoire for chapter %d: %w", pc.index, createErr)
 		}
 
-		saved, saveErr := s.repertoireService.SaveTree(userID, rep.ID, pc.root)
+		saved, saveErr := s.repertoireService.SaveTree(ctx, userID, rep.ID, pc.root)
 		if saveErr != nil {
 			return nil, fmt.Errorf("failed to save tree for chapter %d: %w", pc.index, saveErr)
 		}
 
-		if setErr := s.repertoireService.SetOrigin(saved.ID, userID, origin); setErr != nil {
+		if setErr := s.repertoireService.SetOrigin(ctx, saved.ID, userID, origin); setErr != nil {
 			slog.Error("failed to set origin on imported repertoire", "repertoire_id", saved.ID, "error", setErr)
 		} else {
 			saved.Origin = origin
@@ -446,7 +447,7 @@ type MergedStudyImportResult struct {
 //
 // renameStrategy controls behavior when the merged repertoire name collides
 // with an existing repertoire for the same user+color. See RenameStrategy* constants.
-func (s *StudyImportService) ImportStudyChaptersMerged(userID, studyID, authToken string, chapterIndices []int, mergeName string, includeComments, includeHints bool, renameStrategy string, ownerName ...string) (*MergedStudyImportResult, error) {
+func (s *StudyImportService) ImportStudyChaptersMerged(ctx context.Context, userID, studyID, authToken string, chapterIndices []int, mergeName string, includeComments, includeHints bool, renameStrategy string, ownerName ...string) (*MergedStudyImportResult, error) {
 	pgnData, err := s.lichessService.FetchStudyPGN(studyID, authToken)
 	if err != nil {
 		return nil, err
@@ -529,7 +530,7 @@ func (s *StudyImportService) ImportStudyChaptersMerged(userID, studyID, authToke
 	}
 
 	// Conflict check against existing repertoires of the same color.
-	existing, err := s.existingNamesByColor(userID)
+	existing, err := s.existingNamesByColor(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -553,7 +554,7 @@ func (s *StudyImportService) ImportStudyChaptersMerged(userID, studyID, authToke
 	}
 
 	// Create one repertoire
-	rep, err := s.repertoireService.CreateRepertoire(userID, mergeName, detectedColor)
+	rep, err := s.repertoireService.CreateRepertoire(ctx, userID, mergeName, detectedColor)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create repertoire: %w", err)
 	}
@@ -565,7 +566,7 @@ func (s *StudyImportService) ImportStudyChaptersMerged(userID, studyID, authToke
 	}
 
 	// Save the merged tree
-	saved, err := s.repertoireService.SaveTree(userID, rep.ID, merged)
+	saved, err := s.repertoireService.SaveTree(ctx, userID, rep.ID, merged)
 	if err != nil {
 		return nil, fmt.Errorf("failed to save merged tree: %w", err)
 	}
@@ -586,7 +587,7 @@ func (s *StudyImportService) ImportStudyChaptersMerged(userID, studyID, authToke
 		URL:     fmt.Sprintf("https://lichess.org/study/%s", studyID),
 		Creator: resolvedOwner,
 	}
-	if setErr := s.repertoireService.SetOrigin(saved.ID, userID, origin); setErr != nil {
+	if setErr := s.repertoireService.SetOrigin(ctx, saved.ID, userID, origin); setErr != nil {
 		slog.Error("failed to set origin on merged repertoire", "repertoire_id", saved.ID, "error", setErr)
 	} else {
 		saved.Origin = origin
@@ -650,8 +651,8 @@ func (s *StudyImportService) GetPopularTopics() (*models.LichessTopicsResponse, 
 
 // GetLichessTokenForUser retrieves the stored Lichess access token for a user.
 // Returns empty string if no token is stored.
-func (s *StudyImportService) GetLichessTokenForUser(userID string) string {
-	user, err := s.userRepo.GetByID(userID)
+func (s *StudyImportService) GetLichessTokenForUser(ctx context.Context, userID string) string {
+	user, err := s.userRepo.GetByID(ctx, userID)
 	if err != nil || user == nil {
 		return ""
 	}

@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -22,7 +23,7 @@ func NewPostgresFingerprintRepo(pool *pgxpool.Pool) *PostgresFingerprintRepo {
 // CheckExisting returns which fingerprints already exist for the given user.
 // The lookup is chunked into batches of config.DBBatchSize so that a large
 // import never exceeds Postgres's 65535-parameter limit.
-func (r *PostgresFingerprintRepo) CheckExisting(userID string, fingerprints []string) (map[string]bool, error) {
+func (r *PostgresFingerprintRepo) CheckExisting(ctx context.Context, userID string, fingerprints []string) (map[string]bool, error) {
 	existing := make(map[string]bool)
 	if len(fingerprints) == 0 {
 		return existing, nil
@@ -33,7 +34,7 @@ func (r *PostgresFingerprintRepo) CheckExisting(userID string, fingerprints []st
 		if end > len(fingerprints) {
 			end = len(fingerprints)
 		}
-		if err := r.checkExistingChunk(userID, fingerprints[start:end], existing); err != nil {
+		if err := r.checkExistingChunk(ctx, userID, fingerprints[start:end], existing); err != nil {
 			return nil, err
 		}
 	}
@@ -43,8 +44,8 @@ func (r *PostgresFingerprintRepo) CheckExisting(userID string, fingerprints []st
 
 // checkExistingChunk runs a single IN-clause lookup for one chunk of
 // fingerprints and records any matches into the provided map.
-func (r *PostgresFingerprintRepo) checkExistingChunk(userID string, fingerprints []string, existing map[string]bool) error {
-	ctx, cancel := dbContext()
+func (r *PostgresFingerprintRepo) checkExistingChunk(ctx context.Context, userID string, fingerprints []string, existing map[string]bool) error {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	// Build parameterized query for IN clause
@@ -85,7 +86,7 @@ func (r *PostgresFingerprintRepo) checkExistingChunk(userID string, fingerprints
 // SaveBatch inserts multiple fingerprints, chunked into batches of
 // config.DBBatchSize so that a large import never exceeds Postgres's
 // 65535-parameter limit (4 parameters per row).
-func (r *PostgresFingerprintRepo) SaveBatch(userID, analysisID string, entries []FingerprintEntry) error {
+func (r *PostgresFingerprintRepo) SaveBatch(ctx context.Context, userID, analysisID string, entries []FingerprintEntry) error {
 	if len(entries) == 0 {
 		return nil
 	}
@@ -95,7 +96,7 @@ func (r *PostgresFingerprintRepo) SaveBatch(userID, analysisID string, entries [
 		if end > len(entries) {
 			end = len(entries)
 		}
-		if err := r.saveBatchChunk(userID, analysisID, entries[start:end]); err != nil {
+		if err := r.saveBatchChunk(ctx, userID, analysisID, entries[start:end]); err != nil {
 			return err
 		}
 	}
@@ -104,8 +105,8 @@ func (r *PostgresFingerprintRepo) SaveBatch(userID, analysisID string, entries [
 }
 
 // saveBatchChunk inserts a single chunk of fingerprint entries in one query.
-func (r *PostgresFingerprintRepo) saveBatchChunk(userID, analysisID string, entries []FingerprintEntry) error {
-	ctx, cancel := dbContext()
+func (r *PostgresFingerprintRepo) saveBatchChunk(ctx context.Context, userID, analysisID string, entries []FingerprintEntry) error {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	// Build bulk insert

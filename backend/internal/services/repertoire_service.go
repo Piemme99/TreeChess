@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"regexp"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/kumquat/backend/config"
 	"github.com/kumquat/backend/internal/models"
+	"github.com/kumquat/backend/internal/repertoiretree"
 	"github.com/kumquat/backend/internal/repository"
 )
 
@@ -34,6 +36,9 @@ var (
 	ErrMergeMinimumTwo    = fmt.Errorf("at least two repertoires are required to merge")
 	ErrMergeColorMismatch = fmt.Errorf("cannot merge repertoires of different colors")
 	ErrMergeDuplicateIDs  = fmt.Errorf("duplicate repertoire IDs")
+	// ErrConflict wraps an optimistic-lock failure from the repository so handlers
+	// can map it to HTTP 409 without importing the repository package.
+	ErrConflict = fmt.Errorf("repertoire was modified by another write")
 
 	// Game analysis errors
 	ErrColorMismatch = fmt.Errorf("repertoire color does not match user color in game")
@@ -46,6 +51,10 @@ var (
 	ErrChesscomUserNotFound = fmt.Errorf("chess.com user not found")
 	ErrChesscomRateLimited  = fmt.Errorf("chess.com API rate limited, try again later")
 
+	// ErrUpstreamUnavailable flags a transient upstream failure (HTTP 5xx) that
+	// is safe to retry with backoff.
+	ErrUpstreamUnavailable = fmt.Errorf("upstream service temporarily unavailable")
+
 	// PGN parsing errors
 	ErrCustomStartingPosition = fmt.Errorf("chapter uses a custom starting position and cannot be imported as a repertoire")
 
@@ -57,17 +66,17 @@ var (
 // RepertoireRepository interface for repository operations
 type RepertoireRepository interface {
 	repository.RepertoireRepository
-	CreateWithCategory(userID, name string, color models.Color, categoryID *string) (*models.Repertoire, error)
-	CreateWithIsPublic(userID, name string, color models.Color, isPublic bool) (*models.Repertoire, error)
-	CreateWithIsPublicAndDescription(userID, name, description string, color models.Color, isPublic bool) (*models.Repertoire, error)
-	UpdateCategory(id string, userID string, categoryID *string) (*models.Repertoire, error)
-	UpdateVisibility(id string, userID string, isPublic bool) (*models.Repertoire, error)
-	UpdateOrigin(id string, userID string, origin *models.RepertoireOrigin) error
-	GetByCategory(categoryID string) ([]models.Repertoire, error)
-	GetUncategorized(userID string, color models.Color) ([]models.Repertoire, error)
-	GetAllPublic() ([]models.Repertoire, error)
-	GetPublicByID(id string) (*models.Repertoire, error)
-	GetOwnerID(id string) (string, error)
+	CreateWithCategory(ctx context.Context, userID, name string, color models.Color, categoryID *string) (*models.Repertoire, error)
+	CreateWithIsPublic(ctx context.Context, userID, name string, color models.Color, isPublic bool) (*models.Repertoire, error)
+	CreateWithIsPublicAndDescription(ctx context.Context, userID, name, description string, color models.Color, isPublic bool) (*models.Repertoire, error)
+	UpdateCategory(ctx context.Context, id string, userID string, categoryID *string) (*models.Repertoire, error)
+	UpdateVisibility(ctx context.Context, id string, userID string, isPublic bool) (*models.Repertoire, error)
+	UpdateOrigin(ctx context.Context, id string, userID string, origin *models.RepertoireOrigin) error
+	GetByCategory(ctx context.Context, categoryID string) ([]models.Repertoire, error)
+	GetUncategorized(ctx context.Context, userID string, color models.Color) ([]models.Repertoire, error)
+	GetAllPublic(ctx context.Context) ([]models.Repertoire, error)
+	GetPublicByID(ctx context.Context, id string) (*models.Repertoire, error)
+	GetOwnerID(ctx context.Context, id string) (string, error)
 }
 
 // RepertoireService handles repertoire business logic
@@ -103,13 +112,30 @@ func (s *RepertoireService) notifyReanalysis(userID string) {
 	}
 }
 
+// mapSaveError translates repository-layer save errors into service-layer
+// sentinels so handlers can branch without importing the repository package.
+// An optimistic-lock failure becomes ErrConflict (HTTP 409); a vanished
+// repertoire becomes ErrNotFound; everything else passes through unchanged.
+func mapSaveError(err error) error {
+	switch {
+	case err == nil:
+		return nil
+	case errors.Is(err, repository.ErrRepertoireConflict):
+		return fmt.Errorf("%w: %w", ErrConflict, err)
+	case errors.Is(err, repository.ErrRepertoireNotFound):
+		return fmt.Errorf("%w: %w", ErrNotFound, err)
+	default:
+		return err
+	}
+}
+
 // CreateRepertoire creates a new repertoire with the given name and color for a user
-func (s *RepertoireService) CreateRepertoire(userID string, name string, color models.Color) (*models.Repertoire, error) {
-	return s.CreateRepertoireWithVisibility(userID, name, "", color, false)
+func (s *RepertoireService) CreateRepertoire(ctx context.Context, userID string, name string, color models.Color) (*models.Repertoire, error) {
+	return s.CreateRepertoireWithVisibility(ctx, userID, name, "", color, false)
 }
 
 // CreateRepertoireWithVisibility creates a new repertoire with explicit public/private visibility
-func (s *RepertoireService) CreateRepertoireWithVisibility(userID string, name string, description string, color models.Color, isPublic bool) (*models.Repertoire, error) {
+func (s *RepertoireService) CreateRepertoireWithVisibility(ctx context.Context, userID string, name string, description string, color models.Color, isPublic bool) (*models.Repertoire, error) {
 	if color != models.ColorWhite && color != models.ColorBlack {
 		return nil, fmt.Errorf("%w: %s", ErrInvalidColor, color)
 	}
@@ -128,7 +154,7 @@ func (s *RepertoireService) CreateRepertoireWithVisibility(userID string, name s
 	}
 
 	// Check repertoire limit
-	count, err := s.repo.Count(userID)
+	count, err := s.repo.Count(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check repertoire count: %w", err)
 	}
@@ -136,11 +162,11 @@ func (s *RepertoireService) CreateRepertoireWithVisibility(userID string, name s
 		return nil, ErrLimitReached
 	}
 
-	return s.repo.CreateWithIsPublicAndDescription(userID, name, description, color, isPublic)
+	return s.repo.CreateWithIsPublicAndDescription(ctx, userID, name, description, color, isPublic)
 }
 
 // CreateRepertoireWithCategory creates a new repertoire with the given name, color, and optional category
-func (s *RepertoireService) CreateRepertoireWithCategory(userID, name string, color models.Color, categoryID *string) (*models.Repertoire, error) {
+func (s *RepertoireService) CreateRepertoireWithCategory(ctx context.Context, userID, name string, color models.Color, categoryID *string) (*models.Repertoire, error) {
 	if color != models.ColorWhite && color != models.ColorBlack {
 		return nil, fmt.Errorf("%w: %s", ErrInvalidColor, color)
 	}
@@ -154,7 +180,7 @@ func (s *RepertoireService) CreateRepertoireWithCategory(userID, name string, co
 	}
 
 	// Check repertoire limit
-	count, err := s.repo.Count(userID)
+	count, err := s.repo.Count(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check repertoire count: %w", err)
 	}
@@ -162,13 +188,13 @@ func (s *RepertoireService) CreateRepertoireWithCategory(userID, name string, co
 		return nil, ErrLimitReached
 	}
 
-	return s.repo.CreateWithCategory(userID, name, color, categoryID)
+	return s.repo.CreateWithCategory(ctx, userID, name, color, categoryID)
 }
 
 // AssignToCategory assigns a repertoire to a category (or removes from category if categoryID is nil)
-func (s *RepertoireService) AssignToCategory(userID, repertoireID string, categoryID *string) (*models.Repertoire, error) {
+func (s *RepertoireService) AssignToCategory(ctx context.Context, userID, repertoireID string, categoryID *string) (*models.Repertoire, error) {
 	// Check if repertoire exists
-	exists, err := s.repo.Exists(repertoireID)
+	exists, err := s.repo.Exists(ctx, repertoireID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check repertoire existence: %w", err)
 	}
@@ -176,12 +202,12 @@ func (s *RepertoireService) AssignToCategory(userID, repertoireID string, catego
 		return nil, fmt.Errorf("%w: %s", ErrNotFound, repertoireID)
 	}
 
-	return s.repo.UpdateCategory(repertoireID, userID, categoryID)
+	return s.repo.UpdateCategory(ctx, repertoireID, userID, categoryID)
 }
 
 // GetRepertoire retrieves a repertoire by its ID, scoped to the owning user
-func (s *RepertoireService) GetRepertoire(id string, userID string) (*models.Repertoire, error) {
-	rep, err := s.repo.GetByID(id, userID)
+func (s *RepertoireService) GetRepertoire(ctx context.Context, id string, userID string) (*models.Repertoire, error) {
+	rep, err := s.repo.GetByID(ctx, id, userID)
 	if err != nil {
 		if errors.Is(err, repository.ErrRepertoireNotFound) {
 			return nil, fmt.Errorf("%w: %w", ErrNotFound, err)
@@ -193,19 +219,19 @@ func (s *RepertoireService) GetRepertoire(id string, userID string) (*models.Rep
 }
 
 // ListRepertoires returns all repertoires for a user, optionally filtered by color
-func (s *RepertoireService) ListRepertoires(userID string, color *models.Color) ([]models.Repertoire, error) {
+func (s *RepertoireService) ListRepertoires(ctx context.Context, userID string, color *models.Color) ([]models.Repertoire, error) {
 	if color != nil {
 		if *color != models.ColorWhite && *color != models.ColorBlack {
 			return nil, fmt.Errorf("%w: %s", ErrInvalidColor, *color)
 		}
-		return s.repo.GetByColor(userID, *color)
+		return s.repo.GetByColor(ctx, userID, *color)
 	}
-	return s.repo.GetAll(userID)
+	return s.repo.GetAll(ctx, userID)
 }
 
 // CheckOwnership verifies that a repertoire belongs to the given user
-func (s *RepertoireService) CheckOwnership(id string, userID string) error {
-	belongs, err := s.repo.BelongsToUser(id, userID)
+func (s *RepertoireService) CheckOwnership(ctx context.Context, id string, userID string) error {
+	belongs, err := s.repo.BelongsToUser(ctx, id, userID)
 	if err != nil {
 		return fmt.Errorf("failed to check ownership: %w", err)
 	}
@@ -216,14 +242,14 @@ func (s *RepertoireService) CheckOwnership(id string, userID string) error {
 }
 
 // UpdateDescription updates the description of a repertoire
-func (s *RepertoireService) UpdateDescription(userID, id string, description string) (*models.Repertoire, error) {
+func (s *RepertoireService) UpdateDescription(ctx context.Context, userID, id string, description string) (*models.Repertoire, error) {
 	description = strings.TrimSpace(description)
 	if len(description) > config.MaxRepertoireDescriptionLen {
 		return nil, ErrDescriptionTooLong
 	}
 
 	// Check if repertoire exists
-	exists, err := s.repo.Exists(id)
+	exists, err := s.repo.Exists(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check repertoire existence: %w", err)
 	}
@@ -231,11 +257,11 @@ func (s *RepertoireService) UpdateDescription(userID, id string, description str
 		return nil, fmt.Errorf("%w: %s", ErrNotFound, id)
 	}
 
-	return s.repo.UpdateDescription(id, userID, description)
+	return s.repo.UpdateDescription(ctx, id, userID, description)
 }
 
 // RenameRepertoire updates the name of a repertoire
-func (s *RepertoireService) RenameRepertoire(userID, id string, name string) (*models.Repertoire, error) {
+func (s *RepertoireService) RenameRepertoire(ctx context.Context, userID, id string, name string) (*models.Repertoire, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return nil, ErrNameRequired
@@ -245,7 +271,7 @@ func (s *RepertoireService) RenameRepertoire(userID, id string, name string) (*m
 	}
 
 	// Check if repertoire exists
-	exists, err := s.repo.Exists(id)
+	exists, err := s.repo.Exists(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check repertoire existence: %w", err)
 	}
@@ -253,12 +279,12 @@ func (s *RepertoireService) RenameRepertoire(userID, id string, name string) (*m
 		return nil, fmt.Errorf("%w: %s", ErrNotFound, id)
 	}
 
-	return s.repo.UpdateName(id, userID, name)
+	return s.repo.UpdateName(ctx, id, userID, name)
 }
 
 // DeleteRepertoire deletes a repertoire by ID
-func (s *RepertoireService) DeleteRepertoire(userID, id string) error {
-	err := s.repo.Delete(id, userID)
+func (s *RepertoireService) DeleteRepertoire(ctx context.Context, userID, id string) error {
+	err := s.repo.Delete(ctx, id, userID)
 	if err != nil {
 		if errors.Is(err, repository.ErrRepertoireNotFound) {
 			return fmt.Errorf("%w: %s", ErrNotFound, id)
@@ -270,8 +296,8 @@ func (s *RepertoireService) DeleteRepertoire(userID, id string) error {
 }
 
 // AddNode adds a new node to a repertoire
-func (s *RepertoireService) AddNode(userID, repertoireID string, req models.AddNodeRequest) (*models.Repertoire, error) {
-	rep, err := s.repo.GetByID(repertoireID, userID)
+func (s *RepertoireService) AddNode(ctx context.Context, userID, repertoireID string, req models.AddNodeRequest) (*models.Repertoire, error) {
+	rep, err := s.repo.GetByID(ctx, repertoireID, userID)
 	if err != nil {
 		if errors.Is(err, repository.ErrRepertoireNotFound) {
 			return nil, fmt.Errorf("%w: %w", ErrNotFound, err)
@@ -317,17 +343,17 @@ func (s *RepertoireService) AddNode(userID, repertoireID string, req models.AddN
 
 	newMetadata := calculateMetadata(rep.TreeData)
 
-	saved, err := s.repo.Save(repertoireID, userID, rep.TreeData, newMetadata)
+	saved, err := s.repo.Save(ctx, repertoireID, userID, rep.TreeData, newMetadata, rep.Version)
 	if err != nil {
-		return nil, err
+		return nil, mapSaveError(err)
 	}
 	s.notifyReanalysis(userID)
 	return saved, nil
 }
 
 // SaveTree saves a complete tree to a repertoire, replacing the existing tree data
-func (s *RepertoireService) SaveTree(userID, repertoireID string, treeData models.RepertoireNode) (*models.Repertoire, error) {
-	_, err := s.repo.GetByID(repertoireID, userID)
+func (s *RepertoireService) SaveTree(ctx context.Context, userID, repertoireID string, treeData models.RepertoireNode) (*models.Repertoire, error) {
+	rep, err := s.repo.GetByID(ctx, repertoireID, userID)
 	if err != nil {
 		if errors.Is(err, repository.ErrRepertoireNotFound) {
 			return nil, fmt.Errorf("%w: %w", ErrNotFound, err)
@@ -336,17 +362,17 @@ func (s *RepertoireService) SaveTree(userID, repertoireID string, treeData model
 	}
 
 	metadata := calculateMetadata(treeData)
-	saved, err := s.repo.Save(repertoireID, userID, treeData, metadata)
+	saved, err := s.repo.Save(ctx, repertoireID, userID, treeData, metadata, rep.Version)
 	if err != nil {
-		return nil, err
+		return nil, mapSaveError(err)
 	}
 	s.notifyReanalysis(userID)
 	return saved, nil
 }
 
 // DeleteNode removes a node and its children from a repertoire
-func (s *RepertoireService) DeleteNode(userID, repertoireID string, nodeID string) (*models.Repertoire, error) {
-	rep, err := s.repo.GetByID(repertoireID, userID)
+func (s *RepertoireService) DeleteNode(ctx context.Context, userID, repertoireID string, nodeID string) (*models.Repertoire, error) {
+	rep, err := s.repo.GetByID(ctx, repertoireID, userID)
 	if err != nil {
 		if errors.Is(err, repository.ErrRepertoireNotFound) {
 			return nil, fmt.Errorf("%w: %w", ErrNotFound, err)
@@ -365,16 +391,16 @@ func (s *RepertoireService) DeleteNode(userID, repertoireID string, nodeID strin
 
 	newMetadata := calculateMetadata(*newTreeData)
 
-	saved, err := s.repo.Save(repertoireID, userID, *newTreeData, newMetadata)
+	saved, err := s.repo.Save(ctx, repertoireID, userID, *newTreeData, newMetadata, rep.Version)
 	if err != nil {
-		return nil, err
+		return nil, mapSaveError(err)
 	}
 	s.notifyReanalysis(userID)
 	return saved, nil
 }
 
 // SeedRepertoires creates starter repertoires from templates for the given user
-func (s *RepertoireService) SeedRepertoires(userID string, templateIDs []string) ([]models.Repertoire, error) {
+func (s *RepertoireService) SeedRepertoires(ctx context.Context, userID string, templateIDs []string) ([]models.Repertoire, error) {
 	var created []models.Repertoire
 
 	for _, tmplID := range templateIDs {
@@ -389,7 +415,7 @@ func (s *RepertoireService) SeedRepertoires(userID string, templateIDs []string)
 		}
 
 		// Check repertoire limit before creating
-		count, err := s.repo.Count(userID)
+		count, err := s.repo.Count(ctx, userID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to check repertoire count: %w", err)
 		}
@@ -397,13 +423,13 @@ func (s *RepertoireService) SeedRepertoires(userID string, templateIDs []string)
 			return nil, ErrLimitReached
 		}
 
-		rep, err := s.repo.Create(userID, tmpl.Name, tmpl.Color)
+		rep, err := s.repo.Create(ctx, userID, tmpl.Name, tmpl.Color)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create repertoire %s: %w", tmplID, err)
 		}
 
 		metadata := calculateMetadata(tree)
-		saved, err := s.repo.Save(rep.ID, userID, tree, metadata)
+		saved, err := s.repo.Save(ctx, rep.ID, userID, tree, metadata, rep.Version)
 		if err != nil {
 			return nil, fmt.Errorf("failed to save template tree %s: %w", tmplID, err)
 		}
@@ -463,18 +489,10 @@ func deriveMoveNumber(parent *models.RepertoireNode) int {
 	return parent.MoveNumber
 }
 
+// findNode delegates to the shared repertoiretree primitive so find-by-id lives
+// in exactly one place.
 func findNode(root *models.RepertoireNode, id string) *models.RepertoireNode {
-	if root.ID == id {
-		return root
-	}
-
-	for i := range root.Children {
-		if found := findNode(root.Children[i], id); found != nil {
-			return found
-		}
-	}
-
-	return nil
+	return repertoiretree.FindByID(root, id)
 }
 
 // FindNode is an exported version for use by other services
@@ -509,9 +527,9 @@ func deleteNodeRecursive(root models.RepertoireNode, idToDelete string) *models.
 // ExtractSubtree extracts a subtree from a repertoire into a new repertoire.
 // The new repertoire contains the "spine" (root to target node) plus the full subtree.
 // The subtree is removed from the original.
-func (s *RepertoireService) ExtractSubtree(userID, repertoireID, nodeID, name string) (*models.ExtractSubtreeResponse, error) {
+func (s *RepertoireService) ExtractSubtree(ctx context.Context, userID, repertoireID, nodeID, name string) (*models.ExtractSubtreeResponse, error) {
 	// Fetch repertoire
-	rep, err := s.repo.GetByID(repertoireID, userID)
+	rep, err := s.repo.GetByID(ctx, repertoireID, userID)
 	if err != nil {
 		if errors.Is(err, repository.ErrRepertoireNotFound) {
 			return nil, fmt.Errorf("%w: %w", ErrNotFound, err)
@@ -547,7 +565,7 @@ func (s *RepertoireService) ExtractSubtree(userID, repertoireID, nodeID, name st
 	}
 
 	// Check repertoire limit
-	count, err := s.repo.Count(userID)
+	count, err := s.repo.Count(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check repertoire count: %w", err)
 	}
@@ -559,13 +577,13 @@ func (s *RepertoireService) ExtractSubtree(userID, repertoireID, nodeID, name st
 	newTree := buildSpineWithSubtree(path)
 
 	// Create new repertoire
-	newRep, err := s.repo.Create(userID, name, rep.Color)
+	newRep, err := s.repo.Create(ctx, userID, name, rep.Color)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create extracted repertoire: %w", err)
 	}
 
 	newMetadata := calculateMetadata(newTree)
-	savedNew, err := s.repo.Save(newRep.ID, userID, newTree, newMetadata)
+	savedNew, err := s.repo.Save(ctx, newRep.ID, userID, newTree, newMetadata, newRep.Version)
 	if err != nil {
 		return nil, fmt.Errorf("failed to save extracted repertoire: %w", err)
 	}
@@ -577,7 +595,7 @@ func (s *RepertoireService) ExtractSubtree(userID, repertoireID, nodeID, name st
 	}
 
 	prunedMetadata := calculateMetadata(*prunedTree)
-	savedOriginal, err := s.repo.Save(repertoireID, userID, *prunedTree, prunedMetadata)
+	savedOriginal, err := s.repo.Save(ctx, repertoireID, userID, *prunedTree, prunedMetadata, rep.Version)
 	if err != nil {
 		return nil, fmt.Errorf("failed to save pruned repertoire: %w", err)
 	}
@@ -662,7 +680,7 @@ func buildSpineWithSubtree(path []*models.RepertoireNode) models.RepertoireNode 
 
 // MergeRepertoires creates a new repertoire by merging multiple source repertoires.
 // All sources must have the same color. All source repertoires are deleted after merging.
-func (s *RepertoireService) MergeRepertoires(userID string, ids []string, name string) (*models.MergeRepertoiresResponse, error) {
+func (s *RepertoireService) MergeRepertoires(ctx context.Context, userID string, ids []string, name string) (*models.MergeRepertoiresResponse, error) {
 	if len(ids) < 2 {
 		return nil, ErrMergeMinimumTwo
 	}
@@ -687,7 +705,7 @@ func (s *RepertoireService) MergeRepertoires(userID string, ids []string, name s
 	// Fetch all repertoires
 	repertoires := make([]*models.Repertoire, 0, len(ids))
 	for _, id := range ids {
-		rep, err := s.repo.GetByID(id, userID)
+		rep, err := s.repo.GetByID(ctx, id, userID)
 		if err != nil {
 			if errors.Is(err, repository.ErrRepertoireNotFound) {
 				return nil, fmt.Errorf("%w: %s", ErrNotFound, id)
@@ -706,7 +724,7 @@ func (s *RepertoireService) MergeRepertoires(userID string, ids []string, name s
 	}
 
 	// Create new repertoire
-	newRep, err := s.repo.Create(userID, name, color)
+	newRep, err := s.repo.Create(ctx, userID, name, color)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create merged repertoire: %w", err)
 	}
@@ -718,14 +736,14 @@ func (s *RepertoireService) MergeRepertoires(userID string, ids []string, name s
 
 	// Calculate metadata and save
 	metadata := calculateMetadata(newRep.TreeData)
-	saved, err := s.repo.Save(newRep.ID, userID, newRep.TreeData, metadata)
+	saved, err := s.repo.Save(ctx, newRep.ID, userID, newRep.TreeData, metadata, newRep.Version)
 	if err != nil {
 		return nil, fmt.Errorf("failed to save merged repertoire: %w", err)
 	}
 
 	// Delete all source repertoires
 	for _, id := range ids {
-		if err := s.repo.Delete(id, userID); err != nil {
+		if err := s.repo.Delete(ctx, id, userID); err != nil {
 			return nil, fmt.Errorf("failed to delete source repertoire %s: %w", id, err)
 		}
 	}
@@ -738,8 +756,8 @@ func (s *RepertoireService) MergeRepertoires(userID string, ids []string, name s
 // MergeTranspositions detects positions reached via different move orders
 // at the same move number and merges them. The first node encountered (BFS order)
 // becomes the canonical node; duplicates become transposition pointers.
-func (s *RepertoireService) MergeTranspositions(userID, repertoireID string) (*models.Repertoire, error) {
-	rep, err := s.repo.GetByID(repertoireID, userID)
+func (s *RepertoireService) MergeTranspositions(ctx context.Context, userID, repertoireID string) (*models.Repertoire, error) {
+	rep, err := s.repo.GetByID(ctx, repertoireID, userID)
 	if err != nil {
 		if errors.Is(err, repository.ErrRepertoireNotFound) {
 			return nil, fmt.Errorf("%w: %w", ErrNotFound, err)
@@ -750,9 +768,9 @@ func (s *RepertoireService) MergeTranspositions(userID, repertoireID string) (*m
 	mergeTranspositionsInTree(&rep.TreeData)
 
 	metadata := calculateMetadata(rep.TreeData)
-	saved, err := s.repo.Save(repertoireID, userID, rep.TreeData, metadata)
+	saved, err := s.repo.Save(ctx, repertoireID, userID, rep.TreeData, metadata, rep.Version)
 	if err != nil {
-		return nil, err
+		return nil, mapSaveError(err)
 	}
 	s.notifyReanalysis(userID)
 	return saved, nil
@@ -889,8 +907,8 @@ func calculateMetadata(root models.RepertoireNode) models.Metadata {
 }
 
 // UpdateNodeComment updates the comment on a specific node in a repertoire
-func (s *RepertoireService) UpdateNodeComment(userID, repertoireID, nodeID, comment string) (*models.Repertoire, error) {
-	rep, err := s.repo.GetByID(repertoireID, userID)
+func (s *RepertoireService) UpdateNodeComment(ctx context.Context, userID, repertoireID, nodeID, comment string) (*models.Repertoire, error) {
+	rep, err := s.repo.GetByID(ctx, repertoireID, userID)
 	if err != nil {
 		if errors.Is(err, repository.ErrRepertoireNotFound) {
 			return nil, fmt.Errorf("%w: %w", ErrNotFound, err)
@@ -911,12 +929,13 @@ func (s *RepertoireService) UpdateNodeComment(userID, repertoireID, nodeID, comm
 	}
 
 	metadata := calculateMetadata(rep.TreeData)
-	return s.repo.Save(repertoireID, userID, rep.TreeData, metadata)
+	saved, err := s.repo.Save(ctx, repertoireID, userID, rep.TreeData, metadata, rep.Version)
+	return saved, mapSaveError(err)
 }
 
 // UpdateNodeBranchName updates the branch name on a specific node in a repertoire
-func (s *RepertoireService) UpdateNodeBranchName(userID, repertoireID, nodeID, branchName string) (*models.Repertoire, error) {
-	rep, err := s.repo.GetByID(repertoireID, userID)
+func (s *RepertoireService) UpdateNodeBranchName(ctx context.Context, userID, repertoireID, nodeID, branchName string) (*models.Repertoire, error) {
+	rep, err := s.repo.GetByID(ctx, repertoireID, userID)
 	if err != nil {
 		if errors.Is(err, repository.ErrRepertoireNotFound) {
 			return nil, fmt.Errorf("%w: %w", ErrNotFound, err)
@@ -937,7 +956,8 @@ func (s *RepertoireService) UpdateNodeBranchName(userID, repertoireID, nodeID, b
 	}
 
 	metadata := calculateMetadata(rep.TreeData)
-	return s.repo.Save(repertoireID, userID, rep.TreeData, metadata)
+	saved, err := s.repo.Save(ctx, repertoireID, userID, rep.TreeData, metadata, rep.Version)
+	return saved, mapSaveError(err)
 }
 
 // allowedBranchColors is the whitelist of valid branch color hex values
@@ -956,7 +976,7 @@ var allowedBranchColors = map[string]bool{
 var ErrInvalidBranchColor = fmt.Errorf("invalid branch color")
 
 // UpdateNodeBranchColor updates the branch color on a specific node in a repertoire
-func (s *RepertoireService) UpdateNodeBranchColor(userID, repertoireID, nodeID, branchColor string) (*models.Repertoire, error) {
+func (s *RepertoireService) UpdateNodeBranchColor(ctx context.Context, userID, repertoireID, nodeID, branchColor string) (*models.Repertoire, error) {
 	branchColor = strings.TrimSpace(branchColor)
 
 	// Validate color if not clearing
@@ -964,7 +984,7 @@ func (s *RepertoireService) UpdateNodeBranchColor(userID, repertoireID, nodeID, 
 		return nil, ErrInvalidBranchColor
 	}
 
-	rep, err := s.repo.GetByID(repertoireID, userID)
+	rep, err := s.repo.GetByID(ctx, repertoireID, userID)
 	if err != nil {
 		if errors.Is(err, repository.ErrRepertoireNotFound) {
 			return nil, fmt.Errorf("%w: %w", ErrNotFound, err)
@@ -984,7 +1004,8 @@ func (s *RepertoireService) UpdateNodeBranchColor(userID, repertoireID, nodeID, 
 	}
 
 	metadata := calculateMetadata(rep.TreeData)
-	return s.repo.Save(repertoireID, userID, rep.TreeData, metadata)
+	saved, err := s.repo.Save(ctx, repertoireID, userID, rep.TreeData, metadata, rep.Version)
+	return saved, mapSaveError(err)
 }
 
 // allowedAnnotationColors is the whitelist of valid annotation hex colors,
@@ -1005,7 +1026,7 @@ var ErrInvalidAnnotation = fmt.Errorf("invalid annotation")
 // UpdateNodeAnnotations replaces the arrows and highlights on a specific node.
 // Both slices are validated (squares must be a1-h8, colors must be in the allowed
 // palette) and stored verbatim; empty slices clear the corresponding annotations.
-func (s *RepertoireService) UpdateNodeAnnotations(userID, repertoireID, nodeID string, arrows []models.Arrow, highlights []models.SquareHighlight) (*models.Repertoire, error) {
+func (s *RepertoireService) UpdateNodeAnnotations(ctx context.Context, userID, repertoireID, nodeID string, arrows []models.Arrow, highlights []models.SquareHighlight) (*models.Repertoire, error) {
 	for _, a := range arrows {
 		if !annotationSquareRegex.MatchString(a.From) || !annotationSquareRegex.MatchString(a.To) || !allowedAnnotationColors[a.Color] {
 			return nil, fmt.Errorf("%w: arrow %s%s %s", ErrInvalidAnnotation, a.From, a.To, a.Color)
@@ -1017,7 +1038,7 @@ func (s *RepertoireService) UpdateNodeAnnotations(userID, repertoireID, nodeID s
 		}
 	}
 
-	rep, err := s.repo.GetByID(repertoireID, userID)
+	rep, err := s.repo.GetByID(ctx, repertoireID, userID)
 	if err != nil {
 		if errors.Is(err, repository.ErrRepertoireNotFound) {
 			return nil, fmt.Errorf("%w: %w", ErrNotFound, err)
@@ -1042,12 +1063,13 @@ func (s *RepertoireService) UpdateNodeAnnotations(userID, repertoireID, nodeID s
 	}
 
 	metadata := calculateMetadata(rep.TreeData)
-	return s.repo.Save(repertoireID, userID, rep.TreeData, metadata)
+	saved, err := s.repo.Save(ctx, repertoireID, userID, rep.TreeData, metadata, rep.Version)
+	return saved, mapSaveError(err)
 }
 
 // ToggleNodeCollapsed toggles the collapsed state on a specific node in a repertoire
-func (s *RepertoireService) ToggleNodeCollapsed(userID, repertoireID, nodeID string) (*models.Repertoire, error) {
-	rep, err := s.repo.GetByID(repertoireID, userID)
+func (s *RepertoireService) ToggleNodeCollapsed(ctx context.Context, userID, repertoireID, nodeID string) (*models.Repertoire, error) {
+	rep, err := s.repo.GetByID(ctx, repertoireID, userID)
 	if err != nil {
 		if errors.Is(err, repository.ErrRepertoireNotFound) {
 			return nil, fmt.Errorf("%w: %w", ErrNotFound, err)
@@ -1063,12 +1085,13 @@ func (s *RepertoireService) ToggleNodeCollapsed(userID, repertoireID, nodeID str
 	node.Collapsed = !node.Collapsed
 
 	metadata := calculateMetadata(rep.TreeData)
-	return s.repo.Save(repertoireID, userID, rep.TreeData, metadata)
+	saved, err := s.repo.Save(ctx, repertoireID, userID, rep.TreeData, metadata, rep.Version)
+	return saved, mapSaveError(err)
 }
 
 // ExpandToNode expands all collapsed ancestors of a node so it becomes visible in the tree.
-func (s *RepertoireService) ExpandToNode(userID, repertoireID, nodeID string) (*models.Repertoire, error) {
-	rep, err := s.repo.GetByID(repertoireID, userID)
+func (s *RepertoireService) ExpandToNode(ctx context.Context, userID, repertoireID, nodeID string) (*models.Repertoire, error) {
+	rep, err := s.repo.GetByID(ctx, repertoireID, userID)
 	if err != nil {
 		if errors.Is(err, repository.ErrRepertoireNotFound) {
 			return nil, fmt.Errorf("%w: %w", ErrNotFound, err)
@@ -1095,12 +1118,13 @@ func (s *RepertoireService) ExpandToNode(userID, repertoireID, nodeID string) (*
 	}
 
 	metadata := calculateMetadata(rep.TreeData)
-	return s.repo.Save(repertoireID, userID, rep.TreeData, metadata)
+	saved, err := s.repo.Save(ctx, repertoireID, userID, rep.TreeData, metadata, rep.Version)
+	return saved, mapSaveError(err)
 }
 
 // SetMainLine marks the path from root to the target node as the main line.
-func (s *RepertoireService) SetMainLine(userID, repertoireID, nodeID string) (*models.Repertoire, error) {
-	rep, err := s.repo.GetByID(repertoireID, userID)
+func (s *RepertoireService) SetMainLine(ctx context.Context, userID, repertoireID, nodeID string) (*models.Repertoire, error) {
+	rep, err := s.repo.GetByID(ctx, repertoireID, userID)
 	if err != nil {
 		if errors.Is(err, repository.ErrRepertoireNotFound) {
 			return nil, fmt.Errorf("%w: %w", ErrNotFound, err)
@@ -1124,12 +1148,13 @@ func (s *RepertoireService) SetMainLine(userID, repertoireID, nodeID string) (*m
 	clearAndSetMainLine(&rep.TreeData, pathIDs)
 
 	metadata := calculateMetadata(rep.TreeData)
-	return s.repo.Save(repertoireID, userID, rep.TreeData, metadata)
+	saved, err := s.repo.Save(ctx, repertoireID, userID, rep.TreeData, metadata, rep.Version)
+	return saved, mapSaveError(err)
 }
 
 // ClearMainLine removes the main line flag from all nodes in a repertoire.
-func (s *RepertoireService) ClearMainLine(userID, repertoireID string) (*models.Repertoire, error) {
-	rep, err := s.repo.GetByID(repertoireID, userID)
+func (s *RepertoireService) ClearMainLine(ctx context.Context, userID, repertoireID string) (*models.Repertoire, error) {
+	rep, err := s.repo.GetByID(ctx, repertoireID, userID)
 	if err != nil {
 		if errors.Is(err, repository.ErrRepertoireNotFound) {
 			return nil, fmt.Errorf("%w: %w", ErrNotFound, err)
@@ -1140,7 +1165,8 @@ func (s *RepertoireService) ClearMainLine(userID, repertoireID string) (*models.
 	clearAndSetMainLine(&rep.TreeData, nil)
 
 	metadata := calculateMetadata(rep.TreeData)
-	return s.repo.Save(repertoireID, userID, rep.TreeData, metadata)
+	saved, err := s.repo.Save(ctx, repertoireID, userID, rep.TreeData, metadata, rep.Version)
+	return saved, mapSaveError(err)
 }
 
 // clearAndSetMainLine walks the entire tree, setting IsMainLine = true for nodes
@@ -1167,8 +1193,8 @@ func walkTree(node *models.RepertoireNode, currentDepth int, totalNodes, totalMo
 }
 
 // UpdateVisibility changes the public/private visibility of a repertoire
-func (s *RepertoireService) UpdateVisibility(userID, repertoireID string, isPublic bool) (*models.Repertoire, error) {
-	belongs, err := s.repo.BelongsToUser(repertoireID, userID)
+func (s *RepertoireService) UpdateVisibility(ctx context.Context, userID, repertoireID string, isPublic bool) (*models.Repertoire, error) {
+	belongs, err := s.repo.BelongsToUser(ctx, repertoireID, userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check ownership: %w", err)
 	}
@@ -1176,17 +1202,17 @@ func (s *RepertoireService) UpdateVisibility(userID, repertoireID string, isPubl
 		return nil, ErrNotFound
 	}
 
-	return s.repo.UpdateVisibility(repertoireID, userID, isPublic)
+	return s.repo.UpdateVisibility(ctx, repertoireID, userID, isPublic)
 }
 
 // ListPublicRepertoires returns all public repertoires with author info
-func (s *RepertoireService) ListPublicRepertoires() ([]models.Repertoire, error) {
-	return s.repo.GetAllPublic()
+func (s *RepertoireService) ListPublicRepertoires(ctx context.Context) ([]models.Repertoire, error) {
+	return s.repo.GetAllPublic(ctx)
 }
 
 // GetPublicRepertoire retrieves a single public repertoire by ID
-func (s *RepertoireService) GetPublicRepertoire(id string) (*models.Repertoire, error) {
-	rep, err := s.repo.GetPublicByID(id)
+func (s *RepertoireService) GetPublicRepertoire(ctx context.Context, id string) (*models.Repertoire, error) {
+	rep, err := s.repo.GetPublicByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, repository.ErrRepertoireNotFound) {
 			return nil, fmt.Errorf("%w: %w", ErrNotFound, err)
@@ -1197,9 +1223,9 @@ func (s *RepertoireService) GetPublicRepertoire(id string) (*models.Repertoire, 
 }
 
 // ImportRepertoire creates a deep clone of a public repertoire for the given user
-func (s *RepertoireService) ImportRepertoire(userID, sourceRepertoireID string) (*models.Repertoire, error) {
+func (s *RepertoireService) ImportRepertoire(ctx context.Context, userID, sourceRepertoireID string) (*models.Repertoire, error) {
 	// Verify the source repertoire is public
-	source, err := s.repo.GetPublicByID(sourceRepertoireID)
+	source, err := s.repo.GetPublicByID(ctx, sourceRepertoireID)
 	if err != nil {
 		if errors.Is(err, repository.ErrRepertoireNotFound) {
 			return nil, fmt.Errorf("%w: %w", ErrNotFound, err)
@@ -1208,7 +1234,7 @@ func (s *RepertoireService) ImportRepertoire(userID, sourceRepertoireID string) 
 	}
 
 	// Check the user isn't importing their own repertoire
-	ownerID, err := s.repo.GetOwnerID(sourceRepertoireID)
+	ownerID, err := s.repo.GetOwnerID(ctx, sourceRepertoireID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get owner: %w", err)
 	}
@@ -1217,7 +1243,7 @@ func (s *RepertoireService) ImportRepertoire(userID, sourceRepertoireID string) 
 	}
 
 	// Check repertoire limit
-	count, err := s.repo.Count(userID)
+	count, err := s.repo.Count(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check repertoire count: %w", err)
 	}
@@ -1226,7 +1252,7 @@ func (s *RepertoireService) ImportRepertoire(userID, sourceRepertoireID string) 
 	}
 
 	// Create a new repertoire for the user (private by default when importing)
-	newRep, err := s.repo.CreateWithIsPublicAndDescription(userID, source.Name, source.Description, source.Color, false)
+	newRep, err := s.repo.CreateWithIsPublicAndDescription(ctx, userID, source.Name, source.Description, source.Color, false)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create imported repertoire: %w", err)
 	}
@@ -1236,14 +1262,14 @@ func (s *RepertoireService) ImportRepertoire(userID, sourceRepertoireID string) 
 
 	// Save the cloned tree
 	metadata := calculateMetadata(*clonedTree)
-	saved, err := s.repo.Save(newRep.ID, userID, *clonedTree, metadata)
+	saved, err := s.repo.Save(ctx, newRep.ID, userID, *clonedTree, metadata, newRep.Version)
 	if err != nil {
 		return nil, fmt.Errorf("failed to save imported repertoire: %w", err)
 	}
 
 	// Carry over origin from the source repertoire
 	if source.Origin != nil {
-		if err := s.repo.UpdateOrigin(saved.ID, userID, source.Origin); err != nil {
+		if err := s.repo.UpdateOrigin(ctx, saved.ID, userID, source.Origin); err != nil {
 			return nil, fmt.Errorf("failed to set origin on imported repertoire: %w", err)
 		}
 		saved.Origin = source.Origin
@@ -1255,6 +1281,6 @@ func (s *RepertoireService) ImportRepertoire(userID, sourceRepertoireID string) 
 }
 
 // SetOrigin sets the origin on a repertoire, scoped to the owning user
-func (s *RepertoireService) SetOrigin(repertoireID, userID string, origin *models.RepertoireOrigin) error {
-	return s.repo.UpdateOrigin(repertoireID, userID, origin)
+func (s *RepertoireService) SetOrigin(ctx context.Context, repertoireID, userID string, origin *models.RepertoireOrigin) error {
+	return s.repo.UpdateOrigin(ctx, repertoireID, userID, origin)
 }

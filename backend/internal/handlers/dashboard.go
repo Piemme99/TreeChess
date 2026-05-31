@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/labstack/echo/v5"
@@ -9,11 +10,12 @@ import (
 )
 
 type DashboardHandler struct {
-	importService *services.ImportService
+	dashboardService  *services.DashboardStatsService
+	repertoireService *services.RepertoireService
 }
 
-func NewDashboardHandler(importSvc *services.ImportService) *DashboardHandler {
-	return &DashboardHandler{importService: importSvc}
+func NewDashboardHandler(dashboardSvc *services.DashboardStatsService, repertoireSvc *services.RepertoireService) *DashboardHandler {
+	return &DashboardHandler{dashboardService: dashboardSvc, repertoireService: repertoireSvc}
 }
 
 type DismissGapRequest struct {
@@ -23,7 +25,10 @@ type DismissGapRequest struct {
 }
 
 func (h *DashboardHandler) DismissGap(c *echo.Context) error {
-	userID := c.Get("userID").(string)
+	userID, ok := mustUserID(c)
+	if !ok {
+		return nil
+	}
 
 	var req DismissGapRequest
 	if err := c.Bind(&req); err != nil {
@@ -34,7 +39,27 @@ func (h *DashboardHandler) DismissGap(c *echo.Context) error {
 		return BadRequestResponse(c, "fen, opponentMove, and repertoireId are required")
 	}
 
-	if err := h.importService.DismissGap(userID, req.FEN, req.OpponentMove, req.RepertoireID); err != nil {
+	if !ValidateFENField(c, "fen", req.FEN) {
+		return nil
+	}
+	if len(req.OpponentMove) > MaxChessMoveLength {
+		return BadRequestResponse(c, "opponentMove is invalid")
+	}
+	if !ValidateUUIDField(c, "repertoireId", req.RepertoireID) {
+		return nil
+	}
+
+	// Reject dismissals targeting a repertoire the caller does not own. A
+	// missing or non-owned repertoire is reported as 404 to avoid leaking
+	// existence of other users' repertoires.
+	if err := h.repertoireService.CheckOwnership(c.Request().Context(), req.RepertoireID, userID); err != nil {
+		if errors.Is(err, services.ErrNotFound) {
+			return NotFoundResponse(c, "repertoire")
+		}
+		return InternalErrorResponse(c, "failed to dismiss gap")
+	}
+
+	if err := h.dashboardService.DismissGap(c.Request().Context(), userID, req.FEN, req.OpponentMove, req.RepertoireID); err != nil {
 		return InternalErrorResponse(c, "failed to dismiss gap")
 	}
 
@@ -42,9 +67,12 @@ func (h *DashboardHandler) DismissGap(c *echo.Context) error {
 }
 
 func (h *DashboardHandler) GetStats(c *echo.Context) error {
-	userID := c.Get("userID").(string)
+	userID, ok := mustUserID(c)
+	if !ok {
+		return nil
+	}
 
-	stats, err := h.importService.GetDashboardStats(userID)
+	stats, err := h.dashboardService.GetDashboardStats(c.Request().Context(), userID)
 	if err != nil {
 		return InternalErrorResponse(c, "failed to get dashboard stats")
 	}

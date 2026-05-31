@@ -3,6 +3,7 @@
 package integration
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -513,7 +514,7 @@ func TestAuth_DeleteAccount_WithDismissedGap(t *testing.T) {
 	require.NotEmpty(t, userID)
 
 	// Dismiss an opponent gap (the dashboard handler ultimately calls this repo).
-	require.NoError(t, repos.DismissedGap.Dismiss(
+	require.NoError(t, repos.DismissedGap.Dismiss(context.Background(),
 		userID,
 		"rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1",
 		"c5",
@@ -521,7 +522,7 @@ func TestAuth_DeleteAccount_WithDismissedGap(t *testing.T) {
 	))
 
 	// Sanity-check the gap was actually persisted.
-	dismissed, err := repos.DismissedGap.GetDismissed(userID)
+	dismissed, err := repos.DismissedGap.GetDismissed(context.Background(), userID)
 	require.NoError(t, err)
 	require.Len(t, dismissed, 1, "gap should be dismissed before deletion")
 
@@ -531,7 +532,7 @@ func TestAuth_DeleteAccount_WithDismissedGap(t *testing.T) {
 	require.Equal(t, http.StatusNoContent, recDel.Code, "deletion must succeed even with a dismissed gap")
 
 	// The dismissed_gaps rows for the user must be gone.
-	dismissedAfter, err := repos.DismissedGap.GetDismissed(userID)
+	dismissedAfter, err := repos.DismissedGap.GetDismissed(context.Background(), userID)
 	require.NoError(t, err)
 	assert.Empty(t, dismissedAfter, "dismissed_gaps rows should be removed with the account")
 
