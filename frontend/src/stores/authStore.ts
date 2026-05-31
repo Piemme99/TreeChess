@@ -171,9 +171,19 @@ export const useAuthStore = create<AuthState>((set) => ({
       const result = await syncApi.sync();
       set({ syncing: false, lastSyncResult: result });
     } catch (err) {
-      // Background sync is fire-and-forget from login/register/OAuth/onboarding,
-      // so a toast on every failure would be intrusive. Surface the error via
-      // `lastSyncError` (rendered non-intrusively on the Dashboard) and log it.
+      // A 429 means the sync was throttled, not failed: either the per-user
+      // cooldown (games were synced very recently) or the global rate limit.
+      // Background sync is fire-and-forget (login/register/OAuth/onboarding and
+      // re-fired on every app mount via checkAuth), so a throttled attempt is
+      // expected and benign — the games are already current and the next
+      // eligible trigger will sync. Surfacing it as an error would show users a
+      // scary "wait 5m between syncs" message just for reloading the dashboard.
+      if (getApiErrorStatus(err) === 429) {
+        set({ syncing: false });
+        return;
+      }
+      // Real failures are surfaced via `lastSyncError` (rendered
+      // non-intrusively on the Dashboard) and logged.
       const message = getApiErrorMessage(err, 'Failed to sync games');
       console.warn('Game sync failed:', message);
       set({ syncing: false, lastSyncError: message });

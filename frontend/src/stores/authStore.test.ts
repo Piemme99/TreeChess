@@ -557,6 +557,20 @@ describe('authStore', () => {
       warnSpy.mockRestore();
     });
 
+    it('does NOT surface a 429 throttle/cooldown as lastSyncError', async () => {
+      useAuthStore.setState({ lastSyncError: null });
+      mockSyncApi.sync.mockRejectedValue({
+        response: { status: 429, data: { error: 'sync requested too soon, please wait 5m0s between syncs' } },
+      });
+
+      await getState().triggerSync();
+
+      // A throttled background sync is benign (games are already current); it
+      // must not show a scary error on the dashboard just for a quick reload.
+      expect(getState().lastSyncError).toBeNull();
+      expect(getState().syncing).toBe(false);
+    });
+
     it('falls back to a generic lastSyncError when no response message', async () => {
       mockSyncApi.sync.mockRejectedValue(new Error('Network error'));
       const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
