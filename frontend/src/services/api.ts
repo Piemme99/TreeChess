@@ -34,6 +34,12 @@ import type {
   ExploreTemplate
 } from '../types';
 import { triggerReanalysisPolling } from '../stores/reanalysisStore';
+import {
+  authResponseSchema,
+  analysisDetailSchema,
+  dashboardStatsResponseSchema,
+  validateResponse,
+} from './apiSchemas';
 import { getApiErrorStatus } from '../shared/utils/apiError';
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
@@ -86,8 +92,9 @@ function refreshAccessToken(): Promise<AuthResponse> {
     inflightRefresh = axios
       .post<AuthResponse>(`${API_BASE}/auth/refresh`, null, { withCredentials: true })
       .then((response) => {
-        accessToken = response.data.token;
-        return response.data;
+        const data = validateResponse(authResponseSchema, response.data, 'auth');
+        accessToken = data.token;
+        return data;
       })
       .finally(() => {
         inflightRefresh = null;
@@ -270,42 +277,42 @@ api.interceptors.response.use(
 // Auth API
 export const authApi = {
   register: async (email: string, username: string, password: string): Promise<AuthResponse> => {
-    const response = await api.post('/auth/register', { email, username, password });
-    return response.data;
+    const response = await api.post<AuthResponse>('/auth/register', { email, username, password });
+    return validateResponse(authResponseSchema, response.data, 'auth');
   },
 
   login: async (email: string, password: string): Promise<AuthResponse> => {
-    const response = await api.post('/auth/login', { email, password });
-    return response.data;
+    const response = await api.post<AuthResponse>('/auth/login', { email, password });
+    return validateResponse(authResponseSchema, response.data, 'auth');
   },
 
   me: async (): Promise<User> => {
-    const response = await api.get('/auth/me');
+    const response = await api.get<User>('/auth/me');
     return response.data;
   },
 
   updateProfile: async (data: UpdateProfileRequest): Promise<User> => {
-    const response = await api.put('/auth/profile', data);
+    const response = await api.put<User>('/auth/profile', data);
     return response.data;
   },
 
   forgotPassword: async (email: string): Promise<{ message: string }> => {
-    const response = await api.post('/auth/forgot-password', { email });
+    const response = await api.post<{ message: string }>('/auth/forgot-password', { email });
     return response.data;
   },
 
   resetPassword: async (token: string, newPassword: string): Promise<{ message: string }> => {
-    const response = await api.post('/auth/reset-password', { token, newPassword });
+    const response = await api.post<{ message: string }>('/auth/reset-password', { token, newPassword });
     return response.data;
   },
 
   changePassword: async (currentPassword: string, newPassword: string): Promise<{ message: string }> => {
-    const response = await api.post('/auth/change-password', { currentPassword, newPassword });
+    const response = await api.post<{ message: string }>('/auth/change-password', { currentPassword, newPassword });
     return response.data;
   },
 
   hasPassword: async (): Promise<{ hasPassword: boolean }> => {
-    const response = await api.get('/auth/has-password');
+    const response = await api.get<{ hasPassword: boolean }>('/auth/has-password');
     return response.data;
   },
 
@@ -332,29 +339,29 @@ export const authApi = {
 export const repertoireApi = {
   list: async (color?: Color): Promise<Repertoire[]> => {
     const params = color ? { color } : {};
-    const response = await api.get('/repertoires', { params });
+    const response = await api.get<Repertoire[]>('/repertoires', { params });
     return response.data;
   },
 
   get: async (id: string): Promise<Repertoire> => {
-    const response = await api.get(`/repertoires/${id}`);
+    const response = await api.get<Repertoire>(`/repertoires/${id}`);
     return response.data;
   },
 
   create: async (data: CreateRepertoireRequest): Promise<Repertoire> => {
-    const response = await api.post('/repertoires', data);
+    const response = await api.post<Repertoire>('/repertoires', data);
     return response.data;
   },
 
   rename: async (id: string, name: string): Promise<Repertoire> => {
     const data: UpdateRepertoireRequest = { name };
-    const response = await api.patch(`/repertoires/${id}`, data);
+    const response = await api.patch<Repertoire>(`/repertoires/${id}`, data);
     return response.data;
   },
 
   updateDescription: async (id: string, description: string): Promise<Repertoire> => {
     const data: UpdateRepertoireRequest = { description };
-    const response = await api.patch(`/repertoires/${id}`, data);
+    const response = await api.patch<Repertoire>(`/repertoires/${id}`, data);
     return response.data;
   },
 
@@ -364,52 +371,52 @@ export const repertoireApi = {
   },
 
   addNode: async (id: string, data: AddNodeRequest): Promise<Repertoire> => {
-    const response = await api.post(`/repertoires/${id}/nodes`, data);
+    const response = await api.post<Repertoire>(`/repertoires/${id}/nodes`, data);
     triggerReanalysisPolling();
     return response.data;
   },
 
   deleteNode: async (id: string, nodeId: string): Promise<Repertoire> => {
-    const response = await api.delete(`/repertoires/${id}/nodes/${nodeId}`);
+    const response = await api.delete<Repertoire>(`/repertoires/${id}/nodes/${nodeId}`);
     triggerReanalysisPolling();
     return response.data;
   },
 
   listTemplates: async (): Promise<{ id: string; name: string; color: string; description: string }[]> => {
-    const response = await api.get('/repertoires/templates');
+    const response = await api.get<{ id: string; name: string; color: string; description: string }[]>('/repertoires/templates');
     return response.data;
   },
 
   seedFromTemplates: async (templateIds: string[]): Promise<Repertoire[]> => {
-    const response = await api.post('/repertoires/seed', { templateIds });
+    const response = await api.post<Repertoire[]>('/repertoires/seed', { templateIds });
     triggerReanalysisPolling();
     return response.data;
   },
 
   extractSubtree: async (id: string, nodeId: string, name: string): Promise<{ original: Repertoire; extracted: Repertoire }> => {
-    const response = await api.post(`/repertoires/${id}/extract`, { nodeId, name });
+    const response = await api.post<{ original: Repertoire; extracted: Repertoire }>(`/repertoires/${id}/extract`, { nodeId, name });
     triggerReanalysisPolling();
     return response.data;
   },
 
   mergeRepertoires: async (ids: string[], name: string): Promise<{ merged: Repertoire }> => {
-    const response = await api.post('/repertoires/merge', { ids, name });
+    const response = await api.post<{ merged: Repertoire }>('/repertoires/merge', { ids, name });
     triggerReanalysisPolling();
     return response.data;
   },
 
   updateNodeComment: async (id: string, nodeId: string, comment: string): Promise<Repertoire> => {
-    const response = await api.patch(`/repertoires/${id}/nodes/${nodeId}/comment`, { comment });
+    const response = await api.patch<Repertoire>(`/repertoires/${id}/nodes/${nodeId}/comment`, { comment });
     return response.data;
   },
 
   updateNodeBranchName: async (id: string, nodeId: string, branchName: string): Promise<Repertoire> => {
-    const response = await api.patch(`/repertoires/${id}/nodes/${nodeId}/branch-name`, { branchName });
+    const response = await api.patch<Repertoire>(`/repertoires/${id}/nodes/${nodeId}/branch-name`, { branchName });
     return response.data;
   },
 
   updateNodeBranchColor: async (id: string, nodeId: string, branchColor: string): Promise<Repertoire> => {
-    const response = await api.patch(`/repertoires/${id}/nodes/${nodeId}/branch-color`, { branchColor });
+    const response = await api.patch<Repertoire>(`/repertoires/${id}/nodes/${nodeId}/branch-color`, { branchColor });
     return response.data;
   },
 
@@ -419,43 +426,43 @@ export const repertoireApi = {
     arrows: ArrowAnnotation[],
     highlights: SquareHighlightAnnotation[],
   ): Promise<Repertoire> => {
-    const response = await api.patch(`/repertoires/${id}/nodes/${nodeId}/annotations`, { arrows, highlights });
+    const response = await api.patch<Repertoire>(`/repertoires/${id}/nodes/${nodeId}/annotations`, { arrows, highlights });
     return response.data;
   },
 
   mergeTranspositions: async (id: string): Promise<Repertoire> => {
-    const response = await api.post(`/repertoires/${id}/merge-transpositions`);
+    const response = await api.post<Repertoire>(`/repertoires/${id}/merge-transpositions`);
     triggerReanalysisPolling();
     return response.data;
   },
 
   toggleNodeCollapsed: async (id: string, nodeId: string): Promise<Repertoire> => {
-    const response = await api.post(`/repertoires/${id}/nodes/${nodeId}/toggle-collapsed`);
+    const response = await api.post<Repertoire>(`/repertoires/${id}/nodes/${nodeId}/toggle-collapsed`);
     return response.data;
   },
 
   expandToNode: async (id: string, nodeId: string): Promise<Repertoire> => {
-    const response = await api.post(`/repertoires/${id}/nodes/${nodeId}/expand-to`);
+    const response = await api.post<Repertoire>(`/repertoires/${id}/nodes/${nodeId}/expand-to`);
     return response.data;
   },
 
   setMainLine: async (id: string, nodeId: string): Promise<Repertoire> => {
-    const response = await api.post(`/repertoires/${id}/nodes/${nodeId}/set-main-line`);
+    const response = await api.post<Repertoire>(`/repertoires/${id}/nodes/${nodeId}/set-main-line`);
     return response.data;
   },
 
   clearMainLine: async (id: string): Promise<Repertoire> => {
-    const response = await api.post(`/repertoires/${id}/clear-main-line`);
+    const response = await api.post<Repertoire>(`/repertoires/${id}/clear-main-line`);
     return response.data;
   },
 
   assignCategory: async (id: string, categoryId: string | null): Promise<Repertoire> => {
-    const response = await api.patch(`/repertoires/${id}/category`, { categoryId });
+    const response = await api.patch<Repertoire>(`/repertoires/${id}/category`, { categoryId });
     return response.data;
   },
 
   updateVisibility: async (id: string, isPublic: boolean): Promise<Repertoire> => {
-    const response = await api.patch(`/repertoires/${id}/visibility`, { isPublic });
+    const response = await api.patch<Repertoire>(`/repertoires/${id}/visibility`, { isPublic });
     return response.data;
   }
 };
@@ -463,28 +470,28 @@ export const repertoireApi = {
 // Explore API (public repertoires + starter templates)
 export const exploreApi = {
   listPublic: async (): Promise<Repertoire[]> => {
-    const response = await api.get('/explore/repertoires');
+    const response = await api.get<Repertoire[]>('/explore/repertoires');
     return response.data;
   },
 
   getPublic: async (id: string): Promise<Repertoire> => {
-    const response = await api.get(`/explore/repertoires/${id}`);
+    const response = await api.get<Repertoire>(`/explore/repertoires/${id}`);
     return response.data;
   },
 
   importRepertoire: async (id: string): Promise<Repertoire> => {
-    const response = await api.post(`/explore/repertoires/${id}/import`);
+    const response = await api.post<Repertoire>(`/explore/repertoires/${id}/import`);
     triggerReanalysisPolling();
     return response.data;
   },
 
   listTemplates: async (): Promise<ExploreTemplate[]> => {
-    const response = await api.get('/explore/templates');
+    const response = await api.get<ExploreTemplate[]>('/explore/templates');
     return response.data;
   },
 
   importTemplate: async (id: string): Promise<Repertoire> => {
-    const response = await api.post(`/explore/templates/${id}/import`);
+    const response = await api.post<Repertoire>(`/explore/templates/${id}/import`);
     triggerReanalysisPolling();
     return response.data;
   }
@@ -494,23 +501,23 @@ export const exploreApi = {
 export const categoryApi = {
   list: async (color?: Color): Promise<Category[]> => {
     const params = color ? { color } : {};
-    const response = await api.get('/categories', { params });
+    const response = await api.get<Category[]>('/categories', { params });
     return response.data;
   },
 
   get: async (id: string): Promise<CategoryWithRepertoires> => {
-    const response = await api.get(`/categories/${id}`);
+    const response = await api.get<CategoryWithRepertoires>(`/categories/${id}`);
     return response.data;
   },
 
   create: async (data: CreateCategoryRequest): Promise<Category> => {
-    const response = await api.post('/categories', data);
+    const response = await api.post<Category>('/categories', data);
     return response.data;
   },
 
   rename: async (id: string, name: string): Promise<Category> => {
     const data: UpdateCategoryRequest = { name };
-    const response = await api.patch(`/categories/${id}`, data);
+    const response = await api.patch<Category>(`/categories/${id}`, data);
     return response.data;
   },
 
@@ -526,7 +533,7 @@ export const importApi = {
     formData.append('file', file);
     formData.append('username', username);
 
-    const response = await api.post('/imports', formData, {
+    const response = await api.post<UploadResponse>('/imports', formData, {
       headers: {
         'Content-Type': 'multipart/form-data'
       }
@@ -535,23 +542,23 @@ export const importApi = {
   },
 
   importFromLichess: async (username: string, options?: LichessImportOptions): Promise<UploadResponse> => {
-    const response = await api.post('/imports/lichess', { username, options });
+    const response = await api.post<UploadResponse>('/imports/lichess', { username, options });
     return response.data;
   },
 
   importFromChesscom: async (username: string, options?: ChesscomImportOptions): Promise<UploadResponse> => {
-    const response = await api.post('/imports/chesscom', { username, options });
+    const response = await api.post<UploadResponse>('/imports/chesscom', { username, options });
     return response.data;
   },
 
   list: async (options?: RequestOptions): Promise<AnalysisSummary[]> => {
-    const response = await api.get('/analyses', { signal: options?.signal });
+    const response = await api.get<AnalysisSummary[]>('/analyses', { signal: options?.signal });
     return response.data;
   },
 
   get: async (id: string, options?: RequestOptions): Promise<AnalysisDetail> => {
-    const response = await api.get(`/analyses/${id}`, { signal: options?.signal });
-    return response.data;
+    const response = await api.get<AnalysisDetail>(`/analyses/${id}`, { signal: options?.signal });
+    return validateResponse(analysisDetailSchema, response.data, 'analysis detail');
   },
 
   delete: async (id: string): Promise<void> => {
@@ -562,7 +569,7 @@ export const importApi = {
 // Sync API
 export const syncApi = {
   sync: async (): Promise<SyncResult> => {
-    const response = await api.post('/sync');
+    const response = await api.post<SyncResult>('/sync');
     return response.data;
   },
 };
@@ -570,7 +577,7 @@ export const syncApi = {
 // Health API
 export const healthApi = {
   check: async (): Promise<{ status: string }> => {
-    const response = await api.get('/health');
+    const response = await api.get<{ status: string }>('/health');
     return response.data;
   }
 };
@@ -578,17 +585,17 @@ export const healthApi = {
 // Study Import API
 export const studyApi = {
   preview: async (url: string): Promise<StudyInfo> => {
-    const response = await api.get('/studies/preview', { params: { url }, timeout: 120000 });
+    const response = await api.get<StudyInfo>('/studies/preview', { params: { url }, timeout: 120000 });
     return response.data;
   },
 
   browse: async (params: { q?: string; topic?: string; order?: string; page?: number }): Promise<LichessStudySearchResponse> => {
-    const response = await api.get('/studies/browse', { params });
+    const response = await api.get<LichessStudySearchResponse>('/studies/browse', { params });
     return response.data;
   },
 
   topics: async (): Promise<LichessTopicsResponse> => {
-    const response = await api.get('/studies/topics');
+    const response = await api.get<LichessTopicsResponse>('/studies/topics');
     return response.data;
   },
 
@@ -616,7 +623,7 @@ export const studyApi = {
     body.includeHints = includeHints ?? true;
     if (ownerName) body.ownerName = ownerName;
     if (renameStrategy) body.renameStrategy = renameStrategy;
-    const response = await api.post('/studies/import', body, { timeout: 120000 });
+    const response = await api.post<StudyImportResponse>('/studies/import', body, { timeout: 120000 });
     triggerReanalysisPolling();
     return response.data;
   },
@@ -635,7 +642,7 @@ export const gamesApi = {
     if (source) {
       params.source = source;
     }
-    const response = await api.get('/games', {
+    const response = await api.get<GamesResponse>('/games', {
       params,
       signal: options?.signal
     });
@@ -643,14 +650,14 @@ export const gamesApi = {
   },
 
   repertoires: async (options?: RequestOptions): Promise<RepertoireFilterOption[]> => {
-    const response = await api.get('/games/repertoires', { signal: options?.signal });
+    const response = await api.get<{ repertoires: RepertoireFilterOption[] }>('/games/repertoires', { signal: options?.signal });
     return response.data.repertoires;
   },
 
   // Games tagged "New" (synced from a platform and not yet viewed) across all
   // imports — the set the analyse-session steps through.
   listNew: async (limit = 100, offset = 0, options?: RequestOptions): Promise<GamesResponse> => {
-    const response = await api.get('/games', {
+    const response = await api.get<GamesResponse>('/games', {
       params: { limit, offset, new: 'true' },
       signal: options?.signal
     });
@@ -658,7 +665,7 @@ export const gamesApi = {
   },
 
   reanalyze: async (analysisId: string, gameIndex: number, repertoireId: string): Promise<GameAnalysis> => {
-    const response = await api.post(`/games/${analysisId}/${gameIndex}/reanalyze`, { repertoireId });
+    const response = await api.post<GameAnalysis>(`/games/${analysisId}/${gameIndex}/reanalyze`, { repertoireId });
     return response.data;
   },
 
@@ -667,7 +674,7 @@ export const gamesApi = {
   },
 
   insights: async (options?: RequestOptions): Promise<InsightsResponse> => {
-    const response = await api.get('/games/insights', { signal: options?.signal });
+    const response = await api.get<InsightsResponse>('/games/insights', { signal: options?.signal });
     return response.data;
   },
 
@@ -676,12 +683,12 @@ export const gamesApi = {
   },
 
   reanalyzeAll: async (): Promise<{ reanalyzed: number }> => {
-    const response = await api.post('/games/reanalyze-all');
+    const response = await api.post<{ reanalyzed: number }>('/games/reanalyze-all');
     return response.data;
   },
 
   reanalysisStatus: async (options?: RequestOptions): Promise<ReanalysisStatus> => {
-    const response = await api.get('/games/reanalysis-status', { signal: options?.signal });
+    const response = await api.get<ReanalysisStatus>('/games/reanalysis-status', { signal: options?.signal });
     return response.data;
   }
 };
@@ -709,19 +716,19 @@ export interface OpeningExplorerResponse {
 
 export const trainingApi = {
   analyze: async (moves: string[], userColor: 'white' | 'black'): Promise<TrainingAnalyzeResponse> => {
-    const response = await api.post('/training/analyze', { moves, userColor });
+    const response = await api.post<TrainingAnalyzeResponse>('/training/analyze', { moves, userColor });
     return response.data;
   },
   opening: async (fen: string): Promise<OpeningExplorerResponse> => {
-    const response = await api.get('/training/opening', { params: { fen } });
+    const response = await api.get<OpeningExplorerResponse>('/training/opening', { params: { fen } });
     return response.data;
   },
 };
 
 export const dashboardApi = {
   stats: async (options?: RequestOptions): Promise<DashboardStatsResponse> => {
-    const response = await api.get('/dashboard/stats', { signal: options?.signal });
-    return response.data;
+    const response = await api.get<DashboardStatsResponse>('/dashboard/stats', { signal: options?.signal });
+    return validateResponse(dashboardStatsResponseSchema, response.data, 'dashboard stats');
   },
   dismissGap: async (fen: string, opponentMove: string, repertoireId: string): Promise<void> => {
     await api.post('/dashboard/gaps/dismiss', { fen, opponentMove, repertoireId });

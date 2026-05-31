@@ -21,6 +21,21 @@ import {
 // (so a failed refresh never re-enters the interceptor) and is stubbed via a
 // spy on `axios.post`.
 
+// The refresh path now validates its payload against the auth schema, so stubs
+// must carry a complete `user`. `refreshResponse` builds a valid AuthResponse
+// for the given token; these tests assert interceptor/coalescing behavior, not
+// the user shape, so any valid user works.
+const validUser = {
+  id: 'u1',
+  username: 'tester',
+  lichessLinked: false,
+  createdAt: '2024-01-01T00:00:00Z',
+};
+
+function refreshResponse(token: string) {
+  return { data: { token, user: validUser } };
+}
+
 interface AdapterCall {
   url?: string;
   method?: string;
@@ -137,7 +152,7 @@ describe('response interceptor — 401 refresh', () => {
     // Refresh succeeds via bare axios.post → new token.
     const refreshSpy = vi
       .spyOn(axios, 'post')
-      .mockResolvedValue({ data: { token: 'fresh', user: {} } } as never);
+      .mockResolvedValue(refreshResponse('fresh') as never);
 
     // First call 401, retried call 200.
     queue.push(status(401));
@@ -161,7 +176,7 @@ describe('response interceptor — 401 refresh', () => {
       refreshCount += 1;
       // Resolve on a microtask so both 401 handlers observe the same in-flight promise.
       return new Promise((resolve) =>
-        setTimeout(() => resolve({ data: { token: `fresh-${refreshCount}`, user: {} } }), 10),
+        setTimeout(() => resolve(refreshResponse(`fresh-${refreshCount}`)), 10),
       );
     }) as never);
 
@@ -188,7 +203,7 @@ describe('response interceptor — 401 refresh', () => {
     setAccessToken('stale');
     const refreshSpy = vi
       .spyOn(axios, 'post')
-      .mockResolvedValue({ data: { token: 'fresh', user: {} } } as never);
+      .mockResolvedValue(refreshResponse('fresh') as never);
 
     // 401 → refresh → retried request 401 again. The guard must stop here.
     queue.push(status(401));
@@ -391,7 +406,7 @@ describe('authApi.refresh', () => {
   it('shares the single in-flight refresh promise across callers', async () => {
     const refreshSpy = vi.spyOn(axios, 'post').mockImplementation((() =>
       new Promise((resolve) =>
-        setTimeout(() => resolve({ data: { token: 'shared', user: {} } }), 5),
+        setTimeout(() => resolve(refreshResponse('shared')), 5),
       )) as never);
 
     const [r1, r2] = await Promise.all([authApi.refresh(), authApi.refresh()]);
