@@ -9,17 +9,32 @@ import { computeFEN, computeFENPath, STARTING_FEN } from './utils/fenCalculator'
 import { GameBoardSection } from './components/GameBoardSection';
 import { GameNavigation } from './components/GameNavigation';
 import { SessionNavigation } from './components/SessionNavigation';
-import { RepertoireSelector } from './components/RepertoireSelector';
+import { AnalysisRepertoirePicker } from './components/AnalysisRepertoirePicker';
 import { Button, Loading } from '../../shared/components/UI';
 import { GameMoveList } from './components/GameMoveList';
 import { useEngine } from '../../shared/hooks/useEngine';
 import { useReanalysisCompletion } from '../../shared/hooks';
 import { useNewGamesSession } from './hooks/useNewGamesSession';
-import { addLineToRepertoire, type LineMove } from './utils/addToRepertoire';
 import { countDivergences } from './utils/session';
+import {
+  buildLineFromDivergence,
+  findFirstDivergenceIndex,
+  graftLine,
+  stashPendingAddSequence,
+  stashPendingNavigate,
+} from '../../shared/repertoireHandoff';
+import { useRepertoireStore } from '../../stores/repertoireStore';
+import { parseOpeningName } from './utils/parseOpeningName';
 import { toast } from '../../stores/toastStore';
 import { usePageTitle } from '../../shared/hooks/usePageTitle';
+import { MoveStatus } from '../../types';
 import type { GameAnalysis, GameSummary, MoveAnalysis } from '../../types';
+
+// Shape of the router state we attach when navigating into this page, so the
+// Back button can return to wherever the user came from.
+interface LocationState {
+  from?: string;
+}
 
 export function GameAnalysisPage() {
   usePageTitle('Game Analysis');
@@ -29,6 +44,7 @@ export function GameAnalysisPage() {
   const [searchParams] = useSearchParams();
 
   const { id: analysisId, analysis, loading, reanalyzeGame, updateGame, reload } = useGameLoader();
+  const updateRepertoire = useRepertoireStore((s) => s.updateRepertoire);
 
   // Moves grafted in this analyse-session (persists while stepping between games).
   const [movesAddedThisSession, setMovesAddedThisSession] = useState(0);
@@ -55,7 +71,7 @@ export function GameAnalysisPage() {
   }, [searchParams]);
   const [flipped, setFlipped] = useState(false);
   const { showFullGame, toggleFullGame } = useToggleFullGame();
-  const engine = useEngine();
+  const { analyze, currentEvaluation } = useEngine();
 
   const gameIdx = parseInt(gameIndex || '0', 10);
   const game: GameAnalysis | null = useMemo(() => {
@@ -66,29 +82,10 @@ export function GameAnalysisPage() {
   }, [analysis, gameIdx]);
 
   // Extract opening name from headers (Opening, ECOUrl, or ECO as fallback)
-  const openingName = useMemo(() => {
-    if (!game) return undefined;
-    const { Opening, ECOUrl, ECO } = game.headers;
-
-    // If Opening header exists, use it
-    if (Opening) return Opening;
-
-    // Extract from Chess.com ECOUrl (e.g., "https://www.chess.com/openings/Sicilian-Defense-...")
-    if (ECOUrl) {
-      const match = ECOUrl.match(/\/openings\/([^?]+)/);
-      if (match) {
-        let name = match[1];
-        // Remove move sequences (e.g., "...4.O-O-Nge7-5.Re1") - stop at first digit followed by a dot
-        name = name.replace(/\.{2,}.*$/, ''); // Remove "..." and everything after
-        name = name.replace(/-\d+\..*$/, ''); // Remove move sequences like "-4.O-O-..."
-        // Convert "Sicilian-Defense-Najdorf-Variation" to "Sicilian Defense Najdorf Variation"
-        return name.replace(/-/g, ' ');
-      }
-    }
-
-    // Fallback to ECO code
-    return ECO;
-  }, [game]);
+  const openingName = useMemo(
+    () => (game ? parseOpeningName(game.headers) : undefined),
+    [game]
+  );
 
   useEffect(() => {
     if (game?.userColor === 'black') {
@@ -116,17 +113,14 @@ export function GameAnalysisPage() {
 
   // Trigger engine analysis when position changes
   useEffect(() => {
-    engine.analyze(currentFEN);
-  }, [currentFEN, engine]);
+    analyze(currentFEN);
+  }, [currentFEN, analyze]);
 
   const handleOpenInRepertoire = useCallback((_move: MoveAnalysis, clickedIndex: number) => {
     if (!game?.matchedRepertoire) return;
 
     const fen = computeFEN(game.moves, clickedIndex);
-    sessionStorage.setItem('pendingNavigateToFen', JSON.stringify({
-      repertoireId: game.matchedRepertoire.id,
-      fen
-    }));
+    stashPendingNavigate({ repertoireId: game.matchedRepertoire.id, fen });
     navigate(`/repertoire/${game.matchedRepertoire.id}/edit`, { state: { from: location.pathname + location.search } });
   }, [game, navigate, location]);
 
@@ -134,20 +128,17 @@ export function GameAnalysisPage() {
   // repertoire IN PLACE — no navigation. The user stays in the analyse-session;
   // a toast reports what was grafted and the move statuses update optimistically.
   const handleAddToRepertoire = useCallback(async (_move: MoveAnalysis, clickedIndex: number) => {
-    if (!game || !game.userColor || !game.matchedRepertoire) return;
+    if (!game || !game.matchedRepertoire) return;
     if (addingRef.current) return;
 
-    // Find the divergence index: first non-in-repertoire move
-    const divergenceIndex = game.moves.findIndex(
-      m => m.status === 'opponent-new' || m.status === 'out-of-repertoire'
-    );
+    const gameIndex = game.gameIndex;
 
-    let startIndex: number;
-    if (divergenceIndex !== -1) {
-      startIndex = divergenceIndex;
-    } else {
-      // No divergence - find first out-of-book move to extend repertoire
-      const outOfBookIndex = game.moves.findIndex(m => m.status === 'out-of-book');
+    // Start at the divergence (first move that leaves the repertoire); if the
+    // line never diverges, fall back to the first out-of-book move so the user
+    // can still extend the repertoire.
+    let startIndex = findFirstDivergenceIndex(game.moves);
+    if (startIndex === -1) {
+      const outOfBookIndex = game.moves.findIndex((m) => m.status === MoveStatus.OutOfBook);
       if (outOfBookIndex === -1) return;
       startIndex = outOfBookIndex;
     }
@@ -156,28 +147,35 @@ export function GameAnalysisPage() {
     const repName = game.matchedRepertoire.name;
 
     // Build the line from divergence to clicked move
-    const line: LineMove[] = [];
-    for (let i = startIndex; i <= endIndex; i++) {
-      const parentFEN = i === 0 ? STARTING_FEN : computeFEN(game.moves, i - 1);
-      const resultFEN = computeFEN(game.moves, i);
-      line.push({ parentFEN, moveSAN: game.moves[i].san, resultFEN });
-    }
+    const line = buildLineFromDivergence(game.moves, startIndex, endIndex, (i) =>
+      computeFEN(game.moves, i)
+    );
 
     addingRef.current = true;
     setAdding(true);
     try {
-      const result = await addLineToRepertoire(game.matchedRepertoire.id, line);
+      const result = await graftLine(game.matchedRepertoire.id, line);
+
+      // Refresh the editor's cached repertoire so the grafted line shows up
+      // without a refetch when the user next opens it.
+      if (result.repertoire) {
+        updateRepertoire(result.repertoire);
+      }
 
       // Optimistically mark the moves we processed as in-repertoire so the user
       // gets immediate feedback; the background re-analysis reconciles later.
+      // Patch functionally by gameIndex so we don't overwrite the game with a
+      // stale snapshot captured when this callback was created.
       const processed = result.added.length + result.skipped.length;
       if (processed > 0) {
-        const updatedMoves = game.moves.map((m, i) =>
-          i >= startIndex && i < startIndex + processed
-            ? { ...m, status: 'in-repertoire' as const }
-            : m
-        );
-        updateGame(game.gameIndex, { ...game, moves: updatedMoves });
+        updateGame(gameIndex, (prev) => ({
+          ...prev,
+          moves: prev.moves.map((m, i) =>
+            i >= startIndex && i < startIndex + processed
+              ? { ...m, status: MoveStatus.InRepertoire }
+              : m
+          ),
+        }));
         setMovesAddedThisSession((n) => n + result.added.length);
       }
 
@@ -197,13 +195,14 @@ export function GameAnalysisPage() {
       addingRef.current = false;
       setAdding(false);
     }
-  }, [game, updateGame]);
+  }, [game, updateGame, updateRepertoire]);
 
   // Step to another game in the session, preserving the original entry point so
   // the Back button still returns to the list the user came from.
   const handleSelectGame = useCallback((targetAnalysisId: string, targetGameIndex: number) => {
+    const from = (location.state as LocationState | null)?.from;
     navigate(`/analyse/${targetAnalysisId}/game/${targetGameIndex}`, {
-      state: { from: location.state?.from || '/games' }
+      state: { from: from || '/games' }
     });
   }, [navigate, location]);
 
@@ -234,7 +233,7 @@ export function GameAnalysisPage() {
 
   // Handle creating a new repertoire and adding the current moves to it
   const handleCreateAndAdd = useCallback((repertoireId: string) => {
-    if (!game || !game.userColor) return;
+    if (!game) return;
 
     // New repertoire is empty (only root node). Build the full sequence from move 0
     // up to the selected move, or — if no move is selected (new-opening default) —
@@ -245,24 +244,16 @@ export function GameAnalysisPage() {
 
     const gameInfo = `${game.headers.White || '?'} vs ${game.headers.Black || '?'}`;
 
-    const moves: { parentFEN: string; moveSAN: string; resultFEN: string }[] = [];
-    for (let i = startIndex; i <= endIndex; i++) {
-      const parentFEN = i === 0 ? STARTING_FEN : computeFEN(game.moves, i - 1);
-      const resultFEN = computeFEN(game.moves, i);
-      moves.push({
-        parentFEN,
-        moveSAN: game.moves[i].san,
-        resultFEN
-      });
-    }
+    const moves = buildLineFromDivergence(game.moves, startIndex, endIndex, (i) =>
+      computeFEN(game.moves, i)
+    );
 
-    const context = {
+    stashPendingAddSequence({
       repertoireId,
       repertoireName: 'New Repertoire',
       gameInfo,
-      moves
-    };
-    sessionStorage.setItem('pendingAddNode', JSON.stringify(context));
+      moves,
+    });
 
     navigate(`/repertoire/${repertoireId}/edit`, { state: { from: location.pathname + location.search } });
   }, [game, currentMoveIndex, maxDisplayedMoveIndex, navigate, location]);
@@ -305,7 +296,7 @@ export function GameAnalysisPage() {
   return (
     <div className="max-w-[1400px] mx-auto min-h-full flex flex-col">
       <motion.div variants={fadeUp} initial="hidden" animate="visible" custom={0} className="flex items-center gap-4 mb-6 pb-4 border-b border-primary/10 flex-wrap">
-        <Button variant="ghost" size="sm" onClick={() => navigate(location.state?.from || '/games')}>
+        <Button variant="ghost" size="sm" onClick={() => navigate((location.state as LocationState | null)?.from || '/games')}>
           &larr; Back
         </Button>
         <span className="text-xl font-semibold font-display">Game {gameIdx + 1}: {opponent}</span>
@@ -323,7 +314,7 @@ export function GameAnalysisPage() {
 
       {/* Repertoire selector with reanalyze option */}
       <motion.div variants={fadeUp} initial="hidden" animate="visible" custom={1}>
-      <RepertoireSelector
+      <AnalysisRepertoirePicker
         userColor={game.userColor}
         currentRepertoire={game.matchedRepertoire}
         matchScore={game.matchScore}
@@ -338,7 +329,7 @@ export function GameAnalysisPage() {
           orientation={flipped ? 'black' : 'white'}
           lastMove={lastMove}
           onFlip={() => setFlipped(!flipped)}
-          engineEvaluation={engine.currentEvaluation}
+          engineEvaluation={currentEvaluation}
         />
 
         <div className="flex-1 min-w-0 bg-bg-card rounded-2xl p-4 shadow-md shadow-primary/5 flex flex-col overflow-hidden">

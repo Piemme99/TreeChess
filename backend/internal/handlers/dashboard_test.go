@@ -25,8 +25,10 @@ func newTestDashboardHandler(belongsToUser bool) *DashboardHandler {
 		BelongsToUserFunc: func(id, userID string) (bool, error) { return belongsToUser, nil },
 	}
 	repertoireSvc := services.NewRepertoireService(mockRepo)
-	importSvc := services.NewImportService(nil, nil)
-	return NewDashboardHandler(importSvc, repertoireSvc)
+	// No dismissed-gap repo is wired, so a fully-validated, owned dismissal still
+	// surfaces as a 500 from DashboardStatsService.DismissGap.
+	dashboardSvc := services.NewDashboardStatsService(repertoireSvc, nil)
+	return NewDashboardHandler(dashboardSvc, repertoireSvc)
 }
 
 func doDismissGap(t *testing.T, h *DashboardHandler, body string) *httptest.ResponseRecorder {
@@ -92,7 +94,7 @@ func TestDismissGap_NonOwnedRepertoire(t *testing.T) {
 }
 
 func TestDismissGap_DismissRepoNotConfigured(t *testing.T) {
-	// All validation passes and the repertoire is owned, but the import
+	// All validation passes and the repertoire is owned, but the dashboard
 	// service has no dismissed-gap repo wired, so it returns 500.
 	h := newTestDashboardHandler(true)
 	body := `{"fen":"` + validDismissFEN + `","opponentMove":"e4","repertoireId":"` + validRepUUID + `"}`

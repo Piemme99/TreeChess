@@ -3,6 +3,7 @@ import { Link, useSearchParams, useNavigate } from 'react-router';
 import { motion } from 'framer-motion';
 import { Crown } from 'lucide-react';
 import { authApi } from '../../services/api';
+import { getApiErrorMessage } from '../../shared/utils/apiError';
 
 export function ResetPasswordPage() {
   const [searchParams] = useSearchParams();
@@ -35,12 +36,7 @@ export function ResetPasswordPage() {
       await authApi.resetPassword(token, newPassword);
       setSuccess(true);
     } catch (err) {
-      if (err instanceof Error && 'response' in err) {
-        const axiosError = err as { response?: { data?: { error?: string } } };
-        setError(axiosError.response?.data?.error || 'Failed to reset password');
-      } else {
-        setError('Failed to reset password');
-      }
+      setError(getApiErrorMessage(err, 'Failed to reset password'));
     } finally {
       setSubmitting(false);
     }

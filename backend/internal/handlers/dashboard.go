@@ -10,12 +10,12 @@ import (
 )
 
 type DashboardHandler struct {
-	importService     *services.ImportService
+	dashboardService  *services.DashboardStatsService
 	repertoireService *services.RepertoireService
 }
 
-func NewDashboardHandler(importSvc *services.ImportService, repertoireSvc *services.RepertoireService) *DashboardHandler {
-	return &DashboardHandler{importService: importSvc, repertoireService: repertoireSvc}
+func NewDashboardHandler(dashboardSvc *services.DashboardStatsService, repertoireSvc *services.RepertoireService) *DashboardHandler {
+	return &DashboardHandler{dashboardService: dashboardSvc, repertoireService: repertoireSvc}
 }
 
 type DismissGapRequest struct {
@@ -25,7 +25,10 @@ type DismissGapRequest struct {
 }
 
 func (h *DashboardHandler) DismissGap(c *echo.Context) error {
-	userID := c.Get("userID").(string)
+	userID, ok := mustUserID(c)
+	if !ok {
+		return nil
+	}
 
 	var req DismissGapRequest
 	if err := c.Bind(&req); err != nil {
@@ -56,7 +59,7 @@ func (h *DashboardHandler) DismissGap(c *echo.Context) error {
 		return InternalErrorResponse(c, "failed to dismiss gap")
 	}
 
-	if err := h.importService.DismissGap(userID, req.FEN, req.OpponentMove, req.RepertoireID); err != nil {
+	if err := h.dashboardService.DismissGap(userID, req.FEN, req.OpponentMove, req.RepertoireID); err != nil {
 		return InternalErrorResponse(c, "failed to dismiss gap")
 	}
 
@@ -64,9 +67,12 @@ func (h *DashboardHandler) DismissGap(c *echo.Context) error {
 }
 
 func (h *DashboardHandler) GetStats(c *echo.Context) error {
-	userID := c.Get("userID").(string)
+	userID, ok := mustUserID(c)
+	if !ok {
+		return nil
+	}
 
-	stats, err := h.importService.GetDashboardStats(userID)
+	stats, err := h.dashboardService.GetDashboardStats(userID)
 	if err != nil {
 		return InternalErrorResponse(c, "failed to get dashboard stats")
 	}

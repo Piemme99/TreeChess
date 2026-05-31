@@ -20,7 +20,9 @@ export function TemplatePicker({ onDone }: TemplatePickerProps) {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    repertoireApi.listTemplates().then(setTemplates).catch(() => {});
+    repertoireApi.listTemplates()
+      .then(setTemplates)
+      .catch((err) => console.warn('Failed to load repertoire templates:', err));
   }, []);
 
   const toggleTemplate = (id: string) => {

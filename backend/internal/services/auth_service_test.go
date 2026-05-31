@@ -1061,3 +1061,145 @@ func TestAuthService_RequestPasswordReset_OAuthOnly(t *testing.T) {
 
 	require.NoError(t, err)
 }
+
+func TestAuthService_RefreshTokens_Success_MarksConsumed(t *testing.T) {
+	email := "refresh@example.com"
+	mockUserRepo := &mocks.MockUserRepo{
+		GetByIDFunc: func(id string) (*models.User, error) {
+			return &models.User{ID: id, Username: "refresher", Email: &email}, nil
+		},
+	}
+
+	var consumedID string
+	deleteCalled := false
+	revokeCalled := false
+	mockRefreshRepo := &mocks.MockRefreshTokenRepo{
+		GetByTokenHashFunc: func(hash string) (*models.RefreshToken, error) {
+			return &models.RefreshToken{
+				ID:        "token-1",
+				UserID:    "user-123",
+				TokenHash: hash,
+				ExpiresAt: time.Now().Add(24 * time.Hour),
+				Consumed:  false,
+			}, nil
+		},
+		MarkConsumedFunc: func(id string) error {
+			consumedID = id
+			return nil
+		},
+		DeleteFunc: func(id string) error {
+			deleteCalled = true
+			return nil
+		},
+		DeleteByUserIDFunc: func(userID string) error {
+			revokeCalled = true
+			return nil
+		},
+	}
+
+	svc := newTestAuthService(mockUserRepo)
+	svc.WithRefreshTokens(mockRefreshRepo)
+
+	resp, err := svc.RefreshTokens("raw-refresh-token")
+
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	assert.NotEmpty(t, resp.Token)
+	assert.NotEmpty(t, resp.RefreshToken)
+	// Happy path consumes (not deletes) the old token and does not revoke the family.
+	assert.Equal(t, "token-1", consumedID, "old token should be marked consumed")
+	assert.False(t, deleteCalled, "old token should not be hard-deleted on rotation")
+	assert.False(t, revokeCalled, "family should not be revoked on the happy path")
+}
+
+func TestAuthService_RefreshTokens_ReuseDetected_RevokesFamily(t *testing.T) {
+	mockUserRepo := &mocks.MockUserRepo{
+		GetByIDFunc: func(id string) (*models.User, error) {
+			t.Fatalf("user should not be fetched when reuse is detected")
+			return nil, nil
+		},
+	}
+
+	revokedUserID := ""
+	consumedCalled := false
+	mockRefreshRepo := &mocks.MockRefreshTokenRepo{
+		GetByTokenHashFunc: func(hash string) (*models.RefreshToken, error) {
+			// An already-consumed token presented again => reuse/theft.
+			return &models.RefreshToken{
+				ID:        "token-1",
+				UserID:    "user-123",
+				TokenHash: hash,
+				ExpiresAt: time.Now().Add(24 * time.Hour),
+				Consumed:  true,
+			}, nil
+		},
+		MarkConsumedFunc: func(id string) error {
+			consumedCalled = true
+			return nil
+		},
+		DeleteByUserIDFunc: func(userID string) error {
+			revokedUserID = userID
+			return nil
+		},
+	}
+
+	svc := newTestAuthService(mockUserRepo)
+	svc.WithRefreshTokens(mockRefreshRepo)
+
+	resp, err := svc.RefreshTokens("stolen-refresh-token")
+
+	require.ErrorIs(t, err, ErrUnauthorized)
+	assert.Nil(t, resp)
+	assert.Equal(t, "user-123", revokedUserID, "replaying a consumed token must revoke the whole family")
+	assert.False(t, consumedCalled, "reuse path must not re-consume the token")
+}
+
+func TestAuthService_RefreshTokens_UnknownToken_NoRevocation(t *testing.T) {
+	revokeCalled := false
+	mockRefreshRepo := &mocks.MockRefreshTokenRepo{
+		GetByTokenHashFunc: func(hash string) (*models.RefreshToken, error) {
+			return nil, repository.ErrRefreshTokenNotFound
+		},
+		DeleteByUserIDFunc: func(userID string) error {
+			revokeCalled = true
+			return nil
+		},
+	}
+
+	svc := newTestAuthService(&mocks.MockUserRepo{})
+	svc.WithRefreshTokens(mockRefreshRepo)
+
+	resp, err := svc.RefreshTokens("never-issued-token")
+
+	require.ErrorIs(t, err, ErrUnauthorized)
+	assert.Nil(t, resp)
+	assert.False(t, revokeCalled, "an unknown token must not trigger family revocation")
+}
+
+func TestAuthService_RefreshTokens_Expired(t *testing.T) {
+	deletedID := ""
+	mockRefreshRepo := &mocks.MockRefreshTokenRepo{
+		GetByTokenHashFunc: func(hash string) (*models.RefreshToken, error) {
+			return &models.RefreshToken{
+				ID:        "token-1",
+				UserID:    "user-123",
+				TokenHash: hash,
+				ExpiresAt: time.Now().Add(-1 * time.Hour),
+				Consumed:  false,
+			}, nil
+		},
+		DeleteFunc: func(id string) error {
+			deletedID = id
+			return nil
+		},
+	}
+
+	svc := newTestAuthService(&mocks.MockUserRepo{})
+	svc.WithRefreshTokens(mockRefreshRepo)
+
+	resp, err := svc.RefreshTokens("expired-token")
+
+	require.ErrorIs(t, err, ErrUnauthorized)
+	assert.Nil(t, resp)
+	assert.Equal(t, "token-1", deletedID, "expired token should be cleaned up")
+}

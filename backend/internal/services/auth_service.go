@@ -443,8 +443,10 @@ func (s *AuthService) DeleteAccount(userID, password, username string) error {
 }
 
 // RefreshTokens validates a refresh token, rotates it, and returns a new token pair.
-// The old refresh token is consumed (deleted) and a new one is issued.
-// If the old token is not found, it may indicate token theft — all user tokens are revoked.
+// On rotation the old token is marked consumed (not deleted) so its user remains
+// resolvable. Presenting an already-consumed token indicates reuse/theft and revokes
+// the entire token family for that user. A genuinely unknown token (never issued)
+// returns ErrUnauthorized without revocation, since no user can be resolved from it.
 func (s *AuthService) RefreshTokens(rawRefreshToken string) (*models.AuthResponse, error) {
 	if s.refreshTokenRepo == nil {
 		return nil, ErrUnauthorized
@@ -453,8 +455,17 @@ func (s *AuthService) RefreshTokens(rawRefreshToken string) (*models.AuthRespons
 	tokenHash := hashToken(rawRefreshToken)
 	storedToken, err := s.refreshTokenRepo.GetByTokenHash(tokenHash)
 	if err != nil {
-		// Token not found — possible theft. We cannot determine the user here,
-		// so we just return unauthorized.
+		// Token never issued (or already purged). No user can be resolved, so we
+		// just return unauthorized without revoking anything.
+		return nil, ErrUnauthorized
+	}
+
+	// Reuse/theft detection: a consumed token was already rotated out. Replaying it
+	// signals the token was stolen, so revoke the whole family for this user.
+	if storedToken.Consumed {
+		if revokeErr := s.RevokeAllRefreshTokens(storedToken.UserID); revokeErr != nil {
+			slog.Error("failed to revoke refresh token family on reuse", "user_id", storedToken.UserID, "error", revokeErr)
+		}
 		return nil, ErrUnauthorized
 	}
 
@@ -465,8 +476,9 @@ func (s *AuthService) RefreshTokens(rawRefreshToken string) (*models.AuthRespons
 		return nil, ErrUnauthorized
 	}
 
-	// Delete the old refresh token (single-use rotation)
-	if err := s.refreshTokenRepo.Delete(storedToken.ID); err != nil {
+	// Consume the old refresh token (single-use rotation). The row is retained so a
+	// replay of this token can be detected as reuse above.
+	if err := s.refreshTokenRepo.MarkConsumed(storedToken.ID); err != nil {
 		return nil, fmt.Errorf("failed to rotate refresh token: %w", err)
 	}
 

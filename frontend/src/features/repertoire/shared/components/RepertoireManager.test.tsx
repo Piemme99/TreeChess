@@ -45,7 +45,7 @@ vi.mock('../../../../stores/repertoireStore', () => ({
   useRepertoireStore: () => storeState,
 }));
 
-import { RepertoireSelector } from './RepertoireSelector';
+import { RepertoireManager } from './RepertoireManager';
 
 function renderSelector(repertoires = [
   createRepertoire({ id: 'rep-a', name: 'Alpha Opening', color: 'white' }),
@@ -53,7 +53,7 @@ function renderSelector(repertoires = [
 ]) {
   return render(
     <MemoryRouter>
-      <RepertoireSelector
+      <RepertoireManager
         color="white"
         repertoires={repertoires}
         categories={[]}
@@ -69,7 +69,7 @@ function selectRepertoire(name: string) {
   fireEvent.click(checkbox);
 }
 
-describe('RepertoireSelector – merge name pre-fill', () => {
+describe('RepertoireManager – merge name pre-fill', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });

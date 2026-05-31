@@ -2,6 +2,7 @@ package services
 
 import (
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -9,7 +10,9 @@ import (
 	"github.com/notnil/chess"
 
 	"github.com/kumquat/backend/config"
+	"github.com/kumquat/backend/internal/analysiscore"
 	"github.com/kumquat/backend/internal/models"
+	"github.com/kumquat/backend/internal/repertoiretree"
 	"github.com/kumquat/backend/internal/repository"
 )
 
@@ -20,14 +23,17 @@ var ErrAllGamesDuplicate = fmt.Errorf("all games have already been imported")
 // config.MaxGamesPerImport games.
 var ErrTooManyGames = fmt.Errorf("import exceeds the maximum of %d games", config.MaxGamesPerImport)
 
-// ImportService handles game import and analysis business logic
+// ImportService handles game import and analysis business logic: parsing PGN,
+// matching games to repertoires, classifying each move, deduplicating and
+// saving. Dashboard aggregation, opening insights and training analysis live in
+// their own focused services (DashboardStatsService, InsightsService,
+// TrainingService) so that those features no longer recompile or retest with
+// the import path.
 type ImportService struct {
-	repertoireService    *RepertoireService
-	analysisRepo         repository.AnalysisRepository
-	fingerprintRepo      repository.GameFingerprintRepository
-	engineService        *EngineService
-	dismissedMistakeRepo repository.DismissedMistakeRepository
-	dismissedGapRepo     repository.DismissedGapRepository
+	repertoireService *RepertoireService
+	analysisRepo      repository.AnalysisRepository
+	fingerprintRepo   repository.GameFingerprintRepository
+	engineService     *EngineService
 }
 
 // NewImportService creates a new import service with the given dependencies
@@ -56,20 +62,6 @@ func WithFingerprintRepo(repo repository.GameFingerprintRepository) ImportServic
 func WithEngineService(svc *EngineService) ImportServiceOption {
 	return func(s *ImportService) {
 		s.engineService = svc
-	}
-}
-
-// WithDismissedMistakeRepo sets the dismissed mistake repository on the ImportService
-func WithDismissedMistakeRepo(repo repository.DismissedMistakeRepository) ImportServiceOption {
-	return func(s *ImportService) {
-		s.dismissedMistakeRepo = repo
-	}
-}
-
-// WithDismissedGapRepo sets the dismissed gap repository on the ImportService
-func WithDismissedGapRepo(repo repository.DismissedGapRepository) ImportServiceOption {
-	return func(s *ImportService) {
-		s.dismissedGapRepo = repo
 	}
 }
 
@@ -208,26 +200,9 @@ func (s *ImportService) ParseAndAnalyze(filename string, username string, userID
 // findBestMatchingRepertoire finds the repertoire with the most matching moves.
 // Returns nil when no repertoire covers the opponent's first move.
 func (s *ImportService) findBestMatchingRepertoire(game *chess.Game, repertoires []models.Repertoire, userColor models.Color) (*models.Repertoire, int) {
-	if len(repertoires) == 0 {
-		return nil, 0
-	}
-
-	var bestRepertoire *models.Repertoire
-	bestScore := -1
-
-	for i := range repertoires {
-		score := s.countMatchingMoves(game, repertoires[i].TreeData, userColor)
-		if score > bestScore {
-			bestScore = score
-			bestRepertoire = &repertoires[i]
-		}
-	}
-
-	if bestScore < 0 || bestRepertoire == nil {
-		return nil, 0
-	}
-
-	return bestRepertoire, bestScore
+	return analysiscore.BestMatch(repertoires, func(r *models.Repertoire) int {
+		return s.countMatchingMoves(game, r.TreeData, userColor)
+	})
 }
 
 // countMatchingMoves counts how many of the user's moves are in the repertoire.
@@ -242,37 +217,20 @@ func (s *ImportService) countMatchingMoves(game *chess.Game, repertoireRoot mode
 	for ply, move := range moves {
 		san := notation.Encode(position, move)
 		currentFEN := normalizeFEN(position.String())
-		isUserMove := (ply%2 == 0 && userColor == models.ColorWhite) || (ply%2 == 1 && userColor == models.ColorBlack)
+		isUserMove := analysiscore.IsUserMove(ply, userColor)
 
 		// Reject repertoire if the opponent's very first move is not covered.
-		// Black: ply 0 is white's (opponent's) first move.
-		// White: ply 1 is black's (opponent's) first move.
-		isOpponentFirstMove := (ply == 0 && userColor == models.ColorBlack) || (ply == 1 && userColor == models.ColorWhite)
-		if isOpponentFirstMove {
+		if analysiscore.IsOpponentFirstMove(ply, userColor) {
 			node := s.findNodeInRepertoire(repertoireRoot, currentFEN)
-			if node != nil && len(node.Children) > 0 {
-				found := false
-				for _, child := range node.Children {
-					if child.Move != nil && *child.Move == san {
-						found = true
-						break
-					}
-				}
-				if !found {
-					return -1
-				}
+			if node != nil && len(node.Children) > 0 && !repertoiretree.HasChildMove(node, san) {
+				return -1
 			}
 		}
 
 		if isUserMove {
 			node := s.findNodeInRepertoire(repertoireRoot, currentFEN)
-			if node != nil {
-				for _, child := range node.Children {
-					if child.Move != nil && *child.Move == san {
-						matchCount++
-						break
-					}
-				}
+			if repertoiretree.HasChildMove(node, san) {
+				matchCount++
 			}
 		}
 
@@ -378,91 +336,33 @@ func (s *ImportService) analyzeGame(gameIndex int, game *chess.Game, repertoireR
 	for ply, move := range moves {
 		san := notation.Encode(position, move)
 		currentFEN := normalizeFEN(position.String())
-		isUserMove := (ply%2 == 0 && userColor == models.ColorWhite) || (ply%2 == 1 && userColor == models.ColorBlack)
-
-		var status string
-		var expectedMove string
+		isUserMove := analysiscore.IsUserMove(ply, userColor)
 
 		node := s.findNodeInRepertoire(repertoireRoot, currentFEN)
-		if node == nil || len(node.Children) == 0 {
-			// Position not in tree or is a leaf — repertoire has ended
-			status = "out-of-book"
-		} else {
-			// Position has children — check if the played move matches
-			found := false
-			for _, child := range node.Children {
-				if child.Move != nil && *child.Move == san {
-					found = true
-					break
-				}
-			}
-			switch {
-			case found:
-				status = "in-repertoire"
-			case isUserMove:
-				status = "out-of-repertoire"
-				// Expected move is the explicit main-line child (fallback: first child).
-				expectedMove = expectedMoveForNode(node)
-			default:
-				status = "opponent-new"
-			}
-		}
+		class := analysiscore.ClassifyMove(node, san, isUserMove)
 
-		moveAnalysis := models.MoveAnalysis{
+		analysis.Moves = append(analysis.Moves, models.MoveAnalysis{
 			PlyNumber:    ply,
 			SAN:          san,
 			FEN:          currentFEN,
-			Status:       status,
-			ExpectedMove: expectedMove,
+			Status:       class.Status,
+			ExpectedMove: class.ExpectedMove,
 			IsUserMove:   isUserMove,
-		}
-
-		analysis.Moves = append(analysis.Moves, moveAnalysis)
+		})
 		position = position.Update(move)
 	}
 
 	return analysis
 }
 
-// expectedMoveForNode returns the SAN of the move the repertoire expects from a
-// position, preferring the explicit main-line child and falling back to the
-// first child by insertion order. This mirrors the frontend convention of
-// `children.find(isMainLine) ?? children[0]` so that out-of-repertoire feedback
-// never contradicts the user's chosen main line.
-func expectedMoveForNode(node *models.RepertoireNode) string {
-	if node == nil {
-		return ""
-	}
-	var fallback *models.RepertoireNode
-	for _, child := range node.Children {
-		if child == nil || child.Move == nil {
-			continue
-		}
-		if child.IsMainLine {
-			return *child.Move
-		}
-		if fallback == nil {
-			fallback = child
-		}
-	}
-	if fallback != nil {
-		return *fallback.Move
-	}
-	return ""
-}
-
 // NormalizeFEN strips half-move and full-move counters from a FEN string,
 // keeping only board, side to move, castling, and en passant fields.
 func NormalizeFEN(fen string) string {
-	parts := strings.Fields(fen)
-	if len(parts) >= 4 {
-		return strings.Join(parts[:4], " ")
-	}
-	return fen
+	return repertoiretree.NormalizeFEN(fen)
 }
 
 // normalizeFEN is the package-internal alias kept for existing callers.
-func normalizeFEN(fen string) string { return NormalizeFEN(fen) }
+func normalizeFEN(fen string) string { return repertoiretree.NormalizeFEN(fen) }
 
 func (s *ImportService) extractHeaders(game *chess.Game) models.PGNHeaders {
 	headers := make(models.PGNHeaders)
@@ -491,45 +391,7 @@ func (s *ImportService) extractHeaders(game *chess.Game) models.PGNHeaders {
 // findNodeInRepertoire searches the repertoire tree for a node matching the given FEN.
 // Returns a pointer to the matching node, or nil if not found.
 func (s *ImportService) findNodeInRepertoire(root models.RepertoireNode, currentFEN string) *models.RepertoireNode {
-	var search func(node *models.RepertoireNode) *models.RepertoireNode
-	search = func(node *models.RepertoireNode) *models.RepertoireNode {
-		if node.FEN == currentFEN {
-			return node
-		}
-		for _, child := range node.Children {
-			if child != nil {
-				if result := search(child); result != nil {
-					return result
-				}
-			}
-		}
-		return nil
-	}
-	return search(&root)
-}
-
-// buildFENIndex walks a repertoire tree once and returns a map from FEN to the
-// matching node. When several nodes share the same FEN (transpositions), the
-// first node reached in a pre-order depth-first traversal wins, mirroring the
-// match semantics of findNodeInRepertoire. Building the index once and reusing
-// it across every game/move avoids the O(repertoires × moves × tree) full-tree
-// recursion that findNodeInRepertoire incurs on each lookup.
-func buildFENIndex(root *models.RepertoireNode) map[string]*models.RepertoireNode {
-	index := make(map[string]*models.RepertoireNode)
-	var walk func(node *models.RepertoireNode)
-	walk = func(node *models.RepertoireNode) {
-		if node == nil {
-			return
-		}
-		if _, exists := index[node.FEN]; !exists {
-			index[node.FEN] = node
-		}
-		for _, child := range node.Children {
-			walk(child)
-		}
-	}
-	walk(root)
-	return index
+	return repertoiretree.FindByFEN(&root, currentFEN)
 }
 
 // ValidatePGN validates PGN format
@@ -570,123 +432,6 @@ func (s *ImportService) GetLegalMoves(fen string) ([]string, error) {
 		sanMoves[i] = move.String()
 	}
 	return sanMoves, nil
-}
-
-// AnalyzeTrainingMoves takes a sequence of SAN moves from an explorer training session,
-// finds the best matching repertoire for the user, and returns per-move analysis.
-func (s *ImportService) AnalyzeTrainingMoves(userID string, moves []string, userColor models.Color) (*models.TrainingAnalyzeResponse, error) {
-	// Load repertoires for the user's color
-	repertoires, err := s.repertoireService.ListRepertoires(userID, &userColor)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load repertoires: %w", err)
-	}
-
-	// Replay the moves to build FENs
-	game := chess.NewGame()
-	for _, san := range moves {
-		if err := game.MoveStr(san); err != nil {
-			return nil, fmt.Errorf("invalid move %s: %w", san, err)
-		}
-	}
-
-	// Find the best matching repertoire using scoring logic
-	bestRepertoire, bestScore := s.findBestMatchingRepertoireFromSANs(game, repertoires, userColor)
-
-	// Build per-move analysis
-	moveAnalyses := s.analyzeGameFromChess(game, bestRepertoire, userColor)
-
-	resp := &models.TrainingAnalyzeResponse{
-		MatchScore: bestScore,
-		Moves:      moveAnalyses,
-	}
-	if bestRepertoire != nil {
-		resp.MatchedRepertoire = &models.RepertoireRef{
-			ID:   bestRepertoire.ID,
-			Name: bestRepertoire.Name,
-		}
-	}
-
-	return resp, nil
-}
-
-// findBestMatchingRepertoireFromSANs scores each repertoire against a chess.Game and returns the best match.
-func (s *ImportService) findBestMatchingRepertoireFromSANs(game *chess.Game, repertoires []models.Repertoire, userColor models.Color) (*models.Repertoire, int) {
-	if len(repertoires) == 0 {
-		return nil, 0
-	}
-
-	var bestRepertoire *models.Repertoire
-	bestScore := -1
-
-	for i := range repertoires {
-		score := s.countMatchingMoves(game, repertoires[i].TreeData, userColor)
-		if score > bestScore {
-			bestScore = score
-			bestRepertoire = &repertoires[i]
-		}
-	}
-
-	if bestScore < 0 || bestRepertoire == nil {
-		return nil, 0
-	}
-
-	return bestRepertoire, bestScore
-}
-
-// analyzeGameFromChess produces per-move MoveAnalysis from a chess.Game against a repertoire (or nil repertoire).
-func (s *ImportService) analyzeGameFromChess(game *chess.Game, repertoire *models.Repertoire, userColor models.Color) []models.MoveAnalysis {
-	chessMovs := game.Moves()
-	position := chess.StartingPosition()
-	notation := chess.AlgebraicNotation{}
-	result := make([]models.MoveAnalysis, 0, len(chessMovs))
-
-	for ply, move := range chessMovs {
-		san := notation.Encode(position, move)
-		currentFEN := normalizeFEN(position.String())
-		isUserMove := (ply%2 == 0 && userColor == models.ColorWhite) || (ply%2 == 1 && userColor == models.ColorBlack)
-
-		var status string
-		var expectedMove string
-
-		if repertoire == nil {
-			status = "out-of-book"
-		} else {
-			node := s.findNodeInRepertoire(repertoire.TreeData, currentFEN)
-			if node == nil || len(node.Children) == 0 {
-				status = "out-of-book"
-			} else {
-				found := false
-				for _, child := range node.Children {
-					if child.Move != nil && *child.Move == san {
-						found = true
-						break
-					}
-				}
-				switch {
-				case found:
-					status = "in-repertoire"
-				case isUserMove:
-					status = "out-of-repertoire"
-					expectedMove = expectedMoveForNode(node)
-				default:
-					status = "opponent-new"
-				}
-			}
-		}
-
-		result = append(result, models.MoveAnalysis{
-			PlyNumber:    ply,
-			SAN:          san,
-			FEN:          currentFEN,
-			Status:       status,
-			ExpectedMove: expectedMove,
-			IsUserMove:   isUserMove,
-		})
-
-		position = position.Update(move)
-	}
-
-	return result
 }
 
 // GetAnalyses returns all analyses summaries for a user
@@ -739,56 +484,53 @@ func (s *ImportService) CheckOwnership(id string, userID string) error {
 	return nil
 }
 
-// ReanalyzeGame re-analyzes a specific game against a different repertoire
+// ReanalyzeGame re-analyzes a specific game against a different repertoire.
+//
+// The read-modify-write of the analysis results runs inside the repository's
+// row-locked MutateResults transaction so it cannot clobber (or be clobbered
+// by) a concurrent auto re-analysis touching the same analysis. The game is
+// located and its color validated against the freshly-locked data, not a stale
+// snapshot.
 func (s *ImportService) ReanalyzeGame(analysisID string, gameIndex int, repertoireID string) (*models.GameAnalysis, error) {
-	detail, err := s.analysisRepo.GetByID(analysisID)
-	if err != nil {
-		return nil, err
-	}
-
-	var targetGame *models.GameAnalysis
-	var targetIdx int
-	for i := range detail.Results {
-		if detail.Results[i].GameIndex == gameIndex {
-			targetGame = &detail.Results[i]
-			targetIdx = i
-			break
-		}
-	}
-	if targetGame == nil {
-		return nil, repository.ErrGameNotFound
-	}
-
 	repertoire, err := s.repertoireService.GetRepertoire(repertoireID)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrRepertoireNotFound, err)
 	}
 
-	if repertoire.Color != targetGame.UserColor {
-		return nil, ErrColorMismatch
-	}
+	// Build the FEN index once, outside the transaction, so the locked window
+	// stays as short as possible.
+	index := repertoiretree.BuildFENIndex(&repertoire.TreeData)
+	reperRef := &models.RepertoireRef{ID: repertoire.ID, Name: repertoire.Name}
 
-	reanalyzedGame := s.reanalyzeGameFromMoves(targetGame, repertoire)
+	var reanalyzedGame models.GameAnalysis
+	err = s.analysisRepo.MutateResults(analysisID, func(current []models.GameAnalysis) ([]models.GameAnalysis, bool, error) {
+		targetIdx := -1
+		for i := range current {
+			if current[i].GameIndex == gameIndex {
+				targetIdx = i
+				break
+			}
+		}
+		if targetIdx == -1 {
+			return nil, false, repository.ErrGameNotFound
+		}
 
-	detail.Results[targetIdx] = reanalyzedGame
-	err = s.analysisRepo.UpdateResults(analysisID, detail.Results)
+		if repertoire.Color != current[targetIdx].UserColor {
+			return nil, false, ErrColorMismatch
+		}
+
+		reanalyzedGame = s.reanalyzeGameWithIndex(&current[targetIdx], reperRef, index)
+		current[targetIdx] = reanalyzedGame
+		return current, true, nil
+	})
 	if err != nil {
+		if errors.Is(err, repository.ErrGameNotFound) || errors.Is(err, ErrColorMismatch) || errors.Is(err, repository.ErrAnalysisNotFound) {
+			return nil, err
+		}
 		return nil, fmt.Errorf("failed to save reanalyzed game: %w", err)
 	}
 
 	return &reanalyzedGame, nil
-}
-
-// reanalyzeGameFromMoves re-analyzes a game using its stored moves against a new repertoire.
-// It builds a one-shot FEN index for the repertoire tree; callers that re-analyze many
-// games against the same tree should build the index once and call
-// reanalyzeGameWithIndex instead.
-func (s *ImportService) reanalyzeGameFromMoves(game *models.GameAnalysis, repertoire *models.Repertoire) models.GameAnalysis {
-	index := buildFENIndex(&repertoire.TreeData)
-	return s.reanalyzeGameWithIndex(game, &models.RepertoireRef{
-		ID:   repertoire.ID,
-		Name: repertoire.Name,
-	}, index)
 }
 
 // reanalyzeGameWithIndex re-analyzes a game using its stored moves against a prebuilt
@@ -805,40 +547,18 @@ func (s *ImportService) reanalyzeGameWithIndex(game *models.GameAnalysis, reperR
 	}
 
 	for i, move := range game.Moves {
-		var status string
-		var expectedMove string
-
 		node := index[move.FEN]
-		if node == nil || len(node.Children) == 0 {
-			status = "out-of-book"
-		} else {
-			found := false
-			for _, child := range node.Children {
-				if child.Move != nil && *child.Move == move.SAN {
-					found = true
-					break
-				}
-			}
-			switch {
-			case found:
-				status = "in-repertoire"
-				if move.IsUserMove {
-					result.MatchScore++
-				}
-			case move.IsUserMove:
-				status = "out-of-repertoire"
-				expectedMove = expectedMoveForNode(node)
-			default:
-				status = "opponent-new"
-			}
+		class := analysiscore.ClassifyMove(node, move.SAN, move.IsUserMove)
+		if class.Status == analysiscore.StatusInRepertoire && move.IsUserMove {
+			result.MatchScore++
 		}
 
 		result.Moves[i] = models.MoveAnalysis{
 			PlyNumber:    move.PlyNumber,
 			SAN:          move.SAN,
 			FEN:          move.FEN,
-			Status:       status,
-			ExpectedMove: expectedMove,
+			Status:       class.Status,
+			ExpectedMove: class.ExpectedMove,
 			IsUserMove:   move.IsUserMove,
 		}
 	}
@@ -878,49 +598,61 @@ func (s *ImportService) ReanalyzeAllGames(userID string, preserveAnalysed bool) 
 	whiteIndexed := indexRepertoires(whiteRepertoires)
 	blackIndexed := indexRepertoires(blackRepertoires)
 
+	// Each analysis is re-analyzed under its own row-locked transaction
+	// (MutateResults) rather than overwriting the unlocked snapshot read above.
+	// This serializes against the manual single-game path and any concurrent
+	// auto run, so the two cannot clobber each other's writes. The snapshot is
+	// used only to enumerate which analyses to process; the mutation always
+	// operates on the freshly-locked results.
 	totalGames := 0
 	for _, a := range analyses {
-		modified := false
-		for i := range a.Results {
-			game := &a.Results[i]
-			totalGames++
+		analysisID := a.ID
+		err := s.analysisRepo.MutateResults(analysisID, func(current []models.GameAnalysis) ([]models.GameAnalysis, bool, error) {
+			modified := false
+			for i := range current {
+				game := &current[i]
+				totalGames++
 
-			var repertoires []indexedRepertoire
-			if game.UserColor == models.ColorWhite {
-				repertoires = whiteIndexed
-			} else {
-				repertoires = blackIndexed
-			}
-
-			best, matchScore := s.findBestMatchingRepertoireFromStored(game, repertoires)
-
-			var reperRef *models.RepertoireRef
-			var index map[string]*models.RepertoireNode
-			if best != nil {
-				reperRef = &models.RepertoireRef{
-					ID:   best.repertoire.ID,
-					Name: best.repertoire.Name,
+				var repertoires []indexedRepertoire
+				if game.UserColor == models.ColorWhite {
+					repertoires = whiteIndexed
+				} else {
+					repertoires = blackIndexed
 				}
-				index = best.index
+
+				best, matchScore := s.findBestMatchingRepertoireFromStored(game, repertoires)
+
+				var reperRef *models.RepertoireRef
+				var index map[string]*models.RepertoireNode
+				if best != nil {
+					reperRef = &models.RepertoireRef{
+						ID:   best.repertoire.ID,
+						Name: best.repertoire.Name,
+					}
+					index = best.index
+				}
+
+				reanalyzed := s.reanalyzeGameWithIndex(game, reperRef, index)
+				reanalyzed.MatchScore = matchScore
+
+				// Don't let auto re-analysis retroactively flag a previously non-error game
+				// as an opening error against prep that was added after it was played.
+				if preserveAnalysed && gameStatusFromGame(reanalyzed) == "error" && gameStatusFromGame(*game) != "error" {
+					continue
+				}
+
+				current[i] = reanalyzed
+				modified = true
 			}
-
-			reanalyzed := s.reanalyzeGameWithIndex(game, reperRef, index)
-			reanalyzed.MatchScore = matchScore
-
-			// Don't let auto re-analysis retroactively flag a previously non-error game
-			// as an opening error against prep that was added after it was played.
-			if preserveAnalysed && gameStatusFromGame(reanalyzed) == "error" && gameStatusFromGame(*game) != "error" {
+			return current, modified, nil
+		})
+		if err != nil {
+			// The analysis may have been deleted between the snapshot read and the
+			// locked mutation; skip it rather than failing the whole run.
+			if errors.Is(err, repository.ErrAnalysisNotFound) {
 				continue
 			}
-
-			a.Results[i] = reanalyzed
-			modified = true
-		}
-
-		if modified {
-			if err := s.analysisRepo.UpdateResults(a.ID, a.Results); err != nil {
-				return 0, fmt.Errorf("failed to update analysis %s: %w", a.ID, err)
-			}
+			return 0, fmt.Errorf("failed to update analysis %s: %w", analysisID, err)
 		}
 	}
 
@@ -940,7 +672,7 @@ func indexRepertoires(repertoires []models.Repertoire) []indexedRepertoire {
 	for i := range repertoires {
 		indexed[i] = indexedRepertoire{
 			repertoire: &repertoires[i],
-			index:      buildFENIndex(&repertoires[i].TreeData),
+			index:      repertoiretree.BuildFENIndex(&repertoires[i].TreeData),
 		}
 	}
 	return indexed
@@ -949,50 +681,23 @@ func indexRepertoires(repertoires []models.Repertoire) []indexedRepertoire {
 // findBestMatchingRepertoireFromStored finds the best matching repertoire using stored move FENs.
 // Returns nil when no repertoire covers the opponent's first move.
 func (s *ImportService) findBestMatchingRepertoireFromStored(game *models.GameAnalysis, repertoires []indexedRepertoire) (*indexedRepertoire, int) {
-	if len(repertoires) == 0 {
-		return nil, 0
-	}
-
-	var bestRepertoire *indexedRepertoire
-	bestScore := -1
-
-	for i := range repertoires {
-		score := s.countMatchingMovesFromStored(game, repertoires[i].index)
-		if score > bestScore {
-			bestScore = score
-			bestRepertoire = &repertoires[i]
-		}
-	}
-
-	if bestScore < 0 || bestRepertoire == nil {
-		return nil, 0
-	}
-
-	return bestRepertoire, bestScore
+	return analysiscore.BestMatch(repertoires, func(r *indexedRepertoire) int {
+		return countMatchingMovesFromStored(game, r.index)
+	})
 }
 
 // countMatchingMovesFromStored counts matching user moves using stored FENs against a
 // prebuilt FEN index instead of replaying the game or recursing the tree per move.
 // Returns -1 if the opponent's first move is not covered by the repertoire.
-func (s *ImportService) countMatchingMovesFromStored(game *models.GameAnalysis, index map[string]*models.RepertoireNode) int {
+func countMatchingMovesFromStored(game *models.GameAnalysis, index map[string]*models.RepertoireNode) int {
 	// Check opponent's first move before counting.
 	for _, move := range game.Moves {
-		isOpponentFirstMove := (move.PlyNumber == 0 && game.UserColor == models.ColorBlack) || (move.PlyNumber == 1 && game.UserColor == models.ColorWhite)
-		if !isOpponentFirstMove {
+		if !analysiscore.IsOpponentFirstMove(move.PlyNumber, game.UserColor) {
 			continue
 		}
 		node := index[move.FEN]
-		if node != nil && len(node.Children) > 0 {
-			found := false
-			for _, child := range node.Children {
-				if child.Move != nil && *child.Move == move.SAN {
-					found = true
-					break
-				}
-			}
-			if !found {
-				return -1
-			}
+		if node != nil && len(node.Children) > 0 && !repertoiretree.HasChildMove(node, move.SAN) {
+			return -1
 		}
 		break
 	}
@@ -1002,14 +707,8 @@ func (s *ImportService) countMatchingMovesFromStored(game *models.GameAnalysis, 
 		if !move.IsUserMove {
 			continue
 		}
-		node := index[move.FEN]
-		if node != nil {
-			for _, child := range node.Children {
-				if child.Move != nil && *child.Move == move.SAN {
-					matchCount++
-					break
-				}
-			}
+		if repertoiretree.HasChildMove(index[move.FEN], move.SAN) {
+			matchCount++
 		}
 	}
 	return matchCount
@@ -1057,206 +756,6 @@ func ComputeFingerprint(headers models.PGNHeaders, moves []models.MoveAnalysis) 
 	return fmt.Sprintf("sha256:%x", hash)
 }
 
-// DismissMistake marks a mistake as dismissed for a user
-func (s *ImportService) DismissMistake(userID, fen, playedMove string) error {
-	if s.dismissedMistakeRepo == nil {
-		return fmt.Errorf("dismissed mistake repository not configured")
-	}
-	return s.dismissedMistakeRepo.Dismiss(userID, fen, playedMove)
-}
-
-// DismissGap marks an opponent gap as dismissed for a user
-func (s *ImportService) DismissGap(userID, fen, opponentMove, repertoireID string) error {
-	if s.dismissedGapRepo == nil {
-		return fmt.Errorf("dismissed gap repository not configured")
-	}
-	return s.dismissedGapRepo.Dismiss(userID, fen, opponentMove, repertoireID)
-}
-
-// collectRepertoireMoves extracts all parent FEN + child move combinations from a repertoire tree
-// The key format is "parentFEN|childMove" to identify moves that exist in the repertoire
-func collectRepertoireMoves(node *models.RepertoireNode, moves map[string]bool) {
-	for _, child := range node.Children {
-		if child.Move != nil && *child.Move != "" {
-			// Use the parent's FEN (node.FEN) and the child's move
-			// This represents "at this position, this move is in the repertoire"
-			key := node.FEN + "|" + *child.Move
-			moves[key] = true
-		}
-		collectRepertoireMoves(child, moves)
-	}
-}
-
-// GetInsights computes worst opening mistakes using engine evaluations
-func (s *ImportService) GetInsights(userID string) (*models.InsightsResponse, error) {
-	response := &models.InsightsResponse{
-		WorstMistakes:      []models.OpeningMistake{},
-		EngineAnalysisDone: true,
-	}
-
-	// If no engine service, return empty (graceful degradation)
-	if s.engineService == nil {
-		return response, nil
-	}
-
-	// Get dismissed mistakes to filter them out
-	var dismissedMistakes map[string]bool
-	if s.dismissedMistakeRepo != nil {
-		var err error
-		dismissedMistakes, err = s.dismissedMistakeRepo.GetDismissed(userID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get dismissed mistakes: %w", err)
-		}
-	}
-
-	// Get repertoire moves to filter them out (moves in repertoire are intentional, not mistakes)
-	repertoireMoves := make(map[string]bool)
-	if s.repertoireService != nil {
-		repertoires, err := s.repertoireService.ListRepertoires(userID, nil)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get repertoires: %w", err)
-		}
-		for _, rep := range repertoires {
-			collectRepertoireMoves(&rep.TreeData, repertoireMoves)
-		}
-	}
-
-	// Get engine evals and raw game data
-	insightsData, err := s.engineService.GetInsightsData(userID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get engine evals: %w", err)
-	}
-	response.EngineAnalysisDone = insightsData.AllDone
-	response.EngineAnalysisTotal = insightsData.Total
-	response.EngineAnalysisCompleted = insightsData.Completed
-	engineEvals := insightsData.Evals
-
-	analyses, err := s.analysisRepo.GetAllGamesRaw(userID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get analyses: %w", err)
-	}
-
-	// Build lookup: analysisID+gameIndex -> explorer stats
-	type evalKey struct {
-		AnalysisID string
-		GameIndex  int
-	}
-	evalMap := make(map[evalKey][]models.ExplorerMoveStats)
-	for _, ee := range engineEvals {
-		if ee.Status == "done" && len(ee.Evals) > 0 {
-			evalMap[evalKey{ee.AnalysisID, ee.GameIndex}] = ee.Evals
-		}
-	}
-
-	// Group mistakes by FEN + played move
-	type mistakeKey struct {
-		FEN        string
-		PlayedMove string
-	}
-	type mistakeData struct {
-		bestMove    string
-		winrateDrop float64
-		earliestPly int
-		games       []models.GameRef
-		seen        map[string]bool
-	}
-	mistakeGroups := make(map[mistakeKey]*mistakeData)
-
-	for _, a := range analyses {
-		for _, game := range a.Results {
-			stats := evalMap[evalKey{a.ID, game.GameIndex}]
-			if len(stats) == 0 {
-				continue
-			}
-
-			for _, stat := range stats {
-				// Skip the very first move (ply 1-2) - opening choice, not a mistake
-				if stat.PlyNumber <= 2 {
-					continue
-				}
-				// Only count as mistake if winrate drop >= 2%
-				if stat.WinrateDrop < 0.02 {
-					continue
-				}
-
-				key := mistakeKey{FEN: stat.FEN, PlayedMove: stat.PlayedMove}
-				dedup := fmt.Sprintf("%s-%d", a.ID, game.GameIndex)
-
-				data, exists := mistakeGroups[key]
-				if !exists {
-					data = &mistakeData{
-						bestMove:    stat.BestMove,
-						winrateDrop: stat.WinrateDrop,
-						earliestPly: stat.PlyNumber,
-						seen:        make(map[string]bool),
-					}
-					mistakeGroups[key] = data
-				}
-
-				if !data.seen[dedup] {
-					data.seen[dedup] = true
-					if stat.WinrateDrop > data.winrateDrop {
-						data.winrateDrop = stat.WinrateDrop
-						data.bestMove = stat.BestMove
-					}
-					if len(data.games) < 5 {
-						data.games = append(data.games, models.GameRef{
-							AnalysisID: a.ID,
-							GameIndex:  game.GameIndex,
-							PlyNumber:  stat.PlyNumber,
-							White:      game.Headers["White"],
-							Black:      game.Headers["Black"],
-							Result:     game.Headers["Result"],
-							Date:       game.Headers["Date"],
-						})
-					}
-				}
-			}
-		}
-	}
-
-	// Convert to slice, filter, and score: winrateDrop * frequency²
-	// Only keep mistakes that appeared in at least 2 games (recurring patterns)
-	for key, data := range mistakeGroups {
-		// Skip dismissed mistakes and moves that exist in repertoires
-		moveKey := key.FEN + "|" + key.PlayedMove
-		if dismissedMistakes[moveKey] || repertoireMoves[moveKey] {
-			continue
-		}
-
-		freq := len(data.seen)
-		if freq < 2 {
-			continue
-		}
-		score := data.winrateDrop * float64(freq) * float64(freq)
-		response.WorstMistakes = append(response.WorstMistakes, models.OpeningMistake{
-			FEN:         key.FEN,
-			PlayedMove:  key.PlayedMove,
-			BestMove:    data.bestMove,
-			WinrateDrop: data.winrateDrop,
-			Frequency:   freq,
-			Score:       score,
-			Games:       data.games,
-		})
-	}
-
-	// Sort by score desc, take top 2
-	sortMistakes(response.WorstMistakes)
-	if len(response.WorstMistakes) > 2 {
-		response.WorstMistakes = response.WorstMistakes[:2]
-	}
-
-	return response, nil
-}
-
-func sortMistakes(mistakes []models.OpeningMistake) {
-	for i := 1; i < len(mistakes); i++ {
-		for j := i; j > 0 && mistakes[j].Score > mistakes[j-1].Score; j-- {
-			mistakes[j], mistakes[j-1] = mistakes[j-1], mistakes[j]
-		}
-	}
-}
-
 func ensureFullFEN(fen string) string {
 	parts := strings.Fields(fen)
 	if len(parts) >= 6 {
@@ -1302,392 +801,4 @@ func gameStatusFromGame(game models.GameAnalysis) string {
 		}
 	}
 	return "in-repertoire"
-}
-
-// findBranchForGame follows the game's moves through the repertoire tree and returns
-// the BranchName of the deepest named ancestor node along the game's path.
-// It replays the game path through the tree until the game deviates or the tree ends.
-func findBranchForGame(root *models.RepertoireNode, moves []models.MoveAnalysis) string {
-	branchName := ""
-	currentNode := root
-
-	// Check root node
-	if currentNode.BranchName != nil && *currentNode.BranchName != "" {
-		branchName = *currentNode.BranchName
-	}
-
-	for _, move := range moves {
-		if move.Status != "in-repertoire" {
-			break
-		}
-
-		// Find the child node matching this move
-		var nextNode *models.RepertoireNode
-		for _, child := range currentNode.Children {
-			if child != nil && child.Move != nil && *child.Move == move.SAN {
-				nextNode = child
-				break
-			}
-		}
-
-		if nextNode == nil {
-			break
-		}
-
-		// Check if this node has a branch name
-		if nextNode.BranchName != nil && *nextNode.BranchName != "" {
-			branchName = *nextNode.BranchName
-		}
-
-		// The next move in the game will be played from nextNode's position,
-		// so we need to find the child matching the FEN of the next move.
-		// But since we match by SAN against children, we just continue
-		// from the node we found.
-		currentNode = nextNode
-	}
-
-	return branchName
-}
-
-// GetDashboardStats computes aggregate and per-repertoire stats for the dashboard.
-func (s *ImportService) GetDashboardStats(userID string) (*models.DashboardStatsResponse, error) {
-	analyses, err := s.analysisRepo.GetAllGamesRaw(userID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get analyses: %w", err)
-	}
-
-	resp := &models.DashboardStatsResponse{
-		Repertoires:  []models.RepertoireStats{},
-		OpponentGaps: []models.OpponentGap{},
-		BranchStats:  []models.BranchStats{},
-	}
-
-	// Per-repertoire accumulators
-	type repAccum struct {
-		name        string
-		color       models.Color
-		gameCount   int
-		wins        int
-		inRepCount  int
-		inRepWins   int
-		outRepCount int
-		outRepWins  int
-	}
-	repMap := make(map[string]*repAccum)
-
-	// Opponent gap accumulator: keyed by "FEN|SAN|repertoireID"
-	type gapAccum struct {
-		fen            string
-		opponentMove   string
-		repertoireID   string
-		repertoireName string
-		color          models.Color
-		moveNumber     int
-		contextMove    string // last in-rep move before the gap
-		wins           int
-		losses         int
-		draws          int
-	}
-	gapMap := make(map[string]*gapAccum)
-
-	// Branch stats accumulator: keyed by "branchName|repertoireID"
-	type branchAccum struct {
-		branchName     string
-		repertoireID   string
-		repertoireName string
-		color          models.Color
-		gameCount      int
-		wins           int
-		losses         int
-		draws          int
-		errorCount     int
-	}
-	branchMap := make(map[string]*branchAccum)
-
-	// Cache loaded repertoire trees for branch lookups
-	repTreeCache := make(map[string]*models.RepertoireNode)
-
-	// Global win counts split by in/out of repertoire, accumulated during the single
-	// pass below and reused for the overall win-rate computation. This avoids the two
-	// extra full re-scans of every game that the rates previously required.
-	inRepWins := 0
-	outRepWins := 0
-
-	for _, a := range analyses {
-		for _, game := range a.Results {
-			resp.TotalGames++
-			outcome := classifyOutcome(game.Headers["Result"], game.UserColor)
-
-			switch outcome {
-			case "win":
-				resp.Wins++
-			case "loss":
-				resp.Losses++
-			case "draw":
-				resp.Draws++
-			}
-
-			status := gameStatusFromGame(game)
-			inRep := status == "in-repertoire"
-
-			if inRep {
-				resp.InRepCount++
-				if outcome == "win" {
-					inRepWins++
-				}
-			} else {
-				resp.OutRepCount++
-				if outcome == "win" {
-					outRepWins++
-				}
-			}
-
-			// Track matched games for opening error rate
-			hasMatchedRep := game.MatchedRepertoire != nil
-			if hasMatchedRep {
-				resp.MatchedGamesCount++
-				if status == "error" {
-					resp.OpeningErrorCount++
-				}
-			}
-
-			// Per-repertoire tracking
-			if hasMatchedRep {
-				repID := game.MatchedRepertoire.ID
-				acc, ok := repMap[repID]
-				if !ok {
-					acc = &repAccum{
-						name:  game.MatchedRepertoire.Name,
-						color: game.UserColor,
-					}
-					repMap[repID] = acc
-				}
-				acc.gameCount++
-				if outcome == "win" {
-					acc.wins++
-				}
-				if inRep {
-					acc.inRepCount++
-					if outcome == "win" {
-						acc.inRepWins++
-					}
-				} else {
-					acc.outRepCount++
-					if outcome == "win" {
-						acc.outRepWins++
-					}
-				}
-			}
-
-			// --- Opponent Gaps: find the first opponent-new move in each game ---
-			if hasMatchedRep {
-				lastInRepMove := ""
-				for _, move := range game.Moves {
-					if move.Status == "in-repertoire" {
-						lastInRepMove = move.SAN
-					}
-					if move.Status == "opponent-new" {
-						gapKey := move.FEN + "|" + move.SAN + "|" + game.MatchedRepertoire.ID
-						acc, ok := gapMap[gapKey]
-						if !ok {
-							moveNum := (move.PlyNumber / 2) + 1
-							acc = &gapAccum{
-								fen:            move.FEN,
-								opponentMove:   move.SAN,
-								repertoireID:   game.MatchedRepertoire.ID,
-								repertoireName: game.MatchedRepertoire.Name,
-								color:          game.UserColor,
-								moveNumber:     moveNum,
-								contextMove:    lastInRepMove,
-							}
-							gapMap[gapKey] = acc
-						}
-						switch outcome {
-						case "win":
-							acc.wins++
-						case "loss":
-							acc.losses++
-						case "draw":
-							acc.draws++
-						}
-						break // Only count the first opponent-new per game
-					}
-					if move.Status == "out-of-repertoire" {
-						break // User deviated first, no opponent gap for this game
-					}
-				}
-			}
-
-			// --- Branch Stats: determine which named branch this game fell into ---
-			if hasMatchedRep {
-				repID := game.MatchedRepertoire.ID
-
-				// Lazy-load repertoire tree
-				if _, cached := repTreeCache[repID]; !cached {
-					rep, err := s.repertoireService.GetRepertoire(repID)
-					if err != nil {
-						// Repertoire may have been deleted; skip branch stats
-						repTreeCache[repID] = nil
-					} else {
-						repTreeCache[repID] = &rep.TreeData
-					}
-				}
-
-				repTree := repTreeCache[repID]
-				if repTree != nil {
-					branchName := findBranchForGame(repTree, game.Moves)
-					if branchName != "" {
-						branchKey := branchName + "|" + repID
-						bacc, ok := branchMap[branchKey]
-						if !ok {
-							bacc = &branchAccum{
-								branchName:     branchName,
-								repertoireID:   repID,
-								repertoireName: game.MatchedRepertoire.Name,
-								color:          game.UserColor,
-							}
-							branchMap[branchKey] = bacc
-						}
-						bacc.gameCount++
-						switch outcome {
-						case "win":
-							bacc.wins++
-						case "loss":
-							bacc.losses++
-						case "draw":
-							bacc.draws++
-						}
-						if status == "error" {
-							bacc.errorCount++
-						}
-					}
-				}
-			}
-		}
-	}
-
-	// --- Compute aggregate rates ---
-	if resp.TotalGames > 0 {
-		resp.OverallWinRate = float64(resp.Wins) / float64(resp.TotalGames)
-	}
-	if resp.InRepCount+resp.OutRepCount > 0 {
-		resp.OverallCoverage = float64(resp.InRepCount) / float64(resp.InRepCount+resp.OutRepCount)
-	}
-	if resp.InRepCount > 0 {
-		resp.WinRateInRep = float64(inRepWins) / float64(resp.InRepCount)
-	}
-	if resp.OutRepCount > 0 {
-		resp.WinRateOutRep = float64(outRepWins) / float64(resp.OutRepCount)
-	}
-
-	// Opening error rate
-	if resp.MatchedGamesCount > 0 {
-		resp.OpeningErrorRate = float64(resp.OpeningErrorCount) / float64(resp.MatchedGamesCount)
-	}
-
-	// --- Build per-repertoire stats sorted by gameCount desc ---
-	for repID, acc := range repMap {
-		rs := models.RepertoireStats{
-			RepertoireID:   repID,
-			RepertoireName: acc.name,
-			Color:          acc.color,
-			GameCount:      acc.gameCount,
-			InRepCount:     acc.inRepCount,
-			OutRepCount:    acc.outRepCount,
-		}
-		if acc.gameCount > 0 {
-			rs.WinRate = float64(acc.wins) / float64(acc.gameCount)
-			rs.CoveragePercent = float64(acc.inRepCount) / float64(acc.gameCount) * 100
-		}
-		if acc.inRepCount > 0 {
-			rs.WinRateInRep = float64(acc.inRepWins) / float64(acc.inRepCount)
-		}
-		if acc.outRepCount > 0 {
-			rs.WinRateOutRep = float64(acc.outRepWins) / float64(acc.outRepCount)
-		}
-		resp.Repertoires = append(resp.Repertoires, rs)
-	}
-	for i := 1; i < len(resp.Repertoires); i++ {
-		for j := i; j > 0 && resp.Repertoires[j].GameCount > resp.Repertoires[j-1].GameCount; j-- {
-			resp.Repertoires[j], resp.Repertoires[j-1] = resp.Repertoires[j-1], resp.Repertoires[j]
-		}
-	}
-
-	// --- Build opponent gaps sorted by frequency desc, top 10 ---
-	// Fetch dismissed gaps to filter them out
-	var dismissedGaps map[string]bool
-	if s.dismissedGapRepo != nil {
-		var err error
-		dismissedGaps, err = s.dismissedGapRepo.GetDismissed(userID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get dismissed gaps: %w", err)
-		}
-	}
-
-	// Only include gaps that appeared in at least 2 games
-	for _, acc := range gapMap {
-		total := acc.wins + acc.losses + acc.draws
-		if total < 2 {
-			continue
-		}
-		// Skip dismissed gaps
-		gapDismissKey := acc.fen + "|" + acc.opponentMove + "|" + acc.repertoireID
-		if dismissedGaps[gapDismissKey] {
-			continue
-		}
-		gap := models.OpponentGap{
-			FEN:            acc.fen,
-			OpponentMove:   acc.opponentMove,
-			Frequency:      total,
-			Wins:           acc.wins,
-			Losses:         acc.losses,
-			Draws:          acc.draws,
-			RepertoireID:   acc.repertoireID,
-			RepertoireName: acc.repertoireName,
-			Color:          acc.color,
-			MoveNumber:     acc.moveNumber,
-			ContextMove:    acc.contextMove,
-		}
-		if total > 0 {
-			gap.WinRate = float64(acc.wins) / float64(total)
-		}
-		resp.OpponentGaps = append(resp.OpponentGaps, gap)
-	}
-	// Sort by frequency desc
-	for i := 1; i < len(resp.OpponentGaps); i++ {
-		for j := i; j > 0 && resp.OpponentGaps[j].Frequency > resp.OpponentGaps[j-1].Frequency; j-- {
-			resp.OpponentGaps[j], resp.OpponentGaps[j-1] = resp.OpponentGaps[j-1], resp.OpponentGaps[j]
-		}
-	}
-	// Keep top 10
-	if len(resp.OpponentGaps) > 10 {
-		resp.OpponentGaps = resp.OpponentGaps[:10]
-	}
-
-	// --- Build branch stats sorted by gameCount desc ---
-	for _, acc := range branchMap {
-		bs := models.BranchStats{
-			BranchName:     acc.branchName,
-			RepertoireID:   acc.repertoireID,
-			RepertoireName: acc.repertoireName,
-			Color:          acc.color,
-			GameCount:      acc.gameCount,
-			Wins:           acc.wins,
-			Losses:         acc.losses,
-			Draws:          acc.draws,
-			ErrorCount:     acc.errorCount,
-		}
-		if acc.gameCount > 0 {
-			bs.WinRate = float64(acc.wins) / float64(acc.gameCount)
-			bs.ErrorRate = float64(acc.errorCount) / float64(acc.gameCount)
-		}
-		resp.BranchStats = append(resp.BranchStats, bs)
-	}
-	for i := 1; i < len(resp.BranchStats); i++ {
-		for j := i; j > 0 && resp.BranchStats[j].GameCount > resp.BranchStats[j-1].GameCount; j-- {
-			resp.BranchStats[j], resp.BranchStats[j-1] = resp.BranchStats[j-1], resp.BranchStats[j]
-		}
-	}
-
-	return resp, nil
 }

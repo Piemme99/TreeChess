@@ -1,9 +1,8 @@
+import { isDivergence } from '../../../shared/repertoireHandoff';
 import type { GameAnalysis, MoveAnalysis } from '../../../types';
 
 export function getFirstActionableMove(game: GameAnalysis): MoveAnalysis | null {
-  return game.moves.find(
-    (m) => m.status === 'opponent-new' || m.status === 'out-of-repertoire'
-  ) || null;
+  return game.moves.find((m) => isDivergence(m.status)) || null;
 }
 
 export interface GameStats {

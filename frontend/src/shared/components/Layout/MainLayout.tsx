@@ -14,6 +14,8 @@ function PawnIcon({ className }: { className?: string }) {
 
 import { useAuthStore } from '../../../stores/authStore';
 import { ReanalysisIndicator } from '../ReanalysisIndicator';
+import { OnboardingModal } from '../../../features/auth/OnboardingModal';
+import { RouteErrorBoundary } from '../RouteErrorBoundary';
 
 const SIDEBAR_COLLAPSED_KEY = 'kumquat-sidebar-collapsed';
 
@@ -41,6 +43,8 @@ function useMediaQuery(query: string) {
 
 export function MainLayout() {
   const user = useAuthStore((s) => s.user);
+  const needsOnboarding = useAuthStore((s) => s.needsOnboarding);
+  const clearOnboarding = useAuthStore((s) => s.clearOnboarding);
   const navigate = useNavigate();
   const location = useLocation();
   const isRepertoireEdit = /^\/repertoire\/[^/]+\/edit/.test(location.pathname) || /^\/explore\/repertoire\/[^/]+/.test(location.pathname);
@@ -179,10 +183,14 @@ export function MainLayout() {
               : 'p-6'
         }`}
       >
-        <Outlet />
+        <RouteErrorBoundary>
+          <Outlet />
+        </RouteErrorBoundary>
       </main>
 
       <ReanalysisIndicator />
+
+      <OnboardingModal isOpen={needsOnboarding} onClose={clearOnboarding} />
 
       {/* Mobile Bottom Tab Bar */}
       {showBottomTabs && (

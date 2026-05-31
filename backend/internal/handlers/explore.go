@@ -24,7 +24,10 @@ func ListExploreTemplatesHandler() echo.HandlerFunc {
 // POST /api/explore/templates/:id/import
 func ImportExploreTemplateHandler(svc *services.RepertoireService) echo.HandlerFunc {
 	return func(c *echo.Context) error {
-		userID := c.Get("userID").(string)
+		userID, ok := mustUserID(c)
+		if !ok {
+			return nil
+		}
 		templateID := c.Param("id")
 
 		// Validate the template id against the known set so an unknown id
@@ -106,7 +109,10 @@ func GetPublicRepertoireHandler(svc *services.RepertoireService) echo.HandlerFun
 // POST /api/explore/repertoires/:id/import
 func ImportRepertoireHandler(svc *services.RepertoireService) echo.HandlerFunc {
 	return func(c *echo.Context) error {
-		userID := c.Get("userID").(string)
+		userID, ok := mustUserID(c)
+		if !ok {
+			return nil
+		}
 		idParam := c.Param("id")
 
 		if _, err := uuid.Parse(idParam); err != nil {

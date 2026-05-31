@@ -131,7 +131,10 @@ func (h *AuthHandler) LoginHandler(c *echo.Context) error {
 }
 
 func (h *AuthHandler) MeHandler(c *echo.Context) error {
-	userID := c.Get("userID").(string)
+	userID, ok := mustUserID(c)
+	if !ok {
+		return nil
+	}
 
 	user, err := h.authService.GetUserByID(userID)
 	if err != nil {
@@ -151,7 +154,10 @@ var validTimeFormats = map[string]bool{
 }
 
 func (h *AuthHandler) UpdateProfileHandler(c *echo.Context) error {
-	userID := c.Get("userID").(string)
+	userID, ok := mustUserID(c)
+	if !ok {
+		return nil
+	}
 
 	var req models.UpdateProfileRequest
 	if err := c.Bind(&req); err != nil {
@@ -232,7 +238,10 @@ func (h *AuthHandler) ResetPasswordHandler(c *echo.Context) error {
 }
 
 func (h *AuthHandler) ChangePasswordHandler(c *echo.Context) error {
-	userID := c.Get("userID").(string)
+	userID, ok := mustUserID(c)
+	if !ok {
+		return nil
+	}
 
 	var req models.ChangePasswordRequest
 	if err := c.Bind(&req); err != nil {
@@ -269,7 +278,10 @@ func (h *AuthHandler) ChangePasswordHandler(c *echo.Context) error {
 }
 
 func (h *AuthHandler) DeleteAccountHandler(c *echo.Context) error {
-	userID := c.Get("userID").(string)
+	userID, ok := mustUserID(c)
+	if !ok {
+		return nil
+	}
 
 	var req models.DeleteAccountRequest
 	if err := c.Bind(&req); err != nil {
@@ -294,7 +306,10 @@ func (h *AuthHandler) DeleteAccountHandler(c *echo.Context) error {
 }
 
 func (h *AuthHandler) HasPasswordHandler(c *echo.Context) error {
-	userID := c.Get("userID").(string)
+	userID, ok := mustUserID(c)
+	if !ok {
+		return nil
+	}
 
 	hasPassword, err := h.authService.HasPassword(userID)
 	if err != nil {

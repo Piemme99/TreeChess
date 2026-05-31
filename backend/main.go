@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -63,7 +64,7 @@ type appServices struct {
 // test rather than silently disabling auto-re-analysis.
 func buildServices(cfg config.Config, db *repository.DB) *appServices {
 	// Repositories
-	userRepo := repository.NewPostgresUserRepo(db.Pool)
+	userRepo := repository.NewPostgresUserRepo(db.Pool, cfg.JWTSecret)
 	repertoireRepo := repository.NewPostgresRepertoireRepo(db.Pool)
 	categoryRepo := repository.NewPostgresCategoryRepo(db.Pool)
 	analysisRepo := repository.NewPostgresAnalysisRepo(db.Pool)
@@ -93,9 +94,18 @@ func buildServices(cfg config.Config, db *repository.DB) *appServices {
 	importSvc := services.NewImportService(repertoireSvc, analysisRepo,
 		services.WithFingerprintRepo(fingerprintRepo),
 		services.WithEngineService(engineSvc),
-		services.WithDismissedMistakeRepo(dismissedMistakeRepo),
-		services.WithDismissedGapRepo(dismissedGapRepo),
 	)
+
+	// Focused services carved out of the former ImportService god object so each
+	// handler depends only on the data it actually reads (issue #128).
+	dashboardSvc := services.NewDashboardStatsService(repertoireSvc, analysisRepo,
+		services.WithDashboardDismissedGapRepo(dismissedGapRepo),
+	)
+	insightsSvc := services.NewInsightsService(repertoireSvc, analysisRepo,
+		services.WithInsightsEngineService(engineSvc),
+		services.WithInsightsDismissedMistakeRepo(dismissedMistakeRepo),
+	)
+	trainingSvc := services.NewTrainingService(repertoireSvc)
 
 	// Auto re-analyse games whenever a repertoire mutates (issue #45).
 	// In-memory debounce coalesces rapid edits into one run per user.
@@ -115,7 +125,8 @@ func buildServices(cfg config.Config, db *repository.DB) *appServices {
 
 	// Handlers
 	importHandler := handlers.NewImportHandler(importSvc, repertoireSvc, lichessSvc, chesscomSvc).
-		WithReanalysisQueue(reanalysisQueue)
+		WithReanalysisQueue(reanalysisQueue).
+		WithInsightsService(insightsSvc)
 
 	return &appServices{
 		engineSvc:               engineSvc,
@@ -126,16 +137,36 @@ func buildServices(cfg config.Config, db *repository.DB) *appServices {
 		oauthHandler:            handlers.NewOAuthHandler(oauthSvc, userRepo, cfg.FrontendURL, cfg.JWTSecret, cfg.SecureCookies),
 		syncHandler:             handlers.NewSyncHandler(syncSvc),
 		studyImportHandler:      handlers.NewStudyImportHandler(studyImportSvc),
-		trainingHandler:         handlers.NewTrainingHandler(importSvc),
+		trainingHandler:         handlers.NewTrainingHandler(trainingSvc),
 		trainingExplorerHandler: handlers.NewTrainingExplorerHandler(explorerSvc, openingCacheRepo, userRepo, cfg.LichessExplorerCacheTTL),
 		importHandler:           importHandler,
-		dashboardHandler:        handlers.NewDashboardHandler(importSvc, repertoireSvc),
+		dashboardHandler:        handlers.NewDashboardHandler(dashboardSvc, repertoireSvc),
 		categorySvc:             categorySvc,
 	}
 }
 
+// proxyAwareIPExtractor derives the real client IP from the X-Forwarded-For
+// header while trusting only loopback, link-local and private-network hops (the
+// reverse proxy that fronts the app in the documented deployment). It walks
+// X-Forwarded-For from the proxy side inward and returns the nearest *untrusted*
+// address — i.e. the client IP as recorded by the trusted proxy — so a spoofed
+// client-supplied X-Forwarded-For entry cannot forge the rate-limit / logging
+// identity. With no proxy in front, it falls back to the TCP remote address.
+func proxyAwareIPExtractor() echo.IPExtractor {
+	return echo.ExtractIPFromXFFHeader(
+		echo.TrustLoopback(true),
+		echo.TrustLinkLocal(true),
+		echo.TrustPrivateNet(true),
+	)
+}
+
 // rateLimiter builds a per-IP, in-memory rate-limiter middleware that responds
 // with HTTP 429 and the given JSON error message when the limit is exceeded.
+//
+// Clients are keyed on ctx.RealIP(). The server installs proxyAwareIPExtractor
+// (see newServer), so RealIP returns the real client IP recorded by the trusted
+// reverse proxy and a client-supplied X-Forwarded-For header cannot be used to
+// forge an identity and evade the limit. See the deployment notes in .env.example.
 func rateLimiter(rate float64, burst int, msg string) echo.MiddlewareFunc {
 	deny := func(ctx *echo.Context) error {
 		return ctx.JSON(http.StatusTooManyRequests, map[string]string{"error": msg})
@@ -280,6 +311,11 @@ func registerRoutes(e *echo.Echo, db *repository.DB, svc *appServices) {
 func newServer(cfg config.Config, db *repository.DB, svc *appServices) *echo.Echo {
 	e := echo.New()
 
+	// Derive the client IP from X-Forwarded-For trusting only the reverse-proxy
+	// hop, so the rate limiter and request logger cannot be fooled by a
+	// client-supplied X-Forwarded-For header (see proxyAwareIPExtractor).
+	e.IPExtractor = proxyAwareIPExtractor()
+
 	// Middleware
 	e.Use(middleware.RequestLogger())
 	e.Use(middleware.Recover())
@@ -335,12 +371,25 @@ func main() {
 	metrics := echo.New()
 	metrics.GET("/metrics", echoprometheus.NewHandler())
 
-	// Start opening analysis worker
+	// Start background workers under a shared cancellable context. A WaitGroup
+	// lets us join them on shutdown before closing the DB pool, so no eval is
+	// left half-written and no query runs against a closed pool.
 	workerCtx, workerCancel := context.WithCancel(context.Background())
-	go svc.engineSvc.RunWorker(workerCtx)
+	var workerWG sync.WaitGroup
+
+	// Start opening analysis worker
+	workerWG.Add(1)
+	go func() {
+		defer workerWG.Done()
+		svc.engineSvc.RunWorker(workerCtx)
+	}()
 
 	// Start periodic cleanup worker (expired tokens + stale explorer cache)
-	go svc.cleanupSvc.RunWorker(workerCtx)
+	workerWG.Add(1)
+	go func() {
+		defer workerWG.Done()
+		svc.cleanupSvc.RunWorker(workerCtx)
+	}()
 
 	// Start metrics server in a goroutine
 	metricsAddr := fmt.Sprintf(":%d", cfg.MetricsPort)
@@ -379,7 +428,7 @@ func main() {
 
 	slog.Info("shutting down server")
 
-	// Stop the engine worker
+	// Signal the background workers to stop.
 	workerCancel()
 
 	// Graceful shutdown with 10s timeout
@@ -392,7 +441,10 @@ func main() {
 		slog.Error("server forced to shutdown", "error", err)
 	}
 
-	// Close DB after server is shut down
+	// Join the background workers so no in-flight query races db.Close().
+	workerWG.Wait()
+
+	// Close DB after the servers are shut down and the workers have stopped.
 	db.Close()
 	slog.Info("server stopped")
 }

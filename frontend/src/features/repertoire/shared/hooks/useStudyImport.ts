@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { studyApi } from '../../../../services/api';
 import { toast } from '../../../../stores/toastStore';
+import { getApiErrorMessage } from '../../../../shared/utils/apiError';
 import type {
   StudyInfo,
   StudyImportResponse,
@@ -55,9 +56,7 @@ export function useStudyImport(onSuccess?: () => void): UseStudyImportReturn {
       setStudyInfo(info);
       return true;
     } catch (error) {
-      const axiosError = error as { response?: { data?: { error?: string }; status?: number } };
-      const errorMessage = axiosError.response?.data?.error || 'Failed to fetch study from Lichess';
-      setPreviewError(errorMessage);
+      setPreviewError(getApiErrorMessage(error, 'Failed to fetch study from Lichess'));
       return false;
     } finally {
       setPreviewing(false);
