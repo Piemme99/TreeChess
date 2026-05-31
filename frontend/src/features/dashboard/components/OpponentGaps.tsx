@@ -4,8 +4,10 @@ import { Chess } from 'chess.js';
 import { X } from 'lucide-react';
 import { ColorDot } from '../../../shared/components/UI';
 import { StaticBoard } from '../../../shared/components/Board/StaticBoard';
-import { ensureFullFEN } from '../../../shared/utils/chess';
+import { ensureFullFEN, makeMove } from '../../../shared/utils/chess';
+import { stashPendingAddSequence } from '../../../shared/repertoireHandoff';
 import { dashboardApi } from '../../../services/api';
+import { toast } from '../../../stores/toastStore';
 import type { OpponentGap } from '../../../types';
 
 function gapKey(gap: OpponentGap): string {
@@ -88,14 +90,19 @@ function GapCard({ gap, onDismiss }: { gap: OpponentGap; onDismiss: () => void }
             </span>
             <button
               onClick={() => {
+                const parentFEN = ensureFullFEN(gap.fen);
+                const resultFEN = makeMove(parentFEN, gap.opponentMove);
+                if (!resultFEN) {
+                  toast.error(`Invalid move: ${gap.opponentMove}`);
+                  return;
+                }
                 onDismiss();
-                sessionStorage.setItem('pendingAddNode', JSON.stringify({
+                stashPendingAddSequence({
                   repertoireId: gap.repertoireId,
                   repertoireName: gap.repertoireName,
-                  parentFEN: gap.fen,
-                  moveSAN: gap.opponentMove,
                   gameInfo: 'Unprepared Lines',
-                }));
+                  moves: [{ parentFEN, moveSAN: gap.opponentMove, resultFEN }],
+                });
                 navigate(`/repertoire/${gap.repertoireId}/edit`, { state: { from: location.pathname } });
               }}
               className="text-xs text-primary hover:text-primary-hover font-medium transition-colors"
