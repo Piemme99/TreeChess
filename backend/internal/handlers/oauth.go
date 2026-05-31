@@ -140,9 +140,13 @@ func (h *OAuthHandler) Callback(c *echo.Context) error {
 		})
 	}
 
-	redirectURL := fmt.Sprintf("%s/login?token=%s", h.frontendURL, url.QueryEscape(resp.Token))
+	// Do NOT put the access token in the redirect URL: that leaks the JWT
+	// into browser history, proxy logs, and the Referer header (issue #124).
+	// The refresh token cookie set above lets the frontend obtain an access
+	// token via /api/auth/refresh on the OAuth return.
+	redirectURL := h.frontendURL + "/login"
 	if isNew {
-		redirectURL += "&new=1"
+		redirectURL += "?new=1"
 	}
 	return c.Redirect(http.StatusTemporaryRedirect, redirectURL)
 }

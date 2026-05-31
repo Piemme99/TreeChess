@@ -15,7 +15,7 @@ interface AuthState {
   lastSyncError: string | null;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, username: string, password: string) => Promise<void>;
-  handleOAuthToken: (token: string, isNew?: boolean) => Promise<void>;
+  completeOAuthLogin: (isNew?: boolean) => Promise<void>;
   logout: () => Promise<void>;
   checkAuth: () => Promise<void>;
   clearError: () => void;
@@ -76,21 +76,23 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
   },
 
-  handleOAuthToken: async (token: string, isNew = false) => {
-    // OAuth callback provides the access token via URL parameter
-    // The refresh token was already set as an httpOnly cookie by the backend
-    setAccessToken(token);
+  completeOAuthLogin: async (isNew = false) => {
+    // The OAuth callback no longer puts the access token in the URL (it would
+    // leak the JWT into history/logs/Referer — see issue #124). Instead the
+    // backend set an httpOnly refresh cookie; exchange it here for an in-memory
+    // access token via the existing refresh flow.
     set({ error: null });
     try {
-      const user = await authApi.me();
+      const response = await refreshWithRetry();
+      setAccessToken(response.token);
       set({
-        user,
+        user: response.user,
         isAuthenticated: true,
         needsOnboarding: isNew,
         loading: false,
       });
       // Fire-and-forget sync for returning OAuth users with platform usernames
-      if (!isNew && (user.lichessUsername || user.chesscomUsername)) {
+      if (!isNew && (response.user.lichessUsername || response.user.chesscomUsername)) {
         useAuthStore.getState().triggerSync();
       }
     } catch {
@@ -99,9 +101,9 @@ export const useAuthStore = create<AuthState>((set) => ({
         user: null,
         isAuthenticated: false,
         loading: false,
-        error: 'Failed to verify OAuth token',
+        error: 'Failed to complete OAuth sign-in',
       });
-      throw new Error('Failed to verify OAuth token');
+      throw new Error('Failed to complete OAuth sign-in');
     }
   },
 

@@ -35,7 +35,7 @@ export function LoginPage() {
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  const { login, register, handleOAuthToken } = useAuthStore();
+  const { login, register, completeOAuthLogin } = useAuthStore();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -47,35 +47,29 @@ export function LoginPage() {
   }, [searchParams]);
 
   useEffect(() => {
-    const token = searchParams.get('token');
     const oauthError = searchParams.get('error');
     const isNew = searchParams.get('new') === '1';
 
-    if (token) {
-      // Scrub the raw token from window.location BEFORE any async work so it
-      // cannot leak into browser history, the Referer header, or extension
-      // hooks while the exchange is in flight. setSearchParams alone only
-      // updates the router on the next render, so also replace the live URL
-      // synchronously here.
-      scrubLocationQuery();
+    // After a successful Lichess OAuth login the backend redirects here with
+    // `?new=1` for first-time users (and no params for returning users). The
+    // access token is NOT in the URL anymore (it would leak the JWT — see
+    // issue #124); instead we exchange the httpOnly refresh cookie for an
+    // in-memory access token. Returning users are already authenticated by the
+    // app-level checkAuth on mount, so we only need to act on `?new=1` here to
+    // trigger the onboarding modal.
+    if (isNew) {
       setSearchParams({}, { replace: true });
-      handleOAuthToken(token, isNew)
-        .then(() => {
-          if (!isNew) {
-            navigate('/dashboard', { replace: true });
-          }
-        })
-        .catch((err) => {
-          if (err instanceof Error) {
-            setError(err.message);
-          }
-        });
+      completeOAuthLogin(true).catch((err) => {
+        if (err instanceof Error) {
+          setError(err.message);
+        }
+      });
     } else if (oauthError) {
       scrubLocationQuery();
       setSearchParams({}, { replace: true });
       setError(OAUTH_ERROR_MESSAGES[oauthError] || 'Authentication failed. Please try again.');
     }
-  }, [searchParams, setSearchParams, handleOAuthToken, navigate]);
+  }, [searchParams, setSearchParams, completeOAuthLogin]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

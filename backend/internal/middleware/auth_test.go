@@ -95,7 +95,10 @@ func TestJWTAuth_InvalidToken(t *testing.T) {
 	assert.Equal(t, http.StatusUnauthorized, rec.Code)
 }
 
-func TestJWTAuth_QueryParamFallback(t *testing.T) {
+// A JWT supplied via the ?token= query param must NOT authenticate the
+// request. The query-param fallback was removed to keep the access token out
+// of URLs and logs (issue #124).
+func TestJWTAuth_QueryParamRejected(t *testing.T) {
 	validator := validValidator()
 
 	e := echo.New()
@@ -105,15 +108,14 @@ func TestJWTAuth_QueryParamFallback(t *testing.T) {
 
 	middleware := JWTAuth(validator)
 	handler := middleware(func(c *echo.Context) error {
-		userID := c.Get("userID").(string)
-		assert.Equal(t, "user-123", userID)
-		return c.String(http.StatusOK, "ok")
+		t.Fatal("should not reach handler")
+		return nil
 	})
 
 	err := handler(c)
 
 	require.NoError(t, err)
-	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Equal(t, http.StatusUnauthorized, rec.Code)
 }
 
 func TestJWTAuth_BearerPrefixStripping(t *testing.T) {

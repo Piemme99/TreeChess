@@ -4,43 +4,48 @@ import { MemoryRouter } from 'react-router';
 
 import { LoginPage } from './LoginPage';
 
-const handleOAuthToken = vi.fn();
+const completeOAuthLogin = vi.fn();
 
 vi.mock('../../stores/authStore', () => ({
   useAuthStore: () => ({
     login: vi.fn(),
     register: vi.fn(),
-    handleOAuthToken,
-    needsOnboarding: false,
-    clearOnboarding: vi.fn(),
+    completeOAuthLogin,
   }),
 }));
 
-vi.mock('./OnboardingModal', () => ({
-  OnboardingModal: () => null,
-}));
-
-describe('LoginPage OAuth token handling', () => {
+describe('LoginPage OAuth login completion', () => {
   beforeEach(() => {
-    handleOAuthToken.mockReset();
-    handleOAuthToken.mockResolvedValue(undefined);
-    window.history.replaceState(null, '', '/login?token=secret-token&new=1');
+    completeOAuthLogin.mockReset();
+    completeOAuthLogin.mockResolvedValue(undefined);
   });
 
-  it('scrubs the token from window.location synchronously before exchanging it', async () => {
+  it('completes login via the refresh cookie for new users — no token in the URL', async () => {
+    // The backend redirects first-time OAuth users to `/login?new=1` and NO
+    // longer puts the access JWT in the URL (issue #124). LoginPage acts on
+    // `?new=1` by exchanging the httpOnly refresh cookie via completeOAuthLogin.
     render(
-      <MemoryRouter initialEntries={['/login?token=secret-token&new=1']}>
+      <MemoryRouter initialEntries={['/login?new=1']}>
         <LoginPage />
       </MemoryRouter>
     );
 
-    // The live browser URL must no longer carry the token.
-    expect(window.location.search).toBe('');
-    expect(window.location.href).not.toContain('secret-token');
-
-    // The token is still handed to the exchange.
     await waitFor(() => {
-      expect(handleOAuthToken).toHaveBeenCalledWith('secret-token', true);
+      expect(completeOAuthLogin).toHaveBeenCalledWith(true);
+    });
+  });
+
+  it('does not complete OAuth login when there are no OAuth params', async () => {
+    // Returning users are authenticated by the app-level checkAuth on mount, so
+    // a plain /login visit must not trigger an OAuth completion.
+    render(
+      <MemoryRouter initialEntries={['/login']}>
+        <LoginPage />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(completeOAuthLogin).not.toHaveBeenCalled();
     });
   });
 });
