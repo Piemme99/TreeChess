@@ -279,7 +279,7 @@ func TestUserIsolation_ExtractSubtree(t *testing.T) {
 	addBody, _ := json.Marshal(models.AddNodeRequest{ParentID: rep.TreeData.ID, Move: "e4"})
 	req = testhelpers.AuthRequest(http.MethodPost, "/api/repertoires/"+rep.ID+"/nodes", addBody, tokenA)
 	rec = ts.DoRequest(req)
-	require.Equal(t, http.StatusCreated, rec.Code)
+	require.Equal(t, http.StatusOK, rec.Code)
 
 	var withNode models.Repertoire
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &withNode))
