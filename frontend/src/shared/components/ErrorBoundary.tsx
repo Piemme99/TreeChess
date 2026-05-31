@@ -1,5 +1,6 @@
-import { Component, type ReactNode } from 'react';
+import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { Button } from './UI/Button';
+import { generateErrorReference, reportBoundaryError } from '../utils/errorReporting';
 
 interface Props {
   children: ReactNode;
@@ -7,16 +8,21 @@ interface Props {
 
 interface State {
   hasError: boolean;
+  reference: string | null;
 }
 
 export class ErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
     super(props);
-    this.state = { hasError: false };
+    this.state = { hasError: false, reference: null };
   }
 
-  static getDerivedStateFromError(): State {
-    return { hasError: true };
+  static getDerivedStateFromError(): Partial<State> {
+    return { hasError: true, reference: generateErrorReference() };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    reportBoundaryError(error, errorInfo, this.state.reference ?? generateErrorReference());
   }
 
   render() {
@@ -29,6 +35,9 @@ export class ErrorBoundary extends Component<Props, State> {
             <Button variant="primary" onClick={() => window.location.reload()}>
               Reload page
             </Button>
+            {this.state.reference && (
+              <p className="text-xs text-text-muted mt-4">Error reference: {this.state.reference}</p>
+            )}
           </div>
         </div>
       );

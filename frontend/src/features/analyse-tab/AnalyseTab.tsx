@@ -17,6 +17,7 @@ export function AnalyseTab() {
   const {
     games,
     loading,
+    newTotal,
     nextPage,
     prevPage,
     hasNextPage,
@@ -56,6 +57,7 @@ export function AnalyseTab() {
           totalPages={totalPages}
           onNextPage={nextPage}
           onPrevPage={prevPage}
+          newGamesTotal={newTotal}
         />
       </section>
     </div>

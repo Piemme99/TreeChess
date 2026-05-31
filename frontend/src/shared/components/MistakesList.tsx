@@ -79,6 +79,12 @@ function MistakeCardComponent({ mistake, index, onDismiss }: MistakeCardProps) {
   );
   const orientation = useMemo(() => orientationFromFen(mistake.fen), [mistake.fen]);
 
+  const openMistakeGame = () => {
+    if (firstGame) {
+      navigate(`/analyse/${firstGame.analysisId}/game/${firstGame.gameIndex}?ply=${firstGame.plyNumber}`, { state: { from: location.pathname } });
+    }
+  };
+
   return (
     <motion.div
       variants={fadeUp}
@@ -111,10 +117,15 @@ function MistakeCardComponent({ mistake, index, onDismiss }: MistakeCardProps) {
       {/* Body: board + text */}
       <div className="flex gap-3">
         <div
-          className="shrink-0 cursor-pointer"
-          onClick={() => {
-            if (firstGame) {
-              navigate(`/analyse/${firstGame.analysisId}/game/${firstGame.gameIndex}?ply=${firstGame.plyNumber}`, { state: { from: location.pathname } });
+          className="shrink-0 cursor-pointer rounded-md focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2"
+          role="button"
+          tabIndex={0}
+          aria-label={`View ${mistake.playedMove} mistake on the board`}
+          onClick={openMistakeGame}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              openMistakeGame();
             }
           }}
         >

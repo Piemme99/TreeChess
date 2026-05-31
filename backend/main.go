@@ -94,9 +94,18 @@ func buildServices(cfg config.Config, db *repository.DB) *appServices {
 	importSvc := services.NewImportService(repertoireSvc, analysisRepo,
 		services.WithFingerprintRepo(fingerprintRepo),
 		services.WithEngineService(engineSvc),
-		services.WithDismissedMistakeRepo(dismissedMistakeRepo),
-		services.WithDismissedGapRepo(dismissedGapRepo),
 	)
+
+	// Focused services carved out of the former ImportService god object so each
+	// handler depends only on the data it actually reads (issue #128).
+	dashboardSvc := services.NewDashboardStatsService(repertoireSvc, analysisRepo,
+		services.WithDashboardDismissedGapRepo(dismissedGapRepo),
+	)
+	insightsSvc := services.NewInsightsService(repertoireSvc, analysisRepo,
+		services.WithInsightsEngineService(engineSvc),
+		services.WithInsightsDismissedMistakeRepo(dismissedMistakeRepo),
+	)
+	trainingSvc := services.NewTrainingService(repertoireSvc)
 
 	// Auto re-analyse games whenever a repertoire mutates (issue #45).
 	// In-memory debounce coalesces rapid edits into one run per user.
@@ -116,7 +125,8 @@ func buildServices(cfg config.Config, db *repository.DB) *appServices {
 
 	// Handlers
 	importHandler := handlers.NewImportHandler(importSvc, repertoireSvc, lichessSvc, chesscomSvc).
-		WithReanalysisQueue(reanalysisQueue)
+		WithReanalysisQueue(reanalysisQueue).
+		WithInsightsService(insightsSvc)
 
 	return &appServices{
 		engineSvc:               engineSvc,
@@ -127,16 +137,36 @@ func buildServices(cfg config.Config, db *repository.DB) *appServices {
 		oauthHandler:            handlers.NewOAuthHandler(oauthSvc, userRepo, cfg.FrontendURL, cfg.JWTSecret, cfg.SecureCookies),
 		syncHandler:             handlers.NewSyncHandler(syncSvc),
 		studyImportHandler:      handlers.NewStudyImportHandler(studyImportSvc),
-		trainingHandler:         handlers.NewTrainingHandler(importSvc),
+		trainingHandler:         handlers.NewTrainingHandler(trainingSvc),
 		trainingExplorerHandler: handlers.NewTrainingExplorerHandler(explorerSvc, openingCacheRepo, userRepo, cfg.LichessExplorerCacheTTL),
 		importHandler:           importHandler,
-		dashboardHandler:        handlers.NewDashboardHandler(importSvc),
+		dashboardHandler:        handlers.NewDashboardHandler(dashboardSvc),
 		categorySvc:             categorySvc,
 	}
 }
 
+// proxyAwareIPExtractor derives the real client IP from the X-Forwarded-For
+// header while trusting only loopback, link-local and private-network hops (the
+// reverse proxy that fronts the app in the documented deployment). It walks
+// X-Forwarded-For from the proxy side inward and returns the nearest *untrusted*
+// address — i.e. the client IP as recorded by the trusted proxy — so a spoofed
+// client-supplied X-Forwarded-For entry cannot forge the rate-limit / logging
+// identity. With no proxy in front, it falls back to the TCP remote address.
+func proxyAwareIPExtractor() echo.IPExtractor {
+	return echo.ExtractIPFromXFFHeader(
+		echo.TrustLoopback(true),
+		echo.TrustLinkLocal(true),
+		echo.TrustPrivateNet(true),
+	)
+}
+
 // rateLimiter builds a per-IP, in-memory rate-limiter middleware that responds
 // with HTTP 429 and the given JSON error message when the limit is exceeded.
+//
+// Clients are keyed on ctx.RealIP(). The server installs proxyAwareIPExtractor
+// (see newServer), so RealIP returns the real client IP recorded by the trusted
+// reverse proxy and a client-supplied X-Forwarded-For header cannot be used to
+// forge an identity and evade the limit. See the deployment notes in .env.example.
 func rateLimiter(rate float64, burst int, msg string) echo.MiddlewareFunc {
 	deny := func(ctx *echo.Context) error {
 		return ctx.JSON(http.StatusTooManyRequests, map[string]string{"error": msg})
@@ -280,6 +310,11 @@ func registerRoutes(e *echo.Echo, db *repository.DB, svc *appServices) {
 // routes. It is split out from main() so the wiring can be exercised in tests.
 func newServer(cfg config.Config, db *repository.DB, svc *appServices) *echo.Echo {
 	e := echo.New()
+
+	// Derive the client IP from X-Forwarded-For trusting only the reverse-proxy
+	// hop, so the rate limiter and request logger cannot be fooled by a
+	// client-supplied X-Forwarded-For header (see proxyAwareIPExtractor).
+	e.IPExtractor = proxyAwareIPExtractor()
 
 	// Middleware
 	e.Use(middleware.RequestLogger())
