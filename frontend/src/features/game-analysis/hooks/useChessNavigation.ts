@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useMoveCursor } from '../../../shared/hooks/useMoveCursor';
 import type { GameAnalysis } from '../../../types';
 
 const DEFAULT_OPENING_PLIES = 20;
@@ -9,7 +10,15 @@ export function useChessNavigation(
   initialPly?: number,
   analysisId?: string
 ) {
-  const [currentMoveIndex, setCurrentMoveIndex] = useState(-1);
+  const maxDisplayedMoveIndex = useMemo(() => {
+    if (!game) return -1;
+    if (showFullGame) return game.moves.length - 1;
+    return Math.min(DEFAULT_OPENING_PLIES - 1, game.moves.length - 1);
+  }, [game, showFullGame]);
+
+  const cursor = useMoveCursor(maxDisplayedMoveIndex);
+  const { currentMoveIndex, setCurrentMoveIndex, goToMove } = cursor;
+
   // Tracks the game we last positioned, keyed on a composite of analysisId and
   // gameIndex. gameIndex is only unique within a single import, so stepping
   // across analyses in an analyse-session (analysis A game 0 -> analysis B
@@ -34,64 +43,29 @@ export function useChessNavigation(
     } else {
       setCurrentMoveIndex(-1);
     }
-  }, [game, initialPly, analysisId]);
-
-  const maxDisplayedMoveIndex = useMemo(() => {
-    if (!game) return -1;
-    if (showFullGame) return game.moves.length - 1;
-    return Math.min(DEFAULT_OPENING_PLIES - 1, game.moves.length - 1);
-  }, [game, showFullGame]);
+  }, [game, initialPly, analysisId, setCurrentMoveIndex]);
 
   const hasMoreMoves = useMemo(() => {
     if (!game) return false;
     return game.moves.length > DEFAULT_OPENING_PLIES;
   }, [game]);
 
-  const goToMove = useCallback((index: number) => {
+  // Guard navigation while no game is loaded; otherwise delegate to the cursor.
+  const guardedGoToMove = useCallback((index: number) => {
     if (!game) return;
-    setCurrentMoveIndex(Math.max(-1, Math.min(index, maxDisplayedMoveIndex)));
-  }, [game, maxDisplayedMoveIndex]);
+    goToMove(index);
+  }, [game, goToMove]);
 
-  const goFirst = useCallback(() => goToMove(-1), [goToMove]);
-  const goPrev = useCallback(() => goToMove(currentMoveIndex - 1), [goToMove, currentMoveIndex]);
-  const goNext = useCallback(() => goToMove(currentMoveIndex + 1), [goToMove, currentMoveIndex]);
-  const goLast = useCallback(() => goToMove(maxDisplayedMoveIndex), [goToMove, maxDisplayedMoveIndex]);
-
-  const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
-      return;
-    }
-
-    switch (e.key) {
-      case 'ArrowLeft':
-        e.preventDefault();
-        goPrev();
-        break;
-      case 'ArrowRight':
-        e.preventDefault();
-        goNext();
-        break;
-      case 'Home':
-        e.preventDefault();
-        goFirst();
-        break;
-      case 'End':
-        e.preventDefault();
-        goLast();
-        break;
-    }
-  }, [goFirst, goPrev, goNext, goLast]);
-
-  useEffect(() => {
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleKeyDown]);
+  const goFirst = useCallback(() => guardedGoToMove(-1), [guardedGoToMove]);
+  const goPrev = useCallback(() => guardedGoToMove(currentMoveIndex - 1), [guardedGoToMove, currentMoveIndex]);
+  const goNext = useCallback(() => guardedGoToMove(currentMoveIndex + 1), [guardedGoToMove, currentMoveIndex]);
+  const goLast = useCallback(() => guardedGoToMove(maxDisplayedMoveIndex), [guardedGoToMove, maxDisplayedMoveIndex]);
 
   return {
     currentMoveIndex,
     maxDisplayedMoveIndex,
     hasMoreMoves,
-    goToMove,
+    goToMove: guardedGoToMove,
     goFirst,
     goPrev,
     goNext,
