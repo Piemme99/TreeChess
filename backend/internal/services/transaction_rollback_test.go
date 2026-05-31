@@ -33,19 +33,19 @@ func TestMergeRepertoires_RollsBackOnDeleteFailure(t *testing.T) {
 
 	var withinTxCalls, deleteAttempts int
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			if r, ok := reps[id]; ok {
 				return r, nil
 			}
 			return nil, repository.ErrRepertoireNotFound
 		},
-		CreateFunc: func(userID, name string, color models.Color) (*models.Repertoire, error) {
+		CreateFunc: func(_ context.Context, userID, name string, color models.Color) (*models.Repertoire, error) {
 			return &models.Repertoire{ID: "merged", Name: name, Color: color, TreeData: makeTree("new-root")}, nil
 		},
-		SaveFunc: func(id, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
+		SaveFunc: func(_ context.Context, id, userID string, treeData models.RepertoireNode, metadata models.Metadata, _ int) (*models.Repertoire, error) {
 			return &models.Repertoire{ID: id, TreeData: treeData, Metadata: metadata}, nil
 		},
-		DeleteFunc: func(id, userID string) error {
+		DeleteFunc: func(_ context.Context, id, userID string) error {
 			deleteAttempts++
 			// First delete succeeds; the second fails mid-loop.
 			if deleteAttempts >= 2 {
@@ -64,7 +64,7 @@ func TestMergeRepertoires_RollsBackOnDeleteFailure(t *testing.T) {
 	notifier := &fakeNotifier{}
 	svc := NewRepertoireService(mockRepo).WithReanalysisQueue(notifier)
 
-	_, err := svc.MergeRepertoires("user-1", []string{"rep-1", "rep-2"}, "Merged")
+	_, err := svc.MergeRepertoires(context.Background(), "user-1", []string{"rep-1", "rep-2"}, "Merged")
 
 	require.Error(t, err)
 	assert.ErrorIs(t, err, errInjected)
@@ -81,7 +81,7 @@ func TestMergeRepertoires_RollsBackOnCommitFailure(t *testing.T) {
 		"rep-2": {ID: "rep-2", Color: models.ColorWhite, TreeData: makeTree("r2")},
 	}
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			if r, ok := reps[id]; ok {
 				return r, nil
 			}
@@ -96,7 +96,7 @@ func TestMergeRepertoires_RollsBackOnCommitFailure(t *testing.T) {
 	notifier := &fakeNotifier{}
 	svc := NewRepertoireService(mockRepo).WithReanalysisQueue(notifier)
 
-	_, err := svc.MergeRepertoires("user-1", []string{"rep-1", "rep-2"}, "Merged")
+	_, err := svc.MergeRepertoires(context.Background(), "user-1", []string{"rep-1", "rep-2"}, "Merged")
 
 	require.Error(t, err)
 	assert.ErrorIs(t, err, errInjected)
@@ -112,7 +112,7 @@ func TestExtractSubtree_RollsBackOnPruneSaveFailure(t *testing.T) {
 	move1 := "e4"
 	move2 := "e5"
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID:    id,
 				Name:  "Original",
@@ -128,13 +128,13 @@ func TestExtractSubtree_RollsBackOnPruneSaveFailure(t *testing.T) {
 				},
 			}, nil
 		},
-		CountFunc: func(userID string) (int, error) { return 1, nil },
-		CreateFunc: func(userID, name string, color models.Color) (*models.Repertoire, error) {
+		CountFunc: func(_ context.Context, userID string) (int, error) { return 1, nil },
+		CreateFunc: func(_ context.Context, userID, name string, color models.Color) (*models.Repertoire, error) {
 			return &models.Repertoire{ID: "new-rep", Name: name, Color: color}, nil
 		},
 	}
 	var saveCalls int
-	mockRepo.SaveFunc = func(id, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
+	mockRepo.SaveFunc = func(_ context.Context, id, userID string, treeData models.RepertoireNode, metadata models.Metadata, _ int) (*models.Repertoire, error) {
 		saveCalls++
 		// First save (extracted copy) succeeds; second save (pruned original) fails.
 		if saveCalls >= 2 {
@@ -151,7 +151,7 @@ func TestExtractSubtree_RollsBackOnPruneSaveFailure(t *testing.T) {
 	notifier := &fakeNotifier{}
 	svc := NewRepertoireService(mockRepo).WithReanalysisQueue(notifier)
 
-	_, err := svc.ExtractSubtree("user-1", "rep-1", "child1", "Extracted")
+	_, err := svc.ExtractSubtree(context.Background(), "user-1", "rep-1", "child1", "Extracted")
 
 	require.Error(t, err)
 	assert.ErrorIs(t, err, errInjected)
@@ -183,10 +183,10 @@ func TestImportStudyChaptersWithCategory_RollsBackOnFailure(t *testing.T) {
 	var planSeen models.StudyImportPlan
 	var persistCalls int
 	mockRepSvc := &smocks.MockRepertoireService{
-		ListRepertoiresFunc: func(userID string, color *models.Color) ([]models.Repertoire, error) {
+		ListRepertoiresFunc: func(_ context.Context, userID string, color *models.Color) ([]models.Repertoire, error) {
 			return nil, nil
 		},
-		PersistStudyImportFunc: func(userID string, plan models.StudyImportPlan) (*models.StudyImportPersistResult, error) {
+		PersistStudyImportFunc: func(_ context.Context, userID string, plan models.StudyImportPlan) (*models.StudyImportPersistResult, error) {
 			persistCalls++
 			planSeen = plan
 			// Simulate the import transaction failing (e.g. category created but a
@@ -197,7 +197,7 @@ func TestImportStudyChaptersWithCategory_RollsBackOnFailure(t *testing.T) {
 
 	svc := NewStudyImportService(mockLichess, mockRepSvc, &mocks.MockUserRepo{})
 
-	result, err := svc.ImportStudyChaptersWithCategory("user-1", "testid01", "", []int{0, 1}, true, "Sicilian", false, true, RenameStrategyAbort)
+	result, err := svc.ImportStudyChaptersWithCategory(context.Background(), "user-1", "testid01", "", []int{0, 1}, true, "Sicilian", false, true, RenameStrategyAbort)
 
 	require.Error(t, err)
 	assert.Nil(t, result, "no partial result on a failed atomic import")
@@ -228,10 +228,10 @@ func TestImportStudyChaptersMerged_RollsBackOnFailure(t *testing.T) {
 	}
 	var persistCalls int
 	mockRepSvc := &smocks.MockRepertoireService{
-		ListRepertoiresFunc: func(userID string, color *models.Color) ([]models.Repertoire, error) {
+		ListRepertoiresFunc: func(_ context.Context, userID string, color *models.Color) ([]models.Repertoire, error) {
 			return nil, nil
 		},
-		PersistStudyImportFunc: func(userID string, plan models.StudyImportPlan) (*models.StudyImportPersistResult, error) {
+		PersistStudyImportFunc: func(_ context.Context, userID string, plan models.StudyImportPlan) (*models.StudyImportPersistResult, error) {
 			persistCalls++
 			assert.Nil(t, plan.Category, "merged import creates no category")
 			require.Len(t, plan.Repertoires, 1)
@@ -241,7 +241,7 @@ func TestImportStudyChaptersMerged_RollsBackOnFailure(t *testing.T) {
 
 	svc := NewStudyImportService(mockLichess, mockRepSvc, &mocks.MockUserRepo{})
 
-	result, err := svc.ImportStudyChaptersMerged("user-1", "testid01", "", []int{0, 1}, "Merged", false, true, RenameStrategyAbort)
+	result, err := svc.ImportStudyChaptersMerged(context.Background(), "user-1", "testid01", "", []int{0, 1}, "Merged", false, true, RenameStrategyAbort)
 
 	require.Error(t, err)
 	assert.Nil(t, result)
@@ -258,10 +258,10 @@ func TestPersistStudyImport_RollsBackAndSkipsNotify(t *testing.T) {
 	tree := makeTree("root")
 	var createCount, withinTxCalls int
 	mockRepo := &mocks.MockRepertoireRepo{
-		CreateCategoryFunc: func(userID, name string, color models.Color) (*models.Category, error) {
+		CreateCategoryFunc: func(_ context.Context, userID, name string, color models.Color) (*models.Category, error) {
 			return &models.Category{ID: "cat-1", Name: name, Color: color}, nil
 		},
-		CreateFunc: func(userID, name string, color models.Color) (*models.Repertoire, error) {
+		CreateFunc: func(_ context.Context, userID, name string, color models.Color) (*models.Repertoire, error) {
 			createCount++
 			// Second repertoire creation fails, rolling back the category and the
 			// first repertoire.
@@ -270,14 +270,14 @@ func TestPersistStudyImport_RollsBackAndSkipsNotify(t *testing.T) {
 			}
 			return &models.Repertoire{ID: fmt.Sprintf("rep-%d", createCount), Name: name, Color: color}, nil
 		},
-		CreateWithCategoryFunc: func(userID, name string, color models.Color, categoryID *string) (*models.Repertoire, error) {
+		CreateWithCategoryFunc: func(_ context.Context, userID, name string, color models.Color, categoryID *string) (*models.Repertoire, error) {
 			createCount++
 			if createCount >= 2 {
 				return nil, errInjected
 			}
 			return &models.Repertoire{ID: fmt.Sprintf("rep-%d", createCount), Name: name, Color: color, CategoryID: categoryID}, nil
 		},
-		SaveFunc: func(id, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
+		SaveFunc: func(_ context.Context, id, userID string, treeData models.RepertoireNode, metadata models.Metadata, _ int) (*models.Repertoire, error) {
 			return &models.Repertoire{ID: id, TreeData: treeData, Metadata: metadata}, nil
 		},
 	}
@@ -290,7 +290,7 @@ func TestPersistStudyImport_RollsBackAndSkipsNotify(t *testing.T) {
 	svc := NewRepertoireService(mockRepo).WithReanalysisQueue(notifier)
 
 	white := models.ColorWhite
-	_, err := svc.PersistStudyImport("user-1", models.StudyImportPlan{
+	_, err := svc.PersistStudyImport(context.Background(), "user-1", models.StudyImportPlan{
 		Category: &models.StudyImportCategorySpec{Name: "Cat", Color: white},
 		Repertoires: []models.StudyImportRepertoireSpec{
 			{Name: "A", Color: white, UseCategory: true, Tree: tree},

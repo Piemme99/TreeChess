@@ -1,7 +1,9 @@
 package services
 
 import (
+	"context"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -65,7 +67,7 @@ func WithEngineService(svc *EngineService) ImportServiceOption {
 }
 
 // ParseAndAnalyze parses PGN data and analyzes games against repertoires
-func (s *ImportService) ParseAndAnalyze(filename string, username string, userID string, pgnData string) (*models.AnalysisSummary, []models.GameAnalysis, error) {
+func (s *ImportService) ParseAndAnalyze(ctx context.Context, filename string, username string, userID string, pgnData string) (*models.AnalysisSummary, []models.GameAnalysis, error) {
 	games, err := s.parsePGN(pgnData)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to parse PGN: %w", err)
@@ -82,11 +84,11 @@ func (s *ImportService) ParseAndAnalyze(filename string, username string, userID
 	// Get all repertoires upfront
 	whiteColor := models.ColorWhite
 	blackColor := models.ColorBlack
-	whiteRepertoires, err := s.repertoireService.ListRepertoires(userID, &whiteColor)
+	whiteRepertoires, err := s.repertoireService.ListRepertoires(ctx, userID, &whiteColor)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get white repertoires: %w", err)
 	}
-	blackRepertoires, err := s.repertoireService.ListRepertoires(userID, &blackColor)
+	blackRepertoires, err := s.repertoireService.ListRepertoires(ctx, userID, &blackColor)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get black repertoires: %w", err)
 	}
@@ -139,7 +141,7 @@ func (s *ImportService) ParseAndAnalyze(filename string, username string, userID
 			fingerprints[i] = ComputeFingerprint(r.Headers, r.Moves)
 		}
 
-		existing, err := s.fingerprintRepo.CheckExisting(userID, fingerprints)
+		existing, err := s.fingerprintRepo.CheckExisting(ctx, userID, fingerprints)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to check fingerprints: %w", err)
 		}
@@ -167,7 +169,7 @@ func (s *ImportService) ParseAndAnalyze(filename string, username string, userID
 		results = filtered
 	}
 
-	summary, err := s.analysisRepo.Save(userID, username, filename, len(results), results)
+	summary, err := s.analysisRepo.Save(ctx, userID, username, filename, len(results), results)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to save analysis: %w", err)
 	}
@@ -182,7 +184,7 @@ func (s *ImportService) ParseAndAnalyze(filename string, username string, userID
 				GameIndex:   r.GameIndex,
 			}
 		}
-		if err := s.fingerprintRepo.SaveBatch(userID, summary.ID, entries); err != nil {
+		if err := s.fingerprintRepo.SaveBatch(ctx, userID, summary.ID, entries); err != nil {
 			// Log but don't fail the import
 			slog.Warn("failed to save fingerprints", "analysis_id", summary.ID, "error", err)
 		}
@@ -190,7 +192,7 @@ func (s *ImportService) ParseAndAnalyze(filename string, username string, userID
 
 	// Enqueue engine analysis if available
 	if s.engineService != nil {
-		s.engineService.EnqueueAnalysis(userID, summary.ID, len(results))
+		s.engineService.EnqueueAnalysis(ctx, userID, summary.ID, len(results))
 	}
 
 	return summary, results, nil
@@ -434,27 +436,27 @@ func (s *ImportService) GetLegalMoves(fen string) ([]string, error) {
 }
 
 // GetAnalyses returns all analyses summaries for a user
-func (s *ImportService) GetAnalyses(userID string) ([]models.AnalysisSummary, error) {
-	analyses, err := s.analysisRepo.GetAll(userID)
+func (s *ImportService) GetAnalyses(ctx context.Context, userID string) ([]models.AnalysisSummary, error) {
+	analyses, err := s.analysisRepo.GetAll(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get analyses: %w", err)
 	}
 	return analyses, nil
 }
 
-// GetAnalysisByID returns detailed analysis by ID
-func (s *ImportService) GetAnalysisByID(id string) (*models.AnalysisDetail, error) {
-	return s.analysisRepo.GetByID(id)
+// GetAnalysisByID returns detailed analysis by ID, scoped to the owning user
+func (s *ImportService) GetAnalysisByID(ctx context.Context, id string, userID string) (*models.AnalysisDetail, error) {
+	return s.analysisRepo.GetByID(ctx, id, userID)
 }
 
-// DeleteAnalysis deletes an analysis by ID
-func (s *ImportService) DeleteAnalysis(id string) error {
-	return s.analysisRepo.Delete(id)
+// DeleteAnalysis deletes an analysis by ID, scoped to the owning user
+func (s *ImportService) DeleteAnalysis(ctx context.Context, id string, userID string) error {
+	return s.analysisRepo.Delete(ctx, id, userID)
 }
 
 // GetAllGames returns all games from all analyses with pagination for a user
-func (s *ImportService) GetAllGames(userID string, limit, offset int, timeClass, repertoire, source string, onlyNew bool) (*models.GamesResponse, error) {
-	response, err := s.analysisRepo.GetAllGames(userID, limit, offset, timeClass, repertoire, source, onlyNew)
+func (s *ImportService) GetAllGames(ctx context.Context, userID string, limit, offset int, timeClass, repertoire, source string, onlyNew bool) (*models.GamesResponse, error) {
+	response, err := s.analysisRepo.GetAllGames(ctx, userID, limit, offset, timeClass, repertoire, source, onlyNew)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get games: %w", err)
 	}
@@ -462,18 +464,18 @@ func (s *ImportService) GetAllGames(userID string, limit, offset int, timeClass,
 }
 
 // GetDistinctRepertoires returns a sorted list of distinct repertoires for a user
-func (s *ImportService) GetDistinctRepertoires(userID string) ([]models.RepertoireFilterOption, error) {
-	return s.analysisRepo.GetDistinctRepertoires(userID)
+func (s *ImportService) GetDistinctRepertoires(ctx context.Context, userID string) ([]models.RepertoireFilterOption, error) {
+	return s.analysisRepo.GetDistinctRepertoires(ctx, userID)
 }
 
 // MarkGameViewed marks a specific game as viewed by the user
-func (s *ImportService) MarkGameViewed(userID, analysisID string, gameIndex int) error {
-	return s.analysisRepo.MarkGameViewed(userID, analysisID, gameIndex)
+func (s *ImportService) MarkGameViewed(ctx context.Context, userID, analysisID string, gameIndex int) error {
+	return s.analysisRepo.MarkGameViewed(ctx, userID, analysisID, gameIndex)
 }
 
 // CheckOwnership verifies that an analysis belongs to the given user
-func (s *ImportService) CheckOwnership(id string, userID string) error {
-	belongs, err := s.analysisRepo.BelongsToUser(id, userID)
+func (s *ImportService) CheckOwnership(ctx context.Context, id string, userID string) error {
+	belongs, err := s.analysisRepo.BelongsToUser(ctx, id, userID)
 	if err != nil {
 		return fmt.Errorf("failed to check ownership: %w", err)
 	}
@@ -483,56 +485,55 @@ func (s *ImportService) CheckOwnership(id string, userID string) error {
 	return nil
 }
 
-// ReanalyzeGame re-analyzes a specific game against a different repertoire
-func (s *ImportService) ReanalyzeGame(analysisID string, gameIndex int, repertoireID string) (*models.GameAnalysis, error) {
-	detail, err := s.analysisRepo.GetByID(analysisID)
-	if err != nil {
-		return nil, err
-	}
-
-	var targetGame *models.GameAnalysis
-	var targetIdx int
-	for i := range detail.Results {
-		if detail.Results[i].GameIndex == gameIndex {
-			targetGame = &detail.Results[i]
-			targetIdx = i
-			break
-		}
-	}
-	if targetGame == nil {
-		return nil, repository.ErrGameNotFound
-	}
-
-	repertoire, err := s.repertoireService.GetRepertoire(repertoireID)
+// ReanalyzeGame re-analyzes a specific game against a different repertoire,
+// scoped to the owning user.
+//
+// The read-modify-write of the analysis results runs inside the repository's
+// row-locked MutateResults transaction so it cannot clobber (or be clobbered
+// by) a concurrent auto re-analysis touching the same analysis. The game is
+// located and its color validated against the freshly-locked data, not a stale
+// snapshot. Both the repertoire fetch and the results mutation are scoped to
+// userID so a cross-tenant analysis or repertoire ID surfaces as not-found.
+func (s *ImportService) ReanalyzeGame(ctx context.Context, analysisID string, userID string, gameIndex int, repertoireID string) (*models.GameAnalysis, error) {
+	repertoire, err := s.repertoireService.GetRepertoire(ctx, repertoireID, userID)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrRepertoireNotFound, err)
 	}
 
-	if repertoire.Color != targetGame.UserColor {
-		return nil, ErrColorMismatch
-	}
+	// Build the FEN index once, outside the transaction, so the locked window
+	// stays as short as possible.
+	index := repertoiretree.BuildFENIndex(&repertoire.TreeData)
+	reperRef := &models.RepertoireRef{ID: repertoire.ID, Name: repertoire.Name}
 
-	reanalyzedGame := s.reanalyzeGameFromMoves(targetGame, repertoire)
+	var reanalyzedGame models.GameAnalysis
+	err = s.analysisRepo.MutateResults(ctx, analysisID, userID, func(current []models.GameAnalysis) ([]models.GameAnalysis, bool, error) {
+		targetIdx := -1
+		for i := range current {
+			if current[i].GameIndex == gameIndex {
+				targetIdx = i
+				break
+			}
+		}
+		if targetIdx == -1 {
+			return nil, false, repository.ErrGameNotFound
+		}
 
-	detail.Results[targetIdx] = reanalyzedGame
-	err = s.analysisRepo.UpdateResults(analysisID, detail.Results)
+		if repertoire.Color != current[targetIdx].UserColor {
+			return nil, false, ErrColorMismatch
+		}
+
+		reanalyzedGame = s.reanalyzeGameWithIndex(&current[targetIdx], reperRef, index)
+		current[targetIdx] = reanalyzedGame
+		return current, true, nil
+	})
 	if err != nil {
+		if errors.Is(err, repository.ErrGameNotFound) || errors.Is(err, ErrColorMismatch) || errors.Is(err, repository.ErrAnalysisNotFound) {
+			return nil, err
+		}
 		return nil, fmt.Errorf("failed to save reanalyzed game: %w", err)
 	}
 
 	return &reanalyzedGame, nil
-}
-
-// reanalyzeGameFromMoves re-analyzes a game using its stored moves against a new repertoire.
-// It builds a one-shot FEN index for the repertoire tree; callers that re-analyze many
-// games against the same tree should build the index once and call
-// reanalyzeGameWithIndex instead.
-func (s *ImportService) reanalyzeGameFromMoves(game *models.GameAnalysis, repertoire *models.Repertoire) models.GameAnalysis {
-	index := repertoiretree.BuildFENIndex(&repertoire.TreeData)
-	return s.reanalyzeGameWithIndex(game, &models.RepertoireRef{
-		ID:   repertoire.ID,
-		Name: repertoire.Name,
-	}, index)
 }
 
 // reanalyzeGameWithIndex re-analyzes a game using its stored moves against a prebuilt
@@ -577,19 +578,19 @@ func (s *ImportService) reanalyzeGameWithIndex(game *models.GameAnalysis, reperR
 // enriched their repertoire from. Genuine improvements (e.g. error -> in-repertoire) and
 // re-tagging of games that were already errors still apply. Manual re-analysis passes
 // false to force a full re-tag.
-func (s *ImportService) ReanalyzeAllGames(userID string, preserveAnalysed bool) (int, error) {
-	analyses, err := s.analysisRepo.GetAllGamesRaw(userID)
+func (s *ImportService) ReanalyzeAllGames(ctx context.Context, userID string, preserveAnalysed bool) (int, error) {
+	analyses, err := s.analysisRepo.GetAllGamesRaw(ctx, userID)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get analyses: %w", err)
 	}
 
 	whiteColor := models.ColorWhite
 	blackColor := models.ColorBlack
-	whiteRepertoires, err := s.repertoireService.ListRepertoires(userID, &whiteColor)
+	whiteRepertoires, err := s.repertoireService.ListRepertoires(ctx, userID, &whiteColor)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get white repertoires: %w", err)
 	}
-	blackRepertoires, err := s.repertoireService.ListRepertoires(userID, &blackColor)
+	blackRepertoires, err := s.repertoireService.ListRepertoires(ctx, userID, &blackColor)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get black repertoires: %w", err)
 	}
@@ -600,49 +601,61 @@ func (s *ImportService) ReanalyzeAllGames(userID string, preserveAnalysed bool) 
 	whiteIndexed := indexRepertoires(whiteRepertoires)
 	blackIndexed := indexRepertoires(blackRepertoires)
 
+	// Each analysis is re-analyzed under its own row-locked transaction
+	// (MutateResults) rather than overwriting the unlocked snapshot read above.
+	// This serializes against the manual single-game path and any concurrent
+	// auto run, so the two cannot clobber each other's writes. The snapshot is
+	// used only to enumerate which analyses to process; the mutation always
+	// operates on the freshly-locked results.
 	totalGames := 0
 	for _, a := range analyses {
-		modified := false
-		for i := range a.Results {
-			game := &a.Results[i]
-			totalGames++
+		analysisID := a.ID
+		err := s.analysisRepo.MutateResults(ctx, analysisID, userID, func(current []models.GameAnalysis) ([]models.GameAnalysis, bool, error) {
+			modified := false
+			for i := range current {
+				game := &current[i]
+				totalGames++
 
-			var repertoires []indexedRepertoire
-			if game.UserColor == models.ColorWhite {
-				repertoires = whiteIndexed
-			} else {
-				repertoires = blackIndexed
-			}
-
-			best, matchScore := s.findBestMatchingRepertoireFromStored(game, repertoires)
-
-			var reperRef *models.RepertoireRef
-			var index map[string]*models.RepertoireNode
-			if best != nil {
-				reperRef = &models.RepertoireRef{
-					ID:   best.repertoire.ID,
-					Name: best.repertoire.Name,
+				var repertoires []indexedRepertoire
+				if game.UserColor == models.ColorWhite {
+					repertoires = whiteIndexed
+				} else {
+					repertoires = blackIndexed
 				}
-				index = best.index
+
+				best, matchScore := s.findBestMatchingRepertoireFromStored(game, repertoires)
+
+				var reperRef *models.RepertoireRef
+				var index map[string]*models.RepertoireNode
+				if best != nil {
+					reperRef = &models.RepertoireRef{
+						ID:   best.repertoire.ID,
+						Name: best.repertoire.Name,
+					}
+					index = best.index
+				}
+
+				reanalyzed := s.reanalyzeGameWithIndex(game, reperRef, index)
+				reanalyzed.MatchScore = matchScore
+
+				// Don't let auto re-analysis retroactively flag a previously non-error game
+				// as an opening error against prep that was added after it was played.
+				if preserveAnalysed && gameStatusFromGame(reanalyzed) == "error" && gameStatusFromGame(*game) != "error" {
+					continue
+				}
+
+				current[i] = reanalyzed
+				modified = true
 			}
-
-			reanalyzed := s.reanalyzeGameWithIndex(game, reperRef, index)
-			reanalyzed.MatchScore = matchScore
-
-			// Don't let auto re-analysis retroactively flag a previously non-error game
-			// as an opening error against prep that was added after it was played.
-			if preserveAnalysed && gameStatusFromGame(reanalyzed) == "error" && gameStatusFromGame(*game) != "error" {
+			return current, modified, nil
+		})
+		if err != nil {
+			// The analysis may have been deleted between the snapshot read and the
+			// locked mutation; skip it rather than failing the whole run.
+			if errors.Is(err, repository.ErrAnalysisNotFound) {
 				continue
 			}
-
-			a.Results[i] = reanalyzed
-			modified = true
-		}
-
-		if modified {
-			if err := s.analysisRepo.UpdateResults(a.ID, a.Results); err != nil {
-				return 0, fmt.Errorf("failed to update analysis %s: %w", a.ID, err)
-			}
+			return 0, fmt.Errorf("failed to update analysis %s: %w", analysisID, err)
 		}
 	}
 

@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"fmt"
 	"sort"
 
@@ -42,16 +43,16 @@ func WithDashboardDismissedGapRepo(repo repository.DismissedGapRepository) Dashb
 }
 
 // DismissGap marks an opponent gap as dismissed for a user.
-func (s *DashboardStatsService) DismissGap(userID, fen, opponentMove, repertoireID string) error {
+func (s *DashboardStatsService) DismissGap(ctx context.Context, userID, fen, opponentMove, repertoireID string) error {
 	if s.dismissedGapRepo == nil {
 		return fmt.Errorf("dismissed gap repository not configured")
 	}
-	return s.dismissedGapRepo.Dismiss(userID, fen, opponentMove, repertoireID)
+	return s.dismissedGapRepo.Dismiss(ctx, userID, fen, opponentMove, repertoireID)
 }
 
 // GetDashboardStats computes aggregate and per-repertoire stats for the dashboard.
-func (s *DashboardStatsService) GetDashboardStats(userID string) (*models.DashboardStatsResponse, error) {
-	analyses, err := s.analysisRepo.GetAllGamesRaw(userID)
+func (s *DashboardStatsService) GetDashboardStats(ctx context.Context, userID string) (*models.DashboardStatsResponse, error) {
+	analyses, err := s.analysisRepo.GetAllGamesRaw(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get analyses: %w", err)
 	}
@@ -224,7 +225,7 @@ func (s *DashboardStatsService) GetDashboardStats(userID string) (*models.Dashbo
 
 				// Lazy-load repertoire tree
 				if _, cached := repTreeCache[repID]; !cached {
-					rep, err := s.repertoireService.GetRepertoire(repID)
+					rep, err := s.repertoireService.GetRepertoire(ctx, repID, userID)
 					if err != nil {
 						// Repertoire may have been deleted; skip branch stats
 						repTreeCache[repID] = nil
@@ -316,7 +317,7 @@ func (s *DashboardStatsService) GetDashboardStats(userID string) (*models.Dashbo
 	var dismissedGaps map[string]bool
 	if s.dismissedGapRepo != nil {
 		var err error
-		dismissedGaps, err = s.dismissedGapRepo.GetDismissed(userID)
+		dismissedGaps, err = s.dismissedGapRepo.GetDismissed(ctx, userID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get dismissed gaps: %w", err)
 		}

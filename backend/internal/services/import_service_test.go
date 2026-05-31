@@ -1,8 +1,10 @@
 package services
 
 import (
+	"context"
 	"fmt"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -1155,7 +1157,7 @@ func TestComputeFingerprint_LichessSitePriority(t *testing.T) {
 func TestParseAndAnalyze_InBatchDuplicate(t *testing.T) {
 	// No repertoires for either color -> games are analyzed with an empty tree.
 	repertoireRepo := &mocks.MockRepertoireRepo{
-		GetByColorFunc: func(userID string, color models.Color) ([]models.Repertoire, error) {
+		GetByColorFunc: func(_ context.Context, userID string, color models.Color) ([]models.Repertoire, error) {
 			return nil, nil
 		},
 	}
@@ -1167,7 +1169,7 @@ func TestParseAndAnalyze_InBatchDuplicate(t *testing.T) {
 	var savedResults []models.GameAnalysis
 	var savedGameCount int
 	analysisRepo := &mocks.MockAnalysisRepo{
-		SaveFunc: func(userID, username, filename string, gameCount int, results []models.GameAnalysis) (*models.AnalysisSummary, error) {
+		SaveFunc: func(_ context.Context, userID, username, filename string, gameCount int, results []models.GameAnalysis) (*models.AnalysisSummary, error) {
 			savedGameCount = gameCount
 			savedResults = results
 			return &models.AnalysisSummary{ID: "analysis-1", GameCount: gameCount}, nil
@@ -1175,7 +1177,7 @@ func TestParseAndAnalyze_InBatchDuplicate(t *testing.T) {
 	}
 
 	var savedEntries []repository.FingerprintEntry
-	fingerprintRepo.SaveBatchFunc = func(userID, analysisID string, entries []repository.FingerprintEntry) error {
+	fingerprintRepo.SaveBatchFunc = func(_ context.Context, userID, analysisID string, entries []repository.FingerprintEntry) error {
 		savedEntries = entries
 		return nil
 	}
@@ -1192,7 +1194,7 @@ func TestParseAndAnalyze_InBatchDuplicate(t *testing.T) {
 1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 1-0`
 	pgnData := game + "\n\n" + game
 
-	summary, results, err := svc.ParseAndAnalyze("dup.pgn", "Hero", "user-1", pgnData)
+	summary, results, err := svc.ParseAndAnalyze(context.Background(), "dup.pgn", "Hero", "user-1", pgnData)
 
 	require.NoError(t, err)
 	require.NotNil(t, summary)
@@ -1212,7 +1214,7 @@ func TestParseAndAnalyze_InBatchDuplicate(t *testing.T) {
 // dedup) when the fingerprint repository is not configured.
 func TestParseAndAnalyze_NoFingerprintRepo(t *testing.T) {
 	repertoireRepo := &mocks.MockRepertoireRepo{
-		GetByColorFunc: func(userID string, color models.Color) ([]models.Repertoire, error) {
+		GetByColorFunc: func(_ context.Context, userID string, color models.Color) ([]models.Repertoire, error) {
 			return nil, nil
 		},
 	}
@@ -1220,7 +1222,7 @@ func TestParseAndAnalyze_NoFingerprintRepo(t *testing.T) {
 
 	var savedGameCount int
 	analysisRepo := &mocks.MockAnalysisRepo{
-		SaveFunc: func(userID, username, filename string, gameCount int, results []models.GameAnalysis) (*models.AnalysisSummary, error) {
+		SaveFunc: func(_ context.Context, userID, username, filename string, gameCount int, results []models.GameAnalysis) (*models.AnalysisSummary, error) {
 			savedGameCount = gameCount
 			return &models.AnalysisSummary{ID: "analysis-1", GameCount: gameCount}, nil
 		},
@@ -1237,7 +1239,7 @@ func TestParseAndAnalyze_NoFingerprintRepo(t *testing.T) {
 1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 1-0`
 	pgnData := game + "\n\n" + game
 
-	summary, results, err := svc.ParseAndAnalyze("dup.pgn", "Hero", "user-1", pgnData)
+	summary, results, err := svc.ParseAndAnalyze(context.Background(), "dup.pgn", "Hero", "user-1", pgnData)
 
 	require.NoError(t, err)
 	require.NotNil(t, summary)
@@ -1270,7 +1272,7 @@ func makeGameAnalysis(gameIndex int, headers models.PGNHeaders, moves []models.M
 func TestGetInsights_NoEngineService(t *testing.T) {
 	// Without engine service, GetInsights returns empty with engineAnalysisDone=true
 	svc := NewInsightsService(nil, nil)
-	insights, err := svc.GetInsights("user-1")
+	insights, err := svc.GetInsights(context.Background(), "user-1")
 
 	require.NoError(t, err)
 	assert.NotNil(t, insights)
@@ -1309,13 +1311,13 @@ func TestGetInsights_WithExplorerStats(t *testing.T) {
 	}
 
 	mockAnalysisRepo := &mocks.MockAnalysisRepo{
-		GetAllGamesRawFunc: func(userID string) ([]models.RawAnalysis, error) {
+		GetAllGamesRawFunc: func(_ context.Context, userID string) ([]models.RawAnalysis, error) {
 			return analyses, nil
 		},
 	}
 
 	mockEvalRepo := &mocks.MockEngineEvalRepo{
-		GetByUserFunc: func(userID string) ([]models.EngineEval, error) {
+		GetByUserFunc: func(_ context.Context, userID string) ([]models.EngineEval, error) {
 			return engineEvals, nil
 		},
 	}
@@ -1323,7 +1325,7 @@ func TestGetInsights_WithExplorerStats(t *testing.T) {
 	engineSvc := NewEngineService(mockEvalRepo, mockAnalysisRepo, nil)
 	svc := NewInsightsService(nil, mockAnalysisRepo, WithInsightsEngineService(engineSvc))
 
-	insights, err := svc.GetInsights("user-1")
+	insights, err := svc.GetInsights(context.Background(), "user-1")
 
 	require.NoError(t, err)
 	assert.True(t, insights.EngineAnalysisDone)
@@ -1367,13 +1369,13 @@ func TestGetInsights_RecurringMistake(t *testing.T) {
 	}
 
 	mockAnalysisRepo := &mocks.MockAnalysisRepo{
-		GetAllGamesRawFunc: func(userID string) ([]models.RawAnalysis, error) {
+		GetAllGamesRawFunc: func(_ context.Context, userID string) ([]models.RawAnalysis, error) {
 			return analyses, nil
 		},
 	}
 
 	mockEvalRepo := &mocks.MockEngineEvalRepo{
-		GetByUserFunc: func(userID string) ([]models.EngineEval, error) {
+		GetByUserFunc: func(_ context.Context, userID string) ([]models.EngineEval, error) {
 			return engineEvals, nil
 		},
 	}
@@ -1381,7 +1383,7 @@ func TestGetInsights_RecurringMistake(t *testing.T) {
 	engineSvc := NewEngineService(mockEvalRepo, mockAnalysisRepo, nil)
 	svc := NewInsightsService(nil, mockAnalysisRepo, WithInsightsEngineService(engineSvc))
 
-	insights, err := svc.GetInsights("user-1")
+	insights, err := svc.GetInsights(context.Background(), "user-1")
 
 	require.NoError(t, err)
 	assert.Len(t, insights.WorstMistakes, 1)
@@ -1394,19 +1396,19 @@ func TestGetInsights_RecurringMistake(t *testing.T) {
 
 func TestGetInsights_Empty(t *testing.T) {
 	mockAnalysisRepo := &mocks.MockAnalysisRepo{
-		GetAllGamesRawFunc: func(userID string) ([]models.RawAnalysis, error) {
+		GetAllGamesRawFunc: func(_ context.Context, userID string) ([]models.RawAnalysis, error) {
 			return nil, nil
 		},
 	}
 	mockEvalRepo := &mocks.MockEngineEvalRepo{
-		GetByUserFunc: func(userID string) ([]models.EngineEval, error) {
+		GetByUserFunc: func(_ context.Context, userID string) ([]models.EngineEval, error) {
 			return nil, nil
 		},
 	}
 
 	engineSvc := NewEngineService(mockEvalRepo, mockAnalysisRepo, nil)
 	svc := NewInsightsService(nil, mockAnalysisRepo, WithInsightsEngineService(engineSvc))
-	insights, err := svc.GetInsights("user-1")
+	insights, err := svc.GetInsights(context.Background(), "user-1")
 
 	require.NoError(t, err)
 	assert.NotNil(t, insights)
@@ -1632,17 +1634,17 @@ func TestReanalyzeAllGames_Basic(t *testing.T) {
 
 	var updatedResults []models.GameAnalysis
 	mockAnalysisRepo := &mocks.MockAnalysisRepo{
-		GetAllGamesRawFunc: func(userID string) ([]models.RawAnalysis, error) {
+		GetAllGamesRawFunc: func(_ context.Context, userID string) ([]models.RawAnalysis, error) {
 			return analyses, nil
 		},
-		UpdateResultsFunc: func(analysisID string, results []models.GameAnalysis) error {
+		UpdateResultsFunc: func(_ context.Context, analysisID string, _ string, results []models.GameAnalysis) error {
 			updatedResults = results
 			return nil
 		},
 	}
 
 	mockRepRepo := &mocks.MockRepertoireRepo{
-		GetByColorFunc: func(userID string, color models.Color) ([]models.Repertoire, error) {
+		GetByColorFunc: func(_ context.Context, userID string, color models.Color) ([]models.Repertoire, error) {
 			if color == models.ColorWhite {
 				return []models.Repertoire{whiteRepertoire}, nil
 			}
@@ -1653,7 +1655,7 @@ func TestReanalyzeAllGames_Basic(t *testing.T) {
 	repSvc := NewRepertoireService(mockRepRepo)
 	svc := NewImportService(repSvc, mockAnalysisRepo)
 
-	count, err := svc.ReanalyzeAllGames("user-1", false)
+	count, err := svc.ReanalyzeAllGames(context.Background(), "user-1", false)
 
 	require.NoError(t, err)
 	assert.Equal(t, 1, count)
@@ -1705,14 +1707,14 @@ func TestReanalyzeAllGames_SharesIndexAcrossManyGames(t *testing.T) {
 
 	var updatedResults []models.GameAnalysis
 	mockAnalysisRepo := &mocks.MockAnalysisRepo{
-		GetAllGamesRawFunc: func(userID string) ([]models.RawAnalysis, error) { return analyses, nil },
-		UpdateResultsFunc: func(analysisID string, results []models.GameAnalysis) error {
+		GetAllGamesRawFunc: func(_ context.Context, userID string) ([]models.RawAnalysis, error) { return analyses, nil },
+		UpdateResultsFunc: func(_ context.Context, analysisID string, _ string, results []models.GameAnalysis) error {
 			updatedResults = results
 			return nil
 		},
 	}
 	mockRepRepo := &mocks.MockRepertoireRepo{
-		GetByColorFunc: func(userID string, color models.Color) ([]models.Repertoire, error) {
+		GetByColorFunc: func(_ context.Context, userID string, color models.Color) ([]models.Repertoire, error) {
 			if color == models.ColorWhite {
 				return []models.Repertoire{whiteRepertoire}, nil
 			}
@@ -1722,7 +1724,7 @@ func TestReanalyzeAllGames_SharesIndexAcrossManyGames(t *testing.T) {
 
 	svc := NewImportService(NewRepertoireService(mockRepRepo), mockAnalysisRepo)
 
-	count, err := svc.ReanalyzeAllGames("user-1", false)
+	count, err := svc.ReanalyzeAllGames(context.Background(), "user-1", false)
 
 	require.NoError(t, err)
 	assert.Equal(t, 3, count)
@@ -1757,17 +1759,17 @@ func TestReanalyzeAllGames_NoRepertoires(t *testing.T) {
 
 	var updatedResults []models.GameAnalysis
 	mockAnalysisRepo := &mocks.MockAnalysisRepo{
-		GetAllGamesRawFunc: func(userID string) ([]models.RawAnalysis, error) {
+		GetAllGamesRawFunc: func(_ context.Context, userID string) ([]models.RawAnalysis, error) {
 			return analyses, nil
 		},
-		UpdateResultsFunc: func(analysisID string, results []models.GameAnalysis) error {
+		UpdateResultsFunc: func(_ context.Context, analysisID string, _ string, results []models.GameAnalysis) error {
 			updatedResults = results
 			return nil
 		},
 	}
 
 	mockRepRepo := &mocks.MockRepertoireRepo{
-		GetByColorFunc: func(userID string, color models.Color) ([]models.Repertoire, error) {
+		GetByColorFunc: func(_ context.Context, userID string, color models.Color) ([]models.Repertoire, error) {
 			return nil, nil
 		},
 	}
@@ -1775,7 +1777,7 @@ func TestReanalyzeAllGames_NoRepertoires(t *testing.T) {
 	repSvc := NewRepertoireService(mockRepRepo)
 	svc := NewImportService(repSvc, mockAnalysisRepo)
 
-	count, err := svc.ReanalyzeAllGames("user-1", false)
+	count, err := svc.ReanalyzeAllGames(context.Background(), "user-1", false)
 
 	require.NoError(t, err)
 	assert.Equal(t, 1, count)
@@ -1787,13 +1789,13 @@ func TestReanalyzeAllGames_NoRepertoires(t *testing.T) {
 
 func TestReanalyzeAllGames_EmptyAnalyses(t *testing.T) {
 	mockAnalysisRepo := &mocks.MockAnalysisRepo{
-		GetAllGamesRawFunc: func(userID string) ([]models.RawAnalysis, error) {
+		GetAllGamesRawFunc: func(_ context.Context, userID string) ([]models.RawAnalysis, error) {
 			return nil, nil
 		},
 	}
 
 	mockRepRepo := &mocks.MockRepertoireRepo{
-		GetByColorFunc: func(userID string, color models.Color) ([]models.Repertoire, error) {
+		GetByColorFunc: func(_ context.Context, userID string, color models.Color) ([]models.Repertoire, error) {
 			return nil, nil
 		},
 	}
@@ -1801,7 +1803,7 @@ func TestReanalyzeAllGames_EmptyAnalyses(t *testing.T) {
 	repSvc := NewRepertoireService(mockRepRepo)
 	svc := NewImportService(repSvc, mockAnalysisRepo)
 
-	count, err := svc.ReanalyzeAllGames("user-1", false)
+	count, err := svc.ReanalyzeAllGames(context.Background(), "user-1", false)
 
 	require.NoError(t, err)
 	assert.Equal(t, 0, count)
@@ -1871,17 +1873,17 @@ func TestReanalyzeAllGames_PreserveAnalysed(t *testing.T) {
 
 	run := func(preserveAnalysed bool) (updated bool, results []models.GameAnalysis) {
 		mockAnalysisRepo := &mocks.MockAnalysisRepo{
-			GetAllGamesRawFunc: func(userID string) ([]models.RawAnalysis, error) {
+			GetAllGamesRawFunc: func(_ context.Context, userID string) ([]models.RawAnalysis, error) {
 				return freshAnalyses(), nil
 			},
-			UpdateResultsFunc: func(analysisID string, r []models.GameAnalysis) error {
+			UpdateResultsFunc: func(_ context.Context, analysisID string, _ string, r []models.GameAnalysis) error {
 				updated = true
 				results = r
 				return nil
 			},
 		}
 		mockRepRepo := &mocks.MockRepertoireRepo{
-			GetByColorFunc: func(userID string, color models.Color) ([]models.Repertoire, error) {
+			GetByColorFunc: func(_ context.Context, userID string, color models.Color) ([]models.Repertoire, error) {
 				if color == models.ColorWhite {
 					return []models.Repertoire{whiteRepertoire}, nil
 				}
@@ -1889,7 +1891,7 @@ func TestReanalyzeAllGames_PreserveAnalysed(t *testing.T) {
 			},
 		}
 		svc := NewImportService(NewRepertoireService(mockRepRepo), mockAnalysisRepo)
-		_, err := svc.ReanalyzeAllGames("user-1", preserveAnalysed)
+		_, err := svc.ReanalyzeAllGames(context.Background(), "user-1", preserveAnalysed)
 		require.NoError(t, err)
 		return updated, results
 	}
@@ -2170,13 +2172,13 @@ func TestGetDashboardStats_OpeningErrorRate(t *testing.T) {
 	}
 
 	mockAnalysisRepo := &mocks.MockAnalysisRepo{
-		GetAllGamesRawFunc: func(userID string) ([]models.RawAnalysis, error) {
+		GetAllGamesRawFunc: func(_ context.Context, userID string) ([]models.RawAnalysis, error) {
 			return analyses, nil
 		},
 	}
 
 	mockRepRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID: "rep-1", Name: "My White", Color: models.ColorWhite,
 				TreeData: models.RepertoireNode{FEN: "start"},
@@ -2187,7 +2189,7 @@ func TestGetDashboardStats_OpeningErrorRate(t *testing.T) {
 	repSvc := NewRepertoireService(mockRepRepo)
 	svc := NewDashboardStatsService(repSvc, mockAnalysisRepo)
 
-	stats, err := svc.GetDashboardStats("user-1")
+	stats, err := svc.GetDashboardStats(context.Background(), "user-1")
 	require.NoError(t, err)
 
 	// 4 total games
@@ -2233,13 +2235,13 @@ func TestGetDashboardStats_OpponentGaps(t *testing.T) {
 	}
 
 	mockAnalysisRepo := &mocks.MockAnalysisRepo{
-		GetAllGamesRawFunc: func(userID string) ([]models.RawAnalysis, error) {
+		GetAllGamesRawFunc: func(_ context.Context, userID string) ([]models.RawAnalysis, error) {
 			return analyses, nil
 		},
 	}
 
 	mockRepRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID: "rep-1", Name: "My White", Color: models.ColorWhite,
 				TreeData: models.RepertoireNode{FEN: "start"},
@@ -2250,7 +2252,7 @@ func TestGetDashboardStats_OpponentGaps(t *testing.T) {
 	repSvc := NewRepertoireService(mockRepRepo)
 	svc := NewDashboardStatsService(repSvc, mockAnalysisRepo)
 
-	stats, err := svc.GetDashboardStats("user-1")
+	stats, err := svc.GetDashboardStats(context.Background(), "user-1")
 	require.NoError(t, err)
 
 	// Should have 1 gap: c5 (freq 2). d5 (freq 1) is filtered out (min frequency = 2)
@@ -2324,13 +2326,13 @@ func TestGetDashboardStats_BranchStats(t *testing.T) {
 	}
 
 	mockAnalysisRepo := &mocks.MockAnalysisRepo{
-		GetAllGamesRawFunc: func(userID string) ([]models.RawAnalysis, error) {
+		GetAllGamesRawFunc: func(_ context.Context, userID string) ([]models.RawAnalysis, error) {
 			return analyses, nil
 		},
 	}
 
 	mockRepRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID: "rep-1", Name: "My White", Color: models.ColorWhite,
 				TreeData: repTree,
@@ -2341,7 +2343,7 @@ func TestGetDashboardStats_BranchStats(t *testing.T) {
 	repSvc := NewRepertoireService(mockRepRepo)
 	svc := NewDashboardStatsService(repSvc, mockAnalysisRepo)
 
-	stats, err := svc.GetDashboardStats("user-1")
+	stats, err := svc.GetDashboardStats(context.Background(), "user-1")
 	require.NoError(t, err)
 
 	// Only 1 branch (Sicilian) with 2 games (games 0 and 1)
@@ -2432,14 +2434,14 @@ func TestFindBranchForGame_FindsDeepestBranch(t *testing.T) {
 
 func TestGetDashboardStats_EmptyData(t *testing.T) {
 	mockAnalysisRepo := &mocks.MockAnalysisRepo{
-		GetAllGamesRawFunc: func(userID string) ([]models.RawAnalysis, error) {
+		GetAllGamesRawFunc: func(_ context.Context, userID string) ([]models.RawAnalysis, error) {
 			return nil, nil
 		},
 	}
 
 	svc := NewDashboardStatsService(nil, mockAnalysisRepo)
 
-	stats, err := svc.GetDashboardStats("user-1")
+	stats, err := svc.GetDashboardStats(context.Background(), "user-1")
 	require.NoError(t, err)
 
 	assert.Equal(t, 0, stats.TotalGames)
@@ -2494,7 +2496,7 @@ func TestAnalyzeTrainingMoves_MatchesRepertoire(t *testing.T) {
 	}
 
 	mockRepRepo := &mocks.MockRepertoireRepo{
-		GetByColorFunc: func(userID string, color models.Color) ([]models.Repertoire, error) {
+		GetByColorFunc: func(_ context.Context, userID string, color models.Color) ([]models.Repertoire, error) {
 			if color == models.ColorWhite {
 				return []models.Repertoire{whiteRep}, nil
 			}
@@ -2505,7 +2507,7 @@ func TestAnalyzeTrainingMoves_MatchesRepertoire(t *testing.T) {
 	repSvc := NewRepertoireService(mockRepRepo)
 	svc := NewTrainingService(repSvc)
 
-	resp, err := svc.AnalyzeTrainingMoves("user-1", []string{"e4", "e5", "Nf3", "Nc6"}, models.ColorWhite)
+	resp, err := svc.AnalyzeTrainingMoves(context.Background(), "user-1", []string{"e4", "e5", "Nf3", "Nc6"}, models.ColorWhite)
 
 	require.NoError(t, err)
 	require.NotNil(t, resp)
@@ -2535,7 +2537,7 @@ func TestAnalyzeTrainingMoves_MatchesRepertoire(t *testing.T) {
 
 func TestAnalyzeTrainingMoves_NoMatchingRepertoire(t *testing.T) {
 	mockRepRepo := &mocks.MockRepertoireRepo{
-		GetByColorFunc: func(userID string, color models.Color) ([]models.Repertoire, error) {
+		GetByColorFunc: func(_ context.Context, userID string, color models.Color) ([]models.Repertoire, error) {
 			return nil, nil
 		},
 	}
@@ -2543,7 +2545,7 @@ func TestAnalyzeTrainingMoves_NoMatchingRepertoire(t *testing.T) {
 	repSvc := NewRepertoireService(mockRepRepo)
 	svc := NewTrainingService(repSvc)
 
-	resp, err := svc.AnalyzeTrainingMoves("user-1", []string{"e4", "e5"}, models.ColorWhite)
+	resp, err := svc.AnalyzeTrainingMoves(context.Background(), "user-1", []string{"e4", "e5"}, models.ColorWhite)
 
 	require.NoError(t, err)
 	require.NotNil(t, resp)
@@ -2597,7 +2599,7 @@ func TestAnalyzeTrainingMoves_DetectsOutOfRepertoire(t *testing.T) {
 	}
 
 	mockRepRepo := &mocks.MockRepertoireRepo{
-		GetByColorFunc: func(userID string, color models.Color) ([]models.Repertoire, error) {
+		GetByColorFunc: func(_ context.Context, userID string, color models.Color) ([]models.Repertoire, error) {
 			if color == models.ColorWhite {
 				return []models.Repertoire{whiteRep}, nil
 			}
@@ -2609,7 +2611,7 @@ func TestAnalyzeTrainingMoves_DetectsOutOfRepertoire(t *testing.T) {
 	svc := NewTrainingService(repSvc)
 
 	// User plays Bc4 instead of Nf3
-	resp, err := svc.AnalyzeTrainingMoves("user-1", []string{"e4", "e5", "Bc4"}, models.ColorWhite)
+	resp, err := svc.AnalyzeTrainingMoves(context.Background(), "user-1", []string{"e4", "e5", "Bc4"}, models.ColorWhite)
 
 	require.NoError(t, err)
 	require.NotNil(t, resp)
@@ -2627,7 +2629,7 @@ func TestAnalyzeTrainingMoves_DetectsOutOfRepertoire(t *testing.T) {
 
 func TestAnalyzeTrainingMoves_InvalidMove(t *testing.T) {
 	mockRepRepo := &mocks.MockRepertoireRepo{
-		GetByColorFunc: func(userID string, color models.Color) ([]models.Repertoire, error) {
+		GetByColorFunc: func(_ context.Context, userID string, color models.Color) ([]models.Repertoire, error) {
 			return nil, nil
 		},
 	}
@@ -2635,7 +2637,7 @@ func TestAnalyzeTrainingMoves_InvalidMove(t *testing.T) {
 	repSvc := NewRepertoireService(mockRepRepo)
 	svc := NewTrainingService(repSvc)
 
-	_, err := svc.AnalyzeTrainingMoves("user-1", []string{"e4", "e5", "INVALID"}, models.ColorWhite)
+	_, err := svc.AnalyzeTrainingMoves(context.Background(), "user-1", []string{"e4", "e5", "INVALID"}, models.ColorWhite)
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid move")
@@ -2674,7 +2676,7 @@ func TestAnalyzeTrainingMoves_BlackRepertoire(t *testing.T) {
 	}
 
 	mockRepRepo := &mocks.MockRepertoireRepo{
-		GetByColorFunc: func(userID string, color models.Color) ([]models.Repertoire, error) {
+		GetByColorFunc: func(_ context.Context, userID string, color models.Color) ([]models.Repertoire, error) {
 			if color == models.ColorBlack {
 				return []models.Repertoire{blackRep}, nil
 			}
@@ -2685,7 +2687,7 @@ func TestAnalyzeTrainingMoves_BlackRepertoire(t *testing.T) {
 	repSvc := NewRepertoireService(mockRepRepo)
 	svc := NewTrainingService(repSvc)
 
-	resp, err := svc.AnalyzeTrainingMoves("user-1", []string{"e4", "e5", "Nf3"}, models.ColorBlack)
+	resp, err := svc.AnalyzeTrainingMoves(context.Background(), "user-1", []string{"e4", "e5", "Nf3"}, models.ColorBlack)
 
 	require.NoError(t, err)
 	require.NotNil(t, resp)
@@ -2741,7 +2743,7 @@ func TestParseAndAnalyze_RejectsTooManyGames(t *testing.T) {
 
 	pgn := syntheticPGN("bigimporter", config.MaxGamesPerImport+1)
 
-	_, _, err := svc.ParseAndAnalyze("big.pgn", "bigimporter", "user-1", pgn)
+	_, _, err := svc.ParseAndAnalyze(context.Background(), "big.pgn", "bigimporter", "user-1", pgn)
 
 	require.Error(t, err)
 	assert.ErrorIs(t, err, ErrTooManyGames)
@@ -2752,12 +2754,12 @@ func TestParseAndAnalyze_RejectsTooManyGames(t *testing.T) {
 // repertoire/analysis mocks permissive so the call proceeds past the guard.
 func TestParseAndAnalyze_AcceptsAtLimit(t *testing.T) {
 	repSvc := NewRepertoireService(&mocks.MockRepertoireRepo{
-		GetByColorFunc: func(string, models.Color) ([]models.Repertoire, error) {
+		GetByColorFunc: func(context.Context, string, models.Color) ([]models.Repertoire, error) {
 			return nil, nil
 		},
 	})
 	analysisRepo := &mocks.MockAnalysisRepo{
-		SaveFunc: func(_ string, username, filename string, gameCount int, _ []models.GameAnalysis) (*models.AnalysisSummary, error) {
+		SaveFunc: func(_ context.Context, _ string, username, filename string, gameCount int, _ []models.GameAnalysis) (*models.AnalysisSummary, error) {
 			return &models.AnalysisSummary{ID: "a-1", Username: username, Filename: filename, GameCount: gameCount}, nil
 		},
 	}
@@ -2765,9 +2767,265 @@ func TestParseAndAnalyze_AcceptsAtLimit(t *testing.T) {
 
 	pgn := syntheticPGN("atlimit", config.MaxGamesPerImport)
 
-	summary, _, err := svc.ParseAndAnalyze("limit.pgn", "atlimit", "user-1", pgn)
+	summary, _, err := svc.ParseAndAnalyze(context.Background(), "limit.pgn", "atlimit", "user-1", pgn)
 
 	require.NoError(t, err)
 	require.NotNil(t, summary)
 	assert.Equal(t, config.MaxGamesPerImport, summary.GameCount)
+}
+
+// --- Lost-update race fix (issue #120) ---
+
+// lockingAnalysisRepo is a test double that backs MutateResults with an
+// in-memory results store guarded by a mutex, mirroring the real repository's
+// SELECT ... FOR UPDATE row lock. Each mutation reads the latest stored slice,
+// applies the mutator, and writes the result back atomically — so two
+// concurrent read-modify-write callers serialize instead of clobbering each
+// other. It exists to prove the manual and auto re-analysis paths cannot lose
+// each other's writes without needing a real PostgreSQL instance.
+type lockingAnalysisRepo struct {
+	mocks.MockAnalysisRepo
+
+	mu     sync.Mutex
+	store  map[string][]models.GameAnalysis
+	writes int // number of persisted (changed) mutations, for assertions
+}
+
+func newLockingAnalysisRepo(initial map[string][]models.GameAnalysis) *lockingAnalysisRepo {
+	store := make(map[string][]models.GameAnalysis, len(initial))
+	for id, results := range initial {
+		store[id] = cloneResults(results)
+	}
+	r := &lockingAnalysisRepo{store: store}
+	// Enumeration for ReanalyzeAllGames reads from the same store under the lock.
+	r.GetAllGamesRawFunc = func(context.Context, string) ([]models.RawAnalysis, error) {
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		out := make([]models.RawAnalysis, 0, len(r.store))
+		for id, results := range r.store {
+			out = append(out, models.RawAnalysis{ID: id, Results: cloneResults(results)})
+		}
+		return out, nil
+	}
+	return r
+}
+
+func (r *lockingAnalysisRepo) MutateResults(_ context.Context, analysisID string, _ string, mutate repository.ResultsMutator) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	current, ok := r.store[analysisID]
+	if !ok {
+		return repository.ErrAnalysisNotFound
+	}
+
+	updated, changed, err := mutate(cloneResults(current))
+	if err != nil {
+		return err
+	}
+	if !changed {
+		return nil
+	}
+	r.store[analysisID] = cloneResults(updated)
+	r.writes++
+	return nil
+}
+
+func (r *lockingAnalysisRepo) snapshot(analysisID string) []models.GameAnalysis {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return cloneResults(r.store[analysisID])
+}
+
+func cloneResults(results []models.GameAnalysis) []models.GameAnalysis {
+	if results == nil {
+		return nil
+	}
+	out := make([]models.GameAnalysis, len(results))
+	copy(out, results)
+	return out
+}
+
+// reanalyzeFixture builds a single white repertoire and two stored games sharing
+// it, used by the lost-update tests below.
+func reanalyzeFixture() (white, black models.Repertoire, analysisID string, games []models.GameAnalysis) {
+	moveE4 := "e4"
+	moveE5 := "e5"
+	moveD4 := "d4"
+	startFEN := "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -"
+	afterE4 := "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3"
+	afterE5 := "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6"
+	afterD4 := "rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq d3"
+
+	white = models.Repertoire{
+		ID: "rep-e4", Name: "e4 Rep", Color: models.ColorWhite,
+		TreeData: models.RepertoireNode{
+			ID: "root", FEN: startFEN,
+			Children: []*models.RepertoireNode{
+				{ID: "e4", FEN: afterE4, Move: &moveE4, Children: []*models.RepertoireNode{
+					{ID: "e5", FEN: afterE5, Move: &moveE5},
+				}},
+			},
+		},
+	}
+	black = models.Repertoire{
+		ID: "rep-d4", Name: "d4 Rep", Color: models.ColorWhite,
+		TreeData: models.RepertoireNode{
+			ID: "root", FEN: startFEN,
+			Children: []*models.RepertoireNode{
+				{ID: "d4", FEN: afterD4, Move: &moveD4},
+			},
+		},
+	}
+
+	makeGame := func(idx int) models.GameAnalysis {
+		return models.GameAnalysis{
+			GameIndex: idx,
+			UserColor: models.ColorWhite,
+			Headers:   models.PGNHeaders{"White": "User", "Black": "Opp", "Result": "1-0"},
+			Moves: []models.MoveAnalysis{
+				{PlyNumber: 0, SAN: "e4", FEN: startFEN, IsUserMove: true, Status: "out-of-book"},
+				{PlyNumber: 1, SAN: "e5", FEN: afterE4, IsUserMove: false, Status: "out-of-book"},
+			},
+		}
+	}
+
+	return white, black, "a1", []models.GameAnalysis{makeGame(0), makeGame(1)}
+}
+
+// TestReanalyzeGame_RoutesThroughMutateResults verifies the manual single-game
+// path performs its read-modify-write inside the row-locked MutateResults
+// transaction (rather than the old GetByID + UpdateResults pair) and persists
+// the new repertoire match.
+func TestReanalyzeGame_RoutesThroughMutateResults(t *testing.T) {
+	whiteRep, _, analysisID, games := reanalyzeFixture()
+
+	repo := newLockingAnalysisRepo(map[string][]models.GameAnalysis{analysisID: games})
+	mockRepRepo := &mocks.MockRepertoireRepo{
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
+			if id == whiteRep.ID {
+				r := whiteRep
+				return &r, nil
+			}
+			return nil, repository.ErrRepertoireNotFound
+		},
+	}
+	svc := NewImportService(NewRepertoireService(mockRepRepo), repo)
+
+	reanalyzed, err := svc.ReanalyzeGame(context.Background(), analysisID, "user-1", 0, whiteRep.ID)
+
+	require.NoError(t, err)
+	require.NotNil(t, reanalyzed)
+	require.NotNil(t, reanalyzed.MatchedRepertoire)
+	assert.Equal(t, whiteRep.ID, reanalyzed.MatchedRepertoire.ID)
+	assert.Equal(t, "in-repertoire", reanalyzed.Moves[0].Status)
+
+	persisted := repo.snapshot(analysisID)
+	require.Len(t, persisted, 2)
+	require.NotNil(t, persisted[0].MatchedRepertoire)
+	assert.Equal(t, whiteRep.ID, persisted[0].MatchedRepertoire.ID, "manual reanalyze must be persisted")
+	// The untouched game keeps its original (un-matched) state.
+	assert.Nil(t, persisted[1].MatchedRepertoire)
+	assert.Equal(t, 1, repo.writes)
+}
+
+// TestReanalyzeGame_GameNotFound propagates the sentinel without writing.
+func TestReanalyzeGame_GameNotFound(t *testing.T) {
+	whiteRep, _, analysisID, games := reanalyzeFixture()
+	repo := newLockingAnalysisRepo(map[string][]models.GameAnalysis{analysisID: games})
+	mockRepRepo := &mocks.MockRepertoireRepo{
+		GetByIDFunc: func(_ context.Context, _ string, _ string) (*models.Repertoire, error) { r := whiteRep; return &r, nil },
+	}
+	svc := NewImportService(NewRepertoireService(mockRepRepo), repo)
+
+	_, err := svc.ReanalyzeGame(context.Background(), analysisID, "user-1", 99, whiteRep.ID)
+
+	require.ErrorIs(t, err, repository.ErrGameNotFound)
+	assert.Equal(t, 0, repo.writes)
+}
+
+// TestReanalyzeGame_ColorMismatch propagates the sentinel without writing.
+func TestReanalyzeGame_ColorMismatch(t *testing.T) {
+	whiteRep, _, analysisID, games := reanalyzeFixture()
+	blackRep := whiteRep
+	blackRep.ID = "rep-black"
+	blackRep.Color = models.ColorBlack
+	repo := newLockingAnalysisRepo(map[string][]models.GameAnalysis{analysisID: games})
+	mockRepRepo := &mocks.MockRepertoireRepo{
+		GetByIDFunc: func(_ context.Context, _ string, _ string) (*models.Repertoire, error) { r := blackRep; return &r, nil },
+	}
+	svc := NewImportService(NewRepertoireService(mockRepRepo), repo)
+
+	_, err := svc.ReanalyzeGame(context.Background(), analysisID, "user-1", 0, blackRep.ID)
+
+	require.ErrorIs(t, err, ErrColorMismatch)
+	assert.Equal(t, 0, repo.writes)
+}
+
+// TestReanalyze_InterleavedManualAndAuto_NoLostUpdate runs the manual
+// single-game path and the auto reanalyze-all path concurrently against the
+// same analysis many times. Because both write through the row-locked
+// MutateResults, neither can clobber the other: every game ends up matched to a
+// repertoire (no game is left in its initial out-of-book state, which would be
+// the symptom of a lost update overwriting a completed re-tag).
+func TestReanalyze_InterleavedManualAndAuto_NoLostUpdate(t *testing.T) {
+	whiteRep, otherRep, analysisID, games := reanalyzeFixture()
+
+	repo := newLockingAnalysisRepo(map[string][]models.GameAnalysis{analysisID: games})
+	mockRepRepo := &mocks.MockRepertoireRepo{
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
+			switch id {
+			case whiteRep.ID:
+				r := whiteRep
+				return &r, nil
+			case otherRep.ID:
+				r := otherRep
+				return &r, nil
+			}
+			return nil, repository.ErrRepertoireNotFound
+		},
+		// ReanalyzeAllGames matches games against all of the user's repertoires.
+		GetByColorFunc: func(_ context.Context, _ string, color models.Color) ([]models.Repertoire, error) {
+			if color == models.ColorWhite {
+				return []models.Repertoire{whiteRep, otherRep}, nil
+			}
+			return nil, nil
+		},
+	}
+	svc := NewImportService(NewRepertoireService(mockRepRepo), repo)
+
+	const iterations = 50
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	// Manual single-game reanalysis hammering game 0 against the d4 repertoire.
+	go func() {
+		defer wg.Done()
+		for i := 0; i < iterations; i++ {
+			_, err := svc.ReanalyzeGame(context.Background(), analysisID, "user-1", 0, otherRep.ID)
+			assert.NoError(t, err)
+		}
+	}()
+
+	// Auto reanalyze-all (preserveAnalysed=false) running in parallel.
+	go func() {
+		defer wg.Done()
+		for i := 0; i < iterations; i++ {
+			_, err := svc.ReanalyzeAllGames(context.Background(), "user-1", false)
+			assert.NoError(t, err)
+		}
+	}()
+
+	wg.Wait()
+
+	// Whatever interleaving occurred, the persisted results must be internally
+	// consistent: both games present, each carrying a repertoire match produced
+	// by one of the writers. A lost update would manifest as a game reverting to
+	// its initial out-of-book / nil-match state.
+	persisted := repo.snapshot(analysisID)
+	require.Len(t, persisted, 2)
+	for i := range persisted {
+		require.NotNil(t, persisted[i].MatchedRepertoire, "game %d lost its repertoire match (lost update)", i)
+		assert.Contains(t, []string{whiteRep.ID, otherRep.ID}, persisted[i].MatchedRepertoire.ID)
+	}
 }

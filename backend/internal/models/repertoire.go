@@ -72,8 +72,12 @@ type Repertoire struct {
 	Metadata    Metadata          `json:"metadata"`
 	Origin      *RepertoireOrigin `json:"origin,omitempty"`
 	AuthorName  string            `json:"authorName,omitempty"`
-	CreatedAt   time.Time         `json:"createdAt"`
-	UpdatedAt   time.Time         `json:"updatedAt"`
+	// Version is an optimistic-lock counter that is bumped on every tree mutation.
+	// Clients echo it back via the If-Match header so the server can reject writes
+	// based on a stale snapshot (see RepertoireRepository.Save).
+	Version   int       `json:"version"`
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
 }
 
 // CreateRepertoireRequest represents a request to create a new repertoire

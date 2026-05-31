@@ -117,8 +117,8 @@ func (s *OAuthService) HandleCallback(ctx context.Context, code, codeVerifier st
 
 // FindOrCreateUser looks up an existing OAuth user or creates a new one, then returns a JWT.
 // The isNew return value indicates whether a new user was created.
-func (s *OAuthService) FindOrCreateUser(provider, oauthID, username string) (resp *models.AuthResponse, isNew bool, err error) {
-	user, err := s.userRepo.FindByOAuth(provider, oauthID)
+func (s *OAuthService) FindOrCreateUser(ctx context.Context, provider, oauthID, username string) (resp *models.AuthResponse, isNew bool, err error) {
+	user, err := s.userRepo.FindByOAuth(ctx, provider, oauthID)
 	if err != nil && !errors.Is(err, repository.ErrUserNotFound) {
 		return nil, false, fmt.Errorf("failed to find OAuth user: %w", err)
 	}
@@ -128,7 +128,7 @@ func (s *OAuthService) FindOrCreateUser(provider, oauthID, username string) (res
 		// Check if username already exists and append suffix if needed
 		finalUsername := username
 		for i := 1; ; i++ {
-			exists, err := s.userRepo.Exists(finalUsername)
+			exists, err := s.userRepo.Exists(ctx, finalUsername)
 			if err != nil {
 				return nil, false, fmt.Errorf("failed to check username: %w", err)
 			}
@@ -138,7 +138,7 @@ func (s *OAuthService) FindOrCreateUser(provider, oauthID, username string) (res
 			finalUsername = fmt.Sprintf("%s_%d", username, i)
 		}
 
-		user, err = s.userRepo.CreateOAuth(provider, oauthID, finalUsername)
+		user, err = s.userRepo.CreateOAuth(ctx, provider, oauthID, finalUsername)
 		if err != nil {
 			return nil, false, fmt.Errorf("failed to create OAuth user: %w", err)
 		}
@@ -152,7 +152,7 @@ func (s *OAuthService) FindOrCreateUser(provider, oauthID, username string) (res
 	resp = &models.AuthResponse{Token: token, User: *user}
 
 	// Generate refresh token if configured
-	rawRefresh, refreshErr := s.authService.CreateRefreshTokenForUser(user.ID)
+	rawRefresh, refreshErr := s.authService.CreateRefreshTokenForUser(ctx, user.ID)
 	if refreshErr == nil && rawRefresh != "" {
 		resp.RefreshToken = rawRefresh
 	}

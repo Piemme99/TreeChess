@@ -3,6 +3,7 @@
 package testhelpers
 
 import (
+	"context"
 	"testing"
 
 	"golang.org/x/crypto/bcrypt"
@@ -18,7 +19,7 @@ func SeedUser(t *testing.T, repos *Repos, username, password string) *models.Use
 		t.Fatalf("SeedUser: bcrypt: %v", err)
 	}
 	email := username + "@test.com"
-	user, err := repos.User.Create(email, username, string(hash))
+	user, err := repos.User.Create(context.Background(), email, username, string(hash))
 	if err != nil {
 		t.Fatalf("SeedUser: %v", err)
 	}
@@ -28,7 +29,7 @@ func SeedUser(t *testing.T, repos *Repos, username, password string) *models.Use
 // SeedRepertoire creates a repertoire for the given user.
 func SeedRepertoire(t *testing.T, repos *Repos, userID, name string, color models.Color) *models.Repertoire {
 	t.Helper()
-	rep, err := repos.Repertoire.Create(userID, name, color)
+	rep, err := repos.Repertoire.Create(context.Background(), userID, name, color)
 	if err != nil {
 		t.Fatalf("SeedRepertoire: %v", err)
 	}
@@ -38,7 +39,7 @@ func SeedRepertoire(t *testing.T, repos *Repos, userID, name string, color model
 // SeedAnalysis saves an analysis for the given user.
 func SeedAnalysis(t *testing.T, repos *Repos, userID, username, filename string, results []models.GameAnalysis) *models.AnalysisSummary {
 	t.Helper()
-	summary, err := repos.Analysis.Save(userID, username, filename, len(results), results)
+	summary, err := repos.Analysis.Save(context.Background(), userID, username, filename, len(results), results)
 	if err != nil {
 		t.Fatalf("SeedAnalysis: %v", err)
 	}
@@ -97,7 +98,7 @@ func TwoGamePGN(white, black string) string {
 // SeedCategory creates a category for the given user.
 func SeedCategory(t *testing.T, repos *Repos, userID, name string, color models.Color) *models.Category {
 	t.Helper()
-	cat, err := repos.Category.Create(userID, name, color)
+	cat, err := repos.Category.Create(context.Background(), userID, name, color)
 	if err != nil {
 		t.Fatalf("SeedCategory: %v", err)
 	}

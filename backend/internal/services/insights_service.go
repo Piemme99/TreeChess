@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"fmt"
 	"sort"
 
@@ -50,15 +51,15 @@ func WithInsightsDismissedMistakeRepo(repo repository.DismissedMistakeRepository
 }
 
 // DismissMistake marks a mistake as dismissed for a user.
-func (s *InsightsService) DismissMistake(userID, fen, playedMove string) error {
+func (s *InsightsService) DismissMistake(ctx context.Context, userID, fen, playedMove string) error {
 	if s.dismissedMistakeRepo == nil {
 		return fmt.Errorf("dismissed mistake repository not configured")
 	}
-	return s.dismissedMistakeRepo.Dismiss(userID, fen, playedMove)
+	return s.dismissedMistakeRepo.Dismiss(ctx, userID, fen, playedMove)
 }
 
 // GetInsights computes worst opening mistakes using engine evaluations
-func (s *InsightsService) GetInsights(userID string) (*models.InsightsResponse, error) {
+func (s *InsightsService) GetInsights(ctx context.Context, userID string) (*models.InsightsResponse, error) {
 	response := &models.InsightsResponse{
 		WorstMistakes:      []models.OpeningMistake{},
 		EngineAnalysisDone: true,
@@ -73,7 +74,7 @@ func (s *InsightsService) GetInsights(userID string) (*models.InsightsResponse, 
 	var dismissedMistakes map[string]bool
 	if s.dismissedMistakeRepo != nil {
 		var err error
-		dismissedMistakes, err = s.dismissedMistakeRepo.GetDismissed(userID)
+		dismissedMistakes, err = s.dismissedMistakeRepo.GetDismissed(ctx, userID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get dismissed mistakes: %w", err)
 		}
@@ -82,7 +83,7 @@ func (s *InsightsService) GetInsights(userID string) (*models.InsightsResponse, 
 	// Get repertoire moves to filter them out (moves in repertoire are intentional, not mistakes)
 	repertoireMoves := make(map[string]bool)
 	if s.repertoireService != nil {
-		repertoires, err := s.repertoireService.ListRepertoires(userID, nil)
+		repertoires, err := s.repertoireService.ListRepertoires(ctx, userID, nil)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get repertoires: %w", err)
 		}
@@ -92,7 +93,7 @@ func (s *InsightsService) GetInsights(userID string) (*models.InsightsResponse, 
 	}
 
 	// Get engine evals and raw game data
-	insightsData, err := s.engineService.GetInsightsData(userID)
+	insightsData, err := s.engineService.GetInsightsData(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get engine evals: %w", err)
 	}
@@ -101,7 +102,7 @@ func (s *InsightsService) GetInsights(userID string) (*models.InsightsResponse, 
 	response.EngineAnalysisCompleted = insightsData.Completed
 	engineEvals := insightsData.Evals
 
-	analyses, err := s.analysisRepo.GetAllGamesRaw(userID)
+	analyses, err := s.analysisRepo.GetAllGamesRaw(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get analyses: %w", err)
 	}

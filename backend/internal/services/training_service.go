@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/notnil/chess"
@@ -24,9 +25,9 @@ func NewTrainingService(repertoireSvc *RepertoireService) *TrainingService {
 
 // AnalyzeTrainingMoves takes a sequence of SAN moves from an explorer training session,
 // finds the best matching repertoire for the user, and returns per-move analysis.
-func (s *TrainingService) AnalyzeTrainingMoves(userID string, moves []string, userColor models.Color) (*models.TrainingAnalyzeResponse, error) {
+func (s *TrainingService) AnalyzeTrainingMoves(ctx context.Context, userID string, moves []string, userColor models.Color) (*models.TrainingAnalyzeResponse, error) {
 	// Load repertoires for the user's color
-	repertoires, err := s.repertoireService.ListRepertoires(userID, &userColor)
+	repertoires, err := s.repertoireService.ListRepertoires(ctx, userID, &userColor)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load repertoires: %w", err)
 	}

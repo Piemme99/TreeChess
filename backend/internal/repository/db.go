@@ -2,13 +2,16 @@ package repository
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/kumquat/backend/config"
+	"github.com/kumquat/backend/internal/models"
 )
 
 // DB wraps the database connection pool
@@ -72,9 +75,21 @@ func (db *DB) Close() {
 	}
 }
 
-// dbContext creates a context with default timeout for database operations
-func dbContext() (context.Context, context.CancelFunc) {
-	return context.WithTimeout(context.Background(), config.DefaultDBTimeout)
+// dbContext derives a context with the default per-query timeout from the
+// caller-supplied parent context. Deriving from the caller (rather than
+// context.Background()) means an in-flight query is cancelled when the caller's
+// context is cancelled — e.g. when an HTTP client disconnects or the background
+// worker is shut down — while still bounding every query by DefaultDBTimeout.
+func dbContext(ctx context.Context) (context.Context, context.CancelFunc) {
+	return context.WithTimeout(ctx, config.DefaultDBTimeout)
+}
+
+// dbContextFrom derives a database operation context from a parent context,
+// applying the default DB timeout. It lets long-running workers propagate
+// cancellation (e.g. on shutdown) into individual queries while still bounding
+// each query with the standard timeout.
+func dbContextFrom(parent context.Context) (context.Context, context.CancelFunc) {
+	return context.WithTimeout(parent, config.DefaultDBTimeout)
 }
 
 // migrationLockID is an arbitrary constant used as the PostgreSQL advisory lock key.
@@ -282,6 +297,10 @@ func (db *DB) runMigrations() error {
 		`CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user ON refresh_tokens(user_id)`,
 		`CREATE INDEX IF NOT EXISTS idx_refresh_tokens_hash ON refresh_tokens(token_hash)`,
 		`CREATE INDEX IF NOT EXISTS idx_refresh_tokens_expires ON refresh_tokens(expires_at)`,
+		// Mark rotated tokens as consumed instead of hard-deleting them, so a replayed
+		// (stolen) token can be distinguished from an unknown one and trigger family-wide
+		// revocation. Consumed rows are purged on expiry.
+		`ALTER TABLE refresh_tokens ADD COLUMN IF NOT EXISTS consumed BOOLEAN NOT NULL DEFAULT false`,
 		// Add description column to repertoires
 		`ALTER TABLE repertoires ADD COLUMN IF NOT EXISTS description TEXT NOT NULL DEFAULT ''`,
 		// Track origin of imported repertoires (e.g. from Lichess studies)
@@ -298,12 +317,44 @@ func (db *DB) runMigrations() error {
 			created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 		)`,
 		`CREATE INDEX IF NOT EXISTS idx_opening_explorer_cache_expires ON opening_explorer_cache(expires_at)`,
+		// Optimistic-lock counter for repertoire tree mutations. Bumped on every
+		// Save; a conditional UPDATE (... AND version = $expected) rejects writes
+		// based on a stale snapshot, preventing silent lost updates from concurrent
+		// edits. Defaults to 0 for existing rows.
+		`ALTER TABLE repertoires ADD COLUMN IF NOT EXISTS version INT NOT NULL DEFAULT 0`,
 		// Drop redundant single-column user_id indexes. Each duplicates the leading
 		// column of its table's composite primary key, so Postgres can already serve
 		// user_id-prefixed lookups from the PK index; the standalone indexes only added
 		// write overhead. Safe to drop on databases that never had them (IF EXISTS).
 		`DROP INDEX IF EXISTS idx_dismissed_mistakes_user`,
 		`DROP INDEX IF EXISTS idx_dismissed_gaps_user`,
+		// Per-game projection of analyses.results. One row per game with the
+		// filterable/sortable columns denormalized out of the JSONB blob so the
+		// games listing can paginate and filter in SQL (LIMIT/OFFSET/WHERE) instead
+		// of unmarshalling every analysis's full per-move history on every page.
+		// analyses.results stays the source of truth for per-move detail; this table
+		// is a derived projection kept in sync on every Save/UpdateResults.
+		`CREATE TABLE IF NOT EXISTS games (
+			analysis_id     UUID NOT NULL REFERENCES analyses(id) ON DELETE CASCADE,
+			game_index      INTEGER NOT NULL,
+			user_id         UUID NOT NULL REFERENCES users(id),
+			white           TEXT,
+			black           TEXT,
+			result          TEXT,
+			date            TEXT,
+			user_color      TEXT,
+			status          TEXT NOT NULL,
+			time_class      TEXT NOT NULL,
+			opening         TEXT,
+			source          TEXT NOT NULL,
+			synced          BOOLEAN NOT NULL,
+			repertoire_id   UUID,
+			repertoire_name TEXT,
+			uploaded_at     TIMESTAMPTZ NOT NULL,
+			PRIMARY KEY (analysis_id, game_index)
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_games_user_uploaded ON games(user_id, uploaded_at DESC, game_index)`,
+		`CREATE INDEX IF NOT EXISTS idx_games_user_filters ON games(user_id, time_class, source, repertoire_id)`,
 	}
 	for _, m := range migrations {
 		if _, err := conn.Exec(ctx, m); err != nil {
@@ -311,6 +362,87 @@ func (db *DB) runMigrations() error {
 		}
 	}
 
+	if err := backfillGames(ctx, conn); err != nil {
+		return fmt.Errorf("failed to backfill games table: %w", err)
+	}
+
 	slog.Info("database migrations completed")
+	return nil
+}
+
+// gamesBackfillQuerier is the minimal pgx surface backfillGames needs. It is
+// satisfied by the migration connection (*pgxpool.Conn) and lets the backfill
+// both read analyses and feed rebuildGamesForAnalysis.
+type gamesBackfillQuerier interface {
+	dbExecer
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
+}
+
+// backfillGames populates the `games` projection from existing analyses the
+// first time the table is empty. It is idempotent: once any games row exists it
+// returns immediately, so it is a no-op on every boot after the initial one and
+// on fresh installs that import through the (already projection-aware) write
+// path. The CREATE TABLE migration leaves `games` empty, so no data is lost.
+func backfillGames(ctx context.Context, conn gamesBackfillQuerier) error {
+	var exists bool
+	rows, err := conn.Query(ctx, `SELECT EXISTS(SELECT 1 FROM games)`)
+	if err != nil {
+		return fmt.Errorf("checking games emptiness: %w", err)
+	}
+	if rows.Next() {
+		if err := rows.Scan(&exists); err != nil {
+			rows.Close()
+			return fmt.Errorf("scanning games emptiness: %w", err)
+		}
+	}
+	rows.Close()
+	if exists {
+		return nil
+	}
+
+	analysisRows, err := conn.Query(ctx, `
+		SELECT id, user_id, filename, results, uploaded_at
+		FROM analyses
+		ORDER BY uploaded_at`)
+	if err != nil {
+		return fmt.Errorf("querying analyses for backfill: %w", err)
+	}
+
+	type pending struct {
+		id         string
+		userID     string
+		filename   string
+		uploadedAt time.Time
+		results    []models.GameAnalysis
+	}
+	var batch []pending
+	for analysisRows.Next() {
+		var p pending
+		var resultsJSON []byte
+		if err := analysisRows.Scan(&p.id, &p.userID, &p.filename, &resultsJSON, &p.uploadedAt); err != nil {
+			analysisRows.Close()
+			return fmt.Errorf("scanning analysis for backfill: %w", err)
+		}
+		if err := json.Unmarshal(resultsJSON, &p.results); err != nil {
+			analysisRows.Close()
+			return fmt.Errorf("unmarshalling analysis %s for backfill: %w", p.id, err)
+		}
+		batch = append(batch, p)
+	}
+	if err := analysisRows.Err(); err != nil {
+		analysisRows.Close()
+		return fmt.Errorf("iterating analyses for backfill: %w", err)
+	}
+	analysisRows.Close()
+
+	for _, p := range batch {
+		if err := rebuildGamesForAnalysis(ctx, conn, p.id, p.userID, p.filename, p.uploadedAt, p.results); err != nil {
+			return fmt.Errorf("backfilling analysis %s: %w", p.id, err)
+		}
+	}
+
+	if len(batch) > 0 {
+		slog.Info("backfilled games projection", "analyses", len(batch))
+	}
 	return nil
 }

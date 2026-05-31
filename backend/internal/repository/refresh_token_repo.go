@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"time"
@@ -13,7 +14,7 @@ import (
 )
 
 const (
-	refreshTokenColumns = `id, user_id, token_hash, expires_at, created_at`
+	refreshTokenColumns = `id, user_id, token_hash, expires_at, created_at, consumed`
 
 	createRefreshTokenSQL = `
 		INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at)
@@ -24,6 +25,12 @@ const (
 		SELECT ` + refreshTokenColumns + `
 		FROM refresh_tokens
 		WHERE token_hash = $1
+	`
+
+	markRefreshTokenConsumedSQL = `
+		UPDATE refresh_tokens
+		SET consumed = true
+		WHERE id = $1
 	`
 
 	deleteRefreshTokenSQL = `
@@ -60,7 +67,7 @@ func scanRefreshToken(scan func(dest ...any) error) (*models.RefreshToken, error
 	var token models.RefreshToken
 	err := scan(
 		&token.ID, &token.UserID, &token.TokenHash,
-		&token.ExpiresAt, &token.CreatedAt,
+		&token.ExpiresAt, &token.CreatedAt, &token.Consumed,
 	)
 	if err != nil {
 		return nil, err
@@ -68,8 +75,8 @@ func scanRefreshToken(scan func(dest ...any) error) (*models.RefreshToken, error
 	return &token, nil
 }
 
-func (r *PostgresRefreshTokenRepo) Create(userID, tokenHash string, expiresAt time.Time) (*models.RefreshToken, error) {
-	ctx, cancel := dbContext()
+func (r *PostgresRefreshTokenRepo) Create(ctx context.Context, userID, tokenHash string, expiresAt time.Time) (*models.RefreshToken, error) {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	id := uuid.New().String()
@@ -80,8 +87,8 @@ func (r *PostgresRefreshTokenRepo) Create(userID, tokenHash string, expiresAt ti
 	return token, nil
 }
 
-func (r *PostgresRefreshTokenRepo) GetByTokenHash(tokenHash string) (*models.RefreshToken, error) {
-	ctx, cancel := dbContext()
+func (r *PostgresRefreshTokenRepo) GetByTokenHash(ctx context.Context, tokenHash string) (*models.RefreshToken, error) {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	token, err := scanRefreshToken(r.pool.QueryRow(ctx, getRefreshTokenByHashSQL, tokenHash).Scan)
@@ -94,8 +101,22 @@ func (r *PostgresRefreshTokenRepo) GetByTokenHash(tokenHash string) (*models.Ref
 	return token, nil
 }
 
-func (r *PostgresRefreshTokenRepo) Delete(id string) error {
-	ctx, cancel := dbContext()
+// MarkConsumed flags a refresh token as consumed during rotation. The row is
+// retained (rather than deleted) so a replayed/stolen token can be detected and
+// trigger family-wide revocation. Consumed rows are purged once expired.
+func (r *PostgresRefreshTokenRepo) MarkConsumed(ctx context.Context, id string) error {
+	ctx, cancel := dbContext(ctx)
+	defer cancel()
+
+	_, err := r.pool.Exec(ctx, markRefreshTokenConsumedSQL, id)
+	if err != nil {
+		return fmt.Errorf("failed to mark refresh token consumed: %w", err)
+	}
+	return nil
+}
+
+func (r *PostgresRefreshTokenRepo) Delete(ctx context.Context, id string) error {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	_, err := r.pool.Exec(ctx, deleteRefreshTokenSQL, id)
@@ -105,8 +126,8 @@ func (r *PostgresRefreshTokenRepo) Delete(id string) error {
 	return nil
 }
 
-func (r *PostgresRefreshTokenRepo) DeleteByUserID(userID string) error {
-	ctx, cancel := dbContext()
+func (r *PostgresRefreshTokenRepo) DeleteByUserID(ctx context.Context, userID string) error {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	_, err := r.pool.Exec(ctx, deleteRefreshTokensByUserSQL, userID)
@@ -116,8 +137,8 @@ func (r *PostgresRefreshTokenRepo) DeleteByUserID(userID string) error {
 	return nil
 }
 
-func (r *PostgresRefreshTokenRepo) DeleteExpired() error {
-	ctx, cancel := dbContext()
+func (r *PostgresRefreshTokenRepo) DeleteExpired(ctx context.Context) error {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	_, err := r.pool.Exec(ctx, deleteExpiredRefreshTokensSQL)
@@ -127,8 +148,8 @@ func (r *PostgresRefreshTokenRepo) DeleteExpired() error {
 	return nil
 }
 
-func (r *PostgresRefreshTokenRepo) CountByUserID(userID string) (int, error) {
-	ctx, cancel := dbContext()
+func (r *PostgresRefreshTokenRepo) CountByUserID(ctx context.Context, userID string) (int, error) {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	var count int

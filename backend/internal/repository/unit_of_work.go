@@ -16,14 +16,14 @@ import (
 // this surface: callers gather the data they need before opening the
 // transaction, keeping the transaction short and the lock window small.
 type RepertoireTx interface {
-	Create(userID string, name string, color models.Color) (*models.Repertoire, error)
-	CreateWithCategory(userID string, name string, color models.Color, categoryID *string) (*models.Repertoire, error)
-	Save(id string, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error)
-	UpdateOrigin(id string, origin *models.RepertoireOrigin) error
-	Delete(id string, userID string) error
+	Create(ctx context.Context, userID string, name string, color models.Color) (*models.Repertoire, error)
+	CreateWithCategory(ctx context.Context, userID string, name string, color models.Color, categoryID *string) (*models.Repertoire, error)
+	Save(ctx context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error)
+	UpdateOrigin(ctx context.Context, id string, userID string, origin *models.RepertoireOrigin) error
+	Delete(ctx context.Context, id string, userID string) error
 	// CreateCategory creates a category in the same transaction so study import
 	// never leaves an orphan category behind a failed repertoire write.
-	CreateCategory(userID, name string, color models.Color) (*models.Category, error)
+	CreateCategory(ctx context.Context, userID, name string, color models.Color) (*models.Category, error)
 }
 
 // txRepertoireRepo binds the repertoire and category repositories to one
@@ -33,28 +33,28 @@ type txRepertoireRepo struct {
 	category *PostgresCategoryRepo
 }
 
-func (t *txRepertoireRepo) Create(userID string, name string, color models.Color) (*models.Repertoire, error) {
-	return t.repo.Create(userID, name, color)
+func (t *txRepertoireRepo) Create(ctx context.Context, userID string, name string, color models.Color) (*models.Repertoire, error) {
+	return t.repo.Create(ctx, userID, name, color)
 }
 
-func (t *txRepertoireRepo) CreateWithCategory(userID string, name string, color models.Color, categoryID *string) (*models.Repertoire, error) {
-	return t.repo.CreateWithCategory(userID, name, color, categoryID)
+func (t *txRepertoireRepo) CreateWithCategory(ctx context.Context, userID string, name string, color models.Color, categoryID *string) (*models.Repertoire, error) {
+	return t.repo.CreateWithCategory(ctx, userID, name, color, categoryID)
 }
 
-func (t *txRepertoireRepo) Save(id string, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
-	return t.repo.Save(id, userID, treeData, metadata)
+func (t *txRepertoireRepo) Save(ctx context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {
+	return t.repo.Save(ctx, id, userID, treeData, metadata, expectedVersion)
 }
 
-func (t *txRepertoireRepo) UpdateOrigin(id string, origin *models.RepertoireOrigin) error {
-	return t.repo.UpdateOrigin(id, origin)
+func (t *txRepertoireRepo) UpdateOrigin(ctx context.Context, id string, userID string, origin *models.RepertoireOrigin) error {
+	return t.repo.UpdateOrigin(ctx, id, userID, origin)
 }
 
-func (t *txRepertoireRepo) Delete(id string, userID string) error {
-	return t.repo.Delete(id, userID)
+func (t *txRepertoireRepo) Delete(ctx context.Context, id string, userID string) error {
+	return t.repo.Delete(ctx, id, userID)
 }
 
-func (t *txRepertoireRepo) CreateCategory(userID, name string, color models.Color) (*models.Category, error) {
-	return t.category.Create(userID, name, color)
+func (t *txRepertoireRepo) CreateCategory(ctx context.Context, userID, name string, color models.Color) (*models.Category, error) {
+	return t.category.Create(ctx, userID, name, color)
 }
 
 // WithinTx runs fn inside a single database transaction. The closure receives a

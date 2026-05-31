@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -26,8 +27,8 @@ func TestHandleSync_Success(t *testing.T) {
 	}
 
 	mockUserRepo := &mocks.MockUserRepo{
-		GetByIDFunc:              func(id string) (*models.User, error) { return user, nil },
-		UpdateSyncTimestampsFunc: func(userID string, l, c *time.Time) error { return nil },
+		GetByIDFunc:              func(_ context.Context, id string) (*models.User, error) { return user, nil },
+		UpdateSyncTimestampsFunc: func(_ context.Context, userID string, l, c *time.Time) error { return nil },
 	}
 	mockLichess := &smocks.MockLichessService{
 		FetchGamesFunc: func(username string, opts models.LichessImportOptions) (string, error) {
@@ -35,7 +36,7 @@ func TestHandleSync_Success(t *testing.T) {
 		},
 	}
 	mockImport := &smocks.MockImportService{
-		ParseAndAnalyzeFunc: func(filename, username, userID, pgnData string) (*models.AnalysisSummary, []models.GameAnalysis, error) {
+		ParseAndAnalyzeFunc: func(_ context.Context, filename, username, userID, pgnData string) (*models.AnalysisSummary, []models.GameAnalysis, error) {
 			return &models.AnalysisSummary{GameCount: 5}, nil, nil
 		},
 	}
@@ -61,7 +62,7 @@ func TestHandleSync_Success(t *testing.T) {
 
 func TestHandleSync_Error(t *testing.T) {
 	mockUserRepo := &mocks.MockUserRepo{
-		GetByIDFunc: func(id string) (*models.User, error) {
+		GetByIDFunc: func(_ context.Context, id string) (*models.User, error) {
 			return nil, fmt.Errorf("database error")
 		},
 	}
@@ -90,7 +91,7 @@ func TestHandleSync_Cooldown(t *testing.T) {
 	}
 
 	mockUserRepo := &mocks.MockUserRepo{
-		GetByIDFunc: func(id string) (*models.User, error) { return user, nil },
+		GetByIDFunc: func(_ context.Context, id string) (*models.User, error) { return user, nil },
 	}
 
 	syncSvc := services.NewSyncService(mockUserRepo, &smocks.MockImportService{}, &smocks.MockLichessService{}, &smocks.MockChesscomService{})

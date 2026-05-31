@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -16,7 +17,7 @@ type mockTokenValidator struct {
 	validateFunc func(token string) (string, error)
 }
 
-func (m *mockTokenValidator) ValidateToken(token string) (string, error) {
+func (m *mockTokenValidator) ValidateToken(_ context.Context, token string) (string, error) {
 	return m.validateFunc(token)
 }
 
