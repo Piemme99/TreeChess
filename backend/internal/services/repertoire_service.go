@@ -11,6 +11,7 @@ import (
 
 	"github.com/kumquat/backend/config"
 	"github.com/kumquat/backend/internal/models"
+	"github.com/kumquat/backend/internal/repertoiretree"
 	"github.com/kumquat/backend/internal/repository"
 )
 
@@ -467,18 +468,10 @@ func deriveMoveNumber(parent *models.RepertoireNode) int {
 	return parent.MoveNumber
 }
 
+// findNode delegates to the shared repertoiretree primitive so find-by-id lives
+// in exactly one place.
 func findNode(root *models.RepertoireNode, id string) *models.RepertoireNode {
-	if root.ID == id {
-		return root
-	}
-
-	for i := range root.Children {
-		if found := findNode(root.Children[i], id); found != nil {
-			return found
-		}
-	}
-
-	return nil
+	return repertoiretree.FindByID(root, id)
 }
 
 // FindNode is an exported version for use by other services
