@@ -628,6 +628,7 @@ func (m *MockPasswordResetRepo) CountRecentByUserID(userID string, since time.Ti
 type MockRefreshTokenRepo struct {
 	CreateFunc         func(userID, tokenHash string, expiresAt time.Time) (*models.RefreshToken, error)
 	GetByTokenHashFunc func(tokenHash string) (*models.RefreshToken, error)
+	MarkConsumedFunc   func(id string) error
 	DeleteFunc         func(id string) error
 	DeleteByUserIDFunc func(userID string) error
 	DeleteExpiredFunc  func() error
@@ -651,6 +652,13 @@ func (m *MockRefreshTokenRepo) GetByTokenHash(tokenHash string) (*models.Refresh
 		return m.GetByTokenHashFunc(tokenHash)
 	}
 	return nil, repository.ErrRefreshTokenNotFound
+}
+
+func (m *MockRefreshTokenRepo) MarkConsumed(id string) error {
+	if m.MarkConsumedFunc != nil {
+		return m.MarkConsumedFunc(id)
+	}
+	return nil
 }
 
 func (m *MockRefreshTokenRepo) Delete(id string) error {

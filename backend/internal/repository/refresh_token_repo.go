@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	refreshTokenColumns = `id, user_id, token_hash, expires_at, created_at`
+	refreshTokenColumns = `id, user_id, token_hash, expires_at, created_at, consumed`
 
 	createRefreshTokenSQL = `
 		INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at)
@@ -24,6 +24,12 @@ const (
 		SELECT ` + refreshTokenColumns + `
 		FROM refresh_tokens
 		WHERE token_hash = $1
+	`
+
+	markRefreshTokenConsumedSQL = `
+		UPDATE refresh_tokens
+		SET consumed = true
+		WHERE id = $1
 	`
 
 	deleteRefreshTokenSQL = `
@@ -60,7 +66,7 @@ func scanRefreshToken(scan func(dest ...any) error) (*models.RefreshToken, error
 	var token models.RefreshToken
 	err := scan(
 		&token.ID, &token.UserID, &token.TokenHash,
-		&token.ExpiresAt, &token.CreatedAt,
+		&token.ExpiresAt, &token.CreatedAt, &token.Consumed,
 	)
 	if err != nil {
 		return nil, err
@@ -92,6 +98,20 @@ func (r *PostgresRefreshTokenRepo) GetByTokenHash(tokenHash string) (*models.Ref
 		return nil, fmt.Errorf("failed to get refresh token: %w", err)
 	}
 	return token, nil
+}
+
+// MarkConsumed flags a refresh token as consumed during rotation. The row is
+// retained (rather than deleted) so a replayed/stolen token can be detected and
+// trigger family-wide revocation. Consumed rows are purged once expired.
+func (r *PostgresRefreshTokenRepo) MarkConsumed(id string) error {
+	ctx, cancel := dbContext()
+	defer cancel()
+
+	_, err := r.pool.Exec(ctx, markRefreshTokenConsumedSQL, id)
+	if err != nil {
+		return fmt.Errorf("failed to mark refresh token consumed: %w", err)
+	}
+	return nil
 }
 
 func (r *PostgresRefreshTokenRepo) Delete(id string) error {
