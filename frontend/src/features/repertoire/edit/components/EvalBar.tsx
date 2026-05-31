@@ -34,6 +34,19 @@ function formatScoreWithSign(score: number | undefined, mate: number | undefined
   return (pawns >= 0 ? '+' : '') + pawns.toFixed(1);
 }
 
+// Text alternative for assistive technology, e.g. "White +1.2", "Black M3", "Even".
+// Scores are already normalized to white's perspective by the caller.
+function formatEvalLabel(score: number | undefined, mate: number | undefined): string {
+  if (mate !== undefined) {
+    if (mate === 0) return 'Even';
+    return `${mate > 0 ? 'White' : 'Black'} M${Math.abs(mate)}`;
+  }
+  if (score === undefined) return 'Evaluation unavailable';
+  if (score === 0) return 'Even';
+  const pawns = Math.abs(score) / 100;
+  return `${score > 0 ? 'White' : 'Black'} +${pawns.toFixed(1)}`;
+}
+
 export function EvalBar({ score, mate, fen }: EvalBarProps) {
   // Stockfish reports scores relative to the side to move.
   // Normalize to white's perspective so the bar doesn't swing on every move.
@@ -45,10 +58,11 @@ export function EvalBar({ score, mate, fen }: EvalBarProps) {
   const blackPercent = 100 - clampedPercent;
   const scoreText = formatScore(whiteScore, whiteMate);
   const hoverText = formatScoreWithSign(whiteScore, whiteMate);
+  const evalLabel = formatEvalLabel(whiteScore, whiteMate);
   const whiteAdvantage = whitePercent >= 50;
 
   return (
-    <div className="group w-7 self-stretch rounded-sm shrink-0 relative shadow-sm border border-border">
+    <div className="group w-7 self-stretch rounded-sm shrink-0 relative shadow-sm border border-border" role="img" aria-label={evalLabel}>
       <div className="absolute left-0 right-0 top-0 bg-[#333] rounded-t-sm transition-[height] duration-300 ease-in-out" style={{ height: `${blackPercent}%` }} />
       <div className="absolute left-0 right-0 bottom-0 bg-[#f5f5f5] rounded-b-sm transition-[height] duration-300 ease-in-out" style={{ height: `${clampedPercent}%` }} />
       {whiteAdvantage ? (

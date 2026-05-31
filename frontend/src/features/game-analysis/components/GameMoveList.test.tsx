@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeAll } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import type { ReactNode } from 'react';
 
 import type { MoveAnalysis } from '../../../types';
@@ -126,5 +126,55 @@ describe('GameMoveList - create-new-repertoire affordance', () => {
 
     expect(screen.queryByText('Create New Repertoire')).not.toBeInTheDocument();
     expect(screen.queryByText('Import from Lichess')).not.toBeInTheDocument();
+  });
+});
+
+describe('GameMoveList - move cell accessibility', () => {
+  const moves: MoveAnalysis[] = [
+    makeMove(0, 'e4', 'in-repertoire', true),
+    makeMove(1, 'c5', 'opponent-new', false),
+  ];
+
+  function renderList(onMoveClick = vi.fn(), currentMoveIndex = 0) {
+    render(
+      <GameMoveList
+        moves={moves}
+        currentMoveIndex={currentMoveIndex}
+        maxDisplayedIndex={1}
+        onMoveClick={onMoveClick}
+        onAddToRepertoire={vi.fn()}
+        onOpenInRepertoire={vi.fn()}
+        onCreateAndAdd={vi.fn()}
+        onImportSuccess={vi.fn()}
+        userColor="white"
+        showFullGame={false}
+        hasMoreMoves={false}
+        onToggleFullGame={vi.fn()}
+      />,
+    );
+    return onMoveClick;
+  }
+
+  it('exposes each move cell as a button with the SAN as its accessible name', () => {
+    renderList();
+    expect(screen.getByRole('button', { name: 'e4' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'c5' })).toBeInTheDocument();
+  });
+
+  it('marks the current move with aria-current', () => {
+    renderList(vi.fn(), 1);
+    expect(screen.getByRole('button', { name: 'c5' })).toHaveAttribute('aria-current', 'true');
+    expect(screen.getByRole('button', { name: 'e4' })).not.toHaveAttribute('aria-current');
+  });
+
+  it('activates a move via Enter and Space', () => {
+    const onMoveClick = renderList();
+    const cell = screen.getByRole('button', { name: 'c5' });
+
+    fireEvent.keyDown(cell, { key: 'Enter' });
+    expect(onMoveClick).toHaveBeenCalledWith(1);
+
+    fireEvent.keyDown(cell, { key: ' ' });
+    expect(onMoveClick).toHaveBeenCalledTimes(2);
   });
 });

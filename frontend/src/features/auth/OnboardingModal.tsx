@@ -36,7 +36,9 @@ export function OnboardingModal({ isOpen, onClose }: OnboardingModalProps) {
 
   useEffect(() => {
     if (isOpen) {
-      repertoireApi.listTemplates().then(setTemplates).catch(() => {});
+      repertoireApi.listTemplates()
+        .then(setTemplates)
+        .catch((err) => console.warn('Failed to load repertoire templates:', err));
       if (user?.lichessUsername) {
         setLichessUsername(user.lichessUsername);
       }

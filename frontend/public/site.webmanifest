@@ -1,6 +1,6 @@
 {
-  "name": "Kumquat",
-  "short_name": "Kumquat",
+  "name": "TreeChess",
+  "short_name": "TreeChess",
   "icons": [
     {
       "src": "/android-chrome-192x192.png",
@@ -14,6 +14,6 @@
     }
   ],
   "theme_color": "#e67e22",
-  "background_color": "#ffffff",
+  "background_color": "#fffbf5",
   "display": "standalone"
 }

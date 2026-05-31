@@ -30,11 +30,18 @@ export function findPathToNode(
   return null;
 }
 
-export function findNodeByFEN(node: RepertoireNode, targetFEN: string): RepertoireNode | null {
-  const nodePosition = node.fen.split(' ')[0];
-  const targetPosition = targetFEN.split(' ')[0];
+// Identify a position by its board placement AND side-to-move (the first two
+// FEN fields). Comparing placement alone collides two distinct positions that
+// share a piece arrangement but differ in whose turn it is (e.g. a null-move
+// transposition), which would graft moves onto the wrong node.
+function positionKey(fen: string): string {
+  return fen.split(' ').slice(0, 2).join(' ');
+}
 
-  if (nodePosition === targetPosition) return node;
+export function findNodeByFEN(node: RepertoireNode, targetFEN: string): RepertoireNode | null {
+  const targetKey = positionKey(targetFEN);
+
+  if (positionKey(node.fen) === targetKey) return node;
 
   for (const child of node.children) {
     const found = findNodeByFEN(child, targetFEN);

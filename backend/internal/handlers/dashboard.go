@@ -9,11 +9,11 @@ import (
 )
 
 type DashboardHandler struct {
-	importService *services.ImportService
+	dashboardService *services.DashboardStatsService
 }
 
-func NewDashboardHandler(importSvc *services.ImportService) *DashboardHandler {
-	return &DashboardHandler{importService: importSvc}
+func NewDashboardHandler(dashboardSvc *services.DashboardStatsService) *DashboardHandler {
+	return &DashboardHandler{dashboardService: dashboardSvc}
 }
 
 type DismissGapRequest struct {
@@ -37,7 +37,7 @@ func (h *DashboardHandler) DismissGap(c *echo.Context) error {
 		return BadRequestResponse(c, "fen, opponentMove, and repertoireId are required")
 	}
 
-	if err := h.importService.DismissGap(userID, req.FEN, req.OpponentMove, req.RepertoireID); err != nil {
+	if err := h.dashboardService.DismissGap(userID, req.FEN, req.OpponentMove, req.RepertoireID); err != nil {
 		return InternalErrorResponse(c, "failed to dismiss gap")
 	}
 
@@ -50,7 +50,7 @@ func (h *DashboardHandler) GetStats(c *echo.Context) error {
 		return nil
 	}
 
-	stats, err := h.importService.GetDashboardStats(userID)
+	stats, err := h.dashboardService.GetDashboardStats(userID)
 	if err != nil {
 		return InternalErrorResponse(c, "failed to get dashboard stats")
 	}

@@ -11,12 +11,12 @@ import (
 
 // TrainingHandler handles training-related API endpoints
 type TrainingHandler struct {
-	importService *services.ImportService
+	trainingService *services.TrainingService
 }
 
 // NewTrainingHandler creates a new training handler
-func NewTrainingHandler(importSvc *services.ImportService) *TrainingHandler {
-	return &TrainingHandler{importService: importSvc}
+func NewTrainingHandler(trainingSvc *services.TrainingService) *TrainingHandler {
+	return &TrainingHandler{trainingService: trainingSvc}
 }
 
 // AnalyzeHandler analyzes a sequence of moves from explorer training against the user's repertoires
@@ -39,7 +39,7 @@ func (h *TrainingHandler) AnalyzeHandler(c *echo.Context) error {
 		return BadRequestResponse(c, "userColor must be \"white\" or \"black\"")
 	}
 
-	resp, err := h.importService.AnalyzeTrainingMoves(userID, req.Moves, req.UserColor)
+	resp, err := h.trainingService.AnalyzeTrainingMoves(userID, req.Moves, req.UserColor)
 	if err != nil {
 		return InternalErrorResponse(c, "failed to analyze training moves")
 	}
