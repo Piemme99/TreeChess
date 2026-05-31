@@ -35,6 +35,9 @@ var (
 	ErrMergeMinimumTwo    = fmt.Errorf("at least two repertoires are required to merge")
 	ErrMergeColorMismatch = fmt.Errorf("cannot merge repertoires of different colors")
 	ErrMergeDuplicateIDs  = fmt.Errorf("duplicate repertoire IDs")
+	// ErrConflict wraps an optimistic-lock failure from the repository so handlers
+	// can map it to HTTP 409 without importing the repository package.
+	ErrConflict = fmt.Errorf("repertoire was modified by another write")
 
 	// Game analysis errors
 	ErrColorMismatch = fmt.Errorf("repertoire color does not match user color in game")
@@ -101,6 +104,23 @@ func (s *RepertoireService) ReanalysisQueue() ReanalysisNotifier {
 func (s *RepertoireService) notifyReanalysis(userID string) {
 	if s.queue != nil {
 		s.queue.Notify(userID)
+	}
+}
+
+// mapSaveError translates repository-layer save errors into service-layer
+// sentinels so handlers can branch without importing the repository package.
+// An optimistic-lock failure becomes ErrConflict (HTTP 409); a vanished
+// repertoire becomes ErrNotFound; everything else passes through unchanged.
+func mapSaveError(err error) error {
+	switch {
+	case err == nil:
+		return nil
+	case errors.Is(err, repository.ErrRepertoireConflict):
+		return fmt.Errorf("%w: %w", ErrConflict, err)
+	case errors.Is(err, repository.ErrRepertoireNotFound):
+		return fmt.Errorf("%w: %w", ErrNotFound, err)
+	default:
+		return err
 	}
 }
 
@@ -318,9 +338,9 @@ func (s *RepertoireService) AddNode(userID, repertoireID string, req models.AddN
 
 	newMetadata := calculateMetadata(rep.TreeData)
 
-	saved, err := s.repo.Save(repertoireID, userID, rep.TreeData, newMetadata)
+	saved, err := s.repo.Save(repertoireID, userID, rep.TreeData, newMetadata, rep.Version)
 	if err != nil {
-		return nil, err
+		return nil, mapSaveError(err)
 	}
 	s.notifyReanalysis(userID)
 	return saved, nil
@@ -328,7 +348,7 @@ func (s *RepertoireService) AddNode(userID, repertoireID string, req models.AddN
 
 // SaveTree saves a complete tree to a repertoire, replacing the existing tree data
 func (s *RepertoireService) SaveTree(userID, repertoireID string, treeData models.RepertoireNode) (*models.Repertoire, error) {
-	_, err := s.repo.GetByID(repertoireID)
+	rep, err := s.repo.GetByID(repertoireID)
 	if err != nil {
 		if errors.Is(err, repository.ErrRepertoireNotFound) {
 			return nil, fmt.Errorf("%w: %w", ErrNotFound, err)
@@ -337,9 +357,9 @@ func (s *RepertoireService) SaveTree(userID, repertoireID string, treeData model
 	}
 
 	metadata := calculateMetadata(treeData)
-	saved, err := s.repo.Save(repertoireID, userID, treeData, metadata)
+	saved, err := s.repo.Save(repertoireID, userID, treeData, metadata, rep.Version)
 	if err != nil {
-		return nil, err
+		return nil, mapSaveError(err)
 	}
 	s.notifyReanalysis(userID)
 	return saved, nil
@@ -366,9 +386,9 @@ func (s *RepertoireService) DeleteNode(userID, repertoireID string, nodeID strin
 
 	newMetadata := calculateMetadata(*newTreeData)
 
-	saved, err := s.repo.Save(repertoireID, userID, *newTreeData, newMetadata)
+	saved, err := s.repo.Save(repertoireID, userID, *newTreeData, newMetadata, rep.Version)
 	if err != nil {
-		return nil, err
+		return nil, mapSaveError(err)
 	}
 	s.notifyReanalysis(userID)
 	return saved, nil
@@ -404,7 +424,7 @@ func (s *RepertoireService) SeedRepertoires(userID string, templateIDs []string)
 		}
 
 		metadata := calculateMetadata(tree)
-		saved, err := s.repo.Save(rep.ID, userID, tree, metadata)
+		saved, err := s.repo.Save(rep.ID, userID, tree, metadata, rep.Version)
 		if err != nil {
 			return nil, fmt.Errorf("failed to save template tree %s: %w", tmplID, err)
 		}
@@ -558,7 +578,7 @@ func (s *RepertoireService) ExtractSubtree(userID, repertoireID, nodeID, name st
 	}
 
 	newMetadata := calculateMetadata(newTree)
-	savedNew, err := s.repo.Save(newRep.ID, userID, newTree, newMetadata)
+	savedNew, err := s.repo.Save(newRep.ID, userID, newTree, newMetadata, newRep.Version)
 	if err != nil {
 		return nil, fmt.Errorf("failed to save extracted repertoire: %w", err)
 	}
@@ -570,7 +590,7 @@ func (s *RepertoireService) ExtractSubtree(userID, repertoireID, nodeID, name st
 	}
 
 	prunedMetadata := calculateMetadata(*prunedTree)
-	savedOriginal, err := s.repo.Save(repertoireID, userID, *prunedTree, prunedMetadata)
+	savedOriginal, err := s.repo.Save(repertoireID, userID, *prunedTree, prunedMetadata, rep.Version)
 	if err != nil {
 		return nil, fmt.Errorf("failed to save pruned repertoire: %w", err)
 	}
@@ -711,7 +731,7 @@ func (s *RepertoireService) MergeRepertoires(userID string, ids []string, name s
 
 	// Calculate metadata and save
 	metadata := calculateMetadata(newRep.TreeData)
-	saved, err := s.repo.Save(newRep.ID, userID, newRep.TreeData, metadata)
+	saved, err := s.repo.Save(newRep.ID, userID, newRep.TreeData, metadata, newRep.Version)
 	if err != nil {
 		return nil, fmt.Errorf("failed to save merged repertoire: %w", err)
 	}
@@ -743,9 +763,9 @@ func (s *RepertoireService) MergeTranspositions(userID, repertoireID string) (*m
 	mergeTranspositionsInTree(&rep.TreeData)
 
 	metadata := calculateMetadata(rep.TreeData)
-	saved, err := s.repo.Save(repertoireID, userID, rep.TreeData, metadata)
+	saved, err := s.repo.Save(repertoireID, userID, rep.TreeData, metadata, rep.Version)
 	if err != nil {
-		return nil, err
+		return nil, mapSaveError(err)
 	}
 	s.notifyReanalysis(userID)
 	return saved, nil
@@ -904,7 +924,8 @@ func (s *RepertoireService) UpdateNodeComment(userID, repertoireID, nodeID, comm
 	}
 
 	metadata := calculateMetadata(rep.TreeData)
-	return s.repo.Save(repertoireID, userID, rep.TreeData, metadata)
+	saved, err := s.repo.Save(repertoireID, userID, rep.TreeData, metadata, rep.Version)
+	return saved, mapSaveError(err)
 }
 
 // UpdateNodeBranchName updates the branch name on a specific node in a repertoire
@@ -930,7 +951,8 @@ func (s *RepertoireService) UpdateNodeBranchName(userID, repertoireID, nodeID, b
 	}
 
 	metadata := calculateMetadata(rep.TreeData)
-	return s.repo.Save(repertoireID, userID, rep.TreeData, metadata)
+	saved, err := s.repo.Save(repertoireID, userID, rep.TreeData, metadata, rep.Version)
+	return saved, mapSaveError(err)
 }
 
 // allowedBranchColors is the whitelist of valid branch color hex values
@@ -977,7 +999,8 @@ func (s *RepertoireService) UpdateNodeBranchColor(userID, repertoireID, nodeID, 
 	}
 
 	metadata := calculateMetadata(rep.TreeData)
-	return s.repo.Save(repertoireID, userID, rep.TreeData, metadata)
+	saved, err := s.repo.Save(repertoireID, userID, rep.TreeData, metadata, rep.Version)
+	return saved, mapSaveError(err)
 }
 
 // allowedAnnotationColors is the whitelist of valid annotation hex colors,
@@ -1035,7 +1058,8 @@ func (s *RepertoireService) UpdateNodeAnnotations(userID, repertoireID, nodeID s
 	}
 
 	metadata := calculateMetadata(rep.TreeData)
-	return s.repo.Save(repertoireID, userID, rep.TreeData, metadata)
+	saved, err := s.repo.Save(repertoireID, userID, rep.TreeData, metadata, rep.Version)
+	return saved, mapSaveError(err)
 }
 
 // ToggleNodeCollapsed toggles the collapsed state on a specific node in a repertoire
@@ -1056,7 +1080,8 @@ func (s *RepertoireService) ToggleNodeCollapsed(userID, repertoireID, nodeID str
 	node.Collapsed = !node.Collapsed
 
 	metadata := calculateMetadata(rep.TreeData)
-	return s.repo.Save(repertoireID, userID, rep.TreeData, metadata)
+	saved, err := s.repo.Save(repertoireID, userID, rep.TreeData, metadata, rep.Version)
+	return saved, mapSaveError(err)
 }
 
 // ExpandToNode expands all collapsed ancestors of a node so it becomes visible in the tree.
@@ -1088,7 +1113,8 @@ func (s *RepertoireService) ExpandToNode(userID, repertoireID, nodeID string) (*
 	}
 
 	metadata := calculateMetadata(rep.TreeData)
-	return s.repo.Save(repertoireID, userID, rep.TreeData, metadata)
+	saved, err := s.repo.Save(repertoireID, userID, rep.TreeData, metadata, rep.Version)
+	return saved, mapSaveError(err)
 }
 
 // SetMainLine marks the path from root to the target node as the main line.
@@ -1117,7 +1143,8 @@ func (s *RepertoireService) SetMainLine(userID, repertoireID, nodeID string) (*m
 	clearAndSetMainLine(&rep.TreeData, pathIDs)
 
 	metadata := calculateMetadata(rep.TreeData)
-	return s.repo.Save(repertoireID, userID, rep.TreeData, metadata)
+	saved, err := s.repo.Save(repertoireID, userID, rep.TreeData, metadata, rep.Version)
+	return saved, mapSaveError(err)
 }
 
 // ClearMainLine removes the main line flag from all nodes in a repertoire.
@@ -1133,7 +1160,8 @@ func (s *RepertoireService) ClearMainLine(userID, repertoireID string) (*models.
 	clearAndSetMainLine(&rep.TreeData, nil)
 
 	metadata := calculateMetadata(rep.TreeData)
-	return s.repo.Save(repertoireID, userID, rep.TreeData, metadata)
+	saved, err := s.repo.Save(repertoireID, userID, rep.TreeData, metadata, rep.Version)
+	return saved, mapSaveError(err)
 }
 
 // clearAndSetMainLine walks the entire tree, setting IsMainLine = true for nodes
@@ -1229,7 +1257,7 @@ func (s *RepertoireService) ImportRepertoire(userID, sourceRepertoireID string) 
 
 	// Save the cloned tree
 	metadata := calculateMetadata(*clonedTree)
-	saved, err := s.repo.Save(newRep.ID, userID, *clonedTree, metadata)
+	saved, err := s.repo.Save(newRep.ID, userID, *clonedTree, metadata, newRep.Version)
 	if err != nil {
 		return nil, fmt.Errorf("failed to save imported repertoire: %w", err)
 	}

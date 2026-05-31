@@ -301,6 +301,11 @@ func (db *DB) runMigrations() error {
 			created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 		)`,
 		`CREATE INDEX IF NOT EXISTS idx_opening_explorer_cache_expires ON opening_explorer_cache(expires_at)`,
+		// Optimistic-lock counter for repertoire tree mutations. Bumped on every
+		// Save; a conditional UPDATE (... AND version = $expected) rejects writes
+		// based on a stale snapshot, preventing silent lost updates from concurrent
+		// edits. Defaults to 0 for existing rows.
+		`ALTER TABLE repertoires ADD COLUMN IF NOT EXISTS version INT NOT NULL DEFAULT 0`,
 		// Drop redundant single-column user_id indexes. Each duplicates the leading
 		// column of its table's composite primary key, so Postgres can already serve
 		// user_id-prefixed lookups from the PK index; the standalone indexes only added

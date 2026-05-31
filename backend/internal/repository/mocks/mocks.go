@@ -99,7 +99,7 @@ type MockRepertoireRepo struct {
 	CreateWithCategoryFunc        func(userID, name string, color models.Color, categoryID *string) (*models.Repertoire, error)
 	CreateWithIsPublicFunc        func(userID, name string, color models.Color, isPublic bool) (*models.Repertoire, error)
 	CreateWithIsPublicAndDescFunc func(userID, name, description string, color models.Color, isPublic bool) (*models.Repertoire, error)
-	SaveFunc                      func(id string, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error)
+	SaveFunc                      func(id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error)
 	UpdateNameFunc                func(id string, userID string, name string) (*models.Repertoire, error)
 	UpdateDescriptionFunc         func(id string, userID string, description string) (*models.Repertoire, error)
 	UpdateCategoryFunc            func(id string, userID string, categoryID *string) (*models.Repertoire, error)
@@ -155,9 +155,9 @@ func (m *MockRepertoireRepo) CreateWithCategory(userID, name string, color model
 	return nil, nil
 }
 
-func (m *MockRepertoireRepo) Save(id string, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
+func (m *MockRepertoireRepo) Save(id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {
 	if m.SaveFunc != nil {
-		return m.SaveFunc(id, userID, treeData, metadata)
+		return m.SaveFunc(id, userID, treeData, metadata, expectedVersion)
 	}
 	return nil, nil
 }
