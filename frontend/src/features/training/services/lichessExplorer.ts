@@ -5,25 +5,16 @@
 // errors into typed ExplorerError values for the Training UI to branch on.
 
 import { trainingApi } from '../../../services/api';
+import type { OpeningExplorerMove, OpeningExplorerResponse } from '../../../services/api';
 
 const MIN_GAMES_THRESHOLD = 100;
 const MAX_CACHE_SIZE = 5000;
 
-export interface ExplorerMove {
-  uci: string;
-  san: string;
-  white: number;
-  draws: number;
-  black: number;
-  averageRating: number;
-}
-
-export interface ExplorerResponse {
-  white: number;
-  draws: number;
-  black: number;
-  moves: ExplorerMove[];
-}
+// The Opening Explorer response shape is canonically defined alongside the API
+// client (it's the return type of `trainingApi.opening`). Re-export it here
+// under the Training-domain names this module's consumers already use.
+export type ExplorerMove = OpeningExplorerMove;
+export type ExplorerResponse = OpeningExplorerResponse;
 
 export type ExplorerErrorCode =
   | 'rate_limited'

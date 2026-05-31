@@ -9,6 +9,16 @@ import { usePageTitle } from '../../shared/hooks/usePageTitle';
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
+/**
+ * Synchronously strips the query string and hash from the live browser URL so
+ * a one-time OAuth `?token=...` cannot linger in history/referrer while the
+ * token exchange runs. Uses history.replaceState (no navigation, no re-render).
+ */
+function scrubLocationQuery() {
+  if (typeof window === 'undefined' || !window.history?.replaceState) return;
+  window.history.replaceState(null, '', window.location.pathname);
+}
+
 const OAUTH_ERROR_MESSAGES: Record<string, string> = {
   'access_denied': 'Access was denied. Please try again.',
   'invalid_request': 'Invalid authentication request. Please try again.',
@@ -43,6 +53,12 @@ export function LoginPage() {
     const isNew = searchParams.get('new') === '1';
 
     if (token) {
+      // Scrub the raw token from window.location BEFORE any async work so it
+      // cannot leak into browser history, the Referer header, or extension
+      // hooks while the exchange is in flight. setSearchParams alone only
+      // updates the router on the next render, so also replace the live URL
+      // synchronously here.
+      scrubLocationQuery();
       setSearchParams({}, { replace: true });
       handleOAuthToken(token, isNew)
         .then(() => {
@@ -56,6 +72,7 @@ export function LoginPage() {
           }
         });
     } else if (oauthError) {
+      scrubLocationQuery();
       setSearchParams({}, { replace: true });
       setError(OAUTH_ERROR_MESSAGES[oauthError] || 'Authentication failed. Please try again.');
     }

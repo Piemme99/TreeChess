@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { importApi } from '../../../services/api';
 import { toast } from '../../../stores/toastStore';
 import { sanitizeUsername } from '../utils/sanitizeUsername';
+import { getApiErrorMessage } from '../../../shared/utils/apiError';
 import type { LichessImportOptions } from '../../../types';
 
 export interface UseLichessImportReturn {
@@ -27,10 +28,7 @@ export function useLichessImport(username: string, onSuccess?: () => void): UseL
       onSuccess?.();
       return true;
     } catch (error) {
-      // Extract error message from axios error
-      const axiosError = error as { response?: { data?: { error?: string }; status?: number } };
-      const errorMessage = axiosError.response?.data?.error || 'Failed to import from Lichess';
-      toast.error(errorMessage);
+      toast.error(getApiErrorMessage(error, 'Failed to import from Lichess'));
       return false;
     } finally {
       setImporting(false);

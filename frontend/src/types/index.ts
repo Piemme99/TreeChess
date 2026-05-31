@@ -201,6 +201,14 @@ export interface PGNHeaders {
 
 export type MoveStatus = 'in-repertoire' | 'out-of-repertoire' | 'opponent-new' | 'out-of-book';
 
+/** Named members of the {@link MoveStatus} union, to avoid inline magic strings. */
+export const MoveStatus = {
+  InRepertoire: 'in-repertoire',
+  OutOfRepertoire: 'out-of-repertoire',
+  OpponentNew: 'opponent-new',
+  OutOfBook: 'out-of-book',
+} as const satisfies Record<string, MoveStatus>;
+
 export interface MoveAnalysis {
   plyNumber: number;
   san: string;
