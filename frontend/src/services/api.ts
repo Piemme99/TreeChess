@@ -40,6 +40,7 @@ import {
   dashboardStatsResponseSchema,
   validateResponse,
 } from './apiSchemas';
+import { getApiErrorStatus } from '../shared/utils/apiError';
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
@@ -106,11 +107,52 @@ function refreshAccessToken(): Promise<AuthResponse> {
 // (expired, revoked, missing). Anything else (no response, 5xx, timeout)
 // is transient — we should not log the user out for those.
 function isAuthRejection(err: unknown): boolean {
-  if (!err || typeof err !== 'object' || !('response' in err)) {
-    return false;
-  }
-  const status = (err as { response?: { status?: number } }).response?.status;
+  const status = getApiErrorStatus(err);
   return status === 401 || status === 403;
+}
+
+// --- Repertoire optimistic-concurrency (If-Match / version) ---
+// The backend bumps a `version` on every repertoire tree mutation and exposes
+// it via the ETag response header (and the JSON body). To reject lost updates
+// from concurrent edits (two tabs, a stale client, a retry), the client echoes
+// the last-known version back as `If-Match` on every mutation. A 409 means the
+// server moved ahead: we transparently re-fetch the repertoire and retry once
+// with the fresh version, so the user does not lose their edit silently.
+const repertoireVersions = new Map<string, number>();
+
+// Matches /repertoires/:id... and captures the repertoire UUID so we know which
+// version to attach / refresh. Explore + template routes are intentionally
+// excluded (they create new repertoires, not mutate an existing tree).
+const REPERTOIRE_PATH = /\/repertoires\/([0-9a-fA-F-]{36})(?:\/|$)/;
+
+function repertoireIdFromUrl(url?: string): string | null {
+  if (!url) return null;
+  const match = REPERTOIRE_PATH.exec(url);
+  return match ? match[1] : null;
+}
+
+// recordRepertoireVersion caches the version from a repertoire-shaped payload
+// (or an array of them) so subsequent mutations can send a correct If-Match.
+function recordRepertoireVersion(data: unknown): void {
+  if (Array.isArray(data)) {
+    data.forEach(recordRepertoireVersion);
+    return;
+  }
+  if (data && typeof data === 'object') {
+    const rep = data as Partial<Repertoire> & Record<string, unknown>;
+    if (typeof rep.id === 'string' && typeof rep.version === 'number') {
+      repertoireVersions.set(rep.id, rep.version);
+    }
+    // Composite responses (extract/merge) nest repertoires under known keys.
+    for (const key of ['original', 'extracted', 'merged'] as const) {
+      if (rep[key]) recordRepertoireVersion(rep[key]);
+    }
+  }
+}
+
+/** Exposed for tests: clears the cached repertoire versions. */
+export function __resetRepertoireVersions(): void {
+  repertoireVersions.clear();
 }
 
 // Request interceptor - inject access token from memory
@@ -118,10 +160,41 @@ api.interceptors.request.use((config) => {
   if (accessToken) {
     config.headers.Authorization = `Bearer ${accessToken}`;
   }
+
+  // Attach the optimistic-lock precondition to repertoire mutations. GET is a
+  // read (no precondition); POST/PATCH/DELETE mutate and need If-Match when we
+  // have a cached version for this repertoire.
+  const method = (config.method || 'get').toLowerCase();
+  if (method !== 'get') {
+    const repId = repertoireIdFromUrl(config.url);
+    if (repId !== null && repertoireVersions.has(repId)) {
+      config.headers = config.headers ?? {};
+      (config.headers as Record<string, string>)['If-Match'] = String(repertoireVersions.get(repId));
+    }
+  }
+
   return config;
 });
 
-// Response interceptor - handle 401 with automatic token refresh
+// Response interceptor - cache the latest repertoire version from every
+// repertoire response so the next mutation sends a fresh If-Match. Prefer the
+// ETag header (always present on repertoire endpoints) and fall back to the
+// JSON body for composite payloads.
+api.interceptors.response.use((response) => {
+  const repId = repertoireIdFromUrl(response.config?.url);
+  const etag = response.headers?.etag ?? response.headers?.ETag;
+  if (repId !== null && etag !== undefined && etag !== '') {
+    const parsed = Number(etag);
+    if (!Number.isNaN(parsed)) {
+      repertoireVersions.set(repId, parsed);
+    }
+  }
+  recordRepertoireVersion(response.data);
+  return response;
+});
+
+// Response interceptor - handle 401 with automatic token refresh and 409 with
+// an automatic version refresh + single retry.
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -129,7 +202,36 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    const originalRequest = error.config as AxiosRequestConfig & { _retry?: boolean };
+    const originalRequest = error.config as AxiosRequestConfig & {
+      _retry?: boolean;
+      _versionRetry?: boolean;
+    };
+
+    // 409 Conflict on a repertoire mutation: another write landed first and our
+    // If-Match was stale. Re-fetch the repertoire to learn the current version
+    // (the GET response interceptor refreshes the cache and the store state),
+    // then replay the mutation once with the fresh precondition. Guard against
+    // loops with _versionRetry, mirroring the _retry pattern below.
+    if (error.response?.status === 409 && originalRequest && !originalRequest._versionRetry) {
+      const repId = repertoireIdFromUrl(originalRequest.url);
+      if (repId !== null) {
+        originalRequest._versionRetry = true;
+        try {
+          await api.get(`/repertoires/${repId}`);
+          const fresh = repertoireVersions.get(repId);
+          if (fresh !== undefined) {
+            originalRequest.headers = {
+              ...originalRequest.headers,
+              'If-Match': String(fresh),
+            };
+          }
+          return api(originalRequest);
+        } catch {
+          // Re-fetch failed (deleted, network, auth): surface the original 409.
+          return Promise.reject(error);
+        }
+      }
+    }
 
     // If we get a 401 and haven't already retried this request
     if (error.response?.status === 401 && !originalRequest._retry) {

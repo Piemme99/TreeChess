@@ -12,7 +12,10 @@ import {
   ensureFullFEN,
   getMainlineFEN,
   deriveChildMoveNumber,
-  formatNodeNotation
+  formatNodeNotation,
+  fenAfter,
+  allFens,
+  lastMoveAt
 } from './chess';
 import type { RepertoireNode } from '../../types';
 
@@ -333,5 +336,60 @@ describe('formatNodeNotation', () => {
   it('formats a black move with an ellipsis', () => {
     expect(formatNodeNotation(1, 'w', 'c5')).toBe('1... c5');
     expect(formatNodeNotation(2, 'w', 'Nc6')).toBe('2... Nc6');
+  });
+});
+
+// Italian Game opening: 1.e4 e5 2.Nf3 Nc6 3.Bc4
+const ITALIAN: { san: string }[] = [
+  { san: 'e4' }, { san: 'e5' }, { san: 'Nf3' }, { san: 'Nc6' }, { san: 'Bc4' },
+];
+
+describe('fenAfter', () => {
+  it('returns the starting position for a negative index', () => {
+    expect(fenAfter(ITALIAN, -1)).toBe(STARTING_FEN);
+  });
+
+  it('returns the FEN after the move at the given index', () => {
+    // The board portion (before the side-to-move field) is stable across chess.js
+    // versions; the en-passant field is not, so compare only the board layout.
+    const board = (fen: string) => fen.split(' ')[0];
+    expect(board(fenAfter(ITALIAN, 0))).toBe('rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR');
+    expect(board(fenAfter(ITALIAN, 1))).toBe('rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR');
+  });
+
+  it('clamps an index past the end to the final position', () => {
+    expect(fenAfter(ITALIAN, 99)).toBe(fenAfter(ITALIAN, ITALIAN.length - 1));
+  });
+
+  it('stops replaying at the first illegal move', () => {
+    const broken: { san: string }[] = [{ san: 'e4' }, { san: 'Qh5??invalid' }, { san: 'Nc6' }];
+    // Replay stops after e4, so the result is the FEN after e4.
+    expect(fenAfter(broken, 2)).toBe(fenAfter([{ san: 'e4' }], 0));
+  });
+});
+
+describe('allFens', () => {
+  it('returns the starting position for an empty list', () => {
+    expect(allFens([])).toEqual([STARTING_FEN]);
+  });
+
+  it('returns start plus one FEN per move, in order', () => {
+    const fens = allFens(ITALIAN);
+    expect(fens).toHaveLength(ITALIAN.length + 1);
+    expect(fens[0]).toBe(STARTING_FEN);
+    expect(fens[1]).toBe(fenAfter(ITALIAN, 0));
+    expect(fens[ITALIAN.length]).toBe(fenAfter(ITALIAN, ITALIAN.length - 1));
+  });
+});
+
+describe('lastMoveAt', () => {
+  it('returns null for an out-of-range index', () => {
+    expect(lastMoveAt(ITALIAN, -1)).toBeNull();
+    expect(lastMoveAt(ITALIAN, ITALIAN.length)).toBeNull();
+  });
+
+  it('returns the from/to squares of the move at the index', () => {
+    expect(lastMoveAt(ITALIAN, 0)).toEqual({ from: 'e2', to: 'e4' });
+    expect(lastMoveAt(ITALIAN, 2)).toEqual({ from: 'g1', to: 'f3' });
   });
 });

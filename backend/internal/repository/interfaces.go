@@ -37,7 +37,7 @@ type RepertoireRepository interface {
 	GetByColor(userID string, color models.Color) ([]models.Repertoire, error)
 	GetAll(userID string) ([]models.Repertoire, error)
 	Create(userID string, name string, color models.Color) (*models.Repertoire, error)
-	Save(id string, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error)
+	Save(id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error)
 	UpdateName(id string, userID string, name string) (*models.Repertoire, error)
 	UpdateDescription(id string, userID string, description string) (*models.Repertoire, error)
 	Delete(id string, userID string) error
@@ -63,13 +63,19 @@ type OpeningExplorerCacheRepository interface {
 
 // EngineEvalRepository defines the interface for engine evaluation operations
 type EngineEvalRepository interface {
-	CreatePendingBatch(userID, analysisID string, gameCount int) error
+	CreatePendingBatch(ctx context.Context, userID, analysisID string, gameCount int) error
+	// ClaimPending atomically marks up to limit pending evals as processing and
+	// returns them (FOR UPDATE SKIP LOCKED), so concurrent workers never claim
+	// the same row.
+	ClaimPending(ctx context.Context, limit int) ([]models.EngineEval, error)
+	// GetPending and MarkProcessing remain for non-worker callers; the worker
+	// uses the atomic ClaimPending instead.
 	GetPending(limit int) ([]models.EngineEval, error)
 	MarkProcessing(id string) error
-	SaveEvals(id string, evals []models.ExplorerMoveStats) error
-	MarkFailed(id string) error
+	SaveEvals(ctx context.Context, id string, evals []models.ExplorerMoveStats) error
+	MarkFailed(ctx context.Context, id string) error
 	GetByUser(userID string) ([]models.EngineEval, error)
-	ResetStaleProcessing() (int, error)
+	ResetStaleProcessing(ctx context.Context) (int, error)
 }
 
 // DismissedMistakeRepository defines the interface for dismissed mistake operations
@@ -103,6 +109,7 @@ type AnalysisRepository interface {
 type RefreshTokenRepository interface {
 	Create(userID, tokenHash string, expiresAt time.Time) (*models.RefreshToken, error)
 	GetByTokenHash(tokenHash string) (*models.RefreshToken, error)
+	MarkConsumed(id string) error
 	Delete(id string) error
 	DeleteByUserID(userID string) error
 	DeleteExpired() error

@@ -9,6 +9,10 @@ const PAGE_SIZE = 20;
 export function useGames(timeClass?: string, repertoire?: string, source?: string) {
   const [games, setGames] = useState<GameSummary[]>([]);
   const [total, setTotal] = useState(0);
+  // Global count of "New" games (synced and not yet viewed) across all imports,
+  // independent of the current page. The per-page split in GamesList only sees
+  // this page's rows, so we fetch the true total separately to label the header.
+  const [newTotal, setNewTotal] = useState(0);
   const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(true);
   const { getSignal } = useAbortController();
@@ -17,10 +21,17 @@ export function useGames(timeClass?: string, repertoire?: string, source?: strin
     const signal = getSignal();
     setLoading(true);
     try {
-      const data = await gamesApi.list(PAGE_SIZE, newOffset, timeClass, repertoire, source, { signal });
+      // Minimal page size — we only need `.total`, not the rows. Note: listNew
+      // does not forward the timeClass/repertoire/source filters, so this is the
+      // unfiltered global New total.
+      const [data, newData] = await Promise.all([
+        gamesApi.list(PAGE_SIZE, newOffset, timeClass, repertoire, source, { signal }),
+        gamesApi.listNew(1, 0, { signal })
+      ]);
       if (!signal.aborted) {
         setGames(data.games || []);
         setTotal(data.total);
+        setNewTotal(newData.total);
         setOffset(newOffset);
       }
     } catch (error) {
@@ -69,6 +80,7 @@ export function useGames(timeClass?: string, repertoire?: string, source?: strin
     games,
     loading,
     total,
+    newTotal,
     markGameViewed,
     nextPage,
     prevPage,

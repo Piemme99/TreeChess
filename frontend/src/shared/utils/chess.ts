@@ -105,6 +105,67 @@ export function makeMove(fen: string, san: string): string | null {
   }
 }
 
+/**
+ * Replays a SAN move list from the starting position and returns the FEN after
+ * the move at `upToIndex` (0-indexed). An index < 0 yields the starting position.
+ * Replay stops at the first illegal move. Generic over any record carrying a
+ * `san` field, so both `MoveRecord` and `MoveAnalysis` satisfy it.
+ */
+export function fenAfter(moves: { san: string }[], upToIndex: number): string {
+  if (upToIndex < 0) return STARTING_FEN;
+
+  const chess = new Chess();
+  for (let i = 0; i <= upToIndex && i < moves.length; i++) {
+    try {
+      chess.move(moves[i].san);
+    } catch {
+      break;
+    }
+  }
+  return chess.fen();
+}
+
+/**
+ * Returns every FEN from the starting position through each move in order,
+ * i.e. `result[0]` is the start and `result[i + 1]` is the FEN after move `i`.
+ * Replay stops at the first illegal move. Generic over `{ san: string }[]`.
+ */
+export function allFens(moves: { san: string }[]): string[] {
+  const chess = new Chess();
+  const fens = [chess.fen()];
+  for (const move of moves) {
+    try {
+      chess.move(move.san);
+    } catch {
+      break;
+    }
+    fens.push(chess.fen());
+  }
+  return fens;
+}
+
+/**
+ * Returns the `{ from, to }` squares of the move at `index` (0-indexed) by
+ * replaying from the start, or `null` for an out-of-range index or an illegal
+ * move. Generic over `{ san: string }[]`.
+ */
+export function lastMoveAt(moves: { san: string }[], index: number): { from: string; to: string } | null {
+  if (index < 0 || index >= moves.length) return null;
+
+  const chess = new Chess();
+  for (let i = 0; i <= index; i++) {
+    try {
+      const move = chess.move(moves[i].san);
+      if (i === index && move) {
+        return { from: move.from, to: move.to };
+      }
+    } catch {
+      break;
+    }
+  }
+  return null;
+}
+
 export function getTurn(fen: string): 'w' | 'b' {
   if (!fen || typeof fen !== 'string') {
     return 'w'; // Default to white for invalid input

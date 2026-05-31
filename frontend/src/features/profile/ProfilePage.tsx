@@ -1,13 +1,14 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router';
 import { LogOut } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
-import { Button } from '../../shared/components/UI';
+import { Button, ConfirmModal } from '../../shared/components/UI';
 import { toast } from '../../stores/toastStore';
 import { authApi } from '../../services/api';
 import { fadeUp } from '../../shared/utils/animations';
 import { usePageTitle } from '../../shared/hooks/usePageTitle';
+import { getApiErrorMessage } from '../../shared/utils/apiError';
 import type { TimeFormat } from '../../types';
 
 export function ProfilePage() {
@@ -61,12 +62,7 @@ export function ProfilePage() {
       toast.success('Your account has been deleted.');
       navigate('/');
     } catch (err) {
-      if (err instanceof Error && 'response' in err) {
-        const axiosError = err as { response?: { data?: { error?: string } } };
-        setDeleteError(axiosError.response?.data?.error || 'Failed to delete account');
-      } else {
-        setDeleteError('Failed to delete account');
-      }
+      setDeleteError(getApiErrorMessage(err, 'Failed to delete account'));
     } finally {
       setDeleteLoading(false);
     }
@@ -168,12 +164,7 @@ export function ProfilePage() {
       setNewPassword('');
       setConfirmNewPassword('');
     } catch (err) {
-      if (err instanceof Error && 'response' in err) {
-        const axiosError = err as { response?: { data?: { error?: string } } };
-        setPasswordError(axiosError.response?.data?.error || 'Failed to change password');
-      } else {
-        setPasswordError('Failed to change password');
-      }
+      setPasswordError(getApiErrorMessage(err, 'Failed to change password'));
     } finally {
       setPasswordLoading(false);
     }
@@ -366,83 +357,57 @@ export function ProfilePage() {
       </div>
 
       {/* Delete account confirmation dialog */}
-      <AnimatePresence>
-        {showDeleteDialog && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-            onClick={() => !deleteLoading && setShowDeleteDialog(false)}
-          >
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-bg-card rounded-2xl p-6 border border-danger/20 shadow-xl max-w-md w-full"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <h3 className="text-lg font-semibold font-display text-danger mb-2">
-                Delete your account?
-              </h3>
-              <p className="text-sm text-text-muted mb-2">
-                This will permanently delete:
-              </p>
-              <ul className="text-sm text-text-muted mb-4 list-disc list-inside space-y-1">
-                <li>Your profile and credentials</li>
-                <li>All your repertoires and categories</li>
-                <li>All your imported games and analyses</li>
-                <li>All your preferences and settings</li>
-              </ul>
-              <p className="text-sm text-text mb-4 font-medium">
-                {isOAuthOnly
-                  ? <>Type your username <span className="font-mono text-danger">{user?.username}</span> to confirm:</>
-                  : 'Enter your password to confirm:'}
-              </p>
+      <ConfirmModal
+        isOpen={showDeleteDialog}
+        onClose={() => !deleteLoading && setShowDeleteDialog(false)}
+        onConfirm={handleDeleteAccount}
+        title="Delete your account?"
+        variant="danger"
+        confirmText="Delete permanently"
+        loading={deleteLoading}
+        confirmDisabled={!deleteConfirmationValid}
+        message={
+          <div className="flex flex-col gap-1">
+            <p className="text-sm text-text-muted mb-2">
+              This will permanently delete:
+            </p>
+            <ul className="text-sm text-text-muted mb-4 list-disc list-inside space-y-1">
+              <li>Your profile and credentials</li>
+              <li>All your repertoires and categories</li>
+              <li>All your imported games and analyses</li>
+              <li>All your preferences and settings</li>
+            </ul>
 
-              {deleteError && (
-                <div className="bg-danger-light text-danger py-2 px-4 rounded-xl text-sm mb-4">
-                  {deleteError}
-                </div>
-              )}
-
-              <input
-                type={isOAuthOnly ? 'text' : 'password'}
-                value={deleteConfirmation}
-                onChange={(e) => setDeleteConfirmation(e.target.value)}
-                placeholder={isOAuthOnly ? 'Type your username' : 'Enter your password'}
-                autoComplete={isOAuthOnly ? 'off' : 'current-password'}
-                data-form-type="other"
-                data-lpignore="true"
-                className="w-full py-2 px-4 border border-border rounded-xl text-[0.9375rem] font-sans focus:outline-none focus:border-danger focus:ring-3 focus:ring-danger/20 mb-4"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && deleteConfirmationValid && !deleteLoading) {
-                    handleDeleteAccount();
-                  }
-                }}
-              />
-
-              <div className="flex gap-3 justify-end">
-                <Button
-                  variant="secondary"
-                  onClick={() => setShowDeleteDialog(false)}
-                  disabled={deleteLoading}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  variant="danger"
-                  onClick={handleDeleteAccount}
-                  loading={deleteLoading}
-                  disabled={!deleteConfirmationValid}
-                >
-                  Delete permanently
-                </Button>
+            {deleteError && (
+              <div className="bg-danger-light text-danger py-2 px-4 rounded-xl text-sm mb-4">
+                {deleteError}
               </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            )}
+
+            <label htmlFor="delete-confirmation" className="text-sm text-text mb-2 font-medium">
+              {isOAuthOnly
+                ? <>Type your username <span className="font-mono text-danger">{user?.username}</span> to confirm:</>
+                : 'Enter your password to confirm:'}
+            </label>
+            <input
+              id="delete-confirmation"
+              type={isOAuthOnly ? 'text' : 'password'}
+              value={deleteConfirmation}
+              onChange={(e) => setDeleteConfirmation(e.target.value)}
+              placeholder={isOAuthOnly ? 'Type your username' : 'Enter your password'}
+              autoComplete={isOAuthOnly ? 'off' : 'current-password'}
+              data-form-type="other"
+              data-lpignore="true"
+              className="w-full py-2 px-4 border border-border rounded-xl text-[0.9375rem] font-sans focus:outline-none focus:border-danger focus:ring-3 focus:ring-danger/20"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && deleteConfirmationValid && !deleteLoading) {
+                  handleDeleteAccount();
+                }
+              }}
+            />
+          </div>
+        }
+      />
     </div>
   );
 }

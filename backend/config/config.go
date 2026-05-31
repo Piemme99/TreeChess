@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"strconv"
 	"strings"
@@ -9,6 +10,11 @@ import (
 
 	"github.com/joho/godotenv"
 )
+
+// minJWTSecretBytes is the minimum JWT_SECRET length enforced in production. It
+// matches the 32-byte (256-bit) HS256 signing key and the HKDF-derived 32-byte
+// AES key used for OAuth-state cookie encryption.
+const minJWTSecretBytes = 32
 
 // Config holds application configuration
 type Config struct {
@@ -44,6 +50,7 @@ func MustLoad() Config {
 	if env == "" {
 		env = "development"
 	}
+	isProduction := env == "production"
 
 	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {
@@ -60,7 +67,9 @@ func MustLoad() Config {
 		port = p
 	}
 
-	// CORS allowed origins (comma-separated)
+	// CORS allowed origins (comma-separated). The server sets
+	// AllowCredentials: true, and the Fetch spec forbids combining a wildcard
+	// origin with credentials, so reject any "*" entry outright.
 	allowedOrigins := []string{"http://localhost:5173"}
 	originsStr := os.Getenv("CORS_ALLOWED_ORIGINS")
 	if originsStr != "" {
@@ -69,10 +78,26 @@ func MustLoad() Config {
 			allowedOrigins[i] = strings.TrimSpace(origin)
 		}
 	}
+	for _, origin := range allowedOrigins {
+		if origin == "*" {
+			panic("CORS_ALLOWED_ORIGINS cannot contain '*' because credentials are enabled (the Fetch spec forbids combining a wildcard origin with credentials)")
+		}
+	}
 
 	jwtSecret := os.Getenv("JWT_SECRET")
 	if jwtSecret == "" {
 		panic("JWT_SECRET environment variable is required")
+	}
+	// JWT_SECRET signs HS256 tokens and seeds the HKDF-derived OAuth cookie
+	// encryption key; a weak secret makes brute-force token forgery feasible.
+	// Enforce a minimum length in production, warn elsewhere so dev/test secrets
+	// keep working.
+	if len(jwtSecret) < minJWTSecretBytes {
+		if isProduction {
+			panic(fmt.Sprintf("JWT_SECRET must be at least %d bytes in production, got %d", minJWTSecretBytes, len(jwtSecret)))
+		}
+		slog.Warn("JWT_SECRET is shorter than recommended; use at least the minimum in production",
+			"length", len(jwtSecret), "minimum", minJWTSecretBytes)
 	}
 
 	jwtExpiry := 15 * time.Minute // default 15 minutes (short-lived, refresh token used for renewal)
@@ -103,6 +128,15 @@ func MustLoad() Config {
 	}
 
 	secureCookies := os.Getenv("SECURE_COOKIES") == "true"
+	// The 30-day refresh cookie and the OAuth-state cookie inherit Secure from
+	// this flag. Shipping them over plain HTTP in production would leak a
+	// long-lived credential, so fail fast; warn in non-production.
+	if !secureCookies {
+		if isProduction {
+			panic("SECURE_COOKIES must be 'true' in production to protect the refresh and OAuth-state cookies")
+		}
+		slog.Warn("SECURE_COOKIES is not enabled; cookies will be sent over plain HTTP (acceptable for local development only)")
+	}
 
 	// SMTP config (optional - if not set, email sending is disabled)
 	smtpHost := os.Getenv("SMTP_HOST")
