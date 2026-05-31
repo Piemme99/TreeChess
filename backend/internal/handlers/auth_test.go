@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -29,7 +30,7 @@ func newTestAuthHandler(userRepo repository.UserRepository) *AuthHandler {
 
 func TestRegisterHandler_Success(t *testing.T) {
 	mockRepo := &mocks.MockUserRepo{
-		CreateFunc: func(email, username, passwordHash string) (*models.User, error) {
+		CreateFunc: func(_ context.Context, email, username, passwordHash string) (*models.User, error) {
 			return &models.User{ID: "user-123", Username: username, Email: &email}, nil
 		},
 	}
@@ -127,7 +128,7 @@ func TestRegisterHandler_PasswordTooShort(t *testing.T) {
 
 func TestRegisterHandler_UsernameExists(t *testing.T) {
 	mockRepo := &mocks.MockUserRepo{
-		CreateFunc: func(email, username, passwordHash string) (*models.User, error) {
+		CreateFunc: func(_ context.Context, email, username, passwordHash string) (*models.User, error) {
 			return nil, repository.ErrUsernameExists
 		},
 	}
@@ -147,7 +148,7 @@ func TestRegisterHandler_UsernameExists(t *testing.T) {
 
 func TestRegisterHandler_EmailExists(t *testing.T) {
 	mockRepo := &mocks.MockUserRepo{
-		CreateFunc: func(email, username, passwordHash string) (*models.User, error) {
+		CreateFunc: func(_ context.Context, email, username, passwordHash string) (*models.User, error) {
 			return nil, repository.ErrEmailExists
 		},
 	}
@@ -169,7 +170,7 @@ func TestLoginHandler_Success(t *testing.T) {
 	hash, _ := bcrypt.GenerateFromPassword([]byte("password123"), bcrypt.MinCost)
 	email := "test@example.com"
 	mockRepo := &mocks.MockUserRepo{
-		GetByEmailFunc: func(e string) (*models.User, error) {
+		GetByEmailFunc: func(_ context.Context, e string) (*models.User, error) {
 			return &models.User{ID: "user-123", Username: "testuser", Email: &email, PasswordHash: string(hash)}, nil
 		},
 	}
@@ -194,7 +195,7 @@ func TestLoginHandler_Success(t *testing.T) {
 
 func TestLoginHandler_InvalidCredentials(t *testing.T) {
 	mockRepo := &mocks.MockUserRepo{
-		GetByEmailFunc: func(email string) (*models.User, error) {
+		GetByEmailFunc: func(_ context.Context, email string) (*models.User, error) {
 			return nil, repository.ErrUserNotFound
 		},
 	}
@@ -241,7 +242,7 @@ func TestLoginHandler_MissingFields(t *testing.T) {
 func TestLoginHandler_OAuthOnly(t *testing.T) {
 	provider := "lichess"
 	mockRepo := &mocks.MockUserRepo{
-		GetByEmailFunc: func(email string) (*models.User, error) {
+		GetByEmailFunc: func(_ context.Context, email string) (*models.User, error) {
 			return &models.User{
 				ID:            "user-123",
 				Username:      "oauthuser",
@@ -266,7 +267,7 @@ func TestLoginHandler_OAuthOnly(t *testing.T) {
 
 func TestMeHandler_Success(t *testing.T) {
 	mockRepo := &mocks.MockUserRepo{
-		GetByIDFunc: func(id string) (*models.User, error) {
+		GetByIDFunc: func(_ context.Context, id string) (*models.User, error) {
 			return &models.User{ID: id, Username: "testuser"}, nil
 		},
 	}
@@ -290,7 +291,7 @@ func TestMeHandler_Success(t *testing.T) {
 
 func TestMeHandler_NotFound(t *testing.T) {
 	mockRepo := &mocks.MockUserRepo{
-		GetByIDFunc: func(id string) (*models.User, error) {
+		GetByIDFunc: func(_ context.Context, id string) (*models.User, error) {
 			return nil, repository.ErrUserNotFound
 		},
 	}
@@ -310,7 +311,7 @@ func TestMeHandler_NotFound(t *testing.T) {
 func TestUpdateProfileHandler_Success(t *testing.T) {
 	lichess := "lichessuser"
 	mockRepo := &mocks.MockUserRepo{
-		UpdateProfileFunc: func(userID string, l, c *string, timeFormatPrefs []string) (*models.User, error) {
+		UpdateProfileFunc: func(_ context.Context, userID string, l, c *string, timeFormatPrefs []string) (*models.User, error) {
 			return &models.User{
 				ID:              userID,
 				Username:        "testuser",
@@ -336,7 +337,7 @@ func TestUpdateProfileHandler_Success(t *testing.T) {
 
 func TestUpdateProfileHandler_NotFound(t *testing.T) {
 	mockRepo := &mocks.MockUserRepo{
-		UpdateProfileFunc: func(userID string, l, c *string, timeFormatPrefs []string) (*models.User, error) {
+		UpdateProfileFunc: func(_ context.Context, userID string, l, c *string, timeFormatPrefs []string) (*models.User, error) {
 			return nil, repository.ErrUserNotFound
 		},
 	}
@@ -371,7 +372,7 @@ func newTestAuthHandlerWithPasswordReset(
 func TestForgotPasswordHandler_Success(t *testing.T) {
 	email := "test@example.com"
 	mockUserRepo := &mocks.MockUserRepo{
-		GetByEmailFunc: func(e string) (*models.User, error) {
+		GetByEmailFunc: func(_ context.Context, e string) (*models.User, error) {
 			return &models.User{
 				ID:           "user-123",
 				Username:     "testuser",
@@ -381,10 +382,10 @@ func TestForgotPasswordHandler_Success(t *testing.T) {
 		},
 	}
 	mockResetRepo := &mocks.MockPasswordResetRepo{
-		CountRecentByUserIDFunc: func(userID string, since time.Time) (int, error) {
+		CountRecentByUserIDFunc: func(_ context.Context, userID string, since time.Time) (int, error) {
 			return 0, nil
 		},
-		CreateFunc: func(userID, tokenHash string, expiresAt time.Time) (*models.PasswordResetToken, error) {
+		CreateFunc: func(_ context.Context, userID, tokenHash string, expiresAt time.Time) (*models.PasswordResetToken, error) {
 			return &models.PasswordResetToken{ID: "reset-123"}, nil
 		},
 	}
@@ -412,7 +413,7 @@ func TestForgotPasswordHandler_Success(t *testing.T) {
 func TestForgotPasswordHandler_NonexistentEmail(t *testing.T) {
 	// Should still return 200 to prevent email enumeration
 	mockUserRepo := &mocks.MockUserRepo{
-		GetByEmailFunc: func(e string) (*models.User, error) {
+		GetByEmailFunc: func(_ context.Context, e string) (*models.User, error) {
 			return nil, repository.ErrUserNotFound
 		},
 	}
@@ -453,12 +454,12 @@ func TestForgotPasswordHandler_MissingEmail(t *testing.T) {
 
 func TestResetPasswordHandler_Success(t *testing.T) {
 	mockUserRepo := &mocks.MockUserRepo{
-		UpdatePasswordFunc: func(userID, passwordHash string) error {
+		UpdatePasswordFunc: func(_ context.Context, userID, passwordHash string) error {
 			return nil
 		},
 	}
 	mockResetRepo := &mocks.MockPasswordResetRepo{
-		GetByTokenHashFunc: func(hash string) (*models.PasswordResetToken, error) {
+		GetByTokenHashFunc: func(_ context.Context, hash string) (*models.PasswordResetToken, error) {
 			return &models.PasswordResetToken{
 				ID:        "reset-123",
 				UserID:    "user-123",
@@ -467,10 +468,10 @@ func TestResetPasswordHandler_Success(t *testing.T) {
 				UsedAt:    nil,
 			}, nil
 		},
-		MarkUsedFunc: func(id string) error {
+		MarkUsedFunc: func(_ context.Context, id string) error {
 			return nil
 		},
-		DeleteByUserIDFunc: func(userID string) error {
+		DeleteByUserIDFunc: func(_ context.Context, userID string) error {
 			return nil
 		},
 	}
@@ -498,7 +499,7 @@ func TestResetPasswordHandler_Success(t *testing.T) {
 func TestResetPasswordHandler_InvalidToken(t *testing.T) {
 	mockUserRepo := &mocks.MockUserRepo{}
 	mockResetRepo := &mocks.MockPasswordResetRepo{
-		GetByTokenHashFunc: func(hash string) (*models.PasswordResetToken, error) {
+		GetByTokenHashFunc: func(_ context.Context, hash string) (*models.PasswordResetToken, error) {
 			return nil, repository.ErrResetTokenNotFound
 		},
 	}
@@ -525,7 +526,7 @@ func TestResetPasswordHandler_InvalidToken(t *testing.T) {
 func TestResetPasswordHandler_ExpiredToken(t *testing.T) {
 	mockUserRepo := &mocks.MockUserRepo{}
 	mockResetRepo := &mocks.MockPasswordResetRepo{
-		GetByTokenHashFunc: func(hash string) (*models.PasswordResetToken, error) {
+		GetByTokenHashFunc: func(_ context.Context, hash string) (*models.PasswordResetToken, error) {
 			return &models.PasswordResetToken{
 				ID:        "reset-123",
 				UserID:    "user-123",
@@ -559,7 +560,7 @@ func TestResetPasswordHandler_UsedToken(t *testing.T) {
 	usedAt := time.Now().Add(-30 * time.Minute)
 	mockUserRepo := &mocks.MockUserRepo{}
 	mockResetRepo := &mocks.MockPasswordResetRepo{
-		GetByTokenHashFunc: func(hash string) (*models.PasswordResetToken, error) {
+		GetByTokenHashFunc: func(_ context.Context, hash string) (*models.PasswordResetToken, error) {
 			return &models.PasswordResetToken{
 				ID:        "reset-123",
 				UserID:    "user-123",
@@ -592,7 +593,7 @@ func TestResetPasswordHandler_UsedToken(t *testing.T) {
 func TestResetPasswordHandler_ShortPassword(t *testing.T) {
 	mockUserRepo := &mocks.MockUserRepo{}
 	mockResetRepo := &mocks.MockPasswordResetRepo{
-		GetByTokenHashFunc: func(hash string) (*models.PasswordResetToken, error) {
+		GetByTokenHashFunc: func(_ context.Context, hash string) (*models.PasswordResetToken, error) {
 			return &models.PasswordResetToken{
 				ID:        "reset-123",
 				UserID:    "user-123",
@@ -653,14 +654,14 @@ func TestResetPasswordHandler_MissingFields(t *testing.T) {
 func TestChangePasswordHandler_Success(t *testing.T) {
 	hash, _ := bcrypt.GenerateFromPassword([]byte("oldpassword123"), bcrypt.MinCost)
 	mockUserRepo := &mocks.MockUserRepo{
-		GetByIDFunc: func(id string) (*models.User, error) {
+		GetByIDFunc: func(_ context.Context, id string) (*models.User, error) {
 			return &models.User{
 				ID:           "user-123",
 				Username:     "testuser",
 				PasswordHash: string(hash),
 			}, nil
 		},
-		UpdatePasswordFunc: func(userID, passwordHash string) error {
+		UpdatePasswordFunc: func(_ context.Context, userID, passwordHash string) error {
 			return nil
 		},
 	}
@@ -687,7 +688,7 @@ func TestChangePasswordHandler_Success(t *testing.T) {
 func TestChangePasswordHandler_IncorrectCurrent(t *testing.T) {
 	hash, _ := bcrypt.GenerateFromPassword([]byte("correctpassword"), bcrypt.MinCost)
 	mockUserRepo := &mocks.MockUserRepo{
-		GetByIDFunc: func(id string) (*models.User, error) {
+		GetByIDFunc: func(_ context.Context, id string) (*models.User, error) {
 			return &models.User{
 				ID:           "user-123",
 				Username:     "testuser",
@@ -717,7 +718,7 @@ func TestChangePasswordHandler_IncorrectCurrent(t *testing.T) {
 func TestChangePasswordHandler_NoPassword(t *testing.T) {
 	provider := "lichess"
 	mockUserRepo := &mocks.MockUserRepo{
-		GetByIDFunc: func(id string) (*models.User, error) {
+		GetByIDFunc: func(_ context.Context, id string) (*models.User, error) {
 			return &models.User{
 				ID:            "user-123",
 				Username:      "oauthuser",
@@ -748,7 +749,7 @@ func TestChangePasswordHandler_NoPassword(t *testing.T) {
 func TestChangePasswordHandler_ShortNewPassword(t *testing.T) {
 	hash, _ := bcrypt.GenerateFromPassword([]byte("oldpassword123"), bcrypt.MinCost)
 	mockUserRepo := &mocks.MockUserRepo{
-		GetByIDFunc: func(id string) (*models.User, error) {
+		GetByIDFunc: func(_ context.Context, id string) (*models.User, error) {
 			return &models.User{
 				ID:           "user-123",
 				Username:     "testuser",
@@ -804,7 +805,7 @@ func TestChangePasswordHandler_MissingFields(t *testing.T) {
 
 func TestChangePasswordHandler_UserNotFound(t *testing.T) {
 	mockUserRepo := &mocks.MockUserRepo{
-		GetByIDFunc: func(id string) (*models.User, error) {
+		GetByIDFunc: func(_ context.Context, id string) (*models.User, error) {
 			return nil, repository.ErrUserNotFound
 		},
 	}
@@ -827,7 +828,7 @@ func TestChangePasswordHandler_UserNotFound(t *testing.T) {
 
 func TestHasPasswordHandler_HasPassword(t *testing.T) {
 	mockUserRepo := &mocks.MockUserRepo{
-		GetByIDFunc: func(id string) (*models.User, error) {
+		GetByIDFunc: func(_ context.Context, id string) (*models.User, error) {
 			return &models.User{
 				ID:           "user-123",
 				Username:     "testuser",
@@ -856,7 +857,7 @@ func TestHasPasswordHandler_HasPassword(t *testing.T) {
 func TestHasPasswordHandler_NoPassword(t *testing.T) {
 	provider := "lichess"
 	mockUserRepo := &mocks.MockUserRepo{
-		GetByIDFunc: func(id string) (*models.User, error) {
+		GetByIDFunc: func(_ context.Context, id string) (*models.User, error) {
 			return &models.User{
 				ID:            "user-123",
 				Username:      "oauthuser",
@@ -885,7 +886,7 @@ func TestHasPasswordHandler_NoPassword(t *testing.T) {
 
 func TestHasPasswordHandler_UserNotFound(t *testing.T) {
 	mockUserRepo := &mocks.MockUserRepo{
-		GetByIDFunc: func(id string) (*models.User, error) {
+		GetByIDFunc: func(_ context.Context, id string) (*models.User, error) {
 			return nil, repository.ErrUserNotFound
 		},
 	}

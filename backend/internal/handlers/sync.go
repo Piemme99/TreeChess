@@ -18,12 +18,18 @@ func NewSyncHandler(syncSvc *services.SyncService) *SyncHandler {
 }
 
 func (h *SyncHandler) HandleSync(c *echo.Context) error {
-	userID := c.Get("userID").(string)
+	userID, ok := mustUserID(c)
+	if !ok {
+		return nil
+	}
 
-	result, err := h.syncService.Sync(userID)
+	result, err := h.syncService.Sync(c.Request().Context(), userID)
 	if err != nil {
 		if errors.Is(err, services.ErrSyncCooldown) {
 			return ErrorResponse(c, http.StatusTooManyRequests, err.Error())
+		}
+		if errors.Is(err, services.ErrSyncInProgress) {
+			return ErrorResponse(c, http.StatusConflict, err.Error())
 		}
 		return InternalErrorResponse(c, "failed to sync games")
 	}

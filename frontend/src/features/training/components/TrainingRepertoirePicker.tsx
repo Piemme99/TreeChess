@@ -6,7 +6,7 @@ import { colorToShort } from '../../../types';
 import { generateTrainingLines } from '../utils/treeTraversal';
 import { fadeUp } from '../../../shared/utils/animations';
 
-interface RepertoireSelectorProps {
+interface TrainingRepertoirePickerProps {
   repertoires: Repertoire[];
   onSelect: (repertoire: Repertoire, lineCount: number) => void;
   onBack: () => void;
@@ -14,7 +14,7 @@ interface RepertoireSelectorProps {
 
 const LINE_COUNT_OPTIONS = [3, 5, 10] as const;
 
-export function RepertoireSelector({ repertoires, onSelect, onBack }: RepertoireSelectorProps) {
+export function TrainingRepertoirePicker({ repertoires, onSelect, onBack }: TrainingRepertoirePickerProps) {
   const whiteReps = repertoires.filter((r) => r.color === 'white');
   const blackReps = repertoires.filter((r) => r.color === 'black');
 

@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -71,7 +72,7 @@ func TestStudyImportService_PreviewStudy_Success(t *testing.T) {
 			return pgnData, nil
 		},
 	}
-	svc := NewStudyImportService(mockLichess, &smocks.MockRepertoireService{}, nil, &mocks.MockUserRepo{})
+	svc := NewStudyImportService(mockLichess, &smocks.MockRepertoireService{}, &mocks.MockUserRepo{})
 
 	info, err := svc.PreviewStudy("testid01", "")
 
@@ -92,7 +93,7 @@ func TestStudyImportService_PreviewStudy_FetchError(t *testing.T) {
 			return "", ErrLichessStudyNotFound
 		},
 	}
-	svc := NewStudyImportService(mockLichess, &smocks.MockRepertoireService{}, nil, &mocks.MockUserRepo{})
+	svc := NewStudyImportService(mockLichess, &smocks.MockRepertoireService{}, &mocks.MockUserRepo{})
 
 	_, err := svc.PreviewStudy("testid01", "")
 
@@ -105,7 +106,7 @@ func TestStudyImportService_PreviewStudy_EmptyPGN(t *testing.T) {
 			return "", nil
 		},
 	}
-	svc := NewStudyImportService(mockLichess, &smocks.MockRepertoireService{}, nil, &mocks.MockUserRepo{})
+	svc := NewStudyImportService(mockLichess, &smocks.MockRepertoireService{}, &mocks.MockUserRepo{})
 
 	_, err := svc.PreviewStudy("testid01", "")
 
@@ -139,7 +140,7 @@ func TestStudyImportService_ImportStudyChapters_Success(t *testing.T) {
 
 	createdCount := 0
 	mockRepSvc := &smocks.MockRepertoireService{
-		CreateRepertoireFunc: func(userID, name string, color models.Color) (*models.Repertoire, error) {
+		CreateRepertoireFunc: func(_ context.Context, userID, name string, color models.Color) (*models.Repertoire, error) {
 			createdCount++
 			return &models.Repertoire{
 				ID:    fmt.Sprintf("rep-%d", createdCount),
@@ -147,7 +148,7 @@ func TestStudyImportService_ImportStudyChapters_Success(t *testing.T) {
 				Color: color,
 			}, nil
 		},
-		SaveTreeFunc: func(userID string, repertoireID string, treeData models.RepertoireNode) (*models.Repertoire, error) {
+		SaveTreeFunc: func(_ context.Context, userID string, repertoireID string, treeData models.RepertoireNode) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID:       repertoireID,
 				TreeData: treeData,
@@ -155,8 +156,8 @@ func TestStudyImportService_ImportStudyChapters_Success(t *testing.T) {
 		},
 	}
 
-	svc := NewStudyImportService(mockLichess, mockRepSvc, nil, &mocks.MockUserRepo{})
-	reps, err := svc.ImportStudyChapters("user-1", "testid01", "", []int{0, 2})
+	svc := NewStudyImportService(mockLichess, mockRepSvc, &mocks.MockUserRepo{})
+	reps, err := svc.ImportStudyChapters(context.Background(), "user-1", "testid01", "", []int{0, 2})
 
 	require.NoError(t, err)
 	assert.Len(t, reps, 2)
@@ -169,9 +170,9 @@ func TestStudyImportService_ImportStudyChapters_FetchError(t *testing.T) {
 			return "", ErrLichessStudyForbidden
 		},
 	}
-	svc := NewStudyImportService(mockLichess, &smocks.MockRepertoireService{}, nil, &mocks.MockUserRepo{})
+	svc := NewStudyImportService(mockLichess, &smocks.MockRepertoireService{}, &mocks.MockUserRepo{})
 
-	_, err := svc.ImportStudyChapters("user-1", "testid01", "", []int{0})
+	_, err := svc.ImportStudyChapters(context.Background(), "user-1", "testid01", "", []int{0})
 
 	assert.ErrorIs(t, err, ErrLichessStudyForbidden)
 }
@@ -182,9 +183,9 @@ func TestStudyImportService_ImportStudyChapters_EmptyChapters(t *testing.T) {
 			return "", nil
 		},
 	}
-	svc := NewStudyImportService(mockLichess, &smocks.MockRepertoireService{}, nil, &mocks.MockUserRepo{})
+	svc := NewStudyImportService(mockLichess, &smocks.MockRepertoireService{}, &mocks.MockUserRepo{})
 
-	_, err := svc.ImportStudyChapters("user-1", "testid01", "", []int{0})
+	_, err := svc.ImportStudyChapters(context.Background(), "user-1", "testid01", "", []int{0})
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "no chapters")
@@ -195,45 +196,45 @@ func TestStudyImportService_ImportStudyChapters_EmptyChapters(t *testing.T) {
 func TestStudyImportService_GetLichessTokenForUser_Found(t *testing.T) {
 	token := "lip_test_token_123"
 	mockUserRepo := &mocks.MockUserRepo{
-		GetByIDFunc: func(id string) (*models.User, error) {
+		GetByIDFunc: func(_ context.Context, id string) (*models.User, error) {
 			return &models.User{
 				ID:                 id,
 				LichessAccessToken: &token,
 			}, nil
 		},
 	}
-	svc := NewStudyImportService(&smocks.MockLichessService{}, &smocks.MockRepertoireService{}, nil, mockUserRepo)
+	svc := NewStudyImportService(&smocks.MockLichessService{}, &smocks.MockRepertoireService{}, mockUserRepo)
 
-	result := svc.GetLichessTokenForUser("user-1")
+	result := svc.GetLichessTokenForUser(context.Background(), "user-1")
 
 	assert.Equal(t, "lip_test_token_123", result)
 }
 
 func TestStudyImportService_GetLichessTokenForUser_NoToken(t *testing.T) {
 	mockUserRepo := &mocks.MockUserRepo{
-		GetByIDFunc: func(id string) (*models.User, error) {
+		GetByIDFunc: func(_ context.Context, id string) (*models.User, error) {
 			return &models.User{
 				ID:                 id,
 				LichessAccessToken: nil,
 			}, nil
 		},
 	}
-	svc := NewStudyImportService(&smocks.MockLichessService{}, &smocks.MockRepertoireService{}, nil, mockUserRepo)
+	svc := NewStudyImportService(&smocks.MockLichessService{}, &smocks.MockRepertoireService{}, mockUserRepo)
 
-	result := svc.GetLichessTokenForUser("user-1")
+	result := svc.GetLichessTokenForUser(context.Background(), "user-1")
 
 	assert.Empty(t, result)
 }
 
 func TestStudyImportService_GetLichessTokenForUser_UserNotFound(t *testing.T) {
 	mockUserRepo := &mocks.MockUserRepo{
-		GetByIDFunc: func(id string) (*models.User, error) {
+		GetByIDFunc: func(_ context.Context, id string) (*models.User, error) {
 			return nil, fmt.Errorf("not found")
 		},
 	}
-	svc := NewStudyImportService(&smocks.MockLichessService{}, &smocks.MockRepertoireService{}, nil, mockUserRepo)
+	svc := NewStudyImportService(&smocks.MockLichessService{}, &smocks.MockRepertoireService{}, mockUserRepo)
 
-	result := svc.GetLichessTokenForUser("nonexistent")
+	result := svc.GetLichessTokenForUser(context.Background(), "nonexistent")
 
 	assert.Empty(t, result)
 }
@@ -266,7 +267,7 @@ func TestStudyImportService_PreviewStudy_FlagsCustomStartingPositionChapters(t *
 			return studyPGNWithCustomStartingPositions, nil
 		},
 	}
-	svc := NewStudyImportService(mockLichess, &smocks.MockRepertoireService{}, nil, &mocks.MockUserRepo{})
+	svc := NewStudyImportService(mockLichess, &smocks.MockRepertoireService{}, &mocks.MockUserRepo{})
 
 	info, err := svc.PreviewStudy("testid01", "")
 
@@ -296,18 +297,18 @@ func TestStudyImportService_ImportStudyChaptersWithCategory_ImportsCustomStart(t
 	createdCount := 0
 	var savedTrees []models.RepertoireNode
 	mockRepSvc := &smocks.MockRepertoireService{
-		CreateRepertoireFunc: func(userID, name string, color models.Color) (*models.Repertoire, error) {
+		CreateRepertoireFunc: func(_ context.Context, userID, name string, color models.Color) (*models.Repertoire, error) {
 			createdCount++
 			return &models.Repertoire{ID: fmt.Sprintf("rep-%d", createdCount), Name: name, Color: color}, nil
 		},
-		SaveTreeFunc: func(userID, repertoireID string, treeData models.RepertoireNode) (*models.Repertoire, error) {
+		SaveTreeFunc: func(_ context.Context, userID, repertoireID string, treeData models.RepertoireNode) (*models.Repertoire, error) {
 			savedTrees = append(savedTrees, treeData)
 			return &models.Repertoire{ID: repertoireID, TreeData: treeData}, nil
 		},
 	}
-	svc := NewStudyImportService(mockLichess, mockRepSvc, nil, &mocks.MockUserRepo{})
+	svc := NewStudyImportService(mockLichess, mockRepSvc, &mocks.MockUserRepo{})
 
-	result, err := svc.ImportStudyChaptersWithCategory("user-1", "testid01", "", []int{0, 1, 2}, false, "", false, true, RenameStrategyAbort)
+	result, err := svc.ImportStudyChaptersWithCategory(context.Background(), "user-1", "testid01", "", []int{0, 1, 2}, false, "", false, true, RenameStrategyAbort)
 
 	require.NoError(t, err)
 	require.NotNil(t, result)
@@ -331,16 +332,16 @@ func TestStudyImportService_ImportStudyChaptersMerged_ReturnsSkipped(t *testing.
 		},
 	}
 	mockRepSvc := &smocks.MockRepertoireService{
-		CreateRepertoireFunc: func(userID, name string, color models.Color) (*models.Repertoire, error) {
+		CreateRepertoireFunc: func(_ context.Context, userID, name string, color models.Color) (*models.Repertoire, error) {
 			return &models.Repertoire{ID: "rep-1", Name: name, Color: color}, nil
 		},
-		SaveTreeFunc: func(userID, repertoireID string, treeData models.RepertoireNode) (*models.Repertoire, error) {
+		SaveTreeFunc: func(_ context.Context, userID, repertoireID string, treeData models.RepertoireNode) (*models.Repertoire, error) {
 			return &models.Repertoire{ID: repertoireID, TreeData: treeData}, nil
 		},
 	}
-	svc := NewStudyImportService(mockLichess, mockRepSvc, nil, &mocks.MockUserRepo{})
+	svc := NewStudyImportService(mockLichess, mockRepSvc, &mocks.MockUserRepo{})
 
-	result, err := svc.ImportStudyChaptersMerged("user-1", "testid01", "", []int{0, 1, 2}, "Merged", false, true, RenameStrategyAbort)
+	result, err := svc.ImportStudyChaptersMerged(context.Background(), "user-1", "testid01", "", []int{0, 1, 2}, "Merged", false, true, RenameStrategyAbort)
 
 	require.NoError(t, err)
 	require.NotNil(t, result)
@@ -370,9 +371,9 @@ func TestStudyImportService_ImportStudyChaptersMerged_AllChaptersSkipped(t *test
 			return pgnAllCustom, nil
 		},
 	}
-	svc := NewStudyImportService(mockLichess, &smocks.MockRepertoireService{}, nil, &mocks.MockUserRepo{})
+	svc := NewStudyImportService(mockLichess, &smocks.MockRepertoireService{}, &mocks.MockUserRepo{})
 
-	_, err := svc.ImportStudyChaptersMerged("user-1", "testid01", "", []int{0, 1}, "Merged", false, true, RenameStrategyAbort)
+	_, err := svc.ImportStudyChaptersMerged(context.Background(), "user-1", "testid01", "", []int{0, 1}, "Merged", false, true, RenameStrategyAbort)
 
 	assert.ErrorIs(t, err, ErrAllChaptersSkipped)
 }
@@ -396,20 +397,20 @@ func TestStudyImportService_ImportStudyChaptersWithCategory_AbortsOnConflict(t *
 	}
 	createdCount := 0
 	mockRepSvc := &smocks.MockRepertoireService{
-		ListRepertoiresFunc: func(userID string, color *models.Color) ([]models.Repertoire, error) {
+		ListRepertoiresFunc: func(_ context.Context, userID string, color *models.Color) ([]models.Repertoire, error) {
 			return []models.Repertoire{{ID: "existing-1", Name: "Najdorf", Color: models.ColorWhite}}, nil
 		},
-		CreateRepertoireFunc: func(userID, name string, color models.Color) (*models.Repertoire, error) {
+		CreateRepertoireFunc: func(_ context.Context, userID, name string, color models.Color) (*models.Repertoire, error) {
 			createdCount++
 			return &models.Repertoire{ID: fmt.Sprintf("rep-%d", createdCount), Name: name, Color: color}, nil
 		},
-		SaveTreeFunc: func(userID, repertoireID string, treeData models.RepertoireNode) (*models.Repertoire, error) {
+		SaveTreeFunc: func(_ context.Context, userID, repertoireID string, treeData models.RepertoireNode) (*models.Repertoire, error) {
 			return &models.Repertoire{ID: repertoireID, TreeData: treeData}, nil
 		},
 	}
-	svc := NewStudyImportService(mockLichess, mockRepSvc, nil, &mocks.MockUserRepo{})
+	svc := NewStudyImportService(mockLichess, mockRepSvc, &mocks.MockUserRepo{})
 
-	_, err := svc.ImportStudyChaptersWithCategory("user-1", "testid01", "", []int{0, 1}, false, "", false, false, RenameStrategyAbort)
+	_, err := svc.ImportStudyChaptersWithCategory(context.Background(), "user-1", "testid01", "", []int{0, 1}, false, "", false, false, RenameStrategyAbort)
 
 	var conflictErr *StudyImportConflictError
 	require.ErrorAs(t, err, &conflictErr)
@@ -426,23 +427,23 @@ func TestStudyImportService_ImportStudyChaptersWithCategory_AutoSuffixRenames(t 
 	}
 	var createdNames []string
 	mockRepSvc := &smocks.MockRepertoireService{
-		ListRepertoiresFunc: func(userID string, color *models.Color) ([]models.Repertoire, error) {
+		ListRepertoiresFunc: func(_ context.Context, userID string, color *models.Color) ([]models.Repertoire, error) {
 			return []models.Repertoire{
 				{ID: "existing-1", Name: "Najdorf", Color: models.ColorWhite},
 				{ID: "existing-2", Name: "Najdorf (2)", Color: models.ColorWhite},
 			}, nil
 		},
-		CreateRepertoireFunc: func(userID, name string, color models.Color) (*models.Repertoire, error) {
+		CreateRepertoireFunc: func(_ context.Context, userID, name string, color models.Color) (*models.Repertoire, error) {
 			createdNames = append(createdNames, name)
 			return &models.Repertoire{ID: fmt.Sprintf("rep-%d", len(createdNames)), Name: name, Color: color}, nil
 		},
-		SaveTreeFunc: func(userID, repertoireID string, treeData models.RepertoireNode) (*models.Repertoire, error) {
+		SaveTreeFunc: func(_ context.Context, userID, repertoireID string, treeData models.RepertoireNode) (*models.Repertoire, error) {
 			return &models.Repertoire{ID: repertoireID, TreeData: treeData}, nil
 		},
 	}
-	svc := NewStudyImportService(mockLichess, mockRepSvc, nil, &mocks.MockUserRepo{})
+	svc := NewStudyImportService(mockLichess, mockRepSvc, &mocks.MockUserRepo{})
 
-	result, err := svc.ImportStudyChaptersWithCategory("user-1", "testid01", "", []int{0, 1}, false, "", false, false, RenameStrategyAutoSuffix)
+	result, err := svc.ImportStudyChaptersWithCategory(context.Background(), "user-1", "testid01", "", []int{0, 1}, false, "", false, false, RenameStrategyAutoSuffix)
 
 	require.NoError(t, err)
 	require.NotNil(t, result)
@@ -469,20 +470,20 @@ func TestStudyImportService_ImportStudyChaptersWithCategory_AutoSuffixHandlesDup
 	}
 	var createdNames []string
 	mockRepSvc := &smocks.MockRepertoireService{
-		ListRepertoiresFunc: func(userID string, color *models.Color) ([]models.Repertoire, error) {
+		ListRepertoiresFunc: func(_ context.Context, userID string, color *models.Color) ([]models.Repertoire, error) {
 			return nil, nil
 		},
-		CreateRepertoireFunc: func(userID, name string, color models.Color) (*models.Repertoire, error) {
+		CreateRepertoireFunc: func(_ context.Context, userID, name string, color models.Color) (*models.Repertoire, error) {
 			createdNames = append(createdNames, name)
 			return &models.Repertoire{ID: fmt.Sprintf("rep-%d", len(createdNames)), Name: name, Color: color}, nil
 		},
-		SaveTreeFunc: func(userID, repertoireID string, treeData models.RepertoireNode) (*models.Repertoire, error) {
+		SaveTreeFunc: func(_ context.Context, userID, repertoireID string, treeData models.RepertoireNode) (*models.Repertoire, error) {
 			return &models.Repertoire{ID: repertoireID, TreeData: treeData}, nil
 		},
 	}
-	svc := NewStudyImportService(mockLichess, mockRepSvc, nil, &mocks.MockUserRepo{})
+	svc := NewStudyImportService(mockLichess, mockRepSvc, &mocks.MockUserRepo{})
 
-	_, err := svc.ImportStudyChaptersWithCategory("user-1", "testid01", "", []int{0, 1}, false, "", false, false, RenameStrategyAutoSuffix)
+	_, err := svc.ImportStudyChaptersWithCategory(context.Background(), "user-1", "testid01", "", []int{0, 1}, false, "", false, false, RenameStrategyAutoSuffix)
 
 	require.NoError(t, err)
 	require.Len(t, createdNames, 2)
@@ -495,17 +496,17 @@ func TestStudyImportService_ImportStudyChaptersMerged_AbortsOnConflict(t *testin
 		FetchStudyPGNFunc: func(studyID, authToken string) (string, error) { return studyPGNForConflict, nil },
 	}
 	mockRepSvc := &smocks.MockRepertoireService{
-		ListRepertoiresFunc: func(userID string, color *models.Color) ([]models.Repertoire, error) {
+		ListRepertoiresFunc: func(_ context.Context, userID string, color *models.Color) ([]models.Repertoire, error) {
 			return []models.Repertoire{{ID: "existing-merged", Name: "Sicilian Study", Color: models.ColorWhite}}, nil
 		},
-		CreateRepertoireFunc: func(userID, name string, color models.Color) (*models.Repertoire, error) {
+		CreateRepertoireFunc: func(_ context.Context, userID, name string, color models.Color) (*models.Repertoire, error) {
 			t.Fatalf("create should not be called when conflict aborts the merged import")
 			return nil, nil
 		},
 	}
-	svc := NewStudyImportService(mockLichess, mockRepSvc, nil, &mocks.MockUserRepo{})
+	svc := NewStudyImportService(mockLichess, mockRepSvc, &mocks.MockUserRepo{})
 
-	_, err := svc.ImportStudyChaptersMerged("user-1", "testid01", "", []int{0, 1}, "", false, false, RenameStrategyAbort)
+	_, err := svc.ImportStudyChaptersMerged(context.Background(), "user-1", "testid01", "", []int{0, 1}, "", false, false, RenameStrategyAbort)
 
 	var conflictErr *StudyImportConflictError
 	require.ErrorAs(t, err, &conflictErr)
@@ -520,20 +521,20 @@ func TestStudyImportService_ImportStudyChaptersMerged_AutoSuffixRenames(t *testi
 	}
 	var createdName string
 	mockRepSvc := &smocks.MockRepertoireService{
-		ListRepertoiresFunc: func(userID string, color *models.Color) ([]models.Repertoire, error) {
+		ListRepertoiresFunc: func(_ context.Context, userID string, color *models.Color) ([]models.Repertoire, error) {
 			return []models.Repertoire{{ID: "existing-merged", Name: "Sicilian Study", Color: models.ColorWhite}}, nil
 		},
-		CreateRepertoireFunc: func(userID, name string, color models.Color) (*models.Repertoire, error) {
+		CreateRepertoireFunc: func(_ context.Context, userID, name string, color models.Color) (*models.Repertoire, error) {
 			createdName = name
 			return &models.Repertoire{ID: "rep-merged", Name: name, Color: color}, nil
 		},
-		SaveTreeFunc: func(userID, repertoireID string, treeData models.RepertoireNode) (*models.Repertoire, error) {
+		SaveTreeFunc: func(_ context.Context, userID, repertoireID string, treeData models.RepertoireNode) (*models.Repertoire, error) {
 			return &models.Repertoire{ID: repertoireID, TreeData: treeData}, nil
 		},
 	}
-	svc := NewStudyImportService(mockLichess, mockRepSvc, nil, &mocks.MockUserRepo{})
+	svc := NewStudyImportService(mockLichess, mockRepSvc, &mocks.MockUserRepo{})
 
-	result, err := svc.ImportStudyChaptersMerged("user-1", "testid01", "", []int{0, 1}, "", false, false, RenameStrategyAutoSuffix)
+	result, err := svc.ImportStudyChaptersMerged(context.Background(), "user-1", "testid01", "", []int{0, 1}, "", false, false, RenameStrategyAutoSuffix)
 
 	require.NoError(t, err)
 	require.NotNil(t, result)
@@ -552,13 +553,13 @@ func TestStudyImportService_ImportStudyChapters_CreateError(t *testing.T) {
 		},
 	}
 	mockRepSvc := &smocks.MockRepertoireService{
-		CreateRepertoireFunc: func(userID, name string, color models.Color) (*models.Repertoire, error) {
+		CreateRepertoireFunc: func(_ context.Context, userID, name string, color models.Color) (*models.Repertoire, error) {
 			return nil, ErrLimitReached
 		},
 	}
 
-	svc := NewStudyImportService(mockLichess, mockRepSvc, nil, &mocks.MockUserRepo{})
-	_, err := svc.ImportStudyChapters("user-1", "testid01", "", []int{0})
+	svc := NewStudyImportService(mockLichess, mockRepSvc, &mocks.MockUserRepo{})
+	_, err := svc.ImportStudyChapters(context.Background(), "user-1", "testid01", "", []int{0})
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to create repertoire")

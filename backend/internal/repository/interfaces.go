@@ -15,41 +15,44 @@ type FingerprintEntry struct {
 
 // UserRepository defines the interface for user data operations
 type UserRepository interface {
-	Create(email, username, passwordHash string) (*models.User, error)
-	GetByUsername(username string) (*models.User, error)
-	GetByEmail(email string) (*models.User, error)
-	GetByID(id string) (*models.User, error)
-	Exists(username string) (bool, error)
-	EmailExists(email string) (bool, error)
-	FindByOAuth(provider, oauthID string) (*models.User, error)
-	CreateOAuth(provider, oauthID, username string) (*models.User, error)
-	UpdateProfile(userID string, lichess, chesscom *string, timeFormatPrefs []string) (*models.User, error)
-	UpdateSyncTimestamps(userID string, lichessSyncAt, chesscomSyncAt *time.Time) error
-	ResetSyncTimestamps(userID string) error
-	UpdateLichessToken(userID, token string) error
-	UpdatePassword(userID, passwordHash string) error
-	Delete(id string) error
+	Create(ctx context.Context, email, username, passwordHash string) (*models.User, error)
+	GetByUsername(ctx context.Context, username string) (*models.User, error)
+	GetByEmail(ctx context.Context, email string) (*models.User, error)
+	GetByID(ctx context.Context, id string) (*models.User, error)
+	Exists(ctx context.Context, username string) (bool, error)
+	EmailExists(ctx context.Context, email string) (bool, error)
+	FindByOAuth(ctx context.Context, provider, oauthID string) (*models.User, error)
+	CreateOAuth(ctx context.Context, provider, oauthID, username string) (*models.User, error)
+	UpdateProfile(ctx context.Context, userID string, lichess, chesscom *string, timeFormatPrefs []string) (*models.User, error)
+	UpdateSyncTimestamps(ctx context.Context, userID string, lichessSyncAt, chesscomSyncAt *time.Time) error
+	ResetSyncTimestamps(ctx context.Context, userID string) error
+	UpdateLichessToken(ctx context.Context, userID, token string) error
+	UpdatePassword(ctx context.Context, userID, passwordHash string) error
+	Delete(ctx context.Context, id string) error
 }
 
 // RepertoireRepository defines the interface for repertoire data operations
 type RepertoireRepository interface {
-	GetByID(id string) (*models.Repertoire, error)
-	GetByColor(userID string, color models.Color) ([]models.Repertoire, error)
-	GetAll(userID string) ([]models.Repertoire, error)
-	Create(userID string, name string, color models.Color) (*models.Repertoire, error)
-	Save(id string, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error)
-	UpdateName(id string, userID string, name string) (*models.Repertoire, error)
-	UpdateDescription(id string, userID string, description string) (*models.Repertoire, error)
-	Delete(id string, userID string) error
-	Count(userID string) (int, error)
-	Exists(id string) (bool, error)
-	BelongsToUser(id string, userID string) (bool, error)
+	GetByID(ctx context.Context, id string, userID string) (*models.Repertoire, error)
+	GetByColor(ctx context.Context, userID string, color models.Color) ([]models.Repertoire, error)
+	GetAll(ctx context.Context, userID string) ([]models.Repertoire, error)
+	Create(ctx context.Context, userID string, name string, color models.Color) (*models.Repertoire, error)
+	Save(ctx context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error)
+	UpdateName(ctx context.Context, id string, userID string, name string) (*models.Repertoire, error)
+	UpdateDescription(ctx context.Context, id string, userID string, description string) (*models.Repertoire, error)
+	Delete(ctx context.Context, id string, userID string) error
+	Count(ctx context.Context, userID string) (int, error)
+	Exists(ctx context.Context, id string) (bool, error)
+	BelongsToUser(ctx context.Context, id string, userID string) (bool, error)
+	// WithinTx runs fn inside a single transaction, committing on nil error and
+	// rolling back otherwise, so multi-step mutations leave no partial state.
+	WithinTx(ctx context.Context, fn func(tx RepertoireTx) error) error
 }
 
 // GameFingerprintRepository defines the interface for game fingerprint operations
 type GameFingerprintRepository interface {
-	CheckExisting(userID string, fingerprints []string) (map[string]bool, error)
-	SaveBatch(userID, analysisID string, entries []FingerprintEntry) error
+	CheckExisting(ctx context.Context, userID string, fingerprints []string) (map[string]bool, error)
+	SaveBatch(ctx context.Context, userID, analysisID string, entries []FingerprintEntry) error
 }
 
 // OpeningExplorerCacheRepository persists Lichess Opening Explorer responses
@@ -63,58 +66,75 @@ type OpeningExplorerCacheRepository interface {
 
 // EngineEvalRepository defines the interface for engine evaluation operations
 type EngineEvalRepository interface {
-	CreatePendingBatch(userID, analysisID string, gameCount int) error
-	GetPending(limit int) ([]models.EngineEval, error)
-	MarkProcessing(id string) error
-	SaveEvals(id string, evals []models.ExplorerMoveStats) error
-	MarkFailed(id string) error
-	GetByUser(userID string) ([]models.EngineEval, error)
-	ResetStaleProcessing() (int, error)
+	CreatePendingBatch(ctx context.Context, userID, analysisID string, gameCount int) error
+	// ClaimPending atomically marks up to limit pending evals as processing and
+	// returns them (FOR UPDATE SKIP LOCKED), so concurrent workers never claim
+	// the same row.
+	ClaimPending(ctx context.Context, limit int) ([]models.EngineEval, error)
+	// GetPending and MarkProcessing remain for non-worker callers; the worker
+	// uses the atomic ClaimPending instead.
+	GetPending(ctx context.Context, limit int) ([]models.EngineEval, error)
+	MarkProcessing(ctx context.Context, id string) error
+	SaveEvals(ctx context.Context, id string, evals []models.ExplorerMoveStats) error
+	MarkFailed(ctx context.Context, id string) error
+	GetByUser(ctx context.Context, userID string) ([]models.EngineEval, error)
+	ResetStaleProcessing(ctx context.Context) (int, error)
 }
 
 // DismissedMistakeRepository defines the interface for dismissed mistake operations
 type DismissedMistakeRepository interface {
-	Dismiss(userID, fen, playedMove string) error
-	GetDismissed(userID string) (map[string]bool, error)
+	Dismiss(ctx context.Context, userID, fen, playedMove string) error
+	GetDismissed(ctx context.Context, userID string) (map[string]bool, error)
 }
 
 // DismissedGapRepository defines the interface for dismissed gap operations
 type DismissedGapRepository interface {
-	Dismiss(userID, fen, opponentMove, repertoireID string) error
-	GetDismissed(userID string) (map[string]bool, error)
+	Dismiss(ctx context.Context, userID, fen, opponentMove, repertoireID string) error
+	GetDismissed(ctx context.Context, userID string) (map[string]bool, error)
 }
+
+// ResultsMutator transforms an analysis's current results into the results to
+// persist. It is invoked with the freshly-locked results inside MutateResults'
+// transaction. It returns the new results and a changed flag; when changed is
+// false the row is left untouched. Returning an error aborts the transaction.
+type ResultsMutator func(current []models.GameAnalysis) (updated []models.GameAnalysis, changed bool, err error)
 
 // AnalysisRepository defines the interface for analysis data operations
 type AnalysisRepository interface {
-	Save(userID string, username, filename string, gameCount int, results []models.GameAnalysis) (*models.AnalysisSummary, error)
-	GetAll(userID string) ([]models.AnalysisSummary, error)
-	GetByID(id string) (*models.AnalysisDetail, error)
-	Delete(id string) error
-	GetAllGames(userID string, limit, offset int, timeClass, repertoire, source string, onlyNew bool) (*models.GamesResponse, error)
-	UpdateResults(analysisID string, results []models.GameAnalysis) error
-	BelongsToUser(id string, userID string) (bool, error)
-	GetDistinctRepertoires(userID string) ([]models.RepertoireFilterOption, error)
-	MarkGameViewed(userID, analysisID string, gameIndex int) error
-	GetViewedGames(userID string) (map[string]bool, error)
-	GetAllGamesRaw(userID string) ([]models.RawAnalysis, error)
+	Save(ctx context.Context, userID string, username, filename string, gameCount int, results []models.GameAnalysis) (*models.AnalysisSummary, error)
+	GetAll(ctx context.Context, userID string) ([]models.AnalysisSummary, error)
+	GetByID(ctx context.Context, id string, userID string) (*models.AnalysisDetail, error)
+	Delete(ctx context.Context, id string, userID string) error
+	GetAllGames(ctx context.Context, userID string, limit, offset int, timeClass, repertoire, source string, onlyNew bool) (*models.GamesResponse, error)
+	UpdateResults(ctx context.Context, analysisID string, userID string, results []models.GameAnalysis) error
+	// MutateResults applies a mutation to an analysis's results within a single
+	// row-locked transaction, preventing lost-update races between concurrent
+	// re-analysis paths. See PostgresAnalysisRepo.MutateResults.
+	MutateResults(ctx context.Context, analysisID string, userID string, mutate ResultsMutator) error
+	BelongsToUser(ctx context.Context, id string, userID string) (bool, error)
+	GetDistinctRepertoires(ctx context.Context, userID string) ([]models.RepertoireFilterOption, error)
+	MarkGameViewed(ctx context.Context, userID, analysisID string, gameIndex int) error
+	GetViewedGames(ctx context.Context, userID string) (map[string]bool, error)
+	GetAllGamesRaw(ctx context.Context, userID string) ([]models.RawAnalysis, error)
 }
 
 // RefreshTokenRepository defines the interface for refresh token operations
 type RefreshTokenRepository interface {
-	Create(userID, tokenHash string, expiresAt time.Time) (*models.RefreshToken, error)
-	GetByTokenHash(tokenHash string) (*models.RefreshToken, error)
-	Delete(id string) error
-	DeleteByUserID(userID string) error
-	DeleteExpired() error
-	CountByUserID(userID string) (int, error)
+	Create(ctx context.Context, userID, tokenHash string, expiresAt time.Time) (*models.RefreshToken, error)
+	GetByTokenHash(ctx context.Context, tokenHash string) (*models.RefreshToken, error)
+	MarkConsumed(ctx context.Context, id string) error
+	Delete(ctx context.Context, id string) error
+	DeleteByUserID(ctx context.Context, userID string) error
+	DeleteExpired(ctx context.Context) error
+	CountByUserID(ctx context.Context, userID string) (int, error)
 }
 
 // PasswordResetRepository defines the interface for password reset token operations
 type PasswordResetRepository interface {
-	Create(userID, tokenHash string, expiresAt time.Time) (*models.PasswordResetToken, error)
-	GetByTokenHash(tokenHash string) (*models.PasswordResetToken, error)
-	MarkUsed(id string) error
-	DeleteByUserID(userID string) error
-	DeleteExpired() error
-	CountRecentByUserID(userID string, since time.Time) (int, error)
+	Create(ctx context.Context, userID, tokenHash string, expiresAt time.Time) (*models.PasswordResetToken, error)
+	GetByTokenHash(ctx context.Context, tokenHash string) (*models.PasswordResetToken, error)
+	MarkUsed(ctx context.Context, id string) error
+	DeleteByUserID(ctx context.Context, userID string) error
+	DeleteExpired(ctx context.Context) error
+	CountRecentByUserID(ctx context.Context, userID string, since time.Time) (int, error)
 }

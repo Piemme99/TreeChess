@@ -43,6 +43,7 @@ function resetStore() {
     needsOnboarding: false,
     syncing: false,
     lastSyncResult: null,
+    lastSyncError: null,
   });
 }
 
@@ -510,6 +511,16 @@ describe('authStore', () => {
 
       expect(getState().syncing).toBe(false);
       expect(getState().lastSyncResult).toEqual(result);
+      expect(getState().lastSyncError).toBeNull();
+    });
+
+    it('clears a previous lastSyncError on a successful sync', async () => {
+      useAuthStore.setState({ lastSyncError: 'Previous sync error' });
+      mockSyncApi.sync.mockResolvedValue(createSyncResult());
+
+      await getState().triggerSync();
+
+      expect(getState().lastSyncError).toBeNull();
     });
 
     it('returns early if already syncing', async () => {
@@ -522,11 +533,39 @@ describe('authStore', () => {
 
     it('sets syncing=false on failure without propagating error', async () => {
       mockSyncApi.sync.mockRejectedValue(new Error('Sync failed'));
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
       await getState().triggerSync(); // should NOT throw
 
       expect(getState().syncing).toBe(false);
       expect(getState().lastSyncResult).toBeNull();
+
+      warnSpy.mockRestore();
+    });
+
+    it('sets lastSyncError from the API response on failure', async () => {
+      mockSyncApi.sync.mockRejectedValue({
+        response: { data: { error: 'Lichess is unavailable' } },
+      });
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      await getState().triggerSync();
+
+      expect(getState().lastSyncError).toBe('Lichess is unavailable');
+      expect(getState().syncing).toBe(false);
+
+      warnSpy.mockRestore();
+    });
+
+    it('falls back to a generic lastSyncError when no response message', async () => {
+      mockSyncApi.sync.mockRejectedValue(new Error('Network error'));
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      await getState().triggerSync();
+
+      expect(getState().lastSyncError).toBe('Failed to sync games');
+
+      warnSpy.mockRestore();
     });
   });
 

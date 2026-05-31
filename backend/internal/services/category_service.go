@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -20,7 +21,7 @@ const maxCategories = 50
 // ExtendedRepertoireRepository includes category-related methods
 type ExtendedRepertoireRepository interface {
 	repository.RepertoireRepository
-	GetByCategory(categoryID string) ([]models.Repertoire, error)
+	GetByCategory(ctx context.Context, categoryID string) ([]models.Repertoire, error)
 }
 
 // CategoryService handles category business logic
@@ -38,7 +39,7 @@ func NewCategoryService(repo repository.CategoryRepository, repertoireRepo Exten
 }
 
 // CreateCategory creates a new category
-func (s *CategoryService) CreateCategory(userID, name string, color models.Color) (*models.Category, error) {
+func (s *CategoryService) CreateCategory(ctx context.Context, userID, name string, color models.Color) (*models.Category, error) {
 	if color != models.ColorWhite && color != models.ColorBlack {
 		return nil, fmt.Errorf("%w: %s", ErrInvalidColor, color)
 	}
@@ -52,7 +53,7 @@ func (s *CategoryService) CreateCategory(userID, name string, color models.Color
 	}
 
 	// Check category limit
-	count, err := s.repo.Count(userID)
+	count, err := s.repo.Count(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check category count: %w", err)
 	}
@@ -60,12 +61,12 @@ func (s *CategoryService) CreateCategory(userID, name string, color models.Color
 		return nil, ErrCategoryLimit
 	}
 
-	return s.repo.Create(userID, name, color)
+	return s.repo.Create(ctx, userID, name, color)
 }
 
-// GetCategory retrieves a category by ID
-func (s *CategoryService) GetCategory(id string) (*models.Category, error) {
-	cat, err := s.repo.GetByID(id)
+// GetCategory retrieves a category by ID, scoped to the owning user
+func (s *CategoryService) GetCategory(ctx context.Context, id, userID string) (*models.Category, error) {
+	cat, err := s.repo.GetByID(ctx, id, userID)
 	if err != nil {
 		if errors.Is(err, repository.ErrCategoryNotFound) {
 			return nil, ErrCategoryNotFound
@@ -75,9 +76,9 @@ func (s *CategoryService) GetCategory(id string) (*models.Category, error) {
 	return cat, nil
 }
 
-// GetCategoryWithRepertoires retrieves a category with its associated repertoires
-func (s *CategoryService) GetCategoryWithRepertoires(id string) (*models.CategoryWithRepertoires, error) {
-	cat, err := s.repo.GetByID(id)
+// GetCategoryWithRepertoires retrieves a category with its associated repertoires, scoped to the owning user
+func (s *CategoryService) GetCategoryWithRepertoires(ctx context.Context, id, userID string) (*models.CategoryWithRepertoires, error) {
+	cat, err := s.repo.GetByID(ctx, id, userID)
 	if err != nil {
 		if errors.Is(err, repository.ErrCategoryNotFound) {
 			return nil, ErrCategoryNotFound
@@ -85,7 +86,7 @@ func (s *CategoryService) GetCategoryWithRepertoires(id string) (*models.Categor
 		return nil, err
 	}
 
-	repertoires, err := s.repertoireRepo.GetByCategory(id)
+	repertoires, err := s.repertoireRepo.GetByCategory(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get repertoires for category: %w", err)
 	}
@@ -97,18 +98,18 @@ func (s *CategoryService) GetCategoryWithRepertoires(id string) (*models.Categor
 }
 
 // ListCategories returns all categories for a user, optionally filtered by color
-func (s *CategoryService) ListCategories(userID string, color *models.Color) ([]models.Category, error) {
+func (s *CategoryService) ListCategories(ctx context.Context, userID string, color *models.Color) ([]models.Category, error) {
 	if color != nil {
 		if *color != models.ColorWhite && *color != models.ColorBlack {
 			return nil, fmt.Errorf("%w: %s", ErrInvalidColor, *color)
 		}
-		return s.repo.GetByUserAndColor(userID, *color)
+		return s.repo.GetByUserAndColor(ctx, userID, *color)
 	}
-	return s.repo.GetAll(userID)
+	return s.repo.GetAll(ctx, userID)
 }
 
-// RenameCategory updates the name of a category
-func (s *CategoryService) RenameCategory(id, name string) (*models.Category, error) {
+// RenameCategory updates the name of a category, scoped to the owning user
+func (s *CategoryService) RenameCategory(ctx context.Context, id, userID, name string) (*models.Category, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return nil, ErrNameRequired
@@ -117,12 +118,12 @@ func (s *CategoryService) RenameCategory(id, name string) (*models.Category, err
 		return nil, ErrNameTooLong
 	}
 
-	return s.repo.UpdateName(id, name)
+	return s.repo.UpdateName(ctx, id, userID, name)
 }
 
-// DeleteCategory deletes a category (and cascades to its repertoires)
-func (s *CategoryService) DeleteCategory(id string) error {
-	err := s.repo.Delete(id)
+// DeleteCategory deletes a category, scoped to the owning user (and cascades to its repertoires)
+func (s *CategoryService) DeleteCategory(ctx context.Context, id, userID string) error {
+	err := s.repo.Delete(ctx, id, userID)
 	if err != nil {
 		if errors.Is(err, repository.ErrCategoryNotFound) {
 			return ErrCategoryNotFound
@@ -133,8 +134,8 @@ func (s *CategoryService) DeleteCategory(id string) error {
 }
 
 // CheckOwnership verifies that a category belongs to the given user
-func (s *CategoryService) CheckOwnership(id, userID string) error {
-	belongs, err := s.repo.BelongsToUser(id, userID)
+func (s *CategoryService) CheckOwnership(ctx context.Context, id, userID string) error {
+	belongs, err := s.repo.BelongsToUser(ctx, id, userID)
 	if err != nil {
 		return fmt.Errorf("failed to check ownership: %w", err)
 	}
@@ -145,8 +146,8 @@ func (s *CategoryService) CheckOwnership(id, userID string) error {
 }
 
 // GetRepertoireCountForCategory returns the number of repertoires in a category
-func (s *CategoryService) GetRepertoireCountForCategory(categoryID string) (int, error) {
-	repertoires, err := s.repertoireRepo.GetByCategory(categoryID)
+func (s *CategoryService) GetRepertoireCountForCategory(ctx context.Context, categoryID string) (int, error) {
+	repertoires, err := s.repertoireRepo.GetByCategory(ctx, categoryID)
 	if err != nil {
 		return 0, err
 	}

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -19,7 +20,7 @@ import (
 )
 
 func newTestStudyImportHandler(lichess *smocks.MockLichessService, repSvc *smocks.MockRepertoireService, userRepo *mocks.MockUserRepo) *StudyImportHandler {
-	svc := services.NewStudyImportService(lichess, repSvc, nil, userRepo)
+	svc := services.NewStudyImportService(lichess, repSvc, userRepo)
 	return NewStudyImportHandler(svc)
 }
 
@@ -150,10 +151,10 @@ func TestImportStudyHandler_Success(t *testing.T) {
 		},
 	}
 	mockRepSvc := &smocks.MockRepertoireService{
-		CreateRepertoireFunc: func(userID, name string, color models.Color) (*models.Repertoire, error) {
+		CreateRepertoireFunc: func(_ context.Context, userID, name string, color models.Color) (*models.Repertoire, error) {
 			return &models.Repertoire{ID: "rep-1", Name: name, Color: color}, nil
 		},
-		SaveTreeFunc: func(userID, repertoireID string, treeData models.RepertoireNode) (*models.Repertoire, error) {
+		SaveTreeFunc: func(_ context.Context, userID, repertoireID string, treeData models.RepertoireNode) (*models.Repertoire, error) {
 			return &models.Repertoire{ID: repertoireID, TreeData: treeData}, nil
 		},
 	}
@@ -215,10 +216,10 @@ func TestImportStudyHandler_NameConflict_Returns409(t *testing.T) {
 		FetchStudyPGNFunc: func(studyID, authToken string) (string, error) { return pgnData, nil },
 	}
 	mockRepSvc := &smocks.MockRepertoireService{
-		ListRepertoiresFunc: func(userID string, color *models.Color) ([]models.Repertoire, error) {
+		ListRepertoiresFunc: func(_ context.Context, userID string, color *models.Color) ([]models.Repertoire, error) {
 			return []models.Repertoire{{ID: "existing-1", Name: "Najdorf", Color: models.ColorWhite}}, nil
 		},
-		CreateRepertoireFunc: func(userID, name string, color models.Color) (*models.Repertoire, error) {
+		CreateRepertoireFunc: func(_ context.Context, userID, name string, color models.Color) (*models.Repertoire, error) {
 			t.Fatalf("create should not be called when conflict aborts the import")
 			return nil, nil
 		},
@@ -262,14 +263,14 @@ func TestImportStudyHandler_AutoSuffixSucceeds(t *testing.T) {
 	}
 	var createdName string
 	mockRepSvc := &smocks.MockRepertoireService{
-		ListRepertoiresFunc: func(userID string, color *models.Color) ([]models.Repertoire, error) {
+		ListRepertoiresFunc: func(_ context.Context, userID string, color *models.Color) ([]models.Repertoire, error) {
 			return []models.Repertoire{{ID: "existing-1", Name: "Najdorf", Color: models.ColorWhite}}, nil
 		},
-		CreateRepertoireFunc: func(userID, name string, color models.Color) (*models.Repertoire, error) {
+		CreateRepertoireFunc: func(_ context.Context, userID, name string, color models.Color) (*models.Repertoire, error) {
 			createdName = name
 			return &models.Repertoire{ID: "rep-1", Name: name, Color: color}, nil
 		},
-		SaveTreeFunc: func(userID, repertoireID string, treeData models.RepertoireNode) (*models.Repertoire, error) {
+		SaveTreeFunc: func(_ context.Context, userID, repertoireID string, treeData models.RepertoireNode) (*models.Repertoire, error) {
 			return &models.Repertoire{ID: repertoireID, TreeData: treeData}, nil
 		},
 	}
@@ -301,7 +302,7 @@ func TestImportStudyHandler_LimitReached(t *testing.T) {
 		},
 	}
 	mockRepSvc := &smocks.MockRepertoireService{
-		CreateRepertoireFunc: func(userID, name string, color models.Color) (*models.Repertoire, error) {
+		CreateRepertoireFunc: func(_ context.Context, userID, name string, color models.Color) (*models.Repertoire, error) {
 			return nil, fmt.Errorf("failed to create repertoire for chapter 0: %w", services.ErrLimitReached)
 		},
 	}
@@ -318,4 +319,48 @@ func TestImportStudyHandler_LimitReached(t *testing.T) {
 	_ = handler.ImportStudyHandler(c)
 
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
+func doBrowseStudies(t *testing.T, capturedPage *int, pageQuery string) *httptest.ResponseRecorder {
+	t.Helper()
+	mockLichess := &smocks.MockLichessService{
+		BrowseAllStudiesFunc: func(sort string, page int, authToken string) (*models.LichessStudySearchResponse, error) {
+			*capturedPage = page
+			return &models.LichessStudySearchResponse{}, nil
+		},
+	}
+	handler := newTestStudyImportHandler(mockLichess, &smocks.MockRepertoireService{}, &mocks.MockUserRepo{})
+
+	e := echo.New()
+	target := "/api/studies/browse"
+	if pageQuery != "" {
+		target += "?page=" + pageQuery
+	}
+	req := httptest.NewRequest(http.MethodGet, target, nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.Set("userID", testUserID)
+	require.NoError(t, handler.BrowseStudiesHandler(c))
+	return rec
+}
+
+func TestBrowseStudiesHandler_CapsLargePage(t *testing.T) {
+	var page int
+	rec := doBrowseStudies(t, &page, "100000")
+	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Equal(t, 100, page, "page must be capped at 100")
+}
+
+func TestBrowseStudiesHandler_DefaultsToOne(t *testing.T) {
+	var page int
+	rec := doBrowseStudies(t, &page, "")
+	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Equal(t, 1, page, "missing page must default to 1")
+}
+
+func TestBrowseStudiesHandler_RejectsNonPositivePageToDefault(t *testing.T) {
+	var page int
+	rec := doBrowseStudies(t, &page, "0")
+	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Equal(t, 1, page, "page below the minimum must fall back to the default")
 }

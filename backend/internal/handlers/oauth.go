@@ -1,22 +1,16 @@
 package handlers
 
 import (
-	"crypto/aes"
-	"crypto/cipher"
-	"crypto/rand"
-	"crypto/sha256"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 
 	"log/slog"
 
 	"github.com/labstack/echo/v5"
-	"golang.org/x/crypto/hkdf"
 
+	"github.com/kumquat/backend/internal/crypto"
 	"github.com/kumquat/backend/internal/repository"
 	"github.com/kumquat/backend/internal/services"
 )
@@ -24,6 +18,10 @@ import (
 const (
 	oauthCookieName   = "oauth_state"
 	oauthCookieMaxAge = 600 // 10 minutes
+
+	// oauthCookieKeyInfo is the HKDF info label used to derive the OAuth state
+	// cookie encryption key (kept distinct from other use-sites for key separation).
+	oauthCookieKeyInfo = "oauth-cookie-encryption"
 )
 
 type OAuthHandler struct {
@@ -35,11 +33,10 @@ type OAuthHandler struct {
 }
 
 func NewOAuthHandler(oauthSvc *services.OAuthService, userRepo repository.UserRepository, frontendURL, jwtSecret string, secureCookies bool) *OAuthHandler {
-	// Derive a 32-byte key from the JWT secret using HKDF (RFC 5869)
-	// This ensures proper key separation between JWT signing and cookie encryption
-	hkdfReader := hkdf.New(sha256.New, []byte(jwtSecret), nil, []byte("oauth-cookie-encryption"))
-	key := make([]byte, 32)
-	if _, err := io.ReadFull(hkdfReader, key); err != nil {
+	// Derive a 32-byte key from the JWT secret using HKDF (RFC 5869).
+	// This ensures proper key separation between JWT signing and cookie encryption.
+	key, err := crypto.DeriveKey(jwtSecret, oauthCookieKeyInfo)
+	if err != nil {
 		panic("failed to derive OAuth cookie encryption key: " + err.Error())
 	}
 	return &OAuthHandler{
@@ -118,14 +115,14 @@ func (h *OAuthHandler) Callback(c *echo.Context) error {
 		return h.redirectWithError(c, "failed to authenticate with Lichess")
 	}
 
-	resp, isNew, err := h.oauthService.FindOrCreateUser("lichess", lichessID, username)
+	resp, isNew, err := h.oauthService.FindOrCreateUser(c.Request().Context(), "lichess", lichessID, username)
 	if err != nil {
 		return h.redirectWithError(c, "failed to create account")
 	}
 
 	// Store the Lichess access token for API access (e.g. private studies)
 	if accessToken != "" {
-		if err := h.userRepo.UpdateLichessToken(resp.User.ID, accessToken); err != nil {
+		if err := h.userRepo.UpdateLichessToken(c.Request().Context(), resp.User.ID, accessToken); err != nil {
 			slog.Error("failed to store lichess token", "user_id", resp.User.ID, "error", err)
 		}
 	}
@@ -164,49 +161,11 @@ func (h *OAuthHandler) encryptCookie(data oauthCookieData) (string, error) {
 	if err != nil {
 		return "", err
 	}
-
-	block, err := aes.NewCipher(h.encryptKey)
-	if err != nil {
-		return "", err
-	}
-
-	gcm, err := cipher.NewGCM(block)
-	if err != nil {
-		return "", err
-	}
-
-	nonce := make([]byte, gcm.NonceSize())
-	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
-		return "", err
-	}
-
-	ciphertext := gcm.Seal(nonce, nonce, plaintext, nil)
-	return base64.URLEncoding.EncodeToString(ciphertext), nil
+	return crypto.Encrypt(h.encryptKey, plaintext)
 }
 
 func (h *OAuthHandler) decryptCookie(encrypted string) (*oauthCookieData, error) {
-	ciphertext, err := base64.URLEncoding.DecodeString(encrypted)
-	if err != nil {
-		return nil, err
-	}
-
-	block, err := aes.NewCipher(h.encryptKey)
-	if err != nil {
-		return nil, err
-	}
-
-	gcm, err := cipher.NewGCM(block)
-	if err != nil {
-		return nil, err
-	}
-
-	nonceSize := gcm.NonceSize()
-	if len(ciphertext) < nonceSize {
-		return nil, fmt.Errorf("ciphertext too short")
-	}
-
-	nonce, ciphertext := ciphertext[:nonceSize], ciphertext[nonceSize:]
-	plaintext, err := gcm.Open(nil, nonce, ciphertext, nil)
+	plaintext, err := crypto.Decrypt(h.encryptKey, encrypted)
 	if err != nil {
 		return nil, err
 	}

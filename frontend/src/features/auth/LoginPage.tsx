@@ -3,11 +3,20 @@ import { useNavigate, useSearchParams, Link } from 'react-router';
 import { motion } from 'framer-motion';
 import { Crown } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
-import { OnboardingModal } from './OnboardingModal';
 import { fadeUp } from '../../shared/utils/animations';
 import { usePageTitle } from '../../shared/hooks/usePageTitle';
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
+
+/**
+ * Synchronously strips the query string and hash from the live browser URL so
+ * a one-time OAuth `?token=...` cannot linger in history/referrer while the
+ * token exchange runs. Uses history.replaceState (no navigation, no re-render).
+ */
+function scrubLocationQuery() {
+  if (typeof window === 'undefined' || !window.history?.replaceState) return;
+  window.history.replaceState(null, '', window.location.pathname);
+}
 
 const OAUTH_ERROR_MESSAGES: Record<string, string> = {
   'access_denied': 'Access was denied. Please try again.',
@@ -26,7 +35,7 @@ export function LoginPage() {
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  const { login, register, completeOAuthLogin, needsOnboarding, clearOnboarding } = useAuthStore();
+  const { login, register, completeOAuthLogin } = useAuthStore();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -56,6 +65,7 @@ export function LoginPage() {
         }
       });
     } else if (oauthError) {
+      scrubLocationQuery();
       setSearchParams({}, { replace: true });
       setError(OAUTH_ERROR_MESSAGES[oauthError] || 'Authentication failed. Please try again.');
     }
@@ -252,14 +262,6 @@ export function LoginPage() {
           </button>
         </div>
       </motion.div>
-
-      <OnboardingModal
-        isOpen={needsOnboarding}
-        onClose={() => {
-          clearOnboarding();
-          navigate('/dashboard', { replace: true });
-        }}
-      />
     </div>
   );
 }

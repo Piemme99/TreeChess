@@ -6,6 +6,7 @@ import { fadeUp } from '../../shared/utils/animations';
 import { Button, ColorDot, LichessLogo } from '../../shared/components/UI';
 import { StaticBoard } from '../../shared/components/Board';
 import { getMainlineFEN } from '../../shared/utils/chess';
+import { isSafeHttpUrl } from '../../shared/utils/url';
 import type { Repertoire } from '../../types';
 
 interface ExploreRepertoireCardProps {
@@ -25,6 +26,10 @@ export const ExploreRepertoireCard = memo(function ExploreRepertoireCard({
   const { metadata, color, name, description, authorName, origin } = repertoire;
   const orientation = color === 'white' ? 'white' : 'black';
   const isFromLichess = origin?.type === 'lichess';
+  // Only treat the origin URL as linkable when it is a real http(s) URL —
+  // origin.url is externally-sourced study metadata and must not become a
+  // `javascript:`/`data:` href.
+  const safeOriginUrl = isSafeHttpUrl(origin?.url) ? origin.url : undefined;
 
   const previewFEN = useMemo(
     () => getMainlineFEN(repertoire.treeData),
@@ -52,9 +57,9 @@ export const ExploreRepertoireCard = memo(function ExploreRepertoireCard({
         <div className="w-full aspect-square rounded-lg overflow-hidden">
           <StaticBoard fen={previewFEN} orientation={orientation} />
         </div>
-        {isFromLichess && (
+        {isFromLichess && safeOriginUrl && (
           <a
-            href={origin.url}
+            href={safeOriginUrl}
             target="_blank"
             rel="noopener noreferrer"
             title={lichessTooltip}
@@ -85,18 +90,27 @@ export const ExploreRepertoireCard = memo(function ExploreRepertoireCard({
 
         {/* Lichess origin line */}
         {isFromLichess && origin.creator && (
-          <a
-            href={origin.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1 mb-1 no-underline group"
-            title={lichessTooltip}
-          >
-            <LichessLogo size={10} className="text-text-muted group-hover:text-[#629924] transition-colors shrink-0" />
-            <span className="text-[10px] text-text-muted group-hover:text-[#629924] transition-colors truncate">
-              {origin.creator}
-            </span>
-          </a>
+          safeOriginUrl ? (
+            <a
+              href={safeOriginUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1 mb-1 no-underline group"
+              title={lichessTooltip}
+            >
+              <LichessLogo size={10} className="text-text-muted group-hover:text-[#629924] transition-colors shrink-0" />
+              <span className="text-[10px] text-text-muted group-hover:text-[#629924] transition-colors truncate">
+                {origin.creator}
+              </span>
+            </a>
+          ) : (
+            <div className="flex items-center gap-1 mb-1" title={lichessTooltip}>
+              <LichessLogo size={10} className="text-text-muted shrink-0" />
+              <span className="text-[10px] text-text-muted truncate">
+                {origin.creator}
+              </span>
+            </div>
+          )
         )}
 
         {/* Description */}

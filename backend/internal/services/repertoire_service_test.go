@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -15,7 +16,7 @@ func TestRepertoireService_CreateRepertoire_InvalidColor(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{}
 	svc := NewRepertoireService(mockRepo)
 
-	_, err := svc.CreateRepertoire("user-1", "Test Repertoire", models.Color("invalid"))
+	_, err := svc.CreateRepertoire(context.Background(), "user-1", "Test Repertoire", models.Color("invalid"))
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid color")
@@ -25,7 +26,7 @@ func TestRepertoireService_CreateRepertoire_EmptyName(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{}
 	svc := NewRepertoireService(mockRepo)
 
-	_, err := svc.CreateRepertoire("user-1", "", models.ColorWhite)
+	_, err := svc.CreateRepertoire(context.Background(), "user-1", "", models.ColorWhite)
 
 	assert.Error(t, err)
 	assert.ErrorIs(t, err, ErrNameRequired)
@@ -41,7 +42,7 @@ func TestRepertoireService_CreateRepertoire_NameTooLong(t *testing.T) {
 		longName += "a"
 	}
 
-	_, err := svc.CreateRepertoire("user-1", longName, models.ColorWhite)
+	_, err := svc.CreateRepertoire(context.Background(), "user-1", longName, models.ColorWhite)
 
 	assert.Error(t, err)
 	assert.ErrorIs(t, err, ErrNameTooLong)
@@ -55,7 +56,7 @@ func TestRepertoireService_RenameRepertoire_EmptyName(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{}
 	svc := NewRepertoireService(mockRepo)
 
-	_, err := svc.RenameRepertoire("user-1", "test-id", "")
+	_, err := svc.RenameRepertoire(context.Background(), "user-1", "test-id", "")
 
 	assert.Error(t, err)
 	assert.ErrorIs(t, err, ErrNameRequired)
@@ -70,7 +71,7 @@ func TestRepertoireService_RenameRepertoire_NameTooLong(t *testing.T) {
 		longName += "a"
 	}
 
-	_, err := svc.RenameRepertoire("user-1", "test-id", longName)
+	_, err := svc.RenameRepertoire(context.Background(), "user-1", "test-id", longName)
 
 	assert.Error(t, err)
 	assert.ErrorIs(t, err, ErrNameTooLong)
@@ -612,7 +613,7 @@ func TestListRepertoires_InvalidColor(t *testing.T) {
 	svc := NewRepertoireService(mockRepo)
 	invalidColor := models.Color("invalid")
 
-	_, err := svc.ListRepertoires("user-1", &invalidColor)
+	_, err := svc.ListRepertoires(context.Background(), "user-1", &invalidColor)
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid color")
@@ -667,7 +668,7 @@ func TestMergeRepertoires_Success(t *testing.T) {
 	deletedIDs := map[string]bool{}
 
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			switch id {
 			case "rep-1":
 				return rep1, nil
@@ -677,7 +678,7 @@ func TestMergeRepertoires_Success(t *testing.T) {
 				return nil, repository.ErrRepertoireNotFound
 			}
 		},
-		CreateFunc: func(userID string, name string, color models.Color) (*models.Repertoire, error) {
+		CreateFunc: func(_ context.Context, userID string, name string, color models.Color) (*models.Repertoire, error) {
 			createdID = "new-merged"
 			return &models.Repertoire{
 				ID:       createdID,
@@ -686,7 +687,7 @@ func TestMergeRepertoires_Success(t *testing.T) {
 				TreeData: makeTree("new-root"),
 			}, nil
 		},
-		SaveFunc: func(id string, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
+		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {
 			savedTree = treeData
 			return &models.Repertoire{
 				ID:       id,
@@ -696,14 +697,14 @@ func TestMergeRepertoires_Success(t *testing.T) {
 				Metadata: metadata,
 			}, nil
 		},
-		DeleteFunc: func(id string, userID string) error {
+		DeleteFunc: func(_ context.Context, id string, userID string) error {
 			deletedIDs[id] = true
 			return nil
 		},
 	}
 
 	svc := NewRepertoireService(mockRepo)
-	result, err := svc.MergeRepertoires("user-1", []string{"rep-1", "rep-2"}, "Merged")
+	result, err := svc.MergeRepertoires(context.Background(), "user-1", []string{"rep-1", "rep-2"}, "Merged")
 
 	require.NoError(t, err)
 	require.NotNil(t, result)
@@ -732,27 +733,27 @@ func TestMergeRepertoires_ThreeWay(t *testing.T) {
 	var savedTree models.RepertoireNode
 
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			if r, ok := reps[id]; ok {
 				return r, nil
 			}
 			return nil, repository.ErrRepertoireNotFound
 		},
-		CreateFunc: func(userID, name string, color models.Color) (*models.Repertoire, error) {
+		CreateFunc: func(_ context.Context, userID, name string, color models.Color) (*models.Repertoire, error) {
 			return &models.Repertoire{ID: "new", Name: name, Color: color, TreeData: makeTree("new-root")}, nil
 		},
-		SaveFunc: func(id string, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
+		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {
 			savedTree = treeData
 			return &models.Repertoire{ID: id, TreeData: treeData, Metadata: metadata}, nil
 		},
-		DeleteFunc: func(id string, userID string) error {
+		DeleteFunc: func(_ context.Context, id string, userID string) error {
 			deletedIDs[id] = true
 			return nil
 		},
 	}
 
 	svc := NewRepertoireService(mockRepo)
-	result, err := svc.MergeRepertoires("user-1", []string{"rep-1", "rep-2", "rep-3"}, "Three Way")
+	result, err := svc.MergeRepertoires(context.Background(), "user-1", []string{"rep-1", "rep-2", "rep-3"}, "Three Way")
 
 	require.NoError(t, err)
 	require.NotNil(t, result)
@@ -766,16 +767,16 @@ func TestMergeRepertoires_FewerThanTwo(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{}
 	svc := NewRepertoireService(mockRepo)
 
-	_, err := svc.MergeRepertoires("user-1", []string{"rep-1"}, "Name")
+	_, err := svc.MergeRepertoires(context.Background(), "user-1", []string{"rep-1"}, "Name")
 	assert.ErrorIs(t, err, ErrMergeMinimumTwo)
 
-	_, err = svc.MergeRepertoires("user-1", []string{}, "Name")
+	_, err = svc.MergeRepertoires(context.Background(), "user-1", []string{}, "Name")
 	assert.ErrorIs(t, err, ErrMergeMinimumTwo)
 }
 
 func TestMergeRepertoires_ColorMismatch(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			if id == "rep-w" {
 				return &models.Repertoire{ID: "rep-w", Color: models.ColorWhite, TreeData: makeTree("rw")}, nil
 			}
@@ -784,7 +785,7 @@ func TestMergeRepertoires_ColorMismatch(t *testing.T) {
 	}
 
 	svc := NewRepertoireService(mockRepo)
-	_, err := svc.MergeRepertoires("user-1", []string{"rep-w", "rep-b"}, "Mixed")
+	_, err := svc.MergeRepertoires(context.Background(), "user-1", []string{"rep-w", "rep-b"}, "Mixed")
 
 	assert.ErrorIs(t, err, ErrMergeColorMismatch)
 }
@@ -793,16 +794,16 @@ func TestMergeRepertoires_EmptyName(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{}
 	svc := NewRepertoireService(mockRepo)
 
-	_, err := svc.MergeRepertoires("user-1", []string{"a", "b"}, "")
+	_, err := svc.MergeRepertoires(context.Background(), "user-1", []string{"a", "b"}, "")
 	assert.ErrorIs(t, err, ErrNameRequired)
 
-	_, err = svc.MergeRepertoires("user-1", []string{"a", "b"}, "   ")
+	_, err = svc.MergeRepertoires(context.Background(), "user-1", []string{"a", "b"}, "   ")
 	assert.ErrorIs(t, err, ErrNameRequired)
 }
 
 func TestMergeRepertoires_NotFound(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			if id == "exists" {
 				return &models.Repertoire{ID: "exists", Color: models.ColorWhite, TreeData: makeTree("r")}, nil
 			}
@@ -811,7 +812,7 @@ func TestMergeRepertoires_NotFound(t *testing.T) {
 	}
 
 	svc := NewRepertoireService(mockRepo)
-	_, err := svc.MergeRepertoires("user-1", []string{"exists", "missing"}, "Name")
+	_, err := svc.MergeRepertoires(context.Background(), "user-1", []string{"exists", "missing"}, "Name")
 
 	assert.Error(t, err)
 	assert.ErrorIs(t, err, ErrNotFound)
@@ -821,7 +822,7 @@ func TestMergeRepertoires_DuplicateIDs(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{}
 	svc := NewRepertoireService(mockRepo)
 
-	_, err := svc.MergeRepertoires("user-1", []string{"rep-1", "rep-1"}, "Dup")
+	_, err := svc.MergeRepertoires(context.Background(), "user-1", []string{"rep-1", "rep-1"}, "Dup")
 	assert.ErrorIs(t, err, ErrMergeDuplicateIDs)
 }
 
@@ -829,7 +830,7 @@ func TestMergeRepertoires_DuplicateIDs(t *testing.T) {
 
 func TestRepertoireService_GetRepertoire_Success(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID:   id,
 				Name: "Test",
@@ -838,7 +839,7 @@ func TestRepertoireService_GetRepertoire_Success(t *testing.T) {
 	}
 	svc := NewRepertoireService(mockRepo)
 
-	rep, err := svc.GetRepertoire("rep-1")
+	rep, err := svc.GetRepertoire(context.Background(), "rep-1", "user-1")
 
 	require.NoError(t, err)
 	assert.Equal(t, "rep-1", rep.ID)
@@ -846,13 +847,13 @@ func TestRepertoireService_GetRepertoire_Success(t *testing.T) {
 
 func TestRepertoireService_GetRepertoire_NotFound(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return nil, repository.ErrRepertoireNotFound
 		},
 	}
 	svc := NewRepertoireService(mockRepo)
 
-	_, err := svc.GetRepertoire("nonexistent")
+	_, err := svc.GetRepertoire(context.Background(), "nonexistent", "user-1")
 
 	assert.Error(t, err)
 	assert.ErrorIs(t, err, ErrNotFound)
@@ -860,13 +861,13 @@ func TestRepertoireService_GetRepertoire_NotFound(t *testing.T) {
 
 func TestRepertoireService_GetRepertoire_RepoError(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return nil, assert.AnError
 		},
 	}
 	svc := NewRepertoireService(mockRepo)
 
-	_, err := svc.GetRepertoire("rep-1")
+	_, err := svc.GetRepertoire(context.Background(), "rep-1", "user-1")
 
 	assert.Error(t, err)
 	assert.ErrorIs(t, err, assert.AnError)
@@ -877,7 +878,7 @@ func TestRepertoireService_GetRepertoire_RepoError(t *testing.T) {
 func TestRepertoireService_AddNode_Success(t *testing.T) {
 	rootID := "root-uuid"
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID:    id,
 				Name:  "Test",
@@ -889,7 +890,7 @@ func TestRepertoireService_AddNode_Success(t *testing.T) {
 				},
 			}, nil
 		},
-		SaveFunc: func(id string, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
+		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID:       id,
 				TreeData: treeData,
@@ -899,7 +900,7 @@ func TestRepertoireService_AddNode_Success(t *testing.T) {
 	}
 	svc := NewRepertoireService(mockRepo)
 
-	rep, err := svc.AddNode("user-1", "rep-1", models.AddNodeRequest{
+	rep, err := svc.AddNode(context.Background(), "user-1", "rep-1", models.AddNodeRequest{
 		ParentID:   rootID,
 		Move:       "e4",
 		MoveNumber: 1,
@@ -918,7 +919,7 @@ func TestRepertoireService_AddNode_DerivesMoveNumber(t *testing.T) {
 	moveE5 := "e5"
 	// root (move 0, white to move) -> e4 (move 1, black to move) -> e5 (move 1, white to move)
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID:    id,
 				Color: models.ColorWhite,
@@ -949,7 +950,7 @@ func TestRepertoireService_AddNode_DerivesMoveNumber(t *testing.T) {
 				},
 			}, nil
 		},
-		SaveFunc: func(id string, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
+		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {
 			return &models.Repertoire{ID: id, TreeData: treeData, Metadata: metadata}, nil
 		},
 	}
@@ -957,7 +958,7 @@ func TestRepertoireService_AddNode_DerivesMoveNumber(t *testing.T) {
 
 	// White move from root: derived MoveNumber must be 1, regardless of the
 	// (deliberately wrong) client value 99.
-	rep, err := svc.AddNode("user-1", "rep-1", models.AddNodeRequest{
+	rep, err := svc.AddNode(context.Background(), "user-1", "rep-1", models.AddNodeRequest{
 		ParentID:   "root",
 		Move:       "d4",
 		MoveNumber: 99,
@@ -968,7 +969,7 @@ func TestRepertoireService_AddNode_DerivesMoveNumber(t *testing.T) {
 	assert.Equal(t, 1, d4.MoveNumber, "white move from root should be full-move 1")
 
 	// Black move from e4 (parent MoveNumber 1, black to move): completes move 1.
-	rep, err = svc.AddNode("user-1", "rep-1", models.AddNodeRequest{
+	rep, err = svc.AddNode(context.Background(), "user-1", "rep-1", models.AddNodeRequest{
 		ParentID:   "e4",
 		Move:       "c5",
 		MoveNumber: 0,
@@ -979,7 +980,7 @@ func TestRepertoireService_AddNode_DerivesMoveNumber(t *testing.T) {
 	assert.Equal(t, 1, c5.MoveNumber, "black move completing first full move should be move 1")
 
 	// White move from e5 (parent MoveNumber 1, white to move): starts move 2.
-	rep, err = svc.AddNode("user-1", "rep-1", models.AddNodeRequest{
+	rep, err = svc.AddNode(context.Background(), "user-1", "rep-1", models.AddNodeRequest{
 		ParentID:   "e5",
 		Move:       "Nf3",
 		MoveNumber: 0,
@@ -992,13 +993,13 @@ func TestRepertoireService_AddNode_DerivesMoveNumber(t *testing.T) {
 
 func TestRepertoireService_AddNode_RepertoireNotFound(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return nil, repository.ErrRepertoireNotFound
 		},
 	}
 	svc := NewRepertoireService(mockRepo)
 
-	_, err := svc.AddNode("user-1", "rep-1", models.AddNodeRequest{
+	_, err := svc.AddNode(context.Background(), "user-1", "rep-1", models.AddNodeRequest{
 		ParentID: "root", Move: "e4", MoveNumber: 1,
 	})
 
@@ -1007,7 +1008,7 @@ func TestRepertoireService_AddNode_RepertoireNotFound(t *testing.T) {
 
 func TestRepertoireService_AddNode_ParentNotFound(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID: id,
 				TreeData: models.RepertoireNode{
@@ -1020,7 +1021,7 @@ func TestRepertoireService_AddNode_ParentNotFound(t *testing.T) {
 	}
 	svc := NewRepertoireService(mockRepo)
 
-	_, err := svc.AddNode("user-1", "rep-1", models.AddNodeRequest{
+	_, err := svc.AddNode(context.Background(), "user-1", "rep-1", models.AddNodeRequest{
 		ParentID: "nonexistent", Move: "e4", MoveNumber: 1,
 	})
 
@@ -1030,7 +1031,7 @@ func TestRepertoireService_AddNode_ParentNotFound(t *testing.T) {
 func TestRepertoireService_AddNode_MoveExists(t *testing.T) {
 	move := "e4"
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID: id,
 				TreeData: models.RepertoireNode{
@@ -1045,7 +1046,7 @@ func TestRepertoireService_AddNode_MoveExists(t *testing.T) {
 	}
 	svc := NewRepertoireService(mockRepo)
 
-	_, err := svc.AddNode("user-1", "rep-1", models.AddNodeRequest{
+	_, err := svc.AddNode(context.Background(), "user-1", "rep-1", models.AddNodeRequest{
 		ParentID: "root", Move: "e4", MoveNumber: 1,
 	})
 
@@ -1054,7 +1055,7 @@ func TestRepertoireService_AddNode_MoveExists(t *testing.T) {
 
 func TestRepertoireService_AddNode_IllegalMove(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID: id,
 				TreeData: models.RepertoireNode{
@@ -1067,7 +1068,7 @@ func TestRepertoireService_AddNode_IllegalMove(t *testing.T) {
 	}
 	svc := NewRepertoireService(mockRepo)
 
-	_, err := svc.AddNode("user-1", "rep-1", models.AddNodeRequest{
+	_, err := svc.AddNode(context.Background(), "user-1", "rep-1", models.AddNodeRequest{
 		ParentID: "root", Move: "e5", MoveNumber: 1,
 	})
 
@@ -1078,10 +1079,10 @@ func TestRepertoireService_AddNode_IllegalMove(t *testing.T) {
 
 func TestRepertoireService_SaveTree_Success(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{ID: id}, nil
 		},
-		SaveFunc: func(id string, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
+		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID:       id,
 				TreeData: treeData,
@@ -1095,7 +1096,7 @@ func TestRepertoireService_SaveTree_Success(t *testing.T) {
 		ID:  "root",
 		FEN: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -",
 	}
-	rep, err := svc.SaveTree("user-1", "rep-1", tree)
+	rep, err := svc.SaveTree(context.Background(), "user-1", "rep-1", tree)
 
 	require.NoError(t, err)
 	assert.Equal(t, "rep-1", rep.ID)
@@ -1103,13 +1104,13 @@ func TestRepertoireService_SaveTree_Success(t *testing.T) {
 
 func TestRepertoireService_SaveTree_NotFound(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return nil, repository.ErrRepertoireNotFound
 		},
 	}
 	svc := NewRepertoireService(mockRepo)
 
-	_, err := svc.SaveTree("user-1", "nonexistent", models.RepertoireNode{})
+	_, err := svc.SaveTree(context.Background(), "user-1", "nonexistent", models.RepertoireNode{})
 
 	assert.ErrorIs(t, err, ErrNotFound)
 }
@@ -1119,7 +1120,7 @@ func TestRepertoireService_SaveTree_NotFound(t *testing.T) {
 func TestRepertoireService_DeleteNode_Success(t *testing.T) {
 	move := "e4"
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID: id,
 				TreeData: models.RepertoireNode{
@@ -1131,13 +1132,13 @@ func TestRepertoireService_DeleteNode_Success(t *testing.T) {
 				},
 			}, nil
 		},
-		SaveFunc: func(id string, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
+		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {
 			return &models.Repertoire{ID: id, TreeData: treeData, Metadata: metadata}, nil
 		},
 	}
 	svc := NewRepertoireService(mockRepo)
 
-	rep, err := svc.DeleteNode("user-1", "rep-1", "child")
+	rep, err := svc.DeleteNode(context.Background(), "user-1", "rep-1", "child")
 
 	require.NoError(t, err)
 	assert.Len(t, rep.TreeData.Children, 0)
@@ -1145,7 +1146,7 @@ func TestRepertoireService_DeleteNode_Success(t *testing.T) {
 
 func TestRepertoireService_DeleteNode_CannotDeleteRoot(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID:       id,
 				TreeData: models.RepertoireNode{ID: "root"},
@@ -1154,14 +1155,14 @@ func TestRepertoireService_DeleteNode_CannotDeleteRoot(t *testing.T) {
 	}
 	svc := NewRepertoireService(mockRepo)
 
-	_, err := svc.DeleteNode("user-1", "rep-1", "root")
+	_, err := svc.DeleteNode(context.Background(), "user-1", "rep-1", "root")
 
 	assert.ErrorIs(t, err, ErrCannotDeleteRoot)
 }
 
 func TestRepertoireService_DeleteNode_NodeNotFound(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID:       id,
 				TreeData: models.RepertoireNode{ID: "root", Children: []*models.RepertoireNode{}},
@@ -1170,20 +1171,20 @@ func TestRepertoireService_DeleteNode_NodeNotFound(t *testing.T) {
 	}
 	svc := NewRepertoireService(mockRepo)
 
-	_, err := svc.DeleteNode("user-1", "rep-1", "nonexistent")
+	_, err := svc.DeleteNode(context.Background(), "user-1", "rep-1", "nonexistent")
 
 	assert.ErrorIs(t, err, ErrNodeNotFound)
 }
 
 func TestRepertoireService_DeleteNode_RepertoireNotFound(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return nil, repository.ErrRepertoireNotFound
 		},
 	}
 	svc := NewRepertoireService(mockRepo)
 
-	_, err := svc.DeleteNode("user-1", "nonexistent", "node")
+	_, err := svc.DeleteNode(context.Background(), "user-1", "nonexistent", "node")
 
 	assert.ErrorIs(t, err, ErrNotFound)
 }
@@ -1194,7 +1195,7 @@ func TestRepertoireService_ExtractSubtree_Success(t *testing.T) {
 	move1 := "e4"
 	move2 := "e5"
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID:    id,
 				Name:  "Original",
@@ -1215,17 +1216,17 @@ func TestRepertoireService_ExtractSubtree_Success(t *testing.T) {
 				},
 			}, nil
 		},
-		CountFunc: func(userID string) (int, error) { return 1, nil },
-		CreateFunc: func(userID, name string, color models.Color) (*models.Repertoire, error) {
+		CountFunc: func(_ context.Context, userID string) (int, error) { return 1, nil },
+		CreateFunc: func(_ context.Context, userID, name string, color models.Color) (*models.Repertoire, error) {
 			return &models.Repertoire{ID: "new-rep", Name: name, Color: color}, nil
 		},
-		SaveFunc: func(id string, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
+		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {
 			return &models.Repertoire{ID: id, TreeData: treeData, Metadata: metadata}, nil
 		},
 	}
 	svc := NewRepertoireService(mockRepo)
 
-	result, err := svc.ExtractSubtree("user-1", "rep-1", "child1", "Extracted")
+	result, err := svc.ExtractSubtree(context.Background(), "user-1", "rep-1", "child1", "Extracted")
 
 	require.NoError(t, err)
 	require.NotNil(t, result)
@@ -1235,7 +1236,7 @@ func TestRepertoireService_ExtractSubtree_Success(t *testing.T) {
 
 func TestRepertoireService_ExtractSubtree_RootBlocked(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID:       id,
 				TreeData: models.RepertoireNode{ID: "root"},
@@ -1244,14 +1245,14 @@ func TestRepertoireService_ExtractSubtree_RootBlocked(t *testing.T) {
 	}
 	svc := NewRepertoireService(mockRepo)
 
-	_, err := svc.ExtractSubtree("user-1", "rep-1", "root", "Name")
+	_, err := svc.ExtractSubtree(context.Background(), "user-1", "rep-1", "root", "Name")
 
 	assert.ErrorIs(t, err, ErrCannotExtractRoot)
 }
 
 func TestRepertoireService_ExtractSubtree_NodeNotFound(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID:       id,
 				TreeData: models.RepertoireNode{ID: "root", Children: []*models.RepertoireNode{}},
@@ -1260,7 +1261,7 @@ func TestRepertoireService_ExtractSubtree_NodeNotFound(t *testing.T) {
 	}
 	svc := NewRepertoireService(mockRepo)
 
-	_, err := svc.ExtractSubtree("user-1", "rep-1", "nonexistent", "Name")
+	_, err := svc.ExtractSubtree(context.Background(), "user-1", "rep-1", "nonexistent", "Name")
 
 	assert.ErrorIs(t, err, ErrNodeNotFound)
 }
@@ -1268,7 +1269,7 @@ func TestRepertoireService_ExtractSubtree_NodeNotFound(t *testing.T) {
 func TestRepertoireService_ExtractSubtree_LimitReached(t *testing.T) {
 	move := "e4"
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID: id,
 				TreeData: models.RepertoireNode{
@@ -1277,11 +1278,11 @@ func TestRepertoireService_ExtractSubtree_LimitReached(t *testing.T) {
 				},
 			}, nil
 		},
-		CountFunc: func(userID string) (int, error) { return 50, nil },
+		CountFunc: func(_ context.Context, userID string) (int, error) { return 50, nil },
 	}
 	svc := NewRepertoireService(mockRepo)
 
-	_, err := svc.ExtractSubtree("user-1", "rep-1", "child", "Name")
+	_, err := svc.ExtractSubtree(context.Background(), "user-1", "rep-1", "child", "Name")
 
 	assert.ErrorIs(t, err, ErrLimitReached)
 }
@@ -1293,7 +1294,7 @@ func TestRepertoireService_ExtractSubtree_NameTooLong(t *testing.T) {
 		longName += "a"
 	}
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID: id,
 				TreeData: models.RepertoireNode{
@@ -1305,7 +1306,7 @@ func TestRepertoireService_ExtractSubtree_NameTooLong(t *testing.T) {
 	}
 	svc := NewRepertoireService(mockRepo)
 
-	_, err := svc.ExtractSubtree("user-1", "rep-1", "child", longName)
+	_, err := svc.ExtractSubtree(context.Background(), "user-1", "rep-1", "child", longName)
 
 	assert.ErrorIs(t, err, ErrNameTooLong)
 }
@@ -1314,7 +1315,7 @@ func TestRepertoireService_ExtractSubtree_NameTooLong(t *testing.T) {
 
 func TestRepertoireService_UpdateNodeComment_Set(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID: id,
 				TreeData: models.RepertoireNode{
@@ -1326,13 +1327,13 @@ func TestRepertoireService_UpdateNodeComment_Set(t *testing.T) {
 				},
 			}, nil
 		},
-		SaveFunc: func(id string, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
+		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {
 			return &models.Repertoire{ID: id, TreeData: treeData}, nil
 		},
 	}
 	svc := NewRepertoireService(mockRepo)
 
-	rep, err := svc.UpdateNodeComment("user-1", "rep-1", "node-1", "This is a comment")
+	rep, err := svc.UpdateNodeComment(context.Background(), "user-1", "rep-1", "node-1", "This is a comment")
 
 	require.NoError(t, err)
 	node := findNode(&rep.TreeData, "node-1")
@@ -1344,7 +1345,7 @@ func TestRepertoireService_UpdateNodeComment_Set(t *testing.T) {
 func TestRepertoireService_UpdateNodeComment_Clear(t *testing.T) {
 	comment := "old comment"
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID: id,
 				TreeData: models.RepertoireNode{
@@ -1356,13 +1357,13 @@ func TestRepertoireService_UpdateNodeComment_Clear(t *testing.T) {
 				},
 			}, nil
 		},
-		SaveFunc: func(id string, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
+		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {
 			return &models.Repertoire{ID: id, TreeData: treeData}, nil
 		},
 	}
 	svc := NewRepertoireService(mockRepo)
 
-	rep, err := svc.UpdateNodeComment("user-1", "rep-1", "node-1", "")
+	rep, err := svc.UpdateNodeComment(context.Background(), "user-1", "rep-1", "node-1", "")
 
 	require.NoError(t, err)
 	node := findNode(&rep.TreeData, "node-1")
@@ -1372,7 +1373,7 @@ func TestRepertoireService_UpdateNodeComment_Clear(t *testing.T) {
 
 func TestRepertoireService_UpdateNodeComment_NodeNotFound(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID:       id,
 				TreeData: models.RepertoireNode{ID: "root", Children: []*models.RepertoireNode{}},
@@ -1381,20 +1382,20 @@ func TestRepertoireService_UpdateNodeComment_NodeNotFound(t *testing.T) {
 	}
 	svc := NewRepertoireService(mockRepo)
 
-	_, err := svc.UpdateNodeComment("user-1", "rep-1", "nonexistent", "comment")
+	_, err := svc.UpdateNodeComment(context.Background(), "user-1", "rep-1", "nonexistent", "comment")
 
 	assert.ErrorIs(t, err, ErrNodeNotFound)
 }
 
 func TestRepertoireService_UpdateNodeComment_RepertoireNotFound(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return nil, repository.ErrRepertoireNotFound
 		},
 	}
 	svc := NewRepertoireService(mockRepo)
 
-	_, err := svc.UpdateNodeComment("user-1", "nonexistent", "node", "comment")
+	_, err := svc.UpdateNodeComment(context.Background(), "user-1", "nonexistent", "node", "comment")
 
 	assert.ErrorIs(t, err, ErrNotFound)
 }
@@ -1403,22 +1404,22 @@ func TestRepertoireService_UpdateNodeComment_RepertoireNotFound(t *testing.T) {
 
 func TestRepertoireService_DeleteRepertoire_Success(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		DeleteFunc: func(id string, userID string) error { return nil },
+		DeleteFunc: func(_ context.Context, id string, userID string) error { return nil },
 	}
 	svc := NewRepertoireService(mockRepo)
 
-	err := svc.DeleteRepertoire("user-1", "rep-1")
+	err := svc.DeleteRepertoire(context.Background(), "user-1", "rep-1")
 
 	assert.NoError(t, err)
 }
 
 func TestRepertoireService_DeleteRepertoire_NotFound(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		DeleteFunc: func(id string, userID string) error { return repository.ErrRepertoireNotFound },
+		DeleteFunc: func(_ context.Context, id string, userID string) error { return repository.ErrRepertoireNotFound },
 	}
 	svc := NewRepertoireService(mockRepo)
 
-	err := svc.DeleteRepertoire("user-1", "nonexistent")
+	err := svc.DeleteRepertoire(context.Background(), "user-1", "nonexistent")
 
 	assert.ErrorIs(t, err, ErrNotFound)
 }
@@ -1427,35 +1428,35 @@ func TestRepertoireService_DeleteRepertoire_NotFound(t *testing.T) {
 
 func TestRepertoireService_CheckOwnership_Belongs(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		BelongsToUserFunc: func(id, userID string) (bool, error) { return true, nil },
+		BelongsToUserFunc: func(_ context.Context, id, userID string) (bool, error) { return true, nil },
 	}
 	svc := NewRepertoireService(mockRepo)
 
-	err := svc.CheckOwnership("rep-1", "user-1")
+	err := svc.CheckOwnership(context.Background(), "rep-1", "user-1")
 
 	assert.NoError(t, err)
 }
 
 func TestRepertoireService_CheckOwnership_NotBelongs(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		BelongsToUserFunc: func(id, userID string) (bool, error) { return false, nil },
+		BelongsToUserFunc: func(_ context.Context, id, userID string) (bool, error) { return false, nil },
 	}
 	svc := NewRepertoireService(mockRepo)
 
-	err := svc.CheckOwnership("rep-1", "other-user")
+	err := svc.CheckOwnership(context.Background(), "rep-1", "other-user")
 
 	assert.ErrorIs(t, err, ErrNotFound)
 }
 
 func TestRepertoireService_CheckOwnership_RepoError(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		BelongsToUserFunc: func(id, userID string) (bool, error) {
+		BelongsToUserFunc: func(_ context.Context, id, userID string) (bool, error) {
 			return false, assert.AnError
 		},
 	}
 	svc := NewRepertoireService(mockRepo)
 
-	err := svc.CheckOwnership("rep-1", "user-1")
+	err := svc.CheckOwnership(context.Background(), "rep-1", "user-1")
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to check ownership")
@@ -1465,14 +1466,14 @@ func TestRepertoireService_CheckOwnership_RepoError(t *testing.T) {
 
 func TestRepertoireService_CreateRepertoire_Success(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		CountFunc: func(userID string) (int, error) { return 0, nil },
-		CreateFunc: func(userID, name string, color models.Color) (*models.Repertoire, error) {
+		CountFunc: func(_ context.Context, userID string) (int, error) { return 0, nil },
+		CreateFunc: func(_ context.Context, userID, name string, color models.Color) (*models.Repertoire, error) {
 			return &models.Repertoire{ID: "new-rep", Name: name, Color: color}, nil
 		},
 	}
 	svc := NewRepertoireService(mockRepo)
 
-	rep, err := svc.CreateRepertoire("user-1", "My Repertoire", models.ColorWhite)
+	rep, err := svc.CreateRepertoire(context.Background(), "user-1", "My Repertoire", models.ColorWhite)
 
 	require.NoError(t, err)
 	assert.Equal(t, "My Repertoire", rep.Name)
@@ -1481,11 +1482,11 @@ func TestRepertoireService_CreateRepertoire_Success(t *testing.T) {
 
 func TestRepertoireService_CreateRepertoire_LimitReached(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		CountFunc: func(userID string) (int, error) { return 50, nil },
+		CountFunc: func(_ context.Context, userID string) (int, error) { return 50, nil },
 	}
 	svc := NewRepertoireService(mockRepo)
 
-	_, err := svc.CreateRepertoire("user-1", "Another", models.ColorWhite)
+	_, err := svc.CreateRepertoire(context.Background(), "user-1", "Another", models.ColorWhite)
 
 	assert.ErrorIs(t, err, ErrLimitReached)
 }
@@ -1494,14 +1495,14 @@ func TestRepertoireService_CreateRepertoire_LimitReached(t *testing.T) {
 
 func TestRepertoireService_ListRepertoires_WithColor(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByColorFunc: func(userID string, color models.Color) ([]models.Repertoire, error) {
+		GetByColorFunc: func(_ context.Context, userID string, color models.Color) ([]models.Repertoire, error) {
 			return []models.Repertoire{{ID: "rep-1", Color: color}}, nil
 		},
 	}
 	svc := NewRepertoireService(mockRepo)
 	white := models.ColorWhite
 
-	reps, err := svc.ListRepertoires("user-1", &white)
+	reps, err := svc.ListRepertoires(context.Background(), "user-1", &white)
 
 	require.NoError(t, err)
 	assert.Len(t, reps, 1)
@@ -1509,13 +1510,13 @@ func TestRepertoireService_ListRepertoires_WithColor(t *testing.T) {
 
 func TestRepertoireService_ListRepertoires_All(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetAllFunc: func(userID string) ([]models.Repertoire, error) {
+		GetAllFunc: func(_ context.Context, userID string) ([]models.Repertoire, error) {
 			return []models.Repertoire{{ID: "rep-1"}, {ID: "rep-2"}}, nil
 		},
 	}
 	svc := NewRepertoireService(mockRepo)
 
-	reps, err := svc.ListRepertoires("user-1", nil)
+	reps, err := svc.ListRepertoires(context.Background(), "user-1", nil)
 
 	require.NoError(t, err)
 	assert.Len(t, reps, 2)
@@ -1525,14 +1526,14 @@ func TestRepertoireService_ListRepertoires_All(t *testing.T) {
 
 func TestRepertoireService_RenameRepertoire_Success(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		ExistsFunc: func(id string) (bool, error) { return true, nil },
-		UpdateNameFunc: func(id, userID, name string) (*models.Repertoire, error) {
+		ExistsFunc: func(_ context.Context, id string) (bool, error) { return true, nil },
+		UpdateNameFunc: func(_ context.Context, id, userID, name string) (*models.Repertoire, error) {
 			return &models.Repertoire{ID: id, Name: name}, nil
 		},
 	}
 	svc := NewRepertoireService(mockRepo)
 
-	rep, err := svc.RenameRepertoire("user-1", "rep-1", "New Name")
+	rep, err := svc.RenameRepertoire(context.Background(), "user-1", "rep-1", "New Name")
 
 	require.NoError(t, err)
 	assert.Equal(t, "New Name", rep.Name)
@@ -1540,11 +1541,11 @@ func TestRepertoireService_RenameRepertoire_Success(t *testing.T) {
 
 func TestRepertoireService_RenameRepertoire_NotFound(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		ExistsFunc: func(id string) (bool, error) { return false, nil },
+		ExistsFunc: func(_ context.Context, id string) (bool, error) { return false, nil },
 	}
 	svc := NewRepertoireService(mockRepo)
 
-	_, err := svc.RenameRepertoire("user-1", "nonexistent", "Name")
+	_, err := svc.RenameRepertoire(context.Background(), "user-1", "nonexistent", "Name")
 
 	assert.ErrorIs(t, err, ErrNotFound)
 }
@@ -1596,13 +1597,13 @@ func TestMergeTranspositions_BasicMerge(t *testing.T) {
 
 	var savedTree models.RepertoireNode
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID:       "rep-1",
 				TreeData: root,
 			}, nil
 		},
-		SaveFunc: func(id string, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
+		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {
 			savedTree = treeData
 			return &models.Repertoire{
 				ID:       id,
@@ -1613,7 +1614,7 @@ func TestMergeTranspositions_BasicMerge(t *testing.T) {
 	}
 
 	svc := NewRepertoireService(mockRepo)
-	result, err := svc.MergeTranspositions("user-1", "rep-1")
+	result, err := svc.MergeTranspositions(context.Background(), "user-1", "rep-1")
 	require.NoError(t, err)
 
 	// nf3-1 is the canonical node (encountered first in BFS)
@@ -1650,17 +1651,17 @@ func TestMergeTranspositions_NoTranspositions(t *testing.T) {
 
 	var savedTree models.RepertoireNode
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{ID: "rep-1", TreeData: root}, nil
 		},
-		SaveFunc: func(id string, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
+		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {
 			savedTree = treeData
 			return &models.Repertoire{ID: id, TreeData: treeData, Metadata: metadata}, nil
 		},
 	}
 
 	svc := NewRepertoireService(mockRepo)
-	_, err := svc.MergeTranspositions("user-1", "rep-1")
+	_, err := svc.MergeTranspositions(context.Background(), "user-1", "rep-1")
 	require.NoError(t, err)
 
 	// Both nodes should remain unchanged — no transposition
@@ -1695,17 +1696,17 @@ func TestMergeTranspositions_CommonChildrenMerged(t *testing.T) {
 
 	var savedTree models.RepertoireNode
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{ID: "rep-1", TreeData: root}, nil
 		},
-		SaveFunc: func(id string, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
+		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {
 			savedTree = treeData
 			return &models.Repertoire{ID: id, TreeData: treeData, Metadata: metadata}, nil
 		},
 	}
 
 	svc := NewRepertoireService(mockRepo)
-	_, err := svc.MergeTranspositions("user-1", "rep-1")
+	_, err := svc.MergeTranspositions(context.Background(), "user-1", "rep-1")
 	require.NoError(t, err)
 
 	canonicalNode := findNode(&savedTree, "nf3-1")
@@ -1742,17 +1743,17 @@ func TestMergeTranspositions_SameFENDifferentMoveNumber(t *testing.T) {
 
 	var savedTree models.RepertoireNode
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{ID: "rep-1", TreeData: root}, nil
 		},
-		SaveFunc: func(id string, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
+		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {
 			savedTree = treeData
 			return &models.Repertoire{ID: id, TreeData: treeData, Metadata: metadata}, nil
 		},
 	}
 
 	svc := NewRepertoireService(mockRepo)
-	_, err := svc.MergeTranspositions("user-1", "rep-1")
+	_, err := svc.MergeTranspositions(context.Background(), "user-1", "rep-1")
 	require.NoError(t, err)
 
 	// Both nodes should remain unchanged — no transposition
@@ -1764,7 +1765,7 @@ func TestMergeTranspositions_SameFENDifferentMoveNumber(t *testing.T) {
 
 func TestRepertoireService_SetMainLine_Success(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID: id,
 				TreeData: models.RepertoireNode{
@@ -1787,13 +1788,13 @@ func TestRepertoireService_SetMainLine_Success(t *testing.T) {
 				},
 			}, nil
 		},
-		SaveFunc: func(id string, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
+		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {
 			return &models.Repertoire{ID: id, TreeData: treeData}, nil
 		},
 	}
 	svc := NewRepertoireService(mockRepo)
 
-	rep, err := svc.SetMainLine("user-1", "rep-1", "node-a1")
+	rep, err := svc.SetMainLine(context.Background(), "user-1", "rep-1", "node-a1")
 
 	require.NoError(t, err)
 	// Path: root -> node-a -> node-a1 should all be main line
@@ -1806,7 +1807,7 @@ func TestRepertoireService_SetMainLine_Success(t *testing.T) {
 
 func TestRepertoireService_SetMainLine_OverwritesPrevious(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID: id,
 				TreeData: models.RepertoireNode{
@@ -1829,14 +1830,14 @@ func TestRepertoireService_SetMainLine_OverwritesPrevious(t *testing.T) {
 				},
 			}, nil
 		},
-		SaveFunc: func(id string, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
+		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {
 			return &models.Repertoire{ID: id, TreeData: treeData}, nil
 		},
 	}
 	svc := NewRepertoireService(mockRepo)
 
 	// Set main line to node-b instead of node-a
-	rep, err := svc.SetMainLine("user-1", "rep-1", "node-b")
+	rep, err := svc.SetMainLine(context.Background(), "user-1", "rep-1", "node-b")
 
 	require.NoError(t, err)
 	assert.True(t, rep.TreeData.IsMainLine)
@@ -1846,7 +1847,7 @@ func TestRepertoireService_SetMainLine_OverwritesPrevious(t *testing.T) {
 
 func TestRepertoireService_SetMainLine_NodeNotFound(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID:       id,
 				TreeData: models.RepertoireNode{ID: "root", Children: []*models.RepertoireNode{}},
@@ -1855,27 +1856,27 @@ func TestRepertoireService_SetMainLine_NodeNotFound(t *testing.T) {
 	}
 	svc := NewRepertoireService(mockRepo)
 
-	_, err := svc.SetMainLine("user-1", "rep-1", "nonexistent")
+	_, err := svc.SetMainLine(context.Background(), "user-1", "rep-1", "nonexistent")
 
 	assert.ErrorIs(t, err, ErrNodeNotFound)
 }
 
 func TestRepertoireService_SetMainLine_RepertoireNotFound(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return nil, repository.ErrRepertoireNotFound
 		},
 	}
 	svc := NewRepertoireService(mockRepo)
 
-	_, err := svc.SetMainLine("user-1", "nonexistent", "node")
+	_, err := svc.SetMainLine(context.Background(), "user-1", "nonexistent", "node")
 
 	assert.ErrorIs(t, err, ErrNotFound)
 }
 
 func TestRepertoireService_ClearMainLine_Success(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID: id,
 				TreeData: models.RepertoireNode{
@@ -1895,13 +1896,13 @@ func TestRepertoireService_ClearMainLine_Success(t *testing.T) {
 				},
 			}, nil
 		},
-		SaveFunc: func(id string, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
+		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {
 			return &models.Repertoire{ID: id, TreeData: treeData}, nil
 		},
 	}
 	svc := NewRepertoireService(mockRepo)
 
-	rep, err := svc.ClearMainLine("user-1", "rep-1")
+	rep, err := svc.ClearMainLine(context.Background(), "user-1", "rep-1")
 
 	require.NoError(t, err)
 	assert.False(t, rep.TreeData.IsMainLine)
@@ -1913,7 +1914,7 @@ func TestRepertoireService_ClearMainLine_Success(t *testing.T) {
 
 func TestRepertoireService_UpdateNodeBranchColor_Set(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID: id,
 				TreeData: models.RepertoireNode{
@@ -1925,13 +1926,13 @@ func TestRepertoireService_UpdateNodeBranchColor_Set(t *testing.T) {
 				},
 			}, nil
 		},
-		SaveFunc: func(id string, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
+		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {
 			return &models.Repertoire{ID: id, TreeData: treeData}, nil
 		},
 	}
 	svc := NewRepertoireService(mockRepo)
 
-	rep, err := svc.UpdateNodeBranchColor("user-1", "rep-1", "node-1", "#E74C3C")
+	rep, err := svc.UpdateNodeBranchColor(context.Background(), "user-1", "rep-1", "node-1", "#E74C3C")
 
 	require.NoError(t, err)
 	node := findNode(&rep.TreeData, "node-1")
@@ -1943,7 +1944,7 @@ func TestRepertoireService_UpdateNodeBranchColor_Set(t *testing.T) {
 func TestRepertoireService_UpdateNodeBranchColor_Clear(t *testing.T) {
 	color := "#E74C3C"
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID: id,
 				TreeData: models.RepertoireNode{
@@ -1955,13 +1956,13 @@ func TestRepertoireService_UpdateNodeBranchColor_Clear(t *testing.T) {
 				},
 			}, nil
 		},
-		SaveFunc: func(id string, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
+		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {
 			return &models.Repertoire{ID: id, TreeData: treeData}, nil
 		},
 	}
 	svc := NewRepertoireService(mockRepo)
 
-	rep, err := svc.UpdateNodeBranchColor("user-1", "rep-1", "node-1", "")
+	rep, err := svc.UpdateNodeBranchColor(context.Background(), "user-1", "rep-1", "node-1", "")
 
 	require.NoError(t, err)
 	node := findNode(&rep.TreeData, "node-1")
@@ -1973,14 +1974,14 @@ func TestRepertoireService_UpdateNodeBranchColor_InvalidColor(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{}
 	svc := NewRepertoireService(mockRepo)
 
-	_, err := svc.UpdateNodeBranchColor("user-1", "rep-1", "node-1", "#FFFFFF")
+	_, err := svc.UpdateNodeBranchColor(context.Background(), "user-1", "rep-1", "node-1", "#FFFFFF")
 
 	assert.ErrorIs(t, err, ErrInvalidBranchColor)
 }
 
 func TestRepertoireService_UpdateNodeBranchColor_NodeNotFound(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID:       id,
 				TreeData: models.RepertoireNode{ID: "root", Children: []*models.RepertoireNode{}},
@@ -1989,20 +1990,20 @@ func TestRepertoireService_UpdateNodeBranchColor_NodeNotFound(t *testing.T) {
 	}
 	svc := NewRepertoireService(mockRepo)
 
-	_, err := svc.UpdateNodeBranchColor("user-1", "rep-1", "nonexistent", "#E74C3C")
+	_, err := svc.UpdateNodeBranchColor(context.Background(), "user-1", "rep-1", "nonexistent", "#E74C3C")
 
 	assert.ErrorIs(t, err, ErrNodeNotFound)
 }
 
 func TestRepertoireService_UpdateNodeBranchColor_RepertoireNotFound(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return nil, repository.ErrRepertoireNotFound
 		},
 	}
 	svc := NewRepertoireService(mockRepo)
 
-	_, err := svc.UpdateNodeBranchColor("user-1", "nonexistent", "node", "#E74C3C")
+	_, err := svc.UpdateNodeBranchColor(context.Background(), "user-1", "nonexistent", "node", "#E74C3C")
 
 	assert.ErrorIs(t, err, ErrNotFound)
 }
@@ -2011,7 +2012,7 @@ func TestRepertoireService_UpdateNodeBranchColor_RepertoireNotFound(t *testing.T
 
 func annotationRepoWithNode() *mocks.MockRepertoireRepo {
 	return &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID: id,
 				TreeData: models.RepertoireNode{
@@ -2023,7 +2024,7 @@ func annotationRepoWithNode() *mocks.MockRepertoireRepo {
 				},
 			}, nil
 		},
-		SaveFunc: func(id string, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
+		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {
 			return &models.Repertoire{ID: id, TreeData: treeData}, nil
 		},
 	}
@@ -2035,7 +2036,7 @@ func TestRepertoireService_UpdateNodeAnnotations_Set(t *testing.T) {
 	arrows := []models.Arrow{{From: "e2", To: "e4", Color: "#15781B"}}
 	highlights := []models.SquareHighlight{{Square: "d4", Color: "#882020"}}
 
-	rep, err := svc.UpdateNodeAnnotations("user-1", "rep-1", "node-1", arrows, highlights)
+	rep, err := svc.UpdateNodeAnnotations(context.Background(), "user-1", "rep-1", "node-1", arrows, highlights)
 
 	require.NoError(t, err)
 	node := findNode(&rep.TreeData, "node-1")
@@ -2049,7 +2050,7 @@ func TestRepertoireService_UpdateNodeAnnotations_Set(t *testing.T) {
 func TestRepertoireService_UpdateNodeAnnotations_Clear(t *testing.T) {
 	arrows := []models.Arrow{{From: "e2", To: "e4", Color: "#15781B"}}
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID: id,
 				TreeData: models.RepertoireNode{
@@ -2061,13 +2062,13 @@ func TestRepertoireService_UpdateNodeAnnotations_Clear(t *testing.T) {
 				},
 			}, nil
 		},
-		SaveFunc: func(id string, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
+		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {
 			return &models.Repertoire{ID: id, TreeData: treeData}, nil
 		},
 	}
 	svc := NewRepertoireService(mockRepo)
 
-	rep, err := svc.UpdateNodeAnnotations("user-1", "rep-1", "node-1", nil, nil)
+	rep, err := svc.UpdateNodeAnnotations(context.Background(), "user-1", "rep-1", "node-1", nil, nil)
 
 	require.NoError(t, err)
 	node := findNode(&rep.TreeData, "node-1")
@@ -2081,7 +2082,7 @@ func TestRepertoireService_UpdateNodeAnnotations_InvalidColor(t *testing.T) {
 
 	arrows := []models.Arrow{{From: "e2", To: "e4", Color: "#FFFFFF"}}
 
-	_, err := svc.UpdateNodeAnnotations("user-1", "rep-1", "node-1", arrows, nil)
+	_, err := svc.UpdateNodeAnnotations(context.Background(), "user-1", "rep-1", "node-1", arrows, nil)
 
 	assert.ErrorIs(t, err, ErrInvalidAnnotation)
 }
@@ -2091,7 +2092,7 @@ func TestRepertoireService_UpdateNodeAnnotations_InvalidSquare(t *testing.T) {
 
 	highlights := []models.SquareHighlight{{Square: "z9", Color: "#15781B"}}
 
-	_, err := svc.UpdateNodeAnnotations("user-1", "rep-1", "node-1", nil, highlights)
+	_, err := svc.UpdateNodeAnnotations(context.Background(), "user-1", "rep-1", "node-1", nil, highlights)
 
 	assert.ErrorIs(t, err, ErrInvalidAnnotation)
 }
@@ -2099,33 +2100,33 @@ func TestRepertoireService_UpdateNodeAnnotations_InvalidSquare(t *testing.T) {
 func TestRepertoireService_UpdateNodeAnnotations_NodeNotFound(t *testing.T) {
 	svc := NewRepertoireService(annotationRepoWithNode())
 
-	_, err := svc.UpdateNodeAnnotations("user-1", "rep-1", "nonexistent", nil, nil)
+	_, err := svc.UpdateNodeAnnotations(context.Background(), "user-1", "rep-1", "nonexistent", nil, nil)
 
 	assert.ErrorIs(t, err, ErrNodeNotFound)
 }
 
 func TestRepertoireService_UpdateNodeAnnotations_RepertoireNotFound(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return nil, repository.ErrRepertoireNotFound
 		},
 	}
 	svc := NewRepertoireService(mockRepo)
 
-	_, err := svc.UpdateNodeAnnotations("user-1", "nonexistent", "node", nil, nil)
+	_, err := svc.UpdateNodeAnnotations(context.Background(), "user-1", "nonexistent", "node", nil, nil)
 
 	assert.ErrorIs(t, err, ErrNotFound)
 }
 
 func TestRepertoireService_ClearMainLine_RepertoireNotFound(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return nil, repository.ErrRepertoireNotFound
 		},
 	}
 	svc := NewRepertoireService(mockRepo)
 
-	_, err := svc.ClearMainLine("user-1", "nonexistent")
+	_, err := svc.ClearMainLine(context.Background(), "user-1", "nonexistent")
 
 	assert.ErrorIs(t, err, ErrNotFound)
 }
@@ -2134,14 +2135,14 @@ func TestRepertoireService_ClearMainLine_RepertoireNotFound(t *testing.T) {
 
 func TestRepertoireService_UpdateVisibility_Success(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		BelongsToUserFunc: func(id, userID string) (bool, error) { return true, nil },
-		UpdateVisibilityFunc: func(id string, userID string, isPublic bool) (*models.Repertoire, error) {
+		BelongsToUserFunc: func(_ context.Context, id, userID string) (bool, error) { return true, nil },
+		UpdateVisibilityFunc: func(_ context.Context, id string, userID string, isPublic bool) (*models.Repertoire, error) {
 			return &models.Repertoire{ID: id, IsPublic: isPublic}, nil
 		},
 	}
 	svc := NewRepertoireService(mockRepo)
 
-	rep, err := svc.UpdateVisibility("user-1", "rep-1", false)
+	rep, err := svc.UpdateVisibility(context.Background(), "user-1", "rep-1", false)
 
 	require.NoError(t, err)
 	assert.Equal(t, "rep-1", rep.ID)
@@ -2150,14 +2151,14 @@ func TestRepertoireService_UpdateVisibility_Success(t *testing.T) {
 
 func TestRepertoireService_UpdateVisibility_MakePublic(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		BelongsToUserFunc: func(id, userID string) (bool, error) { return true, nil },
-		UpdateVisibilityFunc: func(id string, userID string, isPublic bool) (*models.Repertoire, error) {
+		BelongsToUserFunc: func(_ context.Context, id, userID string) (bool, error) { return true, nil },
+		UpdateVisibilityFunc: func(_ context.Context, id string, userID string, isPublic bool) (*models.Repertoire, error) {
 			return &models.Repertoire{ID: id, IsPublic: isPublic}, nil
 		},
 	}
 	svc := NewRepertoireService(mockRepo)
 
-	rep, err := svc.UpdateVisibility("user-1", "rep-1", true)
+	rep, err := svc.UpdateVisibility(context.Background(), "user-1", "rep-1", true)
 
 	require.NoError(t, err)
 	assert.True(t, rep.IsPublic)
@@ -2165,24 +2166,24 @@ func TestRepertoireService_UpdateVisibility_MakePublic(t *testing.T) {
 
 func TestRepertoireService_UpdateVisibility_NotOwner(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		BelongsToUserFunc: func(id, userID string) (bool, error) { return false, nil },
+		BelongsToUserFunc: func(_ context.Context, id, userID string) (bool, error) { return false, nil },
 	}
 	svc := NewRepertoireService(mockRepo)
 
-	_, err := svc.UpdateVisibility("other-user", "rep-1", true)
+	_, err := svc.UpdateVisibility(context.Background(), "other-user", "rep-1", true)
 
 	assert.ErrorIs(t, err, ErrNotFound)
 }
 
 func TestRepertoireService_UpdateVisibility_OwnershipCheckError(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		BelongsToUserFunc: func(id, userID string) (bool, error) {
+		BelongsToUserFunc: func(_ context.Context, id, userID string) (bool, error) {
 			return false, assert.AnError
 		},
 	}
 	svc := NewRepertoireService(mockRepo)
 
-	_, err := svc.UpdateVisibility("user-1", "rep-1", true)
+	_, err := svc.UpdateVisibility(context.Background(), "user-1", "rep-1", true)
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to check ownership")
@@ -2192,7 +2193,7 @@ func TestRepertoireService_UpdateVisibility_OwnershipCheckError(t *testing.T) {
 
 func TestRepertoireService_ListPublicRepertoires_Success(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetAllPublicFunc: func() ([]models.Repertoire, error) {
+		GetAllPublicFunc: func(_ context.Context) ([]models.Repertoire, error) {
 			return []models.Repertoire{
 				{ID: "rep-1", Name: "Sicilian Defense", IsPublic: true, AuthorName: "alice"},
 				{ID: "rep-2", Name: "French Defense", IsPublic: true, AuthorName: "bob"},
@@ -2201,7 +2202,7 @@ func TestRepertoireService_ListPublicRepertoires_Success(t *testing.T) {
 	}
 	svc := NewRepertoireService(mockRepo)
 
-	reps, err := svc.ListPublicRepertoires()
+	reps, err := svc.ListPublicRepertoires(context.Background())
 
 	require.NoError(t, err)
 	assert.Len(t, reps, 2)
@@ -2211,13 +2212,13 @@ func TestRepertoireService_ListPublicRepertoires_Success(t *testing.T) {
 
 func TestRepertoireService_ListPublicRepertoires_Empty(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetAllPublicFunc: func() ([]models.Repertoire, error) {
+		GetAllPublicFunc: func(_ context.Context) ([]models.Repertoire, error) {
 			return []models.Repertoire{}, nil
 		},
 	}
 	svc := NewRepertoireService(mockRepo)
 
-	reps, err := svc.ListPublicRepertoires()
+	reps, err := svc.ListPublicRepertoires(context.Background())
 
 	require.NoError(t, err)
 	assert.Empty(t, reps)
@@ -2225,13 +2226,13 @@ func TestRepertoireService_ListPublicRepertoires_Empty(t *testing.T) {
 
 func TestRepertoireService_ListPublicRepertoires_RepoError(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetAllPublicFunc: func() ([]models.Repertoire, error) {
+		GetAllPublicFunc: func(_ context.Context) ([]models.Repertoire, error) {
 			return nil, assert.AnError
 		},
 	}
 	svc := NewRepertoireService(mockRepo)
 
-	_, err := svc.ListPublicRepertoires()
+	_, err := svc.ListPublicRepertoires(context.Background())
 
 	assert.Error(t, err)
 	assert.ErrorIs(t, err, assert.AnError)
@@ -2241,7 +2242,7 @@ func TestRepertoireService_ListPublicRepertoires_RepoError(t *testing.T) {
 
 func TestRepertoireService_GetPublicRepertoire_Success(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetPublicByIDFunc: func(id string) (*models.Repertoire, error) {
+		GetPublicByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID:         id,
 				Name:       "Sicilian Defense",
@@ -2256,7 +2257,7 @@ func TestRepertoireService_GetPublicRepertoire_Success(t *testing.T) {
 	}
 	svc := NewRepertoireService(mockRepo)
 
-	rep, err := svc.GetPublicRepertoire("rep-1")
+	rep, err := svc.GetPublicRepertoire(context.Background(), "rep-1")
 
 	require.NoError(t, err)
 	assert.Equal(t, "rep-1", rep.ID)
@@ -2267,13 +2268,13 @@ func TestRepertoireService_GetPublicRepertoire_Success(t *testing.T) {
 
 func TestRepertoireService_GetPublicRepertoire_NotFound(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetPublicByIDFunc: func(id string) (*models.Repertoire, error) {
+		GetPublicByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
 			return nil, repository.ErrRepertoireNotFound
 		},
 	}
 	svc := NewRepertoireService(mockRepo)
 
-	_, err := svc.GetPublicRepertoire("nonexistent")
+	_, err := svc.GetPublicRepertoire(context.Background(), "nonexistent")
 
 	assert.Error(t, err)
 	assert.ErrorIs(t, err, ErrNotFound)
@@ -2282,26 +2283,26 @@ func TestRepertoireService_GetPublicRepertoire_NotFound(t *testing.T) {
 func TestRepertoireService_GetPublicRepertoire_PrivateRepertoireNotFound(t *testing.T) {
 	// A private repertoire should not be returned by GetPublicRepertoire
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetPublicByIDFunc: func(id string) (*models.Repertoire, error) {
+		GetPublicByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
 			return nil, repository.ErrRepertoireNotFound
 		},
 	}
 	svc := NewRepertoireService(mockRepo)
 
-	_, err := svc.GetPublicRepertoire("private-rep")
+	_, err := svc.GetPublicRepertoire(context.Background(), "private-rep")
 
 	assert.ErrorIs(t, err, ErrNotFound)
 }
 
 func TestRepertoireService_GetPublicRepertoire_RepoError(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetPublicByIDFunc: func(id string) (*models.Repertoire, error) {
+		GetPublicByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
 			return nil, assert.AnError
 		},
 	}
 	svc := NewRepertoireService(mockRepo)
 
-	_, err := svc.GetPublicRepertoire("rep-1")
+	_, err := svc.GetPublicRepertoire(context.Background(), "rep-1")
 
 	assert.Error(t, err)
 	assert.ErrorIs(t, err, assert.AnError)
@@ -2326,7 +2327,7 @@ func TestRepertoireService_ImportRepertoire_Success(t *testing.T) {
 
 	var savedTree models.RepertoireNode
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetPublicByIDFunc: func(id string) (*models.Repertoire, error) {
+		GetPublicByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID:       "source-rep",
 				Name:     "Sicilian Defense",
@@ -2335,11 +2336,11 @@ func TestRepertoireService_ImportRepertoire_Success(t *testing.T) {
 				TreeData: sourceTree,
 			}, nil
 		},
-		GetOwnerIDFunc: func(id string) (string, error) {
+		GetOwnerIDFunc: func(_ context.Context, id string) (string, error) {
 			return "other-user", nil
 		},
-		CountFunc: func(userID string) (int, error) { return 5, nil },
-		CreateWithIsPublicFunc: func(userID, name string, color models.Color, isPublic bool) (*models.Repertoire, error) {
+		CountFunc: func(_ context.Context, userID string) (int, error) { return 5, nil },
+		CreateWithIsPublicFunc: func(_ context.Context, userID, name string, color models.Color, isPublic bool) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID:       "new-rep",
 				Name:     name,
@@ -2347,7 +2348,7 @@ func TestRepertoireService_ImportRepertoire_Success(t *testing.T) {
 				IsPublic: isPublic,
 			}, nil
 		},
-		SaveFunc: func(id string, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
+		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {
 			savedTree = treeData
 			return &models.Repertoire{
 				ID:       id,
@@ -2360,7 +2361,7 @@ func TestRepertoireService_ImportRepertoire_Success(t *testing.T) {
 	}
 	svc := NewRepertoireService(mockRepo)
 
-	rep, err := svc.ImportRepertoire("user-1", "source-rep")
+	rep, err := svc.ImportRepertoire(context.Background(), "user-1", "source-rep")
 
 	require.NoError(t, err)
 	assert.Equal(t, "new-rep", rep.ID)
@@ -2402,26 +2403,26 @@ func TestRepertoireService_ImportRepertoire_DeepClone(t *testing.T) {
 
 	var savedTree models.RepertoireNode
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetPublicByIDFunc: func(id string) (*models.Repertoire, error) {
+		GetPublicByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID: "source", Name: "Deep", Color: models.ColorWhite,
 				IsPublic: true, TreeData: sourceTree,
 			}, nil
 		},
-		GetOwnerIDFunc: func(id string) (string, error) { return "other-user", nil },
-		CountFunc:      func(userID string) (int, error) { return 0, nil },
-		CreateWithIsPublicFunc: func(userID, name string, color models.Color, isPublic bool) (*models.Repertoire, error) {
+		GetOwnerIDFunc: func(_ context.Context, id string) (string, error) { return "other-user", nil },
+		CountFunc:      func(_ context.Context, userID string) (int, error) { return 0, nil },
+		CreateWithIsPublicFunc: func(_ context.Context, userID, name string, color models.Color, isPublic bool) (*models.Repertoire, error) {
 			assert.False(t, isPublic, "Imported repertoire should be private")
 			return &models.Repertoire{ID: "new", Name: name, Color: color, IsPublic: isPublic}, nil
 		},
-		SaveFunc: func(id string, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
+		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {
 			savedTree = treeData
 			return &models.Repertoire{ID: id, TreeData: treeData, Metadata: metadata}, nil
 		},
 	}
 	svc := NewRepertoireService(mockRepo)
 
-	_, err := svc.ImportRepertoire("user-1", "source")
+	_, err := svc.ImportRepertoire(context.Background(), "user-1", "source")
 
 	require.NoError(t, err)
 
@@ -2440,19 +2441,19 @@ func TestRepertoireService_ImportRepertoire_DeepClone(t *testing.T) {
 
 func TestRepertoireService_ImportRepertoire_CannotImportOwn(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetPublicByIDFunc: func(id string) (*models.Repertoire, error) {
+		GetPublicByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID: id, Name: "My Rep", Color: models.ColorWhite,
 				IsPublic: true, TreeData: models.RepertoireNode{ID: "root"},
 			}, nil
 		},
-		GetOwnerIDFunc: func(id string) (string, error) {
+		GetOwnerIDFunc: func(_ context.Context, id string) (string, error) {
 			return "user-1", nil // Same as the requesting user
 		},
 	}
 	svc := NewRepertoireService(mockRepo)
 
-	_, err := svc.ImportRepertoire("user-1", "rep-1")
+	_, err := svc.ImportRepertoire(context.Background(), "user-1", "rep-1")
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "cannot import your own repertoire")
@@ -2460,50 +2461,50 @@ func TestRepertoireService_ImportRepertoire_CannotImportOwn(t *testing.T) {
 
 func TestRepertoireService_ImportRepertoire_SourceNotPublic(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetPublicByIDFunc: func(id string) (*models.Repertoire, error) {
+		GetPublicByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
 			return nil, repository.ErrRepertoireNotFound
 		},
 	}
 	svc := NewRepertoireService(mockRepo)
 
-	_, err := svc.ImportRepertoire("user-1", "private-rep")
+	_, err := svc.ImportRepertoire(context.Background(), "user-1", "private-rep")
 
 	assert.ErrorIs(t, err, ErrNotFound)
 }
 
 func TestRepertoireService_ImportRepertoire_LimitReached(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetPublicByIDFunc: func(id string) (*models.Repertoire, error) {
+		GetPublicByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID: id, Name: "Rep", Color: models.ColorWhite,
 				IsPublic: true, TreeData: models.RepertoireNode{ID: "root"},
 			}, nil
 		},
-		GetOwnerIDFunc: func(id string) (string, error) { return "other-user", nil },
-		CountFunc:      func(userID string) (int, error) { return 50, nil },
+		GetOwnerIDFunc: func(_ context.Context, id string) (string, error) { return "other-user", nil },
+		CountFunc:      func(_ context.Context, userID string) (int, error) { return 50, nil },
 	}
 	svc := NewRepertoireService(mockRepo)
 
-	_, err := svc.ImportRepertoire("user-1", "rep-1")
+	_, err := svc.ImportRepertoire(context.Background(), "user-1", "rep-1")
 
 	assert.ErrorIs(t, err, ErrLimitReached)
 }
 
 func TestRepertoireService_ImportRepertoire_OwnerLookupError(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetPublicByIDFunc: func(id string) (*models.Repertoire, error) {
+		GetPublicByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID: id, Name: "Rep", Color: models.ColorWhite,
 				IsPublic: true, TreeData: models.RepertoireNode{ID: "root"},
 			}, nil
 		},
-		GetOwnerIDFunc: func(id string) (string, error) {
+		GetOwnerIDFunc: func(_ context.Context, id string) (string, error) {
 			return "", assert.AnError
 		},
 	}
 	svc := NewRepertoireService(mockRepo)
 
-	_, err := svc.ImportRepertoire("user-1", "rep-1")
+	_, err := svc.ImportRepertoire(context.Background(), "user-1", "rep-1")
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to get owner")
@@ -2513,14 +2514,14 @@ func TestRepertoireService_ImportRepertoire_OwnerLookupError(t *testing.T) {
 
 func TestRepertoireService_CreateRepertoireWithVisibility_Public(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		CountFunc: func(userID string) (int, error) { return 0, nil },
-		CreateWithIsPublicFunc: func(userID, name string, color models.Color, isPublic bool) (*models.Repertoire, error) {
+		CountFunc: func(_ context.Context, userID string) (int, error) { return 0, nil },
+		CreateWithIsPublicFunc: func(_ context.Context, userID, name string, color models.Color, isPublic bool) (*models.Repertoire, error) {
 			return &models.Repertoire{ID: "new-rep", Name: name, Color: color, IsPublic: isPublic}, nil
 		},
 	}
 	svc := NewRepertoireService(mockRepo)
 
-	rep, err := svc.CreateRepertoireWithVisibility("user-1", "My Public Rep", "", models.ColorWhite, true)
+	rep, err := svc.CreateRepertoireWithVisibility(context.Background(), "user-1", "My Public Rep", "", models.ColorWhite, true)
 
 	require.NoError(t, err)
 	assert.True(t, rep.IsPublic)
@@ -2529,14 +2530,14 @@ func TestRepertoireService_CreateRepertoireWithVisibility_Public(t *testing.T) {
 
 func TestRepertoireService_CreateRepertoireWithVisibility_Private(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		CountFunc: func(userID string) (int, error) { return 0, nil },
-		CreateWithIsPublicFunc: func(userID, name string, color models.Color, isPublic bool) (*models.Repertoire, error) {
+		CountFunc: func(_ context.Context, userID string) (int, error) { return 0, nil },
+		CreateWithIsPublicFunc: func(_ context.Context, userID, name string, color models.Color, isPublic bool) (*models.Repertoire, error) {
 			return &models.Repertoire{ID: "new-rep", Name: name, Color: color, IsPublic: isPublic}, nil
 		},
 	}
 	svc := NewRepertoireService(mockRepo)
 
-	rep, err := svc.CreateRepertoireWithVisibility("user-1", "My Private Rep", "", models.ColorBlack, false)
+	rep, err := svc.CreateRepertoireWithVisibility(context.Background(), "user-1", "My Private Rep", "", models.ColorBlack, false)
 
 	require.NoError(t, err)
 	assert.False(t, rep.IsPublic)
@@ -2546,7 +2547,7 @@ func TestRepertoireService_CreateRepertoireWithVisibility_InvalidColor(t *testin
 	mockRepo := &mocks.MockRepertoireRepo{}
 	svc := NewRepertoireService(mockRepo)
 
-	_, err := svc.CreateRepertoireWithVisibility("user-1", "Rep", "", models.Color("invalid"), true)
+	_, err := svc.CreateRepertoireWithVisibility(context.Background(), "user-1", "Rep", "", models.Color("invalid"), true)
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid color")
@@ -2556,18 +2557,18 @@ func TestRepertoireService_CreateRepertoireWithVisibility_EmptyName(t *testing.T
 	mockRepo := &mocks.MockRepertoireRepo{}
 	svc := NewRepertoireService(mockRepo)
 
-	_, err := svc.CreateRepertoireWithVisibility("user-1", "", "", models.ColorWhite, true)
+	_, err := svc.CreateRepertoireWithVisibility(context.Background(), "user-1", "", "", models.ColorWhite, true)
 
 	assert.ErrorIs(t, err, ErrNameRequired)
 }
 
 func TestRepertoireService_CreateRepertoireWithVisibility_LimitReached(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		CountFunc: func(userID string) (int, error) { return 50, nil },
+		CountFunc: func(_ context.Context, userID string) (int, error) { return 50, nil },
 	}
 	svc := NewRepertoireService(mockRepo)
 
-	_, err := svc.CreateRepertoireWithVisibility("user-1", "Rep", "", models.ColorWhite, true)
+	_, err := svc.CreateRepertoireWithVisibility(context.Background(), "user-1", "Rep", "", models.ColorWhite, true)
 
 	assert.ErrorIs(t, err, ErrLimitReached)
 }
@@ -2577,15 +2578,15 @@ func TestRepertoireService_CreateRepertoireWithVisibility_LimitReached(t *testin
 func TestRepertoireService_CreateRepertoire_DefaultsToPrivate(t *testing.T) {
 	var receivedIsPublic bool
 	mockRepo := &mocks.MockRepertoireRepo{
-		CountFunc: func(userID string) (int, error) { return 0, nil },
-		CreateWithIsPublicFunc: func(userID, name string, color models.Color, isPublic bool) (*models.Repertoire, error) {
+		CountFunc: func(_ context.Context, userID string) (int, error) { return 0, nil },
+		CreateWithIsPublicFunc: func(_ context.Context, userID, name string, color models.Color, isPublic bool) (*models.Repertoire, error) {
 			receivedIsPublic = isPublic
 			return &models.Repertoire{ID: "new-rep", Name: name, Color: color, IsPublic: isPublic}, nil
 		},
 	}
 	svc := NewRepertoireService(mockRepo)
 
-	_, err := svc.CreateRepertoire("user-1", "Test", models.ColorWhite)
+	_, err := svc.CreateRepertoire(context.Background(), "user-1", "Test", models.ColorWhite)
 
 	require.NoError(t, err)
 	assert.False(t, receivedIsPublic, "CreateRepertoire should default to private (isPublic=false)")

@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -17,8 +18,8 @@ func NewDismissedMistakeRepo(pool *pgxpool.Pool) *DismissedMistakeRepo {
 }
 
 // Dismiss marks a mistake as dismissed for a user
-func (r *DismissedMistakeRepo) Dismiss(userID, fen, playedMove string) error {
-	ctx, cancel := dbContext()
+func (r *DismissedMistakeRepo) Dismiss(ctx context.Context, userID, fen, playedMove string) error {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	query := `
@@ -35,8 +36,8 @@ func (r *DismissedMistakeRepo) Dismiss(userID, fen, playedMove string) error {
 
 // GetDismissed returns a map of dismissed mistakes for a user
 // The key is "fen|playedMove"
-func (r *DismissedMistakeRepo) GetDismissed(userID string) (map[string]bool, error) {
-	ctx, cancel := dbContext()
+func (r *DismissedMistakeRepo) GetDismissed(ctx context.Context, userID string) (map[string]bool, error) {
+	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	query := `SELECT fen, played_move FROM dismissed_mistakes WHERE user_id = $1`
