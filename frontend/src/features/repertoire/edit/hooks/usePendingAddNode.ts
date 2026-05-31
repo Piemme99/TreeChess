@@ -2,36 +2,16 @@ import { useRef, useEffect, useCallback } from 'react';
 import { toast } from '../../../../stores/toastStore';
 import { findNodeByFEN, findNode } from '../utils/nodeUtils';
 import { repertoireApi } from '../../../../services/api';
-import { makeMove, getShortFEN, deriveChildMoveNumber } from '../../../../shared/utils/chess';
-import type { Repertoire, RepertoireNode, AddNodeRequest } from '../../../../types';
-
-interface PendingMoveEntry {
-  parentFEN: string;
-  moveSAN: string;
-  resultFEN: string;
-}
-
-interface PendingAddSequence {
-  repertoireId: string;
-  repertoireName: string;
-  gameInfo: string;
-  moves: PendingMoveEntry[];
-}
-
-// Legacy single-move format
-interface PendingAddNode {
-  repertoireId: string;
-  repertoireName: string;
-  parentFEN: string;
-  moveSAN: string;
-  gameInfo: string;
-}
-
-type PendingData = PendingAddSequence | PendingAddNode;
-
-function isSequenceFormat(data: PendingData): data is PendingAddSequence {
-  return 'moves' in data && Array.isArray(data.moves);
-}
+import { makeMove } from '../../../../shared/utils/chess';
+import {
+  buildAddNodeRequest,
+  clearPendingAddNode,
+  clearPendingNavigate,
+  readPendingAddNode,
+  readPendingNavigate,
+  type PendingMoveEntry,
+} from '../../../../shared/repertoireHandoff';
+import type { Repertoire, RepertoireNode } from '../../../../types';
 
 export function usePendingAddNode(
   repertoire: Repertoire | null,
@@ -42,56 +22,6 @@ export function usePendingAddNode(
   const pendingAddProcessed = useRef(false);
   const pendingNavProcessed = useRef(false);
   const isProcessingRef = useRef(false);
-
-  const addMoveDirectly = useCallback(async (
-    repId: string,
-    parentNode: RepertoireNode,
-    moveSAN: string,
-    gameInfo: string,
-    doSelectNode: (id: string) => void,
-    doSetRepertoire: (rep: Repertoire) => void
-  ) => {
-    // Check if move already exists
-    const existingMove = parentNode.children.find((c) => c.move === moveSAN);
-    if (existingMove) {
-      doSelectNode(existingMove.id);
-      toast.info(`Move "${moveSAN}" already exists in repertoire`);
-      return;
-    }
-
-    // Validate and make the move
-    const newFEN = makeMove(parentNode.fen, moveSAN);
-    if (!newFEN) {
-      toast.error(`Invalid move: ${moveSAN}`);
-      return;
-    }
-
-    try {
-      const request: AddNodeRequest = {
-        parentId: parentNode.id,
-        move: moveSAN,
-        fen: getShortFEN(newFEN),
-        moveNumber: deriveChildMoveNumber(parentNode.moveNumber, parentNode.colorToMove),
-        colorToMove: parentNode.colorToMove === 'w' ? 'b' : 'w'
-      };
-
-      const updatedRepertoire = await repertoireApi.addNode(repId, request);
-      doSetRepertoire(updatedRepertoire);
-
-      // Find and select the newly added node
-      const updatedParent = findNode(updatedRepertoire.treeData, parentNode.id);
-      if (updatedParent) {
-        const addedNode = updatedParent.children.find((c) => c.move === moveSAN);
-        if (addedNode) {
-          doSelectNode(addedNode.id);
-        }
-      }
-
-      toast.success(`Move "${moveSAN}" added from ${gameInfo}`);
-    } catch {
-      toast.error('Failed to add move to repertoire');
-    }
-  }, []);
 
   const addMoveSequence = useCallback(async (
     repId: string,
@@ -132,13 +62,7 @@ export function usePendingAddNode(
       }
 
       try {
-        const request: AddNodeRequest = {
-          parentId: parentNode.id,
-          move: entry.moveSAN,
-          fen: getShortFEN(newFEN),
-          moveNumber: deriveChildMoveNumber(parentNode.moveNumber, parentNode.colorToMove),
-          colorToMove: parentNode.colorToMove === 'w' ? 'b' : 'w'
-        };
+        const request = buildAddNodeRequest(parentNode, entry.moveSAN, newFEN);
 
         const updatedRepertoire = await repertoireApi.addNode(repId, request);
         doSetRepertoire(updatedRepertoire);
@@ -178,87 +102,52 @@ export function usePendingAddNode(
     if (!repertoire || !repertoireId) return;
     if (pendingAddProcessed.current || isProcessingRef.current) return;
 
-    const pendingData = sessionStorage.getItem('pendingAddNode');
-    if (!pendingData) return;
+    const pending = readPendingAddNode();
+    if (!pending) return;
 
     // Mark as processing immediately to prevent re-runs
     isProcessingRef.current = true;
 
-    try {
-      const pending: PendingData = JSON.parse(pendingData);
+    // Consume the stash immediately so a re-mount can't replay it.
+    clearPendingAddNode();
+    pendingAddProcessed.current = true;
 
-      // Clear session storage immediately
-      sessionStorage.removeItem('pendingAddNode');
-      pendingAddProcessed.current = true;
-
-      if (pending.repertoireId !== repertoireId) {
-        toast.warning(`This move is for "${pending.repertoireName}"`);
-        isProcessingRef.current = false;
-        return;
-      }
-
-      if (isSequenceFormat(pending)) {
-        // New sequence format
-        addMoveSequence(
-          repertoireId,
-          repertoire.treeData,
-          pending.moves,
-          pending.gameInfo,
-          selectNode,
-          setRepertoire
-        ).finally(() => {
-          isProcessingRef.current = false;
-        });
-      } else {
-        // Legacy single-move format
-        const targetNode = findNodeByFEN(repertoire.treeData, pending.parentFEN);
-
-        if (targetNode) {
-          selectNode(targetNode.id);
-          addMoveDirectly(
-            repertoireId,
-            targetNode,
-            pending.moveSAN,
-            pending.gameInfo,
-            selectNode,
-            setRepertoire
-          ).finally(() => {
-            isProcessingRef.current = false;
-          });
-        } else {
-          toast.warning('Position not found in repertoire. Navigate manually to add the move.');
-          isProcessingRef.current = false;
-        }
-      }
-    } catch {
-      sessionStorage.removeItem('pendingAddNode');
+    if (pending.repertoireId !== repertoireId) {
+      toast.warning(`This move is for "${pending.repertoireName}"`);
       isProcessingRef.current = false;
+      return;
     }
-  }, [repertoire, repertoireId, selectNode, setRepertoire, addMoveDirectly, addMoveSequence]);
+
+    addMoveSequence(
+      repertoireId,
+      repertoire.treeData,
+      pending.moves,
+      pending.gameInfo,
+      selectNode,
+      setRepertoire
+    ).finally(() => {
+      isProcessingRef.current = false;
+    });
+  }, [repertoire, repertoireId, selectNode, setRepertoire, addMoveSequence]);
 
   // Handle navigate-to-FEN requests (from game analysis "Open in Repertoire")
   useEffect(() => {
     if (!repertoire || !repertoireId) return;
     if (pendingNavProcessed.current) return;
 
-    const data = sessionStorage.getItem('pendingNavigateToFen');
-    if (!data) return;
+    const pending = readPendingNavigate();
+    if (!pending) return;
 
     pendingNavProcessed.current = true;
-    sessionStorage.removeItem('pendingNavigateToFen');
+    clearPendingNavigate();
 
-    try {
-      const { repertoireId: navRepId, fen } = JSON.parse(data);
-      if (navRepId !== repertoireId) return;
+    if (pending.repertoireId !== repertoireId) return;
 
-      const targetNode = findNodeByFEN(repertoire.treeData, fen);
-      if (targetNode) {
-        selectNode(targetNode.id);
-      } else {
-        toast.warning('Position not found in repertoire');
-      }
-    } catch {
-      // Silently ignore parse errors
+    const targetNode = findNodeByFEN(repertoire.treeData, pending.fen);
+    if (targetNode) {
+      selectNode(targetNode.id);
+    } else {
+      toast.warning('Position not found in repertoire');
     }
   }, [repertoire, repertoireId, selectNode]);
 

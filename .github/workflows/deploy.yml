@@ -103,6 +103,37 @@ jobs:
 
             cd ${{ secrets.DEPLOY_PATH }}
 
+            # Pre-flight: validate .env.production against the production config
+            # guards in backend/config (config.MustLoad panics at startup on these).
+            # Catch a bad config HERE and abort before swapping containers, so a
+            # violation fails the pipeline instead of crash-looping the live backend
+            # (which would also keep the frontend down via depends_on healthcheck).
+            if [ ! -f .env.production ]; then
+              echo "::error::.env.production not found in $(pwd)"
+              exit 1
+            fi
+            get_env() { grep -E "^$1=" .env.production 2>/dev/null | head -n1 | cut -d= -f2- || true; }
+            preflight_fail=0
+            if [ "$(printf %s "$(get_env JWT_SECRET)" | wc -c)" -lt 32 ]; then
+              echo "::error::JWT_SECRET must be at least 32 bytes in production"
+              preflight_fail=1
+            fi
+            # SECURE_COOKIES defaults to 'true' via the compose ${VAR:-true}; only an
+            # explicit non-'true' value trips the guard.
+            secure_cookies="$(get_env SECURE_COOKIES)"
+            if [ -n "$secure_cookies" ] && [ "$secure_cookies" != "true" ]; then
+              echo "::error::SECURE_COOKIES must be 'true' (or unset) in production"
+              preflight_fail=1
+            fi
+            case "$(get_env CORS_ALLOWED_ORIGINS)" in
+              *"*"*) echo "::error::CORS_ALLOWED_ORIGINS must not contain '*'"; preflight_fail=1 ;;
+            esac
+            if [ "$preflight_fail" -ne 0 ]; then
+              echo "Aborting deploy: .env.production violates the production config guards."
+              exit 1
+            fi
+            echo "Pre-flight config validation passed."
+
             # Pull latest code (for docker-compose, nginx configs, migrations, etc.)
             git pull origin main
 

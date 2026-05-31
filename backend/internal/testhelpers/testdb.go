@@ -120,7 +120,7 @@ func (tdb *TestDB) TruncateAll(t *testing.T) {
 
 	_, err := tdb.Pool.Exec(ctx,
 		`TRUNCATE TABLE
-			engine_evals, viewed_games, game_fingerprints, analyses,
+			games, engine_evals, viewed_games, game_fingerprints, analyses,
 			dismissed_mistakes, dismissed_gaps,
 			refresh_tokens, password_reset_tokens,
 			opening_explorer_cache,
@@ -135,7 +135,7 @@ func (tdb *TestDB) TruncateAll(t *testing.T) {
 func (tdb *TestDB) Repos() *Repos {
 	if tdb.repos == nil {
 		tdb.repos = &Repos{
-			User:                 repository.NewPostgresUserRepo(tdb.Pool),
+			User:                 repository.NewPostgresUserRepo(tdb.Pool, testJWTSecret),
 			Repertoire:           repository.NewPostgresRepertoireRepo(tdb.Pool),
 			Analysis:             repository.NewPostgresAnalysisRepo(tdb.Pool),
 			Fingerprint:          repository.NewPostgresFingerprintRepo(tdb.Pool),

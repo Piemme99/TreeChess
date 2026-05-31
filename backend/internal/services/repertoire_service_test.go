@@ -687,7 +687,7 @@ func TestMergeRepertoires_Success(t *testing.T) {
 				TreeData: makeTree("new-root"),
 			}, nil
 		},
-		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
+		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {
 			savedTree = treeData
 			return &models.Repertoire{
 				ID:       id,
@@ -742,7 +742,7 @@ func TestMergeRepertoires_ThreeWay(t *testing.T) {
 		CreateFunc: func(_ context.Context, userID, name string, color models.Color) (*models.Repertoire, error) {
 			return &models.Repertoire{ID: "new", Name: name, Color: color, TreeData: makeTree("new-root")}, nil
 		},
-		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
+		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {
 			savedTree = treeData
 			return &models.Repertoire{ID: id, TreeData: treeData, Metadata: metadata}, nil
 		},
@@ -890,7 +890,7 @@ func TestRepertoireService_AddNode_Success(t *testing.T) {
 				},
 			}, nil
 		},
-		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
+		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID:       id,
 				TreeData: treeData,
@@ -950,7 +950,7 @@ func TestRepertoireService_AddNode_DerivesMoveNumber(t *testing.T) {
 				},
 			}, nil
 		},
-		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
+		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {
 			return &models.Repertoire{ID: id, TreeData: treeData, Metadata: metadata}, nil
 		},
 	}
@@ -1082,7 +1082,7 @@ func TestRepertoireService_SaveTree_Success(t *testing.T) {
 		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
 			return &models.Repertoire{ID: id}, nil
 		},
-		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
+		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID:       id,
 				TreeData: treeData,
@@ -1132,7 +1132,7 @@ func TestRepertoireService_DeleteNode_Success(t *testing.T) {
 				},
 			}, nil
 		},
-		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
+		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {
 			return &models.Repertoire{ID: id, TreeData: treeData, Metadata: metadata}, nil
 		},
 	}
@@ -1220,7 +1220,7 @@ func TestRepertoireService_ExtractSubtree_Success(t *testing.T) {
 		CreateFunc: func(_ context.Context, userID, name string, color models.Color) (*models.Repertoire, error) {
 			return &models.Repertoire{ID: "new-rep", Name: name, Color: color}, nil
 		},
-		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
+		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {
 			return &models.Repertoire{ID: id, TreeData: treeData, Metadata: metadata}, nil
 		},
 	}
@@ -1327,7 +1327,7 @@ func TestRepertoireService_UpdateNodeComment_Set(t *testing.T) {
 				},
 			}, nil
 		},
-		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
+		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {
 			return &models.Repertoire{ID: id, TreeData: treeData}, nil
 		},
 	}
@@ -1357,7 +1357,7 @@ func TestRepertoireService_UpdateNodeComment_Clear(t *testing.T) {
 				},
 			}, nil
 		},
-		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
+		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {
 			return &models.Repertoire{ID: id, TreeData: treeData}, nil
 		},
 	}
@@ -1603,7 +1603,7 @@ func TestMergeTranspositions_BasicMerge(t *testing.T) {
 				TreeData: root,
 			}, nil
 		},
-		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
+		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {
 			savedTree = treeData
 			return &models.Repertoire{
 				ID:       id,
@@ -1654,7 +1654,7 @@ func TestMergeTranspositions_NoTranspositions(t *testing.T) {
 		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
 			return &models.Repertoire{ID: "rep-1", TreeData: root}, nil
 		},
-		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
+		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {
 			savedTree = treeData
 			return &models.Repertoire{ID: id, TreeData: treeData, Metadata: metadata}, nil
 		},
@@ -1699,7 +1699,7 @@ func TestMergeTranspositions_CommonChildrenMerged(t *testing.T) {
 		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
 			return &models.Repertoire{ID: "rep-1", TreeData: root}, nil
 		},
-		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
+		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {
 			savedTree = treeData
 			return &models.Repertoire{ID: id, TreeData: treeData, Metadata: metadata}, nil
 		},
@@ -1746,7 +1746,7 @@ func TestMergeTranspositions_SameFENDifferentMoveNumber(t *testing.T) {
 		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
 			return &models.Repertoire{ID: "rep-1", TreeData: root}, nil
 		},
-		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
+		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {
 			savedTree = treeData
 			return &models.Repertoire{ID: id, TreeData: treeData, Metadata: metadata}, nil
 		},
@@ -1788,7 +1788,7 @@ func TestRepertoireService_SetMainLine_Success(t *testing.T) {
 				},
 			}, nil
 		},
-		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
+		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {
 			return &models.Repertoire{ID: id, TreeData: treeData}, nil
 		},
 	}
@@ -1830,7 +1830,7 @@ func TestRepertoireService_SetMainLine_OverwritesPrevious(t *testing.T) {
 				},
 			}, nil
 		},
-		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
+		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {
 			return &models.Repertoire{ID: id, TreeData: treeData}, nil
 		},
 	}
@@ -1896,7 +1896,7 @@ func TestRepertoireService_ClearMainLine_Success(t *testing.T) {
 				},
 			}, nil
 		},
-		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
+		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {
 			return &models.Repertoire{ID: id, TreeData: treeData}, nil
 		},
 	}
@@ -1926,7 +1926,7 @@ func TestRepertoireService_UpdateNodeBranchColor_Set(t *testing.T) {
 				},
 			}, nil
 		},
-		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
+		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {
 			return &models.Repertoire{ID: id, TreeData: treeData}, nil
 		},
 	}
@@ -1956,7 +1956,7 @@ func TestRepertoireService_UpdateNodeBranchColor_Clear(t *testing.T) {
 				},
 			}, nil
 		},
-		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
+		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {
 			return &models.Repertoire{ID: id, TreeData: treeData}, nil
 		},
 	}
@@ -2024,7 +2024,7 @@ func annotationRepoWithNode() *mocks.MockRepertoireRepo {
 				},
 			}, nil
 		},
-		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
+		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {
 			return &models.Repertoire{ID: id, TreeData: treeData}, nil
 		},
 	}
@@ -2062,7 +2062,7 @@ func TestRepertoireService_UpdateNodeAnnotations_Clear(t *testing.T) {
 				},
 			}, nil
 		},
-		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
+		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {
 			return &models.Repertoire{ID: id, TreeData: treeData}, nil
 		},
 	}
@@ -2348,7 +2348,7 @@ func TestRepertoireService_ImportRepertoire_Success(t *testing.T) {
 				IsPublic: isPublic,
 			}, nil
 		},
-		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
+		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {
 			savedTree = treeData
 			return &models.Repertoire{
 				ID:       id,
@@ -2415,7 +2415,7 @@ func TestRepertoireService_ImportRepertoire_DeepClone(t *testing.T) {
 			assert.False(t, isPublic, "Imported repertoire should be private")
 			return &models.Repertoire{ID: "new", Name: name, Color: color, IsPublic: isPublic}, nil
 		},
-		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
+		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {
 			savedTree = treeData
 			return &models.Repertoire{ID: id, TreeData: treeData, Metadata: metadata}, nil
 		},

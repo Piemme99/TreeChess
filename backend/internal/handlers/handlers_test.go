@@ -715,7 +715,7 @@ func TestAddNodeHandler_ValidRequest(t *testing.T) {
 				},
 			}, nil
 		},
-		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
+		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID:       id,
 				Name:     "Test",
@@ -796,7 +796,7 @@ func TestDeleteNodeHandler_ValidRequest(t *testing.T) {
 				},
 			}, nil
 		},
-		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
+		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID:       id,
 				Name:     "Test",
@@ -1082,7 +1082,7 @@ func TestUpdateNodeCommentHandler_Success(t *testing.T) {
 				},
 			}, nil
 		},
-		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
+		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {
 			return &models.Repertoire{ID: id, TreeData: treeData, Metadata: metadata}, nil
 		},
 	}
@@ -1120,7 +1120,7 @@ func TestUpdateNodeAnnotationsHandler_Success(t *testing.T) {
 				},
 			}, nil
 		},
-		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
+		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {
 			return &models.Repertoire{ID: id, TreeData: treeData, Metadata: metadata}, nil
 		},
 	}

@@ -393,6 +393,51 @@ func TestAuthService_UpdateProfile(t *testing.T) {
 	assert.Equal(t, &lichess, user.LichessUsername)
 }
 
+func TestAuthService_UpdateProfile_RejectsInvalidUsernames(t *testing.T) {
+	updateCalled := false
+	mockRepo := &mocks.MockUserRepo{
+		UpdateProfileFunc: func(_ context.Context, userID string, l, c *string, timeFormatPrefs []string) (*models.User, error) {
+			updateCalled = true
+			return &models.User{ID: userID}, nil
+		},
+	}
+	svc := newTestAuthService(mockRepo)
+
+	cases := []struct {
+		name string
+		req  models.UpdateProfileRequest
+	}{
+		{"lichess path traversal", models.UpdateProfileRequest{LichessUsername: strPtr("../../etc/passwd")}},
+		{"lichess slash", models.UpdateProfileRequest{LichessUsername: strPtr("a/b")}},
+		{"lichess too short", models.UpdateProfileRequest{LichessUsername: strPtr("ab")}},
+		{"lichess query injection", models.UpdateProfileRequest{LichessUsername: strPtr("user?foo=bar")}},
+		{"chesscom hash", models.UpdateProfileRequest{ChesscomUsername: strPtr("user#frag")}},
+		{"chesscom dotdot", models.UpdateProfileRequest{ChesscomUsername: strPtr("..")}},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			updateCalled = false
+			_, err := svc.UpdateProfile(context.Background(), "user-123", tc.req)
+			require.ErrorIs(t, err, ErrInvalidUsername)
+			assert.False(t, updateCalled, "repository must not be called for an invalid username")
+		})
+	}
+}
+
+func TestAuthService_UpdateProfile_AllowsEmptyUsernameToUnlink(t *testing.T) {
+	empty := ""
+	mockRepo := &mocks.MockUserRepo{
+		UpdateProfileFunc: func(_ context.Context, userID string, l, c *string, timeFormatPrefs []string) (*models.User, error) {
+			return &models.User{ID: userID, LichessUsername: l}, nil
+		},
+	}
+	svc := newTestAuthService(mockRepo)
+
+	_, err := svc.UpdateProfile(context.Background(), "user-123", models.UpdateProfileRequest{LichessUsername: &empty})
+	require.NoError(t, err)
+}
+
 func TestAuthService_UpdateProfile_ResetsSync_WhenNewFormatsAdded(t *testing.T) {
 	lichess := "lichessuser"
 	var resetCalled bool
@@ -1016,4 +1061,146 @@ func TestAuthService_RequestPasswordReset_OAuthOnly(t *testing.T) {
 	err := svc.RequestPasswordReset(context.Background(), email)
 
 	require.NoError(t, err)
+}
+
+func TestAuthService_RefreshTokens_Success_MarksConsumed(t *testing.T) {
+	email := "refresh@example.com"
+	mockUserRepo := &mocks.MockUserRepo{
+		GetByIDFunc: func(_ context.Context, id string) (*models.User, error) {
+			return &models.User{ID: id, Username: "refresher", Email: &email}, nil
+		},
+	}
+
+	var consumedID string
+	deleteCalled := false
+	revokeCalled := false
+	mockRefreshRepo := &mocks.MockRefreshTokenRepo{
+		GetByTokenHashFunc: func(_ context.Context, hash string) (*models.RefreshToken, error) {
+			return &models.RefreshToken{
+				ID:        "token-1",
+				UserID:    "user-123",
+				TokenHash: hash,
+				ExpiresAt: time.Now().Add(24 * time.Hour),
+				Consumed:  false,
+			}, nil
+		},
+		MarkConsumedFunc: func(_ context.Context, id string) error {
+			consumedID = id
+			return nil
+		},
+		DeleteFunc: func(_ context.Context, id string) error {
+			deleteCalled = true
+			return nil
+		},
+		DeleteByUserIDFunc: func(_ context.Context, userID string) error {
+			revokeCalled = true
+			return nil
+		},
+	}
+
+	svc := newTestAuthService(mockUserRepo)
+	svc.WithRefreshTokens(mockRefreshRepo)
+
+	resp, err := svc.RefreshTokens(context.Background(), "raw-refresh-token")
+
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	assert.NotEmpty(t, resp.Token)
+	assert.NotEmpty(t, resp.RefreshToken)
+	// Happy path consumes (not deletes) the old token and does not revoke the family.
+	assert.Equal(t, "token-1", consumedID, "old token should be marked consumed")
+	assert.False(t, deleteCalled, "old token should not be hard-deleted on rotation")
+	assert.False(t, revokeCalled, "family should not be revoked on the happy path")
+}
+
+func TestAuthService_RefreshTokens_ReuseDetected_RevokesFamily(t *testing.T) {
+	mockUserRepo := &mocks.MockUserRepo{
+		GetByIDFunc: func(_ context.Context, id string) (*models.User, error) {
+			t.Fatalf("user should not be fetched when reuse is detected")
+			return nil, nil
+		},
+	}
+
+	revokedUserID := ""
+	consumedCalled := false
+	mockRefreshRepo := &mocks.MockRefreshTokenRepo{
+		GetByTokenHashFunc: func(_ context.Context, hash string) (*models.RefreshToken, error) {
+			// An already-consumed token presented again => reuse/theft.
+			return &models.RefreshToken{
+				ID:        "token-1",
+				UserID:    "user-123",
+				TokenHash: hash,
+				ExpiresAt: time.Now().Add(24 * time.Hour),
+				Consumed:  true,
+			}, nil
+		},
+		MarkConsumedFunc: func(_ context.Context, id string) error {
+			consumedCalled = true
+			return nil
+		},
+		DeleteByUserIDFunc: func(_ context.Context, userID string) error {
+			revokedUserID = userID
+			return nil
+		},
+	}
+
+	svc := newTestAuthService(mockUserRepo)
+	svc.WithRefreshTokens(mockRefreshRepo)
+
+	resp, err := svc.RefreshTokens(context.Background(), "stolen-refresh-token")
+
+	require.ErrorIs(t, err, ErrUnauthorized)
+	assert.Nil(t, resp)
+	assert.Equal(t, "user-123", revokedUserID, "replaying a consumed token must revoke the whole family")
+	assert.False(t, consumedCalled, "reuse path must not re-consume the token")
+}
+
+func TestAuthService_RefreshTokens_UnknownToken_NoRevocation(t *testing.T) {
+	revokeCalled := false
+	mockRefreshRepo := &mocks.MockRefreshTokenRepo{
+		GetByTokenHashFunc: func(_ context.Context, hash string) (*models.RefreshToken, error) {
+			return nil, repository.ErrRefreshTokenNotFound
+		},
+		DeleteByUserIDFunc: func(_ context.Context, userID string) error {
+			revokeCalled = true
+			return nil
+		},
+	}
+
+	svc := newTestAuthService(&mocks.MockUserRepo{})
+	svc.WithRefreshTokens(mockRefreshRepo)
+
+	resp, err := svc.RefreshTokens(context.Background(), "never-issued-token")
+
+	require.ErrorIs(t, err, ErrUnauthorized)
+	assert.Nil(t, resp)
+	assert.False(t, revokeCalled, "an unknown token must not trigger family revocation")
+}
+
+func TestAuthService_RefreshTokens_Expired(t *testing.T) {
+	deletedID := ""
+	mockRefreshRepo := &mocks.MockRefreshTokenRepo{
+		GetByTokenHashFunc: func(_ context.Context, hash string) (*models.RefreshToken, error) {
+			return &models.RefreshToken{
+				ID:        "token-1",
+				UserID:    "user-123",
+				TokenHash: hash,
+				ExpiresAt: time.Now().Add(-1 * time.Hour),
+				Consumed:  false,
+			}, nil
+		},
+		DeleteFunc: func(_ context.Context, id string) error {
+			deletedID = id
+			return nil
+		},
+	}
+
+	svc := newTestAuthService(&mocks.MockUserRepo{})
+	svc.WithRefreshTokens(mockRefreshRepo)
+
+	resp, err := svc.RefreshTokens(context.Background(), "expired-token")
+
+	require.ErrorIs(t, err, ErrUnauthorized)
+	assert.Nil(t, resp)
+	assert.Equal(t, "token-1", deletedID, "expired token should be cleaned up")
 }

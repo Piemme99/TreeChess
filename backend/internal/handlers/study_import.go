@@ -4,7 +4,6 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
-	"strconv"
 
 	"github.com/labstack/echo/v5"
 
@@ -45,7 +44,10 @@ func (h *StudyImportHandler) PreviewStudyHandler(c *echo.Context) error {
 		return BadRequestResponse(c, "invalid Lichess study URL")
 	}
 
-	userID := c.Get("userID").(string)
+	userID, ok := mustUserID(c)
+	if !ok {
+		return nil
+	}
 	authToken := h.studyImportService.GetLichessTokenForUser(c.Request().Context(), userID)
 
 	info, err := h.studyImportService.PreviewStudy(studyID, authToken)
@@ -86,7 +88,10 @@ func (h *StudyImportHandler) ImportStudyHandler(c *echo.Context) error {
 		return BadRequestResponse(c, "at least one chapter must be selected")
 	}
 
-	userID := c.Get("userID").(string)
+	userID, ok := mustUserID(c)
+	if !ok {
+		return nil
+	}
 	authToken := h.studyImportService.GetLichessTokenForUser(c.Request().Context(), userID)
 
 	if req.MergeAsOne {
@@ -174,20 +179,19 @@ func (h *StudyImportHandler) BrowseStudiesHandler(c *echo.Context) error {
 	query := c.QueryParam("q")
 	topic := c.QueryParam("topic")
 	order := c.QueryParam("order")
-	pageStr := c.QueryParam("page")
 
 	if order == "" {
 		order = "hot"
 	}
 
-	page := 1
-	if pageStr != "" {
-		if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
-			page = p
-		}
-	}
+	// Cap the page number: Lichess study search realistically returns far
+	// fewer pages, and an unbounded value is forwarded straight upstream.
+	page := ParseIntQueryParam(c, "page", 1, 1, 100)
 
-	userID := c.Get("userID").(string)
+	userID, ok := mustUserID(c)
+	if !ok {
+		return nil
+	}
 	authToken := h.studyImportService.GetLichessTokenForUser(c.Request().Context(), userID)
 
 	var result *models.LichessStudySearchResponse

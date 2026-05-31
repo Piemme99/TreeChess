@@ -2,9 +2,11 @@ package services
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -14,10 +16,24 @@ import (
 const (
 	chesscomAPIBaseURL = "https://api.chess.com/pub"
 	chesscomUserAgent  = "Kumquat/1.0"
+
+	// chesscomFetchSpacing is the minimum delay between consecutive monthly
+	// archive fetches. Chess.com IP-blocks bursty clients, so we space serial
+	// GETs out rather than firing them back-to-back.
+	chesscomFetchSpacing = 250 * time.Millisecond
+
+	// chesscomMaxRateLimitHits stops the archive loop once this many 429s have
+	// been seen, so we back off the whole sync instead of hammering the API.
+	chesscomMaxRateLimitHits = 2
 )
 
 type ChesscomService struct {
 	httpClient *http.Client
+	baseURL    string
+	// fetchSpacing throttles consecutive month fetches; sleep is the wait
+	// primitive (both injectable for tests).
+	fetchSpacing time.Duration
+	sleep        func(time.Duration)
 }
 
 func NewChesscomService() *ChesscomService {
@@ -25,6 +41,9 @@ func NewChesscomService() *ChesscomService {
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
+		baseURL:      chesscomAPIBaseURL,
+		fetchSpacing: chesscomFetchSpacing,
+		sleep:        time.Sleep,
 	}
 }
 
@@ -46,21 +65,25 @@ func (s *ChesscomService) FetchGames(username string, options models.ChesscomImp
 		maxGames = maxAllowedGames
 	}
 
-	// Step 1: Fetch list of monthly archives
-	archivesURL := fmt.Sprintf("%s/player/%s/games/archives", chesscomAPIBaseURL, strings.ToLower(username))
+	// Step 1: Fetch list of monthly archives. Escape the username so a value
+	// containing '/', '?', '#' or '..' cannot alter the upstream request path
+	// (mirrors the Lichess service's use of url.PathEscape).
+	archivesURL := fmt.Sprintf("%s/player/%s/games/archives", s.baseURL, url.PathEscape(strings.ToLower(username)))
 	archivesResp, err := s.doRequest(archivesURL)
 	if err != nil {
 		return "", err
 	}
 	defer func() { _ = archivesResp.Body.Close() }()
 
-	switch archivesResp.StatusCode {
-	case http.StatusOK:
+	switch {
+	case archivesResp.StatusCode == http.StatusOK:
 		// continue
-	case http.StatusNotFound:
+	case archivesResp.StatusCode == http.StatusNotFound:
 		return "", ErrChesscomUserNotFound
-	case http.StatusTooManyRequests:
-		return "", ErrChesscomRateLimited
+	case archivesResp.StatusCode == http.StatusTooManyRequests:
+		return "", newRateLimitedError(archivesResp, ErrChesscomRateLimited)
+	case archivesResp.StatusCode >= 500:
+		return "", fmt.Errorf("%w: chess.com status %d", ErrUpstreamUnavailable, archivesResp.StatusCode)
 	default:
 		return "", fmt.Errorf("chess.com API error: %s", archivesResp.Status)
 	}
@@ -80,15 +103,32 @@ func (s *ChesscomService) FetchGames(username string, options models.ChesscomImp
 		return "", fmt.Errorf("no games found for user '%s' with given filters", username)
 	}
 
-	// Step 3: Fetch PGN for each relevant month (most recent first, serially)
+	// Step 3: Fetch PGN for each relevant month (most recent first, serially).
+	// Space requests out and honor Retry-After on 429; bail out once chess.com
+	// has rate-limited us repeatedly rather than continuing to hammer the API.
 	var allPGN strings.Builder
 	totalGames := 0
+	rateLimitHits := 0
 
 	for i := len(filteredArchives) - 1; i >= 0 && totalGames < maxGames; i-- {
+		// Throttle between months (not before the first fetch).
+		if i < len(filteredArchives)-1 && s.fetchSpacing > 0 {
+			s.sleep(s.fetchSpacing)
+		}
+
 		pgnURL := filteredArchives[i] + "/pgn"
-		monthPGN, err := s.fetchMonthPGN(pgnURL, options.TimeClass)
+		monthPGN, err := s.fetchMonthPGNWithRetry(pgnURL, options.TimeClass)
 		if err != nil {
-			// Skip months that fail (could be rate limited on individual month)
+			var rl *RateLimitedError
+			if errors.As(err, &rl) {
+				rateLimitHits++
+				if rateLimitHits >= chesscomMaxRateLimitHits {
+					// Surface the rate limit instead of silently dropping it so
+					// the caller can back off and the user is told to retry.
+					return "", err
+				}
+			}
+			// Skip months that fail for other reasons (or a single 429).
 			continue
 		}
 
@@ -129,6 +169,20 @@ func (s *ChesscomService) doRequest(url string) (*http.Response, error) {
 	return s.httpClient.Do(req)
 }
 
+// fetchMonthPGNWithRetry wraps fetchMonthPGN with a bounded jittered retry on
+// 429/5xx that honors Retry-After, so a single transient failure on one month
+// doesn't drop that month's games.
+func (s *ChesscomService) fetchMonthPGNWithRetry(pgnURL string, timeClass string) (string, error) {
+	sleep := s.sleep
+	if sleep == nil {
+		sleep = time.Sleep
+	}
+	return retryWithBackoff(defaultSyncRetry, sleep,
+		func() (string, error) { return s.fetchMonthPGN(pgnURL, timeClass) },
+		isRetryableSyncError,
+	)
+}
+
 func (s *ChesscomService) fetchMonthPGN(pgnURL string, timeClass string) (string, error) {
 	req, err := http.NewRequest(http.MethodGet, pgnURL, nil)
 	if err != nil {
@@ -143,7 +197,10 @@ func (s *ChesscomService) fetchMonthPGN(pgnURL string, timeClass string) (string
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode == http.StatusTooManyRequests {
-		return "", ErrChesscomRateLimited
+		return "", newRateLimitedError(resp, ErrChesscomRateLimited)
+	}
+	if resp.StatusCode >= 500 {
+		return "", fmt.Errorf("%w: chess.com status %d", ErrUpstreamUnavailable, resp.StatusCode)
 	}
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("chess.com API error: %s", resp.Status)

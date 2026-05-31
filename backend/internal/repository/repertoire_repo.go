@@ -17,30 +17,30 @@ import (
 
 const (
 	getRepertoireByIDSQL = `
-		SELECT id, name, description, color, is_public, category_id, tree_data, metadata, origin_type, origin_url, origin_creator, created_at, updated_at
+		SELECT id, name, description, color, is_public, category_id, tree_data, metadata, origin_type, origin_url, origin_creator, created_at, updated_at, version
 		FROM repertoires
 		WHERE id = $1
 	`
 	getRepertoiresByColorSQL = `
-		SELECT id, name, description, color, is_public, category_id, tree_data, metadata, origin_type, origin_url, origin_creator, created_at, updated_at
+		SELECT id, name, description, color, is_public, category_id, tree_data, metadata, origin_type, origin_url, origin_creator, created_at, updated_at, version
 		FROM repertoires
 		WHERE user_id = $1 AND color = $2
 		ORDER BY updated_at DESC
 	`
 	getAllRepertoiresSQL = `
-		SELECT id, name, description, color, is_public, category_id, tree_data, metadata, origin_type, origin_url, origin_creator, created_at, updated_at
+		SELECT id, name, description, color, is_public, category_id, tree_data, metadata, origin_type, origin_url, origin_creator, created_at, updated_at, version
 		FROM repertoires
 		WHERE user_id = $1
 		ORDER BY color, updated_at DESC
 	`
 	getRepertoiresByCategorySQL = `
-		SELECT id, name, description, color, is_public, category_id, tree_data, metadata, origin_type, origin_url, origin_creator, created_at, updated_at
+		SELECT id, name, description, color, is_public, category_id, tree_data, metadata, origin_type, origin_url, origin_creator, created_at, updated_at, version
 		FROM repertoires
 		WHERE category_id = $1
 		ORDER BY updated_at DESC
 	`
 	getUncategorizedRepertoiresSQL = `
-		SELECT id, name, description, color, is_public, category_id, tree_data, metadata, origin_type, origin_url, origin_creator, created_at, updated_at
+		SELECT id, name, description, color, is_public, category_id, tree_data, metadata, origin_type, origin_url, origin_creator, created_at, updated_at, version
 		FROM repertoires
 		WHERE user_id = $1 AND color = $2 AND category_id IS NULL
 		ORDER BY updated_at DESC
@@ -48,42 +48,46 @@ const (
 	createRepertoireSQL = `
 		INSERT INTO repertoires (id, user_id, name, description, color, is_public, tree_data, metadata)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-		RETURNING id, name, description, color, is_public, category_id, tree_data, metadata, origin_type, origin_url, origin_creator, created_at, updated_at
+		RETURNING id, name, description, color, is_public, category_id, tree_data, metadata, origin_type, origin_url, origin_creator, created_at, updated_at, version
 	`
 	createRepertoireWithCategorySQL = `
 		INSERT INTO repertoires (id, user_id, name, description, color, is_public, category_id, tree_data, metadata)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-		RETURNING id, name, description, color, is_public, category_id, tree_data, metadata, origin_type, origin_url, origin_creator, created_at, updated_at
+		RETURNING id, name, description, color, is_public, category_id, tree_data, metadata, origin_type, origin_url, origin_creator, created_at, updated_at, version
 	`
+	// updateRepertoireByIDSQL is the optimistic-locked tree write. The
+	// "AND version = $5" guard makes the UPDATE a no-op (zero rows, surfaced as
+	// pgx.ErrNoRows on the RETURNING) when the caller's snapshot is stale, and
+	// "version = version + 1" bumps the counter on every successful write.
 	updateRepertoireByIDSQL = `
 		UPDATE repertoires
-		SET tree_data = $2, metadata = $3, updated_at = NOW()
-		WHERE id = $1 AND user_id = $4
-		RETURNING id, name, description, color, is_public, category_id, tree_data, metadata, origin_type, origin_url, origin_creator, created_at, updated_at
+		SET tree_data = $2, metadata = $3, version = version + 1, updated_at = NOW()
+		WHERE id = $1 AND user_id = $4 AND version = $5
+		RETURNING id, name, description, color, is_public, category_id, tree_data, metadata, origin_type, origin_url, origin_creator, created_at, updated_at, version
 	`
 	updateRepertoireNameSQL = `
 		UPDATE repertoires
 		SET name = $2, updated_at = NOW()
 		WHERE id = $1 AND user_id = $3
-		RETURNING id, name, description, color, is_public, category_id, tree_data, metadata, origin_type, origin_url, origin_creator, created_at, updated_at
+		RETURNING id, name, description, color, is_public, category_id, tree_data, metadata, origin_type, origin_url, origin_creator, created_at, updated_at, version
 	`
 	updateRepertoireDescriptionSQL = `
 		UPDATE repertoires
 		SET description = $2, updated_at = NOW()
 		WHERE id = $1 AND user_id = $3
-		RETURNING id, name, description, color, is_public, category_id, tree_data, metadata, origin_type, origin_url, origin_creator, created_at, updated_at
+		RETURNING id, name, description, color, is_public, category_id, tree_data, metadata, origin_type, origin_url, origin_creator, created_at, updated_at, version
 	`
 	updateRepertoireCategorySQL = `
 		UPDATE repertoires
 		SET category_id = $2, updated_at = NOW()
 		WHERE id = $1 AND user_id = $3
-		RETURNING id, name, description, color, is_public, category_id, tree_data, metadata, origin_type, origin_url, origin_creator, created_at, updated_at
+		RETURNING id, name, description, color, is_public, category_id, tree_data, metadata, origin_type, origin_url, origin_creator, created_at, updated_at, version
 	`
 	updateRepertoireVisibilitySQL = `
 		UPDATE repertoires
 		SET is_public = $2, updated_at = NOW()
 		WHERE id = $1 AND user_id = $3
-		RETURNING id, name, description, color, is_public, category_id, tree_data, metadata, origin_type, origin_url, origin_creator, created_at, updated_at
+		RETURNING id, name, description, color, is_public, category_id, tree_data, metadata, origin_type, origin_url, origin_creator, created_at, updated_at, version
 	`
 	updateRepertoireOriginSQL = `
 		UPDATE repertoires
@@ -91,7 +95,7 @@ const (
 		WHERE id = $1
 	`
 	getAllPublicRepertoiresSQL = `
-		SELECT r.id, r.name, r.description, r.color, r.is_public, NULL AS category_id, r.tree_data, r.metadata, r.origin_type, r.origin_url, r.origin_creator, r.created_at, r.updated_at,
+		SELECT r.id, r.name, r.description, r.color, r.is_public, NULL AS category_id, r.tree_data, r.metadata, r.origin_type, r.origin_url, r.origin_creator, r.created_at, r.updated_at, r.version,
 		       u.username
 		FROM repertoires r
 		JOIN users u ON r.user_id = u.id
@@ -99,7 +103,7 @@ const (
 		ORDER BY r.updated_at DESC
 	`
 	getPublicRepertoireByIDSQL = `
-		SELECT r.id, r.name, r.description, r.color, r.is_public, NULL AS category_id, r.tree_data, r.metadata, r.origin_type, r.origin_url, r.origin_creator, r.created_at, r.updated_at,
+		SELECT r.id, r.name, r.description, r.color, r.is_public, NULL AS category_id, r.tree_data, r.metadata, r.origin_type, r.origin_url, r.origin_creator, r.created_at, r.updated_at, r.version,
 		       u.username
 		FROM repertoires r
 		JOIN users u ON r.user_id = u.id
@@ -167,6 +171,7 @@ func (r *PostgresRepertoireRepo) GetByID(ctx context.Context, id string) (*model
 		&originCreator,
 		&rep.CreatedAt,
 		&rep.UpdatedAt,
+		&rep.Version,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -306,6 +311,7 @@ func (r *PostgresRepertoireRepo) createRepertoire(ctx context.Context, userID st
 		&originCreator,
 		&rep.CreatedAt,
 		&rep.UpdatedAt,
+		&rep.Version,
 	)
 	if err != nil {
 		if isRepertoireNameConflict(err) {
@@ -327,8 +333,16 @@ func (r *PostgresRepertoireRepo) createRepertoire(ctx context.Context, userID st
 	return &rep, nil
 }
 
-// Save saves tree data and metadata for a repertoire by ID, scoped to user
-func (r *PostgresRepertoireRepo) Save(ctx context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
+// Save persists tree data and metadata for a repertoire by ID, scoped to user,
+// under optimistic locking. expectedVersion must match the persisted version
+// (the value loaded by the GetByID that produced treeData). On success the
+// version is bumped and the refreshed repertoire is returned.
+//
+// When the conditional UPDATE matches no row, Save disambiguates the cause: if
+// the row exists, the caller's snapshot was stale and ErrRepertoireConflict is
+// returned; otherwise the repertoire is gone and ErrRepertoireNotFound is
+// returned.
+func (r *PostgresRepertoireRepo) Save(ctx context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {
 	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
@@ -351,6 +365,7 @@ func (r *PostgresRepertoireRepo) Save(ctx context.Context, id string, userID str
 		treeDataJSON,
 		metadataJSON,
 		userID,
+		expectedVersion,
 	).Scan(
 		&rep.ID,
 		&rep.Name,
@@ -365,8 +380,19 @@ func (r *PostgresRepertoireRepo) Save(ctx context.Context, id string, userID str
 		&originCreator,
 		&rep.CreatedAt,
 		&rep.UpdatedAt,
+		&rep.Version,
 	)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			exists, existsErr := r.BelongsToUser(ctx, id, userID)
+			if existsErr != nil {
+				return nil, existsErr
+			}
+			if exists {
+				return nil, ErrRepertoireConflict
+			}
+			return nil, ErrRepertoireNotFound
+		}
 		return nil, fmt.Errorf("failed to save repertoire: %w", err)
 	}
 
@@ -406,6 +432,7 @@ func (r *PostgresRepertoireRepo) UpdateName(ctx context.Context, id string, user
 		&originCreator,
 		&rep.CreatedAt,
 		&rep.UpdatedAt,
+		&rep.Version,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update repertoire name: %w", err)
@@ -447,6 +474,7 @@ func (r *PostgresRepertoireRepo) UpdateDescription(ctx context.Context, id strin
 		&originCreator,
 		&rep.CreatedAt,
 		&rep.UpdatedAt,
+		&rep.Version,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -491,6 +519,7 @@ func (r *PostgresRepertoireRepo) UpdateCategory(ctx context.Context, id string, 
 		&originCreator,
 		&rep.CreatedAt,
 		&rep.UpdatedAt,
+		&rep.Version,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -638,6 +667,7 @@ func (r *PostgresRepertoireRepo) scanRepertoires(rows interface {
 			&originCreator,
 			&rep.CreatedAt,
 			&rep.UpdatedAt,
+			&rep.Version,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan repertoire: %w", err)
@@ -685,6 +715,7 @@ func (r *PostgresRepertoireRepo) UpdateVisibility(ctx context.Context, id string
 		&originCreator,
 		&rep.CreatedAt,
 		&rep.UpdatedAt,
+		&rep.Version,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -766,6 +797,7 @@ func (r *PostgresRepertoireRepo) GetPublicByID(ctx context.Context, id string) (
 		&originCreator,
 		&rep.CreatedAt,
 		&rep.UpdatedAt,
+		&rep.Version,
 		&rep.AuthorName,
 	)
 	if err != nil {
@@ -831,6 +863,7 @@ func (r *PostgresRepertoireRepo) scanRepertoiresWithAuthor(rows interface {
 			&originCreator,
 			&rep.CreatedAt,
 			&rep.UpdatedAt,
+			&rep.Version,
 			&rep.AuthorName,
 		)
 		if err != nil {

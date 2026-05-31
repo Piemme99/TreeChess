@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 
@@ -953,4 +954,50 @@ func TestValidateMoveHandler_QueensideCastling(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, rec.Code)
+}
+
+func doDismissMistake(t *testing.T, body string) *httptest.ResponseRecorder {
+	t.Helper()
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodPost, "/api/dashboard/dismiss-mistake", bytes.NewReader([]byte(body)))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	setTestUserID(c)
+
+	importSvc := services.NewImportService(nil, nil)
+	handler := NewImportHandler(importSvc, nil, nil, nil)
+	require.NoError(t, handler.DismissMistakeHandler(c))
+	return rec
+}
+
+func TestDismissMistakeHandler_MissingFields(t *testing.T) {
+	rec := doDismissMistake(t, `{"fen":"","playedMove":""}`)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+	var resp map[string]string
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	assert.Contains(t, resp["error"], "required")
+}
+
+func TestDismissMistakeHandler_MalformedFEN(t *testing.T) {
+	rec := doDismissMistake(t, `{"fen":"garbage","playedMove":"e4"}`)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+	var resp map[string]string
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	assert.Contains(t, resp["error"], "valid FEN")
+}
+
+func TestDismissMistakeHandler_OversizedPlayedMove(t *testing.T) {
+	validFEN := "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1"
+	longMove := strings.Repeat("a", MaxChessMoveLength+1)
+	rec := doDismissMistake(t, `{"fen":"`+validFEN+`","playedMove":"`+longMove+`"}`)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
+func TestDismissMistakeHandler_ValidInput_RepoNotConfigured(t *testing.T) {
+	// Validation passes; the import service has no dismissed-mistake repo
+	// wired, so the call surfaces as a 500.
+	validFEN := "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1"
+	rec := doDismissMistake(t, `{"fen":"`+validFEN+`","playedMove":"e4"}`)
+	assert.Equal(t, http.StatusInternalServerError, rec.Code)
 }

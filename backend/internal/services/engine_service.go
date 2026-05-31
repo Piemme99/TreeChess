@@ -69,8 +69,13 @@ func (s *EngineService) EnqueueAnalysis(ctx context.Context, userID, analysisID 
 	}
 }
 
-// RunWorker polls for pending evals and processes them via the cache.
+// RunWorker polls for pending evals and processes them via the cache. It runs
+// until ctx is cancelled and recovers from panics on a per-iteration basis so a
+// single bad eval can never permanently kill the worker loop.
 func (s *EngineService) RunWorker(ctx context.Context) {
+	// Outer recover guards setup/loop-control code; each poll iteration also has
+	// its own recover (see safeProcessPending) so a panicking eval only aborts
+	// that pass, not the whole worker.
 	defer func() {
 		if r := recover(); r != nil {
 			slog.Error("opening-analysis worker panicked", "panic", r)
@@ -94,34 +99,48 @@ func (s *EngineService) RunWorker(ctx context.Context) {
 			slog.Info("opening-analysis worker stopped")
 			return
 		case <-ticker.C:
-			s.processPending(ctx)
+			s.safeProcessPending(ctx)
 		}
 	}
 }
 
+// safeProcessPending runs one processPending pass, recovering from any panic so
+// a single bad eval aborts only the current pass and leaves the worker loop
+// running.
+func (s *EngineService) safeProcessPending(ctx context.Context) {
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("opening-analysis pass panicked, continuing worker", "component", "opening-analysis", "panic", r)
+		}
+	}()
+	s.processPending(ctx)
+}
+
 func (s *EngineService) processPending(ctx context.Context) {
-	pending, err := s.evalRepo.GetPending(ctx, 5)
+	// Atomically claim pending evals (FOR UPDATE SKIP LOCKED) so the rows are
+	// marked processing in the same statement that returns them; this avoids the
+	// GetPending+MarkProcessing TOCTOU and is safe under concurrent workers.
+	pending, err := s.evalRepo.ClaimPending(ctx, 5)
 	if err != nil {
-		slog.Error("failed to get pending evals", "component", "opening-analysis", "error", err)
+		slog.Error("failed to claim pending evals", "component", "opening-analysis", "error", err)
 		return
 	}
 
 	for _, eval := range pending {
-		if err := s.evalRepo.MarkProcessing(ctx, eval.ID); err != nil {
-			slog.Error("failed to mark processing", "component", "opening-analysis", "eval_id", eval.ID, "error", err)
-			continue
-		}
-
 		stats, err := s.analyzeGameOpenings(ctx, eval.AnalysisID, eval.GameIndex)
 		if err != nil {
 			slog.Error("failed to analyze game", "component", "opening-analysis", "analysis_id", eval.AnalysisID, "game_index", eval.GameIndex, "error", err)
-			_ = s.evalRepo.MarkFailed(ctx, eval.ID)
+			if markErr := s.evalRepo.MarkFailed(ctx, eval.ID); markErr != nil {
+				slog.Error("failed to mark eval failed", "component", "opening-analysis", "eval_id", eval.ID, "error", markErr)
+			}
 			continue
 		}
 
 		if err := s.evalRepo.SaveEvals(ctx, eval.ID, stats); err != nil {
 			slog.Error("failed to save evals", "component", "opening-analysis", "eval_id", eval.ID, "error", err)
-			_ = s.evalRepo.MarkFailed(ctx, eval.ID)
+			if markErr := s.evalRepo.MarkFailed(ctx, eval.ID); markErr != nil {
+				slog.Error("failed to mark eval failed", "component", "opening-analysis", "eval_id", eval.ID, "error", markErr)
+			}
 			continue
 		}
 	}

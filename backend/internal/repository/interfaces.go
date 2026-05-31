@@ -37,7 +37,7 @@ type RepertoireRepository interface {
 	GetByColor(ctx context.Context, userID string, color models.Color) ([]models.Repertoire, error)
 	GetAll(ctx context.Context, userID string) ([]models.Repertoire, error)
 	Create(ctx context.Context, userID string, name string, color models.Color) (*models.Repertoire, error)
-	Save(ctx context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error)
+	Save(ctx context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error)
 	UpdateName(ctx context.Context, id string, userID string, name string) (*models.Repertoire, error)
 	UpdateDescription(ctx context.Context, id string, userID string, description string) (*models.Repertoire, error)
 	Delete(ctx context.Context, id string, userID string) error
@@ -64,6 +64,12 @@ type OpeningExplorerCacheRepository interface {
 // EngineEvalRepository defines the interface for engine evaluation operations
 type EngineEvalRepository interface {
 	CreatePendingBatch(ctx context.Context, userID, analysisID string, gameCount int) error
+	// ClaimPending atomically marks up to limit pending evals as processing and
+	// returns them (FOR UPDATE SKIP LOCKED), so concurrent workers never claim
+	// the same row.
+	ClaimPending(ctx context.Context, limit int) ([]models.EngineEval, error)
+	// GetPending and MarkProcessing remain for non-worker callers; the worker
+	// uses the atomic ClaimPending instead.
 	GetPending(ctx context.Context, limit int) ([]models.EngineEval, error)
 	MarkProcessing(ctx context.Context, id string) error
 	SaveEvals(ctx context.Context, id string, evals []models.ExplorerMoveStats) error
@@ -84,6 +90,12 @@ type DismissedGapRepository interface {
 	GetDismissed(ctx context.Context, userID string) (map[string]bool, error)
 }
 
+// ResultsMutator transforms an analysis's current results into the results to
+// persist. It is invoked with the freshly-locked results inside MutateResults'
+// transaction. It returns the new results and a changed flag; when changed is
+// false the row is left untouched. Returning an error aborts the transaction.
+type ResultsMutator func(current []models.GameAnalysis) (updated []models.GameAnalysis, changed bool, err error)
+
 // AnalysisRepository defines the interface for analysis data operations
 type AnalysisRepository interface {
 	Save(ctx context.Context, userID string, username, filename string, gameCount int, results []models.GameAnalysis) (*models.AnalysisSummary, error)
@@ -92,6 +104,10 @@ type AnalysisRepository interface {
 	Delete(ctx context.Context, id string) error
 	GetAllGames(ctx context.Context, userID string, limit, offset int, timeClass, repertoire, source string, onlyNew bool) (*models.GamesResponse, error)
 	UpdateResults(ctx context.Context, analysisID string, results []models.GameAnalysis) error
+	// MutateResults applies a mutation to an analysis's results within a single
+	// row-locked transaction, preventing lost-update races between concurrent
+	// re-analysis paths. See PostgresAnalysisRepo.MutateResults.
+	MutateResults(ctx context.Context, analysisID string, mutate ResultsMutator) error
 	BelongsToUser(ctx context.Context, id string, userID string) (bool, error)
 	GetDistinctRepertoires(ctx context.Context, userID string) ([]models.RepertoireFilterOption, error)
 	MarkGameViewed(ctx context.Context, userID, analysisID string, gameIndex int) error
@@ -103,6 +119,7 @@ type AnalysisRepository interface {
 type RefreshTokenRepository interface {
 	Create(ctx context.Context, userID, tokenHash string, expiresAt time.Time) (*models.RefreshToken, error)
 	GetByTokenHash(ctx context.Context, tokenHash string) (*models.RefreshToken, error)
+	MarkConsumed(ctx context.Context, id string) error
 	Delete(ctx context.Context, id string) error
 	DeleteByUserID(ctx context.Context, userID string) error
 	DeleteExpired(ctx context.Context) error

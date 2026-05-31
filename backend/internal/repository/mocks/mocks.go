@@ -33,6 +33,7 @@ func (m *MockFingerprintRepo) SaveBatch(ctx context.Context, userID, analysisID 
 // MockEngineEvalRepo is a mock implementation of EngineEvalRepository for testing
 type MockEngineEvalRepo struct {
 	CreatePendingBatchFunc   func(ctx context.Context, userID, analysisID string, gameCount int) error
+	ClaimPendingFunc         func(ctx context.Context, limit int) ([]models.EngineEval, error)
 	GetPendingFunc           func(ctx context.Context, limit int) ([]models.EngineEval, error)
 	MarkProcessingFunc       func(ctx context.Context, id string) error
 	SaveEvalsFunc            func(ctx context.Context, id string, evals []models.ExplorerMoveStats) error
@@ -46,6 +47,13 @@ func (m *MockEngineEvalRepo) CreatePendingBatch(ctx context.Context, userID, ana
 		return m.CreatePendingBatchFunc(ctx, userID, analysisID, gameCount)
 	}
 	return nil
+}
+
+func (m *MockEngineEvalRepo) ClaimPending(ctx context.Context, limit int) ([]models.EngineEval, error) {
+	if m.ClaimPendingFunc != nil {
+		return m.ClaimPendingFunc(ctx, limit)
+	}
+	return nil, nil
 }
 
 func (m *MockEngineEvalRepo) GetPending(ctx context.Context, limit int) ([]models.EngineEval, error) {
@@ -99,7 +107,7 @@ type MockRepertoireRepo struct {
 	CreateWithCategoryFunc        func(ctx context.Context, userID, name string, color models.Color, categoryID *string) (*models.Repertoire, error)
 	CreateWithIsPublicFunc        func(ctx context.Context, userID, name string, color models.Color, isPublic bool) (*models.Repertoire, error)
 	CreateWithIsPublicAndDescFunc func(ctx context.Context, userID, name, description string, color models.Color, isPublic bool) (*models.Repertoire, error)
-	SaveFunc                      func(ctx context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error)
+	SaveFunc                      func(ctx context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error)
 	UpdateNameFunc                func(ctx context.Context, id string, userID string, name string) (*models.Repertoire, error)
 	UpdateDescriptionFunc         func(ctx context.Context, id string, userID string, description string) (*models.Repertoire, error)
 	UpdateCategoryFunc            func(ctx context.Context, id string, userID string, categoryID *string) (*models.Repertoire, error)
@@ -155,9 +163,9 @@ func (m *MockRepertoireRepo) CreateWithCategory(ctx context.Context, userID, nam
 	return nil, nil
 }
 
-func (m *MockRepertoireRepo) Save(ctx context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
+func (m *MockRepertoireRepo) Save(ctx context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {
 	if m.SaveFunc != nil {
-		return m.SaveFunc(ctx, id, userID, treeData, metadata)
+		return m.SaveFunc(ctx, id, userID, treeData, metadata, expectedVersion)
 	}
 	return nil, nil
 }
@@ -291,6 +299,7 @@ type MockAnalysisRepo struct {
 	DeleteFunc                 func(ctx context.Context, id string) error
 	GetAllGamesFunc            func(ctx context.Context, userID string, limit, offset int, timeClass, opening, source string, onlyNew bool) (*models.GamesResponse, error)
 	UpdateResultsFunc          func(ctx context.Context, analysisID string, results []models.GameAnalysis) error
+	MutateResultsFunc          func(ctx context.Context, analysisID string, mutate repository.ResultsMutator) error
 	BelongsToUserFunc          func(ctx context.Context, id string, userID string) (bool, error)
 	GetDistinctRepertoiresFunc func(ctx context.Context, userID string) ([]models.RepertoireFilterOption, error)
 	MarkGameViewedFunc         func(ctx context.Context, userID, analysisID string, gameIndex int) error
@@ -338,6 +347,60 @@ func (m *MockAnalysisRepo) UpdateResults(ctx context.Context, analysisID string,
 		return m.UpdateResultsFunc(ctx, analysisID, results)
 	}
 	return nil
+}
+
+// MutateResults mimics the real repository's transactional read-modify-write.
+// When MutateResultsFunc is set it is used directly. Otherwise the mock resolves
+// the analysis's current results (via GetByIDFunc, falling back to a matching
+// entry from GetAllGamesRawFunc), runs the mutator, and persists the result via
+// UpdateResultsFunc when the mutator reports a change. This lets tests configured
+// only with GetByID/GetAllGamesRaw + UpdateResults exercise the mutate path
+// without extra wiring.
+func (m *MockAnalysisRepo) MutateResults(ctx context.Context, analysisID string, mutate repository.ResultsMutator) error {
+	if m.MutateResultsFunc != nil {
+		return m.MutateResultsFunc(ctx, analysisID, mutate)
+	}
+
+	current, err := m.resolveResults(ctx, analysisID)
+	if err != nil {
+		return err
+	}
+
+	updated, changed, err := mutate(current)
+	if err != nil {
+		return err
+	}
+	if !changed {
+		return nil
+	}
+	return m.UpdateResults(ctx, analysisID, updated)
+}
+
+// resolveResults reconstructs an analysis's current results for the default
+// MutateResults implementation, mirroring what a real SELECT ... FOR UPDATE
+// would return.
+func (m *MockAnalysisRepo) resolveResults(ctx context.Context, analysisID string) ([]models.GameAnalysis, error) {
+	if m.GetByIDFunc != nil {
+		detail, err := m.GetByIDFunc(ctx, analysisID)
+		if err != nil {
+			return nil, err
+		}
+		if detail != nil {
+			return detail.Results, nil
+		}
+	}
+	if m.GetAllGamesRawFunc != nil {
+		analyses, err := m.GetAllGamesRawFunc(ctx, "")
+		if err != nil {
+			return nil, err
+		}
+		for i := range analyses {
+			if analyses[i].ID == analysisID {
+				return analyses[i].Results, nil
+			}
+		}
+	}
+	return nil, nil
 }
 
 func (m *MockAnalysisRepo) BelongsToUser(ctx context.Context, id string, userID string) (bool, error) {
@@ -628,6 +691,7 @@ func (m *MockPasswordResetRepo) CountRecentByUserID(ctx context.Context, userID 
 type MockRefreshTokenRepo struct {
 	CreateFunc         func(ctx context.Context, userID, tokenHash string, expiresAt time.Time) (*models.RefreshToken, error)
 	GetByTokenHashFunc func(ctx context.Context, tokenHash string) (*models.RefreshToken, error)
+	MarkConsumedFunc   func(ctx context.Context, id string) error
 	DeleteFunc         func(ctx context.Context, id string) error
 	DeleteByUserIDFunc func(ctx context.Context, userID string) error
 	DeleteExpiredFunc  func(ctx context.Context) error
@@ -651,6 +715,13 @@ func (m *MockRefreshTokenRepo) GetByTokenHash(ctx context.Context, tokenHash str
 		return m.GetByTokenHashFunc(ctx, tokenHash)
 	}
 	return nil, repository.ErrRefreshTokenNotFound
+}
+
+func (m *MockRefreshTokenRepo) MarkConsumed(ctx context.Context, id string) error {
+	if m.MarkConsumedFunc != nil {
+		return m.MarkConsumedFunc(ctx, id)
+	}
+	return nil
 }
 
 func (m *MockRefreshTokenRepo) Delete(ctx context.Context, id string) error {

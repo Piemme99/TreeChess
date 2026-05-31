@@ -45,7 +45,7 @@ func newRepoWithEmptyTree(rootID string) *mocks.MockRepertoireRepo {
 				},
 			}, nil
 		},
-		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata) (*models.Repertoire, error) {
+		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID:       id,
 				TreeData: treeData,
@@ -102,7 +102,7 @@ func TestRepertoireService_DeleteNode_NotifiesQueue(t *testing.T) {
 				},
 			}, nil
 		},
-		SaveFunc: func(_ context.Context, id, userID string, t models.RepertoireNode, m models.Metadata) (*models.Repertoire, error) {
+		SaveFunc: func(_ context.Context, id, userID string, t models.RepertoireNode, m models.Metadata, expectedVersion int) (*models.Repertoire, error) {
 			return &models.Repertoire{ID: id, TreeData: t, Metadata: m}, nil
 		},
 	}

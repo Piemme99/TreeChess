@@ -4,10 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/kumquat/backend/config"
 	"github.com/kumquat/backend/internal/models"
 )
 
@@ -21,26 +23,95 @@ func NewPostgresEngineEvalRepo(pool *pgxpool.Pool) *PostgresEngineEvalRepo {
 	return &PostgresEngineEvalRepo{pool: pool}
 }
 
-// CreatePendingBatch creates pending engine eval rows for all games in an analysis
+// CreatePendingBatch creates pending engine eval rows for all games in an
+// analysis using chunked multi-row INSERTs (config.DBBatchSize rows per query,
+// 4 parameters per row) so a large analysis never exceeds Postgres's
+// 65535-parameter limit and never issues one round-trip per game.
 func (r *PostgresEngineEvalRepo) CreatePendingBatch(ctx context.Context, userID, analysisID string, gameCount int) error {
-	ctx, cancel := dbContext(ctx)
-	defer cancel()
+	if gameCount <= 0 {
+		return nil
+	}
 
-	for i := 0; i < gameCount; i++ {
-		_, err := r.pool.Exec(ctx,
-			`INSERT INTO engine_evals (user_id, analysis_id, game_index, status)
-			 VALUES ($1, $2, $3, 'pending')
-			 ON CONFLICT (analysis_id, game_index) DO NOTHING`,
-			userID, analysisID, i,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to create pending eval for game %d: %w", i, err)
+	for start := 0; start < gameCount; start += config.DBBatchSize {
+		end := start + config.DBBatchSize
+		if end > gameCount {
+			end = gameCount
+		}
+		if err := r.createPendingChunk(ctx, userID, analysisID, start, end); err != nil {
+			return err
 		}
 	}
 	return nil
 }
 
-// GetPending returns up to limit pending engine evals
+// createPendingChunk inserts pending eval rows for game indexes [start, end) in
+// a single multi-row INSERT.
+func (r *PostgresEngineEvalRepo) createPendingChunk(parent context.Context, userID, analysisID string, start, end int) error {
+	ctx, cancel := dbContextFrom(parent)
+	defer cancel()
+
+	params := make([]interface{}, 0, (end-start)*4)
+	valueClauses := make([]string, 0, end-start)
+	for i := start; i < end; i++ {
+		base := len(params)
+		params = append(params, userID, analysisID, i, "pending")
+		valueClauses = append(valueClauses, fmt.Sprintf("($%d, $%d, $%d, $%d)", base+1, base+2, base+3, base+4))
+	}
+
+	query := fmt.Sprintf(
+		`INSERT INTO engine_evals (user_id, analysis_id, game_index, status) VALUES %s
+		 ON CONFLICT (analysis_id, game_index) DO NOTHING`,
+		strings.Join(valueClauses, ", "),
+	)
+
+	if _, err := r.pool.Exec(ctx, query, params...); err != nil {
+		return fmt.Errorf("failed to create pending evals: %w", err)
+	}
+	return nil
+}
+
+// ClaimPending atomically claims up to limit pending engine evals, marking them
+// 'processing' and returning the claimed rows. It uses FOR UPDATE SKIP LOCKED so
+// that concurrent workers never claim the same row, replacing the previous
+// GetPending+MarkProcessing TOCTOU pattern.
+func (r *PostgresEngineEvalRepo) ClaimPending(parent context.Context, limit int) ([]models.EngineEval, error) {
+	ctx, cancel := dbContextFrom(parent)
+	defer cancel()
+
+	rows, err := r.pool.Query(ctx,
+		`UPDATE engine_evals SET status = 'processing', updated_at = $2
+		 WHERE id IN (
+		     SELECT id FROM engine_evals
+		     WHERE status = 'pending'
+		     ORDER BY created_at ASC
+		     LIMIT $1
+		     FOR UPDATE SKIP LOCKED
+		 )
+		 RETURNING id, user_id, analysis_id, game_index, status, created_at, updated_at`,
+		limit, time.Now(),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to claim pending evals: %w", err)
+	}
+	defer rows.Close()
+
+	var evals []models.EngineEval
+	for rows.Next() {
+		var e models.EngineEval
+		if err := rows.Scan(&e.ID, &e.UserID, &e.AnalysisID, &e.GameIndex, &e.Status, &e.CreatedAt, &e.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("failed to scan eval: %w", err)
+		}
+		evals = append(evals, e)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating claimed evals: %w", err)
+	}
+	return evals, nil
+}
+
+// GetPending returns up to limit pending engine evals without claiming them.
+// The worker uses the atomic ClaimPending instead; GetPending remains for
+// read-only callers (e.g. tests) that must not mutate row state.
 func (r *PostgresEngineEvalRepo) GetPending(ctx context.Context, limit int) ([]models.EngineEval, error) {
 	ctx, cancel := dbContext(ctx)
 	defer cancel()
@@ -72,7 +143,8 @@ func (r *PostgresEngineEvalRepo) GetPending(ctx context.Context, limit int) ([]m
 	return evals, nil
 }
 
-// MarkProcessing marks an engine eval as processing
+// MarkProcessing marks an engine eval as processing. The worker claims rows
+// atomically via ClaimPending; MarkProcessing remains for non-worker callers.
 func (r *PostgresEngineEvalRepo) MarkProcessing(ctx context.Context, id string) error {
 	ctx, cancel := dbContext(ctx)
 	defer cancel()
@@ -88,8 +160,8 @@ func (r *PostgresEngineEvalRepo) MarkProcessing(ctx context.Context, id string) 
 }
 
 // SaveEvals saves completed evaluations for an engine eval
-func (r *PostgresEngineEvalRepo) SaveEvals(ctx context.Context, id string, evals []models.ExplorerMoveStats) error {
-	ctx, cancel := dbContext(ctx)
+func (r *PostgresEngineEvalRepo) SaveEvals(parent context.Context, id string, evals []models.ExplorerMoveStats) error {
+	ctx, cancel := dbContextFrom(parent)
 	defer cancel()
 
 	evalsJSON, err := json.Marshal(evals)
@@ -108,8 +180,8 @@ func (r *PostgresEngineEvalRepo) SaveEvals(ctx context.Context, id string, evals
 }
 
 // MarkFailed marks an engine eval as failed
-func (r *PostgresEngineEvalRepo) MarkFailed(ctx context.Context, id string) error {
-	ctx, cancel := dbContext(ctx)
+func (r *PostgresEngineEvalRepo) MarkFailed(parent context.Context, id string) error {
+	ctx, cancel := dbContextFrom(parent)
 	defer cancel()
 
 	_, err := r.pool.Exec(ctx,
@@ -125,8 +197,8 @@ func (r *PostgresEngineEvalRepo) MarkFailed(ctx context.Context, id string) erro
 // ResetStaleProcessing resets any evals stuck in 'processing' back to 'pending'.
 // This recovers from server crashes/restarts that interrupted in-flight evaluations.
 // Returns the number of rows reset.
-func (r *PostgresEngineEvalRepo) ResetStaleProcessing(ctx context.Context) (int, error) {
-	ctx, cancel := dbContext(ctx)
+func (r *PostgresEngineEvalRepo) ResetStaleProcessing(parent context.Context) (int, error) {
+	ctx, cancel := dbContextFrom(parent)
 	defer cancel()
 
 	tag, err := r.pool.Exec(ctx,

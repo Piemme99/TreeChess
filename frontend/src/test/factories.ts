@@ -149,6 +149,7 @@ export function createRepertoire(overrides: Partial<Repertoire> = {}): Repertoir
     isPublic: false,
     treeData: createRepertoireNode(),
     metadata: createMetadata(),
+    version: 0,
     createdAt: '2025-01-01T00:00:00Z',
     updatedAt: '2025-01-01T00:00:00Z',
     ...overrides,
