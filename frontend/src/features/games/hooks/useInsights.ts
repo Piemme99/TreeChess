@@ -36,13 +36,16 @@ export function useInsights() {
   // Auto-poll while analysis is in progress
   const analysisDone = insights?.engineAnalysisDone;
   useEffect(() => {
-    if (analysisDone === false) {
-      intervalRef.current = setInterval(() => {
-        fetchInsights();
-      }, POLL_INTERVAL);
-    }
+    if (analysisDone !== false) return;
+
+    // Abort the in-flight poll on unmount so it can't setState after teardown.
+    const controller = new AbortController();
+    intervalRef.current = setInterval(() => {
+      fetchInsights(controller.signal);
+    }, POLL_INTERVAL);
 
     return () => {
+      controller.abort();
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
         intervalRef.current = null;

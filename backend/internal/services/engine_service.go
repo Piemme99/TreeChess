@@ -64,13 +64,18 @@ func NewEngineService(
 
 // EnqueueAnalysis creates pending eval rows for all games in an analysis
 func (s *EngineService) EnqueueAnalysis(userID, analysisID string, gameCount int) {
-	if err := s.evalRepo.CreatePendingBatch(userID, analysisID, gameCount); err != nil {
+	if err := s.evalRepo.CreatePendingBatch(context.Background(), userID, analysisID, gameCount); err != nil {
 		slog.Error("failed to enqueue analysis", "component", "opening-analysis", "analysis_id", analysisID, "error", err)
 	}
 }
 
-// RunWorker polls for pending evals and processes them via the cache.
+// RunWorker polls for pending evals and processes them via the cache. It runs
+// until ctx is cancelled and recovers from panics on a per-iteration basis so a
+// single bad eval can never permanently kill the worker loop.
 func (s *EngineService) RunWorker(ctx context.Context) {
+	// Outer recover guards setup/loop-control code; each poll iteration also has
+	// its own recover (see safeProcessPending) so a panicking eval only aborts
+	// that pass, not the whole worker.
 	defer func() {
 		if r := recover(); r != nil {
 			slog.Error("opening-analysis worker panicked", "panic", r)
@@ -79,7 +84,7 @@ func (s *EngineService) RunWorker(ctx context.Context) {
 
 	slog.Info("opening-analysis worker started")
 
-	if count, err := s.evalRepo.ResetStaleProcessing(); err != nil {
+	if count, err := s.evalRepo.ResetStaleProcessing(ctx); err != nil {
 		slog.Error("failed to reset stale processing evals", "component", "opening-analysis", "error", err)
 	} else if count > 0 {
 		slog.Info("reset stale processing evals back to pending", "component", "opening-analysis", "count", count)
@@ -94,34 +99,48 @@ func (s *EngineService) RunWorker(ctx context.Context) {
 			slog.Info("opening-analysis worker stopped")
 			return
 		case <-ticker.C:
-			s.processPending()
+			s.safeProcessPending(ctx)
 		}
 	}
 }
 
-func (s *EngineService) processPending() {
-	pending, err := s.evalRepo.GetPending(5)
+// safeProcessPending runs one processPending pass, recovering from any panic so
+// a single bad eval aborts only the current pass and leaves the worker loop
+// running.
+func (s *EngineService) safeProcessPending(ctx context.Context) {
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("opening-analysis pass panicked, continuing worker", "component", "opening-analysis", "panic", r)
+		}
+	}()
+	s.processPending(ctx)
+}
+
+func (s *EngineService) processPending(ctx context.Context) {
+	// Atomically claim pending evals (FOR UPDATE SKIP LOCKED) so the rows are
+	// marked processing in the same statement that returns them; this avoids the
+	// GetPending+MarkProcessing TOCTOU and is safe under concurrent workers.
+	pending, err := s.evalRepo.ClaimPending(ctx, 5)
 	if err != nil {
-		slog.Error("failed to get pending evals", "component", "opening-analysis", "error", err)
+		slog.Error("failed to claim pending evals", "component", "opening-analysis", "error", err)
 		return
 	}
 
 	for _, eval := range pending {
-		if err := s.evalRepo.MarkProcessing(eval.ID); err != nil {
-			slog.Error("failed to mark processing", "component", "opening-analysis", "eval_id", eval.ID, "error", err)
-			continue
-		}
-
 		stats, err := s.analyzeGameOpenings(eval.AnalysisID, eval.GameIndex)
 		if err != nil {
 			slog.Error("failed to analyze game", "component", "opening-analysis", "analysis_id", eval.AnalysisID, "game_index", eval.GameIndex, "error", err)
-			_ = s.evalRepo.MarkFailed(eval.ID)
+			if markErr := s.evalRepo.MarkFailed(ctx, eval.ID); markErr != nil {
+				slog.Error("failed to mark eval failed", "component", "opening-analysis", "eval_id", eval.ID, "error", markErr)
+			}
 			continue
 		}
 
-		if err := s.evalRepo.SaveEvals(eval.ID, stats); err != nil {
+		if err := s.evalRepo.SaveEvals(ctx, eval.ID, stats); err != nil {
 			slog.Error("failed to save evals", "component", "opening-analysis", "eval_id", eval.ID, "error", err)
-			_ = s.evalRepo.MarkFailed(eval.ID)
+			if markErr := s.evalRepo.MarkFailed(ctx, eval.ID); markErr != nil {
+				slog.Error("failed to mark eval failed", "component", "opening-analysis", "eval_id", eval.ID, "error", markErr)
+			}
 			continue
 		}
 	}

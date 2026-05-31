@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { GamesList } from './GamesList';
+import { GamesList, type GamesListProps } from './GamesList';
 import type { GameSummary } from '../../../types';
 
 vi.mock('../../../services/api', () => ({
@@ -25,7 +25,7 @@ const baseGame: GameSummary = {
   synced: false,
 };
 
-function renderList(games: GameSummary[]) {
+function renderList(games: GameSummary[], extraProps: Partial<GamesListProps> = {}) {
   return render(
     <GamesList
       games={games}
@@ -37,6 +37,7 @@ function renderList(games: GameSummary[]) {
       totalPages={1}
       onNextPage={vi.fn()}
       onPrevPage={vi.fn()}
+      {...extraProps}
     />
   );
 }
@@ -52,5 +53,32 @@ describe('GamesList – time control column', () => {
     const fallback = container.querySelector('[data-testid="time-class"]');
     expect(fallback).not.toBeNull();
     expect(fallback?.textContent).toBe('—');
+  });
+});
+
+describe('GamesList – New games header badge', () => {
+  const newGame: GameSummary = { ...baseGame, synced: true };
+
+  it('shows the global New total in the header, not the page-local row count', () => {
+    // Only one New game on this page, but 324 across all pages.
+    renderList([newGame], { newGamesTotal: 324 });
+
+    const heading = screen.getByRole('heading', { name: /New games/ });
+    expect(heading.textContent).toContain('324');
+    expect(heading.textContent).not.toContain('1');
+  });
+
+  it('falls back to the rendered row count when no global total is provided', () => {
+    renderList([newGame, { ...newGame, gameIndex: 1 }]);
+
+    const heading = screen.getByRole('heading', { name: /New games/ });
+    expect(heading.textContent).toContain('2');
+  });
+
+  it('keeps the section hidden when there are no New games on the current page even if the global total is positive', () => {
+    // A non-empty global total must not surface an empty New-games grid.
+    renderList([{ ...baseGame, synced: false }], { newGamesTotal: 50 });
+
+    expect(screen.queryByRole('heading', { name: /New games/ })).toBeNull();
   });
 });

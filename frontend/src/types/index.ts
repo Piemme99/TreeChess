@@ -128,6 +128,9 @@ export interface Repertoire {
   metadata: RepertoireMetadata;
   origin?: RepertoireOrigin;
   authorName?: string;
+  // Optimistic-lock version, bumped on every tree mutation. Sent back as the
+  // If-Match header on mutations so the server can reject stale writes (409).
+  version: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -197,6 +200,14 @@ export interface PGNHeaders {
 }
 
 export type MoveStatus = 'in-repertoire' | 'out-of-repertoire' | 'opponent-new' | 'out-of-book';
+
+/** Named members of the {@link MoveStatus} union, to avoid inline magic strings. */
+export const MoveStatus = {
+  InRepertoire: 'in-repertoire',
+  OutOfRepertoire: 'out-of-repertoire',
+  OpponentNew: 'opponent-new',
+  OutOfBook: 'out-of-book',
+} as const satisfies Record<string, MoveStatus>;
 
 export interface MoveAnalysis {
   plyNumber: number;

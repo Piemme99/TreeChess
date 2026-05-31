@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/kumquat/backend/config"
@@ -11,7 +12,14 @@ import (
 	"github.com/kumquat/backend/internal/repository"
 )
 
-var ErrSyncCooldown = fmt.Errorf("sync requested too soon, please wait %v between syncs", config.SyncCooldown)
+var (
+	ErrSyncCooldown = fmt.Errorf("sync requested too soon, please wait %v between syncs", config.SyncCooldown)
+	// ErrSyncInProgress is returned when a sync is already running for the user.
+	// It closes the cooldown TOCTOU window: the cooldown is only read-then-written
+	// around fetch+analyze, so concurrent requests (double-click, two tabs) could
+	// otherwise both pass the gate and both hit the upstream API.
+	ErrSyncInProgress = fmt.Errorf("a sync is already in progress for this user")
+)
 
 const (
 	syncLookbackDays          = 10
@@ -25,6 +33,16 @@ type SyncService struct {
 	importService   GameImporter
 	lichessService  LichessGameFetcher
 	chesscomService ChesscomGameFetcher
+
+	// locks holds a per-user mutex (keyed by userID) guarding the whole sync.
+	// We TryLock so a concurrent request fails fast with ErrSyncInProgress
+	// rather than queuing behind a long-running upstream fetch. In-process is
+	// sufficient because the backend runs as a single replica.
+	locks sync.Map // map[string]*sync.Mutex
+
+	// sleep is the wait primitive used by the Lichess retry loop (injectable
+	// for tests).
+	sleep func(time.Duration)
 }
 
 func NewSyncService(userRepo repository.UserRepository, importSvc GameImporter, lichessSvc LichessGameFetcher, chesscomSvc ChesscomGameFetcher) *SyncService {
@@ -33,10 +51,26 @@ func NewSyncService(userRepo repository.UserRepository, importSvc GameImporter, 
 		importService:   importSvc,
 		lichessService:  lichessSvc,
 		chesscomService: chesscomSvc,
+		sleep:           time.Sleep,
 	}
 }
 
+// userLock returns the per-user mutex, creating it on first use.
+func (s *SyncService) userLock(userID string) *sync.Mutex {
+	mu, _ := s.locks.LoadOrStore(userID, &sync.Mutex{})
+	return mu.(*sync.Mutex)
+}
+
 func (s *SyncService) Sync(userID string) (*models.SyncResult, error) {
+	// Acquire the per-user lock up front so the cooldown read-then-write window
+	// is serialized. TryLock makes a concurrent request fail fast rather than
+	// queuing behind an in-flight upstream fetch.
+	mu := s.userLock(userID)
+	if !mu.TryLock() {
+		return nil, ErrSyncInProgress
+	}
+	defer mu.Unlock()
+
 	user, err := s.userRepo.GetByID(userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user: %w", err)
@@ -100,7 +134,16 @@ func (s *SyncService) syncLichess(user *models.User, now time.Time) (int, error)
 		PerfType: perfType,
 	}
 
-	pgnData, err := s.lichessService.FetchGames(*user.LichessUsername, options)
+	sleep := s.sleep
+	if sleep == nil {
+		sleep = time.Sleep
+	}
+	// A transient 429/5xx should not abort the whole sync; retry with bounded
+	// jittered backoff, honoring Retry-After on 429.
+	pgnData, err := retryWithBackoff(defaultSyncRetry, sleep,
+		func() (string, error) { return s.lichessService.FetchGames(*user.LichessUsername, options) },
+		isRetryableSyncError,
+	)
 	if err != nil {
 		return 0, fmt.Errorf("failed to fetch Lichess games: %w", err)
 	}

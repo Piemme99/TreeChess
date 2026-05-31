@@ -6,14 +6,14 @@ import { useRepertoireStore } from '../../../stores/repertoireStore';
 import { toast } from '../../../stores/toastStore';
 import type { Repertoire, Color, RepertoireRef } from '../../../types';
 
-interface RepertoireSelectorProps {
+interface AnalysisRepertoirePickerProps {
   userColor: Color;
   currentRepertoire: RepertoireRef | null | undefined;
   matchScore?: number;
   onReanalyze: (repertoireId: string) => Promise<boolean>;
 }
 
-export function RepertoireSelector({ userColor, currentRepertoire, matchScore, onReanalyze }: RepertoireSelectorProps) {
+export function AnalysisRepertoirePicker({ userColor, currentRepertoire, matchScore, onReanalyze }: AnalysisRepertoirePickerProps) {
   const [repertoires, setRepertoires] = useState<Repertoire[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<string>(currentRepertoire?.id || '');

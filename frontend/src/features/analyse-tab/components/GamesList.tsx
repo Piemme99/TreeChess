@@ -28,6 +28,11 @@ export interface GamesListProps {
   totalPages: number;
   onNextPage: () => void;
   onPrevPage: () => void;
+  // Global count of New games across all pages. The per-page split only sees the
+  // current page's rows, so this drives the header badge to show the true total
+  // instead of the misleading page-local count. Falls back to the rendered row
+  // count when not provided.
+  newGamesTotal?: number;
   onGameReanalyzed?: () => void;
   // When a bulk "re-analyze all" is running, disable per-row reanalyze to avoid
   // firing concurrent duplicate mutations against the same games.
@@ -141,6 +146,7 @@ export function GamesList({
   totalPages,
   onNextPage,
   onPrevPage,
+  newGamesTotal,
   onGameReanalyzed,
   reanalyzeAllActive = false,
   onReanalyzingChange
@@ -228,7 +234,7 @@ export function GamesList({
         <>
           <h3 className="text-[0.9375rem] font-semibold text-text my-4 mb-2 flex items-center gap-2 first:mt-0">
             New games
-            <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-primary text-white text-xs font-semibold">{newGames.length}</span>
+            <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-primary text-white text-xs font-semibold">{newGamesTotal ?? newGames.length}</span>
           </h3>
           {renderGrid(newGames, true)}
         </>
