@@ -444,14 +444,14 @@ func (s *ImportService) GetAnalyses(ctx context.Context, userID string) ([]model
 	return analyses, nil
 }
 
-// GetAnalysisByID returns detailed analysis by ID
-func (s *ImportService) GetAnalysisByID(ctx context.Context, id string) (*models.AnalysisDetail, error) {
-	return s.analysisRepo.GetByID(ctx, id)
+// GetAnalysisByID returns detailed analysis by ID, scoped to the owning user
+func (s *ImportService) GetAnalysisByID(ctx context.Context, id string, userID string) (*models.AnalysisDetail, error) {
+	return s.analysisRepo.GetByID(ctx, id, userID)
 }
 
-// DeleteAnalysis deletes an analysis by ID
-func (s *ImportService) DeleteAnalysis(ctx context.Context, id string) error {
-	return s.analysisRepo.Delete(ctx, id)
+// DeleteAnalysis deletes an analysis by ID, scoped to the owning user
+func (s *ImportService) DeleteAnalysis(ctx context.Context, id string, userID string) error {
+	return s.analysisRepo.Delete(ctx, id, userID)
 }
 
 // GetAllGames returns all games from all analyses with pagination for a user
@@ -485,15 +485,17 @@ func (s *ImportService) CheckOwnership(ctx context.Context, id string, userID st
 	return nil
 }
 
-// ReanalyzeGame re-analyzes a specific game against a different repertoire.
+// ReanalyzeGame re-analyzes a specific game against a different repertoire,
+// scoped to the owning user.
 //
 // The read-modify-write of the analysis results runs inside the repository's
 // row-locked MutateResults transaction so it cannot clobber (or be clobbered
 // by) a concurrent auto re-analysis touching the same analysis. The game is
 // located and its color validated against the freshly-locked data, not a stale
-// snapshot.
-func (s *ImportService) ReanalyzeGame(ctx context.Context, analysisID string, gameIndex int, repertoireID string) (*models.GameAnalysis, error) {
-	repertoire, err := s.repertoireService.GetRepertoire(ctx, repertoireID)
+// snapshot. Both the repertoire fetch and the results mutation are scoped to
+// userID so a cross-tenant analysis or repertoire ID surfaces as not-found.
+func (s *ImportService) ReanalyzeGame(ctx context.Context, analysisID string, userID string, gameIndex int, repertoireID string) (*models.GameAnalysis, error) {
+	repertoire, err := s.repertoireService.GetRepertoire(ctx, repertoireID, userID)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrRepertoireNotFound, err)
 	}
@@ -504,7 +506,7 @@ func (s *ImportService) ReanalyzeGame(ctx context.Context, analysisID string, ga
 	reperRef := &models.RepertoireRef{ID: repertoire.ID, Name: repertoire.Name}
 
 	var reanalyzedGame models.GameAnalysis
-	err = s.analysisRepo.MutateResults(ctx, analysisID, func(current []models.GameAnalysis) ([]models.GameAnalysis, bool, error) {
+	err = s.analysisRepo.MutateResults(ctx, analysisID, userID, func(current []models.GameAnalysis) ([]models.GameAnalysis, bool, error) {
 		targetIdx := -1
 		for i := range current {
 			if current[i].GameIndex == gameIndex {
@@ -608,7 +610,7 @@ func (s *ImportService) ReanalyzeAllGames(ctx context.Context, userID string, pr
 	totalGames := 0
 	for _, a := range analyses {
 		analysisID := a.ID
-		err := s.analysisRepo.MutateResults(ctx, analysisID, func(current []models.GameAnalysis) ([]models.GameAnalysis, bool, error) {
+		err := s.analysisRepo.MutateResults(ctx, analysisID, userID, func(current []models.GameAnalysis) ([]models.GameAnalysis, bool, error) {
 			modified := false
 			for i := range current {
 				game := &current[i]

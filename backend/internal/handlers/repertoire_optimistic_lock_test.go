@@ -65,7 +65,7 @@ func TestGetRepertoireHandler_SetsETag(t *testing.T) {
 
 	mockRepo := &mocks.MockRepertoireRepo{
 		BelongsToUserFunc: func(_ context.Context, id, userID string) (bool, error) { return true, nil },
-		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return repWithNodeAtVersion(id, 5), nil
 		},
 	}
@@ -81,7 +81,7 @@ func TestMutation_NoIfMatch_Succeeds(t *testing.T) {
 	c, rec := newCommentRequest(t, "")
 	mockRepo := &mocks.MockRepertoireRepo{
 		BelongsToUserFunc: func(_ context.Context, id, userID string) (bool, error) { return true, nil },
-		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return repWithNodeAtVersion(id, 2), nil
 		},
 		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {
@@ -100,7 +100,7 @@ func TestMutation_MatchingIfMatch_Succeeds(t *testing.T) {
 	c, rec := newCommentRequest(t, "2")
 	mockRepo := &mocks.MockRepertoireRepo{
 		BelongsToUserFunc: func(_ context.Context, id, userID string) (bool, error) { return true, nil },
-		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return repWithNodeAtVersion(id, 2), nil
 		},
 		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {
@@ -120,7 +120,7 @@ func TestMutation_StaleIfMatch_Returns409(t *testing.T) {
 	saveCalled := false
 	mockRepo := &mocks.MockRepertoireRepo{
 		BelongsToUserFunc: func(_ context.Context, id, userID string) (bool, error) { return true, nil },
-		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return repWithNodeAtVersion(id, 4), nil
 		},
 		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {
@@ -140,7 +140,7 @@ func TestMutation_MalformedIfMatch_Returns400(t *testing.T) {
 	c, rec := newCommentRequest(t, "not-a-number")
 	mockRepo := &mocks.MockRepertoireRepo{
 		BelongsToUserFunc: func(_ context.Context, id, userID string) (bool, error) { return true, nil },
-		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return repWithNodeAtVersion(id, 1), nil
 		},
 	}
@@ -156,7 +156,7 @@ func TestMutation_RepoConflict_Returns409(t *testing.T) {
 	c, rec := newCommentRequest(t, "2")
 	mockRepo := &mocks.MockRepertoireRepo{
 		BelongsToUserFunc: func(_ context.Context, id, userID string) (bool, error) { return true, nil },
-		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return repWithNodeAtVersion(id, 2), nil
 		},
 		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {

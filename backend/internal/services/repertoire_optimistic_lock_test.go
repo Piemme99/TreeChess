@@ -34,7 +34,7 @@ func TestAddNode_ThreadsLoadedVersionToSave(t *testing.T) {
 	var savedExpectedVersion int
 
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return repAtVersion(id, loadedVersion), nil
 		},
 		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {
@@ -53,7 +53,7 @@ func TestAddNode_ThreadsLoadedVersionToSave(t *testing.T) {
 // from the repository surfaces as the service-level ErrConflict sentinel.
 func TestAddNode_ConflictMapsToErrConflict(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return repAtVersion(id, 1), nil
 		},
 		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {
@@ -74,7 +74,7 @@ func TestNodeMutators_ConflictMapsToErrConflict(t *testing.T) {
 
 	newRepo := func() *mocks.MockRepertoireRepo {
 		return &mocks.MockRepertoireRepo{
-			GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
+			GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 				rep := repAtVersion(id, 3)
 				rep.TreeData = makeTree(optLockRootID, makeChild(childID, "e4"))
 				return rep, nil
@@ -133,7 +133,7 @@ func TestNodeMutators_ConflictMapsToErrConflict(t *testing.T) {
 // other no-rows cause) maps to ErrNotFound rather than ErrConflict.
 func TestSave_NotFoundMapsToErrNotFound(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return repAtVersion(id, 0), nil
 		},
 		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {

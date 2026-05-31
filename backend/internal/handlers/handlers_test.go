@@ -532,7 +532,7 @@ func TestGetRepertoireHandler_ValidID(t *testing.T) {
 
 	mockRepo := &mocks.MockRepertoireRepo{
 		BelongsToUserFunc: func(_ context.Context, id string, userID string) (bool, error) { return true, nil },
-		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID:    id,
 				Name:  "Test Repertoire",
@@ -570,7 +570,7 @@ func TestGetRepertoireHandler_NotFound(t *testing.T) {
 
 	mockRepo := &mocks.MockRepertoireRepo{
 		BelongsToUserFunc: func(_ context.Context, id string, userID string) (bool, error) { return true, nil },
-		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return nil, repository.ErrRepertoireNotFound
 		},
 	}
@@ -702,7 +702,7 @@ func TestAddNodeHandler_ValidRequest(t *testing.T) {
 
 	mockRepo := &mocks.MockRepertoireRepo{
 		BelongsToUserFunc: func(_ context.Context, id string, userID string) (bool, error) { return true, nil },
-		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID:    id,
 				Name:  "Test",
@@ -754,7 +754,7 @@ func TestAddNodeHandler_RepertoireNotFound(t *testing.T) {
 
 	mockRepo := &mocks.MockRepertoireRepo{
 		BelongsToUserFunc: func(_ context.Context, id string, userID string) (bool, error) { return true, nil },
-		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return nil, repository.ErrRepertoireNotFound
 		},
 	}
@@ -782,7 +782,7 @@ func TestDeleteNodeHandler_ValidRequest(t *testing.T) {
 
 	mockRepo := &mocks.MockRepertoireRepo{
 		BelongsToUserFunc: func(_ context.Context, id string, userID string) (bool, error) { return true, nil },
-		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID:    id,
 				Name:  "Test",
@@ -949,7 +949,7 @@ func TestExtractSubtreeHandler_CannotExtractRoot(t *testing.T) {
 
 	mockRepo := &mocks.MockRepertoireRepo{
 		BelongsToUserFunc: func(_ context.Context, id, userID string) (bool, error) { return true, nil },
-		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID:       id,
 				TreeData: models.RepertoireNode{ID: rootUUID},
@@ -1070,7 +1070,7 @@ func TestUpdateNodeCommentHandler_Success(t *testing.T) {
 
 	mockRepo := &mocks.MockRepertoireRepo{
 		BelongsToUserFunc: func(_ context.Context, id, userID string) (bool, error) { return true, nil },
-		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID: id,
 				TreeData: models.RepertoireNode{
@@ -1108,7 +1108,7 @@ func TestUpdateNodeAnnotationsHandler_Success(t *testing.T) {
 
 	mockRepo := &mocks.MockRepertoireRepo{
 		BelongsToUserFunc: func(_ context.Context, id, userID string) (bool, error) { return true, nil },
-		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID: id,
 				TreeData: models.RepertoireNode{
@@ -1146,7 +1146,7 @@ func TestUpdateNodeAnnotationsHandler_InvalidAnnotation(t *testing.T) {
 
 	mockRepo := &mocks.MockRepertoireRepo{
 		BelongsToUserFunc: func(_ context.Context, id, userID string) (bool, error) { return true, nil },
-		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID: id,
 				TreeData: models.RepertoireNode{
@@ -1178,7 +1178,7 @@ func TestDeleteNodeHandler_CannotDeleteRoot(t *testing.T) {
 
 	mockRepo := &mocks.MockRepertoireRepo{
 		BelongsToUserFunc: func(_ context.Context, id string, userID string) (bool, error) { return true, nil },
-		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID:    id,
 				Name:  "Test",

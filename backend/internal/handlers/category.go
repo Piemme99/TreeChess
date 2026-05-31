@@ -103,7 +103,7 @@ func GetCategoryHandler(svc *services.CategoryService) echo.HandlerFunc {
 			return NotFoundResponse(c, "category")
 		}
 
-		catWithReps, err := svc.GetCategoryWithRepertoires(c.Request().Context(), idParam)
+		catWithReps, err := svc.GetCategoryWithRepertoires(c.Request().Context(), idParam, userID)
 		if err != nil {
 			if errors.Is(err, services.ErrCategoryNotFound) {
 				return NotFoundResponse(c, "category")
@@ -139,7 +139,7 @@ func UpdateCategoryHandler(svc *services.CategoryService) echo.HandlerFunc {
 			return BadRequestResponse(c, "invalid request body")
 		}
 
-		cat, err := svc.RenameCategory(c.Request().Context(), idParam, req.Name)
+		cat, err := svc.RenameCategory(c.Request().Context(), idParam, userID, req.Name)
 		if err != nil {
 			if errors.Is(err, services.ErrCategoryNotFound) {
 				return NotFoundResponse(c, "category")
@@ -176,7 +176,7 @@ func DeleteCategoryHandler(svc *services.CategoryService) echo.HandlerFunc {
 			return NotFoundResponse(c, "category")
 		}
 
-		err := svc.DeleteCategory(c.Request().Context(), idParam)
+		err := svc.DeleteCategory(c.Request().Context(), idParam, userID)
 		if err != nil {
 			if errors.Is(err, services.ErrCategoryNotFound) {
 				return NotFoundResponse(c, "category")

@@ -1637,7 +1637,7 @@ func TestReanalyzeAllGames_Basic(t *testing.T) {
 		GetAllGamesRawFunc: func(_ context.Context, userID string) ([]models.RawAnalysis, error) {
 			return analyses, nil
 		},
-		UpdateResultsFunc: func(_ context.Context, analysisID string, results []models.GameAnalysis) error {
+		UpdateResultsFunc: func(_ context.Context, analysisID string, _ string, results []models.GameAnalysis) error {
 			updatedResults = results
 			return nil
 		},
@@ -1708,7 +1708,7 @@ func TestReanalyzeAllGames_SharesIndexAcrossManyGames(t *testing.T) {
 	var updatedResults []models.GameAnalysis
 	mockAnalysisRepo := &mocks.MockAnalysisRepo{
 		GetAllGamesRawFunc: func(_ context.Context, userID string) ([]models.RawAnalysis, error) { return analyses, nil },
-		UpdateResultsFunc: func(_ context.Context, analysisID string, results []models.GameAnalysis) error {
+		UpdateResultsFunc: func(_ context.Context, analysisID string, _ string, results []models.GameAnalysis) error {
 			updatedResults = results
 			return nil
 		},
@@ -1762,7 +1762,7 @@ func TestReanalyzeAllGames_NoRepertoires(t *testing.T) {
 		GetAllGamesRawFunc: func(_ context.Context, userID string) ([]models.RawAnalysis, error) {
 			return analyses, nil
 		},
-		UpdateResultsFunc: func(_ context.Context, analysisID string, results []models.GameAnalysis) error {
+		UpdateResultsFunc: func(_ context.Context, analysisID string, _ string, results []models.GameAnalysis) error {
 			updatedResults = results
 			return nil
 		},
@@ -1876,7 +1876,7 @@ func TestReanalyzeAllGames_PreserveAnalysed(t *testing.T) {
 			GetAllGamesRawFunc: func(_ context.Context, userID string) ([]models.RawAnalysis, error) {
 				return freshAnalyses(), nil
 			},
-			UpdateResultsFunc: func(_ context.Context, analysisID string, r []models.GameAnalysis) error {
+			UpdateResultsFunc: func(_ context.Context, analysisID string, _ string, r []models.GameAnalysis) error {
 				updated = true
 				results = r
 				return nil
@@ -2178,7 +2178,7 @@ func TestGetDashboardStats_OpeningErrorRate(t *testing.T) {
 	}
 
 	mockRepRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID: "rep-1", Name: "My White", Color: models.ColorWhite,
 				TreeData: models.RepertoireNode{FEN: "start"},
@@ -2241,7 +2241,7 @@ func TestGetDashboardStats_OpponentGaps(t *testing.T) {
 	}
 
 	mockRepRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID: "rep-1", Name: "My White", Color: models.ColorWhite,
 				TreeData: models.RepertoireNode{FEN: "start"},
@@ -2332,7 +2332,7 @@ func TestGetDashboardStats_BranchStats(t *testing.T) {
 	}
 
 	mockRepRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID: "rep-1", Name: "My White", Color: models.ColorWhite,
 				TreeData: repTree,
@@ -2810,7 +2810,7 @@ func newLockingAnalysisRepo(initial map[string][]models.GameAnalysis) *lockingAn
 	return r
 }
 
-func (r *lockingAnalysisRepo) MutateResults(_ context.Context, analysisID string, mutate repository.ResultsMutator) error {
+func (r *lockingAnalysisRepo) MutateResults(_ context.Context, analysisID string, _ string, mutate repository.ResultsMutator) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -2902,7 +2902,7 @@ func TestReanalyzeGame_RoutesThroughMutateResults(t *testing.T) {
 
 	repo := newLockingAnalysisRepo(map[string][]models.GameAnalysis{analysisID: games})
 	mockRepRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			if id == whiteRep.ID {
 				r := whiteRep
 				return &r, nil
@@ -2912,7 +2912,7 @@ func TestReanalyzeGame_RoutesThroughMutateResults(t *testing.T) {
 	}
 	svc := NewImportService(NewRepertoireService(mockRepRepo), repo)
 
-	reanalyzed, err := svc.ReanalyzeGame(context.Background(), analysisID, 0, whiteRep.ID)
+	reanalyzed, err := svc.ReanalyzeGame(context.Background(), analysisID, "user-1", 0, whiteRep.ID)
 
 	require.NoError(t, err)
 	require.NotNil(t, reanalyzed)
@@ -2934,11 +2934,11 @@ func TestReanalyzeGame_GameNotFound(t *testing.T) {
 	whiteRep, _, analysisID, games := reanalyzeFixture()
 	repo := newLockingAnalysisRepo(map[string][]models.GameAnalysis{analysisID: games})
 	mockRepRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(_ context.Context, _ string) (*models.Repertoire, error) { r := whiteRep; return &r, nil },
+		GetByIDFunc: func(_ context.Context, _ string, _ string) (*models.Repertoire, error) { r := whiteRep; return &r, nil },
 	}
 	svc := NewImportService(NewRepertoireService(mockRepRepo), repo)
 
-	_, err := svc.ReanalyzeGame(context.Background(), analysisID, 99, whiteRep.ID)
+	_, err := svc.ReanalyzeGame(context.Background(), analysisID, "user-1", 99, whiteRep.ID)
 
 	require.ErrorIs(t, err, repository.ErrGameNotFound)
 	assert.Equal(t, 0, repo.writes)
@@ -2952,11 +2952,11 @@ func TestReanalyzeGame_ColorMismatch(t *testing.T) {
 	blackRep.Color = models.ColorBlack
 	repo := newLockingAnalysisRepo(map[string][]models.GameAnalysis{analysisID: games})
 	mockRepRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(_ context.Context, _ string) (*models.Repertoire, error) { r := blackRep; return &r, nil },
+		GetByIDFunc: func(_ context.Context, _ string, _ string) (*models.Repertoire, error) { r := blackRep; return &r, nil },
 	}
 	svc := NewImportService(NewRepertoireService(mockRepRepo), repo)
 
-	_, err := svc.ReanalyzeGame(context.Background(), analysisID, 0, blackRep.ID)
+	_, err := svc.ReanalyzeGame(context.Background(), analysisID, "user-1", 0, blackRep.ID)
 
 	require.ErrorIs(t, err, ErrColorMismatch)
 	assert.Equal(t, 0, repo.writes)
@@ -2973,7 +2973,7 @@ func TestReanalyze_InterleavedManualAndAuto_NoLostUpdate(t *testing.T) {
 
 	repo := newLockingAnalysisRepo(map[string][]models.GameAnalysis{analysisID: games})
 	mockRepRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			switch id {
 			case whiteRep.ID:
 				r := whiteRep
@@ -3002,7 +3002,7 @@ func TestReanalyze_InterleavedManualAndAuto_NoLostUpdate(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		for i := 0; i < iterations; i++ {
-			_, err := svc.ReanalyzeGame(context.Background(), analysisID, 0, otherRep.ID)
+			_, err := svc.ReanalyzeGame(context.Background(), analysisID, "user-1", 0, otherRep.ID)
 			assert.NoError(t, err)
 		}
 	}()

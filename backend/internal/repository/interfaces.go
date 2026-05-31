@@ -33,7 +33,7 @@ type UserRepository interface {
 
 // RepertoireRepository defines the interface for repertoire data operations
 type RepertoireRepository interface {
-	GetByID(ctx context.Context, id string) (*models.Repertoire, error)
+	GetByID(ctx context.Context, id string, userID string) (*models.Repertoire, error)
 	GetByColor(ctx context.Context, userID string, color models.Color) ([]models.Repertoire, error)
 	GetAll(ctx context.Context, userID string) ([]models.Repertoire, error)
 	Create(ctx context.Context, userID string, name string, color models.Color) (*models.Repertoire, error)
@@ -100,14 +100,14 @@ type ResultsMutator func(current []models.GameAnalysis) (updated []models.GameAn
 type AnalysisRepository interface {
 	Save(ctx context.Context, userID string, username, filename string, gameCount int, results []models.GameAnalysis) (*models.AnalysisSummary, error)
 	GetAll(ctx context.Context, userID string) ([]models.AnalysisSummary, error)
-	GetByID(ctx context.Context, id string) (*models.AnalysisDetail, error)
-	Delete(ctx context.Context, id string) error
+	GetByID(ctx context.Context, id string, userID string) (*models.AnalysisDetail, error)
+	Delete(ctx context.Context, id string, userID string) error
 	GetAllGames(ctx context.Context, userID string, limit, offset int, timeClass, repertoire, source string, onlyNew bool) (*models.GamesResponse, error)
-	UpdateResults(ctx context.Context, analysisID string, results []models.GameAnalysis) error
+	UpdateResults(ctx context.Context, analysisID string, userID string, results []models.GameAnalysis) error
 	// MutateResults applies a mutation to an analysis's results within a single
 	// row-locked transaction, preventing lost-update races between concurrent
 	// re-analysis paths. See PostgresAnalysisRepo.MutateResults.
-	MutateResults(ctx context.Context, analysisID string, mutate ResultsMutator) error
+	MutateResults(ctx context.Context, analysisID string, userID string, mutate ResultsMutator) error
 	BelongsToUser(ctx context.Context, id string, userID string) (bool, error)
 	GetDistinctRepertoires(ctx context.Context, userID string) ([]models.RepertoireFilterOption, error)
 	MarkGameViewed(ctx context.Context, userID, analysisID string, gameIndex int) error

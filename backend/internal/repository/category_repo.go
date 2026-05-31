@@ -16,7 +16,7 @@ const (
 	getCategoryByIDSQL = `
 		SELECT id, name, color, created_at, updated_at
 		FROM categories
-		WHERE id = $1
+		WHERE id = $1 AND user_id = $2
 	`
 	getCategoriesByUserAndColorSQL = `
 		SELECT id, name, color, created_at, updated_at
@@ -38,11 +38,11 @@ const (
 	updateCategoryNameSQL = `
 		UPDATE categories
 		SET name = $2, updated_at = NOW()
-		WHERE id = $1
+		WHERE id = $1 AND user_id = $3
 		RETURNING id, name, color, created_at, updated_at
 	`
 	deleteCategorySQL = `
-		DELETE FROM categories WHERE id = $1
+		DELETE FROM categories WHERE id = $1 AND user_id = $2
 	`
 	belongsToUserCategorySQL = `
 		SELECT EXISTS(SELECT 1 FROM categories WHERE id = $1 AND user_id = $2)
@@ -57,12 +57,12 @@ const (
 
 // CategoryRepository defines operations for categories
 type CategoryRepository interface {
-	GetByID(ctx context.Context, id string) (*models.Category, error)
+	GetByID(ctx context.Context, id, userID string) (*models.Category, error)
 	GetByUserAndColor(ctx context.Context, userID string, color models.Color) ([]models.Category, error)
 	GetAll(ctx context.Context, userID string) ([]models.Category, error)
 	Create(ctx context.Context, userID, name string, color models.Color) (*models.Category, error)
-	UpdateName(ctx context.Context, id, name string) (*models.Category, error)
-	Delete(ctx context.Context, id string) error
+	UpdateName(ctx context.Context, id, userID, name string) (*models.Category, error)
+	Delete(ctx context.Context, id, userID string) error
 	BelongsToUser(ctx context.Context, id, userID string) (bool, error)
 	Exists(ctx context.Context, id string) (bool, error)
 	Count(ctx context.Context, userID string) (int, error)
@@ -78,13 +78,13 @@ func NewPostgresCategoryRepo(pool *pgxpool.Pool) *PostgresCategoryRepo {
 	return &PostgresCategoryRepo{pool: pool}
 }
 
-// GetByID retrieves a category by its UUID
-func (r *PostgresCategoryRepo) GetByID(ctx context.Context, id string) (*models.Category, error) {
+// GetByID retrieves a category by its UUID, scoped to the owning user
+func (r *PostgresCategoryRepo) GetByID(ctx context.Context, id, userID string) (*models.Category, error) {
 	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	var cat models.Category
-	err := r.pool.QueryRow(ctx, getCategoryByIDSQL, id).Scan(
+	err := r.pool.QueryRow(ctx, getCategoryByIDSQL, id, userID).Scan(
 		&cat.ID,
 		&cat.Name,
 		&cat.Color,
@@ -151,13 +151,13 @@ func (r *PostgresCategoryRepo) Create(ctx context.Context, userID, name string, 
 	return &cat, nil
 }
 
-// UpdateName updates the name of a category
-func (r *PostgresCategoryRepo) UpdateName(ctx context.Context, id, name string) (*models.Category, error) {
+// UpdateName updates the name of a category, scoped to the owning user
+func (r *PostgresCategoryRepo) UpdateName(ctx context.Context, id, userID, name string) (*models.Category, error) {
 	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	var cat models.Category
-	err := r.pool.QueryRow(ctx, updateCategoryNameSQL, id, name).Scan(
+	err := r.pool.QueryRow(ctx, updateCategoryNameSQL, id, name, userID).Scan(
 		&cat.ID,
 		&cat.Name,
 		&cat.Color,
@@ -174,12 +174,12 @@ func (r *PostgresCategoryRepo) UpdateName(ctx context.Context, id, name string) 
 	return &cat, nil
 }
 
-// Delete deletes a category by ID (repertoires will cascade delete)
-func (r *PostgresCategoryRepo) Delete(ctx context.Context, id string) error {
+// Delete deletes a category by ID, scoped to the owning user (repertoires will cascade delete)
+func (r *PostgresCategoryRepo) Delete(ctx context.Context, id, userID string) error {
 	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
-	result, err := r.pool.Exec(ctx, deleteCategorySQL, id)
+	result, err := r.pool.Exec(ctx, deleteCategorySQL, id, userID)
 	if err != nil {
 		return fmt.Errorf("failed to delete category: %w", err)
 	}

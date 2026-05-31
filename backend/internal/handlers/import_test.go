@@ -301,7 +301,7 @@ func TestGetAnalysisHandler_NotFound(t *testing.T) {
 		BelongsToUserFunc: func(_ context.Context, id string, userID string) (bool, error) {
 			return true, nil
 		},
-		GetByIDFunc: func(_ context.Context, id string) (*models.AnalysisDetail, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.AnalysisDetail, error) {
 			return nil, repository.ErrAnalysisNotFound
 		},
 	}
@@ -327,7 +327,7 @@ func TestGetAnalysisHandler_Found(t *testing.T) {
 		BelongsToUserFunc: func(_ context.Context, id string, userID string) (bool, error) {
 			return true, nil
 		},
-		GetByIDFunc: func(_ context.Context, id string) (*models.AnalysisDetail, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.AnalysisDetail, error) {
 			return &models.AnalysisDetail{
 				ID:         id,
 				Username:   "testuser",
@@ -366,7 +366,7 @@ func TestDeleteAnalysisHandler_NotFound(t *testing.T) {
 		BelongsToUserFunc: func(_ context.Context, id string, userID string) (bool, error) {
 			return true, nil
 		},
-		DeleteFunc: func(_ context.Context, id string) error {
+		DeleteFunc: func(_ context.Context, id string, _ string) error {
 			return repository.ErrAnalysisNotFound
 		},
 	}
@@ -392,7 +392,7 @@ func TestDeleteAnalysisHandler_Success(t *testing.T) {
 		BelongsToUserFunc: func(_ context.Context, id string, userID string) (bool, error) {
 			return true, nil
 		},
-		DeleteFunc: func(_ context.Context, id string) error {
+		DeleteFunc: func(_ context.Context, id string, _ string) error {
 			return nil
 		},
 	}

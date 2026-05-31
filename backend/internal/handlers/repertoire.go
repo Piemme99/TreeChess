@@ -109,7 +109,7 @@ func GetRepertoireHandler(svc *services.RepertoireService) echo.HandlerFunc {
 			return nil
 		}
 
-		rep, err := svc.GetRepertoire(c.Request().Context(), idParam)
+		rep, err := svc.GetRepertoire(c.Request().Context(), idParam, userID)
 		if err != nil {
 			return mapRepertoireServiceError(c, err, "failed to get repertoire")
 		}
@@ -236,7 +236,7 @@ func AddNodeHandler(svc *services.RepertoireService) echo.HandlerFunc {
 			return nil
 		}
 
-		if ok, resp := checkIfMatch(c, svc, idParam); !ok {
+		if ok, resp := checkIfMatch(c, svc, idParam, userID); !ok {
 			return resp
 		}
 
@@ -418,7 +418,7 @@ func MergeTranspositionsHandler(svc *services.RepertoireService) echo.HandlerFun
 			return nil
 		}
 
-		if ok, resp := checkIfMatch(c, svc, idParam); !ok {
+		if ok, resp := checkIfMatch(c, svc, idParam, userID); !ok {
 			return resp
 		}
 
@@ -448,7 +448,7 @@ func UpdateNodeCommentHandler(svc *services.RepertoireService) echo.HandlerFunc 
 			return BadRequestResponse(c, "invalid request body")
 		}
 
-		return runNodeMutation(c, svc, target.RepID, func() (*models.Repertoire, error) {
+		return runNodeMutation(c, svc, target.RepID, target.UserID, func() (*models.Repertoire, error) {
 			return svc.UpdateNodeComment(c.Request().Context(), target.UserID, target.RepID, target.NodeID, req.Comment)
 		}, nil)
 	}
@@ -470,7 +470,7 @@ func UpdateNodeBranchNameHandler(svc *services.RepertoireService) echo.HandlerFu
 			return BadRequestResponse(c, "invalid request body")
 		}
 
-		return runNodeMutation(c, svc, target.RepID, func() (*models.Repertoire, error) {
+		return runNodeMutation(c, svc, target.RepID, target.UserID, func() (*models.Repertoire, error) {
 			return svc.UpdateNodeBranchName(c.Request().Context(), target.UserID, target.RepID, target.NodeID, req.BranchName)
 		}, nil)
 	}
@@ -492,7 +492,7 @@ func UpdateNodeBranchColorHandler(svc *services.RepertoireService) echo.HandlerF
 			return BadRequestResponse(c, "invalid request body")
 		}
 
-		return runNodeMutation(c, svc, target.RepID, func() (*models.Repertoire, error) {
+		return runNodeMutation(c, svc, target.RepID, target.UserID, func() (*models.Repertoire, error) {
 			return svc.UpdateNodeBranchColor(c.Request().Context(), target.UserID, target.RepID, target.NodeID, req.BranchColor)
 		}, func(err error) (bool, error) {
 			if errors.Is(err, services.ErrInvalidBranchColor) {
@@ -520,7 +520,7 @@ func UpdateNodeAnnotationsHandler(svc *services.RepertoireService) echo.HandlerF
 			return BadRequestResponse(c, "invalid request body")
 		}
 
-		return runNodeMutation(c, svc, target.RepID, func() (*models.Repertoire, error) {
+		return runNodeMutation(c, svc, target.RepID, target.UserID, func() (*models.Repertoire, error) {
 			return svc.UpdateNodeAnnotations(c.Request().Context(), target.UserID, target.RepID, target.NodeID, req.Arrows, req.Highlights)
 		}, func(err error) (bool, error) {
 			if errors.Is(err, services.ErrInvalidAnnotation) {
@@ -540,7 +540,7 @@ func ToggleNodeCollapsedHandler(svc *services.RepertoireService) echo.HandlerFun
 			return nil
 		}
 
-		return runNodeMutation(c, svc, target.RepID, func() (*models.Repertoire, error) {
+		return runNodeMutation(c, svc, target.RepID, target.UserID, func() (*models.Repertoire, error) {
 			return svc.ToggleNodeCollapsed(c.Request().Context(), target.UserID, target.RepID, target.NodeID)
 		}, nil)
 	}
@@ -555,7 +555,7 @@ func ExpandToNodeHandler(svc *services.RepertoireService) echo.HandlerFunc {
 			return nil
 		}
 
-		return runNodeMutation(c, svc, target.RepID, func() (*models.Repertoire, error) {
+		return runNodeMutation(c, svc, target.RepID, target.UserID, func() (*models.Repertoire, error) {
 			return svc.ExpandToNode(c.Request().Context(), target.UserID, target.RepID, target.NodeID)
 		}, nil)
 	}
@@ -570,7 +570,7 @@ func SetMainLineHandler(svc *services.RepertoireService) echo.HandlerFunc {
 			return nil
 		}
 
-		return runNodeMutation(c, svc, target.RepID, func() (*models.Repertoire, error) {
+		return runNodeMutation(c, svc, target.RepID, target.UserID, func() (*models.Repertoire, error) {
 			return svc.SetMainLine(c.Request().Context(), target.UserID, target.RepID, target.NodeID)
 		}, nil)
 	}
@@ -593,7 +593,7 @@ func ClearMainLineHandler(svc *services.RepertoireService) echo.HandlerFunc {
 			return nil
 		}
 
-		return runNodeMutation(c, svc, idParam, func() (*models.Repertoire, error) {
+		return runNodeMutation(c, svc, idParam, userID, func() (*models.Repertoire, error) {
 			return svc.ClearMainLine(c.Request().Context(), userID, idParam)
 		}, nil)
 	}
@@ -608,7 +608,7 @@ func DeleteNodeHandler(svc *services.RepertoireService) echo.HandlerFunc {
 			return nil
 		}
 
-		return runNodeMutation(c, svc, target.RepID, func() (*models.Repertoire, error) {
+		return runNodeMutation(c, svc, target.RepID, target.UserID, func() (*models.Repertoire, error) {
 			return svc.DeleteNode(c.Request().Context(), target.UserID, target.RepID, target.NodeID)
 		}, func(err error) (bool, error) {
 			if errors.Is(err, services.ErrCannotDeleteRoot) {

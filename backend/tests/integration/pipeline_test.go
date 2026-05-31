@@ -138,7 +138,7 @@ func TestEngineEvalPipeline_DeleteCascade(t *testing.T) {
 	require.NotEmpty(t, evals)
 
 	// Delete the analysis
-	err = importSvc.DeleteAnalysis(context.Background(), summary.ID)
+	err = importSvc.DeleteAnalysis(context.Background(), summary.ID, user.ID)
 	require.NoError(t, err)
 
 	// Engine evals should be gone
@@ -201,7 +201,7 @@ func TestReanalyzeGame(t *testing.T) {
 	require.Len(t, results, 1)
 
 	// Reanalyze against d4 repertoire
-	reanalyzed, err := importSvc.ReanalyzeGame(context.Background(), summary.ID, 0, d4Rep.ID)
+	reanalyzed, err := importSvc.ReanalyzeGame(context.Background(), summary.ID, user.ID, 0, d4Rep.ID)
 	require.NoError(t, err)
 	require.NotNil(t, reanalyzed)
 
@@ -211,7 +211,7 @@ func TestReanalyzeGame(t *testing.T) {
 	assert.Equal(t, "d4", reanalyzed.MatchedRepertoire.Name)
 
 	// Verify the reanalyzed game is persisted in the DB
-	detail, err := importSvc.GetAnalysisByID(context.Background(), summary.ID)
+	detail, err := importSvc.GetAnalysisByID(context.Background(), summary.ID, user.ID)
 	require.NoError(t, err)
 	require.NotNil(t, detail)
 	require.NotEmpty(t, detail.Results)
@@ -258,7 +258,7 @@ func TestReanalyze_InterleavedManualAndAuto_NoLostUpdate(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		for i := 0; i < iterations; i++ {
-			_, err := importSvc.ReanalyzeGame(context.Background(), summary.ID, 0, d4Rep.ID)
+			_, err := importSvc.ReanalyzeGame(context.Background(), summary.ID, user.ID, 0, d4Rep.ID)
 			assert.NoError(t, err)
 		}
 	}()
@@ -273,7 +273,7 @@ func TestReanalyze_InterleavedManualAndAuto_NoLostUpdate(t *testing.T) {
 
 	wg.Wait()
 
-	detail, err := importSvc.GetAnalysisByID(context.Background(), summary.ID)
+	detail, err := importSvc.GetAnalysisByID(context.Background(), summary.ID, user.ID)
 	require.NoError(t, err)
 	require.Len(t, detail.Results, 1)
 	require.NotNil(t, detail.Results[0].MatchedRepertoire, "game lost its repertoire match (lost update)")

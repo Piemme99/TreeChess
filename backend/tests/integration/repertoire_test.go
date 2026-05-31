@@ -40,7 +40,7 @@ func TestRepertoireRepo_CRUD(t *testing.T) {
 	assert.Equal(t, models.ColorWhite, rep.Color)
 
 	// GetByID
-	got, err := repos.Repertoire.GetByID(context.Background(), rep.ID)
+	got, err := repos.Repertoire.GetByID(context.Background(), rep.ID, user.ID)
 	require.NoError(t, err)
 	assert.Equal(t, rep.ID, got.ID)
 	assert.Equal(t, "My Repertoire", got.Name)
@@ -69,7 +69,7 @@ func TestRepertoireRepo_CRUD(t *testing.T) {
 	require.NoError(t, err)
 
 	// GetByID after delete returns ErrRepertoireNotFound
-	_, err = repos.Repertoire.GetByID(context.Background(), rep.ID)
+	_, err = repos.Repertoire.GetByID(context.Background(), rep.ID, user.ID)
 	assert.ErrorIs(t, err, repository.ErrRepertoireNotFound)
 }
 
@@ -141,7 +141,7 @@ func TestRepertoireService_AddNode_RealDB(t *testing.T) {
 	require.NoError(t, err)
 
 	// Re-read from DB to verify JSONB persistence
-	got, err := svc.GetRepertoire(context.Background(), rep.ID)
+	got, err := svc.GetRepertoire(context.Background(), rep.ID, user.ID)
 	require.NoError(t, err)
 
 	assert.Len(t, got.TreeData.Children, 1)
@@ -214,7 +214,7 @@ func TestRepertoireService_AddMultipleNodes(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify from DB
-	got, err := svc.GetRepertoire(context.Background(), rep.ID)
+	got, err := svc.GetRepertoire(context.Background(), rep.ID, user.ID)
 	require.NoError(t, err)
 
 	// Root should have 2 children (e4, d4)
@@ -249,7 +249,7 @@ func TestRepertoireService_DeleteNode_RealDB(t *testing.T) {
 	rep, err = svc.DeleteNode(context.Background(), user.ID, rep.ID, e5ID)
 	require.NoError(t, err)
 
-	got, err := svc.GetRepertoire(context.Background(), rep.ID)
+	got, err := svc.GetRepertoire(context.Background(), rep.ID, user.ID)
 	require.NoError(t, err)
 
 	// e4 should have no children
@@ -309,9 +309,9 @@ func TestRepertoireService_MergeRepertoires_RealDB(t *testing.T) {
 	assert.Contains(t, moves, "d4")
 
 	// Source repertoires should be deleted
-	_, err = svc.GetRepertoire(context.Background(), rep1ID)
-	assert.ErrorIs(t, err, services.ErrNotFound)
-	_, err = svc.GetRepertoire(context.Background(), rep2ID)
+	_, err = svc.GetRepertoire(context.Background(), rep1ID, user.ID)
+	assert.ErrorIs(t, err, services.ErrNotFound, services.ErrNotFound)
+	_, err = svc.GetRepertoire(context.Background(), rep2ID, user.ID)
 	assert.ErrorIs(t, err, services.ErrNotFound)
 }
 
@@ -347,7 +347,7 @@ func TestRepertoireService_ExtractSubtree_RealDB(t *testing.T) {
 	require.NoError(t, err)
 
 	// Original should have e4 removed
-	origFromDB, err := svc.GetRepertoire(context.Background(), rep.ID)
+	origFromDB, err := svc.GetRepertoire(context.Background(), rep.ID, user.ID)
 	require.NoError(t, err)
 	assert.Len(t, origFromDB.TreeData.Children, 0)
 	assert.Equal(t, 1, origFromDB.Metadata.TotalNodes) // only root
@@ -358,7 +358,7 @@ func TestRepertoireService_ExtractSubtree_RealDB(t *testing.T) {
 	assert.Equal(t, "Extracted", extracted.Name)
 	assert.Equal(t, models.ColorWhite, extracted.Color)
 
-	extractedFromDB, err := svc.GetRepertoire(context.Background(), extracted.ID)
+	extractedFromDB, err := svc.GetRepertoire(context.Background(), extracted.ID, user.ID)
 	require.NoError(t, err)
 	assert.True(t, extractedFromDB.Metadata.TotalMoves >= 2,
 		"extracted should have at least e5 and Nf3 moves, got %d", extractedFromDB.Metadata.TotalMoves)
@@ -416,7 +416,7 @@ func TestRepertoireService_MergeTranspositions_RealDB(t *testing.T) {
 	require.NotNil(t, merged)
 
 	// Re-read from DB to verify persistence
-	got, err := svc.GetRepertoire(context.Background(), rep.ID)
+	got, err := svc.GetRepertoire(context.Background(), rep.ID, user.ID)
 	require.NoError(t, err)
 
 	// Check that at least one TranspositionOf marker exists in the tree
@@ -451,7 +451,7 @@ func TestRepertoireService_UpdateNodeComment(t *testing.T) {
 	rep, err := svc.UpdateNodeComment(context.Background(), user.ID, rep.ID, e4ID, "King's pawn opening")
 	require.NoError(t, err)
 
-	got, _ := svc.GetRepertoire(context.Background(), rep.ID)
+	got, _ := svc.GetRepertoire(context.Background(), rep.ID, user.ID)
 	e4Node := got.TreeData.Children[0]
 	require.NotNil(t, e4Node.Comment)
 	assert.Equal(t, "King's pawn opening", *e4Node.Comment)
@@ -460,7 +460,7 @@ func TestRepertoireService_UpdateNodeComment(t *testing.T) {
 	rep, err = svc.UpdateNodeComment(context.Background(), user.ID, rep.ID, e4ID, "Updated comment")
 	require.NoError(t, err)
 
-	got, _ = svc.GetRepertoire(context.Background(), rep.ID)
+	got, _ = svc.GetRepertoire(context.Background(), rep.ID, user.ID)
 	require.NotNil(t, got.TreeData.Children[0].Comment)
 	assert.Equal(t, "Updated comment", *got.TreeData.Children[0].Comment)
 
@@ -468,7 +468,7 @@ func TestRepertoireService_UpdateNodeComment(t *testing.T) {
 	rep, err = svc.UpdateNodeComment(context.Background(), user.ID, rep.ID, e4ID, "")
 	require.NoError(t, err)
 
-	got, _ = svc.GetRepertoire(context.Background(), rep.ID)
+	got, _ = svc.GetRepertoire(context.Background(), rep.ID, user.ID)
 	assert.Nil(t, got.TreeData.Children[0].Comment)
 }
 
@@ -500,7 +500,7 @@ func TestRepertoireService_SaveTree_JSONBIntegrity(t *testing.T) {
 	require.NoError(t, err)
 
 	// Re-read from DB
-	got, err := svc.GetRepertoire(context.Background(), rep.ID)
+	got, err := svc.GetRepertoire(context.Background(), rep.ID, user.ID)
 	require.NoError(t, err)
 
 	treeJSON3, err := json.Marshal(got.TreeData)
@@ -556,9 +556,9 @@ func TestRepertoireRepo_OptimisticLock_StaleSaveConflicts(t *testing.T) {
 	assert.Equal(t, 0, rep.Version, "freshly created repertoire starts at version 0")
 
 	// Two independent reads observe the same base version.
-	first, err := repos.Repertoire.GetByID(context.Background(), rep.ID)
+	first, err := repos.Repertoire.GetByID(context.Background(), rep.ID, user.ID)
 	require.NoError(t, err)
-	second, err := repos.Repertoire.GetByID(context.Background(), rep.ID)
+	second, err := repos.Repertoire.GetByID(context.Background(), rep.ID, user.ID)
 	require.NoError(t, err)
 	require.Equal(t, first.Version, second.Version)
 
@@ -578,7 +578,7 @@ func TestRepertoireRepo_OptimisticLock_StaleSaveConflicts(t *testing.T) {
 	assert.ErrorIs(t, err, repository.ErrRepertoireConflict)
 
 	// The first writer's data must have survived (no silent lost update).
-	final, err := repos.Repertoire.GetByID(context.Background(), rep.ID)
+	final, err := repos.Repertoire.GetByID(context.Background(), rep.ID, user.ID)
 	require.NoError(t, err)
 	require.NotNil(t, final.TreeData.Comment)
 	assert.Equal(t, firstComment, *final.TreeData.Comment)
@@ -630,7 +630,7 @@ func TestRepertoireService_AddNode_BumpsVersion(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 1, updated.Version, "tree mutation should bump the version")
 
-	got, err := svc.GetRepertoire(context.Background(), rep.ID)
+	got, err := svc.GetRepertoire(context.Background(), rep.ID, user.ID)
 	require.NoError(t, err)
 	assert.Equal(t, 1, got.Version)
 }

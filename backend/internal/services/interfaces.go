@@ -32,6 +32,6 @@ type RepertoireManager interface {
 	CreateRepertoire(ctx context.Context, userID, name string, color models.Color) (*models.Repertoire, error)
 	CreateRepertoireWithCategory(ctx context.Context, userID, name string, color models.Color, categoryID *string) (*models.Repertoire, error)
 	SaveTree(ctx context.Context, userID, repertoireID string, treeData models.RepertoireNode) (*models.Repertoire, error)
-	SetOrigin(ctx context.Context, repertoireID string, origin *models.RepertoireOrigin) error
+	SetOrigin(ctx context.Context, repertoireID, userID string, origin *models.RepertoireOrigin) error
 	ListRepertoires(ctx context.Context, userID string, color *models.Color) ([]models.Repertoire, error)
 }

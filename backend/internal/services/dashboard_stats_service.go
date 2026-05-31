@@ -225,7 +225,7 @@ func (s *DashboardStatsService) GetDashboardStats(ctx context.Context, userID st
 
 				// Lazy-load repertoire tree
 				if _, cached := repTreeCache[repID]; !cached {
-					rep, err := s.repertoireService.GetRepertoire(ctx, repID)
+					rep, err := s.repertoireService.GetRepertoire(ctx, repID, userID)
 					if err != nil {
 						// Repertoire may have been deleted; skip branch stats
 						repTreeCache[repID] = nil

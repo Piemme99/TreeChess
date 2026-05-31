@@ -167,7 +167,7 @@ func (h *ImportHandler) GetAnalysisHandler(c *echo.Context) error {
 		return NotFoundResponse(c, "analysis")
 	}
 
-	detail, err := h.importService.GetAnalysisByID(c.Request().Context(), id)
+	detail, err := h.importService.GetAnalysisByID(c.Request().Context(), id, userID)
 	if err != nil {
 		if errors.Is(err, repository.ErrAnalysisNotFound) {
 			return NotFoundResponse(c, "analysis")
@@ -199,7 +199,7 @@ func (h *ImportHandler) DeleteAnalysisHandler(c *echo.Context) error {
 		return NotFoundResponse(c, "analysis")
 	}
 
-	err := h.importService.DeleteAnalysis(c.Request().Context(), id)
+	err := h.importService.DeleteAnalysis(c.Request().Context(), id, userID)
 	if err != nil {
 		if errors.Is(err, repository.ErrAnalysisNotFound) {
 			return NotFoundResponse(c, "analysis")
@@ -357,7 +357,7 @@ func (h *ImportHandler) ReanalyzeGameHandler(c *echo.Context) error {
 		}
 	}
 
-	reanalyzed, err := h.importService.ReanalyzeGame(c.Request().Context(), analysisID, gameIndex, req.RepertoireID)
+	reanalyzed, err := h.importService.ReanalyzeGame(c.Request().Context(), analysisID, userID, gameIndex, req.RepertoireID)
 	if err != nil {
 		if errors.Is(err, repository.ErrAnalysisNotFound) {
 			return NotFoundResponse(c, "analysis")

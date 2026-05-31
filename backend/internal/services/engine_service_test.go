@@ -123,7 +123,7 @@ func TestProcessPending_ClaimsAndSaves(t *testing.T) {
 		},
 	}
 	mockAnalysisRepo := &mocks.MockAnalysisRepo{
-		GetByIDFunc: func(_ context.Context, id string) (*models.AnalysisDetail, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.AnalysisDetail, error) {
 			return &models.AnalysisDetail{
 				Results: []models.GameAnalysis{{GameIndex: 0, UserColor: models.ColorWhite}},
 			}, nil
@@ -148,7 +148,7 @@ func TestProcessPending_AnalyzeErrorMarksFailed(t *testing.T) {
 		},
 	}
 	mockAnalysisRepo := &mocks.MockAnalysisRepo{
-		GetByIDFunc: func(_ context.Context, id string) (*models.AnalysisDetail, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.AnalysisDetail, error) {
 			return nil, errors.New("analysis not found")
 		},
 	}

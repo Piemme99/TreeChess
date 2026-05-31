@@ -127,7 +127,7 @@ func (s *EngineService) processPending(ctx context.Context) {
 	}
 
 	for _, eval := range pending {
-		stats, err := s.analyzeGameOpenings(ctx, eval.AnalysisID, eval.GameIndex)
+		stats, err := s.analyzeGameOpenings(ctx, eval.UserID, eval.AnalysisID, eval.GameIndex)
 		if err != nil {
 			slog.Error("failed to analyze game", "component", "opening-analysis", "analysis_id", eval.AnalysisID, "game_index", eval.GameIndex, "error", err)
 			if markErr := s.evalRepo.MarkFailed(ctx, eval.ID); markErr != nil {
@@ -146,8 +146,8 @@ func (s *EngineService) processPending(ctx context.Context) {
 	}
 }
 
-func (s *EngineService) analyzeGameOpenings(ctx context.Context, analysisID string, gameIndex int) ([]models.ExplorerMoveStats, error) {
-	detail, err := s.analysisRepo.GetByID(ctx, analysisID)
+func (s *EngineService) analyzeGameOpenings(ctx context.Context, userID, analysisID string, gameIndex int) ([]models.ExplorerMoveStats, error) {
+	detail, err := s.analysisRepo.GetByID(ctx, analysisID, userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get analysis: %w", err)
 	}

@@ -116,7 +116,7 @@ func parseIfMatch(c *echo.Context) (version int, present bool, valid bool) {
 // versionFetcher is the minimal surface needed to enforce an If-Match
 // precondition: load the current version of a repertoire the caller owns.
 type versionFetcher interface {
-	GetRepertoire(ctx context.Context, id string) (*models.Repertoire, error)
+	GetRepertoire(ctx context.Context, id string, userID string) (*models.Repertoire, error)
 }
 
 // checkIfMatch enforces an optimistic-concurrency precondition before a tree
@@ -128,7 +128,7 @@ type versionFetcher interface {
 //
 // Returns ok=false when the request has already been answered (the caller
 // should return the provided error verbatim).
-func checkIfMatch(c *echo.Context, svc versionFetcher, repertoireID string) (ok bool, errResp error) {
+func checkIfMatch(c *echo.Context, svc versionFetcher, repertoireID string, userID string) (ok bool, errResp error) {
 	expected, present, valid := parseIfMatch(c)
 	if !present {
 		return true, nil
@@ -137,7 +137,7 @@ func checkIfMatch(c *echo.Context, svc versionFetcher, repertoireID string) (ok 
 		return false, BadRequestResponse(c, "If-Match must be a non-negative integer version")
 	}
 
-	current, err := svc.GetRepertoire(c.Request().Context(), repertoireID)
+	current, err := svc.GetRepertoire(c.Request().Context(), repertoireID, userID)
 	if err != nil {
 		return false, NotFoundResponse(c, "repertoire")
 	}
@@ -158,10 +158,11 @@ func runNodeMutation(
 	c *echo.Context,
 	svc *services.RepertoireService,
 	repertoireID string,
+	userID string,
 	mutate func() (*models.Repertoire, error),
 	extraErrors func(err error) (handled bool, resp error),
 ) error {
-	if ok, resp := checkIfMatch(c, svc, repertoireID); !ok {
+	if ok, resp := checkIfMatch(c, svc, repertoireID, userID); !ok {
 		return resp
 	}
 

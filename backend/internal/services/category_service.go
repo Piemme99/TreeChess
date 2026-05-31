@@ -64,9 +64,9 @@ func (s *CategoryService) CreateCategory(ctx context.Context, userID, name strin
 	return s.repo.Create(ctx, userID, name, color)
 }
 
-// GetCategory retrieves a category by ID
-func (s *CategoryService) GetCategory(ctx context.Context, id string) (*models.Category, error) {
-	cat, err := s.repo.GetByID(ctx, id)
+// GetCategory retrieves a category by ID, scoped to the owning user
+func (s *CategoryService) GetCategory(ctx context.Context, id, userID string) (*models.Category, error) {
+	cat, err := s.repo.GetByID(ctx, id, userID)
 	if err != nil {
 		if errors.Is(err, repository.ErrCategoryNotFound) {
 			return nil, ErrCategoryNotFound
@@ -76,9 +76,9 @@ func (s *CategoryService) GetCategory(ctx context.Context, id string) (*models.C
 	return cat, nil
 }
 
-// GetCategoryWithRepertoires retrieves a category with its associated repertoires
-func (s *CategoryService) GetCategoryWithRepertoires(ctx context.Context, id string) (*models.CategoryWithRepertoires, error) {
-	cat, err := s.repo.GetByID(ctx, id)
+// GetCategoryWithRepertoires retrieves a category with its associated repertoires, scoped to the owning user
+func (s *CategoryService) GetCategoryWithRepertoires(ctx context.Context, id, userID string) (*models.CategoryWithRepertoires, error) {
+	cat, err := s.repo.GetByID(ctx, id, userID)
 	if err != nil {
 		if errors.Is(err, repository.ErrCategoryNotFound) {
 			return nil, ErrCategoryNotFound
@@ -108,8 +108,8 @@ func (s *CategoryService) ListCategories(ctx context.Context, userID string, col
 	return s.repo.GetAll(ctx, userID)
 }
 
-// RenameCategory updates the name of a category
-func (s *CategoryService) RenameCategory(ctx context.Context, id, name string) (*models.Category, error) {
+// RenameCategory updates the name of a category, scoped to the owning user
+func (s *CategoryService) RenameCategory(ctx context.Context, id, userID, name string) (*models.Category, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return nil, ErrNameRequired
@@ -118,12 +118,12 @@ func (s *CategoryService) RenameCategory(ctx context.Context, id, name string) (
 		return nil, ErrNameTooLong
 	}
 
-	return s.repo.UpdateName(ctx, id, name)
+	return s.repo.UpdateName(ctx, id, userID, name)
 }
 
-// DeleteCategory deletes a category (and cascades to its repertoires)
-func (s *CategoryService) DeleteCategory(ctx context.Context, id string) error {
-	err := s.repo.Delete(ctx, id)
+// DeleteCategory deletes a category, scoped to the owning user (and cascades to its repertoires)
+func (s *CategoryService) DeleteCategory(ctx context.Context, id, userID string) error {
+	err := s.repo.Delete(ctx, id, userID)
 	if err != nil {
 		if errors.Is(err, repository.ErrCategoryNotFound) {
 			return ErrCategoryNotFound

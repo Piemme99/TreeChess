@@ -668,7 +668,7 @@ func TestMergeRepertoires_Success(t *testing.T) {
 	deletedIDs := map[string]bool{}
 
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			switch id {
 			case "rep-1":
 				return rep1, nil
@@ -733,7 +733,7 @@ func TestMergeRepertoires_ThreeWay(t *testing.T) {
 	var savedTree models.RepertoireNode
 
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			if r, ok := reps[id]; ok {
 				return r, nil
 			}
@@ -776,7 +776,7 @@ func TestMergeRepertoires_FewerThanTwo(t *testing.T) {
 
 func TestMergeRepertoires_ColorMismatch(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			if id == "rep-w" {
 				return &models.Repertoire{ID: "rep-w", Color: models.ColorWhite, TreeData: makeTree("rw")}, nil
 			}
@@ -803,7 +803,7 @@ func TestMergeRepertoires_EmptyName(t *testing.T) {
 
 func TestMergeRepertoires_NotFound(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			if id == "exists" {
 				return &models.Repertoire{ID: "exists", Color: models.ColorWhite, TreeData: makeTree("r")}, nil
 			}
@@ -830,7 +830,7 @@ func TestMergeRepertoires_DuplicateIDs(t *testing.T) {
 
 func TestRepertoireService_GetRepertoire_Success(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID:   id,
 				Name: "Test",
@@ -839,7 +839,7 @@ func TestRepertoireService_GetRepertoire_Success(t *testing.T) {
 	}
 	svc := NewRepertoireService(mockRepo)
 
-	rep, err := svc.GetRepertoire(context.Background(), "rep-1")
+	rep, err := svc.GetRepertoire(context.Background(), "rep-1", "user-1")
 
 	require.NoError(t, err)
 	assert.Equal(t, "rep-1", rep.ID)
@@ -847,13 +847,13 @@ func TestRepertoireService_GetRepertoire_Success(t *testing.T) {
 
 func TestRepertoireService_GetRepertoire_NotFound(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return nil, repository.ErrRepertoireNotFound
 		},
 	}
 	svc := NewRepertoireService(mockRepo)
 
-	_, err := svc.GetRepertoire(context.Background(), "nonexistent")
+	_, err := svc.GetRepertoire(context.Background(), "nonexistent", "user-1")
 
 	assert.Error(t, err)
 	assert.ErrorIs(t, err, ErrNotFound)
@@ -861,13 +861,13 @@ func TestRepertoireService_GetRepertoire_NotFound(t *testing.T) {
 
 func TestRepertoireService_GetRepertoire_RepoError(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return nil, assert.AnError
 		},
 	}
 	svc := NewRepertoireService(mockRepo)
 
-	_, err := svc.GetRepertoire(context.Background(), "rep-1")
+	_, err := svc.GetRepertoire(context.Background(), "rep-1", "user-1")
 
 	assert.Error(t, err)
 	assert.ErrorIs(t, err, assert.AnError)
@@ -878,7 +878,7 @@ func TestRepertoireService_GetRepertoire_RepoError(t *testing.T) {
 func TestRepertoireService_AddNode_Success(t *testing.T) {
 	rootID := "root-uuid"
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID:    id,
 				Name:  "Test",
@@ -919,7 +919,7 @@ func TestRepertoireService_AddNode_DerivesMoveNumber(t *testing.T) {
 	moveE5 := "e5"
 	// root (move 0, white to move) -> e4 (move 1, black to move) -> e5 (move 1, white to move)
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID:    id,
 				Color: models.ColorWhite,
@@ -993,7 +993,7 @@ func TestRepertoireService_AddNode_DerivesMoveNumber(t *testing.T) {
 
 func TestRepertoireService_AddNode_RepertoireNotFound(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return nil, repository.ErrRepertoireNotFound
 		},
 	}
@@ -1008,7 +1008,7 @@ func TestRepertoireService_AddNode_RepertoireNotFound(t *testing.T) {
 
 func TestRepertoireService_AddNode_ParentNotFound(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID: id,
 				TreeData: models.RepertoireNode{
@@ -1031,7 +1031,7 @@ func TestRepertoireService_AddNode_ParentNotFound(t *testing.T) {
 func TestRepertoireService_AddNode_MoveExists(t *testing.T) {
 	move := "e4"
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID: id,
 				TreeData: models.RepertoireNode{
@@ -1055,7 +1055,7 @@ func TestRepertoireService_AddNode_MoveExists(t *testing.T) {
 
 func TestRepertoireService_AddNode_IllegalMove(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID: id,
 				TreeData: models.RepertoireNode{
@@ -1079,7 +1079,7 @@ func TestRepertoireService_AddNode_IllegalMove(t *testing.T) {
 
 func TestRepertoireService_SaveTree_Success(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{ID: id}, nil
 		},
 		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {
@@ -1104,7 +1104,7 @@ func TestRepertoireService_SaveTree_Success(t *testing.T) {
 
 func TestRepertoireService_SaveTree_NotFound(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return nil, repository.ErrRepertoireNotFound
 		},
 	}
@@ -1120,7 +1120,7 @@ func TestRepertoireService_SaveTree_NotFound(t *testing.T) {
 func TestRepertoireService_DeleteNode_Success(t *testing.T) {
 	move := "e4"
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID: id,
 				TreeData: models.RepertoireNode{
@@ -1146,7 +1146,7 @@ func TestRepertoireService_DeleteNode_Success(t *testing.T) {
 
 func TestRepertoireService_DeleteNode_CannotDeleteRoot(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID:       id,
 				TreeData: models.RepertoireNode{ID: "root"},
@@ -1162,7 +1162,7 @@ func TestRepertoireService_DeleteNode_CannotDeleteRoot(t *testing.T) {
 
 func TestRepertoireService_DeleteNode_NodeNotFound(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID:       id,
 				TreeData: models.RepertoireNode{ID: "root", Children: []*models.RepertoireNode{}},
@@ -1178,7 +1178,7 @@ func TestRepertoireService_DeleteNode_NodeNotFound(t *testing.T) {
 
 func TestRepertoireService_DeleteNode_RepertoireNotFound(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return nil, repository.ErrRepertoireNotFound
 		},
 	}
@@ -1195,7 +1195,7 @@ func TestRepertoireService_ExtractSubtree_Success(t *testing.T) {
 	move1 := "e4"
 	move2 := "e5"
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID:    id,
 				Name:  "Original",
@@ -1236,7 +1236,7 @@ func TestRepertoireService_ExtractSubtree_Success(t *testing.T) {
 
 func TestRepertoireService_ExtractSubtree_RootBlocked(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID:       id,
 				TreeData: models.RepertoireNode{ID: "root"},
@@ -1252,7 +1252,7 @@ func TestRepertoireService_ExtractSubtree_RootBlocked(t *testing.T) {
 
 func TestRepertoireService_ExtractSubtree_NodeNotFound(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID:       id,
 				TreeData: models.RepertoireNode{ID: "root", Children: []*models.RepertoireNode{}},
@@ -1269,7 +1269,7 @@ func TestRepertoireService_ExtractSubtree_NodeNotFound(t *testing.T) {
 func TestRepertoireService_ExtractSubtree_LimitReached(t *testing.T) {
 	move := "e4"
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID: id,
 				TreeData: models.RepertoireNode{
@@ -1294,7 +1294,7 @@ func TestRepertoireService_ExtractSubtree_NameTooLong(t *testing.T) {
 		longName += "a"
 	}
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID: id,
 				TreeData: models.RepertoireNode{
@@ -1315,7 +1315,7 @@ func TestRepertoireService_ExtractSubtree_NameTooLong(t *testing.T) {
 
 func TestRepertoireService_UpdateNodeComment_Set(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID: id,
 				TreeData: models.RepertoireNode{
@@ -1345,7 +1345,7 @@ func TestRepertoireService_UpdateNodeComment_Set(t *testing.T) {
 func TestRepertoireService_UpdateNodeComment_Clear(t *testing.T) {
 	comment := "old comment"
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID: id,
 				TreeData: models.RepertoireNode{
@@ -1373,7 +1373,7 @@ func TestRepertoireService_UpdateNodeComment_Clear(t *testing.T) {
 
 func TestRepertoireService_UpdateNodeComment_NodeNotFound(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID:       id,
 				TreeData: models.RepertoireNode{ID: "root", Children: []*models.RepertoireNode{}},
@@ -1389,7 +1389,7 @@ func TestRepertoireService_UpdateNodeComment_NodeNotFound(t *testing.T) {
 
 func TestRepertoireService_UpdateNodeComment_RepertoireNotFound(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return nil, repository.ErrRepertoireNotFound
 		},
 	}
@@ -1597,7 +1597,7 @@ func TestMergeTranspositions_BasicMerge(t *testing.T) {
 
 	var savedTree models.RepertoireNode
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID:       "rep-1",
 				TreeData: root,
@@ -1651,7 +1651,7 @@ func TestMergeTranspositions_NoTranspositions(t *testing.T) {
 
 	var savedTree models.RepertoireNode
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{ID: "rep-1", TreeData: root}, nil
 		},
 		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {
@@ -1696,7 +1696,7 @@ func TestMergeTranspositions_CommonChildrenMerged(t *testing.T) {
 
 	var savedTree models.RepertoireNode
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{ID: "rep-1", TreeData: root}, nil
 		},
 		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {
@@ -1743,7 +1743,7 @@ func TestMergeTranspositions_SameFENDifferentMoveNumber(t *testing.T) {
 
 	var savedTree models.RepertoireNode
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{ID: "rep-1", TreeData: root}, nil
 		},
 		SaveFunc: func(_ context.Context, id string, userID string, treeData models.RepertoireNode, metadata models.Metadata, expectedVersion int) (*models.Repertoire, error) {
@@ -1765,7 +1765,7 @@ func TestMergeTranspositions_SameFENDifferentMoveNumber(t *testing.T) {
 
 func TestRepertoireService_SetMainLine_Success(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID: id,
 				TreeData: models.RepertoireNode{
@@ -1807,7 +1807,7 @@ func TestRepertoireService_SetMainLine_Success(t *testing.T) {
 
 func TestRepertoireService_SetMainLine_OverwritesPrevious(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID: id,
 				TreeData: models.RepertoireNode{
@@ -1847,7 +1847,7 @@ func TestRepertoireService_SetMainLine_OverwritesPrevious(t *testing.T) {
 
 func TestRepertoireService_SetMainLine_NodeNotFound(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID:       id,
 				TreeData: models.RepertoireNode{ID: "root", Children: []*models.RepertoireNode{}},
@@ -1863,7 +1863,7 @@ func TestRepertoireService_SetMainLine_NodeNotFound(t *testing.T) {
 
 func TestRepertoireService_SetMainLine_RepertoireNotFound(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return nil, repository.ErrRepertoireNotFound
 		},
 	}
@@ -1876,7 +1876,7 @@ func TestRepertoireService_SetMainLine_RepertoireNotFound(t *testing.T) {
 
 func TestRepertoireService_ClearMainLine_Success(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID: id,
 				TreeData: models.RepertoireNode{
@@ -1914,7 +1914,7 @@ func TestRepertoireService_ClearMainLine_Success(t *testing.T) {
 
 func TestRepertoireService_UpdateNodeBranchColor_Set(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID: id,
 				TreeData: models.RepertoireNode{
@@ -1944,7 +1944,7 @@ func TestRepertoireService_UpdateNodeBranchColor_Set(t *testing.T) {
 func TestRepertoireService_UpdateNodeBranchColor_Clear(t *testing.T) {
 	color := "#E74C3C"
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID: id,
 				TreeData: models.RepertoireNode{
@@ -1981,7 +1981,7 @@ func TestRepertoireService_UpdateNodeBranchColor_InvalidColor(t *testing.T) {
 
 func TestRepertoireService_UpdateNodeBranchColor_NodeNotFound(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID:       id,
 				TreeData: models.RepertoireNode{ID: "root", Children: []*models.RepertoireNode{}},
@@ -1997,7 +1997,7 @@ func TestRepertoireService_UpdateNodeBranchColor_NodeNotFound(t *testing.T) {
 
 func TestRepertoireService_UpdateNodeBranchColor_RepertoireNotFound(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return nil, repository.ErrRepertoireNotFound
 		},
 	}
@@ -2012,7 +2012,7 @@ func TestRepertoireService_UpdateNodeBranchColor_RepertoireNotFound(t *testing.T
 
 func annotationRepoWithNode() *mocks.MockRepertoireRepo {
 	return &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID: id,
 				TreeData: models.RepertoireNode{
@@ -2050,7 +2050,7 @@ func TestRepertoireService_UpdateNodeAnnotations_Set(t *testing.T) {
 func TestRepertoireService_UpdateNodeAnnotations_Clear(t *testing.T) {
 	arrows := []models.Arrow{{From: "e2", To: "e4", Color: "#15781B"}}
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID: id,
 				TreeData: models.RepertoireNode{
@@ -2107,7 +2107,7 @@ func TestRepertoireService_UpdateNodeAnnotations_NodeNotFound(t *testing.T) {
 
 func TestRepertoireService_UpdateNodeAnnotations_RepertoireNotFound(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return nil, repository.ErrRepertoireNotFound
 		},
 	}
@@ -2120,7 +2120,7 @@ func TestRepertoireService_UpdateNodeAnnotations_RepertoireNotFound(t *testing.T
 
 func TestRepertoireService_ClearMainLine_RepertoireNotFound(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return nil, repository.ErrRepertoireNotFound
 		},
 	}

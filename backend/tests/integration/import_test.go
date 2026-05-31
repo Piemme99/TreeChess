@@ -78,7 +78,7 @@ func TestImportPipeline_FullCycle(t *testing.T) {
 	assert.Equal(t, rep.ID, game.MatchedRepertoire.ID)
 
 	// Verify analysis is persisted and retrievable
-	detail, err := importSvc.GetAnalysisByID(context.Background(), summary.ID)
+	detail, err := importSvc.GetAnalysisByID(context.Background(), summary.ID, user.ID)
 	require.NoError(t, err)
 	assert.Equal(t, 1, detail.GameCount)
 	assert.Equal(t, "importuser", detail.Username)
@@ -201,7 +201,7 @@ func TestImportPipeline_DeleteAnalysis_CascadeAll(t *testing.T) {
 	require.NoError(t, err)
 
 	// Delete the analysis
-	err = importSvc.DeleteAnalysis(context.Background(), summary.ID)
+	err = importSvc.DeleteAnalysis(context.Background(), summary.ID, user.ID)
 	require.NoError(t, err)
 
 	// Verify analysis is gone
@@ -355,7 +355,7 @@ func TestImportPipeline_ReanalyzeColorMismatch(t *testing.T) {
 	require.NoError(t, err)
 
 	// Reanalyze a white game against a black repertoire → color mismatch
-	_, err = importSvc.ReanalyzeGame(context.Background(), summary.ID, 0, blackRep.ID)
+	_, err = importSvc.ReanalyzeGame(context.Background(), summary.ID, user.ID, 0, blackRep.ID)
 	assert.ErrorIs(t, err, services.ErrColorMismatch)
 }
 

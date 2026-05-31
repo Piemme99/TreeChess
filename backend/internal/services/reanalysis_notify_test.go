@@ -33,7 +33,7 @@ func (f *fakeNotifier) Count() int {
 
 func newRepoWithEmptyTree(rootID string) *mocks.MockRepertoireRepo {
 	return &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID:    id,
 				Name:  "Test",
@@ -90,7 +90,7 @@ func TestRepertoireService_DeleteNode_NotifiesQueue(t *testing.T) {
 	move := "e4"
 	notifier := &fakeNotifier{}
 	repo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID:    id,
 				Color: models.ColorWhite,
@@ -140,7 +140,7 @@ func TestRepertoireService_NoQueue_DoesNotPanic(t *testing.T) {
 func TestRepertoireService_FailedMutation_DoesNotNotify(t *testing.T) {
 	notifier := &fakeNotifier{}
 	repo := &mocks.MockRepertoireRepo{
-		GetByIDFunc: func(_ context.Context, id string) (*models.Repertoire, error) {
+		GetByIDFunc: func(_ context.Context, id string, _ string) (*models.Repertoire, error) {
 			return &models.Repertoire{
 				ID: id,
 				TreeData: models.RepertoireNode{

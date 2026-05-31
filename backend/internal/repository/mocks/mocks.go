@@ -100,7 +100,7 @@ func (m *MockEngineEvalRepo) ResetStaleProcessing(ctx context.Context) (int, err
 
 // MockRepertoireRepo is a mock implementation of RepertoireRepository for testing
 type MockRepertoireRepo struct {
-	GetByIDFunc                   func(ctx context.Context, id string) (*models.Repertoire, error)
+	GetByIDFunc                   func(ctx context.Context, id string, userID string) (*models.Repertoire, error)
 	GetByColorFunc                func(ctx context.Context, userID string, color models.Color) ([]models.Repertoire, error)
 	GetAllFunc                    func(ctx context.Context, userID string) ([]models.Repertoire, error)
 	CreateFunc                    func(ctx context.Context, userID string, name string, color models.Color) (*models.Repertoire, error)
@@ -121,12 +121,12 @@ type MockRepertoireRepo struct {
 	GetAllPublicFunc              func(ctx context.Context) ([]models.Repertoire, error)
 	GetPublicByIDFunc             func(ctx context.Context, id string) (*models.Repertoire, error)
 	GetOwnerIDFunc                func(ctx context.Context, id string) (string, error)
-	UpdateOriginFunc              func(ctx context.Context, id string, origin *models.RepertoireOrigin) error
+	UpdateOriginFunc              func(ctx context.Context, id string, userID string, origin *models.RepertoireOrigin) error
 }
 
-func (m *MockRepertoireRepo) GetByID(ctx context.Context, id string) (*models.Repertoire, error) {
+func (m *MockRepertoireRepo) GetByID(ctx context.Context, id string, userID string) (*models.Repertoire, error) {
 	if m.GetByIDFunc != nil {
-		return m.GetByIDFunc(ctx, id)
+		return m.GetByIDFunc(ctx, id, userID)
 	}
 	return nil, nil
 }
@@ -284,9 +284,9 @@ func (m *MockRepertoireRepo) GetOwnerID(ctx context.Context, id string) (string,
 	return "", nil
 }
 
-func (m *MockRepertoireRepo) UpdateOrigin(ctx context.Context, id string, origin *models.RepertoireOrigin) error {
+func (m *MockRepertoireRepo) UpdateOrigin(ctx context.Context, id string, userID string, origin *models.RepertoireOrigin) error {
 	if m.UpdateOriginFunc != nil {
-		return m.UpdateOriginFunc(ctx, id, origin)
+		return m.UpdateOriginFunc(ctx, id, userID, origin)
 	}
 	return nil
 }
@@ -295,11 +295,11 @@ func (m *MockRepertoireRepo) UpdateOrigin(ctx context.Context, id string, origin
 type MockAnalysisRepo struct {
 	SaveFunc                   func(ctx context.Context, userID string, username, filename string, gameCount int, results []models.GameAnalysis) (*models.AnalysisSummary, error)
 	GetAllFunc                 func(ctx context.Context, userID string) ([]models.AnalysisSummary, error)
-	GetByIDFunc                func(ctx context.Context, id string) (*models.AnalysisDetail, error)
-	DeleteFunc                 func(ctx context.Context, id string) error
+	GetByIDFunc                func(ctx context.Context, id string, userID string) (*models.AnalysisDetail, error)
+	DeleteFunc                 func(ctx context.Context, id string, userID string) error
 	GetAllGamesFunc            func(ctx context.Context, userID string, limit, offset int, timeClass, opening, source string, onlyNew bool) (*models.GamesResponse, error)
-	UpdateResultsFunc          func(ctx context.Context, analysisID string, results []models.GameAnalysis) error
-	MutateResultsFunc          func(ctx context.Context, analysisID string, mutate repository.ResultsMutator) error
+	UpdateResultsFunc          func(ctx context.Context, analysisID string, userID string, results []models.GameAnalysis) error
+	MutateResultsFunc          func(ctx context.Context, analysisID string, userID string, mutate repository.ResultsMutator) error
 	BelongsToUserFunc          func(ctx context.Context, id string, userID string) (bool, error)
 	GetDistinctRepertoiresFunc func(ctx context.Context, userID string) ([]models.RepertoireFilterOption, error)
 	MarkGameViewedFunc         func(ctx context.Context, userID, analysisID string, gameIndex int) error
@@ -321,16 +321,16 @@ func (m *MockAnalysisRepo) GetAll(ctx context.Context, userID string) ([]models.
 	return nil, nil
 }
 
-func (m *MockAnalysisRepo) GetByID(ctx context.Context, id string) (*models.AnalysisDetail, error) {
+func (m *MockAnalysisRepo) GetByID(ctx context.Context, id string, userID string) (*models.AnalysisDetail, error) {
 	if m.GetByIDFunc != nil {
-		return m.GetByIDFunc(ctx, id)
+		return m.GetByIDFunc(ctx, id, userID)
 	}
 	return nil, nil
 }
 
-func (m *MockAnalysisRepo) Delete(ctx context.Context, id string) error {
+func (m *MockAnalysisRepo) Delete(ctx context.Context, id string, userID string) error {
 	if m.DeleteFunc != nil {
-		return m.DeleteFunc(ctx, id)
+		return m.DeleteFunc(ctx, id, userID)
 	}
 	return nil
 }
@@ -342,9 +342,9 @@ func (m *MockAnalysisRepo) GetAllGames(ctx context.Context, userID string, limit
 	return nil, nil
 }
 
-func (m *MockAnalysisRepo) UpdateResults(ctx context.Context, analysisID string, results []models.GameAnalysis) error {
+func (m *MockAnalysisRepo) UpdateResults(ctx context.Context, analysisID string, userID string, results []models.GameAnalysis) error {
 	if m.UpdateResultsFunc != nil {
-		return m.UpdateResultsFunc(ctx, analysisID, results)
+		return m.UpdateResultsFunc(ctx, analysisID, userID, results)
 	}
 	return nil
 }
@@ -356,12 +356,12 @@ func (m *MockAnalysisRepo) UpdateResults(ctx context.Context, analysisID string,
 // UpdateResultsFunc when the mutator reports a change. This lets tests configured
 // only with GetByID/GetAllGamesRaw + UpdateResults exercise the mutate path
 // without extra wiring.
-func (m *MockAnalysisRepo) MutateResults(ctx context.Context, analysisID string, mutate repository.ResultsMutator) error {
+func (m *MockAnalysisRepo) MutateResults(ctx context.Context, analysisID string, userID string, mutate repository.ResultsMutator) error {
 	if m.MutateResultsFunc != nil {
-		return m.MutateResultsFunc(ctx, analysisID, mutate)
+		return m.MutateResultsFunc(ctx, analysisID, userID, mutate)
 	}
 
-	current, err := m.resolveResults(ctx, analysisID)
+	current, err := m.resolveResults(ctx, analysisID, userID)
 	if err != nil {
 		return err
 	}
@@ -373,15 +373,15 @@ func (m *MockAnalysisRepo) MutateResults(ctx context.Context, analysisID string,
 	if !changed {
 		return nil
 	}
-	return m.UpdateResults(ctx, analysisID, updated)
+	return m.UpdateResults(ctx, analysisID, userID, updated)
 }
 
 // resolveResults reconstructs an analysis's current results for the default
 // MutateResults implementation, mirroring what a real SELECT ... FOR UPDATE
 // would return.
-func (m *MockAnalysisRepo) resolveResults(ctx context.Context, analysisID string) ([]models.GameAnalysis, error) {
+func (m *MockAnalysisRepo) resolveResults(ctx context.Context, analysisID string, userID string) ([]models.GameAnalysis, error) {
 	if m.GetByIDFunc != nil {
-		detail, err := m.GetByIDFunc(ctx, analysisID)
+		detail, err := m.GetByIDFunc(ctx, analysisID, userID)
 		if err != nil {
 			return nil, err
 		}
@@ -556,20 +556,20 @@ func (m *MockUserRepo) Delete(ctx context.Context, id string) error {
 
 // MockCategoryRepo is a mock implementation of CategoryRepository for testing
 type MockCategoryRepo struct {
-	GetByIDFunc           func(ctx context.Context, id string) (*models.Category, error)
+	GetByIDFunc           func(ctx context.Context, id, userID string) (*models.Category, error)
 	GetByUserAndColorFunc func(ctx context.Context, userID string, color models.Color) ([]models.Category, error)
 	GetAllFunc            func(ctx context.Context, userID string) ([]models.Category, error)
 	CreateFunc            func(ctx context.Context, userID, name string, color models.Color) (*models.Category, error)
-	UpdateNameFunc        func(ctx context.Context, id, name string) (*models.Category, error)
-	DeleteFunc            func(ctx context.Context, id string) error
+	UpdateNameFunc        func(ctx context.Context, id, userID, name string) (*models.Category, error)
+	DeleteFunc            func(ctx context.Context, id, userID string) error
 	BelongsToUserFunc     func(ctx context.Context, id, userID string) (bool, error)
 	ExistsFunc            func(ctx context.Context, id string) (bool, error)
 	CountFunc             func(ctx context.Context, userID string) (int, error)
 }
 
-func (m *MockCategoryRepo) GetByID(ctx context.Context, id string) (*models.Category, error) {
+func (m *MockCategoryRepo) GetByID(ctx context.Context, id, userID string) (*models.Category, error) {
 	if m.GetByIDFunc != nil {
-		return m.GetByIDFunc(ctx, id)
+		return m.GetByIDFunc(ctx, id, userID)
 	}
 	return nil, nil
 }
@@ -595,16 +595,16 @@ func (m *MockCategoryRepo) Create(ctx context.Context, userID, name string, colo
 	return nil, nil
 }
 
-func (m *MockCategoryRepo) UpdateName(ctx context.Context, id, name string) (*models.Category, error) {
+func (m *MockCategoryRepo) UpdateName(ctx context.Context, id, userID, name string) (*models.Category, error) {
 	if m.UpdateNameFunc != nil {
-		return m.UpdateNameFunc(ctx, id, name)
+		return m.UpdateNameFunc(ctx, id, userID, name)
 	}
 	return nil, nil
 }
 
-func (m *MockCategoryRepo) Delete(ctx context.Context, id string) error {
+func (m *MockCategoryRepo) Delete(ctx context.Context, id, userID string) error {
 	if m.DeleteFunc != nil {
-		return m.DeleteFunc(ctx, id)
+		return m.DeleteFunc(ctx, id, userID)
 	}
 	return nil
 }

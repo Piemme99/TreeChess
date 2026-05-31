@@ -196,7 +196,7 @@ func TestGamesProjection_UpdateResultsRebuilds(t *testing.T) {
 
 	// Re-write with fewer games → projection shrinks, no stale rows remain.
 	reduced := initial[:1]
-	require.NoError(t, repos.Analysis.UpdateResults(context.Background(), summary.ID, reduced))
+	require.NoError(t, repos.Analysis.UpdateResults(context.Background(), summary.ID, user.ID, reduced))
 	assert.Equal(t, 1, countGamesRows(t, user.ID))
 
 	page, err := repos.Analysis.GetAllGames(context.Background(), user.ID, 50, 0, "", "", "", false)

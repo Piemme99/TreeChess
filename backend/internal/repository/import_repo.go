@@ -31,11 +31,11 @@ const (
 	getAnalysisByIDSQL = `
 		SELECT id, username, filename, game_count, results, uploaded_at
 		FROM analyses
-		WHERE id = $1
+		WHERE id = $1 AND user_id = $2
 	`
 	deleteAnalysisSQL = `
 		DELETE FROM analyses
-		WHERE id = $1
+		WHERE id = $1 AND user_id = $2
 	`
 	getAllGamesSQL = `
 		SELECT id, filename, results, uploaded_at
@@ -49,7 +49,7 @@ const (
 	updateAnalysisResultsSQL = `
 		UPDATE analyses
 		SET results = $2, game_count = $3
-		WHERE id = $1
+		WHERE id = $1 AND user_id = $4
 		RETURNING user_id, filename, uploaded_at
 	`
 	deleteGamesForAnalysisSQL = `
@@ -64,11 +64,13 @@ const (
 	`
 	// lockAnalysisResultsSQL reads the current results under a row-level lock so a
 	// read-modify-write cycle cannot interleave with a concurrent writer. The
-	// matching write must run inside the same transaction.
+	// matching write must run inside the same transaction. Scoped to the owning
+	// user so a cross-tenant analysis ID surfaces as not-found rather than locking
+	// (and potentially mutating) another user's row.
 	lockAnalysisResultsSQL = `
 		SELECT results
 		FROM analyses
-		WHERE id = $1
+		WHERE id = $1 AND user_id = $2
 		FOR UPDATE
 	`
 )
@@ -161,15 +163,15 @@ func (r *PostgresAnalysisRepo) GetAll(ctx context.Context, userID string) ([]mod
 	return analyses, nil
 }
 
-// GetByID returns analysis details by ID
-func (r *PostgresAnalysisRepo) GetByID(ctx context.Context, id string) (*models.AnalysisDetail, error) {
+// GetByID returns analysis details by ID, scoped to the owning user
+func (r *PostgresAnalysisRepo) GetByID(ctx context.Context, id string, userID string) (*models.AnalysisDetail, error) {
 	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
 	var detail models.AnalysisDetail
 	var resultsJSON []byte
 
-	err := r.pool.QueryRow(ctx, getAnalysisByIDSQL, id).Scan(
+	err := r.pool.QueryRow(ctx, getAnalysisByIDSQL, id, userID).Scan(
 		&detail.ID,
 		&detail.Username,
 		&detail.Filename,
@@ -191,12 +193,12 @@ func (r *PostgresAnalysisRepo) GetByID(ctx context.Context, id string) (*models.
 	return &detail, nil
 }
 
-// Delete deletes an analysis by ID
-func (r *PostgresAnalysisRepo) Delete(ctx context.Context, id string) error {
+// Delete deletes an analysis by ID, scoped to the owning user
+func (r *PostgresAnalysisRepo) Delete(ctx context.Context, id string, userID string) error {
 	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
-	result, err := r.pool.Exec(ctx, deleteAnalysisSQL, id)
+	result, err := r.pool.Exec(ctx, deleteAnalysisSQL, id, userID)
 	if err != nil {
 		return fmt.Errorf("failed to delete analysis: %w", err)
 	}
@@ -304,7 +306,9 @@ func (r *PostgresAnalysisRepo) GetAllGames(ctx context.Context, userID string, l
 
 // UpdateResults updates the results array of an existing analysis and rebuilds
 // its per-game projection in the same transaction so `games` stays consistent.
-func (r *PostgresAnalysisRepo) UpdateResults(ctx context.Context, analysisID string, results []models.GameAnalysis) error {
+// The update is scoped to the owning user so a cross-tenant analysis ID surfaces
+// as not-found rather than mutating another user's row.
+func (r *PostgresAnalysisRepo) UpdateResults(ctx context.Context, analysisID string, userID string, results []models.GameAnalysis) error {
 	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
@@ -319,10 +323,10 @@ func (r *PostgresAnalysisRepo) UpdateResults(ctx context.Context, analysisID str
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	var userID, filename string
+	var ownerID, filename string
 	var uploadedAt time.Time
-	err = tx.QueryRow(ctx, updateAnalysisResultsSQL, analysisID, resultsJSON, len(results)).
-		Scan(&userID, &filename, &uploadedAt)
+	err = tx.QueryRow(ctx, updateAnalysisResultsSQL, analysisID, resultsJSON, len(results), userID).
+		Scan(&ownerID, &filename, &uploadedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrAnalysisNotFound
@@ -330,7 +334,7 @@ func (r *PostgresAnalysisRepo) UpdateResults(ctx context.Context, analysisID str
 		return fmt.Errorf("failed to update analysis results: %w", err)
 	}
 
-	if err := rebuildGamesForAnalysis(ctx, tx, analysisID, userID, filename, uploadedAt, results); err != nil {
+	if err := rebuildGamesForAnalysis(ctx, tx, analysisID, ownerID, filename, uploadedAt, results); err != nil {
 		return err
 	}
 
@@ -354,7 +358,11 @@ func (r *PostgresAnalysisRepo) UpdateResults(ctx context.Context, analysisID str
 // changed flag. When changed is false the row is left untouched (no write, no
 // game_count change) and the transaction still commits cleanly, releasing the
 // lock. If mutate returns an error the transaction is rolled back.
-func (r *PostgresAnalysisRepo) MutateResults(ctx context.Context, analysisID string, mutate ResultsMutator) error {
+//
+// The lock and the write are both scoped to userID so a cross-tenant analysis ID
+// surfaces as not-found rather than locking (and potentially mutating) another
+// user's row.
+func (r *PostgresAnalysisRepo) MutateResults(ctx context.Context, analysisID string, userID string, mutate ResultsMutator) error {
 	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
@@ -368,7 +376,7 @@ func (r *PostgresAnalysisRepo) MutateResults(ctx context.Context, analysisID str
 	defer func() { _ = tx.Rollback(ctx) }()
 
 	var resultsJSON []byte
-	err = tx.QueryRow(ctx, lockAnalysisResultsSQL, analysisID).Scan(&resultsJSON)
+	err = tx.QueryRow(ctx, lockAnalysisResultsSQL, analysisID, userID).Scan(&resultsJSON)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrAnalysisNotFound
@@ -398,7 +406,7 @@ func (r *PostgresAnalysisRepo) MutateResults(ctx context.Context, analysisID str
 		return fmt.Errorf("failed to marshal results: %w", err)
 	}
 
-	if _, err := tx.Exec(ctx, updateAnalysisResultsSQL, analysisID, updatedJSON, len(updated)); err != nil {
+	if _, err := tx.Exec(ctx, updateAnalysisResultsSQL, analysisID, updatedJSON, len(updated), userID); err != nil {
 		return fmt.Errorf("failed to update analysis results: %w", err)
 	}
 
