@@ -1155,6 +1155,47 @@ func TestAuthService_RefreshTokens_ReuseDetected_RevokesFamily(t *testing.T) {
 	assert.False(t, consumedCalled, "reuse path must not re-consume the token")
 }
 
+func TestAuthService_RefreshTokens_ConcurrentRotationLoss_RevokesFamily(t *testing.T) {
+	mockUserRepo := &mocks.MockUserRepo{
+		GetByIDFunc: func(_ context.Context, id string) (*models.User, error) {
+			t.Fatalf("user should not be fetched when the rotation race is lost")
+			return nil, nil
+		},
+	}
+
+	revokedUserID := ""
+	mockRefreshRepo := &mocks.MockRefreshTokenRepo{
+		GetByTokenHashFunc: func(_ context.Context, hash string) (*models.RefreshToken, error) {
+			// Read sees the token as unconsumed...
+			return &models.RefreshToken{
+				ID:        "token-1",
+				UserID:    "user-123",
+				TokenHash: hash,
+				ExpiresAt: time.Now().Add(24 * time.Hour),
+				Consumed:  false,
+			}, nil
+		},
+		MarkConsumedFunc: func(_ context.Context, id string) error {
+			// ...but a concurrent rotation consumed it first: the conditional
+			// UPDATE matches no row.
+			return repository.ErrRefreshTokenNotFound
+		},
+		DeleteByUserIDFunc: func(_ context.Context, userID string) error {
+			revokedUserID = userID
+			return nil
+		},
+	}
+
+	svc := newTestAuthService(mockUserRepo)
+	svc.WithRefreshTokens(mockRefreshRepo)
+
+	resp, err := svc.RefreshTokens(context.Background(), "raced-refresh-token")
+
+	require.ErrorIs(t, err, ErrUnauthorized)
+	assert.Nil(t, resp)
+	assert.Equal(t, "user-123", revokedUserID, "losing the consume race must revoke the whole family")
+}
+
 func TestAuthService_RefreshTokens_UnknownToken_NoRevocation(t *testing.T) {
 	revokeCalled := false
 	mockRefreshRepo := &mocks.MockRefreshTokenRepo{

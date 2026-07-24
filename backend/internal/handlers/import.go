@@ -305,6 +305,9 @@ func (h *ImportHandler) GetGamesHandler(c *echo.Context) error {
 	offset := ParseIntQueryParam(c, "offset", 0, 0, 1000000)
 	timeClass := c.QueryParam("timeClass")
 	repertoire := c.QueryParam("repertoire")
+	if repertoire != "" && !ValidateUUIDField(c, "repertoire", repertoire) {
+		return nil
+	}
 	source := c.QueryParam("source")
 	onlyNew := c.QueryParam("new") == "true"
 

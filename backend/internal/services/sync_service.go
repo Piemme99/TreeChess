@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -146,12 +147,21 @@ func (s *SyncService) syncLichess(ctx context.Context, user *models.User, now ti
 		isRetryableSyncError,
 	)
 	if err != nil {
+		// No new games since the last sync is a normal outcome, not a failure:
+		// report 0 imported so the sync timestamp still advances.
+		if errors.Is(err, ErrNoGamesFound) {
+			return 0, nil
+		}
 		return 0, fmt.Errorf("failed to fetch Lichess games: %w", err)
 	}
 
 	filename := fmt.Sprintf("sync_lichess_%s.pgn", *user.LichessUsername)
 	summary, _, err := s.importService.ParseAndAnalyze(ctx, filename, *user.LichessUsername, user.ID, pgnData)
 	if err != nil {
+		// Everything already imported is a normal outcome for a re-fetched window.
+		if errors.Is(err, ErrAllGamesDuplicate) {
+			return 0, nil
+		}
 		return 0, fmt.Errorf("failed to analyze Lichess games: %w", err)
 	}
 
@@ -194,6 +204,11 @@ func (s *SyncService) syncChesscom(ctx context.Context, user *models.User, now t
 	filename := fmt.Sprintf("sync_chesscom_%s.pgn", *user.ChesscomUsername)
 	summary, _, err := s.importService.ParseAndAnalyze(ctx, filename, *user.ChesscomUsername, user.ID, allPgnData.String())
 	if err != nil {
+		// chess.com archives cover whole months, so re-fetching already-imported
+		// games is routine — treat an all-duplicates batch as 0 new games.
+		if errors.Is(err, ErrAllGamesDuplicate) {
+			return 0, nil
+		}
 		return 0, fmt.Errorf("failed to analyze Chess.com games: %w", err)
 	}
 
