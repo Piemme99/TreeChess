@@ -573,7 +573,29 @@ func TestValidatePGN_Empty(t *testing.T) {
 
 	err := svc.ValidatePGN("")
 
-	// Empty PGN should parse but have no games
+	// A PGN with no parsable games is invalid — validate-pgn must not
+	// report garbage or empty input as valid.
+	assert.Error(t, err)
+}
+
+func TestValidatePGN_Garbage(t *testing.T) {
+	svc := NewImportService(nil, nil)
+
+	err := svc.ValidatePGN("this is not a pgn at all")
+
+	assert.Error(t, err)
+}
+
+func TestValidatePGN_Valid(t *testing.T) {
+	svc := NewImportService(nil, nil)
+
+	err := svc.ValidatePGN(`[Event "Test"]
+[White "A"]
+[Black "B"]
+[Result "1-0"]
+
+1. e4 e5 2. Nf3 Nc6 1-0`)
+
 	assert.NoError(t, err)
 }
 
