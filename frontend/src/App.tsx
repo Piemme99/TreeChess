@@ -21,7 +21,7 @@ const ExplorePage = lazy(() => import('./features/explore').then(m => ({ default
 // Conditionné à la déclaration : un lazy() hors condition ferait émettre le chunk
 // (et ses données figées) dans le build de prod, même sans route pour l'atteindre.
 const FlameGraphPage = import.meta.env.DEV
-  ? lazy(() => import('./features/openings').then(m => ({ default: m.FlameGraphPage })))
+  ? lazy(() => import('./features/openings').then(m => ({ default: m.DesignPrototypeRoute })))
   : null;
 const NotFoundPage = lazy(() => import('./features/not-found/NotFoundPage').then(m => ({ default: m.NotFoundPage })));
 
