@@ -35,8 +35,9 @@ est en cache.
 
 ## Ce qui reste ouvert
 
-1. **Par quoi remplacer une ligne qui ne vaut rien.** L'écran sait dire « change de système », pas
-   proposer lequel. C'est l'entrée des parties de maîtres et d'une base d'ouvertures.
+1. **La base de parties humaines.** Le moteur donne son avis aux points à trancher, mais il ne dit
+   pas ce que jouent les autres ni ce que ça leur rapporte. `explorer.lichess.ovh` exige un jeton
+   OAuth (la v1 le relaie via son backend) : il faut le compte Lichess du joueur pour aller plus loin.
 2. **La lisibilité pour un néophyte.** Soupçon jamais levé depuis septembre 2026 ; ne se tranche
    pas en interne.
 3. **La persistance.** Rien n'est stocké : ni la préparation, ni les évaluations au-delà d'un cache

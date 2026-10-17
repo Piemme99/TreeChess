@@ -26,10 +26,11 @@ si elles sont jouées au moins `minGames` fois : c'est ce qui rend l'onboarding 
 | Téléchargement (40 archives) | 1,6 s |
 | Agrégation | 10,4 s |
 | Évaluation | 82,5 s |
-| **Total à froid** | **94,8 s** |
-| Total à chaud (cache) | 13,7 s |
+| **Total à froid** | **88 s** |
+| Total à chaud (cache) | 14 s |
 
 → L'onboarding n'est pas le mur qu'on craignait : une minute et demie pour 5 654 parties.
+(Mesure refaite à froid en fin de POC 4 : 88 s, dont 76 s de moteur.)
 
 ## Ce que ça tranche
 
@@ -155,6 +156,23 @@ Le point à trancher qui sort est juste : dans la Scandinave principale il n'a p
 Enfin la dernière partie jouée sur la ligne est confrontée à la préparation, ce qui donne la
 phrase de l'étape 4 sur des données réelles : *« 29/05 contre NosykAndrii — tu as quitté ta ligne
 au coup 5 : tu as joué d4, ta ligne dit h3. »*
+
+### Par quoi remplacer une ligne qui ne vaut rien
+
+Première tentative : demander au moteur ses meilleurs coups à l'entrée de la ligne. Inutile — après
+`1.e4 d5`, `2.exd5` est objectivement le meilleur coup (+0,63) et les alternatives sont pires. Le
+choix de système ne se joue pas là.
+
+L'avis du moteur n'a de valeur qu'aux **points à trancher**, c'est-à-dire là où le joueur n'a
+justement pas d'habitude. Les deux blocs ont donc été fusionnés. Sur la Scandinave principale
+après `4...Cf6`, ça donne : ses coups Fd2 12× à 42 %, Cf3 9× à 33 %, Fc4 4× à 75 % ; le moteur
+propose Cf3 +0,67, Fd2 +0,67, Fe2 +0,40. Lecture immédiate : les deux coups que le moteur préfère
+ne lui réussissent pas, et son meilleur score repose sur quatre parties.
+
+**Ce qui manque ici, c'est la base de parties humaines.** `explorer.lichess.ovh` exige désormais un
+jeton OAuth — c'est d'ailleurs pour cette raison que la v1 le relaie par son backend. Sans le
+compte Lichess du joueur, le POC ne peut pas dire « à ton niveau, voilà ce que les autres jouent et
+ce que ça leur rapporte », qui est la moitié manquante de cette réponse.
 
 ## Reste ouvert
 

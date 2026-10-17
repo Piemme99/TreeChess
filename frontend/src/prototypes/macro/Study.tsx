@@ -5,6 +5,8 @@ import { StaticBoard } from '../../shared/components/Board/StaticBoard';
 import type { RawGame } from './chesscom';
 import { baseline, branches, dominantContinuation, gamesOnLine, lineSteps, type Color, type Tree } from './tree';
 import { buildPrep, verifyPrep } from './prep';
+import { BatchEngine } from './engine';
+import { Chess } from 'chess.js';
 
 export type Entry = 'leak' | 'weak' | 'dispersion';
 
@@ -37,6 +39,8 @@ export function Study({ tree, color, nodeId, entry, rawGames, onBack }: Props) {
   const [focusPly, setFocusPly] = useState(found.length);
   const [prepOpen, setPrepOpen] = useState(false);
   const [overrides, setOverrides] = useState<Record<string, string>>({});
+  const [engineAdvice, setEngineAdvice] = useState<Record<string, { san: string; cp: number }[]>>({});
+  const [searching, setSearching] = useState<string | null>(null);
 
   const entryStep = found[found.length - 1];
   const verdict =
@@ -98,6 +102,32 @@ export function Study({ tree, color, nodeId, entry, rawGames, onBack }: Props) {
           lastGame.game.score === 0 ? 'perdu' : 'fait nulle'
         } : c'est la ligne qui est en cause, pas son application.`;
   }, [lastGame]);
+
+  /** L'avis du moteur sur une position que le joueur n'a pas tranchée. */
+  const askEngine = async (path: string) => {
+    const node = tree.nodes[`${color}|${path}`];
+    if (!node) return;
+    setSearching(path);
+    const engine = new BatchEngine();
+    await engine.init();
+    const lines = await engine.evaluateLines(node.fen, 14, 3);
+    engine.terminate();
+
+    setEngineAdvice((prev) => ({
+      ...prev,
+      [path]: lines.map((l) => {
+        const chess = new Chess(node.fen);
+        let san = l.uci;
+        try {
+          san = chess.move({ from: l.uci.slice(0, 2), to: l.uci.slice(2, 4), promotion: l.uci[4] }).san;
+        } catch {
+          // coup illisible : on garde l'UCI, c'est un prototype
+        }
+        return { san, cp: l.cp };
+      }),
+    }));
+    setSearching(null);
+  };
 
   const verdictLine = useMemo(() => {
     const { counts, scores } = report;
@@ -370,14 +400,32 @@ export function Study({ tree, color, nodeId, entry, rawGames, onBack }: Props) {
                   <div className="mt-1 space-y-1">
                     {prep.frontier.slice(0, 4).map((f) => (
                       <div key={f.path} className="rounded border border-slate-800 px-2 py-1 text-[11px]">
-                        <div className="truncate font-mono text-slate-400">après {f.path || 'le départ'}</div>
-                        <div className="mt-0.5 flex gap-2 font-mono text-slate-500">
+                        <div className="flex items-baseline gap-2">
+                          <span className="truncate font-mono text-slate-400">après {f.path || 'le départ'}</span>
+                          <button
+                            onClick={() => askEngine(f.path)}
+                            disabled={searching === f.path}
+                            className="ml-auto shrink-0 text-[10px] uppercase tracking-wider text-emerald-400 hover:underline disabled:text-slate-600"
+                          >
+                            {searching === f.path ? 'calcul…' : 'avis moteur'}
+                          </button>
+                        </div>
+                        <div className="mt-0.5 flex flex-wrap gap-2 font-mono text-slate-500">
                           {f.options.map((o) => (
                             <span key={o.san}>
                               {o.san} {o.games}× {Math.round(o.rate * 100)}%
                             </span>
                           ))}
                         </div>
+                        {engineAdvice[f.path] && (
+                          <div className="mt-1 flex flex-wrap gap-2 border-t border-slate-800 pt-1 font-mono text-emerald-400/80">
+                            {engineAdvice[f.path].map((a) => (
+                              <span key={a.san}>
+                                {a.san} {(a.cp / 100).toFixed(2)}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
