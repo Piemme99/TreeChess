@@ -22,7 +22,7 @@ describe('FlameGraph', () => {
     expect(screen.getByRole('button', { name: '2.Nf3' })).toBeInTheDocument();
   });
 
-  it('describes the hovered line against the player average', () => {
+  it('describes the hovered line', () => {
     renderGraph();
 
     fireEvent.mouseEnter(screen.getByRole('button', { name: '1…c5' }));
@@ -30,7 +30,13 @@ describe('FlameGraph', () => {
     const details = screen.getByRole('heading', { name: '1.e4 c5' }).closest('section')!;
     expect(details).toHaveTextContent('Games30');
     expect(details).toHaveTextContent('Score0%');
-    expect(details).toHaveTextContent('Average50%');
+    expect(details).not.toHaveTextContent('Average');
+  });
+
+  it('shows the player average once, in the legend', () => {
+    renderGraph();
+
+    expect(screen.getByText('Average (50%)')).toBeInTheDocument();
   });
 
   it('zooms into a line when its bar is clicked', () => {

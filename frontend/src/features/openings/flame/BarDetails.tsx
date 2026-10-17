@@ -2,13 +2,13 @@ import type { ReactNode } from 'react';
 import { formatLine } from '../domain/notation';
 import { scoreRate } from '../domain/performance';
 import type { FlameBar } from './flameLayout';
+import { formatPercent } from './format';
 
 interface BarDetailsProps {
   bar: FlameBar;
-  average: number;
 }
 
-export function BarDetails({ bar, average }: BarDetailsProps) {
+export function BarDetails({ bar }: BarDetailsProps) {
   if (bar.kind === 'others') {
     return (
       <Panel title={`${formatLine(bar.parentPath) || 'Start'} · ${bar.lines} other moves`}>
@@ -20,8 +20,7 @@ export function BarDetails({ bar, average }: BarDetailsProps) {
   return (
     <Panel title={formatLine(bar.path) || 'All games'}>
       <Stat label="Games" value={bar.node.games} />
-      <Stat label="Score" value={percent(scoreRate(bar.node))} />
-      <Stat label="Average" value={percent(average)} />
+      <Stat label="Score" value={formatPercent(scoreRate(bar.node))} />
     </Panel>
   );
 }
@@ -42,8 +41,4 @@ function Stat({ label, value }: { label: string; value: string | number }) {
       <dd className="font-mono text-sm text-text">{value}</dd>
     </div>
   );
-}
-
-function percent(rate: number): string {
-  return `${Math.round(rate * 100)}%`;
 }

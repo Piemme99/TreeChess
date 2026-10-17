@@ -5,6 +5,7 @@ import { formatMove } from '../domain/notation';
 import { layoutFlame, type FlameBar } from './flameLayout';
 import { toneOf, type Tone } from './tone';
 import { BarDetails } from './BarDetails';
+import { formatPercent } from './format';
 
 const PLAYER_ROW_HEIGHT = 28;
 const OPPONENT_ROW_HEIGHT = 12;
@@ -80,8 +81,8 @@ export function FlameGraph({ tree }: FlameGraphProps) {
         ))}
       </div>
 
-      <Legend />
-      {focusBar && <BarDetails bar={hovered ?? focusBar} average={average} />}
+      <Legend average={average} />
+      {focusBar && <BarDetails bar={hovered ?? focusBar} />}
     </div>
   );
 }
@@ -124,18 +125,18 @@ function Breadcrumb({ path, onNavigate }: { path: readonly string[]; onNavigate:
   );
 }
 
-const LEGEND: { tone: Tone; label: string }[] = [
-  { tone: 'losing', label: 'Well below average' },
-  { tone: 'slipping', label: 'Below average' },
-  { tone: 'even', label: 'Average' },
-  { tone: 'winning', label: 'Above average' },
-];
+function Legend({ average }: { average: number }) {
+  const entries: { tone: Tone; label: string }[] = [
+    { tone: 'losing', label: 'Well below average' },
+    { tone: 'slipping', label: 'Below average' },
+    { tone: 'even', label: `Average (${formatPercent(average)})` },
+    { tone: 'winning', label: 'Above average' },
+  ];
 
-function Legend() {
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-text-muted">
       <span>Width = games</span>
-      {LEGEND.map(({ tone, label }) => (
+      {entries.map(({ tone, label }) => (
         <span key={tone} className="flex items-center gap-1.5">
           <span className={`inline-block h-3 w-3 rounded-[2px] ${TONE_CLASSES[tone]}`} />
           {label}
