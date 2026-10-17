@@ -11,8 +11,8 @@ describe('PriorityList', () => {
     render(<PriorityList priorities={[scandinavian, versusD4]} isSelected={() => false} onSelect={() => {}} />);
 
     const [first, second] = screen.getAllByRole('button');
-    expect(first).toHaveTextContent('1White1.e4 d5 2.exd5Weak line207');
-    expect(second).toHaveTextContent('2Black1.d4No settled reply662');
+    for (const text of ['White', '1.e4 d5 2.exd5', 'Weak line', '207']) expect(first).toHaveTextContent(text);
+    for (const text of ['Black', '1.d4', 'No settled reply', '662']) expect(second).toHaveTextContent(text);
   });
 
   it('shows each impact relative to the heaviest priority', () => {
@@ -20,6 +20,13 @@ describe('PriorityList', () => {
 
     const impacts = screen.getAllByRole('meter', { name: 'Impact' }).map((meter) => meter.getAttribute('aria-valuenow'));
     expect(impacts).toEqual(['100', '96']);
+  });
+
+  it('names the opening of each line when it has one', async () => {
+    render(<PriorityList priorities={[scandinavian, versusD4]} isSelected={() => false} onSelect={() => {}} />);
+
+    expect(await screen.findByText('Scandinavian Defense')).toBeInTheDocument();
+    expect(screen.getByText("Queen's Pawn Game")).toBeInTheDocument();
   });
 
   it('hands the clicked priority over', () => {

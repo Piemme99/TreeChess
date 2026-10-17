@@ -1,6 +1,6 @@
-import { formatLine } from '../domain/notation';
 import type { Priority, PriorityKind } from '../domain/priorities';
 import type { Side } from '../domain/playedGame';
+import { LineLabel } from './LineLabel';
 
 const KIND_LABELS: Record<PriorityKind, string> = {
   'weak-line': 'Weak line',
@@ -52,7 +52,7 @@ export function PriorityList({ priorities, isSelected, onSelect }: PriorityListP
             >
               <span className="font-mono text-text-muted">{index + 1}</span>
               <span className="text-text-muted">{SIDE_LABELS[priority.side]}</span>
-              <span className="font-mono text-text">{formatLine(priority.path) || 'Start'}</span>
+              <LineLabel path={priority.path} />
               <span className="text-text-muted">{KIND_LABELS[priority.kind]}</span>
               <span className="text-right font-mono text-text">{priority.games}</span>
               <ImpactBar share={priority.pointsToGain / heaviest} />
