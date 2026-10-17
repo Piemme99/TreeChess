@@ -90,3 +90,11 @@ GitHub Issues on `Piemme99/TreeChess`, via `gh`. Triage labels: `needs-triage`, 
 - **Run `make test` before committing.** Don't commit on red.
 - Work on a branch, never commit directly on `main`; integration happens through squashed PRs.
 - On `agent/*` branches (AFK sessions): commit before emitting the completion signal.
+
+## Autonomy & reporting
+
+- **Decide by default.** When the code, `CONTEXT.md`, an ADR or a convention points to a reasonable answer, take it, list it in one line in the final summary, and keep going.
+- **Stop only for decisions that are genuinely PMG's**: product/UX direction, contradicting an ADR, irreversible or outward-facing actions. Before stopping, finish everything that doesn't depend on the answer.
+- **Never ask an open question — bring a recommendation**: "I suggest X because Y; alternative Z costs W. OK?"
+- **End every reply with the suggested next step.**
+- **Be concise.** The final reply should fit a phone screen: outcome first, then verified / not verified, then decisions taken, then the next step. No narration of the investigation, no restating the diff.
