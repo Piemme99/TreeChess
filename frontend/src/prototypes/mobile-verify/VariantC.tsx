@@ -38,8 +38,8 @@ export function VariantC({ data, scenario }: { data: MobileData; scenario: Scena
     const body = !featured
       ? `${due.length} lines due today`
       : featured.draft
-        ? `New line in your last game. Draft ready from your moves.`
-        : `Lost after leaving your line at move ${moveNumber(featured.marked!)}. Replay it.`;
+        ? `Your last game left all your prep. Proposed prep ready, built from your moves.`
+        : `Lost after leaving your prep at move ${moveNumber(featured.marked!)}. Replay the line.`;
     return (
       <LockScreen
         notification={{ title: featured ? featuredName : 'Kumquat', body, when: featured ? 'now' : '9:00' }}
@@ -89,8 +89,8 @@ function LineRow({ line, onOpen }: { line: Line; onOpen: () => void }) {
           {SIDE_LABEL[line.side]} · {yourMoves} moves
         </span>
       </span>
-      {line.draft ? <span className="rounded-full bg-warning-light px-2 py-0.5 text-xs text-primary-dark">Draft</span> : null}
-      {line.marked !== null && !line.draft ? <span className="rounded-full bg-danger-light px-2 py-0.5 text-xs text-danger">Last game</span> : null}
+      {line.draft ? <span className="shrink-0 rounded-full bg-warning-light px-2 py-0.5 text-xs text-primary-dark">Proposed prep</span> : null}
+      {line.marked !== null && !line.draft ? <span className="shrink-0 rounded-full bg-danger-light px-2 py-0.5 text-xs text-danger">Off prep last game</span> : null}
     </button>
   );
 }
@@ -115,20 +115,15 @@ function LineReplay({ line, onClose }: { line: Line; onClose: () => void }) {
     <>
       <AppBar title={name} onBack={onClose} />
       <div className="flex flex-col gap-3 p-4">
-        <div className="flex items-center gap-1.5">
+        {line.draft ? <span className="self-start rounded-full bg-warning-light px-2 py-0.5 text-xs text-primary-dark">Proposed prep</span> : null}
+        <div className="flex flex-wrap items-center gap-1.5 font-mono text-xs">
           {playerPlies.map((p) => (
-            <span
-              key={p}
-              className={`h-3 w-3 rounded-full ${
-                slips.has(p) ? 'bg-danger' : p < ply ? 'bg-success' : p === ply ? 'bg-primary' : 'bg-border'
-              } ${p === line.marked ? 'ring-2 ring-danger/50 ring-offset-1' : ''}`}
-            />
+            <MoveChip key={p} side={line.side} ply={p} san={line.moves[p]} state={chipState(p, ply, slips)} />
           ))}
-          {line.draft ? <span className="ml-auto rounded-full bg-warning-light px-2 py-0.5 text-xs text-primary-dark">Draft</span> : null}
         </div>
 
         {ply === line.marked && !finished ? (
-          <p className="text-sm font-medium text-danger">{line.draft ? 'Your game left the book here' : 'You left your line here last game'}</p>
+          <p className="text-sm font-medium text-danger">{line.draft ? 'Your last game left your prep here' : 'Last game, you played something else here'}</p>
         ) : null}
 
         {finished ? (
@@ -150,8 +145,11 @@ function LineReplay({ line, onClose }: { line: Line; onClose: () => void }) {
 
         {finished ? (
           <div className="flex flex-col gap-3">
-            <p className="text-center font-display text-2xl text-text">
-              {playerPlies.length - slips.size}/{playerPlies.length}
+            <p className="text-center">
+              <span className="font-display text-2xl text-text">
+                {playerPlies.length - slips.size}/{playerPlies.length}
+              </span>{' '}
+              <span className="text-sm text-text-muted">first try</span>
             </p>
             <p className="text-center text-sm text-text-muted">{slips.size === 0 ? 'Next · in 3 days' : 'Again · tomorrow'}</p>
             {line.draft && kept === null ? (
@@ -160,14 +158,17 @@ function LineReplay({ line, onClose }: { line: Line; onClose: () => void }) {
                   Discard
                 </button>
                 <button onClick={() => setKept(true)} className="flex-[2] rounded-xl bg-primary py-3 font-medium text-white">
-                  Keep line
+                  Add to my prep
                 </button>
               </div>
-            ) : null}
-            {kept !== null ? <p className="text-center text-sm text-success">{kept ? '✓ Added to your preparation' : 'Discarded'}</p> : null}
-            <button onClick={onClose} className="rounded-xl border border-border py-3 text-text">
-              Done
-            </button>
+            ) : (
+              <>
+                {kept !== null ? <p className="text-center text-sm text-success">{kept ? '✓ Added to your prep' : 'Discarded'}</p> : null}
+                <button onClick={onClose} className="rounded-xl bg-primary py-3 font-medium text-white">
+                  Done
+                </button>
+              </>
+            )}
           </div>
         ) : null}
       </div>
@@ -176,7 +177,29 @@ function LineReplay({ line, onClose }: { line: Line; onClose: () => void }) {
 }
 
 function OpponentBoard({ line, ply }: { line: Line; ply: number }) {
-  return <StillBoard line={line} plies={ply} label="…" />;
+  return <StillBoard line={line} plies={ply} label="Opponent to move" />;
+}
+
+type ChipState = 'done' | 'slip' | 'current' | 'todo';
+
+function chipState(p: number, ply: number, slips: Set<number>): ChipState {
+  if (slips.has(p)) return 'slip';
+  if (p < ply) return 'done';
+  return p === ply ? 'current' : 'todo';
+}
+
+const CHIP_TONES: Record<ChipState, string> = {
+  done: 'bg-success-light text-success',
+  slip: 'bg-danger-light text-danger',
+  current: 'bg-bg-card text-primary ring-2 ring-primary',
+  todo: 'bg-border/50 text-text-light',
+};
+
+// Le coup n'est révélé qu'une fois joué : avant, la pastille ne montre que son numéro.
+function MoveChip({ side, ply, san, state }: { side: Side; ply: number; san: string; state: ChipState }) {
+  const number = side === 'w' ? `${moveNumber(ply)}.` : `${moveNumber(ply)}…`;
+  const shown = state === 'done' || state === 'slip' ? `${number}${san}` : state === 'current' ? `${number}?` : number;
+  return <span className={`rounded-md px-1.5 py-0.5 ${CHIP_TONES[state]}`}>{shown}</span>;
 }
 
 function FinalBoard({ line }: { line: Line }) {

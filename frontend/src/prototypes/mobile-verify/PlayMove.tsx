@@ -55,12 +55,12 @@ export function PlayMove({ side, path, expected, onSolved }: PlayMoveProps) {
         />
       ) : null}
       <div className="flex min-h-9 items-center justify-between text-sm">
-        {attempt === 'idle' ? <span className="text-text-muted">Your move</span> : null}
-        {attempt === 'wrong' ? <span className="font-medium text-danger">Not your preparation</span> : null}
-        {attempt === 'solved' ? <span className="font-medium text-success">✓ {expected}</span> : null}
+        {attempt === 'idle' ? <span className="text-text-muted">Play your prep move</span> : null}
+        {attempt === 'wrong' ? <span className="font-medium text-danger">Not your prep · try again</span> : null}
+        {attempt === 'solved' ? <span className="font-medium text-success">✓ {expected} · your prep</span> : null}
         {attempt === 'wrong' && !revealed ? (
           <button onClick={() => setRevealed(true)} className="rounded-full border border-border px-3 py-1 text-text-muted">
-            Show
+            Show prep
           </button>
         ) : null}
       </div>

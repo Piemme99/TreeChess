@@ -22,6 +22,7 @@ export function VariantA({ data, scenario }: { data: MobileData; scenario: Scena
   const [screen, setScreen] = useState<Screen>('lock');
   const featured = scenario === 'left' ? data.left : data.none;
   const openingName = useLineName(featured.game.moves.slice(0, featured.check.ply));
+  const lastGames = scenario === 'quiet' ? data.recent : [featured, ...data.recent.slice(0, 5)];
 
   if (screen === 'lock') {
     const notification =
@@ -30,12 +31,12 @@ export function VariantA({ data, scenario }: { data: MobileData; scenario: Scena
         : featured.check.kind === 'left-preparation'
           ? {
               title: `${openingName} · ${RESULT_LABEL[featured.game.score]}`,
-              body: `Move ${moveNumber(featured.check.ply)}: you played ${featured.check.played.san}, your preparation says ${featured.check.expected.san}.`,
+              body: `Move ${moveNumber(featured.check.ply)}: you played ${featured.check.played.san}, your prep says ${featured.check.expected.san}.`,
               when: 'now',
             }
           : {
               title: `${openingName} · ${RESULT_LABEL[featured.game.score]}`,
-              body: `No preparation after ${formatMove(featured.game.moves[featured.check.ply - 1], featured.check.ply)}. A line from your games is ready.`,
+              body: `No prep after ${formatMove(featured.game.moves[featured.check.ply - 1], featured.check.ply)}. Proposed prep ready, built from your games.`,
               when: 'now',
             };
     return <LockScreen notification={notification} onOpen={() => setScreen(scenario === 'quiet' ? 'home' : 'game')} />;
@@ -69,7 +70,7 @@ export function VariantA({ data, scenario }: { data: MobileData; scenario: Scena
         )}
         <section className="flex flex-col gap-2">
           <h2 className="text-xs uppercase tracking-wide text-text-muted">Last games</h2>
-          {data.recent.map(({ game, check }, index) => (
+          {lastGames.map(({ game, check }, index) => (
             <RecentGame key={index} game={game} check={check} />
           ))}
         </section>
@@ -88,16 +89,23 @@ function RecentGame({ game, check }: { game: PlayedGame; check: GameCheck }) {
           {SIDE_LABEL[game.side]} · {RESULT_LABEL[game.score]}
         </span>
       </span>
-      <CheckBadge check={check} />
+      <CheckBadge game={game} check={check} />
     </div>
   );
 }
 
-function CheckBadge({ check }: { check: GameCheck }) {
-  if (check.kind === 'followed') return <span className="text-xs text-success">In prep</span>;
-  if (check.kind === 'left-preparation')
-    return <span className="shrink-0 rounded-full bg-danger-light px-2 py-0.5 text-xs text-danger">Left · move {moveNumber(check.ply)}</span>;
-  return <span className="shrink-0 rounded-full bg-warning-light px-2 py-0.5 text-xs text-primary-dark">No prep · move {moveNumber(check.ply)}</span>;
+// Une partie gagnée hors préparation mérite moins l'attention : le badge s'efface.
+function CheckBadge({ game, check }: { game: PlayedGame; check: GameCheck }) {
+  if (check.kind === 'followed') return <span className="shrink-0 text-xs text-success">In prep</span>;
+  const move = formatMove(game.moves[check.ply], check.ply + 1);
+  const label = check.kind === 'left-preparation' ? `Off prep · ${move}` : `No prep · ${move}`;
+  const tone =
+    game.score === 1
+      ? 'bg-border/60 text-text-muted'
+      : check.kind === 'left-preparation'
+        ? 'bg-danger-light text-danger'
+        : 'bg-warning-light text-primary-dark';
+  return <span className={`shrink-0 rounded-full px-2 py-0.5 font-mono text-xs ${tone}`}>{label}</span>;
 }
 
 interface GameDebriefProps {
@@ -130,7 +138,7 @@ function GameDebrief({ data, game, check, onDone }: GameDebriefProps) {
 
         {check.kind === 'left-preparation' ? (
           <div className="grid grid-cols-2 gap-2">
-            <MoveTile label="Played" stat={check.played} tone="danger" />
+            <MoveTile label="You played" stat={check.played} tone="danger" />
             <MoveTile label="Your prep" stat={check.expected} tone="success" />
           </div>
         ) : (
@@ -195,7 +203,7 @@ function MoveTile({ label, stat, tone }: { label: string; stat: MoveStat; tone: 
       <span className="text-xs uppercase tracking-wide text-text-muted">{label}</span>
       <span className="font-mono text-xl text-text">{stat.san}</span>
       <span className="text-xs text-text-muted">
-        {scoreRate(stat)}% · {stat.games} games
+        {scoreRate(stat)}% score · {stat.games} games
       </span>
     </div>
   );
@@ -213,9 +221,9 @@ function ProposalCard({
   const line = formatFrom([...proposal.start, ...proposal.moves], proposal.start.length);
   return (
     <div className="flex flex-col gap-2 rounded-2xl border border-primary/30 bg-primary-light p-4">
-      <span className="text-xs uppercase tracking-wide text-primary-dark">No preparation · proposed</span>
+      <span className="text-xs uppercase tracking-wide text-primary-dark">No prep here · proposed prep</span>
       <span className="font-mono text-sm text-text">{line}</span>
-      <span className="text-xs text-text-muted">From your moves · {proposal.coverage} games</span>
+      <span className="text-xs text-text-muted">Your usual moves · covers {proposal.coverage} of your games</span>
       {kept ? (
         <span className="text-sm font-medium text-success">✓ Kept</span>
       ) : (

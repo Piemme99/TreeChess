@@ -30,7 +30,7 @@ export function VariantB({ data, scenario }: { data: MobileData; scenario: Scena
         ? `Daily session · ${deck.length} positions`
         : scenario === 'left'
           ? `${fromGame} position from your last game + ${deck.length - fromGame} to review`
-          : 'Your last game reached a line you have no preparation for';
+          : 'Your last game left all your prep. Proposed prep ready.';
     return <LockScreen notification={{ title: 'Kumquat', body, when: scenario === 'quiet' ? '9:00' : 'now' }} onOpen={() => setIndex(0)} />;
   }
 
@@ -129,15 +129,22 @@ function DrillCard({
   return (
     <div className="flex flex-1 flex-col gap-3">
       <span className="self-start rounded-full bg-primary-light px-2.5 py-0.5 text-xs text-primary-dark">{card.tag}</span>
-      <span className="font-display text-lg text-text">
-        {name} · {SIDE_LABEL[card.side]}
+      <span className="flex flex-col">
+        <span className="font-display text-xl text-text">Your prep move?</span>
+        <span className="text-sm text-text-muted">
+          {name} · {SIDE_LABEL[card.side]}
+        </span>
       </span>
       <PlayMove side={card.side} path={card.path} expected={card.expected} onSolved={onSolved} />
       {solved && card.reveal ? (
-        <p className="rounded-xl bg-danger-light/60 p-3 text-sm text-text">
-          In your game: <span className="font-mono text-danger">{card.reveal.played.san}</span> · {scoreRate(card.reveal.played)}% vs{' '}
-          {scoreRate(card.reveal.expected)}%
-        </p>
+        <div className="grid grid-cols-[1fr_auto_auto] gap-x-3 gap-y-1 rounded-xl bg-bg-card p-3 text-sm ring-1 ring-border">
+          <span className="text-text-muted">In your game</span>
+          <span className="font-mono text-danger">{card.reveal.played.san}</span>
+          <span className="text-right text-text-muted">{scoreRate(card.reveal.played)}% score</span>
+          <span className="text-text-muted">Your prep</span>
+          <span className="font-mono text-success">{card.reveal.expected.san}</span>
+          <span className="text-right text-text-muted">{scoreRate(card.reveal.expected)}% score</span>
+        </div>
       ) : null}
       {solved ? (
         <button onClick={onNext} className="mt-auto rounded-2xl bg-primary py-3.5 font-medium text-white">
@@ -177,16 +184,16 @@ function ProposalCard({
   return (
     <div className="flex flex-1 flex-col gap-3">
       <span className="self-start rounded-full bg-warning-light px-2.5 py-0.5 text-xs text-primary-dark">
-        No preparation · move {moveNumber(card.path.length)}
+        No prep · move {moveNumber(card.path.length)}
       </span>
       <span className="font-display text-lg text-text">{name}</span>
       <div ref={ref} style={{ height: width }}>
         <StaticBoard fen={fens[fens.length - 1]} orientation={card.side === 'w' ? 'white' : 'black'} />
       </div>
       <div className="flex flex-col gap-1 rounded-xl border border-border bg-bg-card p-3">
-        <span className="text-xs uppercase tracking-wide text-text-muted">Proposed · from your moves</span>
+        <span className="text-xs uppercase tracking-wide text-text-muted">Proposed prep · your usual moves</span>
         <span className="font-mono text-sm text-text">{formatFrom(line, card.path.length)}</span>
-        <span className="text-xs text-text-muted">{proposal.coverage} games</span>
+        <span className="text-xs text-text-muted">Covers {proposal.coverage} of your games</span>
       </div>
       <div className="mt-auto flex gap-2">
         <button onClick={onSkip} className="flex-1 rounded-2xl border border-border py-3.5 text-text-muted">
