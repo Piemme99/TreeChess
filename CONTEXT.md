@@ -72,7 +72,7 @@ graph: it shows where points leak, not what the engine thinks.
 ### Priority
 
 A line the player should work on first, drawn from both sides at once and
-ranked by **points at stake**. Two signals feed it, both computed from results
+ranked by **points to gain**. Two signals feed it, both computed from results
 only (no engine):
 
 - **Weak line** — a line ending on one of the player's moves where they score
@@ -86,7 +86,7 @@ only (no engine):
 Only signals that survive sampling noise are shown: a priority list has no room
 for "maybe".
 
-### Points at stake
+### Points to gain
 
 What a priority is worth, in game points (a win is 1, a draw ½): roughly how
 many points the player would have scored on top had the line performed at their

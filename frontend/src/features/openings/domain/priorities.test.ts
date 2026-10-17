@@ -86,11 +86,11 @@ describe('findPriorities', () => {
     expect(new Set(sides)).toEqual(new Set(['w', 'b']));
   });
 
-  it('ranks by points at stake, up to the limit', () => {
+  it('ranks by points to gain, up to the limit', () => {
     const priorities = findPriorities([white, black], 3);
 
     expect(priorities).toHaveLength(3);
-    const points = priorities.map((p) => p.pointsAtStake);
+    const points = priorities.map((p) => p.pointsToGain);
     expect(points).toEqual([...points].sort((x, y) => y - x));
   });
 

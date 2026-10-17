@@ -9,7 +9,7 @@ export interface Priority {
   side: Side;
   path: readonly string[];
   games: number;
-  pointsAtStake: number;
+  pointsToGain: number;
 }
 
 const MIN_GAMES = 40;
@@ -17,7 +17,7 @@ const MIN_GAMES = 40;
 export function findPriorities(trees: readonly OpeningTree[], limit: number): Priority[] {
   return trees
     .flatMap((tree) => [...weakLines(tree), ...unsettledPositions(tree)])
-    .sort((a, b) => b.pointsAtStake - a.pointsAtStake)
+    .sort((a, b) => b.pointsToGain - a.pointsToGain)
     .slice(0, limit);
 }
 
@@ -38,11 +38,11 @@ export function weakLines(tree: OpeningTree): Priority[] {
       side: tree.side,
       path,
       games: node.games,
-      pointsAtStake: deficit(node, average) * node.games,
+      pointsToGain: deficit(node, average) * node.games,
     });
   });
 
-  return keepHeaviestPerBranch(candidates.sort((a, b) => b.pointsAtStake - a.pointsAtStake));
+  return keepHeaviestPerBranch(candidates.sort((a, b) => b.pointsToGain - a.pointsToGain));
 }
 
 function isSignificantlyBelow(node: OpeningNode, average: number): boolean {
@@ -107,7 +107,7 @@ export function unsettledPositions(tree: OpeningTree): Priority[] {
       side: tree.side,
       path,
       games: node.games,
-      pointsAtStake: (gap - noise) * otherGames,
+      pointsToGain: (gap - noise) * otherGames,
     });
   });
 
