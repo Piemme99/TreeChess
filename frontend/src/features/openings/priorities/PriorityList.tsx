@@ -23,7 +23,14 @@ interface PriorityListProps {
 }
 
 export function PriorityList({ priorities, isSelected, onSelect, onPoint }: PriorityListProps) {
-  if (priorities.length === 0) return null;
+  if (priorities.length === 0) {
+    return (
+      <section aria-labelledby="priorities-title" className="flex flex-col gap-2">
+        <h2 id="priorities-title" className="font-display text-lg text-text">Priorities</h2>
+        <p className="text-sm text-text-muted">None over this period</p>
+      </section>
+    );
+  }
   const heaviest = Math.max(...priorities.map((priority) => priority.pointsToGain));
 
   return (

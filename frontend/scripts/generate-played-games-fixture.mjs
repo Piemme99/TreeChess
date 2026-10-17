@@ -40,7 +40,8 @@ function toPlayedGame(apiGame) {
   const moves = chess.history().slice(0, MAX_PLIES);
   if (moves.length === 0) return null;
 
-  return { side: isWhite ? 'w' : 'b', moves, score };
+  const playedAt = new Date(apiGame.end_time * 1000).toISOString().slice(0, 10);
+  return { side: isWhite ? 'w' : 'b', moves, score, playedAt };
 }
 
 const { archives } = await getJson(`https://api.chess.com/pub/player/${USERNAME}/games/archives`);

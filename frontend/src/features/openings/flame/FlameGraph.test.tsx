@@ -6,9 +6,9 @@ import type { PlayedGame } from '../domain/playedGame';
 import { FlameGraph } from './FlameGraph';
 
 const games: PlayedGame[] = [
-  ...Array.from({ length: 30 }, (): PlayedGame => ({ side: 'w', moves: ['e4', 'e5', 'Nf3'], score: 1 })),
-  ...Array.from({ length: 30 }, (): PlayedGame => ({ side: 'w', moves: ['e4', 'c5'], score: 0 })),
-  ...Array.from({ length: 40 }, (): PlayedGame => ({ side: 'w', moves: ['d4', 'd5'], score: 0.5 })),
+  ...Array.from({ length: 30 }, (): PlayedGame => ({ side: 'w', moves: ['e4', 'e5', 'Nf3'], score: 1, playedAt: '2026-01-01' })),
+  ...Array.from({ length: 30 }, (): PlayedGame => ({ side: 'w', moves: ['e4', 'c5'], score: 0, playedAt: '2026-01-01' })),
+  ...Array.from({ length: 40 }, (): PlayedGame => ({ side: 'w', moves: ['d4', 'd5'], score: 0.5, playedAt: '2026-01-01' })),
 ];
 
 const tree = buildOpeningTree(games, 'w', 16);

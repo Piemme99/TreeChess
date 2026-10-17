@@ -5,7 +5,7 @@ import { betterReplies, findPriorities, weakLines } from './priorities';
 import { playedGamesFixture } from '../fixtures/playedGames';
 
 const games = (count: number, side: Side, moves: string, score: GameScore): PlayedGame[] =>
-  Array.from({ length: count }, () => ({ side, moves: moves.split(' '), score }));
+  Array.from({ length: count }, () => ({ side, moves: moves.split(' '), score, playedAt: '2026-01-01' }));
 
 const tree = (played: PlayedGame[], side: Side = 'w') => buildOpeningTree(played, side, 16);
 

@@ -7,6 +7,7 @@ const game = (side: PlayedGame['side'], moves: string, score: PlayedGame['score'
   side,
   moves: moves.split(' '),
   score,
+  playedAt: '2026-01-01',
 });
 
 describe('buildOpeningTree', () => {
