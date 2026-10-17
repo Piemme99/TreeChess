@@ -4,6 +4,7 @@ import { gamesOfLastMonths } from './domain/period';
 import type { PlayedGame, Side } from './domain/playedGame';
 import { findPriorities, type Priority } from './domain/priorities';
 import { FlameGraph } from './flame/FlameGraph';
+import { LineView } from './line/LineView';
 import { playedGamesFixture } from './fixtures/playedGames';
 import { PositionPanel } from './position/PositionPanel';
 import { PriorityList } from './priorities/PriorityList';
@@ -27,6 +28,7 @@ export function FlameGraphPage() {
   const [side, setSide] = useState<Side>('w');
   const [focusPath, setFocusPath] = useState<readonly string[]>([]);
   const [pointed, setPointed] = useState<Line | null>(null);
+  const [opened, setOpened] = useState<Line | null>(null);
 
   const trees = useMemo(() => treesOf(playedGamesFixture), []);
   const recentTrees = useMemo(
@@ -44,13 +46,30 @@ export function FlameGraphPage() {
     setFocusPath([]);
   };
 
-  const showPriority = (priority: Priority) => {
+  // Au retour de la vue de ligne, le flame graph reste zoomé sur la ligne étudiée.
+  const openPriority = (priority: Priority) => {
     setSide(priority.side);
     setFocusPath(priority.path);
+    setPointed(null);
+    setOpened(priority);
   };
 
   const isShown = (priority: Priority) =>
     priority.side === side && priority.path.join(' ') === focusPath.join(' ');
+
+  if (opened) {
+    return (
+      <main className="mx-auto max-w-7xl px-6 py-8">
+        <LineView
+          key={`${opened.side}:${opened.path.join(' ')}`}
+          tree={recentTrees[opened.side]}
+          path={opened.path}
+          onBack={() => setOpened(null)}
+          onOpen={(path) => setOpened({ side: opened.side, path })}
+        />
+      </main>
+    );
+  }
 
   return (
     <main className="mx-auto grid max-w-7xl grid-cols-[1fr_20rem] items-start gap-8 px-6 py-8">
@@ -60,7 +79,7 @@ export function FlameGraphPage() {
         <PriorityList
           priorities={priorities}
           isSelected={isShown}
-          onSelect={showPriority}
+          onSelect={openPriority}
           onPoint={(priority) => setPointed(priority)}
         />
 
