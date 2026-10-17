@@ -27,7 +27,7 @@ export function PriorityList({ priorities, isSelected, onSelect, onPoint }: Prio
     return (
       <section aria-labelledby="priorities-title" className="flex flex-col gap-2">
         <h2 id="priorities-title" className="font-display text-lg text-text">Priorities</h2>
-        <p className="text-sm text-text-muted">None over this period</p>
+        <p className="text-sm text-text-muted">None</p>
       </section>
     );
   }

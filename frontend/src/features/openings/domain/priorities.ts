@@ -1,4 +1,4 @@
-import { forEachLine, isPlayerMove, type OpeningNode, type OpeningTree } from './openingTree';
+import { forEachLine, isPlayerMove, nodeAt, type OpeningNode, type OpeningTree } from './openingTree';
 import { deficit, playerAverage, scoreRate } from './performance';
 import type { Side } from './playedGame';
 
@@ -26,15 +26,48 @@ export interface Priority {
 
 const MIN_GAMES = 20;
 
-export function findPriorities(trees: readonly OpeningTree[], limit: number): Priority[] {
-  const findings = trees.flatMap((tree) => [...weakLines(tree), ...betterReplies(tree)]);
-  return mergeByLine(findings)
-    .sort((a, b) => b.pointsToGain - a.pointsToGain)
-    .slice(0, limit);
+/**
+ * Two kinds of problems, each visible on one time scale only: an old one still
+ * there but rarely played needs the whole history to be proven; a recent one is
+ * drowned in the good old games and only shows on the recent ones. A line proven
+ * on the whole history is kept only while still current: played recently, and not
+ * scoring back at the recent average there.
+ *
+ * Whatever proved it, a priority weighs what it costs now: the points lost on it
+ * over the recent games.
+ */
+export function findPriorities(
+  history: Record<Side, OpeningTree>,
+  recent: Record<Side, OpeningTree>,
+  limit: number,
+): Priority[] {
+  const findings = [
+    ...findingsOf(history).filter((finding) => isStillCurrent(finding, recent[finding.side])),
+    ...findingsOf(recent),
+  ];
+  const weighed = mergeByLine(findings)
+    .map((priority) => ({ ...priority, ...recentCost(priority, recent[priority.side]) }))
+    .sort((a, b) => b.pointsToGain - a.pointsToGain);
+  return keepHeaviestPerBranch(weighed).slice(0, limit);
 }
 
-// Deux signaux sur une même ligne mesurent la même perte sous deux angles : on
-// garde la plus forte estimation, pas leur somme.
+function findingsOf(trees: Record<Side, OpeningTree>): Finding[] {
+  return [trees.w, trees.b].flatMap((tree) => [...weakLines(tree), ...betterReplies(tree)]);
+}
+
+// Peu de parties récentes suffisent à écarter une priorité, jamais à en créer une :
+// au pire on perd une vraie priorité, on n'en invente pas de fausse.
+function isStillCurrent(finding: Finding, recent: OpeningTree): boolean {
+  const line = nodeAt(recent, finding.path);
+  return line !== undefined && scoreRate(line) < playerAverage(recent);
+}
+
+function recentCost(priority: Priority, recent: OpeningTree): Pick<Priority, 'games' | 'pointsToGain'> {
+  const line = nodeAt(recent, priority.path);
+  if (!line) return { games: 0, pointsToGain: 0 };
+  return { games: line.games, pointsToGain: deficit(line, playerAverage(recent)) * line.games };
+}
+
 function mergeByLine(findings: Finding[]): Priority[] {
   const byLine = new Map<string, Priority>();
   for (const finding of findings) {
@@ -51,8 +84,7 @@ function mergeByLine(findings: Finding[]): Priority[] {
       });
       continue;
     }
-    known.pointsToGain = Math.max(known.pointsToGain, finding.pointsToGain);
-    known.signals.push(finding.signal);
+    if (!known.signals.includes(finding.signal)) known.signals.push(finding.signal);
     known.betterReply ??= finding.betterReply;
   }
   return [...byLine.values()];
@@ -60,8 +92,7 @@ function mergeByLine(findings: Finding[]): Priority[] {
 
 /**
  * Lines ending on one of the player's moves where they score significantly
- * below their average. A line and its sub-lines tell the same story: only the
- * heaviest one is kept.
+ * below their average, the heaviest one per branch.
  */
 export function weakLines(tree: OpeningTree): Finding[] {
   const average = playerAverage(tree);
@@ -88,10 +119,12 @@ function isSignificantlyBelow(node: OpeningNode, average: number): boolean {
   return average - scoreRate(node) > standardError;
 }
 
-function keepHeaviestPerBranch(sorted: Finding[]): Finding[] {
-  const kept: Finding[] = [];
-  for (const candidate of sorted) {
-    if (!kept.some((line) => sameBranch(line.path, candidate.path))) kept.push(candidate);
+// Une ligne et sa sous-ligne racontent la même histoire : on garde la plus lourde.
+function keepHeaviestPerBranch<T extends { side: Side; path: readonly string[] }>(heaviestFirst: T[]): T[] {
+  const kept: T[] = [];
+  for (const candidate of heaviestFirst) {
+    const told = kept.some((line) => line.side === candidate.side && sameBranch(line.path, candidate.path));
+    if (!told) kept.push(candidate);
   }
   return kept;
 }
