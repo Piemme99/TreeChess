@@ -4,7 +4,7 @@
 import { useCallback, useRef, useState } from 'react';
 import { StaticBoard } from '../../shared/components/Board/StaticBoard';
 import { fetchArchives, fetchMonth, type RawGame } from './chesscom';
-import { buildTree, findFindings, selectForEval, evalForUser, baseline, type Color, type Finding, type Tree, type TreeNode } from './tree';
+import { buildTree, findFindings, findDispersions, selectForEval, evalForUser, baseline, type Color, type Finding, type Tree, type TreeNode } from './tree';
 import { BatchEngine } from './engine';
 import { Flame } from './Flame';
 
@@ -130,6 +130,7 @@ export function MacroPrototypePage() {
   const leaks = live.filter((f) => f.kind === 'leak').slice(0, 10);
   const weak = live.filter((f) => f.kind === 'weak').slice(0, 6);
   const assumed = findings.filter((f) => dismissed.includes(f.node.id));
+  const dispersions = tree && phase === 'done' ? findDispersions(tree, color, minWeakGames).slice(0, 8) : [];
 
   const dismiss = (id: string) => {
     setDismissed((prev) => {
@@ -257,6 +258,45 @@ export function MacroPrototypePage() {
                 onDismiss={dismiss}
                 empty={phase === 'done' ? 'Rien à signaler.' : ''}
               />
+              <div>
+                <div className="flex items-baseline gap-3">
+                  <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-400">Pas de réponse arrêtée</h2>
+                  {dispersions.length > 0 && (
+                    <span className="font-mono text-xs text-sky-400">{dispersions.length} positions</span>
+                  )}
+                </div>
+                <p className="mt-0.5 text-xs text-slate-600">
+                  tu alternes entre plusieurs coups qui ne se valent pas — l'écart de ton meilleur, par 100 parties
+                </p>
+                <div className="mt-3 space-y-1.5">
+                  {dispersions.map((d) => (
+                    <button
+                      key={d.node.id}
+                      onClick={() => setSelected(d.node)}
+                      className="flex w-full items-baseline gap-3 rounded border border-slate-800 px-3 py-2 text-left hover:border-slate-600"
+                    >
+                      <span className="font-mono text-sm text-slate-100">{d.node.id.split('|')[1] || 'position de départ'}</span>
+                      <span className="ml-auto font-mono text-xs text-slate-500">{d.games} parties</span>
+                      {!d.confident && (
+                        <span className="rounded bg-slate-800 px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-slate-500">
+                          à confirmer
+                        </span>
+                      )}
+                      <span className="w-72 text-right font-mono text-xs">
+                        {d.replies.map((r) => (
+                          <span key={r.san} className={r.san === d.best.san ? 'text-emerald-400' : 'text-slate-500'}>
+                            {r.san} {r.games}× {Math.round(r.rate * 100)}%{' '}
+                          </span>
+                        ))}
+                      </span>
+                      <span className="w-28 text-right font-mono text-sm text-sky-400">
+                        +{Math.round(d.gap * 100)} pts / 100
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {assumed.length > 0 && (
                 <FindingList
                   title="Écarts assumés"

@@ -51,11 +51,22 @@ préférence de moteur. À ce niveau, 10 à 30 cp ne veulent rien dire.
   signalé (« à confirmer ») pour les fuites, où le moteur corrobore déjà ;
 - déduplication : une ligne et sa sous-ligne racontent la même histoire, on garde la plus lourde.
 
-Les deux signaux :
+Les trois signaux :
 
 - **Fuite d'ouverture** — le moteur pointe un coup fautif précis. Directement préparable.
 - **Zone faible** — résultats sous la moyenne sans coup fautif isolé. C'est la ligne entière qui
   rapporte peu.
+- **Pas de réponse arrêtée** — le joueur alterne entre plusieurs coups qui ne se valent pas.
+  Mesuré sans le moteur et sans la moyenne globale : on compare ses propres réponses entre elles.
+  Deux systèmes qui marchent aussi bien sont un choix, pas un trou — seul l'écart compte, exprimé
+  en points par 100 parties et étiqueté « à confirmer » tant qu'il ne survit pas à l'incertitude
+  d'échantillonnage.
+
+Trois pièges rencontrés en chemin sur ce troisième signal, tous visibles dans le code :
+un coup joué 3 fois à 100 % devenait la référence (d'où le seuil à 10 parties et 5 % du nœud) ;
+compter les coups distincts confondait choix et improvisation (d'où la comparaison des résultats) ;
+et extrapoler le score de 158 parties à 1 363 autres annonçait un gain de 116 points (d'où le
+passage à un écart par 100 parties, borné par son incertitude).
 
 ## Résultats sur le vrai compte
 
@@ -63,6 +74,11 @@ Les deux signaux :
 |---|---|---|
 | Fuites d'ouverture | −4,9 pts | −0,2 pts |
 | Zones faibles | −40,3 pts | −39,4 pts |
+
+Pas de réponse arrêtée : côté blancs, `1.e4 e5` est joué moitié 2.Fc4 (535 parties, 58 %) moitié
+2.Cf3 (501, 53 %) — +5 pts / 100 pour le premier. Côté noirs, contre `1.e4` le joueur répond
+1...c6 dans 1 363 parties à 53 % alors que ses 158 Scandinaves marquent 61 % (+7 pts / 100), et
+contre `1.d4` ses quatre réponses s'étalent de 51 % à 32 %.
 
 Têtes de liste côté blancs : le **Gambit Morra** (112 parties, 51 %, −63 cp) — l'écart assumé, d'où
 le bouton « assumé » qui le range à part ; puis la **Scandinave** `1.e4 d5 2.exd5` (207 parties,

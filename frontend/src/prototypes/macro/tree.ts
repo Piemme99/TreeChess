@@ -214,3 +214,76 @@ function keepShallowest(findings: Finding[]): Finding[] {
   }
   return kept;
 }
+
+export interface Reply {
+  san: string;
+  games: number;
+  rate: number;
+  /** Taux lissé vers la moyenne locale : une réponse jouée 10 fois ne fait pas la loi. */
+  adjusted: number;
+}
+
+export interface Dispersion {
+  node: TreeNode;
+  games: number;
+  replies: Reply[];
+  best: Reply;
+  /** Écart de la meilleure réponse au reste, en points par partie. */
+  gap: number;
+  /** Parties jouées avec autre chose que la meilleure réponse. */
+  otherGames: number;
+  /** L'écart survit-il à l'incertitude d'échantillonnage ? */
+  confident: boolean;
+}
+
+const REPLY_SHRINK = 20;
+const MIN_REPLY_GAMES = 10;
+const MIN_REPLY_SHARE = 0.05;
+const MIN_GAP = 0.04;
+
+/**
+ * Une position sans réponse arrêtée ne pose problème que si les réponses ne se
+ * valent pas : jouer deux systèmes qui marchent aussi bien est un choix, pas un trou.
+ */
+export function findDispersions(tree: Tree, color: Color, minGames: number): Dispersion[] {
+  const out: Dispersion[] = [];
+
+  for (const node of Object.values(tree.nodes)) {
+    if (node.color !== color || !node.userToMove || node.games < minGames) continue;
+    if (node.children.length < 2) continue;
+
+    const localRate = node.score / node.games;
+    const replies: Reply[] = node.children
+      .map((id) => tree.nodes[id])
+      .map((child) => ({
+        san: child.san ?? '?',
+        games: child.games,
+        rate: child.score / child.games,
+        adjusted: (child.score + localRate * REPLY_SHRINK) / (child.games + REPLY_SHRINK),
+      }))
+      .sort((a, b) => b.games - a.games);
+
+    // Un coup joué trois fois n'est pas un système : ni référence, ni dispersion.
+    const candidates = replies.filter(
+      (r) => r.games >= MIN_REPLY_GAMES && r.games >= node.games * MIN_REPLY_SHARE,
+    );
+    if (candidates.length < 2) continue;
+
+    const best = candidates.reduce((a, b) => (b.adjusted > a.adjusted ? b : a));
+    const others = candidates.filter((r) => r.san !== best.san);
+    const otherGames = others.reduce((sum, r) => sum + r.games, 0);
+    const otherRate = others.reduce((sum, r) => sum + r.adjusted * r.games, 0) / otherGames;
+
+    const gap = best.adjusted - otherRate;
+    if (gap < MIN_GAP) continue;
+
+    const spread = Math.sqrt(0.25 * (1 / best.games + 1 / otherGames));
+
+    out.push({
+      node, games: node.games, replies: candidates.slice(0, 4), best, gap, otherGames,
+      confident: gap > spread,
+    });
+  }
+
+  return out.sort((a, b) => Number(b.confident) - Number(a.confident) || b.gap * b.otherGames - a.gap * a.otherGames);
+}
