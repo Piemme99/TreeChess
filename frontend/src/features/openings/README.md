@@ -48,8 +48,6 @@ Vocabulary (opening tree, deficit, priority, points to gain): `CONTEXT.md`.
 - **Import** producing `PlayedGame` (Lichess OAuth is the decided auth; validate SAN
   there), then persistence.
 - **Engine signal** ("opening leak": a move the engine finds bad), left out so far.
-- **Branches**: this work lives on `v2/priorities`, stacked on `v2/flame-graph@8ed1f51`.
-  Other agents have since added a design prototype on `v2/flame-graph`
-  (`design-prototype/`). The branches merge without conflict, but the prototype
-  still uses the removed `Priority.betterReply` and the old two-argument
-  `findPriorities`: it must be adapted when merging.
+- **Design prototype** (`design-prototype/`, `/dev/flame-graph?variant=`): Workshop
+  was chosen, verdict in its `NOTES.md`. It shares the domain with the page; keep it
+  compiling when the domain changes.

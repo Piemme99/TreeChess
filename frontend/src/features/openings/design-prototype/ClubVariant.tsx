@@ -291,9 +291,6 @@ function SheetRow({
           <span className="truncate text-[17px] font-semibold">{opening?.name ?? 'Unnamed line'}</span>
           <span className="truncate text-[13px]" style={{ color: C.inkSoft }}>
             {priority.side === 'w' ? '♔' : '♚'} {formatLine(priority.path)}
-            {priority.betterReply && (
-              <span style={{ color: C.oxblood }}> → {formatMove(priority.betterReply, priority.path.length)}</span>
-            )}
           </span>
         </span>
         <Tally count={Math.max(1, Math.round(share * 10))} />
