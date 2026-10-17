@@ -1,10 +1,11 @@
-import type { Priority, PriorityKind } from '../domain/priorities';
+import { formatMove } from '../domain/notation';
+import type { Priority, Signal } from '../domain/priorities';
 import type { Side } from '../domain/playedGame';
 import { LineLabel } from '../position/LineLabel';
 
-const KIND_LABELS: Record<PriorityKind, string> = {
+const SIGNAL_LABELS: Record<Signal, string> = {
   'weak-line': 'Weak line',
-  unsettled: 'No settled reply',
+  'better-reply': 'Better reply',
 };
 
 const SIDE_LABELS: Record<Side, string> = {
@@ -12,7 +13,7 @@ const SIDE_LABELS: Record<Side, string> = {
   b: 'Black',
 };
 
-const COLUMNS = 'grid grid-cols-[2rem_4rem_1fr_9rem_5rem_8rem] items-center gap-3';
+const COLUMNS = 'grid grid-cols-[2rem_4rem_1fr_11rem_5rem_8rem] items-center gap-3';
 
 interface PriorityListProps {
   priorities: readonly Priority[];
@@ -40,7 +41,7 @@ export function PriorityList({ priorities, isSelected, onSelect, onPoint }: Prio
 
       <ol className="flex flex-col gap-1" onMouseLeave={() => onPoint(null)}>
         {priorities.map((priority, index) => (
-          <li key={`${priority.side}:${priority.kind}:${priority.path.join(' ')}`}>
+          <li key={`${priority.side}:${priority.path.join(' ')}`}>
             <button
               type="button"
               onClick={() => onSelect(priority)}
@@ -56,7 +57,7 @@ export function PriorityList({ priorities, isSelected, onSelect, onPoint }: Prio
               <span className="font-mono text-text-muted">{index + 1}</span>
               <span className="text-text-muted">{SIDE_LABELS[priority.side]}</span>
               <LineLabel path={priority.path} />
-              <span className="text-text-muted">{KIND_LABELS[priority.kind]}</span>
+              <Signals priority={priority} />
               <span className="text-right font-mono text-text">{priority.games}</span>
               <ImpactBar share={priority.pointsToGain / heaviest} />
             </button>
@@ -64,6 +65,21 @@ export function PriorityList({ priorities, isSelected, onSelect, onPoint }: Prio
         ))}
       </ol>
     </section>
+  );
+}
+
+function Signals({ priority }: { priority: Priority }) {
+  return (
+    <span className="flex flex-col text-text-muted">
+      {priority.signals.map((signal) => (
+        <span key={signal}>
+          {SIGNAL_LABELS[signal]}
+          {signal === 'better-reply' && priority.betterReply && (
+            <span className="font-mono"> {formatMove(priority.betterReply, priority.path.length)}</span>
+          )}
+        </span>
+      ))}
+    </span>
   );
 }
 

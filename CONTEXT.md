@@ -72,16 +72,20 @@ graph: it shows where points leak, not what the engine thinks.
 ### Priority
 
 A line the player should work on first, drawn from both sides at once and
-ranked by **points to gain** (shown as a relative impact bar). Two signals feed it, both computed from results
-only (no engine):
+ranked by **points to gain** (shown as a relative impact bar). Two signals feed
+it, both computed from results only (no engine):
 
 - **Weak line** — a line ending on one of the player's moves where they score
   significantly below their average (at least 40 games, gap beyond one standard
   error). A line and its sub-lines tell the same story: only the heaviest is kept.
-- **No settled reply** — a position where the player alternates between replies
-  that do not score the same. Two systems that work equally well are a choice,
-  not a gap; and a reply is not recommended on a sample much smaller than the
-  habit it would replace.
+- **Better reply** — one of the player's moves that scores clearly worse than
+  another reply they also play in the same position (e.g. `1.d4 Nf6` at 40%
+  where `1…c5` scores 51%). Two systems that work equally well are a choice, not
+  a gap; and a reply is not recommended on a sample much smaller than the habit
+  it would replace.
+
+A priority always ends on one of the player's moves: it names what *they* play
+and what it costs. A line flagged by both signals appears once, with both.
 
 Only signals that survive sampling noise are shown: a priority list has no room
 for "maybe".
@@ -90,5 +94,4 @@ for "maybe".
 
 What a priority is worth, in game points (a win is 1, a draw ½): roughly how
 many points the player would have scored on top had the line performed at their
-average — or, for a position with no settled reply, had they always played their
-best reply.
+average — or, for a better reply, had they played it instead.
