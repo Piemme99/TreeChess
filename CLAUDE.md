@@ -1,228 +1,92 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Kumquat — chess repertoire builder & trainer. Live: https://kumquatchess.com
 
-## Build and Development Commands
+## Commands
 
-### Makefile (preferred)
+Everything day-to-day goes through the root `Makefile`:
 
-**Development:**
 ```bash
-make dev                          # Build and start all containers (detached)
-make build                        # Build images without starting
-make stop                         # Stop all containers
-make delete                       # Stop all and delete database volume
-make logs                         # Follow container logs
-make restart                      # Full stop + rebuild + start
+make dev                # build + start dev containers (detached)
+make stop | delete | logs | restart
+make test               # frontend (Vitest) + backend (go test) unit tests
+make test-integration   # Go integration tests — needs Docker, testcontainers, -timeout 300s
+make lint               # ESLint + tsc --noEmit + go vet + golangci-lint
+make install-hooks      # installs scripts/pre-push (runs the lint suite before every push)
 ```
 
-**Production:**
+`make prod*` targets handle production (compose, SSL, backups) — `grep '^[a-z-]*:' Makefile` for the list.
+Prod reads `.env.production`, not `.env`.
+
+Dev services: frontend 5173, backend 8080, Postgres 5432, Mailhog SMTP 1025 / UI 8025, Prometheus 9091, Grafana 3000.
+
+Narrower loops:
+
 ```bash
-make prod                         # Build and start production containers
-make prod-stop                    # Stop production containers
-make prod-logs                    # Follow production logs
-make prod-restart                 # Full prod stop + rebuild + start
-make prod-init-ssl                # Initialize Let's Encrypt SSL (requires DOMAIN and EMAIL)
-make prod-renew-ssl               # Dry-run SSL certificate renewal
-make prod-backup                  # Run database backup script
-make prod-install-backup-cron     # Install automatic backup cron job
+cd backend  && air                                            # hot reload (.air.toml)
+cd backend  && go test -v -run TestName ./internal/services/  # one test
+cd frontend && npx vitest run -t "test name"
 ```
 
-Services (dev): Frontend (5173), Backend (8080), PostgreSQL (5432), Mailhog SMTP (1025) / Web UI (8025), Prometheus (9091), Grafana (3000)
+## Stack
 
-### Backend (Go)
-```bash
-cd backend
-go mod download                   # Install dependencies
-air                               # Dev server with hot reload (requires .air.toml)
-go build -o server .              # Build binary
-go test ./...                     # Run all tests
-go test -v -run TestName ./internal/services/        # Run single test
-go test -v -run "TestA|TestB" ./internal/handlers/   # Multiple patterns
-go test -v ./tests/integration/...                   # Integration tests (require Docker)
-go test -coverprofile=coverage.out ./...              # Coverage
-golangci-lint run ./...           # Linting
-```
+**Frontend** React 19 · TypeScript 6 · Vite 8 · Tailwind 4 · Zustand · chess.js · D3 · Framer Motion · Vitest 4
+**Backend** Go 1.25 · Echo **v5** · pgx v5 · notnil/chess · golang-jwt v5 · testify · testcontainers
+**Data** PostgreSQL 17, repertoire trees stored as JSONB
+**Engine** Stockfish 18 NNUE lite WASM, vendored in `frontend/public/stockfish-18-lite.{js,wasm}`
 
-### Frontend (React/TypeScript)
-```bash
-cd frontend
-npm install                       # Install dependencies
-npm run dev                       # Dev server (port 5173)
-npm run build                     # Production build (runs tsc first)
-npm run lint                      # ESLint (--max-warnings 0)
-npm run lint -- --fix             # ESLint auto-fix
+## Layout
 
-# Testing (Vitest)
-npm run test                      # Run tests in watch mode
-npm run test:run                  # Run tests once
-npm run test:coverage             # Run tests with coverage
-npx vitest run -t "test name"    # Run specific test by name
-```
+- `backend/` — `main.go` wires dependencies and routes; `config/` (env + `limits.go`); `internal/{handlers,middleware,models,repository,services,testhelpers}`; `tests/integration/`. Module `github.com/kumquat/backend`.
+- `frontend/src/` — `features/` (one folder per screen), `shared/`, `stores/`, `services/` (`api.ts`, `stockfish.ts`), `types/`.
+- `migrations/`, `monitoring/`, `scripts/`, `testdata/`.
 
-## Architecture
+## Conventions worth knowing
 
-**Stack:** React 18 + TypeScript + Vite + Tailwind CSS 4 | Go 1.25 + Echo v4 + pgx v5 | PostgreSQL 17 (JSONB)
+These are the project-specific ones; the rest is idiomatic Go / React.
 
-### Backend (`backend/`)
+- **Handlers are closures**: `func XxxHandler(svc services.XxxInterface) echo.HandlerFunc`.
+- **Mocks are hand-written** with `XxxFunc` fields (`internal/repository/mocks/`, `internal/services/mocks/`), not generated.
+- **Sentinel errors** live in `internal/repository/errors.go` and at the top of service files; wrap with `%w`, test with `errors.Is`.
+- **No Prettier** on the frontend — formatting is by convention (2 spaces, semicolons, ~100 cols).
+- **Named exports**, never default. Lazy routes via `React.lazy(() => import(…).then(m => ({ default: m.Name })))`.
+- Test names: `TestServiceName_MethodName_Scenario`.
 
-**Project structure:**
-```
-backend/
-├── main.go                       # Entry point, dependency wiring, route registration
-├── config/                       # Environment-based config + application limits
-└── internal/
-    ├── handlers/                 # HTTP handlers (auth, repertoire, import, dashboard, explore, etc.)
-    ├── middleware/                # JWT auth middleware
-    ├── models/                   # Data structures (repertoire, analysis, dashboard, engine, etc.)
-    ├── repository/               # Database access
-    │   ├── interfaces.go         # Repository interfaces (10 total) for testability
-    │   ├── mocks/                # Mock implementations for testing
-    │   └── errors.go             # Sentinel errors
-    ├── services/                 # Business logic
-    │   ├── interfaces.go         # Service interfaces
-    │   └── mocks/                # Service mocks for handler testing
-    └── testhelpers/              # Test utilities (testcontainers DB, seeds, server)
-```
+## Traps
 
-**Key services:**
-- `AuthService` - JWT tokens (15 min access + 30-day refresh), password hashing, refresh token rotation
-- `RepertoireService` - Tree operations, node CRUD, merge, extract, transposition detection
-- `ImportService` - PGN parsing, game analysis against repertoires, adherence scoring
-- `SyncService` - Auto-sync games from Lichess/Chess.com
-- `LichessService` / `ChesscomService` - External platform APIs
-- `StudyImportService` - Import Lichess studies as repertoires
-- `CategoryService` - Repertoire categorization
-- `OAuthService` - Lichess OAuth PKCE flow
-- `EngineService` - Background worker for Lichess Explorer-based evaluations
-- `EmailService` - SMTP for password resets
-- `PgnTreeParser` - PGN-to-tree converter (with variations support)
+- **Color values differ across the wire**: backend JSON uses `"white"/"black"`, the frontend uses `'w'/'b'` for chess.js.
+- **Never trust raw SAN** — validate through `notnil/chess` (Go) or `chess.js` (frontend).
+- Positions are stored as **full FEN**; comparing two positions for transposition means ignoring the clock fields.
+- Transpositions are merged on demand via `POST /api/repertoires/:id/merge-transpositions`.
+- Duplicate imports are blocked by `PostgresFingerprintRepo`, not by a unique constraint on the game.
+- Every tree mutation enqueues a debounced re-analysis (`ReanalysisQueue`) — results change *after* the write returns.
+- API errors are always `{"error": "message"}`.
+- Limits are centralised in `config/limits.go` (50 repertoires, 10MB PGN, 5000 games/import, 100 games/page…).
 
-**Backend testing:**
-- Dependency injection with interfaces; mocks in `internal/repository/mocks/` and `internal/services/mocks/`
-- Sentinel errors in `internal/repository/errors.go`: `ErrRepertoireNotFound`, `ErrAnalysisNotFound`, `ErrGameNotFound`, `ErrCategoryNotFound`, `ErrUserNotFound`, `ErrUsernameExists`, `ErrEmailExists`, `ErrResetTokenNotFound`, `ErrRefreshTokenNotFound`
-- Uses testify for assertions (`require.NoError`, `assert.Equal`)
-- Integration tests in `tests/integration/` use testcontainers for real PostgreSQL instances
+## Auth & middleware
 
-**Code style (Go):**
-- Imports: stdlib, third-party, local packages (separated by blank lines)
-- Naming: PascalCase for exported, camelCase for unexported, `Err` prefix for errors
-- Error handling: Wrap with `fmt.Errorf("...: %w", err)`
-- Check sentinel errors with `errors.Is(err, repository.ErrXxx)`
+- Access JWT 15 min, held in memory only. Refresh token in an httpOnly cookie, 30 days, single-use rotation. All refresh tokens are revoked on password change/reset.
+- Lichess OAuth uses PKCE; cookie encryption via HKDF.
+- Three rate-limit tiers, per IP, in-memory: global 100/min (burst 20), auth endpoints 20/min (burst 10), heavy operations 5/min (burst 3). Identity comes from `RealIP()` — see the deployment note in `.env.example` before putting a proxy in front.
+- Body limit 10MB. CORS origins from `CORS_ALLOWED_ORIGINS` (a `*` panics at boot: credentials are enabled).
+- Prometheus metrics on a separate port (9090 in-container), middleware prefix `kumquat`.
 
-### Frontend (`frontend/src/`)
+## UI conventions
 
-**Project structure:**
-```
-src/
-├── features/                     # Feature modules
-│   ├── analyse-import/           # Import detail view (per-game analysis)
-│   ├── analyse-tab/              # Import/analysis listing tab
-│   ├── auth/                     # Login, register, forgot/reset password, onboarding
-│   ├── dashboard/                # Stats, health, gaps, branches, recent games
-│   ├── explore/                  # Public repertoire browsing
-│   ├── game-analysis/            # Individual game replay + move annotations
-│   ├── games/                    # Games list page with insights
-│   ├── landing/                  # Public landing page
-│   ├── not-found/                # 404 page
-│   ├── profile/                  # User profile management
-│   ├── repertoire/               # Repertoire management
-│   │   ├── edit/                 # Board, tree nav, engine, add/delete moves
-│   │   └── shared/               # RepertoireTree viz, MoveHistory, StudyBrowser
-│   └── training/                 # Training modes (repertoire drill + explorer)
-├── services/                     # API client + Stockfish WASM bridge
-├── shared/                       # Shared code
-│   ├── components/               # Reusable components (Layout, UI, Board, ErrorBoundary)
-│   ├── hooks/                    # Custom React hooks (useAbortController, useAnalysisBase, useChess, usePageTitle)
-│   └── utils/                    # Utility functions (chess.ts, animations.ts)
-├── stores/                       # Zustand state stores
-├── test/                         # Test setup
-└── types/                        # TypeScript type definitions
-```
+**Control placement (toolbar vs tree-view):** controls that *mutate the repertoire* (CRUD, metadata, extract) live on the repertoire toolbar. Controls that *mutate the tree view* (navigation, zoom, display mode) live inside the tree-view component. Keep navigation visually separate from repertoire actions.
 
-**Routes** (defined in `App.tsx`):
-- Public: `/`, `/login`, `/forgot-password`, `/reset-password`
-- Protected: `/dashboard`, `/repertoires`, `/repertoire/:id/edit`, `/training`, `/games`, `/analyse/:id/game/:gameIndex`, `/profile`, `/explore`, `/explore/repertoire/:id`
+## Docs
 
-**State management** (Zustand stores in `stores/`):
-- `authStore` - User, token, login/register/logout, OAuth, sync triggers, profile update, account deletion
-- `repertoireStore` - Repertoires list, selected node, tree operations, categories, CRUD
-- `engineStore` - Stockfish WASM evaluation state (FEN, depth, score, best move)
-- `exploreStore` - Public repertoire browsing state
-- `toastStore` - Toast notification queue
+- `CONTEXT.md` — domain glossary. Use its vocabulary when naming things; add to it when a term gets sharpened. `docs/adr/` holds architecture decisions; flag it explicitly when a change contradicts one.
+- `SPECIFICATIONS.md` — full functional/technical spec (long; grep it, don't read it whole).
+- `README.md` — setup and deployment.
 
-**API client:** `services/api.ts` - Axios with JWT Bearer token injection (in-memory only, never localStorage). Automatic 401 retry via httpOnly refresh cookie with request queuing. Exports `authApi`, `repertoireApi`, `categoryApi`, `analysisApi`, `gameApi`, `importApi`, `studyApi`, `syncApi`, `exploreApi`, `dashboardApi`, `trainingApi`.
+## Issue tracker
 
-**Stockfish:** `services/stockfish.ts` - Stockfish WASM web worker bridge for browser-side engine analysis in the repertoire editor.
+GitHub Issues on `Piemme99/TreeChess`, via `gh`. Triage labels: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`.
 
-**Code style (TypeScript/React):**
-- Imports: External packages first, then relative imports
-- Naming: PascalCase for components, camelCase for functions/variables, `use` prefix for hooks
-- Types: Prefer `interface` for objects, `type` for unions
-- Functional components with hooks
-- 2-space indent, semicolons required
+## Workflow
 
-### Data Flow
-
-1. Repertoires stored as JSONB tree in PostgreSQL
-2. Frontend fetches via GET `/api/repertoires` or `/api/repertoires/:id`
-3. Moves added via POST `/api/repertoires/:id/nodes`
-4. PGN files analyzed against repertoire via `/api/imports`
-5. Games auto-synced from Lichess/Chess.com via `/api/sync`
-6. Lichess studies imported via `/api/studies/import`
-7. Dashboard stats aggregated via `/api/dashboard/stats`
-8. Training analysis via `/api/training/analyze`
-9. Public repertoires browsed/imported via `/api/explore/repertoires`
-10. Opening insights generated by background `EngineService` worker using Lichess Explorer API
-
-## Authentication & Middleware
-
-- **JWT auth:** Short-lived access tokens (15 min) stored in memory. Refresh tokens via httpOnly cookies (30-day, single-use rotation). Middleware in `internal/middleware/` extracts `userID` from Bearer token or `token` query param.
-- **Lichess OAuth:** PKCE flow via `/api/auth/lichess/login` -> callback -> JWT issued. Cookie encryption via HKDF.
-- **Rate limiting:** 100 req/min global (burst 20), 10 req/min for auth endpoints (burst 5)
-- **Body limit:** 10MB max request size
-- **CORS:** Configurable origins via `CORS_ALLOWED_ORIGINS` env var (default `http://localhost:5173`)
-- **Password reset:** Email with token via SMTP (Mailhog in dev). All refresh tokens revoked on password change/reset.
-- **Security headers:** `Permissions-Policy`, `X-Content-Type-Options`, `X-Frame-Options`, `X-XSS-Protection`, `Referrer-Policy`, `HSTS`, `CSP`
-- **Metrics:** Prometheus endpoint on port 9090 (separate from main API on 8080), prefix: `kumquat`
-
-## Key Technical Details
-
-- **Color values:** Backend uses `"white"/"black"` in JSON; frontend uses `'w'/'b'` for chess.js
-- **Chess validation:** `notnil/chess` (Go), `chess.js` (frontend) - never trust raw SAN
-- **Multiple repertoires:** Users can create multiple repertoires per color (max 50 total)
-- **Positions:** Stored as full FEN strings; board-only comparisons use `normalizeBoardFEN()`
-- **Transpositions:** Can be auto-merged via POST `/api/repertoires/:id/merge-transpositions`
-- **API errors:** JSON format `{"error": "message"}` with appropriate HTTP status codes
-- **Game deduplication:** `PostgresFingerprintRepo` prevents duplicate game imports
-- **Application limits:** Defined in `config/limits.go` (max repertoires: 50, max PGN: 10MB, max games per page: 100)
-- **Background worker:** `EngineService.RunWorker` processes engine evaluations via Lichess Explorer API
-
-## UI Conventions
-
-- **Control placement (toolbar vs tree-view):** Controls that *mutate the repertoire* (CRUD, metadata, extract) live on the repertoire toolbar. Controls that *mutate the tree view* (navigation, zoom, display mode) live inside the tree-view component. Place each control in the area that matches its role; keep navigation controls visually separate from repertoire actions.
-
-## Documentation
-
-- `AGENTS.md` - Build commands, code style guidelines, naming conventions, detailed patterns
-- `SPECIFICATIONS.md` - Full technical and functional specifications
-
-## Workflow Rules
-
-- **Always ask before committing:** After completing any task, always ask the user whether they would like you to commit the changes before proceeding. Never commit automatically without explicit user approval.
-- **AFK exception (`agent/*` branches):** When running on a branch matching `agent/*`, commit your changes before emitting the completion signal. The "ask before committing" rule above does NOT apply on these branches — they are pre-authorized for AFK Sandcastle sessions.
-- **Run tests before committing:** Always run the relevant test suite before committing any changes. For backend changes, run `go test ./...` from `backend/`. For frontend changes, run `npm run test:run` from `frontend/`. Do not commit if tests are failing.
-
-## Agent skills
-
-### Issue tracker
-
-GitHub Issues on `Piemme99/TreeChess`, accessed via the `gh` CLI. See `docs/agents/issue-tracker.md`.
-
-### Triage labels
-
-Five canonical triage roles mapped 1:1 to default label strings (`wontfix` already exists; the other four are created on first use). See `docs/agents/triage-labels.md`.
-
-### Domain docs
-
-Single-context: one `CONTEXT.md` + `docs/adr/` at the repo root (created lazily by `/grill-with-docs`). See `docs/agents/domain.md`.
+- **Run `make test` before committing.** Don't commit on red.
+- Work on a branch, never commit directly on `main`; integration happens through squashed PRs.
+- On `agent/*` branches (AFK sessions): commit before emitting the completion signal.
