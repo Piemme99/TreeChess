@@ -23,6 +23,9 @@ const ExplorePage = lazy(() => import('./features/explore').then(m => ({ default
 const FlameGraphPage = import.meta.env.DEV
   ? lazy(() => import('./features/openings').then(m => ({ default: m.FlameGraphPage })))
   : null;
+const MobileVerifyPrototypePage = import.meta.env.DEV
+  ? lazy(() => import('./prototypes/mobile-verify/MobileVerifyPrototypePage').then(m => ({ default: m.MobileVerifyPrototypePage })))
+  : null;
 const NotFoundPage = lazy(() => import('./features/not-found/NotFoundPage').then(m => ({ default: m.NotFoundPage })));
 
 function App() {
@@ -66,6 +69,9 @@ function App() {
         </Route>
         {FlameGraphPage ? (
           <Route path="/dev/flame-graph" element={<Suspense fallback={<Loading size="lg" />}><FlameGraphPage /></Suspense>} />
+        ) : null}
+        {MobileVerifyPrototypePage ? (
+          <Route path="/prototype/mobile-verify" element={<Suspense fallback={<Loading size="lg" />}><MobileVerifyPrototypePage /></Suspense>} />
         ) : null}
         <Route path="*" element={<Suspense fallback={<Loading size="lg" />}><NotFoundPage /></Suspense>} />
       </Routes>
