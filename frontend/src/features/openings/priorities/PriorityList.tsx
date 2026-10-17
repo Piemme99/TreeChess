@@ -20,7 +20,7 @@ export function PriorityList({ priorities, isSelected, onSelect, onPoint }: Prio
   if (priorities.length === 0) {
     return (
       <section aria-labelledby="priorities-title" className="flex flex-col gap-2">
-        <h2 id="priorities-title" className="font-display text-lg text-text">Priorities</h2>
+        <Title />
         <p className="text-sm text-text-muted">None</p>
       </section>
     );
@@ -29,13 +29,13 @@ export function PriorityList({ priorities, isSelected, onSelect, onPoint }: Prio
 
   return (
     <section aria-labelledby="priorities-title" className="flex flex-col gap-2">
-      <h2 id="priorities-title" className="font-display text-lg text-text">Priorities</h2>
+      <Title />
 
       <div className={`${COLUMNS} px-3 text-xs uppercase tracking-wide text-text-muted`}>
         <span>#</span>
         <span>Side</span>
         <span>Line</span>
-        <span className="text-right">Games 12 mo</span>
+        <span className="text-right">Games</span>
         <span>Impact</span>
       </div>
 
@@ -64,6 +64,15 @@ export function PriorityList({ priorities, isSelected, onSelect, onPoint }: Prio
         ))}
       </ol>
     </section>
+  );
+}
+
+function Title() {
+  return (
+    <h2 id="priorities-title" className="flex items-baseline gap-2 font-display text-lg text-text">
+      Priorities
+      <span className="font-sans text-sm text-text-muted">· Last 12 months</span>
+    </h2>
   );
 }
 
