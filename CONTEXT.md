@@ -76,7 +76,7 @@ ranked by **points to gain** (shown as a relative impact bar). Two signals feed
 it, both computed from results only (no engine):
 
 - **Weak line** — a line ending on one of the player's moves where they score
-  significantly below their average (at least 40 games, gap beyond one standard
+  significantly below their average (at least 20 games, gap beyond one standard
   error). A line and its sub-lines tell the same story: only the heaviest is kept.
 - **Better reply** — one of the player's moves that scores clearly worse than
   another reply they also play in the same position (e.g. `1.d4 Nf6` at 40%

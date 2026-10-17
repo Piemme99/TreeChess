@@ -10,6 +10,10 @@ const versusD4: Priority = {
   side: 'b', path: ['d4', 'Nf6'], games: 124, pointsToGain: 11.8, signals: ['weak-line', 'better-reply'], betterReply: 'c5',
 };
 
+// La table des noms d'ouvertures (~480 Ko) est chargée à la demande : sous la charge de
+// la suite complète, le délai par défaut d'1 s ne suffit pas.
+const findOpeningName = (name: string) => screen.findByText(name, undefined, { timeout: 5000 });
+
 describe('PriorityList', () => {
   it('lists each priority with its side, line, signals and games', () => {
     render(<PriorityList priorities={[scandinavian, versusD4]} isSelected={() => false} onSelect={() => {}} onPoint={() => {}} />);
@@ -29,7 +33,7 @@ describe('PriorityList', () => {
   it('names the opening of each line when it has one', async () => {
     render(<PriorityList priorities={[scandinavian, versusD4]} isSelected={() => false} onSelect={() => {}} onPoint={() => {}} />);
 
-    expect(await screen.findByText('Scandinavian Defense')).toBeInTheDocument();
+    expect(await findOpeningName('Scandinavian Defense')).toBeInTheDocument();
     expect(screen.getByText('Indian Defense')).toBeInTheDocument();
   });
 

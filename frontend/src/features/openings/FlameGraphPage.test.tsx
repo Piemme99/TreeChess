@@ -10,6 +10,11 @@ const renderWholeHistory = () => {
   choose('Period', 'All');
 };
 
+// La table des noms d'ouvertures (~480 Ko) est chargée à la demande : sous la charge de
+// la suite complète, le délai par défaut d'1 s ne suffit pas.
+const findOpeningName = (container: HTMLElement, name: string) =>
+  within(container).findByText(name, undefined, { timeout: 5000 });
+
 describe('FlameGraphPage', () => {
   beforeEach(() => {
     vi.useFakeTimers({ toFake: ['Date'] });
@@ -24,7 +29,8 @@ describe('FlameGraphPage', () => {
     render(<FlameGraphPage />);
 
     expect(screen.getByRole('radio', { name: '1 year' })).toHaveAttribute('aria-checked', 'true');
-    expect(screen.queryByRole('button', { name: /1\.d4 Nf6/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /1\.e4 c5 2\.d4 cxd4 3\.c3/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /1\.d4 d5 2\.Nc3 Nc6 3\.Bf4/ })).not.toBeInTheDocument();
   });
 
   it('says so when no line stands out over the period', () => {
@@ -50,11 +56,11 @@ describe('FlameGraphPage', () => {
     fireEvent.click(screen.getByRole('button', { name: /1\.d4 Nf6/ }));
 
     fireEvent.mouseEnter(screen.getByRole('button', { name: /1\.e4 d5 2\.exd5/ }));
-    expect(await within(panel).findByText('Scandinavian Defense')).toBeInTheDocument();
+    expect(await findOpeningName(panel, 'Scandinavian Defense')).toBeInTheDocument();
     expect(panel).toHaveTextContent('Games207');
 
     fireEvent.mouseLeave(screen.getByRole('list'));
-    expect(await within(panel).findByText('Indian Defense')).toBeInTheDocument();
+    expect(await findOpeningName(panel, 'Indian Defense')).toBeInTheDocument();
     expect(panel).toHaveTextContent('Games124');
   });
 

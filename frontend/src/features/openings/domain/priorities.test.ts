@@ -19,7 +19,7 @@ describe('weakLines', () => {
   });
 
   it('ignores lines played too rarely to conclude', () => {
-    const played = [...games(200, 'w', 'd4', 1), ...games(30, 'w', 'e4', 0)];
+    const played = [...games(200, 'w', 'd4', 1), ...games(15, 'w', 'e4', 0)];
 
     expect(weakLines(tree(played))).toEqual([]);
   });

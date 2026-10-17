@@ -24,7 +24,7 @@ export interface Priority {
   betterReply: string | null;
 }
 
-const MIN_GAMES = 40;
+const MIN_GAMES = 20;
 
 export function findPriorities(trees: readonly OpeningTree[], limit: number): Priority[] {
   const findings = trees.flatMap((tree) => [...weakLines(tree), ...betterReplies(tree)]);
