@@ -18,6 +18,11 @@ const GameAnalysisPage = lazy(() => import('./features/game-analysis').then(m =>
 const RepertoireEdit = lazy(() => import('./features/repertoire/RepertoireEdit').then(m => ({ default: m.RepertoireEdit })));
 const TrainingPage = lazy(() => import('./features/training').then(m => ({ default: m.TrainingPage })));
 const ExplorePage = lazy(() => import('./features/explore').then(m => ({ default: m.ExplorePage })));
+// Conditionné à la déclaration : un lazy() hors condition ferait émettre le chunk
+// (et ses données figées) dans le build de prod, même sans route pour l'atteindre.
+const FlameGraphPage = import.meta.env.DEV
+  ? lazy(() => import('./features/openings').then(m => ({ default: m.FlameGraphPage })))
+  : null;
 const NotFoundPage = lazy(() => import('./features/not-found/NotFoundPage').then(m => ({ default: m.NotFoundPage })));
 
 function App() {
@@ -59,6 +64,9 @@ function App() {
           <Route path="explore" element={<Suspense fallback={<Loading size="lg" />}><ExplorePage /></Suspense>} />
           <Route path="explore/repertoire/:id" element={<Suspense fallback={<Loading size="lg" />}><RepertoireEdit /></Suspense>} />
         </Route>
+        {FlameGraphPage ? (
+          <Route path="/dev/flame-graph" element={<Suspense fallback={<Loading size="lg" />}><FlameGraphPage /></Suspense>} />
+        ) : null}
         <Route path="*" element={<Suspense fallback={<Loading size="lg" />}><NotFoundPage /></Suspense>} />
       </Routes>
       <ToastContainer />

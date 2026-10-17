@@ -50,3 +50,21 @@ Two distinct actions on a game's move list:
 - **Open in repertoire** — jump into the full repertoire editor focused on a
   position. The deliberate escape hatch when the user actually wants to edit the
   tree. This one still navigates away.
+
+### Opening tree
+
+The player's real games, for one side, merged move by move from the starting
+position: each node is a line actually played, with the number of games that
+went through it and the points the player scored there. Built from games, not
+from a repertoire — it says what the player *does*, not what they intended.
+
+- Only the first plies count (16 by default): beyond that, lines are too sparse
+  to say anything.
+
+### Deficit
+
+How many points per game the player loses on a line compared to their own
+average with that side. Positive means "you score less here than usual".
+Smoothed toward zero on small samples (`games / (games + 12)`), so that a line
+played seven times cannot dominate on noise. It is the colour of the flame
+graph: it shows where points leak, not what the engine thinks.
