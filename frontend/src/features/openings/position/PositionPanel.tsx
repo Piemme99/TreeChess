@@ -1,6 +1,6 @@
-import { useMemo, type ReactNode } from 'react';
+import { useMemo } from 'react';
 import { StaticBoard } from '../../../shared/components/Board/StaticBoard';
-import { nodeAt, type OpeningTree } from '../domain/openingTree';
+import { nodeAt, type OpeningNode, type OpeningTree } from '../domain/openingTree';
 import { scoreRate } from '../domain/performance';
 import { formatPercent } from '../flame/format';
 import { LineLabel } from './LineLabel';
@@ -9,37 +9,45 @@ import { replayLine } from './replay';
 const ARROW_COLOUR = 'rgb(230,126,34)';
 
 interface PositionPanelProps {
-  tree: OpeningTree;
+  history: OpeningTree;
+  recent: OpeningTree;
   path: readonly string[];
 }
 
-export function PositionPanel({ tree, path }: PositionPanelProps) {
+export function PositionPanel({ history, recent, path }: PositionPanelProps) {
   const { fens, lastMove } = useMemo(() => replayLine(path), [path]);
-  const node = nodeAt(tree, path);
 
   return (
     <aside aria-label="Position" className="flex flex-col gap-3 rounded-md border border-border bg-bg-card p-4">
       <StaticBoard
         fen={fens[fens.length - 1]}
-        orientation={tree.side === 'w' ? 'white' : 'black'}
+        orientation={history.side === 'w' ? 'white' : 'black'}
         arrows={lastMove ? [[lastMove.from, lastMove.to, ARROW_COLOUR]] : []}
       />
       <LineLabel path={path} />
-      {node && (
-        <dl className="flex gap-6">
-          <Stat label="Games">{node.games}</Stat>
-          <Stat label="Score">{formatPercent(scoreRate(node))}</Stat>
-        </dl>
-      )}
+      <table className="text-sm">
+        <thead>
+          <tr className="text-xs uppercase tracking-wide text-text-muted">
+            <th className="text-left font-normal" />
+            <th className="text-right font-normal">Games</th>
+            <th className="text-right font-normal">Score</th>
+          </tr>
+        </thead>
+        <tbody>
+          <PeriodRow label="All time" line={nodeAt(history, path)} />
+          <PeriodRow label="Last 12 months" line={nodeAt(recent, path)} />
+        </tbody>
+      </table>
     </aside>
   );
 }
 
-function Stat({ label, children }: { label: string; children: ReactNode }) {
+function PeriodRow({ label, line }: { label: string; line: OpeningNode | undefined }) {
   return (
-    <div className="flex items-baseline gap-1.5">
-      <dt className="text-xs uppercase tracking-wide text-text-muted">{label}</dt>
-      <dd className="font-mono text-sm text-text">{children}</dd>
-    </div>
+    <tr>
+      <th scope="row" className="text-left font-normal text-text-muted">{label}</th>
+      <td className="text-right font-mono text-text">{line?.games ?? 0}</td>
+      <td className="text-right font-mono text-text">{line ? formatPercent(scoreRate(line)) : '—'}</td>
+    </tr>
   );
 }

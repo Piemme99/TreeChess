@@ -13,7 +13,7 @@ const SIDE_LABELS: Record<Side, string> = {
   b: 'Black',
 };
 
-const COLUMNS = 'grid grid-cols-[2rem_4rem_1fr_11rem_5rem_8rem] items-center gap-3';
+const COLUMNS = 'grid grid-cols-[2rem_4rem_1fr_11rem_6rem_8rem] items-center gap-3';
 
 interface PriorityListProps {
   priorities: readonly Priority[];
@@ -42,7 +42,7 @@ export function PriorityList({ priorities, isSelected, onSelect, onPoint }: Prio
         <span>Side</span>
         <span>Line</span>
         <span>Signal</span>
-        <span className="text-right">Games</span>
+        <span className="text-right">Games 12 mo</span>
         <span>Impact</span>
       </div>
 

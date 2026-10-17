@@ -48,7 +48,19 @@ describe('FlameGraphPage', () => {
 
     fireEvent.mouseLeave(screen.getByRole('list'));
     expect(await findOpeningName(panel, 'Indian Defense')).toBeInTheDocument();
-    expect(panel).toHaveTextContent('Games124');
+    expect(within(panel).getByRole('row', { name: /All time/ })).toHaveTextContent('124');
+    expect(within(panel).getByRole('row', { name: /Last 12 months/ })).toHaveTextContent('28');
+  });
+
+  it('counts the games of a priority over the same period in the list and in the panel', () => {
+    render(<FlameGraphPage />);
+
+    const indian = screen.getByRole('button', { name: /1\.d4 Nf6/ });
+    fireEvent.click(indian);
+
+    const panel = screen.getByRole('complementary', { name: 'Position' });
+    expect(indian).toHaveTextContent('28');
+    expect(within(panel).getByRole('row', { name: /Last 12 months/ })).toHaveTextContent('28');
   });
 
   it('resets the zoom when switching side', () => {

@@ -29,10 +29,14 @@ export function FlameGraphPage() {
   const [pointed, setPointed] = useState<Line | null>(null);
 
   const trees = useMemo(() => treesOf(playedGamesFixture), []);
-  const priorities = useMemo(() => {
-    const recent = treesOf(gamesOfLastMonths(playedGamesFixture, RECENT_MONTHS, new Date()));
-    return findPriorities(trees, recent, MAX_PRIORITIES);
-  }, [trees]);
+  const recentTrees = useMemo(
+    () => treesOf(gamesOfLastMonths(playedGamesFixture, RECENT_MONTHS, new Date())),
+    [],
+  );
+  const priorities = useMemo(
+    () => findPriorities(trees, recentTrees, MAX_PRIORITIES),
+    [trees, recentTrees],
+  );
   const shown = pointed ?? { side, path: focusPath };
 
   const showSide = (next: Side) => {
@@ -72,7 +76,7 @@ export function FlameGraphPage() {
       </div>
 
       <div className="sticky top-6">
-        <PositionPanel tree={trees[shown.side]} path={shown.path} />
+        <PositionPanel history={trees[shown.side]} recent={recentTrees[shown.side]} path={shown.path} />
       </div>
     </main>
   );
