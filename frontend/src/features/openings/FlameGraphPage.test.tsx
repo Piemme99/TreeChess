@@ -5,10 +5,10 @@ import { FlameGraphPage } from './FlameGraphPage';
 const choose = (group: string, option: string) =>
   fireEvent.click(within(screen.getByRole('radiogroup', { name: group })).getByRole('radio', { name: option }));
 
-const renderWholeHistory = () => {
-  render(<FlameGraphPage />);
-  choose('Period', 'All');
-};
+// La table des noms d'ouvertures (~480 Ko) est chargée à la demande : sous la charge de
+// la suite complète, le délai par défaut d'1 s ne suffit pas.
+const findOpeningName = (container: HTMLElement, name: string) =>
+  within(container).findByText(name, undefined, { timeout: 5000 });
 
 describe('FlameGraphPage', () => {
   beforeEach(() => {
@@ -20,23 +20,17 @@ describe('FlameGraphPage', () => {
     vi.useRealTimers();
   });
 
-  it('covers the last year by default', () => {
+  it('ranks the lines that cost points now, leaving out those fixed or abandoned', () => {
     render(<FlameGraphPage />);
 
-    expect(screen.getByRole('radio', { name: '1 year' })).toHaveAttribute('aria-checked', 'true');
-    expect(screen.queryByRole('button', { name: /1\.d4 Nf6/ })).not.toBeInTheDocument();
-  });
-
-  it('says so when no line stands out over the period', () => {
-    render(<FlameGraphPage />);
-
-    choose('Period', '3 months');
-
-    expect(screen.getByText('None over this period')).toBeInTheDocument();
+    const lines = within(screen.getByRole('list')).getAllByRole('button').map((row) => row.textContent);
+    expect(lines[0]).toMatch(/1\.e4 c5 2\.d4 cxd4 3\.c3/);
+    expect(screen.queryByRole('button', { name: /1\.e4 d5 2\.exd5/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /1\.d4 d5 2\.Nc3 Nc6 3\.Bf4/ })).not.toBeInTheDocument();
   });
 
   it('shows a priority in the flame graph when it is clicked', () => {
-    renderWholeHistory();
+    render(<FlameGraphPage />);
 
     fireEvent.click(screen.getByRole('button', { name: /1\.d4 Nf6/ }));
 
@@ -45,33 +39,35 @@ describe('FlameGraphPage', () => {
   });
 
   it('shows the position under the pointer, then falls back to the zoomed one', async () => {
-    renderWholeHistory();
+    render(<FlameGraphPage />);
     const panel = screen.getByRole('complementary', { name: 'Position' });
     fireEvent.click(screen.getByRole('button', { name: /1\.d4 Nf6/ }));
 
-    fireEvent.mouseEnter(screen.getByRole('button', { name: /1\.e4 d5 2\.exd5/ }));
-    expect(await within(panel).findByText('Scandinavian Defense')).toBeInTheDocument();
-    expect(panel).toHaveTextContent('Games207');
+    fireEvent.mouseEnter(screen.getByRole('button', { name: /1\.e4 e5 2\.Nf3 d6 3\.d4/ }));
+    expect(await findOpeningName(panel, 'Philidor Defense')).toBeInTheDocument();
 
     fireEvent.mouseLeave(screen.getByRole('list'));
-    expect(await within(panel).findByText('Indian Defense')).toBeInTheDocument();
-    expect(panel).toHaveTextContent('Games124');
+    expect(await findOpeningName(panel, 'Indian Defense')).toBeInTheDocument();
+    expect(within(panel).getByRole('row', { name: /All time/ })).toHaveTextContent('124');
+    expect(within(panel).getByRole('row', { name: /Last 12 months/ })).toHaveTextContent('28');
+  });
+
+  it('counts the games of a priority over the same period in the list and in the panel', () => {
+    render(<FlameGraphPage />);
+
+    const indian = screen.getByRole('button', { name: /1\.d4 Nf6/ });
+    fireEvent.click(indian);
+
+    const panel = screen.getByRole('complementary', { name: 'Position' });
+    expect(indian).toHaveTextContent('28');
+    expect(within(panel).getByRole('row', { name: /Last 12 months/ })).toHaveTextContent('28');
   });
 
   it('resets the zoom when switching side', () => {
-    renderWholeHistory();
+    render(<FlameGraphPage />);
     fireEvent.click(screen.getByRole('button', { name: /1\.d4 Nf6/ }));
 
     choose('Side', 'White');
-
-    expect(screen.getByRole('navigation', { name: 'Zoom path' })).toHaveTextContent(/^All games$/);
-  });
-
-  it('resets the zoom when switching period', () => {
-    renderWholeHistory();
-    fireEvent.click(screen.getByRole('button', { name: /1\.d4 Nf6/ }));
-
-    choose('Period', '1 year');
 
     expect(screen.getByRole('navigation', { name: 'Zoom path' })).toHaveTextContent(/^All games$/);
   });

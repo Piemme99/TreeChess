@@ -1,19 +1,13 @@
-import { formatMove } from '../domain/notation';
-import type { Priority, Signal } from '../domain/priorities';
+import type { Priority } from '../domain/priorities';
 import type { Side } from '../domain/playedGame';
 import { LineLabel } from '../position/LineLabel';
-
-const SIGNAL_LABELS: Record<Signal, string> = {
-  'weak-line': 'Weak line',
-  'better-reply': 'Better reply',
-};
 
 const SIDE_LABELS: Record<Side, string> = {
   w: 'White',
   b: 'Black',
 };
 
-const COLUMNS = 'grid grid-cols-[2rem_4rem_1fr_11rem_5rem_8rem] items-center gap-3';
+const COLUMNS = 'grid grid-cols-[2rem_4rem_1fr_6rem_8rem] items-center gap-3';
 
 interface PriorityListProps {
   priorities: readonly Priority[];
@@ -26,8 +20,8 @@ export function PriorityList({ priorities, isSelected, onSelect, onPoint }: Prio
   if (priorities.length === 0) {
     return (
       <section aria-labelledby="priorities-title" className="flex flex-col gap-2">
-        <h2 id="priorities-title" className="font-display text-lg text-text">Priorities</h2>
-        <p className="text-sm text-text-muted">None over this period</p>
+        <Title />
+        <p className="text-sm text-text-muted">None</p>
       </section>
     );
   }
@@ -35,13 +29,12 @@ export function PriorityList({ priorities, isSelected, onSelect, onPoint }: Prio
 
   return (
     <section aria-labelledby="priorities-title" className="flex flex-col gap-2">
-      <h2 id="priorities-title" className="font-display text-lg text-text">Priorities</h2>
+      <Title />
 
       <div className={`${COLUMNS} px-3 text-xs uppercase tracking-wide text-text-muted`}>
         <span>#</span>
         <span>Side</span>
         <span>Line</span>
-        <span>Signal</span>
         <span className="text-right">Games</span>
         <span>Impact</span>
       </div>
@@ -64,7 +57,6 @@ export function PriorityList({ priorities, isSelected, onSelect, onPoint }: Prio
               <span className="font-mono text-text-muted">{index + 1}</span>
               <span className="text-text-muted">{SIDE_LABELS[priority.side]}</span>
               <LineLabel path={priority.path} />
-              <Signals priority={priority} />
               <span className="text-right font-mono text-text">{priority.games}</span>
               <ImpactBar share={priority.pointsToGain / heaviest} />
             </button>
@@ -75,18 +67,12 @@ export function PriorityList({ priorities, isSelected, onSelect, onPoint }: Prio
   );
 }
 
-function Signals({ priority }: { priority: Priority }) {
+function Title() {
   return (
-    <span className="flex flex-col text-text-muted">
-      {priority.signals.map((signal) => (
-        <span key={signal}>
-          {SIGNAL_LABELS[signal]}
-          {signal === 'better-reply' && priority.betterReply && (
-            <span className="font-mono"> {formatMove(priority.betterReply, priority.path.length)}</span>
-          )}
-        </span>
-      ))}
-    </span>
+    <h2 id="priorities-title" className="flex items-baseline gap-2 font-display text-lg text-text">
+      Priorities
+      <span className="font-sans text-sm text-text-muted">· Last 12 months</span>
+    </h2>
   );
 }
 
