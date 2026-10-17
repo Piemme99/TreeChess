@@ -235,7 +235,9 @@ export interface Dispersion {
   gap: number;
   /** Parties jouées avec autre chose que la meilleure réponse. */
   otherGames: number;
-  /** L'écart survit-il à l'incertitude d'échantillonnage ? */
+  /** Écart borné par son incertitude, en points par partie. */
+  gapLow: number;
+  /** L'écart survit-il à l'incertitude, et l'échantillon pèse-t-il assez pour recommander le changement ? */
   confident: boolean;
 }
 
@@ -282,9 +284,14 @@ export function findDispersions(tree: Tree, color: Color, minGames: number): Dis
 
     const spread = Math.sqrt(0.25 * (1 / best.games + 1 / otherGames));
 
+    // On ne recommande pas de changer une habitude de mille parties sur la foi
+    // de cent cinquante : l'échantillon doit peser face à ce qu'il remplacerait.
+    const weighty = best.games >= otherGames * 0.25;
+
     out.push({
       node, games: node.games, replies: candidates.slice(0, 4), best, gap, otherGames,
-      confident: gap > spread,
+      gapLow: Math.max(0, gap - spread),
+      confident: gap > spread && weighty,
     });
   }
 

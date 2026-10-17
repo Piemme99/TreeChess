@@ -22,6 +22,7 @@ la surface ne l'est pas.
 | Trois signaux distincts au macro : fuite, zone faible, pas de réponse arrêtée | POC 2 (`macro/NOTES.md`) |
 | Une préparation = un coup choisi à chaque position où l'on a la main, sur les bifurcations qui pèsent ; sa complétude se mesure en **couverture** | POC 4 |
 | La ligne par défaut est la ligne de fait du joueur, bornée par le volume de données, et s'arrête faute d'habitude nette | POC 4 |
+| L'écran d'entrée est un classement unique des chantiers, les deux couleurs confondues, en points en jeu | POC 4 |
 
 ## Les routes
 

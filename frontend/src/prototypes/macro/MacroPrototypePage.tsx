@@ -8,6 +8,8 @@ import { buildTree, findFindings, findDispersions, selectForEval, evalForUser, b
 import { BatchEngine } from './engine';
 import { Flame } from './Flame';
 import { Study, type Entry } from './Study';
+import { Overview } from './Overview';
+import { chantiers } from './chantiers';
 
 const TIME_CLASSES = ['bullet', 'blitz', 'rapid', 'daily'] as const;
 const cacheKey = (depth: number) => `poc-macro-evals-d${depth}`;
@@ -136,6 +138,8 @@ export function MacroPrototypePage() {
   const weak = live.filter((f) => f.kind === 'weak').slice(0, 6);
   const assumed = findings.filter((f) => dismissed.includes(f.node.id));
   const dispersions = tree && phase === 'done' ? findDispersions(tree, color, minWeakGames).slice(0, 8) : [];
+  const priorities =
+    tree && phase === 'done' ? chantiers({ tree, minGames, floorCp, minWeakGames, dismissed }) : [];
 
   const dismiss = (id: string) => {
     setDismissed((prev) => {
@@ -235,7 +239,15 @@ export function MacroPrototypePage() {
 
       {tree && (
         <>
-          <div className="mt-6 flex items-center gap-2">
+          <Overview
+            items={priorities}
+            onOpen={(item) => {
+              setColor(item.color);
+              setStudy({ nodeId: item.nodeId, entry: item.entry });
+            }}
+          />
+
+          <div className="mt-8 flex items-center gap-2">
             {(['white', 'black'] as Color[]).map((c) => (
               <button
                 key={c}

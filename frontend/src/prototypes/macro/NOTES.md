@@ -174,6 +174,21 @@ jeton OAuth — c'est d'ailleurs pour cette raison que la v1 le relaie par son b
 compte Lichess du joueur, le POC ne peut pas dire « à ton niveau, voilà ce que les autres jouent et
 ce que ça leur rapporte », qui est la moitié manquante de cette réponse.
 
+## La synthèse
+
+Trois signaux × deux couleurs = six listes à lire et à recouper soi-même, ce qui ne tenait pas la
+promesse d'origine : « en un coup d'œil, quelles ouvertures travailler ». Un classement unique les
+fond, toutes couleurs confondues, en points en jeu.
+
+Un piège s'y est reproduit : le premier chantier proposé était *« abandonne la Caro-Kann »*, sur la
+foi de 158 Scandinaves à 61 % contre 1 363 Caro à 53 %. On ne recommande pas de changer une habitude
+de mille parties à partir d'un échantillon dix fois plus petit. L'écart doit désormais peser face à
+ce qu'il remplacerait (au moins un quart des parties), faute de quoi il reste affiché mais rangé
+après les chantiers sûrs.
+
+Le classement final est crédible : `1.d4 Cf6` côté noirs (124 parties à 40 % contre 51 %), puis la
+Scandinave côté blancs (207 parties à 48 % contre 54 %).
+
 ## Reste ouvert
 
 - « Trop intimidant pour un néophyte » : ne se tranche pas en interne, il faut le montrer à quelqu'un.
