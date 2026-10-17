@@ -1,12 +1,14 @@
 import { useMemo, useState } from 'react';
-import { nodeAt, type OpeningTree } from '../domain/openingTree';
+import { isPlayerMove, nodeAt, type OpeningTree } from '../domain/openingTree';
 import { deficit, playerAverage } from '../domain/performance';
 import { formatMove } from '../domain/notation';
 import { layoutFlame, type FlameBar } from './flameLayout';
 import { toneOf, type Tone } from './tone';
 import { BarDetails } from './BarDetails';
 
-const ROW_HEIGHT = 28;
+const PLAYER_ROW_HEIGHT = 28;
+const OPPONENT_ROW_HEIGHT = 12;
+const ROW_GAP = 2;
 const MIN_BAR_WIDTH = 0.004;
 const MIN_LABEL_WIDTH = 0.03;
 
@@ -29,6 +31,12 @@ export function FlameGraph({ tree }: FlameGraphProps) {
   const focus = nodeAt(tree, focusPath) ?? tree.root;
   const bars = useMemo(() => layoutFlame(focus, focusPath, MIN_BAR_WIDTH), [focus, focusPath]);
   const rows = Math.max(0, ...bars.map((bar) => bar.depth)) + 1;
+  const isPlayerRow = (depth: number) => depth === 0 || isPlayerMove(tree.side, focusPath.length + depth);
+  const rowHeights = Array.from({ length: rows }, (_, depth) =>
+    isPlayerRow(depth) ? PLAYER_ROW_HEIGHT : OPPONENT_ROW_HEIGHT,
+  );
+  const rowTops = rowHeights.map((_, depth) => rowHeights.slice(0, depth).reduce((sum, h) => sum + h, 0));
+  const totalHeight = rowHeights.reduce((sum, h) => sum + h, 0);
   const focusBar = bars[0];
 
   const zoomTo = (path: readonly string[]) => {
@@ -46,7 +54,7 @@ export function FlameGraph({ tree }: FlameGraphProps) {
     <div className="flex flex-col gap-3">
       <Breadcrumb path={focusPath} onNavigate={zoomTo} />
 
-      <div className="relative w-full" style={{ height: rows * ROW_HEIGHT }} onMouseLeave={() => setHovered(null)}>
+      <div className="relative w-full" style={{ height: totalHeight }} onMouseLeave={() => setHovered(null)}>
         {bars.map((bar) => (
           <button
             key={barKey(bar)}
@@ -55,18 +63,16 @@ export function FlameGraph({ tree }: FlameGraphProps) {
             onMouseEnter={() => setHovered(bar)}
             onFocus={() => setHovered(bar)}
             aria-label={barLabel(bar)}
-            className={`absolute overflow-hidden rounded-[2px] px-1.5 text-left text-xs transition hover:brightness-110 ${
-              bar.kind === 'others' ? 'cursor-default bg-border text-text-muted' : TONE_CLASSES[toneOf(deficit(bar.node, average))]
-            }`}
+            className={`absolute overflow-hidden rounded-[2px] px-1.5 text-left transition hover:brightness-110 ${barClasses(bar, isPlayerRow(bar.depth), average)}`}
             style={{
               left: `${bar.start * 100}%`,
               width: `calc(${bar.width * 100}% - 1px)`,
-              top: bar.depth * ROW_HEIGHT,
-              height: ROW_HEIGHT - 2,
+              top: rowTops[bar.depth],
+              height: rowHeights[bar.depth] - ROW_GAP,
             }}
           >
             {bar.width >= MIN_LABEL_WIDTH && (
-              <span className="whitespace-nowrap font-mono leading-[26px]">
+              <span className="block whitespace-nowrap font-mono">
                 {barLabel(bar)}
               </span>
             )}
@@ -78,6 +84,12 @@ export function FlameGraph({ tree }: FlameGraphProps) {
       {focusBar && <BarDetails bar={hovered ?? focusBar} average={average} />}
     </div>
   );
+}
+
+function barClasses(bar: FlameBar, playerRow: boolean, average: number): string {
+  if (!playerRow) return 'bg-border text-[9px] leading-[10px] text-text-muted';
+  const colour = bar.kind === 'others' ? 'cursor-default bg-border text-text-muted' : TONE_CLASSES[toneOf(deficit(bar.node, average))];
+  return `${colour} text-xs leading-[26px]`;
 }
 
 function barKey(bar: FlameBar): string {

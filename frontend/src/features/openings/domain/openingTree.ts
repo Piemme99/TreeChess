@@ -77,3 +77,8 @@ function freeze(node: NodeUnderConstruction): OpeningNode {
       .sort((a, b) => b.games - a.games),
   };
 }
+
+export function isPlayerMove(side: Side, ply: number): boolean {
+  if (ply === 0) return false;
+  return (ply % 2 === 1) === (side === 'w');
+}

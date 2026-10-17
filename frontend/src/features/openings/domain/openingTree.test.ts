@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildOpeningTree, nodeAt } from './openingTree';
+import { buildOpeningTree, isPlayerMove, nodeAt } from './openingTree';
 import type { PlayedGame } from './playedGame';
 import { playedGamesFixture } from '../fixtures/playedGames';
 
@@ -59,5 +59,19 @@ describe('nodeAt', () => {
     const tree = buildOpeningTree([game('w', 'e4', 1)], 'w', 16);
 
     expect(nodeAt(tree, ['d4'])).toBeUndefined();
+  });
+});
+
+describe('isPlayerMove', () => {
+  it('is true on odd plies with white', () => {
+    expect([1, 2, 3].map((ply) => isPlayerMove('w', ply))).toEqual([true, false, true]);
+  });
+
+  it('is true on even plies with black', () => {
+    expect([1, 2, 3].map((ply) => isPlayerMove('b', ply))).toEqual([false, true, false]);
+  });
+
+  it('is false at the starting position', () => {
+    expect(isPlayerMove('w', 0)).toBe(false);
   });
 });
