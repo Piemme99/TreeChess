@@ -68,3 +68,27 @@ average with that side. Positive means "you score less here than usual".
 Smoothed toward zero on small samples (`games / (games + 12)`), so that a line
 played seven times cannot dominate on noise. It is the colour of the flame
 graph: it shows where points leak, not what the engine thinks.
+
+### Priority
+
+A line the player should work on first, drawn from both sides at once and
+ranked by **points at stake**. Two signals feed it, both computed from results
+only (no engine):
+
+- **Weak line** — a line ending on one of the player's moves where they score
+  significantly below their average (at least 40 games, gap beyond one standard
+  error). A line and its sub-lines tell the same story: only the heaviest is kept.
+- **No settled reply** — a position where the player alternates between replies
+  that do not score the same. Two systems that work equally well are a choice,
+  not a gap; and a reply is not recommended on a sample much smaller than the
+  habit it would replace.
+
+Only signals that survive sampling noise are shown: a priority list has no room
+for "maybe".
+
+### Points at stake
+
+What a priority is worth, in game points (a win is 1, a draw ½): roughly how
+many points the player would have scored on top had the line performed at their
+average — or, for a position with no settled reply, had they always played their
+best reply.

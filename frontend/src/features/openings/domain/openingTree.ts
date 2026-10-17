@@ -82,3 +82,14 @@ export function isPlayerMove(side: Side, ply: number): boolean {
   if (ply === 0) return false;
   return (ply % 2 === 1) === (side === 'w');
 }
+
+export function forEachLine(
+  tree: OpeningTree,
+  visit: (node: OpeningNode, path: readonly string[]) => void,
+): void {
+  const walk = (node: OpeningNode, path: readonly string[]) => {
+    visit(node, path);
+    for (const child of node.children) walk(child, [...path, child.san!]);
+  };
+  walk(tree.root, []);
+}

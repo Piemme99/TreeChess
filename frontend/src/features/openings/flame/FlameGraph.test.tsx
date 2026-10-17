@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { describe, expect, it } from 'vitest';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { buildOpeningTree } from '../domain/openingTree';
@@ -10,7 +11,14 @@ const games: PlayedGame[] = [
   ...Array.from({ length: 40 }, (): PlayedGame => ({ side: 'w', moves: ['d4', 'd5'], score: 0.5 })),
 ];
 
-const renderGraph = () => render(<FlameGraph tree={buildOpeningTree(games, 'w', 16)} />);
+const tree = buildOpeningTree(games, 'w', 16);
+
+function ZoomableFlameGraph() {
+  const [focusPath, setFocusPath] = useState<readonly string[]>([]);
+  return <FlameGraph tree={tree} focusPath={focusPath} onFocusChange={setFocusPath} />;
+}
+
+const renderGraph = () => render(<ZoomableFlameGraph />);
 const breadcrumb = () => screen.getByRole('navigation', { name: 'Zoom path' });
 
 describe('FlameGraph', () => {

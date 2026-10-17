@@ -22,10 +22,11 @@ const TONE_CLASSES: Record<Tone, string> = {
 
 interface FlameGraphProps {
   tree: OpeningTree;
+  focusPath: readonly string[];
+  onFocusChange: (path: readonly string[]) => void;
 }
 
-export function FlameGraph({ tree }: FlameGraphProps) {
-  const [focusPath, setFocusPath] = useState<readonly string[]>([]);
+export function FlameGraph({ tree, focusPath, onFocusChange }: FlameGraphProps) {
   const [hovered, setHovered] = useState<FlameBar | null>(null);
 
   const average = playerAverage(tree);
@@ -41,7 +42,7 @@ export function FlameGraph({ tree }: FlameGraphProps) {
   const focusBar = bars[0];
 
   const zoomTo = (path: readonly string[]) => {
-    setFocusPath(path);
+    onFocusChange(path);
     setHovered(null);
   };
 

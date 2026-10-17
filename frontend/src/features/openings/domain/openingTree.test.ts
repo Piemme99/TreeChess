@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildOpeningTree, isPlayerMove, nodeAt } from './openingTree';
+import { buildOpeningTree, forEachLine, isPlayerMove, nodeAt } from './openingTree';
 import type { PlayedGame } from './playedGame';
 import { playedGamesFixture } from '../fixtures/playedGames';
 
@@ -73,5 +73,16 @@ describe('isPlayerMove', () => {
 
   it('is false at the starting position', () => {
     expect(isPlayerMove('w', 0)).toBe(false);
+  });
+});
+
+describe('forEachLine', () => {
+  it('visits every line with its path, starting from the root', () => {
+    const tree = buildOpeningTree([game('w', 'e4 e5', 1), game('w', 'd4', 0)], 'w', 16);
+    const visited: string[] = [];
+
+    forEachLine(tree, (_, path) => visited.push(path.join(' ')));
+
+    expect(visited).toEqual(['', 'e4', 'e4 e5', 'd4']);
   });
 });
