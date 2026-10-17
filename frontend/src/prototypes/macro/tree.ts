@@ -42,21 +42,6 @@ function movetext(pgn: string): string[] {
     .filter((t) => t && !/^\d+\.+$/.test(t) && !/^(1-0|0-1|1\/2-1\/2|\*)$/.test(t));
 }
 
-/** Les premiers coups d'une partie, en SAN validé. */
-export function firstMoves(pgn: string, plies: number): string[] {
-  const chess = new Chess();
-  const out: string[] = [];
-  for (const token of movetext(pgn)) {
-    if (out.length >= plies) break;
-    try {
-      out.push(chess.move(token).san);
-    } catch {
-      break;
-    }
-  }
-  return out;
-}
-
 export function buildTree(games: RawGame[], maxPly: number): Tree {
   const start = new Chess();
   const nodes: Record<string, TreeNode> = {};
@@ -84,6 +69,7 @@ export function buildTree(games: RawGame[], maxPly: number): Tree {
     nodes[parentId].games++;
     nodes[parentId].score += game.score;
     let path = '';
+    const sans: string[] = [];
 
     for (let i = 0; i < tokens.length && i < maxPly; i++) {
       let san: string;
@@ -93,6 +79,7 @@ export function buildTree(games: RawGame[], maxPly: number): Tree {
         break;
       }
       path += (path ? ' ' : '') + san;
+      sans.push(san);
       const id = `${color}|${path}`;
       let node = nodes[id];
       if (!node) {
@@ -110,6 +97,7 @@ export function buildTree(games: RawGame[], maxPly: number): Tree {
       parentId = id;
     }
 
+    game.moves = sans;
     gamesByColor[color]++;
     parsed++;
   }
@@ -381,16 +369,14 @@ export function branches(tree: Tree, node: TreeNode, onLineId?: string): Branch[
     .sort((a, b) => b.games - a.games);
 }
 
-/** Les parties qui passent par cette ligne, retrouvées en rejouant le préfixe. */
-export function gamesOnLine(games: RawGame[], nodeId: string, replay: (pgn: string, plies: number) => string[]): RawGame[] {
+/** Les parties qui passent par cette ligne. */
+export function gamesOnLine(games: RawGame[], nodeId: string): RawGame[] {
   const [color, path] = nodeId.split('|');
   if (!path) return [];
   const sans = path.split(' ');
   const wantWhite = color === 'white';
 
-  return games.filter((game) => {
-    if (game.userIsWhite !== wantWhite) return false;
-    const played = replay(game.pgn, sans.length);
-    return sans.every((san, i) => played[i] === san);
-  });
+  return games.filter(
+    (game) => game.userIsWhite === wantWhite && sans.every((san, i) => game.moves?.[i] === san),
+  );
 }

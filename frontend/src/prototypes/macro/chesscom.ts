@@ -2,11 +2,15 @@
 
 export interface RawGame {
   pgn: string;
+  /** Rempli à l'agrégation : les premiers coups en SAN, pour ne pas rejouer le PGN deux fois. */
+  moves?: string[];
   userIsWhite: boolean;
   /** Résultat du point de vue du joueur : 1 / 0.5 / 0. */
   score: number;
   timeClass: string;
   endTime: number;
+  opponent: string;
+  opponentRating: number;
 }
 
 interface ApiGame {
@@ -14,8 +18,8 @@ interface ApiGame {
   rules?: string;
   time_class?: string;
   end_time?: number;
-  white?: { username?: string; result?: string };
-  black?: { username?: string; result?: string };
+  white?: { username?: string; result?: string; rating?: number };
+  black?: { username?: string; result?: string; rating?: number };
 }
 
 export async function fetchArchives(user: string): Promise<string[]> {
@@ -49,6 +53,8 @@ export async function fetchMonth(url: string, user: string): Promise<RawGame[]> 
       score,
       timeClass: g.time_class ?? 'unknown',
       endTime: g.end_time ?? 0,
+      opponent: theirs?.username ?? '?',
+      opponentRating: theirs?.rating ?? 0,
     });
   }
   return out;

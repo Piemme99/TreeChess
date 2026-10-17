@@ -3,7 +3,8 @@ import { useMemo, useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { StaticBoard } from '../../shared/components/Board/StaticBoard';
 import type { RawGame } from './chesscom';
-import { baseline, branches, dominantContinuation, firstMoves, gamesOnLine, lineSteps, type Color, type Tree } from './tree';
+import { baseline, branches, dominantContinuation, gamesOnLine, lineSteps, type Color, type Tree } from './tree';
+import { buildPrep, verifyPrep } from './prep';
 
 export type Entry = 'leak' | 'weak' | 'dispersion';
 
@@ -34,6 +35,8 @@ export function Study({ tree, color, nodeId, entry, rawGames, onBack }: Props) {
   const steps = useMemo(() => [...found, ...after], [found, after]);
   const base = baseline(tree, color);
   const [focusPly, setFocusPly] = useState(found.length);
+  const [prepOpen, setPrepOpen] = useState(false);
+  const [overrides, setOverrides] = useState<Record<string, string>>({});
 
   const entryStep = found[found.length - 1];
   const verdict =
@@ -52,9 +55,61 @@ export function Study({ tree, color, nodeId, entry, rawGames, onBack }: Props) {
   const userToMove = focusNode?.userToMove ?? false;
 
   const games = useMemo(
-    () => gamesOnLine(rawGames, nodeId, firstMoves).sort((a, b) => b.endTime - a.endTime),
+    () => gamesOnLine(rawGames, nodeId).sort((a, b) => b.endTime - a.endTime),
     [rawGames, nodeId],
   );
+
+  const prep = useMemo(
+    () =>
+      buildPrep(
+        tree,
+        nodeId,
+        {
+          maxPly: 16,
+          targetCoverage: 0.9,
+          minBranchGames: 5,
+          minLineGames: Math.max(6, (entryStep?.games ?? 0) * 0.04),
+        },
+        overrides,
+      ),
+    [tree, nodeId, overrides, entryStep],
+  );
+  const report = useMemo(() => verifyPrep(prep, games), [prep, games]);
+  const focusPath = focusNode ? focusNode.id.split('|')[1] ?? '' : '';
+  const prepChoice = prep.choices[focusPath];
+
+  const lastGame = useMemo(() => {
+    const newest = games[0];
+    return newest ? report.verdicts.find((v) => v.game === newest) ?? null : null;
+  }, [games, report]);
+
+  const lastGameLine = useMemo(() => {
+    if (!lastGame) return '';
+    const move = Math.ceil((lastGame.ply + 1) / 2);
+    if (lastGame.outcome === 'left') {
+      return `Tu as quitté ta ligne au coup ${move} : tu as joué ${lastGame.played}, ta ligne dit ${lastGame.expected}.`;
+    }
+    if (lastGame.outcome === 'uncovered') {
+      return `L'adversaire est sorti de ta couverture au coup ${move} avec ${lastGame.played} — tu n'avais rien de prêt.`;
+    }
+    return lastGame.game.score === 1
+      ? `Tu as suivi ta ligne et gagné.`
+      : `Tu as suivi ta ligne jusqu'au bout et tu as quand même ${
+          lastGame.game.score === 0 ? 'perdu' : 'fait nulle'
+        } : c'est la ligne qui est en cause, pas son application.`;
+  }, [lastGame]);
+
+  const verdictLine = useMemo(() => {
+    const { counts, scores } = report;
+    if (counts.followed < 15 || counts.left < 15) return null;
+    const held = scores.followed / counts.followed;
+    const drifted = scores.left / counts.left;
+    const gap = Math.round((held - drifted) * 100);
+
+    if (gap > 5) return `Te tenir à ta ligne vaut ${gap} points de plus pour 100 parties : ici, le problème est la régularité.`;
+    if (gap < -5) return `Tes écarts marquent ${-gap} points de plus que ta ligne de fait : c'est la ligne qu'il faut changer, pas ta régularité.`;
+    return 'Ta ligne et tes écarts se valent : te tenir à ce que tu joues déjà ne réparera rien ici, il faut changer de système.';
+  }, [report]);
 
 
   return (
@@ -175,6 +230,18 @@ export function Study({ tree, color, nodeId, entry, rawGames, onBack }: Props) {
                     <span className="w-14 text-right font-mono text-slate-600">
                       {b.evalUser !== undefined ? (b.evalUser / 100).toFixed(2) : '—'}
                     </span>
+                    {prepOpen && userToMove && (
+                      <button
+                        onClick={() => setOverrides((o) => ({ ...o, [focusPath]: b.san }))}
+                        className={`rounded px-2 py-0.5 text-[10px] uppercase tracking-wider ${
+                          prepChoice === b.san
+                            ? 'bg-emerald-600 text-white'
+                            : 'border border-slate-700 text-slate-500 hover:bg-slate-800'
+                        }`}
+                      >
+                        {prepChoice === b.san ? 'retenu' : 'retenir'}
+                      </button>
+                    )}
                   </div>
                 );
               })}
@@ -211,15 +278,175 @@ export function Study({ tree, color, nodeId, entry, rawGames, onBack }: Props) {
             </div>
           </div>
 
-          <button className="w-full rounded-lg bg-emerald-600 py-2.5 text-sm font-semibold text-white hover:bg-emerald-500">
-            Fixer cette ligne
-          </button>
-          <p className="text-[11px] leading-relaxed text-slate-600">
-            Maquette : l’action ne fait rien. C’est elle qui, dans la v2, créerait la ligne de référence
-            dont la prochaine partie dira si tu l’as suivie.
-          </p>
+          {!prepOpen ? (
+            <>
+              <button
+                onClick={() => setPrepOpen(true)}
+                className="w-full rounded-lg bg-emerald-600 py-2.5 text-sm font-semibold text-white hover:bg-emerald-500"
+              >
+                Fixer cette ligne
+              </button>
+              <p className="text-[11px] leading-relaxed text-slate-600">
+                Choisir ton coup à chaque position où tu as la main, sur les bifurcations adverses qui
+                pèsent. Ni une séquence unique, ni un répertoire complet.
+              </p>
+            </>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex items-baseline justify-between">
+                <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-400">Ta ligne de référence</h2>
+                <button onClick={() => setPrepOpen(false)} className="text-[11px] text-slate-500 hover:text-slate-300">
+                  fermer
+                </button>
+              </div>
+
+              <div className="rounded-lg border border-slate-800 p-3">
+                <div className="font-mono text-2xl text-emerald-400">{Math.round(report.coverage * 100)}%</div>
+                <div className="text-[11px] text-slate-500">
+                  de tes {games.length} parties sur cette ligne seraient couvertes
+                </div>
+                <div className="mt-2 text-[11px] text-slate-500">
+                  ta ligne porte jusqu'au coup <b className="text-slate-300">{report.reach}</b>
+                </div>
+              </div>
+
+              <div className="space-y-1 text-xs">
+                <Bucket
+                  label="Tu jouais déjà cette ligne"
+                  count={report.counts.followed}
+                  score={report.scores.followed}
+                  tone="emerald"
+                />
+                <Bucket label="Tu en es sorti toi-même" count={report.counts.left} score={report.scores.left} tone="amber" />
+                <Bucket
+                  label="Adversaire hors couverture"
+                  count={report.counts.uncovered}
+                  score={report.scores.uncovered}
+                  tone="red"
+                />
+              </div>
+
+              {verdictLine && (
+                <p className="rounded-lg border border-slate-700 bg-slate-800/40 p-3 text-xs leading-relaxed text-amber-200">
+                  {verdictLine}
+                </p>
+              )}
+
+              {report.counts.followed > 0 && (
+                <p className="text-[11px] leading-relaxed text-slate-500">
+                  Quand tu t'y tiens tu marques{' '}
+                  <b className="text-slate-300">
+                    {Math.round((report.scores.followed / report.counts.followed) * 100)}%
+                  </b>
+                  {report.counts.left > 0 && (
+                    <>
+                      , contre{' '}
+                      <b className="text-slate-300">
+                        {Math.round((report.scores.left / report.counts.left) * 100)}%
+                      </b>{' '}
+                      quand tu improvises
+                    </>
+                  )}
+                  .
+                </p>
+              )}
+
+              {lastGame && (
+                <div className="rounded-lg border border-slate-700 p-3">
+                  <h3 className="text-[11px] uppercase tracking-wider text-slate-500">Ta dernière partie ici</h3>
+                  <div className="mt-1 text-xs text-slate-400">
+                    {new Date(lastGame.game.endTime * 1000).toLocaleDateString('fr-FR')} contre{' '}
+                    {lastGame.game.opponent} ({lastGame.game.opponentRating}) —{' '}
+                    {lastGame.game.score === 1 ? 'gagnée' : lastGame.game.score === 0 ? 'perdue' : 'nulle'}
+                  </div>
+                  <p className="mt-2 text-xs leading-relaxed text-slate-300">{lastGameLine}</p>
+                </div>
+              )}
+
+              {prep.frontier.length > 0 && (
+                <div>
+                  <h3 className="text-[11px] uppercase tracking-wider text-slate-500">Points à trancher</h3>
+                  <p className="text-[10px] text-slate-600">là où ta ligne s'arrête : pas d'habitude nette</p>
+                  <div className="mt-1 space-y-1">
+                    {prep.frontier.slice(0, 4).map((f) => (
+                      <div key={f.path} className="rounded border border-slate-800 px-2 py-1 text-[11px]">
+                        <div className="truncate font-mono text-slate-400">après {f.path || 'le départ'}</div>
+                        <div className="mt-0.5 flex gap-2 font-mono text-slate-500">
+                          {f.options.map((o) => (
+                            <span key={o.san}>
+                              {o.san} {o.games}× {Math.round(o.rate * 100)}%
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {report.driftByPly.length > 0 && (
+                <div>
+                  <h3 className="text-[11px] uppercase tracking-wider text-slate-500">Où tu quittes ta ligne</h3>
+                  <div className="mt-1 space-y-0.5">
+                    {report.driftByPly.slice(0, 4).map((d) => (
+                      <div key={d.ply} className="flex items-baseline gap-2 text-[11px]">
+                        <span className="text-slate-400">coup {Math.ceil((d.ply + 1) / 2)}</span>
+                        <span className="ml-auto font-mono text-slate-500">{d.games}×</span>
+                        <span className="w-10 text-right font-mono text-slate-500">
+                          {Math.round((d.score / d.games) * 100)}%
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {report.holes.length > 0 && (
+                <div>
+                  <h3 className="text-[11px] uppercase tracking-wider text-slate-500">Trous à combler</h3>
+                  <div className="mt-1 space-y-0.5">
+                    {report.holes.slice(0, 6).map((h) => (
+                      <div key={h.path + h.san} className="flex items-baseline gap-2 text-[11px]">
+                        <span className="font-mono text-slate-300">{h.san}</span>
+                        <span className="truncate text-slate-600">après {h.path || 'le départ'}</span>
+                        <span className="ml-auto font-mono text-slate-500">{h.games}×</span>
+                        <span className="w-10 text-right font-mono text-slate-500">
+                          {Math.round((h.score / h.games) * 100)}%
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <p className="text-[11px] leading-relaxed text-slate-600">
+                Clique « retenir » sur une réponse à gauche pour changer ton coup : la couverture et le
+                score se recalculent sur tes parties réelles.
+              </p>
+            </div>
+          )}
+
         </aside>
       </div>
+    </div>
+  );
+}
+
+const BUCKET_DOT: Record<string, string> = {
+  emerald: 'bg-emerald-500',
+  amber: 'bg-amber-500',
+  red: 'bg-red-500',
+};
+
+function Bucket({ label, count, score, tone }: { label: string; count: number; score: number; tone: string }) {
+  return (
+    <div className="flex items-baseline gap-2 rounded border border-slate-800 px-2 py-1.5">
+      <span className={`h-2 w-2 shrink-0 rounded-full ${BUCKET_DOT[tone]}`} />
+      <span className="text-slate-400">{label}</span>
+      <span className="ml-auto font-mono text-slate-200">{count}</span>
+      <span className="w-10 text-right font-mono text-slate-500">
+        {count > 0 ? `${Math.round((score / count) * 100)}%` : '—'}
+      </span>
     </div>
   );
 }

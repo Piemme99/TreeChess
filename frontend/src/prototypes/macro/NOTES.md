@@ -111,7 +111,56 @@ Trois choses qu'on n'avait pas et qui tombent naturellement quand l'unité est l
 La ligne est prolongée par sa suite la plus fréquente au-delà du coup qui l'a fait sortir : le point
 d'entrée identifie le problème, il ne délimite pas le travail.
 
+## POC 4 — préparer et vérifier
+
+### Ce que « fixer une ligne » veut dire
+
+La question était ouverte : une séquence unique de coups, ou un arbre de réponses à chaque
+bifurcation adverse ? Les deux réponses sont mauvaises. Une séquence unique laisse découvert dès
+que l'adversaire bifurque — sur la Scandinave, `2...Cf6` arrive une fois sur six. Un arbre complet,
+c'est le travail sans fin qui a rendu la v1 inutilisable.
+
+**Décision : une préparation est un coup choisi à chaque position où le joueur a la main, sur les
+seules bifurcations adverses qui pèsent.** Sa complétude ne se mesure pas en nombre de coups mais
+en **couverture** : la part des parties réellement jouées qu'elle aurait prises en charge.
+
+Trois conséquences, toutes implémentées :
+
+- **La ligne par défaut est la ligne de fait** — ce que le joueur joue déjà, pas ce que le moteur
+  préfère. Construire sur les coups les mieux notés donnait 137 parties « sorties de la prépa » sur
+  207, ce qui ne mesurait rien.
+- **La profondeur est bornée par le volume**, pas par le nombre de coups : en dessous de quelques
+  parties il n'y a plus rien à apprendre de l'historique.
+- **La ligne s'arrête là où il n'y a pas d'habitude nette** (moins d'une partie sur deux). Ces
+  positions deviennent des **points à trancher** au lieu d'une recommandation inventée sur trois
+  parties — et ce sont exactement les positions que le signal « pas de réponse arrêtée » détecte.
+
+### Vérifier, mesuré sur l'historique et non maquetté
+
+La préparation est rejouée contre les parties déjà jouées. Trois issues, et c'est la distinction
+que personne ne donne aujourd'hui :
+
+- **tu jouais déjà cette ligne** ;
+- **tu en es sorti toi-même** — et à quel coup ;
+- **l'adversaire est sorti de ta couverture** — un trou, pas une faute.
+
+Sur la Scandinave : 82 % de couverture, la ligne porte jusqu'au coup 5, et le verdict est net —
+48 % quand il s'y tient, 43 % quand il improvise. L'écart ne dépasse pas le bruit, donc l'écran le
+dit : *« te tenir à ce que tu joues déjà ne réparera rien ici, il faut changer de système »*. Sur
+`1.e4 e5`, même mesure, même conclusion.
+
+Le point à trancher qui sort est juste : dans la Scandinave principale il n'a pas de 5ᵉ coup arrêté
+(Fd2 12× à 42 %, Cf3 9× à 33 %, Fc4 4× à 75 %).
+
+Enfin la dernière partie jouée sur la ligne est confrontée à la préparation, ce qui donne la
+phrase de l'étape 4 sur des données réelles : *« 29/05 contre NosykAndrii — tu as quitté ta ligne
+au coup 5 : tu as joué d4, ta ligne dit h3. »*
+
 ## Reste ouvert
 
 - « Trop intimidant pour un néophyte » : ne se tranche pas en interne, il faut le montrer à quelqu'un.
-- L'unité de travail de la boucle (coup vs ligne) — voir ci-dessus.
+- Le verdict « il faut changer de système » n'est suivi d'aucune proposition : on sait dire que la
+  ligne ne vaut rien, pas par quoi la remplacer. C'est là que les parties de maîtres et la base
+  d'ouvertures entreraient en jeu.
+- Rien n'est persistant : la préparation vit dans l'état React. La v2 devra décider où elle vit et
+  comment elle se compare à la partie suivante automatiquement.
