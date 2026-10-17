@@ -37,7 +37,7 @@ cd frontend && npx vitest run -t "test name"
 
 ## Layout
 
-- `backend/` — `main.go` wires dependencies and routes; `config/` (env + `limits.go`); `internal/{handlers,middleware,models,repository,services,testhelpers}`; `tests/integration/`. Module `github.com/kumquat/backend`.
+- `backend/` — `main.go` wires dependencies and routes; `config/` (env + `limits.go`); `internal/{handlers,middleware,models,repository,services,testhelpers}` plus three pure-logic packages worth knowing: `repertoiretree` (tree walking/merging), `analysiscore` (game-vs-repertoire adherence), `crypto` (cookie sealing); `tests/integration/`. Module `github.com/kumquat/backend`.
 - `frontend/src/` — `features/` (one folder per screen), `shared/`, `stores/`, `services/` (`api.ts`, `stockfish.ts`), `types/`.
 - `migrations/`, `monitoring/`, `scripts/`, `testdata/`.
 
