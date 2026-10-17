@@ -1,5 +1,7 @@
-# Dependencies
-node_modules/
+# Dependencies — no trailing slash: that would only match directories, and a
+# node_modules symlink slipped past the old rule and got committed (see the
+# commit that removed it).
+node_modules
 
 # Build outputs
 dist/
