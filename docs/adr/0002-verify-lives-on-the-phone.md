@@ -81,6 +81,12 @@ opening mistakes in it. A tool that waits to be opened does not change that.
   preparation.
 - The flame graph stays a computer screen. On a phone, Spot shrinks to the
   priority list.
-- Verify can no longer be the last brick: it must be mocked up on a phone before
-  the workshop goes further, so the workshop does not get optimised for the
-  secondary surface.
+- Verify was mocked up on a phone before the workshop went further (branch
+  `v2/mobile-verify`, `frontend/src/prototypes/mobile-verify/NOTES.md`). The
+  "debrief" shape — understand the deviation, then replay it — is the baseline;
+  playing before seeing the answer, and replaying whole lines, are left to test
+  with real use. Moves are shown on a board with arrows, not in notation.
+- Until Verify is built, the workshop must not rule it out: preparations are
+  stored server-side (one move per position, comparable to a game while the app
+  is closed), the player's habits are computed in a pure domain module, and the
+  priority list works on a phone.
