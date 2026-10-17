@@ -92,3 +92,34 @@ What a priority is worth, in game points (a win is 1, a draw ½): roughly how
 many points the player would have scored on top had the line performed at their
 average — or, for a position with no settled reply, had they always played their
 best reply.
+
+### Game check
+
+What happens after every real game the player finishes: the game is compared to
+their preparations, and a notification brings them back to it while it is
+fresh. Two outcomes:
+
+- **Left the preparation** — the player deviated from a move they had prepared
+  ("move 7: you played Bd7, your preparation says e6"). The check becomes an
+  exercise on that position.
+- **No preparation** — the game left every preparation before the player went
+  wrong. The check says so and offers a [proposed preparation](#proposed-preparation).
+
+A game that follows the preparation to its end needs no check. It is the phone
+side of Verify; [spaced repetition](#spaced-repetition) covers the days without
+games. See ADR 0002.
+
+### Proposed preparation
+
+A preparation the product drafts for a line the player has none on, built from
+the player's own habits rather than from theory: at each position where they are
+to move, the move they usually play — replaced only where the engine judges it
+bad. Opponent moves come from the player's games and the Lichess explorer at
+their rating. It stops where the player's games stop. The player accepts it,
+edits it, or ignores it.
+
+### Spaced repetition
+
+Replaying positions of the preparation at growing intervals, so that it holds
+on the days the player has no game to check. Positions the player recently got
+wrong in a [game check](#game-check) come back first.
