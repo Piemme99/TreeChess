@@ -7,6 +7,7 @@ import { fetchArchives, fetchMonth, type RawGame } from './chesscom';
 import { buildTree, findFindings, findDispersions, selectForEval, evalForUser, baseline, type Color, type Finding, type Tree, type TreeNode } from './tree';
 import { BatchEngine } from './engine';
 import { Flame } from './Flame';
+import { Study, type Entry } from './Study';
 
 const TIME_CLASSES = ['bullet', 'blitz', 'rapid', 'daily'] as const;
 const cacheKey = (depth: number) => `poc-macro-evals-d${depth}`;
@@ -32,6 +33,8 @@ export function MacroPrototypePage() {
   const [evaluated, setEvaluated] = useState({ fromCache: 0, computed: 0 });
   const [color, setColor] = useState<Color>('white');
   const [selected, setSelected] = useState<TreeNode | null>(null);
+  const [rawGames, setRawGames] = useState<RawGame[]>([]);
+  const [study, setStudy] = useState<{ nodeId: string; entry: Entry } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [, bump] = useState(0);
   const abort = useRef(false);
@@ -41,6 +44,7 @@ export function MacroPrototypePage() {
     setError(null);
     setTree(null);
     setSelected(null);
+    setStudy(null);
     setTimings({});
     setEvaluated({ fromCache: 0, computed: 0 });
     const t0 = performance.now();
@@ -72,6 +76,7 @@ export function MacroPrototypePage() {
       setPhase('parse');
       await new Promise((r) => setTimeout(r, 0));
       const kept = games.filter((g) => classes.includes(g.timeClass));
+      setRawGames(kept);
       const built = buildTree(kept, maxPly);
       const tParse = performance.now();
       setTimings((t) => ({ ...t, parse: tParse - tDownload }));
@@ -140,6 +145,19 @@ export function MacroPrototypePage() {
     });
   };
   const running = phase !== 'idle' && phase !== 'done';
+
+  if (study && tree) {
+    return (
+      <Study
+        tree={tree}
+        color={color}
+        nodeId={study.nodeId}
+        entry={study.entry}
+        rawGames={rawGames}
+        onBack={() => setStudy(null)}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen w-full bg-[#0f1216] px-8 py-6 text-slate-200">
@@ -244,7 +262,7 @@ export function MacroPrototypePage() {
                 findings={leaks}
                 base={base}
                 dismissed={false}
-                onSelect={setSelected}
+                onSelect={(id) => setStudy({ nodeId: id, entry: 'leak' })}
                 onDismiss={dismiss}
                 empty={phase === 'done' ? 'Aucune fuite au-dessus du plancher.' : ''}
               />
@@ -254,7 +272,7 @@ export function MacroPrototypePage() {
                 findings={weak}
                 base={base}
                 dismissed={false}
-                onSelect={setSelected}
+                onSelect={(id) => setStudy({ nodeId: id, entry: 'weak' })}
                 onDismiss={dismiss}
                 empty={phase === 'done' ? 'Rien à signaler.' : ''}
               />
@@ -272,7 +290,7 @@ export function MacroPrototypePage() {
                   {dispersions.map((d) => (
                     <button
                       key={d.node.id}
-                      onClick={() => setSelected(d.node)}
+                      onClick={() => setStudy({ nodeId: d.node.id, entry: 'dispersion' })}
                       className="flex w-full items-baseline gap-3 rounded border border-slate-800 px-3 py-2 text-left hover:border-slate-600"
                     >
                       <span className="font-mono text-sm text-slate-100">{d.node.id.split('|')[1] || 'position de départ'}</span>
@@ -304,7 +322,7 @@ export function MacroPrototypePage() {
                   findings={assumed}
                   base={base}
                   dismissed
-                  onSelect={setSelected}
+                  onSelect={(id) => setStudy({ nodeId: id, entry: 'weak' })}
                   onDismiss={dismiss}
                   empty=""
                 />
@@ -347,7 +365,7 @@ function FindingList({
   base: number;
   dismissed: boolean;
   empty: string;
-  onSelect: (n: TreeNode) => void;
+  onSelect: (id: string) => void;
   onDismiss: (id: string) => void;
 }) {
   return (
@@ -367,7 +385,7 @@ function FindingList({
             key={f.node.id}
             className="flex items-baseline gap-3 rounded border border-slate-800 px-3 py-2 hover:border-slate-600"
           >
-            <button onClick={() => onSelect(f.node)} className="flex flex-1 items-baseline gap-3 text-left">
+            <button onClick={() => onSelect(f.node.id)} className="flex flex-1 items-baseline gap-3 text-left">
               <span className="font-mono text-sm text-slate-100">{f.node.id.split('|')[1]}</span>
               {!f.confident && (
                 <span className="rounded bg-slate-800 px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-slate-500">

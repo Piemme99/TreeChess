@@ -42,6 +42,21 @@ function movetext(pgn: string): string[] {
     .filter((t) => t && !/^\d+\.+$/.test(t) && !/^(1-0|0-1|1\/2-1\/2|\*)$/.test(t));
 }
 
+/** Les premiers coups d'une partie, en SAN validé. */
+export function firstMoves(pgn: string, plies: number): string[] {
+  const chess = new Chess();
+  const out: string[] = [];
+  for (const token of movetext(pgn)) {
+    if (out.length >= plies) break;
+    try {
+      out.push(chess.move(token).san);
+    } catch {
+      break;
+    }
+  }
+  return out;
+}
+
 export function buildTree(games: RawGame[], maxPly: number): Tree {
   const start = new Chess();
   const nodes: Record<string, TreeNode> = {};
@@ -286,4 +301,96 @@ export function findDispersions(tree: Tree, color: Color, minGames: number): Dis
   }
 
   return out.sort((a, b) => Number(b.confident) - Number(a.confident) || b.gap * b.otherGames - a.gap * a.otherGames);
+}
+
+export interface LineStep {
+  node: TreeNode;
+  san: string;
+  ply: number;
+  rate: number;
+  games: number;
+  evalUser: number | undefined;
+  /** Le joueur a-t-il la main dans la position *avant* ce coup ? */
+  byUser: boolean;
+}
+
+export function lineSteps(tree: Tree, nodeId: string): LineStep[] {
+  const [color, path] = nodeId.split('|');
+  const sans = path ? path.split(' ') : [];
+  const steps: LineStep[] = [];
+
+  let prefix = '';
+  for (const san of sans) {
+    prefix = prefix ? `${prefix} ${san}` : san;
+    const node = tree.nodes[`${color}|${prefix}`];
+    if (!node) break;
+    steps.push({
+      node, san, ply: node.ply,
+      rate: node.score / node.games,
+      games: node.games,
+      evalUser: evalForUser(node),
+      byUser: node.ply % 2 === (color === 'white' ? 1 : 0),
+    });
+  }
+  return steps;
+}
+
+/** Prolonge la ligne par la suite la plus fréquente : la ligne vaut mieux que son point d'entrée. */
+export function dominantContinuation(tree: Tree, nodeId: string, maxPly: number): LineStep[] {
+  let node = tree.nodes[nodeId];
+  if (!node) return [];
+  const floor = Math.max(5, node.games * 0.1);
+  const out: LineStep[] = [];
+
+  while (node.ply < maxPly) {
+    const next = node.children
+      .map((id) => tree.nodes[id])
+      .sort((a, b) => b.games - a.games)[0];
+    if (!next || next.games < floor) break;
+    out.push({
+      node: next, san: next.san ?? '?', ply: next.ply,
+      rate: next.score / next.games,
+      games: next.games,
+      evalUser: evalForUser(next),
+      byUser: next.ply % 2 === (next.color === 'white' ? 1 : 0),
+    });
+    node = next;
+  }
+  return out;
+}
+
+export interface Branch {
+  san: string;
+  games: number;
+  rate: number;
+  evalUser: number | undefined;
+  onLine: boolean;
+}
+
+/** Les suites possibles depuis une position, et ce qu'elles rapportent au joueur. */
+export function branches(tree: Tree, node: TreeNode, onLineId?: string): Branch[] {
+  return node.children
+    .map((id) => tree.nodes[id])
+    .map((child) => ({
+      san: child.san ?? '?',
+      games: child.games,
+      rate: child.score / child.games,
+      evalUser: evalForUser(child),
+      onLine: child.id === onLineId,
+    }))
+    .sort((a, b) => b.games - a.games);
+}
+
+/** Les parties qui passent par cette ligne, retrouvées en rejouant le préfixe. */
+export function gamesOnLine(games: RawGame[], nodeId: string, replay: (pgn: string, plies: number) => string[]): RawGame[] {
+  const [color, path] = nodeId.split('|');
+  if (!path) return [];
+  const sans = path.split(' ');
+  const wantWhite = color === 'white';
+
+  return games.filter((game) => {
+    if (game.userIsWhite !== wantWhite) return false;
+    const played = replay(game.pgn, sans.length);
+    return sans.every((san, i) => played[i] === san);
+  });
 }

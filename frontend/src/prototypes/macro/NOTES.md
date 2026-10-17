@@ -92,6 +92,25 @@ tenues (−80 pts). Or la boucle a été dessinée au POC 1 autour d'**un coup**
 4.d4, tu as joué 4.Cf3 ». Si l'essentiel du gain est ailleurs, l'unité de travail de la boucle
 doit être **la ligne**, pas le coup — ce qui change l'écran micro et la façon de vérifier.
 
+## POC 3 — l'écran micro, à l'échelle de la ligne
+
+Atteint depuis le macro en cliquant une fuite, une zone faible ou une dispersion : c'est la bascule
+« deux mondes » validée au POC 1, testée pour de vrai. Le geste annoncé change selon l'entrée
+(remplacer un coup / trouver où ça décroche / choisir une réponse).
+
+Trois choses qu'on n'avait pas et qui tombent naturellement quand l'unité est la ligne :
+
+- **Le profil de décrochage** — le score au fil de la ligne, par rapport à la moyenne du joueur.
+  Sur la Scandinave, il montre que la chute est immédiate (54 % → 47 % dès `1...d5`) et ne se
+  creuse plus : ce n'est aucun de ses coups qui est en cause.
+- **Le contraste moteur / résultat**, énoncé en clair quand les deux divergent : « le moteur te
+  donne +0,61 après `2.exd5`, et tu y marques 48 % ».
+- **Les bifurcations adverses** — contre quoi il se défend et ce que ça lui coûte, ce qui est la
+  formulation exacte de « contre quoi je suis mal préparé ».
+
+La ligne est prolongée par sa suite la plus fréquente au-delà du coup qui l'a fait sortir : le point
+d'entrée identifie le problème, il ne délimite pas le travail.
+
 ## Reste ouvert
 
 - « Trop intimidant pour un néophyte » : ne se tranche pas en interne, il faut le montrer à quelqu'un.
