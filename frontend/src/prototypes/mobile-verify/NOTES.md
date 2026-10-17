@@ -25,6 +25,21 @@ compte comme un second système, pas comme un écart. La préparation proposée 
 plus fréquents tant qu'il y a au moins 3 parties. Pas de correction moteur, pas de persistance,
 série et échéances codées en dur.
 
-## Verdict
+## Verdict (2026-10-17)
 
-_À remplir après revue._
+L'idée est validée ; le POC s'arrête là, faute d'app principale sur laquelle la tester en vrai.
+
+- **A — Debrief est la base** : comprendre l'écart, puis rejouer. Jugée cohérente d'emblée.
+- **B et C restent des hypothèses**, à trancher en usage réel (répétition sur plusieurs semaines,
+  vraies parties, vraie préparation enregistrée), pas sur maquette :
+  - B : jouer son coup *avant* de voir la réponse. Dans A, la flèche verte précède l'exercice, qui
+    se réduit à recopier ce qu'on vient de voir.
+  - C : rejouer la ligne entière plutôt qu'une position isolée, cohérent avec « l'unité de travail
+    est la ligne » (POC de septembre).
+- **Principe d'interface acquis** : un coup se montre sur un échiquier (flèche rouge = joué, verte =
+  prépa), pas en notation. La première version, toute en notation, était jugée confuse.
+
+Ce que l'app principale doit permettre dès maintenant, sans construire l'écran mobile : une
+préparation stockée côté serveur (un coup par position, comparable à une partie sans que l'app soit
+ouverte) ; le calcul des habitudes du joueur en domaine pur ; des écrans d'atelier dont la liste des
+priorités passe sur téléphone.
