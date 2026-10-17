@@ -72,22 +72,13 @@ graph: it shows where points leak, not what the engine thinks.
 ### Priority
 
 A line the player should work on first, drawn from both sides at once and
-ranked by **points to gain**. Two signals feed it, both computed from results
-only (no engine):
+ranked by **points to gain**: a line ending on one of the player's moves where
+they score significantly below their average (at least 20 games, gap beyond one
+standard error), computed from results only (no engine). It says the player
+plays the line badly — not that they should change openings: the choice of an
+opening is theirs.
 
-- **Weak line** — a line ending on one of the player's moves where they score
-  significantly below their average (at least 20 games, gap beyond one standard
-  error). A line and its sub-lines tell the same story: only the heaviest is kept.
-- **Better reply** — one of the player's moves that scores clearly worse than
-  another reply they also play in the same position (e.g. `1.d4 Nf6` at 40%
-  where `1…c5` scores 51%). Two systems that work equally well are a choice, not
-  a gap; and a reply is not recommended on a sample much smaller than the habit
-  it would replace.
-
-A priority always ends on one of the player's moves: it names what *they* play
-and what it costs. A line flagged by both signals appears once, with both.
-
-Signals are looked for on two time scales, because each kind of problem shows on
+Weak lines are looked for on two time scales, because each kind of problem shows on
 one only: an old problem, still there but rarely played, needs the **whole
 history** to be proven; a recent one is drowned in the good old games and only
 shows on the **last 12 months**. A line proven on the whole history is kept only
@@ -95,7 +86,7 @@ while still current — played in the last 12 months, and not scoring back at th
 recent average there. A line and its sub-lines tell the same story: only the
 heaviest is kept.
 
-Only signals that survive sampling noise are shown: a priority list has no room
+Only lines that survive sampling noise are shown: a priority list has no room
 for "maybe".
 
 ### Points to gain

@@ -1,19 +1,13 @@
-import { formatMove } from '../domain/notation';
-import type { Priority, Signal } from '../domain/priorities';
+import type { Priority } from '../domain/priorities';
 import type { Side } from '../domain/playedGame';
 import { LineLabel } from '../position/LineLabel';
-
-const SIGNAL_LABELS: Record<Signal, string> = {
-  'weak-line': 'Weak line',
-  'better-reply': 'Better reply',
-};
 
 const SIDE_LABELS: Record<Side, string> = {
   w: 'White',
   b: 'Black',
 };
 
-const COLUMNS = 'grid grid-cols-[2rem_4rem_1fr_11rem_6rem_8rem] items-center gap-3';
+const COLUMNS = 'grid grid-cols-[2rem_4rem_1fr_6rem_8rem] items-center gap-3';
 
 interface PriorityListProps {
   priorities: readonly Priority[];
@@ -41,7 +35,6 @@ export function PriorityList({ priorities, isSelected, onSelect, onPoint }: Prio
         <span>#</span>
         <span>Side</span>
         <span>Line</span>
-        <span>Signal</span>
         <span className="text-right">Games 12 mo</span>
         <span>Impact</span>
       </div>
@@ -64,7 +57,6 @@ export function PriorityList({ priorities, isSelected, onSelect, onPoint }: Prio
               <span className="font-mono text-text-muted">{index + 1}</span>
               <span className="text-text-muted">{SIDE_LABELS[priority.side]}</span>
               <LineLabel path={priority.path} />
-              <Signals priority={priority} />
               <span className="text-right font-mono text-text">{priority.games}</span>
               <ImpactBar share={priority.pointsToGain / heaviest} />
             </button>
@@ -72,21 +64,6 @@ export function PriorityList({ priorities, isSelected, onSelect, onPoint }: Prio
         ))}
       </ol>
     </section>
-  );
-}
-
-function Signals({ priority }: { priority: Priority }) {
-  return (
-    <span className="flex flex-col text-text-muted">
-      {priority.signals.map((signal) => (
-        <span key={signal}>
-          {SIGNAL_LABELS[signal]}
-          {signal === 'better-reply' && priority.betterReply && (
-            <span className="font-mono"> {formatMove(priority.betterReply, priority.path.length)}</span>
-          )}
-        </span>
-      ))}
-    </span>
   );
 }
 

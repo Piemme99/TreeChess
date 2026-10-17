@@ -4,10 +4,10 @@ import type { Priority } from '../domain/priorities';
 import { PriorityList } from './PriorityList';
 
 const scandinavian: Priority = {
-  side: 'w', path: ['e4', 'd5', 'exd5'], games: 207, pointsToGain: 12.34, signals: ['weak-line'], betterReply: null,
+  side: 'w', path: ['e4', 'd5', 'exd5'], games: 207, pointsToGain: 12.34,
 };
 const versusD4: Priority = {
-  side: 'b', path: ['d4', 'Nf6'], games: 124, pointsToGain: 11.8, signals: ['weak-line', 'better-reply'], betterReply: 'c5',
+  side: 'b', path: ['d4', 'Nf6'], games: 124, pointsToGain: 11.8,
 };
 
 // La table des noms d'ouvertures (~480 Ko) est chargée à la demande : sous la charge de
@@ -15,12 +15,12 @@ const versusD4: Priority = {
 const findOpeningName = (name: string) => screen.findByText(name, undefined, { timeout: 5000 });
 
 describe('PriorityList', () => {
-  it('lists each priority with its side, line, signals and games', () => {
+  it('lists each priority with its side, line and games', () => {
     render(<PriorityList priorities={[scandinavian, versusD4]} isSelected={() => false} onSelect={() => {}} onPoint={() => {}} />);
 
     const [first, second] = screen.getAllByRole('button');
-    for (const text of ['White', '1.e4 d5 2.exd5', 'Weak line', '207']) expect(first).toHaveTextContent(text);
-    for (const text of ['Black', '1.d4 Nf6', 'Weak line', 'Better reply 1…c5', '124']) expect(second).toHaveTextContent(text);
+    for (const text of ['White', '1.e4 d5 2.exd5', '207']) expect(first).toHaveTextContent(text);
+    for (const text of ['Black', '1.d4 Nf6', '124']) expect(second).toHaveTextContent(text);
   });
 
   it('shows each impact relative to the heaviest priority', () => {

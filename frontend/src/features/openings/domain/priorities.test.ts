@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildOpeningTree } from './openingTree';
 import type { GameScore, PlayedGame, Side } from './playedGame';
-import { betterReplies, findPriorities, weakLines } from './priorities';
+import { findPriorities, weakLines } from './priorities';
 import { playedGamesFixture } from '../fixtures/playedGames';
 import { gamesOfLastMonths } from './period';
 
@@ -51,43 +51,13 @@ describe('weakLines', () => {
   });
 });
 
-describe('betterReplies', () => {
-  it('flags a reply scoring clearly worse than another one the player also plays', () => {
-    const played = [...games(200, 'w', 'd4', 1), ...games(100, 'w', 'e4', 0)];
-
-    expect(betterReplies(tree(played))).toEqual([
-      expect.objectContaining({ signal: 'better-reply', path: ['e4'], games: 100, betterReply: 'd4' }),
-    ]);
-  });
-
-  it('ignores replies that score the same', () => {
-    const played = [...games(100, 'w', 'd4', 1), ...games(100, 'w', 'e4', 1)];
-
-    expect(betterReplies(tree(played))).toEqual([]);
-  });
-
-  it('does not recommend a habit backed by too few games against the one it replaces', () => {
-    const played = [...games(20, 'w', 'd4', 1), ...games(500, 'w', 'e4', 0.5)];
-
-    expect(betterReplies(tree(played))).toEqual([]);
-  });
-
-  it('only compares the moves of the player', () => {
-    const played = [...games(200, 'w', 'e4 e5', 1), ...games(100, 'w', 'e4 c5', 0)];
-
-    expect(betterReplies(tree(played))).toEqual([]);
-  });
-});
-
 describe('findPriorities', () => {
   const sides = (white: PlayedGame[], black: PlayedGame[] = []) => ({ w: tree(white), b: tree(black, 'b') });
 
-  it('lists a line flagged by both signals once, with both signals', () => {
+  it('lists a line proven on both time scales once', () => {
     const trees = sides([...games(200, 'w', 'd4', 1), ...games(100, 'w', 'e4', 0)]);
 
-    expect(findPriorities(trees, trees, 10)).toEqual([
-      expect.objectContaining({ path: ['e4'], signals: ['weak-line', 'better-reply'], betterReply: 'd4' }),
-    ]);
+    expect(paths(findPriorities(trees, trees, 10))).toEqual(['e4']);
   });
 
   it('gathers the lines of both sides', () => {
@@ -165,6 +135,6 @@ describe('findPriorities', () => {
 
     expect(first).toMatchObject({ side: 'w', path: ['e4', 'c5', 'd4', 'cxd4', 'c3'] });
     expect(second).toMatchObject({ side: 'w', path: ['e4', 'e5', 'Nf3', 'd6', 'd4'] });
-    expect(third).toMatchObject({ side: 'b', path: ['d4', 'Nf6'], signals: ['weak-line', 'better-reply'] });
+    expect(third).toMatchObject({ side: 'b', path: ['d4', 'Nf6'], games: 28 });
   });
 });
