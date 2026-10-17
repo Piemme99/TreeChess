@@ -4,41 +4,23 @@ import { scoreRate } from '../domain/performance';
 import type { FlameBar } from './flameLayout';
 import { formatPercent } from './format';
 
-interface BarDetailsProps {
-  bar: FlameBar;
-}
-
-export function BarDetails({ bar }: BarDetailsProps) {
-  if (bar.kind === 'others') {
-    return (
-      <Panel title={`${formatLine(bar.parentPath) || 'Start'} · ${bar.lines} other moves`}>
-        <Stat label="Games" value={bar.games} />
-      </Panel>
-    );
-  }
-
-  return (
-    <Panel title={formatLine(bar.path) || 'All games'}>
-      <Stat label="Games" value={bar.node.games} />
-      <Stat label="Score" value={formatPercent(scoreRate(bar.node))} />
-    </Panel>
-  );
-}
-
-function Panel({ title, children }: { title: string; children: ReactNode }) {
+export function BarDetails({ bar }: { bar: FlameBar }) {
   return (
     <section className="flex flex-wrap items-baseline gap-x-8 gap-y-2 rounded-md border border-border bg-bg-card px-4 py-3">
-      <h3 className="min-w-48 font-mono text-sm text-text">{title}</h3>
-      <dl className="flex gap-6">{children}</dl>
+      <h3 className="min-w-48 font-mono text-sm text-text">{formatLine(bar.path) || 'All games'}</h3>
+      <dl className="flex gap-6">
+        <Stat label="Games">{bar.node.games}</Stat>
+        <Stat label="Score">{formatPercent(scoreRate(bar.node))}</Stat>
+      </dl>
     </section>
   );
 }
 
-function Stat({ label, value }: { label: string; value: string | number }) {
+function Stat({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="flex items-baseline gap-1.5">
       <dt className="text-xs uppercase tracking-wide text-text-muted">{label}</dt>
-      <dd className="font-mono text-sm text-text">{value}</dd>
+      <dd className="font-mono text-sm text-text">{children}</dd>
     </div>
   );
 }

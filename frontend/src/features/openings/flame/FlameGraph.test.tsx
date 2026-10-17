@@ -44,7 +44,7 @@ describe('FlameGraph', () => {
   it('shows the player average once, in the legend', () => {
     renderGraph();
 
-    expect(screen.getByText('Average (50%)')).toBeInTheDocument();
+    expect(screen.getByText('Average (50%) or < 20 games')).toBeInTheDocument();
   });
 
   it('zooms into a line when its bar is clicked', () => {
