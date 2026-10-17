@@ -19,14 +19,21 @@ echo ">> Frontend: TypeScript check"
 echo ">> Backend: go vet"
 (cd "$ROOT/backend" && go vet ./...)
 
-if command -v golangci-lint &>/dev/null; then
-    echo ">> Backend: golangci-lint"
-    (cd "$ROOT/backend" && golangci-lint run ./...)
-else
+# `go install` drops the binary in GOBIN, falling back to GOPATH/bin, and neither
+# is reliably on PATH. Worse, under a version manager such as mise `go env GOBIN`
+# reports a directory that the install does not actually write to. So put both
+# candidates on PATH instead of betting on either one — otherwise the install
+# below succeeds and the very next line reports "command not found".
+export PATH="$(go env GOPATH)/bin:$PATH"
+GOBIN_DIR="$(go env GOBIN)"
+[ -z "$GOBIN_DIR" ] || export PATH="$GOBIN_DIR:$PATH"
+
+if ! command -v golangci-lint &>/dev/null; then
     echo ">> Backend: golangci-lint not found, installing..."
-    go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
-    echo ">> Backend: golangci-lint"
-    (cd "$ROOT/backend" && golangci-lint run ./...)
+    go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.0
 fi
+
+echo ">> Backend: golangci-lint"
+(cd "$ROOT/backend" && golangci-lint run ./...)
 
 echo "=== All lint checks passed ==="
