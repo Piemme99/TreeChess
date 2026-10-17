@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { buildOpeningTree } from '../domain/openingTree';
 import type { PlayedGame } from '../domain/playedGame';
@@ -13,12 +13,13 @@ const games: PlayedGame[] = [
 
 const tree = buildOpeningTree(games, 'w', 16);
 
-function ZoomableFlameGraph() {
+function ZoomableFlameGraph({ onPoint = () => {} }: { onPoint?: (path: readonly string[] | null) => void }) {
   const [focusPath, setFocusPath] = useState<readonly string[]>([]);
-  return <FlameGraph tree={tree} focusPath={focusPath} onFocusChange={setFocusPath} />;
+  return <FlameGraph tree={tree} focusPath={focusPath} onFocusChange={setFocusPath} onPoint={onPoint} />;
 }
 
-const renderGraph = () => render(<ZoomableFlameGraph />);
+const renderGraph = (onPoint?: (path: readonly string[] | null) => void) =>
+  render(<ZoomableFlameGraph onPoint={onPoint} />);
 const breadcrumb = () => screen.getByRole('navigation', { name: 'Zoom path' });
 
 describe('FlameGraph', () => {
@@ -30,15 +31,15 @@ describe('FlameGraph', () => {
     expect(screen.getByRole('button', { name: '2.Nf3' })).toBeInTheDocument();
   });
 
-  it('describes the hovered line', () => {
-    renderGraph();
+  it('reports the line under the pointer, and when the pointer leaves', () => {
+    const onPoint = vi.fn();
+    renderGraph(onPoint);
+    const bar = screen.getByRole('button', { name: '1…c5' });
 
-    fireEvent.mouseEnter(screen.getByRole('button', { name: '1…c5' }));
+    fireEvent.mouseEnter(bar);
+    fireEvent.mouseLeave(bar.parentElement!);
 
-    const details = screen.getByRole('heading', { name: '1.e4 c5' }).closest('section')!;
-    expect(details).toHaveTextContent('Games30');
-    expect(details).toHaveTextContent('Score0%');
-    expect(details).not.toHaveTextContent('Average');
+    expect(onPoint.mock.calls).toEqual([[['e4', 'c5']], [null]]);
   });
 
   it('shows the player average once, in the legend', () => {

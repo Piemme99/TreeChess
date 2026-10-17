@@ -1,10 +1,10 @@
 import { useMemo } from 'react';
 import { useOpeningName } from '../../../shared/hooks/useOpeningName';
-import { allFens } from '../../../shared/utils/chess';
 import { formatLine } from '../domain/notation';
+import { replayLine } from './replay';
 
 export function LineLabel({ path }: { path: readonly string[] }) {
-  const fens = useMemo(() => allFens(path.map((san) => ({ san }))), [path]);
+  const fens = useMemo(() => replayLine(path).fens, [path]);
   const opening = useOpeningName(fens);
   const moves = formatLine(path) || 'Start';
 

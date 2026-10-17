@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { isPlayerMove, nodeAt, type OpeningTree } from '../domain/openingTree';
 import { playerAverage } from '../domain/performance';
 import { formatMove } from '../domain/notation';
@@ -6,7 +6,6 @@ import { layoutFlame, type FlameBar } from './flameLayout';
 import { lineTone, MIN_COLOURED_GAMES, type Tone } from './tone';
 import { labelFits } from './label';
 import { useElementWidth } from './useElementWidth';
-import { BarDetails } from './BarDetails';
 import { formatPercent } from './format';
 
 const MIN_DRAWN_GAMES = 10;
@@ -30,10 +29,10 @@ interface FlameGraphProps {
   tree: OpeningTree;
   focusPath: readonly string[];
   onFocusChange: (path: readonly string[]) => void;
+  onPoint: (path: readonly string[] | null) => void;
 }
 
-export function FlameGraph({ tree, focusPath, onFocusChange }: FlameGraphProps) {
-  const [hovered, setHovered] = useState<FlameBar | null>(null);
+export function FlameGraph({ tree, focusPath, onFocusChange, onPoint }: FlameGraphProps) {
   const [containerRef, containerWidth] = useElementWidth<HTMLDivElement>();
 
   const average = playerAverage(tree);
@@ -49,7 +48,7 @@ export function FlameGraph({ tree, focusPath, onFocusChange }: FlameGraphProps) 
 
   const zoomTo = (path: readonly string[]) => {
     onFocusChange(path);
-    setHovered(null);
+    onPoint(null);
   };
 
   const onBarClick = (bar: FlameBar) => {
@@ -65,7 +64,7 @@ export function FlameGraph({ tree, focusPath, onFocusChange }: FlameGraphProps) 
         ref={containerRef}
         className="relative w-full"
         style={{ height: totalHeight }}
-        onMouseLeave={() => setHovered(null)}
+        onMouseLeave={() => onPoint(null)}
       >
         {bars.map((bar) => {
           const style = rowStyle(bar.depth);
@@ -76,8 +75,8 @@ export function FlameGraph({ tree, focusPath, onFocusChange }: FlameGraphProps) 
               key={bar.path.join(' ')}
               type="button"
               onClick={() => onBarClick(bar)}
-              onMouseEnter={() => setHovered(bar)}
-              onFocus={() => setHovered(bar)}
+              onMouseEnter={() => onPoint(bar.path)}
+              onFocus={() => onPoint(bar.path)}
               aria-label={label}
               className={`absolute overflow-hidden rounded-[2px] px-1.5 text-left transition hover:brightness-110 ${colour} ${style.className}`}
               style={{
@@ -96,7 +95,6 @@ export function FlameGraph({ tree, focusPath, onFocusChange }: FlameGraphProps) 
       </div>
 
       <Legend average={average} />
-      {bars[0] && <BarDetails bar={hovered ?? bars[0]} />}
     </div>
   );
 }

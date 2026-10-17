@@ -1,6 +1,6 @@
 import type { Priority, PriorityKind } from '../domain/priorities';
 import type { Side } from '../domain/playedGame';
-import { LineLabel } from './LineLabel';
+import { LineLabel } from '../position/LineLabel';
 
 const KIND_LABELS: Record<PriorityKind, string> = {
   'weak-line': 'Weak line',
@@ -18,9 +18,10 @@ interface PriorityListProps {
   priorities: readonly Priority[];
   isSelected: (priority: Priority) => boolean;
   onSelect: (priority: Priority) => void;
+  onPoint: (priority: Priority | null) => void;
 }
 
-export function PriorityList({ priorities, isSelected, onSelect }: PriorityListProps) {
+export function PriorityList({ priorities, isSelected, onSelect, onPoint }: PriorityListProps) {
   if (priorities.length === 0) return null;
   const heaviest = Math.max(...priorities.map((priority) => priority.pointsToGain));
 
@@ -37,12 +38,14 @@ export function PriorityList({ priorities, isSelected, onSelect }: PriorityListP
         <span>Impact</span>
       </div>
 
-      <ol className="flex flex-col gap-1">
+      <ol className="flex flex-col gap-1" onMouseLeave={() => onPoint(null)}>
         {priorities.map((priority, index) => (
           <li key={`${priority.side}:${priority.kind}:${priority.path.join(' ')}`}>
             <button
               type="button"
               onClick={() => onSelect(priority)}
+              onMouseEnter={() => onPoint(priority)}
+              onFocus={() => onPoint(priority)}
               aria-pressed={isSelected(priority)}
               className={`${COLUMNS} w-full rounded-md border px-3 py-2 text-left text-sm transition ${
                 isSelected(priority)
