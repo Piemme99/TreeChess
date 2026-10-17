@@ -13,9 +13,10 @@ interface PlayMoveProps {
   path: readonly string[];
   expected: string;
   onSolved?: (firstTry: boolean) => void;
+  solvedArrows?: [string, string, string][];
 }
 
-export function PlayMove({ side, path, expected, onSolved }: PlayMoveProps) {
+export function PlayMove({ side, path, expected, onSolved, solvedArrows = [] }: PlayMoveProps) {
   const [ref, width] = useElementWidth<HTMLDivElement>();
   const [attempt, setAttempt] = useState<Attempt>('idle');
   const [tries, setTries] = useState(0);
@@ -51,7 +52,9 @@ export function PlayMove({ side, path, expected, onSolved }: PlayMoveProps) {
           onMove={handleMove}
           lastMove={attempt === 'solved' ? expectedMove : replayed.lastMove}
           width={width}
-          customArrows={revealed && attempt !== 'solved' ? [[expectedMove.from, expectedMove.to, '#6B8E23']] : []}
+          customArrows={
+            attempt === 'solved' ? solvedArrows : revealed ? [[expectedMove.from, expectedMove.to, '#6B8E23']] : []
+          }
         />
       ) : null}
       <div className="flex min-h-9 items-center justify-between text-sm">

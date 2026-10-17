@@ -1,5 +1,5 @@
 // PROTOTYPE JETABLE — A « Debrief » : la notification ouvre la partie, l'exercice vient après le contexte.
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { PlayedGame } from '../../features/openings/domain/playedGame';
 import { formatMove } from '../../features/openings/domain/notation';
 import {
@@ -10,7 +10,8 @@ import {
   type MoveStat,
   type ScenarioKey,
 } from './checks';
-import { formatFrom, moveNumber, RESULT_LABEL, SIDE_LABEL, useLineName } from './lineName';
+import { ArrowLegend, LineStepper, SquareBoard } from './boards';
+import { ARROW, arrowFor, moveNumber, RESULT_LABEL, SIDE_LABEL, useLineName, type Arrow } from './lineName';
 import { AppBar, LockScreen } from './Phone';
 import { PlayMove } from './PlayMove';
 
@@ -81,31 +82,30 @@ export function VariantA({ data, scenario }: { data: MobileData; scenario: Scena
 
 function RecentGame({ game, check }: { game: PlayedGame; check: GameCheck }) {
   const name = useLineName(game.moves.slice(0, 8));
+  const path = check.kind === 'followed' ? game.moves.slice(0, 8) : game.moves.slice(0, check.ply);
+  const arrows = useMemo(() => gameArrows(game, check), [game, check]);
+  const label = check.kind === 'followed' ? 'In prep' : check.kind === 'left-preparation' ? 'Off prep' : 'No prep';
   return (
-    <div className="flex items-center justify-between rounded-xl border border-border bg-bg-card px-3 py-2">
+    // Une partie gagnée hors préparation mérite moins l'attention : la ligne s'efface.
+    <div className={`flex items-center gap-3 rounded-xl border border-border bg-bg-card p-2 ${game.score === 1 ? 'opacity-60' : ''}`}>
+      <div className="w-24 shrink-0">
+        <SquareBoard path={path} side={game.side} arrows={arrows} />
+      </div>
       <span className="flex min-w-0 flex-col">
         <span className="truncate text-sm text-text">{name}</span>
         <span className="text-xs text-text-muted">
-          {SIDE_LABEL[game.side]} · {RESULT_LABEL[game.score]}
+          {SIDE_LABEL[game.side]} · {RESULT_LABEL[game.score]} · {label}
         </span>
       </span>
-      <CheckBadge game={game} check={check} />
     </div>
   );
 }
 
-// Une partie gagnée hors préparation mérite moins l'attention : le badge s'efface.
-function CheckBadge({ game, check }: { game: PlayedGame; check: GameCheck }) {
-  if (check.kind === 'followed') return <span className="shrink-0 text-xs text-success">In prep</span>;
-  const move = formatMove(game.moves[check.ply], check.ply + 1);
-  const label = check.kind === 'left-preparation' ? `Off prep · ${move}` : `No prep · ${move}`;
-  const tone =
-    game.score === 1
-      ? 'bg-border/60 text-text-muted'
-      : check.kind === 'left-preparation'
-        ? 'bg-danger-light text-danger'
-        : 'bg-warning-light text-primary-dark';
-  return <span className={`shrink-0 rounded-full px-2 py-0.5 font-mono text-xs ${tone}`}>{label}</span>;
+function gameArrows(game: PlayedGame, check: GameCheck): Arrow[] {
+  if (check.kind === 'followed') return [];
+  const before = game.moves.slice(0, check.ply);
+  if (check.kind === 'no-preparation') return [arrowFor(before, check.played, ARROW.noPrep)];
+  return [arrowFor(before, check.played.san, ARROW.played), arrowFor(before, check.expected.san, ARROW.prep)];
 }
 
 interface GameDebriefProps {
@@ -137,10 +137,17 @@ function GameDebrief({ data, game, check, onDone }: GameDebriefProps) {
         <MoveList moves={game.moves.slice(0, 16)} pivot={check.ply} kind={check.kind} />
 
         {check.kind === 'left-preparation' ? (
-          <div className="grid grid-cols-2 gap-2">
-            <MoveTile label="You played" stat={check.played} tone="danger" />
-            <MoveTile label="Your prep" stat={check.expected} tone="success" />
-          </div>
+          step === 'read' ? (
+            <div className="flex flex-col gap-2">
+              <SquareBoard path={before} side={game.side} arrows={gameArrows(game, check)} />
+              <ArrowLegend
+                items={[
+                  { color: ARROW.played, label: 'Your game', value: statLabel(check.played) },
+                  { color: ARROW.prep, label: 'Your prep', value: statLabel(check.expected) },
+                ]}
+              />
+            </div>
+          ) : null
         ) : (
           <ProposalCard
             proposal={proposal!}
@@ -174,7 +181,7 @@ function GameDebrief({ data, game, check, onDone }: GameDebriefProps) {
 
 function MoveList({ moves, pivot, kind }: { moves: string[]; pivot: number; kind: GameCheck['kind'] }) {
   return (
-    <p className="flex flex-wrap gap-x-1.5 gap-y-1 font-mono text-sm">
+    <p className="flex flex-wrap gap-x-1.5 gap-y-1 font-mono text-xs">
       {moves.map((san, index) => {
         const label = index % 2 === 0 ? formatMove(san, index + 1) : san;
         const marked = kind === 'left-preparation' ? pivot : pivot - 1;
@@ -196,17 +203,8 @@ function MoveList({ moves, pivot, kind }: { moves: string[]; pivot: number; kind
   );
 }
 
-function MoveTile({ label, stat, tone }: { label: string; stat: MoveStat; tone: 'danger' | 'success' }) {
-  const colors = tone === 'danger' ? 'border-danger/30 bg-danger-light/50' : 'border-success/30 bg-success-light/60';
-  return (
-    <div className={`flex flex-col rounded-xl border p-3 ${colors}`}>
-      <span className="text-xs uppercase tracking-wide text-text-muted">{label}</span>
-      <span className="font-mono text-xl text-text">{stat.san}</span>
-      <span className="text-xs text-text-muted">
-        {scoreRate(stat)}% score · {stat.games} games
-      </span>
-    </div>
-  );
+function statLabel(stat: MoveStat) {
+  return `${scoreRate(stat)}% score · ${stat.games} games`;
 }
 
 function ProposalCard({
@@ -218,15 +216,13 @@ function ProposalCard({
   kept: boolean;
   onKeep: () => void;
 }) {
-  const line = formatFrom([...proposal.start, ...proposal.moves], proposal.start.length);
+  if (kept) return <span className="text-sm font-medium text-success">✓ Proposed prep kept · now play it</span>;
   return (
-    <div className="flex flex-col gap-2 rounded-2xl border border-primary/30 bg-primary-light p-4">
+    <div className="flex flex-col gap-3 rounded-2xl border border-primary/30 bg-primary-light p-4">
       <span className="text-xs uppercase tracking-wide text-primary-dark">No prep here · proposed prep</span>
-      <span className="font-mono text-sm text-text">{line}</span>
+      <LineStepper side={proposal.side} start={proposal.start} moves={proposal.moves} />
       <span className="text-xs text-text-muted">Your usual moves · covers {proposal.coverage} of your games</span>
-      {kept ? (
-        <span className="text-sm font-medium text-success">✓ Kept</span>
-      ) : (
+      {(
         <div className="flex gap-2">
           <button onClick={onKeep} className="flex-1 rounded-xl bg-primary py-2.5 font-medium text-white">
             Keep

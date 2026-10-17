@@ -2,11 +2,9 @@
 // le contexte de la partie n'est révélé qu'après le coup joué.
 import { useMemo, useState } from 'react';
 import type { Side } from '../../features/openings/domain/playedGame';
-import { useElementWidth } from '../../features/openings/flame/useElementWidth';
-import { replayLine } from '../../features/openings/position/replay';
-import { StaticBoard } from '../../shared/components/Board';
 import { isPlayerTurn, proposePreparation, scoreRate, type MobileData, type MoveStat, type ScenarioKey } from './checks';
-import { formatFrom, moveNumber, RESULT_LABEL, SIDE_LABEL, useLineName } from './lineName';
+import { ArrowLegend, LineStepper } from './boards';
+import { ARROW, arrowFor, moveNumber, RESULT_LABEL, SIDE_LABEL, useLineName } from './lineName';
 import { LockScreen } from './Phone';
 import { PlayMove } from './PlayMove';
 
@@ -135,16 +133,24 @@ function DrillCard({
           {name} · {SIDE_LABEL[card.side]}
         </span>
       </span>
-      <PlayMove side={card.side} path={card.path} expected={card.expected} onSolved={onSolved} />
+      <PlayMove
+        side={card.side}
+        path={card.path}
+        expected={card.expected}
+        onSolved={onSolved}
+        solvedArrows={
+          card.reveal
+            ? [arrowFor(card.path, card.reveal.played.san, ARROW.played), arrowFor(card.path, card.reveal.expected.san, ARROW.prep)]
+            : []
+        }
+      />
       {solved && card.reveal ? (
-        <div className="grid grid-cols-[1fr_auto_auto] gap-x-3 gap-y-1 rounded-xl bg-bg-card p-3 text-sm ring-1 ring-border">
-          <span className="text-text-muted">In your game</span>
-          <span className="font-mono text-danger">{card.reveal.played.san}</span>
-          <span className="text-right text-text-muted">{scoreRate(card.reveal.played)}% score</span>
-          <span className="text-text-muted">Your prep</span>
-          <span className="font-mono text-success">{card.reveal.expected.san}</span>
-          <span className="text-right text-text-muted">{scoreRate(card.reveal.expected)}% score</span>
-        </div>
+        <ArrowLegend
+          items={[
+            { color: ARROW.played, label: 'Your game', value: `${scoreRate(card.reveal.played)}% score` },
+            { color: ARROW.prep, label: 'Your prep', value: `${scoreRate(card.reveal.expected)}% score` },
+          ]}
+        />
       ) : null}
       {solved ? (
         <button onClick={onNext} className="mt-auto rounded-2xl bg-primary py-3.5 font-medium text-white">
@@ -166,10 +172,8 @@ function ProposalCard({
   onKeep: (drills: Card[]) => void;
   onSkip: () => void;
 }) {
-  const [ref, width] = useElementWidth<HTMLDivElement>();
   const name = useLineName(card.path);
   const proposal = useMemo(() => proposePreparation(data.stats, card.side, card.path), [data, card]);
-  const fens = useMemo(() => replayLine(card.path).fens, [card.path]);
   const line = [...card.path, ...proposal.moves];
 
   const keep = () => {
@@ -187,14 +191,9 @@ function ProposalCard({
         No prep · move {moveNumber(card.path.length)}
       </span>
       <span className="font-display text-lg text-text">{name}</span>
-      <div ref={ref} style={{ height: width }}>
-        <StaticBoard fen={fens[fens.length - 1]} orientation={card.side === 'w' ? 'white' : 'black'} />
-      </div>
-      <div className="flex flex-col gap-1 rounded-xl border border-border bg-bg-card p-3">
-        <span className="text-xs uppercase tracking-wide text-text-muted">Proposed prep · your usual moves</span>
-        <span className="font-mono text-sm text-text">{formatFrom(line, card.path.length)}</span>
-        <span className="text-xs text-text-muted">Covers {proposal.coverage} of your games</span>
-      </div>
+      <span className="text-xs uppercase tracking-wide text-text-muted">Proposed prep · your usual moves</span>
+      <LineStepper side={card.side} start={card.path} moves={proposal.moves} />
+      <span className="text-xs text-text-muted">Covers {proposal.coverage} of your games</span>
       <div className="mt-auto flex gap-2">
         <button onClick={onSkip} className="flex-1 rounded-2xl border border-border py-3.5 text-text-muted">
           Later
