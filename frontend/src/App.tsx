@@ -18,6 +18,8 @@ const GameAnalysisPage = lazy(() => import('./features/game-analysis').then(m =>
 const RepertoireEdit = lazy(() => import('./features/repertoire/RepertoireEdit').then(m => ({ default: m.RepertoireEdit })));
 const TrainingPage = lazy(() => import('./features/training').then(m => ({ default: m.TrainingPage })));
 const ExplorePage = lazy(() => import('./features/explore').then(m => ({ default: m.ExplorePage })));
+const LoopPrototypePage = lazy(() => import('./prototypes/loop/LoopPrototypePage').then(m => ({ default: m.LoopPrototypePage })));
+const MacroPrototypePage = lazy(() => import('./prototypes/macro/MacroPrototypePage').then(m => ({ default: m.MacroPrototypePage })));
 const NotFoundPage = lazy(() => import('./features/not-found/NotFoundPage').then(m => ({ default: m.NotFoundPage })));
 
 function App() {
@@ -59,6 +61,12 @@ function App() {
           <Route path="explore" element={<Suspense fallback={<Loading size="lg" />}><ExplorePage /></Suspense>} />
           <Route path="explore/repertoire/:id" element={<Suspense fallback={<Loading size="lg" />}><RepertoireEdit /></Suspense>} />
         </Route>
+        {import.meta.env.DEV ? (
+          <Route path="/prototype/macro" element={<Suspense fallback={<Loading size="lg" />}><MacroPrototypePage /></Suspense>} />
+        ) : null}
+        {import.meta.env.DEV ? (
+          <Route path="/prototype/loop" element={<Suspense fallback={<Loading size="lg" />}><LoopPrototypePage /></Suspense>} />
+        ) : null}
         <Route path="*" element={<Suspense fallback={<Loading size="lg" />}><NotFoundPage /></Suspense>} />
       </Routes>
       <ToastContainer />
