@@ -85,16 +85,16 @@ function barKey(bar: FlameBar): string {
 }
 
 function barLabel(bar: FlameBar): string {
-  if (bar.kind === 'others') return `${bar.lines} autres`;
-  if (bar.path.length === 0) return 'Toutes les parties';
+  if (bar.kind === 'others') return `+${bar.lines}`;
+  if (bar.path.length === 0) return 'All games';
   return formatMove(bar.path[bar.path.length - 1], bar.path.length);
 }
 
 function Breadcrumb({ path, onNavigate }: { path: readonly string[]; onNavigate: (path: readonly string[]) => void }) {
   return (
-    <nav aria-label="Position affichée" className="flex flex-wrap items-center gap-1 text-sm">
+    <nav aria-label="Zoom path" className="flex flex-wrap items-center gap-1 text-sm">
       <button type="button" onClick={() => onNavigate([])} className="text-primary hover:underline">
-        Toutes les parties
+        All games
       </button>
       {path.map((san, index) => (
         <span key={index} className="flex items-center gap-1">
@@ -113,16 +113,16 @@ function Breadcrumb({ path, onNavigate }: { path: readonly string[]; onNavigate:
 }
 
 const LEGEND: { tone: Tone; label: string }[] = [
-  { tone: 'losing', label: 'tu y perds nettement des points' },
-  { tone: 'slipping', label: 'tu y perds un peu' },
-  { tone: 'even', label: 'dans ta moyenne' },
-  { tone: 'winning', label: 'tu y gagnes des points' },
+  { tone: 'losing', label: 'Well below average' },
+  { tone: 'slipping', label: 'Below average' },
+  { tone: 'even', label: 'Average' },
+  { tone: 'winning', label: 'Above average' },
 ];
 
 function Legend() {
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-text-muted">
-      <span>Largeur : nombre de parties.</span>
+      <span>Width = games</span>
       {LEGEND.map(({ tone, label }) => (
         <span key={tone} className="flex items-center gap-1.5">
           <span className={`inline-block h-3 w-3 rounded-[2px] ${TONE_CLASSES[tone]}`} />

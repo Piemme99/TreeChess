@@ -11,7 +11,7 @@ const games: PlayedGame[] = [
 ];
 
 const renderGraph = () => render(<FlameGraph tree={buildOpeningTree(games, 'w', 16)} />);
-const breadcrumb = () => screen.getByRole('navigation', { name: 'Position affichée' });
+const breadcrumb = () => screen.getByRole('navigation', { name: 'Zoom path' });
 
 describe('FlameGraph', () => {
   it('draws one bar per line, labelled with its move', () => {
@@ -27,9 +27,10 @@ describe('FlameGraph', () => {
 
     fireEvent.mouseEnter(screen.getByRole('button', { name: '1…c5' }));
 
-    expect(screen.getByText('1.e4 c5')).toBeInTheDocument();
-    expect(screen.getByText('30 parties · tu y marques 0 % · ta moyenne 50 %')).toBeInTheDocument();
-    expect(screen.getByText('Tu y marques nettement moins que d’habitude.')).toBeInTheDocument();
+    const details = screen.getByRole('heading', { name: '1.e4 c5' }).closest('section')!;
+    expect(details).toHaveTextContent('Games30');
+    expect(details).toHaveTextContent('Score0%');
+    expect(details).toHaveTextContent('Average50%');
   });
 
   it('zooms into a line when its bar is clicked', () => {
@@ -38,7 +39,7 @@ describe('FlameGraph', () => {
     fireEvent.click(screen.getByRole('button', { name: '1.e4' }));
 
     expect(screen.queryByRole('button', { name: '1.d4' })).not.toBeInTheDocument();
-    expect(breadcrumb()).toHaveTextContent('Toutes les parties›1.e4');
+    expect(breadcrumb()).toHaveTextContent('All games›1.e4');
   });
 
   it('zooms back out from the breadcrumb', () => {
@@ -46,7 +47,7 @@ describe('FlameGraph', () => {
     fireEvent.click(screen.getByRole('button', { name: '1.e4' }));
     fireEvent.click(screen.getByRole('button', { name: '1…e5' }));
 
-    fireEvent.click(within(breadcrumb()).getByRole('button', { name: 'Toutes les parties' }));
+    fireEvent.click(within(breadcrumb()).getByRole('button', { name: 'All games' }));
 
     expect(screen.getByRole('button', { name: '1.d4' })).toBeInTheDocument();
   });

@@ -7,8 +7,8 @@ import { playedGamesFixture } from './fixtures/playedGames';
 const MAX_PLIES = 16;
 
 const SIDES: { side: Side; label: string }[] = [
-  { side: 'w', label: 'Mes blancs' },
-  { side: 'b', label: 'Mes noirs' },
+  { side: 'w', label: 'White' },
+  { side: 'b', label: 'Black' },
 ];
 
 export function FlameGraphPage() {
@@ -17,12 +17,7 @@ export function FlameGraphPage() {
 
   return (
     <main className="mx-auto flex max-w-6xl flex-col gap-6 px-6 py-8">
-      <header>
-        <h1 className="font-display text-2xl text-text">Où partent tes points</h1>
-        <p className="mt-1 text-sm text-text-muted">
-          Tes ouvertures réelles, coup par coup. Clique une bande pour zoomer.
-        </p>
-      </header>
+      <h1 className="font-display text-2xl text-text">Openings</h1>
 
       <div role="tablist" className="flex gap-2">
         {SIDES.map(({ side: option, label }) => (

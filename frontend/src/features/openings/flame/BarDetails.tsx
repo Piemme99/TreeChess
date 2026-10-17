@@ -1,14 +1,7 @@
+import type { ReactNode } from 'react';
 import { formatLine } from '../domain/notation';
-import { deficit, scoreRate } from '../domain/performance';
+import { scoreRate } from '../domain/performance';
 import type { FlameBar } from './flameLayout';
-import { toneOf, type Tone } from './tone';
-
-const VERDICT: Record<Tone, string> = {
-  losing: 'Tu y marques nettement moins que d’habitude.',
-  slipping: 'Tu y marques un peu moins que d’habitude.',
-  even: 'Tu y marques comme d’habitude.',
-  winning: 'Tu y marques plus que d’habitude.',
-};
 
 interface BarDetailsProps {
   bar: FlameBar;
@@ -18,29 +11,39 @@ interface BarDetailsProps {
 export function BarDetails({ bar, average }: BarDetailsProps) {
   if (bar.kind === 'others') {
     return (
-      <section className="rounded-md border border-border bg-bg-card px-4 py-3 text-sm">
-        <h3 className="font-mono text-text">
-          {formatLine(bar.parentPath) || 'Position de départ'} — {bar.lines} autres coups
-        </h3>
-        <p className="mt-1 text-text-muted">
-          {bar.games} parties au total, trop peu chacune pour être affichées séparément.
-        </p>
-      </section>
+      <Panel title={`${formatLine(bar.parentPath) || 'Start'} · ${bar.lines} other moves`}>
+        <Stat label="Games" value={bar.games} />
+      </Panel>
     );
   }
 
-  const { node, path } = bar;
   return (
-    <section className="rounded-md border border-border bg-bg-card px-4 py-3 text-sm">
-      <h3 className="font-mono text-text">{formatLine(path) || 'Toutes les parties'}</h3>
-      <p className="mt-1 text-text-muted">
-        {node.games} parties · tu y marques {percent(scoreRate(node))} · ta moyenne {percent(average)}
-      </p>
-      {path.length > 0 && <p className="mt-1 text-text">{VERDICT[toneOf(deficit(node, average))]}</p>}
+    <Panel title={formatLine(bar.path) || 'All games'}>
+      <Stat label="Games" value={bar.node.games} />
+      <Stat label="Score" value={percent(scoreRate(bar.node))} />
+      <Stat label="Average" value={percent(average)} />
+    </Panel>
+  );
+}
+
+function Panel({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section className="flex flex-wrap items-baseline gap-x-8 gap-y-2 rounded-md border border-border bg-bg-card px-4 py-3">
+      <h3 className="min-w-48 font-mono text-sm text-text">{title}</h3>
+      <dl className="flex gap-6">{children}</dl>
     </section>
   );
 }
 
+function Stat({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="flex items-baseline gap-1.5">
+      <dt className="text-xs uppercase tracking-wide text-text-muted">{label}</dt>
+      <dd className="font-mono text-sm text-text">{value}</dd>
+    </div>
+  );
+}
+
 function percent(rate: number): string {
-  return `${Math.round(rate * 100)} %`;
+  return `${Math.round(rate * 100)}%`;
 }
