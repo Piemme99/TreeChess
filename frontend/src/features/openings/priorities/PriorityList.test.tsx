@@ -7,18 +7,19 @@ const scandinavian: Priority = { kind: 'weak-line', side: 'w', path: ['e4', 'd5'
 const versusD4: Priority = { kind: 'unsettled', side: 'b', path: ['d4'], games: 662, pointsToGain: 11.8 };
 
 describe('PriorityList', () => {
-  it('lists each priority with its side, line, signal, games and points to gain', () => {
+  it('lists each priority with its side, line, signal and games', () => {
     render(<PriorityList priorities={[scandinavian, versusD4]} isSelected={() => false} onSelect={() => {}} />);
 
     const [first, second] = screen.getAllByRole('button');
-    expect(first).toHaveTextContent('1White1.e4 d5 2.exd5Weak line20712.3');
-    expect(second).toHaveTextContent('2Black1.d4No settled reply66211.8');
+    expect(first).toHaveTextContent('1White1.e4 d5 2.exd5Weak line207');
+    expect(second).toHaveTextContent('2Black1.d4No settled reply662');
   });
 
-  it('explains what points to gain are', () => {
-    render(<PriorityList priorities={[scandinavian]} isSelected={() => false} onSelect={() => {}} />);
+  it('shows each impact relative to the heaviest priority', () => {
+    render(<PriorityList priorities={[scandinavian, versusD4]} isSelected={() => false} onSelect={() => {}} />);
 
-    expect(screen.getByRole('img', { name: /Game points you would have scored on top/ })).toBeInTheDocument();
+    const impacts = screen.getAllByRole('meter', { name: 'Impact' }).map((meter) => meter.getAttribute('aria-valuenow'));
+    expect(impacts).toEqual(['100', '96']);
   });
 
   it('hands the clicked priority over', () => {

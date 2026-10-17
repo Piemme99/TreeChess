@@ -1,4 +1,3 @@
-import { Info } from 'lucide-react';
 import { formatLine } from '../domain/notation';
 import type { Priority, PriorityKind } from '../domain/priorities';
 import type { Side } from '../domain/playedGame';
@@ -13,9 +12,7 @@ const SIDE_LABELS: Record<Side, string> = {
   b: 'Black',
 };
 
-const POINTS_TO_GAIN_HINT = 'Game points you would have scored on top over these games (win = 1, draw = ½)';
-
-const COLUMNS = 'grid grid-cols-[2rem_4rem_1fr_9rem_5rem_7rem] items-baseline gap-3';
+const COLUMNS = 'grid grid-cols-[2rem_4rem_1fr_9rem_5rem_8rem] items-center gap-3';
 
 interface PriorityListProps {
   priorities: readonly Priority[];
@@ -25,6 +22,7 @@ interface PriorityListProps {
 
 export function PriorityList({ priorities, isSelected, onSelect }: PriorityListProps) {
   if (priorities.length === 0) return null;
+  const heaviest = Math.max(...priorities.map((priority) => priority.pointsToGain));
 
   return (
     <section aria-labelledby="priorities-title" className="flex flex-col gap-2">
@@ -36,12 +34,7 @@ export function PriorityList({ priorities, isSelected, onSelect }: PriorityListP
         <span>Line</span>
         <span>Signal</span>
         <span className="text-right">Games</span>
-        <span className="flex items-center justify-end gap-1">
-          Points to gain
-          <span title={POINTS_TO_GAIN_HINT} aria-label={POINTS_TO_GAIN_HINT} role="img" className="cursor-help">
-            <Info size={12} aria-hidden />
-          </span>
-        </span>
+        <span>Impact</span>
       </div>
 
       <ol className="flex flex-col gap-1">
@@ -62,11 +55,27 @@ export function PriorityList({ priorities, isSelected, onSelect }: PriorityListP
               <span className="font-mono text-text">{formatLine(priority.path) || 'Start'}</span>
               <span className="text-text-muted">{KIND_LABELS[priority.kind]}</span>
               <span className="text-right font-mono text-text">{priority.games}</span>
-              <span className="text-right font-mono text-text">{priority.pointsToGain.toFixed(1)}</span>
+              <ImpactBar share={priority.pointsToGain / heaviest} />
             </button>
           </li>
         ))}
       </ol>
     </section>
+  );
+}
+
+function ImpactBar({ share }: { share: number }) {
+  const percent = Math.round(share * 100);
+  return (
+    <span
+      role="meter"
+      aria-label="Impact"
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={percent}
+      className="block h-2 overflow-hidden rounded-full bg-border"
+    >
+      <span className="block h-full rounded-full bg-primary" style={{ width: `${percent}%` }} />
+    </span>
   );
 }

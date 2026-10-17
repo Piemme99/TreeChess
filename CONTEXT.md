@@ -72,7 +72,7 @@ graph: it shows where points leak, not what the engine thinks.
 ### Priority
 
 A line the player should work on first, drawn from both sides at once and
-ranked by **points to gain**. Two signals feed it, both computed from results
+ranked by **points to gain** (shown as a relative impact bar). Two signals feed it, both computed from results
 only (no engine):
 
 - **Weak line** — a line ending on one of the player's moves where they score
