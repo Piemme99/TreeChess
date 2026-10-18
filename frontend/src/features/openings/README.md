@@ -140,7 +140,9 @@ Built one brick at a time, each visible on its own:
    guides without answering (`BuildPanel.tsx`, `useCandidates.ts`): a table, one row per
    candidate move (three from the explorer, the engine's move, the player's own: PMG wanted
    few), with the share and the side's score at the named level (1400–1800 blitz & rapid), the
-   engine's evaluation after the move (?!, ?, ?? when it costs), their own games; the engine's
+   engine's evaluation after the move, their own games; a move the engine marks (?!, ?, ??)
+   leaves the table and the board for a muted line, not suggested but still playable on the
+   board if the player wants it (PMG: never recommend a middling move); the engine's
    move is tagged and drawn in orange at once (a "Hint" button was tried and dropped the same
    day: every tool that helps the choice is on the table from the start). Every row is an arrow
    on the board, thicker when played more: clicking where it lands plays it, so does its row;

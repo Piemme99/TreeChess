@@ -123,6 +123,21 @@ function CandidateTable({ builder, candidates, onPoint }: { builder: Builder; ca
           </tbody>
         </table>
       )}
+      {candidates.costly.length > 0 && (
+        <Muted>
+          Not suggested, the engine says they cost points:{' '}
+          {candidates.costly.map((row, index) => (
+            <span key={row.san}>
+              {index > 0 && ' · '}
+              <b style={{ color: COLOURS.leaf }}>{figurineMove(row.san, ply)}</b>
+              <b style={{ color: COLOURS.terracotta }}>{row.judgement && JUDGEMENT_MARK[row.judgement]}</b>
+              {row.share !== undefined && ` ${formatPercent(row.share)} played`}
+              {row.mine > 0 && ` · ${row.mine} of your games`}
+            </span>
+          ))}
+          . You can still play one on the board and keep it.
+        </Muted>
+      )}
       <p className="flex flex-wrap gap-x-4 gap-y-1 text-[12px] font-semibold" style={{ color: COLOURS.leafSoft }}>
         <Swatch colour={TONES.winning.bg}>in your games</Swatch>
         {builder.playerToMove && <Swatch colour={COLOURS.kumquatDeep}>engine move</Swatch>}

@@ -30,6 +30,8 @@ export interface Candidate {
 
 export interface Candidates {
   rows: Candidate[];
+  /** Les coups du joueur que le moteur juge coûteux : pas suggérés, mais jouables sur l'échiquier. */
+  costly: Candidate[];
   /** Ce que vaut la position courante et le coup que jouerait le moteur. */
   here?: Evaluation & { san: string | null };
   explorer: 'missing' | 'asking' | 'ready';
@@ -79,11 +81,15 @@ export function useCandidates(builder: Builder): Candidates {
   const evaluations = useEvaluations(fens, ENGINE_DEPTH);
   const mover: Side = playerToMove ? side : side === 'w' ? 'b' : 'w';
 
+  const all = base.map(({ fen: after, ...row }): Candidate => {
+    const cp = evaluations.get(after)?.cp;
+    return { ...row, cp, judgement: here && cp !== undefined ? judgeMove(here.cp, cp, mover) : null };
+  });
+  // On ne recommande pas un coup moyen ou mauvais ; l'adversaire, lui, peut jouer ce qu'il veut.
+  const costly = playerToMove ? all.filter((row) => row.judgement) : [];
   return {
-    rows: base.map(({ fen: after, ...row }) => {
-      const cp = evaluations.get(after)?.cp;
-      return { ...row, cp, judgement: here && cp !== undefined ? judgeMove(here.cp, cp, mover) : null };
-    }),
+    rows: all.filter((row) => !costly.includes(row)),
+    costly,
     here: here && { ...here, san: engineSan },
     explorer: explorer === null ? 'missing' : explorer === undefined ? 'asking' : 'ready',
   };
