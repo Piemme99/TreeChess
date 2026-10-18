@@ -79,6 +79,19 @@ positions mal jouées, pas des coups faux. Dans la Philidor, les parties bascule
 et 20 (10.g4, 15.♘f5, 15.f4, 18.♗xg5, 20.f5…). Coût : ~27 ms par position à profondeur 12 sur un
 thread, ~10 s pour les 9 parties de la Philidor, ~55 s pour les 5 priorités entières.
 
+6. La finalité de « Study this line » ne peut pas être une liste d'erreurs : il faut soit orienter le
+   joueur ailleurs, soit lui donner quelque chose de concret à faire. PMG choisit le second (« B ») :
+   un plan pour la ligne, outils gratuits uniquement. Construit sans jeton Lichess :
+   1. **Prolonger la préparation** depuis la position clé, à partir des parties du joueur : son coup
+      habituel, remplacé par celui du moteur s'il coûte ≥ 5 pts ; les coups adverses vus ≥ 2 fois.
+      **Constat** : les parties s'éparpillent 1 à 3 coups après la position clé (Philidor : plus aucune
+      suite commune après le coup 8), et les habitudes y tiennent. Aller plus loin demande ce que jouent
+      les adversaires de ce niveau : l'explorateur Lichess, qui exige un jeton (401 sans ; CORS ouvert,
+      en-tête `Authorization` accepté).
+   2. **S'entraîner sur la position** : partie contre Stockfish sur Lichess depuis la position clé,
+      puzzles Lichess de la famille d'ouverture, erreurs décisives repliées dessous.
+   3. **Suivre son score** : score mois par mois sur la ligne face à l'objectif, ce que vaut la position.
+
 Pour plus tard, avec l'OAuth Lichess : créer d'un clic une étude Lichess des positions d'erreur de la ligne.
 
 ## Verdict

@@ -1,6 +1,7 @@
 // PROTOTYPE — variante D : le moteur contre les résultats. Dit si la ligne se perd sur un coup à
 // remplacer ou après l'ouverture, récapitule les erreurs décisives et renvoie l'analyse à Lichess.
 import { useMemo, useState, type ReactNode } from 'react';
+import { useOpeningName } from '../../../shared/hooks/useOpeningName';
 import { figurineMove } from '../domain/notation';
 import type { PlayedGame } from '../domain/playedGame';
 import { formatPercent } from '../flame/format';
@@ -11,9 +12,10 @@ import { analyseGame, diagnose, gameFens, WORTH_WORKING, type AnalysedGame, type
 import { useEvaluations } from './engine';
 import { ForkRow, type Pointed } from './ForkMapLine';
 import { ArrowBoard, LineHeader, ResultDot, type BoardArrow } from './parts';
+import { extendPreparation, preparedUntil, type PrepMove } from './preparation';
 import fullGames from './recent-full-games.json';
 import { toneOf, useLineStudy, type LineStudy } from './study';
-import { arrowMoves, formatDate, lichessGame, lichessPosition } from './ui';
+import { arrowMoves, formatDate, lichessGame, lichessPosition, lichessPuzzles, lichessVsComputer } from './ui';
 
 interface FullGame extends PlayedGame {
   url: string;
@@ -47,21 +49,27 @@ export function DiagnosisLine({ tree, path, onBack, onOpen }: LineSlotProps) {
   const lineDone = diagnosis.evaluated === lineFens.length;
   const key = lineDone ? diagnosis.key : null;
 
+  const keyPath = useMemo(() => study.steps.slice(0, key ?? 0).map((step) => step.san), [study, key]);
   const games = useMemo(() => {
     if (key === null) return [];
-    const keyPath = study.steps.slice(0, key).map((step) => step.san);
     return (fullGames as FullGame[])
       .filter((game) => game.side === tree.side && keyPath.every((san, index) => game.moves[index] === san))
       .sort((a, b) => b.playedAt.localeCompare(a.playedAt))
       .slice(0, MAX_GAMES);
-  }, [key, study, tree.side]);
+  }, [key, keyPath, tree.side]);
   const fensByGame = useMemo(() => games.map((game) => gameFens(game.moves, key ?? 0, GAME_PLIES)), [games, key]);
   const allGameFens = useMemo(() => fensByGame.flat(), [fensByGame]);
   const gameEvals = useEvaluations(allGameFens, GAME_DEPTH, key !== null);
   const analysed = games.map((game, index) => analyseGame(game.moves, key ?? 0, fensByGame[index], tree.side, gameEvals));
 
+  const preparation = useMemo(
+    () => (key === null ? [] : extendPreparation(games, keyPath, tree.side, gameEvals)),
+    [key, games, keyPath, tree.side, gameEvals],
+  );
+
   const [selected, setSelected] = useState<number | null>(null);
   const [pointed, setPointed] = useState<Pointed | null>(null);
+  const [prepPointed, setPrepPointed] = useState<PrepPointed | null>(null);
   const keyPly = key ?? study.entry;
 
   const shown = ((): Shown => {
@@ -77,6 +85,18 @@ export function DiagnosisLine({ tree, path, onBack, onOpen }: LineSlotProps) {
           </>
         ),
         link: { href: lichessPosition(lineFens[pointed.ply] ?? lineFens[0], black), label: 'Analyse on Lichess ↗' },
+      };
+    }
+    if (prepPointed) {
+      const { path: before, move } = prepPointed;
+      return {
+        path: before,
+        arrows: [
+          { san: move.san, tone: move.replacement ? 'losing' : 'even', colour: move.replacement || !move.byPlayer ? undefined : COLOURS.leaf, share: 0.6, emphasis: true },
+          ...(move.replacement ? [{ san: move.replacement.best, tone: 'winning' as const, colour: BEST, share: 0.6, emphasis: true }] : []),
+        ],
+        caption: <PrepCaption move={move} />,
+        link: { href: lichessPosition(fenOf(before), black), label: 'Analyse on Lichess ↗' },
       };
     }
     const turn = selected === null ? null : analysed[selected].turn;
@@ -131,7 +151,23 @@ export function DiagnosisLine({ tree, path, onBack, onOpen }: LineSlotProps) {
         </div>
         <div className="flex min-w-0 flex-col gap-8">
           <Verdict study={study} diagnosis={diagnosis} total={lineFens.length} keyPly={key} />
-          {key !== null && <Mistakes games={games} analysed={analysed} black={black} keyPly={key} selected={selected} onSelect={setSelected} />}
+          {key !== null && (
+            <section aria-label="Your plan" className="flex flex-col gap-5">
+              <h2 className="text-[22px] font-extrabold tracking-[-0.02em]">Your plan for this line</h2>
+              <Step number={1} title="Extend your preparation">
+                <Preparation moves={preparation} keyPath={keyPath} pending={analysed.some(({ chances }) => chances.includes(null))} onPoint={setPrepPointed} />
+              </Step>
+              <Step number={2} title="Practise the position">
+                <Practice fens={lineFens.slice(0, key + 1)} />
+                <Fold title={`Your decisive mistakes from here · ${analysed.filter(({ turn }) => turn).length}`}>
+                  <Mistakes games={games} analysed={analysed} black={black} keyPly={key} selected={selected} onSelect={setSelected} />
+                </Fold>
+              </Step>
+              <Step number={3} title="Track your score">
+                <Progress study={study} goal={diagnosis.points[study.entry].worth} />
+              </Step>
+            </section>
+          )}
           <Fold title="Engine vs you, move by move">
             <EngineVsYou study={study} diagnosis={diagnosis} keyPly={key} />
           </Fold>
@@ -141,6 +177,215 @@ export function DiagnosisLine({ tree, path, onBack, onOpen }: LineSlotProps) {
         </div>
       </div>
     </section>
+  );
+}
+
+interface PrepPointed {
+  path: readonly string[];
+  move: PrepMove;
+}
+
+function fenOf(path: readonly string[]) {
+  return replayLine(path).fens[path.length];
+}
+
+function Step({ number, title, children }: { number: number; title: string; children: ReactNode }) {
+  return (
+    <article className="flex flex-col gap-3 rounded-3xl p-5" style={{ background: COLOURS.paper, boxShadow: '0 2px 10px -4px oklch(0.35 0.06 60 / 0.25)' }}>
+      <header className="flex items-center gap-3">
+        <span className="flex size-8 items-center justify-center rounded-full text-[16px] font-extrabold" style={{ background: COLOURS.leaf, color: COLOURS.cream }}>
+          {number}
+        </span>
+        <h3 className="text-[19px] font-extrabold tracking-[-0.02em]">{title}</h3>
+      </header>
+      {children}
+    </article>
+  );
+}
+
+function Preparation({ moves, keyPath, pending, onPoint }: { moves: PrepMove[]; keyPath: readonly string[]; pending: boolean; onPoint: (pointed: PrepPointed | null) => void }) {
+  if (pending) {
+    return (
+      <p className="text-[14px] font-semibold" style={{ color: COLOURS.leafSoft }}>
+        Engine on your games…
+      </p>
+    );
+  }
+  const until = preparedUntil(moves);
+  const fixes = countFixes(moves);
+  return (
+    <div className="flex flex-col gap-3">
+      <p className="text-[14px] font-semibold" style={{ color: COLOURS.leafSoft }}>
+        {fixes > 0 ? `${fixes} habit${fixes > 1 ? 's' : ''} to fix` : 'Your habits hold up'}
+        {until > 0 && ` · your games stop overlapping after move ${Math.ceil(until / 2)}`}
+      </p>
+      {moves.length > 0 && (
+        <ul className="flex flex-col gap-1.5" onMouseLeave={() => onPoint(null)}>
+          {moves.map((move) => (
+            <PrepBranch key={move.san} move={move} path={keyPath} onPoint={onPoint} />
+          ))}
+        </ul>
+      )}
+      <button
+        type="button"
+        disabled
+        title="Comes with Verify: your preparation, replayed on your phone"
+        className="self-start rounded-full px-4 py-1.5 text-[14px] font-bold opacity-50"
+        style={tile(COLOURS.sand)}
+      >
+        Add to my preparation
+      </button>
+    </div>
+  );
+}
+
+function countFixes(moves: readonly PrepMove[]): number {
+  return moves.reduce((sum, move) => sum + (move.replacement ? 1 : 0) + countFixes(move.next), 0);
+}
+
+// Un coup adverse et la réponse du joueur tiennent sur une rangée ; les autres réponses adverses s'indentent dessous.
+function PrepBranch({ move, path, onPoint }: { move: PrepMove; path: readonly string[]; onPoint: (pointed: PrepPointed | null) => void }) {
+  const chain = [{ move, path }];
+  let last = move;
+  let after = [...path, move.san];
+  while (last.next.length === 1 && last.next[0].byPlayer) {
+    chain.push({ move: last.next[0], path: after });
+    after = [...after, last.next[0].san];
+    last = last.next[0];
+  }
+  return (
+    <li className="flex flex-col gap-1.5">
+      <div className="flex flex-wrap items-center gap-1.5">
+        {chain.map((link) => (
+          <PrepChip key={link.move.ply} move={link.move} onPoint={() => onPoint({ path: link.path, move: link.move })} />
+        ))}
+      </div>
+      {last.next.length > 0 && (
+        <ul className="ml-3 flex flex-col gap-1.5 border-l-2 pl-3" style={{ borderColor: COLOURS.sand }}>
+          {last.next.map((next) => (
+            <PrepBranch key={next.san} move={next} path={after} onPoint={onPoint} />
+          ))}
+        </ul>
+      )}
+    </li>
+  );
+}
+
+function PrepChip({ move, onPoint }: { move: PrepMove; onPoint: () => void }) {
+  if (!move.byPlayer) {
+    return (
+      <span onMouseEnter={onPoint} className="rounded-lg px-2 py-0.5 text-[13px] font-semibold" style={{ background: COLOURS.opponent }}>
+        {figurineMove(move.san, move.ply)} <span className="text-[11px] opacity-60">{move.games}</span>
+      </span>
+    );
+  }
+  if (!move.replacement) {
+    return (
+      <span onMouseEnter={onPoint} className="rounded-lg px-2 py-0.5 text-[14px] font-extrabold" style={tile('oklch(0.88 0.045 145)')}>
+        {figurineMove(move.san, move.ply)} ✓
+      </span>
+    );
+  }
+  return (
+    <span onMouseEnter={onPoint} className="flex items-center gap-1.5 rounded-lg px-2 py-0.5 text-[14px]" style={tile(COLOURS.apricot)}>
+      <span className="font-semibold line-through opacity-70">{figurineMove(move.san, move.ply)}</span>→
+      <span className="font-extrabold" style={{ color: COLOURS.leaf }}>
+        {figurineMove(move.replacement.best, move.ply)}
+      </span>
+      <span className="text-[11px] font-bold opacity-70">−{Math.round(move.replacement.loss * 100)}</span>
+    </span>
+  );
+}
+
+function PrepCaption({ move }: { move: PrepMove }) {
+  if (!move.byPlayer) return <>{figurineMove(move.san, move.ply)} · {move.games} of your games</>;
+  if (!move.replacement) return <>{figurineMove(move.san, move.ply)} · your habit, the engine agrees</>;
+  return (
+    <>
+      <span style={{ color: COLOURS.terracotta }}>{figurineMove(move.san, move.ply)}</span> costs {Math.round(move.replacement.loss * 100)} pts ·
+      engine: <span style={{ color: BEST }}>{figurineMove(move.replacement.best, move.ply)}</span>
+    </>
+  );
+}
+
+function Practice({ fens }: { fens: string[] }) {
+  const opening = useOpeningName(fens);
+  const fen = fens[fens.length - 1];
+  return (
+    <div className="flex flex-wrap gap-2">
+      <ExternalButton href={lichessVsComputer(fen)} label="Play it against Stockfish ↗" />
+      {opening && <ExternalButton href={lichessPuzzles(opening.name)} label={`Puzzles: ${opening.name.split(':')[0]} ↗`} />}
+    </div>
+  );
+}
+
+function ExternalButton({ href, label }: { href: string; label: string }) {
+  return (
+    <a href={href} target="_blank" rel="noreferrer" className="rounded-full px-4 py-1.5 text-[14px] font-bold" style={tile(COLOURS.sand)}>
+      {label}
+    </a>
+  );
+}
+
+const MONTHS = 12;
+
+// Score mois par mois sur la ligne, face à ce qu'elle vaut : le progrès se lit à la barre qui rejoint l'objectif.
+function Progress({ study, goal }: { study: LineStudy; goal: number | null }) {
+  const now = new Date();
+  const months = Array.from({ length: MONTHS }, (_, index) => {
+    const date = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - (MONTHS - 1 - index), 1));
+    const prefix = date.toISOString().slice(0, 7);
+    const played = study.games.filter(({ game }) => game.playedAt.startsWith(prefix));
+    return {
+      prefix,
+      label: date.toLocaleDateString('en-GB', { month: 'short', timeZone: 'UTC' }),
+      games: played.length,
+      score: played.length ? played.reduce((sum, { game }) => sum + game.score, 0) / played.length : null,
+    };
+  });
+  const entry = study.steps[study.entry - 1];
+  const height = 90;
+  const y = (rate: number) => (1 - rate) * height;
+
+  return (
+    <div className="flex flex-col gap-3">
+      <p className="flex flex-wrap gap-x-4 text-[14px] font-semibold">
+        <span>
+          now <span style={{ color: SCORE }}>{entry ? formatPercent(entry.rate) : '—'}</span>
+          <span style={{ color: COLOURS.leafSoft }}> · {entry?.games ?? 0} games</span>
+        </span>
+        {goal !== null && (
+          <span>
+            goal <span style={{ color: WORTH }}>{formatPercent(goal)}</span>
+            <span style={{ color: COLOURS.leafSoft }}> · what the position is worth</span>
+          </span>
+        )}
+      </p>
+      <div className="relative" style={{ height }}>
+        {goal !== null && <span className="absolute inset-x-0 border-t-2 border-dashed" style={{ top: y(goal), borderColor: WORTH }} />}
+        <div className="absolute inset-0 flex items-end gap-1.5">
+          {months.map((month) => (
+            <span key={month.prefix} className="relative flex h-full flex-1 items-end justify-center">
+              {month.score !== null && (
+                <span
+                  className="w-full max-w-7 rounded-t-md"
+                  style={{ height: Math.max(3, height - y(month.score)), background: goal !== null && month.score >= goal ? COLOURS.sage : SCORE, opacity: 0.35 + 0.65 * Math.min(1, month.games / 6) }}
+                  title={`${month.games} games · ${formatPercent(month.score)}`}
+                />
+              )}
+            </span>
+          ))}
+        </div>
+      </div>
+      <div className="flex gap-1.5">
+        {months.map((month) => (
+          <span key={month.prefix} className="flex flex-1 flex-col items-center text-[10px] leading-tight" style={{ color: COLOURS.leafSoft }}>
+            <span className="font-semibold">{month.label}</span>
+            <span className="tabular-nums">{month.games || '·'}</span>
+          </span>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -190,8 +435,7 @@ function Verdict({ study, diagnosis, total, keyPly }: { study: LineStudy; diagno
       )}
       {playCost && (
         <p className="text-[15px] font-semibold">
-          Work on the position {keyStep ? <>after <b>{figurineMove(keyStep.san, keyStep.ply)}</b></> : 'of this line'}: go through your
-          decisive mistakes below, then study it on Lichess.
+          The position to work on: {keyStep ? <>after <b>{figurineMove(keyStep.san, keyStep.ply)}</b></> : 'this line'}. Follow the plan below.
         </p>
       )}
     </article>
