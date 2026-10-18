@@ -138,12 +138,14 @@ Built one brick at a time, each visible on its own:
    `board/PlayableBoard.tsx`: click the piece, then its square), from the position before their
    move, or after the opponent's unexpected move (which goes in with the answer). The panel
    guides without answering (`BuildPanel.tsx`, `useCandidates.ts`): a table, one row per
-   candidate move, with the share and the player's score at their level (bar), the engine's
-   evaluation after the move (?!, ?, ?? when it costs), their own games; the engine's move
-   is tagged and drawn in orange at once (a "Hint" button was tried and dropped the same
-   day: every tool that helps the choice is on the table from the start). A row plays its
-   move, hovering it draws its arrow; any move can be played on the board, judged once played.
-   At the opponent's move, the same table over the frequent replies (≥ 5%). Back, undo, then
+   candidate move (three from the explorer, the engine's move, the player's own: PMG wanted
+   few), with the share and the side's score at the named level (1400–1800 blitz & rapid), the
+   engine's evaluation after the move (?!, ?, ?? when it costs), their own games; the engine's
+   move is tagged and drawn in orange at once (a "Hint" button was tried and dropped the same
+   day: every tool that helps the choice is on the table from the start). Every row is an arrow
+   on the board, thicker when played more: clicking where it lands plays it, so does its row;
+   any other move is played piece then square, and judged once played. At the opponent's move,
+   the same table over the frequent replies (≥ 5%, four at most). Back, undo, then
    "Add to my repertoire", only once a move of the player's is in. PMG preferred building to a
    drafted tree with branches to cut, tried the same day: playing and searching teaches more
    than a ready-made answer.

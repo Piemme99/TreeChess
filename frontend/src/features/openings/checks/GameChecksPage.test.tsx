@@ -6,7 +6,7 @@ import { OpeningsPage } from '../OpeningsPage';
 import { GameChecksPage } from './GameChecksPage';
 
 // Sans explorateur, la proposition se réduit au coup qui l'ouvre : le test ne dépend ni de Lichess ni du moteur.
-vi.mock('../line/explorer', () => ({ explore: () => Promise.resolve(null), hasExplorer: () => false }));
+vi.mock('../line/explorer', () => ({ explore: () => Promise.resolve(null), hasExplorer: () => false, LEVEL_LABEL: 'level' }));
 
 const page = () =>
   render(

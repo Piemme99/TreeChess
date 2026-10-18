@@ -8,7 +8,9 @@ import type { Builder } from './useBuilder';
 import { useExplorerAt } from './useExplorerAt';
 
 export const ENGINE_DEPTH = 14;
-const MAX_CANDIDATES = 6;
+// Peu de suggestions : trois coups du niveau, le coup du moteur et les siens suffisent à choisir.
+const MAX_CANDIDATES = 3;
+const MAX_REPLIES = 4;
 // Une réponse adverse plus rare que ça à ton niveau ne vaut pas une ligne ; on peut toujours la jouer.
 const MIN_REPLY_SHARE = 0.05;
 
@@ -54,7 +56,7 @@ export function useCandidates(builder: Builder): Candidates {
     const known = explorer?.moves ?? [];
     const listed = playerToMove
       ? known.slice(0, MAX_CANDIDATES)
-      : known.filter((move) => (move.white + move.draws + move.black) / total >= MIN_REPLY_SHARE);
+      : known.filter((move) => (move.white + move.draws + move.black) / total >= MIN_REPLY_SHARE).slice(0, MAX_REPLIES);
     const sans = [...listed.map((move) => move.san)];
     for (const san of mine.keys()) if (!sans.includes(san)) sans.push(san);
     if (engineSan && !sans.includes(engineSan)) sans.push(engineSan);

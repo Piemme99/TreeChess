@@ -7,13 +7,15 @@ interface PlayableBoardProps {
   path: readonly string[];
   flipped: boolean;
   arrows?: BoardArrow[];
+  /** Coups jouables d'un seul clic sur leur case d'arrivée, sans choisir la pièce d'abord. */
+  suggestions?: readonly string[];
   onMove: (san: string) => void;
 }
 
 const FILES = 'abcdefgh';
 
 /** L'échiquier de l'atelier, où l'on joue en cliquant la pièce puis sa case d'arrivée. */
-export function PlayableBoard({ path, flipped, arrows, onMove }: PlayableBoardProps) {
+export function PlayableBoard({ path, flipped, arrows, suggestions = [], onMove }: PlayableBoardProps) {
   const chess = useMemo(() => {
     const game = new Chess();
     for (const san of path) game.move(san);
@@ -26,6 +28,15 @@ export function PlayableBoard({ path, flipped, arrows, onMove }: PlayableBoardPr
     setFrom(null);
   }
   const targets = from ? chess.moves({ square: from, verbose: true }) : [];
+  const suggested = useMemo(
+    () =>
+      suggestions.flatMap((san) => {
+        const move = chess.move(san);
+        chess.undo();
+        return move ? [{ san, to: move.to }] : [];
+      }),
+    [chess, suggestions],
+  );
 
   const click = (square: Square) => {
     const move = targets.find((candidate) => candidate.to === square);
@@ -33,6 +44,12 @@ export function PlayableBoard({ path, flipped, arrows, onMove }: PlayableBoardPr
       setFrom(null);
       // La dame d'office : une sous-promotion n'a pas sa place dans une ouverture.
       onMove(chess.move({ from: move.from, to: move.to, promotion: 'q' }).san);
+      return;
+    }
+    // Deux flèches sur la même case : on laisse le joueur désigner la pièce.
+    const landing = from ? [] : suggested.filter((candidate) => candidate.to === square);
+    if (landing.length === 1) {
+      onMove(landing[0].san);
       return;
     }
     const piece = chess.get(square);

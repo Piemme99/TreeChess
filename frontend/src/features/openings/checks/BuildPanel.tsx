@@ -6,6 +6,7 @@ import { figurineMove } from '../domain/notation';
 import { formatPercent } from '../flame/format';
 import { JUDGEMENT_MARK, judgeMove } from '../domain/judgement';
 import { useEvaluations } from '../line/engine';
+import { LEVEL_LABEL } from '../line/explorer';
 import { replayLine } from '../position/replay';
 import { COLOURS, raised, SPRING, tile, TONES } from '../workshop/theme';
 import type { Builder } from './useBuilder';
@@ -86,7 +87,9 @@ function CandidateTable({ builder, candidates, onPoint }: { builder: Builder; ca
   const { rows, explorer } = candidates;
   const ply = builder.path.length + 1;
   const side = builder.checked.game.side === 'w' ? 'White' : 'Black';
-  const caption = builder.playerToMove ? 'Your move · tap one to play it, or play any move on the board' : 'Their move · pick a reply to prepare, or play any move on the board';
+  const caption = builder.playerToMove
+    ? 'Your move · the arrows on the board: click where one lands, or its row, to play it · any other move: click the piece, then its square'
+    : 'Their move · pick a reply to prepare, on the board or below · any other move: click the piece, then its square';
   return (
     <div className="flex flex-col gap-1.5">
       <span className="text-[12px] font-semibold" style={{ color: COLOURS.leafSoft }}>
@@ -100,7 +103,7 @@ function CandidateTable({ builder, candidates, onPoint }: { builder: Builder; ca
             <tr>
               <th />
               <th colSpan={2} className="px-2 pb-0.5 text-center font-semibold" style={{ borderBottom: `1px solid ${COLOURS.sand}` }}>
-                At your level
+                At your level · {LEVEL_LABEL}
               </th>
               <th />
               <th />

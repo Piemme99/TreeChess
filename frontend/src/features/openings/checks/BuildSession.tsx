@@ -30,31 +30,39 @@ export function BuildSession({ checked, games, repertoire, onAccept, onCancel, c
   const pointed = pointedAt?.fen === builder.fen ? pointedAt.san : null;
   const engine = builder.playerToMove ? (candidates.here?.san ?? null) : null;
   const atStart = checked.check.kind === 'left' && builder.path.length === builder.start.length;
+  const suggestions = useMemo(() => candidates.rows.map((row) => row.san), [candidates.rows]);
 
   const arrows = useMemo((): BoardArrow[] => {
     const shown = repertoireMovesAt(repertoire, builder.fen).map(
       (move): BoardArrow => ({ san: move.san, tone: 'winning', colour: REPERTOIRE, share: 0.5 }),
     );
-    if (atStart) shown.push({ san: checked.check.played, tone: 'even', colour: INK.even, share: 0.5 });
-    if (engine) shown.push({ san: engine, tone: 'winning', colour: COLOURS.kumquatDeep, share: 0.7, emphasis: true });
-    if (pointed && !shown.some((arrow) => arrow.san === pointed)) {
-      shown.push({ san: pointed, tone: 'even', colour: COLOURS.leafSoft, share: 0.5 });
+    // Le coup de la partie reste rouge même s'il est candidat : c'est lui qu'on juge.
+    if (atStart) shown.push({ san: checked.check.played, tone: 'losing', colour: COLOURS.terracotta, share: 0.5 });
+    for (const row of candidates.rows) {
+      if (shown.some((arrow) => arrow.san === row.san)) continue;
+      const colour = row.engine ? COLOURS.kumquatDeep : INK.even;
+      shown.push({ san: row.san, tone: 'even', colour, share: Math.max(row.share ?? 0.2, 0.2), emphasis: row.engine || row.san === pointed });
     }
     return shown;
-  }, [repertoire, builder.fen, atStart, checked.check.played, engine, pointed]);
+  }, [repertoire, builder.fen, candidates.rows, atStart, checked.check.played, pointed]);
 
   return (
     <main className="mx-auto grid max-w-[84rem] grid-cols-[minmax(0,30rem)_1fr] gap-10 px-8 pt-8">
       <aside aria-label="Position" className="sticky top-6 flex flex-col gap-3 self-start">
-        <PlayableBoard path={builder.path} flipped={checked.game.side === 'b'} arrows={arrows} onMove={builder.play} />
+        <PlayableBoard path={builder.path} flipped={checked.game.side === 'b'} arrows={arrows} suggestions={suggestions} onMove={builder.play} />
         <p className="px-1 text-[14px]" style={{ color: INK.even }}>
           <span className="font-bold" style={{ color: REPERTOIRE }}>green</span> already in your repertoire
-          {atStart && ' · grey: your move in the game'}
+          {atStart && (
+            <>
+              {' '}· <span className="font-bold" style={{ color: COLOURS.terracotta }}>red</span> your move in the game
+            </>
+          )}
           {engine && (
             <>
               {' '}· <span className="font-bold" style={{ color: COLOURS.kumquatDeep }}>orange</span> the engine move
             </>
           )}
+          {' '}· the others are the table's moves, thicker when played more
         </p>
       </aside>
       <div className="flex min-w-0 flex-col gap-10">

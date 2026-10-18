@@ -21,6 +21,8 @@ const TOKEN = import.meta.env.VITE_LICHESS_TOKEN as string | undefined;
 // Tranches de l'explorateur autour du joueur (Lichess : 1594 blitz, 1698 rapide le 18/10/2026).
 const RATINGS = '1400,1600,1800';
 const SPEEDS = 'blitz,rapid';
+/** La tranche interrogée, telle qu'on la nomme à l'écran. */
+export const LEVEL_LABEL = '1400–1800 · blitz & rapid · Lichess';
 const STORAGE = 'kumquat-explorer:';
 // Lichess demande d'attendre une minute pleine après un 429.
 const RATE_LIMIT_PAUSE = 60_000;
