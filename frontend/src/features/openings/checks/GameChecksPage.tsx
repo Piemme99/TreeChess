@@ -1,6 +1,6 @@
 import { MotionConfig } from 'framer-motion';
 import { useMemo, useState } from 'react';
-import { checkGame } from '../domain/gameCheck';
+import { asksDecision, checkGame } from '../domain/gameCheck';
 import { repertoireMovesAt } from '../domain/repertoire';
 import { playedGamesFixture } from '../fixtures/playedGames';
 import { ArrowBoard, type BoardArrow } from '../line/ArrowBoard';
@@ -11,7 +11,7 @@ import { useReplayDay } from '../replay/useReplayDay';
 import { PageHeader } from '../workshop/PageHeader';
 import { COLOURS, FONT_FAMILY, REPERTOIRE } from '../workshop/theme';
 import { useWorkshopFont } from '../workshop/useWorkshopFont';
-import { checkedPath, needsDecision, type CheckedGame } from './checkedGame';
+import { checkedPath, type CheckedGame } from './checkedGame';
 import { GameCard } from './GameCard';
 import { useIgnoredChecks } from './useIgnoredChecks';
 
@@ -22,16 +22,17 @@ export function GameChecksPage() {
   const [selectedId, setSelectedId] = useState<number | null>(null);
 
   const repertoires = useMemo(() => repertoiresOf(playedGamesFixture, REPLAY_START), []);
-  const lived = useMemo(
-    () =>
-      playedGamesFixture
-        .map((game, id) => ({ id, game }))
-        .filter(({ game }) => game.playedAt > REPLAY_FIRST_DAY && game.playedAt <= replay.day)
-        .map(({ id, game }): CheckedGame => ({ id, game, check: checkGame(repertoires[game.side], game) })),
-    [repertoires, replay.day],
-  );
+  const lived = useMemo(() => {
+    const games = playedGamesFixture
+      .map((game, id) => ({ id, game }))
+      .filter(({ game }) => game.playedAt > REPLAY_FIRST_DAY && game.playedAt <= replay.day)
+      .sort((a, b) => a.game.playedAt.localeCompare(b.game.playedAt))
+      .map(({ id, game }) => ({ id, game, check: checkGame(repertoires[game.side], game) }));
+    const asks = asksDecision(games);
+    return games.map((checked, index): CheckedGame => ({ ...checked, asks: asks[index] }));
+  }, [repertoires, replay.day]);
   const today = lived.filter(({ game }) => game.playedAt === replay.day);
-  const isPending = (checked: CheckedGame) => needsDecision(checked) && !ignored.has(checked.id);
+  const isPending = (checked: CheckedGame) => checked.asks && !ignored.has(checked.id);
   // Les parties du jour portent leur propre décision : la liste suivante ne reprend que les jours passés.
   const earlier = lived.filter((checked) => checked.game.playedAt < replay.day && isPending(checked)).reverse();
   const selected = lived.find((checked) => checked.id === selectedId) ?? today[0] ?? null;

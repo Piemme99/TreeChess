@@ -27,6 +27,12 @@ describe('createRepertoire', () => {
     expect(sansAt(repertoire, 'e4')).toEqual(['c6']);
   });
 
+  it('keeps every opponent reply met five times, however rare', () => {
+    const repertoire = createRepertoire([...games(40, 'w', 'e4 e5'), ...games(5, 'w', 'e4 g6'), ...games(4, 'w', 'e4 b6')], 'w', TODAY);
+
+    expect(sansAt(repertoire, 'e4')).toEqual(['e5', 'g6']);
+  });
+
   it('keeps two moves the player alternates between', () => {
     const repertoire = createRepertoire([...games(12, 'b', 'e4 c6'), ...games(6, 'b', 'e4 c5')], 'b', TODAY);
 

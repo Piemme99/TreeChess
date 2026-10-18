@@ -109,7 +109,8 @@ Built one brick at a time, each visible on its own:
 
 1. **Repertoire from habits** — *done*: `domain/repertoire.ts`, pure, no engine; a move
    enters at a fifth of the games in the position over the 12 months before 2026-01-01
-   (5 games at least), opponent replies likewise; moves are keyed by position, so
+   (5 games at least); an opponent reply enters at 5 games, whatever its share (changed on
+   2026-10-18: at a fifth, 426 of the 530 games of 2026 were "not covered" by move 2); moves are keyed by position, so
    transpositions share them. Computed on load (stored once decisions change it, brick 4).
    Rim on the flame graph tiles, green arrows and a "Repertoire" line on the board panel.
 2. **Replay and game check, on their own page** — *done* (bricks 2 and 3 merged after PMG
@@ -118,7 +119,10 @@ Built one brick at a time, each visible on its own:
    jumps to the next day with games (49 in 2026), "Reset" goes back and forgets the ignored
    games — and checks each game of the day against the repertoire (`domain/gameCheck.ts`:
    followed, left the repertoire, not covered), board at the deviation (red played, green
-   repertoire), "Ignore" only; the undecided games of the previous days stay below.
+   repertoire), "Ignore" only; the undecided games of the previous days stay below. A
+   "not covered" asks for a decision only when the same opponent move comes back
+   (`asksDecision`). Over 2026: 226 games followed, 119 left, 185 not covered; 174
+   decisions, 3 a day (median), 15 at most.
    **Openings** stays the global view, computed "as of" the replay day, no clock on it.
    The repertoire does not follow the clock: only the player's decisions will change it.
    The day and the ignored games are kept in `localStorage`.

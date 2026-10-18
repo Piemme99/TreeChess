@@ -6,9 +6,9 @@ export interface CheckedGame {
   id: number;
   game: PlayedGame;
   check: GameCheck;
+  /** Voir `asksDecision` : un coup adverse hors répertoire ne compte qu'à sa deuxième rencontre. */
+  asks: boolean;
 }
-
-export const needsDecision = ({ check }: CheckedGame) => check.kind !== 'followed';
 
 /** Le chemin jusqu'à la position que le contrôle désigne : l'écart, ou la fin du répertoire. */
 export const checkedPath = ({ game, check }: CheckedGame) =>

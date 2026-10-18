@@ -75,7 +75,7 @@ export function GameCard({ checked, selected, onSelect, showDate = false, onIgno
   );
 }
 
-function Verdict({ checked: { check } }: { checked: CheckedGame }) {
+function Verdict({ checked: { check, asks } }: { checked: CheckedGame }) {
   if (check.kind === 'followed') return <>Your repertoire held for {Math.ceil(check.plies / 2)} moves</>;
   const played = figurineMove(check.played, check.ply + 1);
   const planned = check.planned.map((san) => figurineMove(san, check.ply + 1)).join(' · ');
@@ -86,6 +86,7 @@ function Verdict({ checked: { check } }: { checked: CheckedGame }) {
   ) : (
     <>
       Opponent played <b>{played}</b>, your repertoire answers {planned}
+      {!asks && ' · first time, nothing to decide'}
     </>
   );
 }

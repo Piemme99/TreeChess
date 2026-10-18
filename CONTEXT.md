@@ -115,7 +115,8 @@ long before the score can show whether it pays.
 What the player intends to play, one per side: at each position where they are
 to move, one or more moves, each a deliberate choice (alternating the Caro-Kann
 and the Sicilian is a repertoire, not a mistake); at each position where the
-opponent is to move, as many replies as are worth preparing. It is the one object every step of the loop
+opponent is to move, every reply the player keeps meeting, however rare at that
+position: the player chooses their moves, they only meet the opponent's. It is the one object every step of the loop
 reads and writes: created from the player's history, strengthened on their
 priorities, enriched after each game. Creation keeps to the player's habits,
 even those the engine judges bad (their replacement becomes a
@@ -140,8 +141,9 @@ fresh. Two outcomes:
   [proposed addition](#proposed-addition) from there) or **Review** the
   repertoire's moves (an exercise on that position). Without an answer, nothing
   changes.
-- **Not covered** — the opponent played a move the repertoire does not answer.
-  The check says so and offers a proposed addition.
+- **Not covered** — the opponent played a move the repertoire does not prepare.
+  Met once, it may be chance: the check only says so. When the same move comes
+  back, it offers a proposed addition.
 
 A move outside the repertoire that the player keeps playing (a fifth of their
 games there, over the last 12 months) is offered as an addition even if every

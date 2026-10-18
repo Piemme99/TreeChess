@@ -1,5 +1,5 @@
 import { Chess } from 'chess.js';
-import { buildOpeningTree, type OpeningNode, type OpeningTree } from './openingTree';
+import { buildOpeningTree, isPlayerMove, type OpeningNode, type OpeningTree } from './openingTree';
 import { gamesOfLastMonths } from './period';
 import type { PlayedGame, Side } from './playedGame';
 import type { MoveSource } from './preparation';
@@ -18,6 +18,7 @@ export interface Repertoire {
 }
 
 const HABIT_MONTHS = 12;
+// Un coup du joueur est un choix : il faut qu'il pèse. Un coup adverse se subit : il suffit qu'il revienne.
 const MIN_SHARE = 0.2;
 const MIN_GAMES = 5;
 const MAX_PLIES = 40;
@@ -25,7 +26,7 @@ const MAX_PLIES = 40;
 const START = new Chess().fen();
 
 // Les compteurs de coups changent d'un ordre de coups à l'autre : ils ne font pas partie de la position.
-const positionKey = (fen: string) => fen.split(' ').slice(0, 4).join(' ');
+export const positionKey = (fen: string) => fen.split(' ').slice(0, 4).join(' ');
 
 const fenAfter = (fen: string, san: string) => {
   const chess = new Chess(fen);
@@ -37,16 +38,17 @@ export function createRepertoire(games: readonly PlayedGame[], side: Side, today
   const habits = gamesOfLastMonths(games, HABIT_MONTHS, new Date(today)).filter((game) => game.playedAt < today);
   const moves = new Map<string, RepertoireMove[]>();
 
-  const walk = (node: OpeningNode, fen: string) => {
+  const walk = (node: OpeningNode, fen: string, ply: number) => {
+    const chosen = isPlayerMove(side, ply + 1);
     for (const child of node.children) {
-      if (child.games < MIN_GAMES || child.games / node.games < MIN_SHARE) continue;
+      if (child.games < MIN_GAMES || (chosen && child.games / node.games < MIN_SHARE)) continue;
       const key = positionKey(fen);
       const known = moves.get(key) ?? [];
       if (!known.some((move) => move.san === child.san)) moves.set(key, [...known, { san: child.san!, source: 'habit', addedAt: today }]);
-      walk(child, fenAfter(fen, child.san!));
+      walk(child, fenAfter(fen, child.san!), ply + 1);
     }
   };
-  walk(buildOpeningTree(habits, side, MAX_PLIES).root, START);
+  walk(buildOpeningTree(habits, side, MAX_PLIES).root, START, 0);
 
   return { side, moves };
 }
