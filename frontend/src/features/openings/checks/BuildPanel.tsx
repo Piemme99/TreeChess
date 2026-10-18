@@ -40,9 +40,26 @@ export function BuildPanel({ builder, candidates, onPoint, onAccept, onCancel }:
           <span className="text-[12px] font-semibold" style={{ color: COLOURS.leafSoft }}>
             To add
           </span>
-          <ul aria-label="To add" className="flex flex-col gap-0.5 text-[14px] font-semibold">
+          <ul aria-label="To add" className="flex flex-col gap-1 text-[14px] font-semibold">
             {lines.map((line) => (
-              <li key={line.join(' ')}>{formatFrom(check.ply, line.slice(check.ply))}</li>
+              <li key={line.join(' ')} className="flex flex-wrap gap-1">
+                {line.slice(check.ply).map((san, index) => {
+                  const upTo = line.slice(0, check.ply + index + 1);
+                  const here = upTo.length === builder.path.length && upTo.every((move, at) => builder.path[at] === move);
+                  return (
+                    <button
+                      key={upTo.length}
+                      type="button"
+                      onClick={() => builder.goTo(upTo)}
+                      aria-current={here ? 'step' : undefined}
+                      className="cursor-pointer rounded-md px-1.5 py-0.5"
+                      style={here ? { background: COLOURS.leaf, color: COLOURS.cream } : { background: 'transparent' }}
+                    >
+                      {figurineMove(san, upTo.length)}
+                    </button>
+                  );
+                })}
+              </li>
             ))}
           </ul>
         </div>
@@ -54,7 +71,6 @@ export function BuildPanel({ builder, candidates, onPoint, onAccept, onCancel }:
             Add to my repertoire · {toAdd} {toAdd === 1 ? 'move' : 'moves'}
           </Action>
         )}
-        {builder.back && <Action onClick={builder.back}>← Back</Action>}
         {builder.undo && <Action onClick={builder.undo}>Undo last move</Action>}
         <Action onClick={onCancel}>Cancel</Action>
       </span>
@@ -224,8 +240,6 @@ function formatCp(cp: number): string {
   return cp < 0 ? `−${pawns}` : cp > 0 ? `+${pawns}` : '0.0';
 }
 
-const formatFrom = (offset: number, moves: readonly string[]) =>
-  moves.map((san, index) => figurineMove(san, offset + index + 1)).join(' ');
 
 function Muted({ children }: { children: ReactNode }) {
   return (

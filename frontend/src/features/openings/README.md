@@ -149,7 +149,9 @@ Built one brick at a time, each visible on its own:
    day: every tool that helps the choice is on the table from the start). Every row is an arrow
    on the board, thicker when played more: clicking where it lands plays it, so does its row;
    any other move is played piece then square, and judged once played. At the opponent's move,
-   the same table over the frequent replies (≥ 5%, four at most). Back, undo, then
+   the same table over the frequent replies (≥ 5%, four at most). Each move of "To add" is clickable to return there and open a branch, the arrow keys
+   move like on Lichess (← → one move, ↑ start, ↓ end of the last branch); "Back" was
+   dropped (it differed from undo only in keeping the move, invisibly). Undo, then
    "Add to my repertoire", only once a move of the player's is in. PMG preferred building to a
    drafted tree with branches to cut, tried the same day: playing and searching teaches more
    than a ready-made answer.

@@ -20,7 +20,10 @@ export interface Builder {
   /** Au moins un coup du joueur : le coup adverse imprévu seul ne fait pas un ajout. */
   complete: boolean;
   play: (san: string) => void;
-  back: (() => void) | undefined;
+  /** Va à une position du brouillon, sans rien retirer : c'est ainsi qu'on ouvre une branche. */
+  goTo: (path: readonly string[]) => void;
+  /** Navigation au clavier, comme sur Lichess : un coup en arrière ou en avant, le départ, le bout de la ligne. */
+  navigate: (direction: 'back' | 'forward' | 'start' | 'end') => void;
   undo: (() => void) | undefined;
 }
 
@@ -52,6 +55,23 @@ export function useBuilder(checked: CheckedGame & { check: Deviation }, games: r
     setPath(next);
   };
 
+  // En avant, on suit la branche jouée en dernier depuis la position.
+  const next = (from: readonly string[]) => {
+    const key = from.join(' ');
+    const children = draft.filter((move) => move.path.length === from.length + 1 && move.path.slice(0, -1).join(' ') === key);
+    return children.at(-1)?.path;
+  };
+  const navigate = (direction: 'back' | 'forward' | 'start' | 'end') => {
+    if (direction === 'back' && path.length > start.length) setPath(path.slice(0, -1));
+    if (direction === 'start') setPath(start);
+    if (direction === 'forward') setPath(next(path) ?? path);
+    if (direction === 'end') {
+      let end = path;
+      for (let step = next(end); step; step = next(end)) end = step;
+      setPath(end);
+    }
+  };
+
   const locked = check.kind === 'uncovered' ? 1 : 0;
   return {
     checked,
@@ -63,7 +83,8 @@ export function useBuilder(checked: CheckedGame & { check: Deviation }, games: r
     mine,
     complete: draft.length > locked,
     play,
-    back: path.length > start.length ? () => setPath(path.slice(0, -1)) : undefined,
+    goTo: setPath,
+    navigate,
     undo:
       draft.length > locked
         ? () => {

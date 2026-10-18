@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { PlayableBoard } from '../board/PlayableBoard';
 import { draftMoves, type AddedMove } from '../domain/addition';
 import type { PlayedGame } from '../domain/playedGame';
@@ -10,6 +10,22 @@ import { BuildPanel } from './BuildPanel';
 import type { CheckedGame } from './checkedGame';
 import { useBuilder, type Deviation } from './useBuilder';
 import { useCandidates } from './useCandidates';
+
+const KEYS = { ArrowLeft: 'back', ArrowRight: 'forward', ArrowUp: 'start', ArrowDown: 'end' } as const;
+
+function useArrowKeys(navigate: (direction: (typeof KEYS)[keyof typeof KEYS]) => void) {
+  useEffect(() => {
+    const press = (event: KeyboardEvent) => {
+      const direction = KEYS[event.key as keyof typeof KEYS];
+      if (!direction || event.altKey || event.ctrlKey || event.metaKey) return;
+      if (event.target instanceof HTMLElement && event.target.closest('input, textarea, select, [contenteditable]')) return;
+      event.preventDefault();
+      navigate(direction);
+    };
+    window.addEventListener('keydown', press);
+    return () => window.removeEventListener('keydown', press);
+  }, [navigate]);
+}
 
 function Swatch({ colour, children }: { colour: string; children: ReactNode }) {
   return (
@@ -34,6 +50,7 @@ interface BuildSessionProps {
 export function BuildSession({ checked, games, repertoire, onAccept, onCancel, children }: BuildSessionProps) {
   const builder = useBuilder(checked, games);
   const candidates = useCandidates(builder);
+  useArrowKeys(builder.navigate);
   // Un coup pointé n'a de sens que dans sa position : joué, il serait illégal dans la suivante.
   const [pointedAt, setPointedAt] = useState<{ fen: string; san: string } | null>(null);
   const pointed = pointedAt?.fen === builder.fen ? pointedAt.san : null;

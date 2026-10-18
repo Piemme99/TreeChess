@@ -133,8 +133,30 @@ describe('GameChecksPage', () => {
     expect(panel).toHaveTextContent('Prepare your answer to 3…b6');
     playOnBoard('d4', 'e5');
 
-    expect(within(panel).getByRole('list', { name: 'To add' })).toHaveTextContent('3…b6 4.dxe5');
+    expect(within(panel).getByRole('list', { name: 'To add' })).toHaveTextContent('3…b64.dxe5');
     expect(within(panel).getByRole('button', { name: 'Add to my repertoire · 2 moves' })).toBeInTheDocument();
+  });
+
+  it('opens a branch by going back with the arrow keys, and returns to a move from the list', () => {
+    page();
+    nextDay();
+    fireEvent.click(within(dayGames().find((card) => card.textContent?.includes('3…b6'))!).getByRole('button', { name: /^Add/ }));
+    playOnBoard('d4', 'e5');
+
+    fireEvent.keyDown(window, { key: 'ArrowLeft' });
+    playOnBoard('b1', 'c3');
+
+    const added = screen.getByRole('list', { name: 'To add' });
+    expect(within(added).getAllByRole('listitem').map((line) => line.textContent)).toEqual(['3…b64.dxe5', '3…b64.♘c3']);
+    expect(within(added).getAllByRole('button', { current: 'step' })[0]).toHaveTextContent('4.♘c3');
+
+    fireEvent.click(within(added).getByRole('button', { name: '4.dxe5' }));
+    expect(within(added).getByRole('button', { current: 'step' })).toHaveTextContent('4.dxe5');
+
+    fireEvent.keyDown(window, { key: 'ArrowUp' });
+    fireEvent.keyDown(window, { key: 'ArrowDown' });
+    expect(within(added).getByRole('button', { current: 'step' })).toHaveTextContent('4.♘c3');
+    expect(screen.queryByRole('button', { name: '← Back' })).not.toBeInTheDocument();
   });
 
   it('takes back the last move played', () => {
