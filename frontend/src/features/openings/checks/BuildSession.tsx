@@ -42,12 +42,13 @@ interface BuildSessionProps {
   repertoire: Repertoire;
   onAccept: (moves: AddedMove[]) => void;
   onCancel: () => void;
-  children: ReactNode;
+  keep?: boolean;
+  children?: ReactNode;
 }
 
 /** Le joueur construit son ajout en jouant : l'échiquier devient jouable, le panneau le guide. */
-export function BuildSession({ checked, games, repertoire, onAccept, onCancel, children }: BuildSessionProps) {
-  const builder = useBuilder(checked, games);
+export function BuildSession({ checked, games, repertoire, onAccept, onCancel, keep = false, children }: BuildSessionProps) {
+  const builder = useBuilder(checked, games, keep);
   const candidates = useCandidates(builder);
   useArrowKeys(builder.navigate);
   // Un coup pointé n'a de sens que dans sa position : joué, il serait illégal dans la suivante.
@@ -73,8 +74,8 @@ export function BuildSession({ checked, games, repertoire, onAccept, onCancel, c
   }, [repertoire, builder.fen, candidates.rows, atStart, agree, checked.check.played, pointed]);
 
   return (
-    <main className="mx-auto grid max-w-[84rem] grid-cols-[minmax(0,30rem)_1fr] gap-10 px-8 pt-8">
-      <aside aria-label="Position" className="sticky top-6 flex flex-col gap-3 self-start">
+    <main className="mx-auto flex max-w-[84rem] flex-col gap-6 px-4 pt-6 lg:grid lg:grid-cols-[minmax(0,30rem)_1fr] lg:gap-10 lg:px-8 lg:pt-8">
+      <aside aria-label="Position" className="flex flex-col gap-3 self-start lg:sticky lg:top-6">
         <PlayableBoard path={builder.path} flipped={checked.game.side === 'b'} arrows={arrows} suggestions={suggestions} onMove={builder.play} />
         <p className="flex flex-wrap gap-x-4 gap-y-1 px-1 text-[12px] font-semibold" style={{ color: ARROW.neutral.colour }}>
           <Swatch colour={ARROW.repertoire.colour}>repertoire</Swatch>
@@ -83,7 +84,7 @@ export function BuildSession({ checked, games, repertoire, onAccept, onCancel, c
           {arrows.some((arrow) => 'kind' in arrow && arrow.kind === 'neutral') && <Swatch colour={ARROW.neutral.colour}>at your level</Swatch>}
         </p>
       </aside>
-      <div className="flex min-w-0 flex-col gap-10">
+      <div className="flex min-w-0 flex-col gap-6 lg:gap-10">
         <BuildPanel
           builder={builder}
           candidates={candidates}

@@ -26,6 +26,12 @@ const FlameGraphPage = import.meta.env.DEV
 const GameChecksPage = import.meta.env.DEV
   ? lazy(() => import('./features/openings').then(m => ({ default: m.GameChecksPage })))
   : null;
+const HomePage = import.meta.env.DEV
+  ? lazy(() => import('./features/openings').then(m => ({ default: m.HomePage })))
+  : null;
+const SessionPage = import.meta.env.DEV
+  ? lazy(() => import('./features/openings').then(m => ({ default: m.SessionPage })))
+  : null;
 const NotFoundPage = lazy(() => import('./features/not-found/NotFoundPage').then(m => ({ default: m.NotFoundPage })));
 
 function App() {
@@ -72,6 +78,12 @@ function App() {
         ) : null}
         {GameChecksPage ? (
           <Route path="/dev/games" element={<Suspense fallback={<Loading size="lg" />}><GameChecksPage /></Suspense>} />
+        ) : null}
+        {HomePage ? (
+          <Route path="/dev/home" element={<Suspense fallback={<Loading size="lg" />}><HomePage /></Suspense>} />
+        ) : null}
+        {SessionPage ? (
+          <Route path="/dev/session" element={<Suspense fallback={<Loading size="lg" />}><SessionPage /></Suspense>} />
         ) : null}
         <Route path="*" element={<Suspense fallback={<Loading size="lg" />}><NotFoundPage /></Suspense>} />
       </Routes>

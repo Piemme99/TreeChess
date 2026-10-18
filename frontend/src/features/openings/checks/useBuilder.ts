@@ -17,6 +17,8 @@ export interface Builder {
   draft: readonly DraftMove[];
   /** Ce que le joueur a lui-même joué depuis la position courante dans ses parties. */
   mine: ReadonlyMap<string, number>;
+  /** Le joueur garde le coup de la partie : l'ajout part de là. */
+  kept: boolean;
   /** Au moins un coup du joueur : le coup adverse imprévu seul ne fait pas un ajout. */
   complete: boolean;
   play: (san: string) => void;
@@ -27,12 +29,16 @@ export interface Builder {
   undo: (() => void) | undefined;
 }
 
-export function useBuilder(checked: CheckedGame & { check: Deviation }, games: readonly PlayedGame[]): Builder {
+/** `keep` : le joueur garde le coup de la partie, l'ajout part de là. */
+export function useBuilder(checked: CheckedGame & { check: Deviation }, games: readonly PlayedGame[], keep = false): Builder {
   const { game, check } = checked;
   const start = useMemo(() => game.moves.slice(0, check.kind === 'left' ? check.ply : check.ply + 1), [game.moves, check]);
-  // Le coup adverse imprévu entre au répertoire avec la réponse : c'est lui qu'on prépare.
-  const [draft, setDraft] = useState<readonly DraftMove[]>(() => (check.kind === 'uncovered' ? [{ path: start, source: 'habit' }] : []));
-  const [path, setPath] = useState<readonly string[]>(start);
+  const [draft, setDraft] = useState<readonly DraftMove[]>(() => {
+    // Le coup adverse imprévu entre au répertoire avec la réponse : c'est lui qu'on prépare.
+    if (check.kind === 'uncovered') return [{ path: start, source: 'habit' }];
+    return keep ? [{ path: [...start, check.played], source: 'habit' }] : [];
+  });
+  const [path, setPath] = useState<readonly string[]>(() => (draft.at(-1)?.path ?? start));
 
   const fen = useMemo(() => replayLine(path).fens[path.length], [path]);
   const playerToMove = (fen.split(' ')[1] === 'w') === (game.side === 'w');
@@ -81,6 +87,7 @@ export function useBuilder(checked: CheckedGame & { check: Deviation }, games: r
     playerToMove,
     draft,
     mine,
+    kept: keep && check.kind === 'left',
     complete: draft.length > locked,
     play,
     goTo: setPath,

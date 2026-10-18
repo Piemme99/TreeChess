@@ -29,7 +29,11 @@ export function BuildPanel({ builder, candidates, onPoint, onAccept, onCancel }:
   return (
     <section aria-label="Addition" className="flex flex-col gap-4 rounded-3xl p-5" style={raised(false)}>
       <h2 className="text-[22px] font-extrabold tracking-[-0.02em]">
-        {check.kind === 'left' ? `You played ${played}: what do you want to play here?` : `Prepare your answer to ${played}`}
+        {builder.kept
+          ? `${played} joins your repertoire: add it, or play on`
+          : check.kind === 'left'
+            ? `You played ${played}: what do you want to play here?`
+            : `Prepare your answer to ${played}`}
       </h2>
 
       <Played builder={builder} />

@@ -37,6 +37,10 @@ Vocabulary (opening tree, deficit, priority, points to gain): `CONTEXT.md`.
   evaluations on a dedicated worker; `explorer.ts` queries the Lichess explorer with a
   personal token in `VITE_LICHESS_TOKEN` (`frontend/.env.local`) until it goes through the
   backend's Lichess OAuth and explorer proxy (`GET /api/training/opening`).
+- `session/` — the path of ADR 0003: the router (`HomePage`, `/dev/home`: "I just played",
+  "I want to work") and the session after games (`SessionPage`, `/dev/session`): the positions
+  the games left, grouped by position and move (`steps.ts`), one at a time, phone first.
+  Keep / Stay on / Prepare an answer / Skip; Keep and Prepare build on `checks/BuildSession`.
 - `position/` — the board panel; positions are replayed on demand (`replay.ts`).
 - `board/` — the board whose pieces slide from one position to the next (`pieces.ts`
   gives each piece a stable identity along a line).

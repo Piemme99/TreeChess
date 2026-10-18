@@ -4,16 +4,17 @@ import { Kumquat } from './Kumquat';
 import { COLOURS, tile } from './theme';
 
 const PAGES = [
+  { to: '/dev/home', label: 'Home' },
   { to: '/dev/flame-graph', label: 'Openings' },
   { to: '/dev/games', label: 'Games' },
 ];
 
 export function PageHeader({ children }: { children?: ReactNode }) {
   return (
-    <header className="mx-auto flex max-w-[84rem] flex-wrap items-center gap-x-4 gap-y-3 px-8 pt-7">
+    <header className="mx-auto flex max-w-[84rem] flex-wrap items-center gap-x-4 gap-y-3 px-4 pt-7 sm:px-8">
       <Kumquat />
       <span className="text-[26px] font-bold tracking-[-0.03em]">kumquat</span>
-      <nav aria-label="Pages" className="ml-6 flex gap-1.5 text-[15px] font-semibold">
+      <nav aria-label="Pages" className="flex sm:ml-6 gap-1.5 text-[15px] font-semibold">
         {PAGES.map((page) => (
           <NavLink
             key={page.to}
