@@ -7,6 +7,8 @@ export default defineConfig({
   server: {
     port: 5173,
     host: true,
+    // Le serveur de l'agent est relayé sur le tailnet par `tailscale serve` du NAS.
+    allowedHosts: ['.ts.net'],
     headers: {
       // Required for SharedArrayBuffer which Stockfish WASM may use
       'Cross-Origin-Embedder-Policy': 'require-corp',
