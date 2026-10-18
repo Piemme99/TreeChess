@@ -38,6 +38,17 @@ describe('OpeningsPage', () => {
     expect(lines.join()).not.toMatch(/1\.e4 d5 2\.exd5|1\.d4 d5 2\.Nc3 Nc6 3\.Bf4/);
   });
 
+  it('shows the repertoire created from the games before the replay starts', () => {
+    render(<OpeningsPage />);
+
+    expect(panel()).toHaveTextContent('Repertoire 1.e4 · 1.d4');
+
+    fireEvent.click(screen.getByRole('switch', { name: 'Play as Black' }));
+    fireEvent.click(screen.getByRole('button', { name: '1.e4' }));
+
+    expect(panel()).toHaveTextContent('Repertoire 1…c6 · 1…c5');
+  });
+
   it('previews a clicked priority without leaving the page', async () => {
     render(<OpeningsPage />);
 

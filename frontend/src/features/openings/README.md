@@ -16,6 +16,7 @@ Vocabulary (opening tree, deficit, priority, points to gain): `CONTEXT.md`.
   - `openingTree.ts` — games merged move by move, per side. No FEN stored.
   - `performance.ts` — player average, smoothed deficit.
   - `priorities.ts` — weak lines, proven on two time scales, weighed on the last 12 months.
+  - `repertoire.ts` — the player's repertoire, one per side: moves keyed by position.
   - `line.ts` — a line studied on its own: score move after move, extended by its
     most played continuation, and the moves played at each of its positions.
   - `diagnosis.ts` — engine against results on a line: what the opening moves cost,
@@ -104,10 +105,11 @@ enriched after each game. Shown on a **replay** of the history: the repertoire i
 created from the games before 2026-01-01, then the 2026 games come in day by day.
 Built one brick at a time, each visible on its own:
 
-1. **Repertoire from habits**: pure domain, no engine; a move of the player enters at
-   a fifth of their games in the position over the last 12 months (5 games at least),
-   opponent replies likewise. Stored in the browser. Rim on the flame graph tiles,
-   green arrows on the board.
+1. **Repertoire from habits** — *done*: `domain/repertoire.ts`, pure, no engine; a move
+   enters at a fifth of the games in the position over the 12 months before 2026-01-01
+   (5 games at least), opponent replies likewise; moves are keyed by position, so
+   transpositions share them. Computed on load (stored once decisions change it, brick 4).
+   Rim on the flame graph tiles, green arrows and a "Repertoire" line on the board panel.
 2. **Replay**: a "today" date, "Next day", reset; the whole screen computed at that date.
 3. **Game check and "To decide"** list, with "Ignore" only.
 4. **Add**: a proposed addition accepted after cutting branches; several player moves

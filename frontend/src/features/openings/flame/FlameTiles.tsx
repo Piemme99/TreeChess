@@ -4,7 +4,7 @@ import { figurineMove } from '../domain/notation';
 import { isPlayerMove, nodeAt, type OpeningTree } from '../domain/openingTree';
 import { playerAverage, scoreRate } from '../domain/performance';
 import type { Priority } from '../domain/priorities';
-import { COLOURS, SPRING, tile, TONES, ZOOM } from '../workshop/theme';
+import { COLOURS, REPERTOIRE, SPRING, tile, TONES, ZOOM } from '../workshop/theme';
 import { formatPercent } from './format';
 import { labelFits } from './label';
 import { layoutPruned, marksFor, type PlacedTile } from './prune';
@@ -24,6 +24,7 @@ const REST = {
   edge: 'inset 0 0 0 1px oklch(0.88 0.02 85)',
 };
 const OPPONENT = { bg: COLOURS.opponent, fg: COLOURS.leafSoft };
+const RIM = `inset 0 0 0 2px ${REPERTOIRE}`;
 
 interface FlameTilesProps {
   tree: OpeningTree;
@@ -31,9 +32,11 @@ interface FlameTilesProps {
   onFocusChange: (path: readonly string[]) => void;
   onPoint: (path: readonly string[] | null) => void;
   priorities: readonly Priority[];
+  /** Chemins (coups joints par des espaces) restés dans le répertoire. */
+  coveredLines: ReadonlySet<string>;
 }
 
-export function FlameTiles({ tree, focusPath, onFocusChange, onPoint, priorities }: FlameTilesProps) {
+export function FlameTiles({ tree, focusPath, onFocusChange, onPoint, priorities, coveredLines }: FlameTilesProps) {
   const [containerRef, containerWidth] = useElementWidth<HTMLDivElement>();
   const [hover, setHover] = useState<Hover | null>(null);
   const average = playerAverage(tree);
@@ -107,6 +110,9 @@ export function FlameTiles({ tree, focusPath, onFocusChange, onPoint, priorities
             const name = tileName(placed);
             const text = tileLabel(placed, name, tileWidth - GAP - 8, fontSize * 0.85);
             const mark = marks.get(placed.key);
+            const covered = !placed.rest && placed.path.length > 0 && coveredLines.has(placed.path.join(' '));
+            const surface = placed.rest ? { background: REST.bg, boxShadow: REST.edge } : tile(tone.bg);
+            const edge = tone === TONES.even ? REST.edge : surface.boxShadow;
             const position = { left: `${placed.start * 100}%`, width: `${placed.width * 100}%`, top: tops[placed.depth] };
             return (
               <motion.div
@@ -122,6 +128,7 @@ export function FlameTiles({ tree, focusPath, onFocusChange, onPoint, priorities
                   type="button"
                   aria-label={name}
                   disabled={placed.rest > 0}
+                  data-repertoire={covered || undefined}
                   whileHover={placed.rest ? undefined : { y: -2 }}
                   whileTap={placed.rest ? undefined : { scale: 0.95, y: 1 }}
                   transition={SPRING}
@@ -133,8 +140,8 @@ export function FlameTiles({ tree, focusPath, onFocusChange, onPoint, priorities
                   onMouseMove={(event) => setHover({ tile: placed, x: event.clientX, y: event.clientY })}
                   className="absolute inset-y-0 left-0 overflow-hidden px-2 text-left font-semibold outline-none focus-visible:ring-2"
                   style={{
-                    ...(placed.rest ? { background: REST.bg, boxShadow: REST.edge } : tile(tone.bg)),
-                    ...(tone === TONES.even ? { boxShadow: REST.edge } : {}),
+                    ...surface,
+                    boxShadow: covered ? `${RIM}, ${edge}` : edge,
                     color: tone.fg,
                     right: tileWidth > 12 ? GAP : 1,
                     borderRadius: Math.min(6, tileWidth / 4),
@@ -159,6 +166,9 @@ export function FlameTiles({ tree, focusPath, onFocusChange, onPoint, priorities
         ))}
         <li className="rounded-full px-2.5 py-1" style={{ background: REST.bg, color: REST.fg }}>
           … too thin to read
+        </li>
+        <li className="rounded-full px-2.5 py-1" style={{ background: TONES.even.bg, boxShadow: RIM, color: COLOURS.leafSoft }}>
+          in your repertoire
         </li>
         <li className="flex items-center gap-1.5" style={{ color: COLOURS.leafSoft }}>
           <span

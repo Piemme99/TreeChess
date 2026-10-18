@@ -17,9 +17,11 @@ const tree = buildOpeningTree(games, 'w', 16);
 
 const priorities: Priority[] = [{ side: 'w', path: ['e4', 'c5'], games: 30, pointsToGain: 10 }];
 
+const coveredLines = new Set(['e4', 'e4 e5']);
+
 function ZoomableTiles({ onPoint = () => {} }: { onPoint?: (path: readonly string[] | null) => void }) {
   const [focusPath, setFocusPath] = useState<readonly string[]>([]);
-  return <FlameTiles tree={tree} focusPath={focusPath} onFocusChange={setFocusPath} onPoint={onPoint} priorities={priorities} />;
+  return <FlameTiles tree={tree} focusPath={focusPath} onFocusChange={setFocusPath} onPoint={onPoint} priorities={priorities} coveredLines={coveredLines} />;
 }
 
 const breadcrumb = () => screen.getByRole('navigation', { name: 'Zoom path' });
@@ -47,6 +49,14 @@ describe('FlameTiles', () => {
     expect(within(screen.getByRole('button', { name: '1…c5' })).getByLabelText('priority 1')).toBeInTheDocument();
   });
 
+  it('rims the tiles of the lines in the repertoire', () => {
+    render(<ZoomableTiles />);
+
+    expect(screen.getByRole('button', { name: '1…e5' })).toHaveAttribute('data-repertoire');
+    expect(screen.getByRole('button', { name: '1…c5' })).not.toHaveAttribute('data-repertoire');
+    expect(screen.getByRole('button', { name: '2.♘f3' })).not.toHaveAttribute('data-repertoire');
+  });
+
   it('shows the line under the pointer in a card', () => {
     render(<ZoomableTiles />);
 
@@ -71,7 +81,7 @@ describe('FlameTiles', () => {
     render(<ZoomableTiles />);
 
     const tones = within(screen.getByRole('list', { name: 'Legend' })).getAllByRole('listitem').map((item) => item.textContent);
-    expect(tones).toEqual(['leaking', 'shaky', 'par', 'solid', '… too thin to read', '1priority']);
+    expect(tones).toEqual(['leaking', 'shaky', 'par', 'solid', '… too thin to read', 'in your repertoire', '1priority']);
   });
 
   it('zooms into a line when its tile is clicked', async () => {

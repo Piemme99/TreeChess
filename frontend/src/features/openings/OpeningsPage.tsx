@@ -4,6 +4,7 @@ import { buildOpeningTree, type OpeningTree } from './domain/openingTree';
 import { gamesOfLastMonths } from './domain/period';
 import type { PlayedGame, Side } from './domain/playedGame';
 import { findPriorities, type Priority } from './domain/priorities';
+import { createRepertoire, repertoireLines, type Repertoire } from './domain/repertoire';
 import { FlameTiles } from './flame/FlameTiles';
 import { playedGamesFixture } from './fixtures/playedGames';
 import { LineView } from './line/LineView';
@@ -18,6 +19,8 @@ import { useWorkshopFont } from './workshop/useWorkshopFont';
 const MAX_PLIES = 24;
 const MAX_PRIORITIES = 5;
 const RECENT_MONTHS = 12;
+// Début du rejeu de l'historique : le répertoire naît des parties d'avant (README, « the repertoire loop »).
+const REPLAY_START = '2026-01-01';
 
 interface Line {
   side: Side;
@@ -34,6 +37,8 @@ export function OpeningsPage() {
   const trees = useMemo(() => treesOf(playedGamesFixture), []);
   const recentGames = useMemo(() => gamesOfLastMonths(playedGamesFixture, RECENT_MONTHS, new Date()), []);
   const recentTrees = useMemo(() => treesOf(recentGames), [recentGames]);
+  const repertoires = useMemo(() => repertoiresOf(playedGamesFixture, REPLAY_START), []);
+  const coveredLines = useMemo(() => repertoireLines(repertoires[side], trees[side]), [repertoires, trees, side]);
   const priorities = useMemo(
     () => findPriorities(trees, recentTrees, MAX_PRIORITIES),
     [trees, recentTrees],
@@ -109,6 +114,7 @@ export function OpeningsPage() {
               history={trees[shown.side]}
               recent={recentTrees[shown.side]}
               path={shown.path}
+              repertoire={repertoires[shown.side]}
               onStudy={focusPath.length > 0 ? () => setStudied({ side, path: focusPath }) : undefined}
             />
             <div className="flex min-w-0 flex-col gap-10">
@@ -125,6 +131,7 @@ export function OpeningsPage() {
                 onFocusChange={zoomTo}
                 onPoint={(path) => setPointed(path && { side, path })}
                 priorities={priorities}
+                coveredLines={coveredLines}
               />
             </div>
           </main>
@@ -136,4 +143,8 @@ export function OpeningsPage() {
 
 function treesOf(games: readonly PlayedGame[]): Record<Side, OpeningTree> {
   return { w: buildOpeningTree(games, 'w', MAX_PLIES), b: buildOpeningTree(games, 'b', MAX_PLIES) };
+}
+
+function repertoiresOf(games: readonly PlayedGame[], today: string): Record<Side, Repertoire> {
+  return { w: createRepertoire(games, 'w', today), b: createRepertoire(games, 'b', today) };
 }

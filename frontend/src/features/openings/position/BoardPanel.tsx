@@ -1,29 +1,36 @@
 import { motion } from 'framer-motion';
 import { useMemo } from 'react';
 import { useOpeningName } from '../../../shared/hooks/useOpeningName';
-import { WorkshopBoard } from '../board/WorkshopBoard';
-import { formatLine } from '../domain/notation';
+import { figurineMove, formatLine } from '../domain/notation';
 import { nodeAt, type OpeningTree } from '../domain/openingTree';
 import { scoreRate } from '../domain/performance';
+import { repertoireMovesAt, type Repertoire } from '../domain/repertoire';
+import { ArrowBoard, type BoardArrow } from '../line/ArrowBoard';
 import { AnimatedNumber } from '../workshop/AnimatedNumber';
 import { Chip } from '../workshop/Chip';
-import { SPRING, COLOURS } from '../workshop/theme';
+import { SPRING, COLOURS, REPERTOIRE } from '../workshop/theme';
 import { replayLine } from './replay';
 
 interface BoardPanelProps {
   history: OpeningTree;
   recent: OpeningTree;
   path: readonly string[];
+  repertoire: Repertoire;
   onStudy?: () => void;
 }
 
-export function BoardPanel({ history, recent, path, onStudy }: BoardPanelProps) {
+export function BoardPanel({ history, recent, path, repertoire, onStudy }: BoardPanelProps) {
   const fens = useMemo(() => replayLine(path).fens, [path]);
   const opening = useOpeningName(fens);
+  const planned = useMemo(() => repertoireMovesAt(repertoire, fens[fens.length - 1]), [repertoire, fens]);
+  const arrows = useMemo(
+    () => planned.map((move): BoardArrow => ({ san: move.san, tone: 'winning', colour: REPERTOIRE, share: 0.5, emphasis: true })),
+    [planned],
+  );
 
   return (
     <aside aria-label="Position" className="sticky top-6 flex flex-col gap-4 self-start">
-      <WorkshopBoard path={path} flipped={history.side === 'b'} />
+      <ArrowBoard path={path} flipped={history.side === 'b'} arrows={arrows} />
       <div className="flex min-w-0 flex-col px-1">
         <span className="truncate text-[19px] font-semibold tracking-[-0.01em]">
           {opening?.name ?? (path.length ? 'Unnamed line' : 'Starting position')}
@@ -32,6 +39,16 @@ export function BoardPanel({ history, recent, path, onStudy }: BoardPanelProps) 
           {formatLine(path) || '—'}
         </span>
       </div>
+      <p className="px-1 text-[14px]" style={{ color: COLOURS.leafSoft }}>
+        <span className="font-semibold">Repertoire </span>
+        {planned.length ? (
+          <span style={{ color: REPERTOIRE }} className="font-bold">
+            {planned.map((move) => figurineMove(move.san, path.length + 1)).join(' · ')}
+          </span>
+        ) : (
+          'nothing planned here'
+        )}
+      </p>
       <div className="flex flex-wrap items-end gap-5 px-1">
         <Period label="All time" tree={history} path={path} />
         <Period label="Last 12 months" tree={recent} path={path} />
