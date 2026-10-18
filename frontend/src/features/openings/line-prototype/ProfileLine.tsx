@@ -5,7 +5,7 @@ import { formatPercent } from '../flame/format';
 import type { LineSlotProps } from '../OpeningsPage';
 import { COLOURS, raised, tile } from '../workshop/theme';
 import { ArrowBoard, LineHeader } from './parts';
-import { INK, useStepKeys } from './ui';
+import { arrowMoves, INK, useStepKeys } from './ui';
 import { toneOf, useLineStudy, type LineStudy, type Position } from './study';
 
 const CHART_HEIGHT = 170;
@@ -26,7 +26,7 @@ export function ProfileLine({ tree, path, onBack, onOpen }: LineSlotProps) {
         <ArrowBoard
           path={position.path}
           flipped={tree.side === 'b'}
-          arrows={position.moves.slice(0, 6).map((move) => ({
+          arrows={arrowMoves(position.moves).map((move) => ({
             san: move.san,
             tone: toneOf(move.rate, move.games, study.average),
             share: move.share,

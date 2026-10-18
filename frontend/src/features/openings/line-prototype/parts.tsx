@@ -13,10 +13,13 @@ import { INK } from './ui';
 export interface BoardArrow {
   san: string;
   tone: Tone;
+  colour?: string;
   /** Part des parties, pour l'épaisseur. */
   share: number;
   emphasis?: boolean;
 }
+
+const HALO = 'oklch(0.97 0.02 85)';
 
 export function ArrowBoard({ path, flipped, arrows = [] }: { path: readonly string[]; flipped: boolean; arrows?: BoardArrow[] }) {
   const squares = useMemo(() => arrowsAt(path, arrows.map((arrow) => arrow.san)), [path, arrows]);
@@ -45,13 +48,15 @@ export function ArrowBoard({ path, flipped, arrows = [] }: { path: readonly stri
             const tipY = b.y - uy * 0.12;
             const baseX = tipX - ux * head;
             const baseY = tipY - uy * head;
+            const points = `${tipX},${tipY} ${baseX - uy * head * 0.6},${baseY + ux * head * 0.6} ${baseX + uy * head * 0.6},${baseY - ux * head * 0.6}`;
+            const ink = arrow.colour ?? INK[arrow.tone];
+            // Le liseré crème détache la flèche des cases vertes, quelle que soit sa couleur.
             return (
-              <g key={arrow.san} opacity={arrow.emphasis ? 0.92 : 0.7}>
-                <line x1={a.x} y1={a.y} x2={baseX} y2={baseY} stroke={INK[arrow.tone]} strokeWidth={width} strokeLinecap="round" />
-                <polygon
-                  points={`${tipX},${tipY} ${baseX - uy * head * 0.6},${baseY + ux * head * 0.6} ${baseX + uy * head * 0.6},${baseY - ux * head * 0.6}`}
-                  fill={INK[arrow.tone]}
-                />
+              <g key={arrow.san} opacity={arrow.emphasis ? 0.95 : 0.8}>
+                <line x1={a.x} y1={a.y} x2={baseX} y2={baseY} stroke={HALO} strokeWidth={width + 0.09} strokeLinecap="round" />
+                <polygon points={points} fill={HALO} stroke={HALO} strokeWidth={0.09} strokeLinejoin="round" />
+                <line x1={a.x} y1={a.y} x2={baseX} y2={baseY} stroke={ink} strokeWidth={width} strokeLinecap="round" />
+                <polygon points={points} fill={ink} />
               </g>
             );
           })}

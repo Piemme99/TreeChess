@@ -6,7 +6,7 @@ import { formatPercent } from '../flame/format';
 import type { LineSlotProps } from '../OpeningsPage';
 import { COLOURS, TONES } from '../workshop/theme';
 import { ArrowBoard, LineHeader } from './parts';
-import { INK } from './ui';
+import { arrowMoves, INK } from './ui';
 import { toneOf, useLineStudy, type LineStudy, type Position } from './study';
 
 interface Pointed {
@@ -21,7 +21,7 @@ export function ForkMapLine({ tree, path, onBack, onOpen }: LineSlotProps) {
   const shown = pointed ?? resting;
   const position = study.positions[shown.ply];
   const move = shown.san ? position.moves.find((candidate) => candidate.san === shown.san) : undefined;
-  const arrows = (move ? [move] : position.moves.slice(0, 6)).map((candidate) => ({
+  const arrows = (move ? [move] : arrowMoves(position.moves)).map((candidate) => ({
     san: candidate.san,
     tone: toneOf(candidate.rate, candidate.games, study.average),
     share: move ? 0.8 : candidate.share,

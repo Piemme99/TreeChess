@@ -5,10 +5,18 @@ import type { Tone } from './study';
 
 export const INK: Record<Tone, string> = {
   losing: COLOURS.terracotta,
-  slipping: COLOURS.kumquat,
-  even: 'oklch(0.62 0.03 150)',
-  winning: 'oklch(0.58 0.11 148)',
+  slipping: COLOURS.kumquatDeep,
+  even: 'oklch(0.45 0.03 60)',
+  winning: 'oklch(0.50 0.12 148)',
 };
+
+// Au-delà de trois flèches, le plateau devient illisible : la ligne, puis les coups les plus joués.
+const MAX_ARROWS = 3;
+
+export function arrowMoves<T extends { onLine: boolean }>(moves: readonly T[]): T[] {
+  const onLine = moves.filter((move) => move.onLine);
+  return [...onLine, ...moves.filter((move) => !move.onLine)].slice(0, MAX_ARROWS);
+}
 
 /** ↑ ↓ et ← → déplacent le curseur sur la ligne ; ← → servent aussi au prototype, d'où [ ] pour la barre. */
 export function useStepKeys(focus: number, max: number, onFocus: (ply: number) => void) {

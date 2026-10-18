@@ -5,7 +5,7 @@ import { formatPercent } from '../flame/format';
 import type { LineSlotProps } from '../OpeningsPage';
 import { COLOURS, raised, tile } from '../workshop/theme';
 import { ArrowBoard, LineHeader, ResultDot } from './parts';
-import { formatDate, INK } from './ui';
+import { arrowMoves, formatDate, INK } from './ui';
 import { toneOf, useLineStudy, type LineGame, type LineStudy, type Position } from './study';
 
 const MAX_MOVES = 5;
@@ -90,7 +90,7 @@ function MomentCard({ study, moment, flipped, onOpen }: { study: LineStudy; mome
       <ArrowBoard
         path={position.path}
         flipped={flipped}
-        arrows={position.moves.slice(0, 5).map((move) => ({
+        arrows={arrowMoves(position.moves).map((move) => ({
           san: move.san,
           tone: toneOf(move.rate, move.games, study.average),
           share: move.share,
