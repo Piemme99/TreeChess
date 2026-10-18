@@ -30,6 +30,8 @@ export function BuildSession({ checked, games, repertoire, onAccept, onCancel, c
   const pointed = pointedAt?.fen === builder.fen ? pointedAt.san : null;
   const engine = builder.playerToMove ? (candidates.here?.san ?? null) : null;
   const atStart = checked.check.kind === 'left' && builder.path.length === builder.start.length;
+  // Quand le moteur jouerait le coup de la partie, la flèche est à lui : l'orange dit plus que le rouge.
+  const agree = atStart && engine === checked.check.played;
   const suggestions = useMemo(() => candidates.rows.map((row) => row.san), [candidates.rows]);
 
   const arrows = useMemo((): BoardArrow[] => {
@@ -37,14 +39,14 @@ export function BuildSession({ checked, games, repertoire, onAccept, onCancel, c
       (move): BoardArrow => ({ san: move.san, tone: 'winning', colour: REPERTOIRE, share: 0.5 }),
     );
     // Le coup de la partie reste rouge même s'il est candidat : c'est lui qu'on juge.
-    if (atStart) shown.push({ san: checked.check.played, tone: 'losing', colour: COLOURS.terracotta, share: 0.5 });
+    if (atStart && !agree) shown.push({ san: checked.check.played, tone: 'losing', colour: COLOURS.terracotta, share: 0.5 });
     for (const row of candidates.rows) {
       if (shown.some((arrow) => arrow.san === row.san)) continue;
       const colour = row.engine ? COLOURS.kumquatDeep : INK.even;
       shown.push({ san: row.san, tone: 'even', colour, share: Math.max(row.share ?? 0.2, 0.2), emphasis: row.engine || row.san === pointed });
     }
     return shown;
-  }, [repertoire, builder.fen, candidates.rows, atStart, checked.check.played, pointed]);
+  }, [repertoire, builder.fen, candidates.rows, atStart, agree, checked.check.played, pointed]);
 
   return (
     <main className="mx-auto grid max-w-[84rem] grid-cols-[minmax(0,30rem)_1fr] gap-10 px-8 pt-8">
@@ -52,7 +54,7 @@ export function BuildSession({ checked, games, repertoire, onAccept, onCancel, c
         <PlayableBoard path={builder.path} flipped={checked.game.side === 'b'} arrows={arrows} suggestions={suggestions} onMove={builder.play} />
         <p className="px-1 text-[14px]" style={{ color: INK.even }}>
           <span className="font-bold" style={{ color: REPERTOIRE }}>green</span> already in your repertoire
-          {atStart && (
+          {atStart && !agree && (
             <>
               {' '}· <span className="font-bold" style={{ color: COLOURS.terracotta }}>red</span> your move in the game
             </>
@@ -60,6 +62,7 @@ export function BuildSession({ checked, games, repertoire, onAccept, onCancel, c
           {engine && (
             <>
               {' '}· <span className="font-bold" style={{ color: COLOURS.kumquatDeep }}>orange</span> the engine move
+              {agree && ', the one you played'}
             </>
           )}
           {' '}· the others are the table's moves, thicker when played more

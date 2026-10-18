@@ -151,7 +151,7 @@ function CandidateTable({ builder, candidates, onPoint }: { builder: Builder; ca
 }
 
 function CandidateRow({ row, ply, onPlay, onPoint }: { row: Candidate; ply: number; onPlay: () => void; onPoint: () => void }) {
-  const low = row.score !== undefined && row.score < 0.5;
+  const low = row.score !== undefined && Math.round(row.score * 100) < 50;
   return (
     <tr
       className="cursor-pointer hover:bg-[oklch(0.975_0.012_85)]"
