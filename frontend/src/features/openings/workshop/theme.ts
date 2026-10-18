@@ -24,9 +24,10 @@ export const TONES: Record<Tone, { bg: string; fg: string; label: string }> = {
   winning: { bg: COLOURS.sage, fg: 'oklch(0.25 0.05 150)', label: 'solid' },
 };
 
-export const BOUNCE: Transition = { type: 'spring', stiffness: 420, damping: 17 };
-export const ZOOM: Transition = { type: 'spring', stiffness: 190, damping: 19, mass: 1 };
-export const PIECE: Transition = { type: 'spring', stiffness: 300, damping: 20 };
+// Amortissements proches du critique : un rebond visible, répété à chaque survol, donne la nausée.
+export const SPRING: Transition = { type: 'spring', stiffness: 420, damping: 32 };
+export const ZOOM: Transition = { type: 'spring', stiffness: 190, damping: 28, mass: 1 };
+export const PIECE: Transition = { type: 'tween', duration: 0.18, ease: [0.22, 1, 0.36, 1] };
 
 export const FONT_FAMILY = "'Bricolage Grotesque', system-ui, sans-serif";
 

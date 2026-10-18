@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { placeLine } from './pieces';
+import { isSingleMove, placeLine } from './pieces';
 
 const pieceOn = (path: string[], square: string) => {
   const file = square.charCodeAt(0) - 97;
@@ -24,5 +24,18 @@ describe('placeLine', () => {
 
     expect(pieceOn(line, 'd5')).toBeUndefined();
     expect(placeLine(line).lastMove).toEqual({ from: 'e5', to: 'd6' });
+  });
+});
+
+describe('isSingleMove', () => {
+  it('accepts one move played or taken back', () => {
+    expect(isSingleMove(['e4'], ['e4', 'e5'])).toBe(true);
+    expect(isSingleMove(['e4', 'e5'], ['e4'])).toBe(true);
+  });
+
+  it('rejects a jump to another line or several moves away', () => {
+    expect(isSingleMove(['e4'], ['d4', 'd5'])).toBe(false);
+    expect(isSingleMove([], ['e4', 'e5'])).toBe(false);
+    expect(isSingleMove(['e4'], ['e4'])).toBe(false);
   });
 });
