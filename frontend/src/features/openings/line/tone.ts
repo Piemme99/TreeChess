@@ -24,7 +24,7 @@ export const INK: Record<Tone, string> = {
   winning: 'oklch(0.50 0.12 148)',
 };
 
-/** Le coup à jouer, en bleu comme le répertoire. */
+/** Le coup à jouer, dans le vert du répertoire. */
 export const BEST = REPERTOIRE;
 
 export function arrowMoves<T extends { onLine: boolean }>(moves: readonly T[]): T[] {

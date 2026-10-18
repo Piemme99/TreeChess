@@ -27,9 +27,9 @@ export const BOARD = {
   markDark: 'oklch(0.70 0.14 58)',
 };
 
-// Le répertoire : flèches sur l'échiquier, liseré sur les tuiles du flame graph. Bleu, la seule
-// teinte libre : le vert est pris par le plateau, l'orange et le rouge par les coups qui coûtent.
-export const REPERTOIRE = 'oklch(0.48 0.16 258)';
+// Le répertoire : flèches sur l'échiquier, liseré sur les tuiles du flame graph. Un vert émeraude,
+// plus saturé et plus froid que les cases, sinon la flèche se perd sur les cases sombres.
+export const REPERTOIRE = 'oklch(0.50 0.15 162)';
 
 export const TONES: Record<Tone, { bg: string; fg: string; label: string }> = {
   losing: { bg: COLOURS.terracotta, fg: 'white', label: 'leaking' },

@@ -171,7 +171,7 @@ function CheckBoard({ checked, repertoires, pointed }: CheckBoardProps) {
       {!pointed && checked && checked.check.kind !== 'followed' && (
         <p className="px-1 text-[14px]" style={{ color: COLOURS.leafSoft }}>
           <span className="font-bold" style={{ color: COLOURS.terracotta }}>red</span> played ·{' '}
-          <span className="font-bold" style={{ color: REPERTOIRE }}>blue</span> your repertoire
+          <span className="font-bold" style={{ color: REPERTOIRE }}>green</span> your repertoire
         </p>
       )}
     </aside>
