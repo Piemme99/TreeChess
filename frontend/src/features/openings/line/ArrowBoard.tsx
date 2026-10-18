@@ -12,7 +12,7 @@ export interface BoardArrow {
   emphasis?: boolean;
 }
 
-export function ArrowBoard({ path, flipped, arrows = [] }: { path: readonly string[]; flipped: boolean; arrows?: BoardArrow[] }) {
+export function ArrowBoard({ path, flipped, arrows = [], hidden }: { path: readonly string[]; flipped: boolean; arrows?: BoardArrow[]; hidden?: string }) {
   const squares = useMemo(() => arrowSquares(path, arrows.map((arrow) => arrow.san)), [path, arrows]);
   const centre = (square: string) => {
     const file = square.charCodeAt(0) - 97;
@@ -22,7 +22,7 @@ export function ArrowBoard({ path, flipped, arrows = [] }: { path: readonly stri
 
   return (
     <div className="relative">
-      <WorkshopBoard path={path} flipped={flipped} />
+      <WorkshopBoard path={path} flipped={flipped} hidden={hidden} />
       <svg viewBox="0 0 8 8" className="pointer-events-none absolute inset-2.5" aria-hidden="true">
         {arrows
           .map((arrow, index) => ({ arrow, ...squares[index] }))

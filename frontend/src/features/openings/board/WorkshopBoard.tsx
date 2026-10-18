@@ -1,7 +1,7 @@
 import { BOARD, PIECE } from '../workshop/theme';
 import { MotionBoard } from './MotionBoard';
 
-export function WorkshopBoard({ path, flipped }: { path: readonly string[]; flipped: boolean }) {
+export function WorkshopBoard({ path, flipped, hidden }: { path: readonly string[]; flipped: boolean; hidden?: string }) {
   return (
     <div
       className="rounded-[18px] p-2.5"
@@ -11,6 +11,7 @@ export function WorkshopBoard({ path, flipped }: { path: readonly string[]; flip
         path={path}
         flipped={flipped}
         transition={PIECE}
+        hidden={hidden}
         className="overflow-hidden rounded-[10px]"
         pieceStyle={{ filter: 'drop-shadow(0 2px 1.5px oklch(0.2 0.05 50 / 0.35))' }}
         squareStyle={(light, mark) => ({
