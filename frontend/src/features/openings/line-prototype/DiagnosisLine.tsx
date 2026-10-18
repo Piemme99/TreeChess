@@ -131,7 +131,7 @@ export function DiagnosisLine({ tree, path, onBack, onOpen }: LineSlotProps) {
         </div>
         <div className="flex min-w-0 flex-col gap-8">
           <Verdict study={study} diagnosis={diagnosis} total={lineFens.length} keyPly={key} />
-          {key !== null && <Mistakes games={games} analysed={analysed} black={black} selected={selected} onSelect={setSelected} />}
+          {key !== null && <Mistakes games={games} analysed={analysed} black={black} keyPly={key} selected={selected} onSelect={setSelected} />}
           <Fold title="Engine vs you, move by move">
             <EngineVsYou study={study} diagnosis={diagnosis} keyPly={key} />
           </Fold>
@@ -217,11 +217,12 @@ interface MistakesProps {
   games: FullGame[];
   analysed: AnalysedGame[];
   black: boolean;
+  keyPly: number;
   selected: number | null;
   onSelect: (index: number | null) => void;
 }
 
-function Mistakes({ games, analysed, black, selected, onSelect }: MistakesProps) {
+function Mistakes({ games, analysed, black, keyPly, selected, onSelect }: MistakesProps) {
   const pending = analysed.filter(({ chances }) => chances.some((chance) => chance === null)).length;
   const order = games
     .map((_, index) => index)
@@ -250,11 +251,12 @@ function Mistakes({ games, analysed, black, selected, onSelect }: MistakesProps)
                 tabIndex={0}
                 onClick={() => turn && onSelect(isSelected ? null : index)}
                 onKeyDown={(event) => event.key === 'Enter' && turn && onSelect(isSelected ? null : index)}
-                className={`grid w-full grid-cols-[1.5rem_3.5rem_1fr_auto] items-center gap-3 rounded-xl px-3 py-2 text-left text-[14px] ${turn ? 'cursor-pointer' : ''}`}
+                className={`grid w-full grid-cols-[1.5rem_3.5rem_11rem_1fr_auto] items-center gap-3 rounded-xl px-3 py-2 text-left text-[14px] ${turn ? 'cursor-pointer' : ''}`}
                 style={raised(isSelected)}
               >
                 <ResultDot score={game.score} />
                 <span className="text-[12px] font-semibold tabular-nums opacity-75">{formatDate(game.playedAt)}</span>
+                <Sparkline chances={chances} turnIndex={turn ? turn.ply - 1 - keyPly : null} />
                 <span className="truncate">
                   {turn ? (
                     <TurnLabel turn={turn} inverted={isSelected} />
@@ -280,6 +282,25 @@ function Mistakes({ games, analysed, black, selected, onSelect }: MistakesProps)
         })}
       </ul>
     </section>
+  );
+}
+
+// Chances du joueur coup après coup depuis la position clé ; le trait du milieu marque 50 %.
+function Sparkline({ chances, turnIndex }: { chances: (number | null)[]; turnIndex: number | null }) {
+  const width = 176;
+  const height = 26;
+  const x = (index: number) => (index / GAME_PLIES) * width;
+  const y = (chance: number) => (1 - chance) * height;
+  const points = chances.flatMap((chance, index) => (chance === null ? [] : [`${x(index)},${y(chance)}`]));
+  const after = turnIndex === null ? null : chances[turnIndex + 1];
+  return (
+    <svg width={width} height={height} className="overflow-visible" aria-hidden="true">
+      <line x1="0" x2={width} y1={height / 2} y2={height / 2} stroke={COLOURS.sand} strokeWidth="1" />
+      <polyline points={points.join(' ')} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+      {turnIndex !== null && after != null && (
+        <circle cx={x(turnIndex + 1)} cy={y(after)} r="3.2" fill={COLOURS.terracotta} stroke="white" strokeWidth="1" />
+      )}
+    </svg>
   );
 }
 
