@@ -17,6 +17,16 @@ export const COLOURS = {
   opponent: 'oklch(0.925 0.025 82)',
 };
 
+// Palette « Verger » (18/10/2026) : le plateau reprend le vert du texte, le coup joué le kumquat.
+// Le vert des cases reste moins saturé que `sage`, qui signale une ligne solide.
+export const BOARD = {
+  frame: COLOURS.leaf,
+  light: 'oklch(0.94 0.03 85)',
+  dark: 'oklch(0.60 0.05 150)',
+  markLight: 'oklch(0.86 0.12 70)',
+  markDark: 'oklch(0.70 0.14 58)',
+};
+
 export const TONES: Record<Tone, { bg: string; fg: string; label: string }> = {
   losing: { bg: COLOURS.terracotta, fg: 'white', label: 'leaking' },
   slipping: { bg: COLOURS.apricot, fg: COLOURS.leaf, label: 'shaky' },

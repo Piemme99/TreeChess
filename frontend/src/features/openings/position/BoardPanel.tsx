@@ -44,7 +44,7 @@ export function BoardPanel({ history, recent, path, onStudy }: BoardPanelProps) 
           whileTap={{ scale: 0.96 }}
           transition={BOUNCE}
           className="self-start rounded-full px-4 py-2 text-[15px] font-bold"
-          style={{ background: COLOURS.kumquat, color: COLOURS.leaf, boxShadow: '0 6px 14px -6px oklch(0.6 0.17 45 / 0.6)' }}
+          style={{ background: COLOURS.leaf, color: COLOURS.cream, boxShadow: '0 6px 14px -6px oklch(0.3 0.06 150 / 0.55)' }}
         >
           Study this line →
         </motion.button>
