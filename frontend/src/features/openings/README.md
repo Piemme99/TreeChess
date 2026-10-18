@@ -135,7 +135,7 @@ Built one brick at a time, each visible on its own:
 3. *(merged into 2)*
 4. **Add** — *done*: on the Games page, a game that left the repertoire offers "Add" next to
    "Ignore". The player **builds** the addition by playing on the board (`checks/BuildSession.tsx`,
-   `board/PlayableBoard.tsx`: click the piece, then its square), from the position before their
+   `board/PlayableBoard.tsx`, on react-chessboard like the v1: drag the piece, or click it then its square), from the position before their
    move, or after the opponent's unexpected move (which goes in with the answer). The panel
    guides without answering (`BuildPanel.tsx`, `useCandidates.ts`): a table, one row per
    candidate move (three from the explorer, the engine's move, the player's own: PMG wanted

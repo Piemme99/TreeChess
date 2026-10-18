@@ -15,9 +15,10 @@ const page = () =>
     </MemoryRouter>,
   );
 const replayBar = () => screen.getByRole('region', { name: 'Replay' });
+const square = (name: string) => document.querySelector(`[data-square="${name}"]`)!;
 const playOnBoard = (from: string, to: string) => {
-  fireEvent.click(screen.getByRole('button', { name: from }));
-  fireEvent.click(screen.getByRole('button', { name: to }));
+  fireEvent.click(square(from));
+  fireEvent.click(square(to));
 };
 const nextDay = () => fireEvent.click(within(replayBar()).getByRole('button', { name: /Next day/ }));
 const toDecide = () => within(screen.getByRole('region', { name: /^To decide/ })).queryAllByRole('listitem');
@@ -36,6 +37,12 @@ describe('GameChecksPage', () => {
 
   afterAll(() => {
     MotionGlobalConfig.skipAnimations = false;
+    vi.restoreAllMocks();
+  });
+
+  // react-chessboard mesure ses cases pour animer un coup ; jsdom les donne de largeur nulle.
+  beforeAll(() => {
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 0, 50, 50));
   });
 
   afterEach(() => {

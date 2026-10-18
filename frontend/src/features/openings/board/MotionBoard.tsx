@@ -12,8 +12,6 @@ interface MotionBoardProps {
   squareStyle: (light: boolean, mark: SquareMark) => CSSProperties;
   pieceStyle?: CSSProperties;
   pieceInks?: { dark: string; light: string };
-  /** Case dont la pièce est masquée : elle suit le pointeur ailleurs, pendant un glisser. */
-  hidden?: string;
   className?: string;
   style?: CSSProperties;
 }
@@ -23,7 +21,7 @@ const CROSSFADE: Transition = { duration: 0.25, ease: 'easeInOut' };
 const inked = (svg: string, inks?: { dark: string; light: string }) =>
   inks ? svg.replaceAll('#000000', inks.dark).replaceAll('#ffffff', inks.light) : svg;
 
-export function MotionBoard({ path, flipped, transition, squareStyle, pieceStyle, pieceInks, hidden, className, style }: MotionBoardProps) {
+export function MotionBoard({ path, flipped, transition, squareStyle, pieceStyle, pieceInks, className, style }: MotionBoardProps) {
   const { pieces, lastMove } = useMemo(() => placeLine(path), [path]);
   // Un saut (autre ligne, changement de côté) passe en fondu enchaîné au lieu de faire traverser
   // le plateau à toutes les pièces : chaque saut ouvre une nouvelle scène.
@@ -79,11 +77,7 @@ export function MotionBoard({ path, flipped, transition, squareStyle, pieceStyle
                 className="absolute"
                 style={{ width: '12.5%', height: '12.5%', ...pieceStyle }}
                 initial={{ opacity: 0, left: `${column(piece.file) * 12.5}%`, top: `${row(piece.rank) * 12.5}%` }}
-                animate={{
-                  opacity: hidden === `${'abcdefgh'[piece.file]}${piece.rank + 1}` ? 0 : 1,
-                  left: `${column(piece.file) * 12.5}%`,
-                  top: `${row(piece.rank) * 12.5}%`,
-                }}
+                animate={{ opacity: 1, left: `${column(piece.file) * 12.5}%`, top: `${row(piece.rank) * 12.5}%` }}
                 exit={{ opacity: 0 }}
                 transition={transition}
                 dangerouslySetInnerHTML={{ __html: inked(PIECE_SVG[piece.code], pieceInks) }}
