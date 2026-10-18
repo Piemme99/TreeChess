@@ -1,3 +1,4 @@
+import { MotionConfig } from 'framer-motion';
 import { useEffect, useMemo, useState } from 'react';
 import { buildOpeningTree, type OpeningTree } from './domain/openingTree';
 import { gamesOfLastMonths } from './domain/period';
@@ -75,53 +76,55 @@ export function OpeningsPage() {
   }, [studied]);
 
   return (
-    <div className="min-h-screen pb-28" style={{ fontFamily: FONT_FAMILY, background: COLOURS.cream, color: COLOURS.leaf }}>
-      <header className="mx-auto flex max-w-[84rem] items-center gap-4 px-8 pt-7">
-        <Kumquat />
-        <span className="text-[26px] font-bold tracking-[-0.03em]">kumquat</span>
-        {!studied && (
-          <span className="ml-auto">
-            <SideSwitch side={side} onChange={showSide} />
-          </span>
-        )}
-      </header>
+    <MotionConfig reducedMotion="user">
+      <div className="min-h-screen pb-28" style={{ fontFamily: FONT_FAMILY, background: COLOURS.cream, color: COLOURS.leaf }}>
+        <header className="mx-auto flex max-w-[84rem] items-center gap-4 px-8 pt-7">
+          <Kumquat />
+          <span className="text-[26px] font-bold tracking-[-0.03em]">kumquat</span>
+          {!studied && (
+            <span className="ml-auto">
+              <SideSwitch side={side} onChange={showSide} />
+            </span>
+          )}
+        </header>
 
-      {studied ? (
-        <main className="mx-auto max-w-[84rem] px-8 pt-8">
-          <LineView
-            key={`${studied.side}:${studied.path.join(' ')}`}
-            tree={recentTrees[studied.side]}
-            path={studied.path}
-            onBack={() => setStudied(null)}
-            onOpen={(path) => setStudied({ side: studied.side, path })}
-          />
-        </main>
-      ) : (
-        <main className="mx-auto grid max-w-[84rem] grid-cols-[minmax(0,30rem)_1fr] gap-10 px-8 pt-8">
-          <BoardPanel
-            history={trees[shown.side]}
-            recent={recentTrees[shown.side]}
-            path={shown.path}
-            onStudy={focusPath.length > 0 ? () => setStudied({ side, path: focusPath }) : undefined}
-          />
-          <div className="flex min-w-0 flex-col gap-10">
-            <PriorityTickets
-              priorities={priorities}
-              isSelected={isShown}
-              onSelect={previewPriority}
-              onPoint={setPointed}
+        {studied ? (
+          <main className="mx-auto max-w-[84rem] px-8 pt-8">
+            <LineView
+              key={`${studied.side}:${studied.path.join(' ')}`}
+              tree={recentTrees[studied.side]}
+              path={studied.path}
+              onBack={() => setStudied(null)}
+              onOpen={(path) => setStudied({ side: studied.side, path })}
             />
-            <FlameTiles
-              key={side}
-              tree={trees[side]}
-              focusPath={focusPath}
-              onFocusChange={zoomTo}
-              onPoint={(path) => setPointed(path && { side, path })}
+          </main>
+        ) : (
+          <main className="mx-auto grid max-w-[84rem] grid-cols-[minmax(0,30rem)_1fr] gap-10 px-8 pt-8">
+            <BoardPanel
+              history={trees[shown.side]}
+              recent={recentTrees[shown.side]}
+              path={shown.path}
+              onStudy={focusPath.length > 0 ? () => setStudied({ side, path: focusPath }) : undefined}
             />
-          </div>
-        </main>
-      )}
-    </div>
+            <div className="flex min-w-0 flex-col gap-10">
+              <PriorityTickets
+                priorities={priorities}
+                isSelected={isShown}
+                onSelect={previewPriority}
+                onPoint={setPointed}
+              />
+              <FlameTiles
+                key={side}
+                tree={trees[side]}
+                focusPath={focusPath}
+                onFocusChange={zoomTo}
+                onPoint={(path) => setPointed(path && { side, path })}
+              />
+            </div>
+          </main>
+        )}
+      </div>
+    </MotionConfig>
   );
 }
 

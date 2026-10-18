@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { formatMove } from '../domain/notation';
 import { isPlayerMove, type OpeningTree } from '../domain/openingTree';
 import { playerAverage } from '../domain/performance';
-import { BOUNCE, COLOURS, tile, TONES, ZOOM } from '../workshop/theme';
+import { SPRING, COLOURS, tile, TONES, ZOOM } from '../workshop/theme';
 import { labelFits } from './label';
 import { lineTone } from './tone';
 import { pathKey, useFlameCamera, type Placement, type Viewport } from './useFlameCamera';
@@ -48,7 +48,7 @@ export function FlameTiles({ tree, focusPath, onFocusChange, onPoint }: FlameTil
                 initial={{ opacity: 0, scale: 0.6 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.6 }}
-                transition={BOUNCE}
+                transition={SPRING}
               >
                 <Crumb onClick={() => onFocusChange(focusPath.slice(0, index + 1))} active={index === focusPath.length - 1}>
                   {formatMove(san, index + 1)}
@@ -92,7 +92,7 @@ export function FlameTiles({ tree, focusPath, onFocusChange, onPoint }: FlameTil
                   aria-label={label}
                   whileHover={{ y: -2 }}
                   whileTap={{ scale: 0.95, y: 1 }}
-                  transition={BOUNCE}
+                  transition={SPRING}
                   onClick={() => onFocusChange(isFocus ? focusPath.slice(0, -1) : bar.path)}
                   onMouseEnter={() => onPoint(bar.path)}
                   className="absolute inset-y-0 left-0 overflow-hidden px-2 text-left font-semibold outline-none focus-visible:ring-2"
@@ -131,7 +131,7 @@ function Crumb({ onClick, active, children }: { onClick: () => void; active: boo
       onClick={onClick}
       aria-current={active ? 'location' : undefined}
       whileTap={{ scale: 0.92 }}
-      transition={BOUNCE}
+      transition={SPRING}
       className="rounded-full px-2.5 py-0.5"
       style={active ? { background: COLOURS.leaf, color: COLOURS.cream } : tile(COLOURS.sand)}
     >

@@ -63,3 +63,9 @@ export const squareCoords = (square: string) => ({
   file: square.charCodeAt(0) - 97,
   rank: Number(square[1]) - 1,
 });
+
+// Seul un coup joué ou repris glisse : un saut plus grand ferait bouger tout l'échiquier d'un coup.
+export function isSingleMove(from: readonly string[], to: readonly string[]): boolean {
+  const [short, long] = from.length < to.length ? [from, to] : [to, from];
+  return long.length - short.length === 1 && short.every((san, index) => long[index] === san);
+}

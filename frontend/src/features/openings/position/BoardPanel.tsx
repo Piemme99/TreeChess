@@ -7,7 +7,7 @@ import { nodeAt, type OpeningTree } from '../domain/openingTree';
 import { scoreRate } from '../domain/performance';
 import { AnimatedNumber } from '../workshop/AnimatedNumber';
 import { Chip } from '../workshop/Chip';
-import { BOUNCE, COLOURS } from '../workshop/theme';
+import { SPRING, COLOURS } from '../workshop/theme';
 import { replayLine } from './replay';
 
 interface BoardPanelProps {
@@ -42,7 +42,7 @@ export function BoardPanel({ history, recent, path, onStudy }: BoardPanelProps) 
           onClick={onStudy}
           whileHover={{ y: -2 }}
           whileTap={{ scale: 0.96 }}
-          transition={BOUNCE}
+          transition={SPRING}
           className="self-start rounded-full px-4 py-2 text-[15px] font-bold"
           style={{ background: COLOURS.kumquat, color: COLOURS.leaf, boxShadow: '0 6px 14px -6px oklch(0.6 0.17 45 / 0.6)' }}
         >

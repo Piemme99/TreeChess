@@ -1,9 +1,9 @@
 import { motion } from 'framer-motion';
-import { BOUNCE, COLOURS } from './theme';
+import { SPRING, COLOURS } from './theme';
 
 export function Kumquat() {
   return (
-    <motion.span className="relative block h-9 w-9" whileHover={{ rotate: -12, scale: 1.08 }} transition={BOUNCE} aria-hidden="true">
+    <motion.span className="relative block h-9 w-9" whileHover={{ rotate: -12, scale: 1.08 }} transition={SPRING} aria-hidden="true">
       <span
         className="absolute inset-0 rounded-full"
         style={{ background: `radial-gradient(circle at 35% 30%, ${COLOURS.apricot}, ${COLOURS.kumquat} 55%, ${COLOURS.kumquatDeep})` }}

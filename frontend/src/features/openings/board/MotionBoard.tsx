@@ -1,7 +1,7 @@
 import { AnimatePresence, motion, type Transition } from 'framer-motion';
-import { useMemo, type CSSProperties } from 'react';
+import { useMemo, useState, type CSSProperties } from 'react';
 import { PIECE_SVG } from '../../../shared/components/Board/pieceSvg';
-import { placeLine, squareCoords } from './pieces';
+import { isSingleMove, placeLine, squareCoords } from './pieces';
 
 export type SquareMark = 'from' | 'to' | null;
 
@@ -21,6 +21,11 @@ const inked = (svg: string, inks?: { dark: string; light: string }) =>
 
 export function MotionBoard({ path, flipped, transition, squareStyle, pieceStyle, pieceInks, className, style }: MotionBoardProps) {
   const { pieces, lastMove } = useMemo(() => placeLine(path), [path]);
+  const [shown, setShown] = useState({ path, flipped, glide: false });
+  if (shown.flipped !== flipped || shown.path.join(' ') !== path.join(' ')) {
+    setShown({ path, flipped, glide: shown.flipped === flipped && isSingleMove(shown.path, path) });
+  }
+  const pieceTransition = shown.glide ? transition : { duration: 0 };
   const from = lastMove && squareCoords(lastMove.from);
   const to = lastMove && squareCoords(lastMove.to);
 
@@ -58,10 +63,10 @@ export function MotionBoard({ path, flipped, transition, squareStyle, pieceStyle
             viewBox="0 0 45 45"
             className="absolute"
             style={{ width: '12.5%', height: '12.5%', ...pieceStyle }}
-            initial={{ opacity: 0, scale: 0.6, left: `${column(piece.file) * 12.5}%`, top: `${row(piece.rank) * 12.5}%` }}
-            animate={{ opacity: 1, scale: 1, left: `${column(piece.file) * 12.5}%`, top: `${row(piece.rank) * 12.5}%` }}
-            exit={{ opacity: 0, scale: 0.6 }}
-            transition={transition}
+            initial={{ opacity: 0, left: `${column(piece.file) * 12.5}%`, top: `${row(piece.rank) * 12.5}%` }}
+            animate={{ opacity: 1, left: `${column(piece.file) * 12.5}%`, top: `${row(piece.rank) * 12.5}%` }}
+            exit={{ opacity: 0 }}
+            transition={pieceTransition}
             dangerouslySetInnerHTML={{ __html: inked(PIECE_SVG[piece.code], pieceInks) }}
           />
         ))}

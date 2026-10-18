@@ -4,7 +4,7 @@ import { useOpeningName } from '../../../shared/hooks/useOpeningName';
 import { formatLine, formatMove } from '../domain/notation';
 import type { Priority } from '../domain/priorities';
 import { replayLine } from '../position/replay';
-import { BOUNCE, COLOURS, raised, ZOOM } from '../workshop/theme';
+import { SPRING, COLOURS, raised, ZOOM } from '../workshop/theme';
 
 interface PriorityTicketsProps {
   priorities: readonly Priority[];
@@ -66,7 +66,7 @@ function Ticket({ priority, rank, share, selected, onSelect, onPoint }: TicketPr
       animate={{ opacity: 1, y: selected ? -8 : 0, rotate: selected ? (rank % 2 ? -2 : 2) : 0 }}
       whileHover={{ y: selected ? -10 : -4 }}
       whileTap={{ scale: 0.96 }}
-      transition={{ ...BOUNCE, opacity: { delay: rank * 0.05 } }}
+      transition={{ ...SPRING, opacity: { delay: rank * 0.05 } }}
     >
       <button
         type="button"
