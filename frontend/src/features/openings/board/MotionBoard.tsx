@@ -1,5 +1,5 @@
 import { AnimatePresence, motion, type Transition } from 'framer-motion';
-import { useMemo, useState, type CSSProperties } from 'react';
+import { useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import { PIECE_SVG } from '../../../shared/components/Board/pieceSvg';
 import { isSingleMove, placeLine, squareCoords } from './pieces';
 
@@ -14,6 +14,7 @@ interface MotionBoardProps {
   pieceInks?: { dark: string; light: string };
   className?: string;
   style?: CSSProperties;
+  underlay?: ReactNode;
 }
 
 const CROSSFADE: Transition = { duration: 0.25, ease: 'easeInOut' };
@@ -21,7 +22,7 @@ const CROSSFADE: Transition = { duration: 0.25, ease: 'easeInOut' };
 const inked = (svg: string, inks?: { dark: string; light: string }) =>
   inks ? svg.replaceAll('#000000', inks.dark).replaceAll('#ffffff', inks.light) : svg;
 
-export function MotionBoard({ path, flipped, transition, squareStyle, pieceStyle, pieceInks, className, style }: MotionBoardProps) {
+export function MotionBoard({ path, flipped, transition, squareStyle, pieceStyle, pieceInks, className, style, underlay }: MotionBoardProps) {
   const { pieces, lastMove } = useMemo(() => placeLine(path), [path]);
   // Un saut (autre ligne, changement de côté) passe en fondu enchaîné au lieu de faire traverser
   // le plateau à toutes les pièces : chaque saut ouvre une nouvelle scène.
@@ -60,6 +61,7 @@ export function MotionBoard({ path, flipped, transition, squareStyle, pieceStyle
   return (
     <div className={`relative aspect-square w-full ${className ?? ''}`} style={style}>
       {squares}
+      {underlay}
       <AnimatePresence initial={false}>
         <motion.div
           key={shown.scene}

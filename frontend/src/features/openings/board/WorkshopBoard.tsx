@@ -1,7 +1,8 @@
+import type { ReactNode } from 'react';
 import { BOARD, PIECE } from '../workshop/theme';
 import { MotionBoard } from './MotionBoard';
 
-export function WorkshopBoard({ path, flipped }: { path: readonly string[]; flipped: boolean }) {
+export function WorkshopBoard({ path, flipped, underlay }: { path: readonly string[]; flipped: boolean; underlay?: ReactNode }) {
   return (
     <div
       className="rounded-[18px] p-2.5"
@@ -10,6 +11,7 @@ export function WorkshopBoard({ path, flipped }: { path: readonly string[]; flip
       <MotionBoard
         path={path}
         flipped={flipped}
+        underlay={underlay}
         transition={PIECE}
         className="overflow-hidden rounded-[10px]"
         pieceStyle={{ filter: 'drop-shadow(0 2px 1.5px oklch(0.2 0.05 50 / 0.35))' }}
