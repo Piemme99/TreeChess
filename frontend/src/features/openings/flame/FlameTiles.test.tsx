@@ -4,6 +4,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { buildOpeningTree } from '../domain/openingTree';
 import type { PlayedGame } from '../domain/playedGame';
+import type { Priority } from '../domain/priorities';
 import { FlameTiles } from './FlameTiles';
 
 const games: PlayedGame[] = [
@@ -14,9 +15,11 @@ const games: PlayedGame[] = [
 
 const tree = buildOpeningTree(games, 'w', 16);
 
+const priorities: Priority[] = [{ side: 'w', path: ['e4', 'c5'], games: 30, pointsToGain: 10 }];
+
 function ZoomableTiles({ onPoint = () => {} }: { onPoint?: (path: readonly string[] | null) => void }) {
   const [focusPath, setFocusPath] = useState<readonly string[]>([]);
-  return <FlameTiles tree={tree} focusPath={focusPath} onFocusChange={setFocusPath} onPoint={onPoint} />;
+  return <FlameTiles tree={tree} focusPath={focusPath} onFocusChange={setFocusPath} onPoint={onPoint} priorities={priorities} />;
 }
 
 const breadcrumb = () => screen.getByRole('navigation', { name: 'Zoom path' });
@@ -35,7 +38,22 @@ describe('FlameTiles', () => {
 
     expect(screen.getByRole('button', { name: '1.e4' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '1…c5' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '2.Nf3' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '2.♘f3' })).toBeInTheDocument();
+  });
+
+  it('marks the tile of a priority with its rank', () => {
+    render(<ZoomableTiles />);
+
+    expect(within(screen.getByRole('button', { name: '1…c5' })).getByLabelText('priority 1')).toBeInTheDocument();
+  });
+
+  it('shows the line under the pointer in a card', () => {
+    render(<ZoomableTiles />);
+
+    fireEvent.mouseEnter(screen.getByRole('button', { name: '1…c5' }));
+
+    expect(screen.getByRole('tooltip')).toHaveTextContent('1.e4 c5');
+    expect(screen.getByRole('tooltip')).toHaveTextContent('30 games · 0%');
   });
 
   it('reports the line under the pointer, and when the pointer leaves', () => {
@@ -53,7 +71,7 @@ describe('FlameTiles', () => {
     render(<ZoomableTiles />);
 
     const tones = within(screen.getByRole('list', { name: 'Legend' })).getAllByRole('listitem').map((item) => item.textContent);
-    expect(tones).toEqual(['leaking', 'shaky', 'par', 'solid']);
+    expect(tones).toEqual(['leaking', 'shaky', 'par', 'solid', '… too thin to read', '1priority']);
   });
 
   it('zooms into a line when its tile is clicked', async () => {

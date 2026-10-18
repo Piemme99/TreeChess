@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatLine, formatMove } from './notation';
+import { figurineLine, figurineMove, formatLine, formatMove } from './notation';
 
 describe('formatMove', () => {
   it('numbers a white move with a dot', () => {
@@ -18,5 +18,17 @@ describe('formatLine', () => {
 
   it('is empty for the starting position', () => {
     expect(formatLine([])).toBe('');
+  });
+});
+
+describe('figurines', () => {
+  it('replaces the piece letter with its figurine, not a destination square letter', () => {
+    expect(figurineMove('Nf3', 3)).toBe('2.♘f3');
+    expect(figurineMove('Bb5', 5)).toBe('3.♗b5');
+    expect(figurineMove('b5', 6)).toBe('3…b5');
+  });
+
+  it('handles castling, captures and promotions', () => {
+    expect(figurineLine(['e4', 'Nc6', 'Nxe5', 'O-O', 'e8=Q'])).toBe('1.e4 ♘c6 2.♘xe5 O-O 3.e8=♕');
   });
 });

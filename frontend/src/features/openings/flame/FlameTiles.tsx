@@ -1,35 +1,66 @@
 import { AnimatePresence, motion } from 'framer-motion';
-import type { ReactNode } from 'react';
-import { formatMove } from '../domain/notation';
-import { isPlayerMove, type OpeningTree } from '../domain/openingTree';
-import { playerAverage } from '../domain/performance';
-import { SPRING, COLOURS, tile, TONES, ZOOM } from '../workshop/theme';
+import { useMemo, useState, type ReactNode } from 'react';
+import { figurineMove } from '../domain/notation';
+import { isPlayerMove, nodeAt, type OpeningTree } from '../domain/openingTree';
+import { playerAverage, scoreRate } from '../domain/performance';
+import type { Priority } from '../domain/priorities';
+import { COLOURS, SPRING, tile, TONES, ZOOM } from '../workshop/theme';
+import { formatPercent } from './format';
 import { labelFits } from './label';
+import { layoutPruned, marksFor, type PlacedTile } from './prune';
+import { HoverCard, PriorityBadge, type Hover } from './TileHints';
 import { lineTone } from './tone';
-import { pathKey, useFlameCamera, type Placement, type Viewport } from './useFlameCamera';
 import { useElementWidth } from './useElementWidth';
 
-const ROW = { player: 34, opponent: 22 };
-const GAP = 4;
+const ROW = { player: 32, opponent: 14 };
+const GAP = 3;
+const PRUNE = { minPx: 28, coverageFloor: 0.4, minRows: 6, maxRows: 24 };
+// Largeur de secours tant que le conteneur n'est pas mesuré (premier rendu, tests).
+const FALLBACK_WIDTH = 800;
+
+const REST = {
+  bg: 'repeating-linear-gradient(135deg, oklch(0.93 0.02 85) 0 4px, oklch(0.965 0.015 85) 4px 8px)',
+  fg: COLOURS.leafSoft,
+  edge: 'inset 0 0 0 1px oklch(0.88 0.02 85)',
+};
+const OPPONENT = { bg: COLOURS.opponent, fg: COLOURS.leafSoft };
 
 interface FlameTilesProps {
   tree: OpeningTree;
   focusPath: readonly string[];
   onFocusChange: (path: readonly string[]) => void;
   onPoint: (path: readonly string[] | null) => void;
+  priorities: readonly Priority[];
 }
 
-export function FlameTiles({ tree, focusPath, onFocusChange, onPoint }: FlameTilesProps) {
-  const isPlayerRow = (ply: number) => ply === 0 || isPlayerMove(tree.side, ply);
-  const camera = useFlameCamera(tree, focusPath, (ply) => (isPlayerRow(ply) ? ROW.player : ROW.opponent));
+export function FlameTiles({ tree, focusPath, onFocusChange, onPoint, priorities }: FlameTilesProps) {
   const [containerRef, containerWidth] = useElementWidth<HTMLDivElement>();
+  const [hover, setHover] = useState<Hover | null>(null);
   const average = playerAverage(tree);
+  const isPlayerRow = (depth: number) => depth === 0 || isPlayerMove(tree.side, focusPath.length + depth);
+  const widthPx = containerWidth || FALLBACK_WIDTH;
 
-  const toStyle = (placement: Placement) => ({
-    left: `${placement.left * 100}%`,
-    width: `${placement.width * 100}%`,
-    top: placement.top,
-  });
+  const tiles = useMemo(
+    () => layoutPruned(nodeAt(tree, focusPath) ?? tree.root, focusPath, { ...PRUNE, widthPx }),
+    [tree, focusPath, widthPx],
+  );
+  const marks = useMemo(
+    () => marksFor(tiles, priorities.filter((priority) => priority.side === tree.side)),
+    [tiles, priorities, tree.side],
+  );
+
+  const rows = Math.max(0, ...tiles.map((placed) => placed.depth)) + 1;
+  const tops: number[] = [];
+  let height = 0;
+  for (let depth = 0; depth < rows; depth++) {
+    tops.push(height);
+    height += isPlayerRow(depth) ? ROW.player : ROW.opponent;
+  }
+
+  const leave = () => {
+    setHover(null);
+    onPoint(null);
+  };
 
   return (
     <section aria-labelledby="tree-title" className="flex flex-col gap-4">
@@ -51,7 +82,7 @@ export function FlameTiles({ tree, focusPath, onFocusChange, onPoint }: FlameTil
                 transition={SPRING}
               >
                 <Crumb onClick={() => onFocusChange(focusPath.slice(0, index + 1))} active={index === focusPath.length - 1}>
-                  {formatMove(san, index + 1)}
+                  {figurineMove(san, index + 1)}
                 </Crumb>
               </motion.span>
             ))}
@@ -62,50 +93,57 @@ export function FlameTiles({ tree, focusPath, onFocusChange, onPoint }: FlameTil
       <motion.div
         ref={containerRef}
         className="relative w-full overflow-hidden"
-        animate={{ height: camera.height }}
+        animate={{ height }}
         transition={ZOOM}
-        onMouseLeave={() => onPoint(null)}
+        onMouseLeave={leave}
       >
-        <AnimatePresence initial={false} custom={camera.viewport}>
-          {camera.bars.map((bar) => {
-            const placement = camera.place(bar, camera.viewport);
-            const player = isPlayerRow(bar.depth);
-            const tone = player ? TONES[lineTone(bar.node, average)] : { bg: COLOURS.opponent, fg: COLOURS.leafSoft };
-            const label = bar.path.length === 0 ? 'All games' : formatMove(bar.path[bar.path.length - 1], bar.path.length);
-            const isFocus = bar.depth === camera.viewport.depth;
-            const fontSize = player ? 13 : 11;
-            const height = (player ? ROW.player : ROW.opponent) - GAP;
-            const widthPx = placement.width * containerWidth;
+        <AnimatePresence initial={false}>
+          {tiles.map((placed) => {
+            const player = isPlayerRow(placed.depth);
+            const rowHeight = (player ? ROW.player : ROW.opponent) - GAP;
+            const fontSize = player ? 13 : 9;
+            const tileWidth = placed.width * widthPx;
+            const tone = placed.rest ? REST : player ? TONES[lineTone(placed.node, average)] : OPPONENT;
+            const name = tileName(placed);
+            const text = tileLabel(placed, name, tileWidth - GAP - 8, fontSize * 0.85);
+            const mark = marks.get(placed.key);
+            const position = { left: `${placed.start * 100}%`, width: `${placed.width * 100}%`, top: tops[placed.depth] };
             return (
               <motion.div
-                key={pathKey(bar.path)}
+                key={placed.key}
                 className="absolute"
-                style={{ height }}
-                initial={toStyle(camera.place(bar, camera.from))}
-                animate={{ ...toStyle(placement), opacity: 1 }}
-                exit="exit"
-                variants={{ exit: (vp: Viewport) => ({ ...toStyle(camera.place(bar, vp)), opacity: 0 }) }}
+                style={{ height: rowHeight }}
+                initial={{ ...position, opacity: 0 }}
+                animate={{ ...position, opacity: 1 }}
+                exit={{ opacity: 0 }}
                 transition={ZOOM}
               >
                 <motion.button
                   type="button"
-                  aria-label={label}
-                  whileHover={{ y: -2 }}
-                  whileTap={{ scale: 0.95, y: 1 }}
+                  aria-label={name}
+                  disabled={placed.rest > 0}
+                  whileHover={placed.rest ? undefined : { y: -2 }}
+                  whileTap={placed.rest ? undefined : { scale: 0.95, y: 1 }}
                   transition={SPRING}
-                  onClick={() => onFocusChange(isFocus ? focusPath.slice(0, -1) : bar.path)}
-                  onMouseEnter={() => onPoint(bar.path)}
+                  onClick={() => onFocusChange(placed.depth === 0 ? focusPath.slice(0, -1) : placed.path)}
+                  onMouseEnter={(event) => {
+                    setHover({ tile: placed, x: event.clientX, y: event.clientY });
+                    onPoint(placed.path);
+                  }}
+                  onMouseMove={(event) => setHover({ tile: placed, x: event.clientX, y: event.clientY })}
                   className="absolute inset-y-0 left-0 overflow-hidden px-2 text-left font-semibold outline-none focus-visible:ring-2"
                   style={{
-                    ...tile(tone.bg),
+                    ...(placed.rest ? { background: REST.bg, boxShadow: REST.edge } : tile(tone.bg)),
+                    ...(tone === TONES.even ? { boxShadow: REST.edge } : {}),
                     color: tone.fg,
-                    right: widthPx > 12 ? GAP : 1,
-                    borderRadius: Math.min(8, widthPx / 4),
+                    right: tileWidth > 12 ? GAP : 1,
+                    borderRadius: Math.min(6, tileWidth / 4),
                     fontSize,
-                    lineHeight: `${height}px`,
+                    lineHeight: `${rowHeight}px`,
                   }}
                 >
-                  {labelFits(label, widthPx - GAP, fontSize * 0.85) && <span className="block whitespace-nowrap">{label}</span>}
+                  {text && <span className="block whitespace-nowrap">{text}</span>}
+                  {mark && <PriorityBadge mark={mark} />}
                 </motion.button>
               </motion.div>
             );
@@ -113,15 +151,43 @@ export function FlameTiles({ tree, focusPath, onFocusChange, onPoint }: FlameTil
         </AnimatePresence>
       </motion.div>
 
-      <ul aria-label="Legend" className="flex flex-wrap gap-2 text-[12px] font-medium">
-        {(['losing', 'slipping', 'even', 'winning'] as const).map((tone) => (
-          <li key={tone} className="rounded-full px-2.5 py-1" style={{ ...tile(TONES[tone].bg), color: TONES[tone].fg }}>
-            {TONES[tone].label}
+      <ul aria-label="Legend" className="flex flex-wrap items-center gap-2 text-[12px] font-medium">
+        {(['losing', 'slipping', 'even', 'winning'] as const).map((toneKey) => (
+          <li key={toneKey} className="rounded-full px-2.5 py-1" style={{ ...tile(TONES[toneKey].bg), color: TONES[toneKey].fg }}>
+            {TONES[toneKey].label}
           </li>
         ))}
+        <li className="rounded-full px-2.5 py-1" style={{ background: REST.bg, color: REST.fg }}>
+          … too thin to read
+        </li>
+        <li className="flex items-center gap-1.5" style={{ color: COLOURS.leafSoft }}>
+          <span
+            className="flex h-[16px] w-[16px] items-center justify-center rounded-full text-[9px] font-extrabold"
+            style={{ background: COLOURS.leaf, color: COLOURS.cream }}
+          >
+            1
+          </span>
+          priority
+        </li>
       </ul>
+
+      <HoverCard hover={hover} average={average} />
     </section>
   );
+}
+
+function tileName(placed: PlacedTile): string {
+  if (placed.rest) return `${placed.rest} other lines`;
+  if (placed.path.length === 0) return 'All games';
+  return figurineMove(placed.path[placed.path.length - 1], placed.path.length);
+}
+
+// Du plus bavard au plus court : coup, parties et score ; le coup seul ; rien.
+function tileLabel(placed: PlacedTile, name: string, widthPx: number, fontSize: number): string {
+  if (placed.rest) return labelFits('…', widthPx, fontSize) ? '…' : '';
+  const full = `${name} · ${placed.node.games} · ${formatPercent(scoreRate(placed.node))}`;
+  if (labelFits(full, widthPx, fontSize)) return full;
+  return labelFits(name, widthPx, fontSize) ? name : '';
 }
 
 function Crumb({ onClick, active, children }: { onClick: () => void; active: boolean; children: ReactNode }) {

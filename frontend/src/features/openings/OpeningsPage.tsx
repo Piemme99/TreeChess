@@ -1,5 +1,5 @@
 import { MotionConfig } from 'framer-motion';
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { buildOpeningTree, type OpeningTree } from './domain/openingTree';
 import { gamesOfLastMonths } from './domain/period';
 import type { PlayedGame, Side } from './domain/playedGame';
@@ -14,7 +14,8 @@ import { SideSwitch } from './workshop/SideSwitch';
 import { COLOURS, FONT_FAMILY } from './workshop/theme';
 import { useWorkshopFont } from './workshop/useWorkshopFont';
 
-const MAX_PLIES = 16;
+// Au-delà de ce que la racine montre : la profondeur sert au zoom, la racine est coupée avant.
+const MAX_PLIES = 24;
 const MAX_PRIORITIES = 5;
 const RECENT_MONTHS = 12;
 
@@ -23,35 +24,17 @@ interface Line {
   path: readonly string[];
 }
 
-export interface FlameSlotProps {
-  tree: OpeningTree;
-  focusPath: readonly string[];
-  onFocusChange: (path: readonly string[]) => void;
-  onPoint: (path: readonly string[] | null) => void;
-  priorities: readonly Priority[];
-}
-
-interface OpeningsPageProps {
-  /** Point d'injection du prototype de flame graph (flame-prototype/) ; FlameTiles par défaut. */
-  renderFlame?: (props: FlameSlotProps) => ReactNode;
-  maxPlies?: number;
-}
-
-const defaultFlame = ({ tree, focusPath, onFocusChange, onPoint }: FlameSlotProps) => (
-  <FlameTiles key={tree.side} tree={tree} focusPath={focusPath} onFocusChange={onFocusChange} onPoint={onPoint} />
-);
-
-export function OpeningsPage({ renderFlame = defaultFlame, maxPlies = MAX_PLIES }: OpeningsPageProps = {}) {
+export function OpeningsPage() {
   useWorkshopFont();
   const [side, setSide] = useState<Side>('w');
   const [focusPath, setFocusPath] = useState<readonly string[]>([]);
   const [pointed, setPointed] = useState<Line | null>(null);
   const [studied, setStudied] = useState<Line | null>(null);
 
-  const trees = useMemo(() => treesOf(playedGamesFixture, maxPlies), [maxPlies]);
+  const trees = useMemo(() => treesOf(playedGamesFixture), []);
   const recentTrees = useMemo(
-    () => treesOf(gamesOfLastMonths(playedGamesFixture, RECENT_MONTHS, new Date()), maxPlies),
-    [maxPlies],
+    () => treesOf(gamesOfLastMonths(playedGamesFixture, RECENT_MONTHS, new Date())),
+    [],
   );
   const priorities = useMemo(
     () => findPriorities(trees, recentTrees, MAX_PRIORITIES),
@@ -131,13 +114,14 @@ export function OpeningsPage({ renderFlame = defaultFlame, maxPlies = MAX_PLIES 
                 onSelect={previewPriority}
                 onPoint={setPointed}
               />
-              {renderFlame({
-                tree: trees[side],
-                focusPath,
-                onFocusChange: zoomTo,
-                onPoint: (path) => setPointed(path && { side, path }),
-                priorities,
-              })}
+              <FlameTiles
+                key={side}
+                tree={trees[side]}
+                focusPath={focusPath}
+                onFocusChange={zoomTo}
+                onPoint={(path) => setPointed(path && { side, path })}
+                priorities={priorities}
+              />
             </div>
           </main>
         )}
@@ -146,6 +130,6 @@ export function OpeningsPage({ renderFlame = defaultFlame, maxPlies = MAX_PLIES 
   );
 }
 
-function treesOf(games: readonly PlayedGame[], maxPlies: number): Record<Side, OpeningTree> {
-  return { w: buildOpeningTree(games, 'w', maxPlies), b: buildOpeningTree(games, 'b', maxPlies) };
+function treesOf(games: readonly PlayedGame[]): Record<Side, OpeningTree> {
+  return { w: buildOpeningTree(games, 'w', MAX_PLIES), b: buildOpeningTree(games, 'b', MAX_PLIES) };
 }

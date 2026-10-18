@@ -47,6 +47,13 @@ Vocabulary (opening tree, deficit, priority, points to gain): `CONTEXT.md`.
   average over 12 months), or proven on the last 12 months. All are weighed on the
   points lost over the last 12 months. A period selector was tried and removed.
 - **Impact bar, not a number**: "points to gain" only serves ranking.
+- **The flame graph is pruned** (prototype of 2026-10-18, "Pruned" chosen over "player rows
+  only" and "heat map"): lines too thin to read at the current zoom fold into one hatched
+  "…" tile per parent, rows are not drawn once they cover less than 40% of the width, and
+  what is folded at the root unfolds on zoom (the tree goes 24 plies deep for that). Par and
+  solid recede towards the paper, priorities are pinned on their tile (a dot when folded
+  below), opponent rows are thin, labels use figurines and add games and score when they fit,
+  and a card follows the pointer. Measured at the root on real games: 342 tiles became 45.
 - **Art direction: Workshop** (warm cream, kumquat, Bricolage Grotesque, tactile tiles,
   springs), chosen over six other directions; verdict in `design-prototype/NOTES.md`.
   Everything on the screen, line view included, uses `workshop/theme.ts`.
@@ -69,9 +76,6 @@ Vocabulary (opening tree, deficit, priority, points to gain): `CONTEXT.md`.
   there), then persistence.
 - **Engine signal** ("opening leak": a move the engine finds bad), left out so far.
 - **Line view, rework**: restyled in Workshop as is; its layout is to be redesigned.
-- **Flame graph prototype** (`flame-prototype/`, `/dev/flame-graph?flame=`): four renderings of the
-  tree inside the real page, question and verdict in its `NOTES.md`. Throwaway: fold the winner
-  into `flame/`, then delete the folder and the `renderFlame` hook of `OpeningsPage`.
 - **Design prototype** (`design-prototype/`, `/dev/flame-graph?variant=F…J`): the
   directions not chosen, kept for reference. They share the domain and `board/`, `flame/`,
   `workshop/` with the page; keep them compiling.

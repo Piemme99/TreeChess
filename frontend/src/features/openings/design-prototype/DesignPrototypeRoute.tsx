@@ -2,7 +2,6 @@
 // consultables via ?variant=, pour référence (voir NOTES.md).
 import { useEffect } from 'react';
 import { useSearchParams } from 'react-router';
-import { FlamePrototypeRoute } from '../flame-prototype/FlamePrototypeRoute';
 import { OpeningsPage } from '../OpeningsPage';
 import { ClubhouseVariant } from './ClubhouseVariant';
 import { ClubVariant } from './ClubVariant';
@@ -35,8 +34,6 @@ function useVariantFonts() {
 export function DesignPrototypeRoute() {
   const [searchParams, setSearchParams] = useSearchParams();
   const variant = searchParams.get('variant');
-  const flame = searchParams.get('flame');
-  if (flame !== null) return <FlamePrototypeRoute variant={flame} />;
   if (!variant || variant === 'C') return <OpeningsPage />;
   return <Variant variant={variant} onChange={(key) => setSearchParams(key === 'C' ? {} : { variant: key }, { replace: true })} />;
 }

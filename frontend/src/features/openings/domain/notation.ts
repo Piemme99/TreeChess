@@ -11,3 +11,10 @@ export function formatLine(path: readonly string[]): string {
     })
     .join(' ');
 }
+
+const FIGURINES: Record<string, string> = { K: '♔', Q: '♕', R: '♖', B: '♗', N: '♘' };
+
+const figurine = (text: string) => text.replace(/(^|[\s.…=])([KQRBN])/g, (_, before: string, piece: string) => before + FIGURINES[piece]);
+
+export const figurineMove = (san: string, ply: number) => figurine(formatMove(san, ply));
+export const figurineLine = (path: readonly string[]) => figurine(formatLine(path));

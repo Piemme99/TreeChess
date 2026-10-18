@@ -45,7 +45,7 @@ describe('OpeningsPage', () => {
 
     expect(screen.getByRole('button', { name: /1\.d4 Nf6/ })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByRole('switch', { name: 'Play as Black' })).toBeChecked();
-    expect(zoomPath()).toHaveTextContent('all1.d41…Nf6');
+    expect(zoomPath()).toHaveTextContent('all1.d41…♘f6');
     expect(await findOpeningName('Indian Defense')).toBeInTheDocument();
     expect(period('All time')).toHaveTextContent('124games');
     expect(period('Last 12 months')).toHaveTextContent('28games');
@@ -60,7 +60,7 @@ describe('OpeningsPage', () => {
     expect(screen.getByRole('region', { name: 'Line' })).toHaveTextContent('Black · 28 games');
 
     fireEvent.click(screen.getByRole('button', { name: /Openings/ }));
-    expect(zoomPath()).toHaveTextContent('all1.d41…Nf6');
+    expect(zoomPath()).toHaveTextContent('all1.d41…♘f6');
   });
 
   it('offers no line to study before one is picked', () => {

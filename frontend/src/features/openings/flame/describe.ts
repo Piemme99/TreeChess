@@ -1,8 +1,7 @@
-// PROTOTYPE — textes d'une tuile, partagés par la carte au survol (K, L) et le bandeau (M).
-import { figurineLine } from '../design-prototype/figurines';
+import { figurineLine } from '../domain/notation';
 import type { OpeningNode } from '../domain/openingTree';
 import { scoreRate } from '../domain/performance';
-import { formatPercent } from '../flame/format';
+import { formatPercent } from './format';
 import type { PlacedTile } from './prune';
 
 export function headline(placed: PlacedTile): string {
