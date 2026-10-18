@@ -47,9 +47,20 @@ opening mistakes in it. A tool that waits to be opened does not change that.
 5. **A proposed preparation starts from the player's own moves.** At each
    position where the player is to move, it keeps the move they habitually play,
    and replaces it only where the engine judges it bad. Opponent moves come from
-   the player's games, completed by the Lichess explorer at their rating. It
-   stops where the player's games stop: completeness is coverage of real games,
-   not move count.
+   the player's games, completed by the Lichess explorer at their rating.
+   *Amended 2026-10-18:* where the player's games stop, it goes on with what
+   players of their level play — the move most played at their rating that the
+   engine accepts, against the replies that are frequent at their rating — up to
+   where their games are usually decided, not just where they stop overlapping.
+
+   The original rule ("it stops where the player's games stop: completeness is
+   coverage of real games, not move count") was dropped after the line view
+   prototype (`frontend/src/features/openings/line-prototype/NOTES.md`): on the
+   five real priorities, the player's games scatter one to three moves after the
+   position where they start losing, while the decisive mistakes fall between
+   moves 8 and 20. A preparation bounded by the player's games stopped at move 8
+   and could not cover any of them; extended at their level, it reaches the
+   position of a lost game (Philidor, 7…c5: 8.♘db5 where the game went 8.♘f5).
 
 ### Rejected alternatives
 
@@ -77,8 +88,12 @@ opening mistakes in it. A tool that waits to be opened does not change that.
   per device).
 - **The basic game check needs no engine**: comparing a game to a preparation
   is a tree walk, which the Go backend already does (`analysiscore`). Server-side
-  evaluation is needed only to correct the player's moves in a proposed
-  preparation.
+  evaluation is needed only to build a proposed preparation: to correct the
+  player's moves, and to check the moves taken from the explorer beyond their games.
+- **A proposed preparation needs the Lichess explorer**, which requires a Lichess
+  token and is rate-limited (one request at a time, a minute's wait after a 429):
+  it goes through the backend proxy with its cache (`GET /api/training/opening`)
+  and the player's Lichess OAuth token.
 - The flame graph stays a computer screen. On a phone, Spot shrinks to the
   priority list.
 - Verify was mocked up on a phone before the workshop went further (branch

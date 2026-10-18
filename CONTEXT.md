@@ -118,8 +118,10 @@ A preparation the product drafts for a line the player has none on, built from
 the player's own habits rather than from theory: at each position where they are
 to move, the move they usually play — replaced only where the engine judges it
 bad. Opponent moves come from the player's games and the Lichess explorer at
-their rating. It stops where the player's games stop. The player accepts it,
-edits it, or ignores it.
+their rating. Where the player's games stop, it goes on with what players of their
+level play (the most played move the engine accepts, against the frequent replies),
+up to where their games are usually decided. The player accepts it, edits it, or
+ignores it. See ADR 0002 (amended 2026-10-18).
 
 ### Spaced repetition
 

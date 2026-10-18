@@ -104,8 +104,8 @@ thread, ~10 s pour les 9 parties de la Philidor, ~55 s pour les 5 priorités ent
    là où une partie a été perdue sur 8.♘f5. L'étape 2 ajoute ce que jouent les maîtres à la position
    clé et trois de leurs parties (liens Lichess). Explorateur limité en débit : une requête à la fois,
    cache dans le localStorage, une minute de pause sur un 429 (vu en test).
-   **Contredit l'ADR 0002, point 5** (« la préparation proposée s'arrête là où s'arrêtent les parties
-   du joueur ») : elle va ici au-delà, avec ce que jouent les adversaires de son niveau. À trancher.
+   Contredisait l'ADR 0002, point 5 (« la préparation proposée s'arrête là où s'arrêtent les parties
+   du joueur ») : PMG a validé l'écart, l'ADR et `CONTEXT.md` sont amendés (18/10/2026).
    Position clé : à écart presque égal (90 %), celle où le joueur a le trait.
 
 Pour plus tard, avec l'OAuth Lichess : créer d'un clic une étude Lichess des positions d'erreur de la ligne.
