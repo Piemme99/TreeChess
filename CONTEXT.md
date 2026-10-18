@@ -96,35 +96,86 @@ many points the player lost on the line over the last 12 months compared to
 their average, whatever proved the line a problem. Shown as a relative impact
 bar.
 
+### Worked line
+
+A priority the player has acted on: accepting an addition from it dates the
+line. From that date the priority reports [adherence](#adherence) first, then
+the score against the score before, and leaves the list once the score is
+proven back. Proven adherence with no gain says the problem lies after the
+opening.
+
+### Adherence
+
+The share of the player's games through a line that followed their repertoire
+to its end, or until the opponent left it. It shows whether a line is learned,
+long before the score can show whether it pays.
+
+### Repertoire
+
+What the player intends to play, one per side: at each position where they are
+to move, one or more moves, each a deliberate choice (alternating the Caro-Kann
+and the Sicilian is a repertoire, not a mistake); at each position where the
+opponent is to move, as many replies as are worth preparing. It is the one object every step of the loop
+reads and writes: created from the player's history, strengthened on their
+priorities, enriched after each game. Creation keeps to the player's habits,
+even those the engine judges bad (their replacement becomes a
+[pending decision](#pending-decision)); going past their games is left to
+strengthening and to additions. A move
+leaves it only with the player's consent: one they have stopped playing (six
+months without it while still reaching the position) is offered for removal, and
+is left out of [spaced repetition](#spaced-repetition) meanwhile. Not to be confused with the
+[opening tree](#opening-tree), which says what the player *does*.
+
+_Avoid_: preparation (as a separate object), several repertoires per side.
+
 ### Game check
 
 What happens after every real game the player finishes: the game is compared to
-their preparations, and a notification brings them back to it while it is
+their repertoire, and a notification brings them back to it while it is
 fresh. Two outcomes:
 
-- **Left the preparation** — the player deviated from a move they had prepared
-  ("move 7: you played Bd7, your preparation says e6"). The check becomes an
-  exercise on that position.
-- **No preparation** — the game left every preparation before the player went
-  wrong. The check says so and offers a [proposed preparation](#proposed-preparation).
+- **Left the repertoire** — the player played a move their repertoire does not
+  hold ("move 7: you played Bd7, your repertoire has e6"). The check cannot tell
+  a lapse from a new choice, so it asks instead of judging: **Add** it (a
+  [proposed addition](#proposed-addition) from there) or **Review** the
+  repertoire's moves (an exercise on that position). Without an answer, nothing
+  changes.
+- **Not covered** — the opponent played a move the repertoire does not answer.
+  The check says so and offers a proposed addition.
 
-A game that follows the preparation to its end needs no check. It is the phone
+A move outside the repertoire that the player keeps playing (a fifth of their
+games there, over the last 12 months) is offered as an addition even if every
+check was ignored.
+
+A game that follows the repertoire to its end needs no check. It is the phone
 side of Verify; [spaced repetition](#spaced-repetition) covers the days without
 games. See ADR 0002.
 
-### Proposed preparation
+### Proposed addition
 
-A preparation the product drafts for a line the player has none on, built from
-the player's own habits rather than from theory: at each position where they are
-to move, the move they usually play — replaced only where the engine judges it
-bad. Opponent moves come from the player's games and the Lichess explorer at
-their rating. Where the player's games stop, it goes on with what players of their
-level play (the most played move the engine accepts, against the frequent replies),
-up to where their games are usually decided. The player accepts it, edits it, or
-ignores it. See ADR 0002 (amended 2026-10-18).
+Moves the product drafts for a part of the [repertoire](#repertoire) that does
+not exist yet, built from the player's own habits rather than from theory: at
+each position where they are to move, the moves they play regularly (a fifth of
+their games there, over the last 12 months) — each replaced only where the engine
+judges it bad. Opponent moves come from the player's games and
+the Lichess explorer at their rating. Where the player's games stop, it goes on
+with what players of their level play (the most played move the engine accepts,
+against the frequent replies), up to where their games are usually decided. The
+player accepts it, edits it, or ignores it. See ADR 0002 (amended 2026-10-18).
+
+_Avoid_: proposed preparation.
+
+### Pending decision
+
+Something the loop needs the player to settle: a [game check](#game-check)
+(Add or Review), a [proposed addition](#proposed-addition), a habit the engine
+offers to replace, or a move offered for removal from the
+[repertoire](#repertoire). They wait together, newest first, each
+naming the game that raised it — apart from [priorities](#priority), which are
+long work ranked by points to gain.
 
 ### Spaced repetition
 
-Replaying positions of the preparation at growing intervals, so that it holds
+Replaying positions of the repertoire at growing intervals, so that it holds
 on the days the player has no game to check. Positions the player recently got
 wrong in a [game check](#game-check) come back first.

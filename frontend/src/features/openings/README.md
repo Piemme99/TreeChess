@@ -95,11 +95,31 @@ Vocabulary (opening tree, deficit, priority, points to gain): `CONTEXT.md`.
   below, opponent rows reduced to the line's move until asked. Arrows on boards: three at
   most, with a cream halo to stand out on the green squares.
 
-## Next
+## Next: the repertoire loop
+
+Designed on 2026-10-18 (vocabulary in `CONTEXT.md`: repertoire, game check, proposed
+addition, pending decision, worked line, adherence; ADR 0002 amended). One
+**repertoire** per side, created from the player's habits, strengthened on priorities,
+enriched after each game. Shown on a **replay** of the history: the repertoire is
+created from the games before 2026-01-01, then the 2026 games come in day by day.
+Built one brick at a time, each visible on its own:
+
+1. **Repertoire from habits**: pure domain, no engine; a move of the player enters at
+   a fifth of their games in the position over the last 12 months (5 games at least),
+   opponent replies likewise. Stored in the browser. Rim on the flame graph tiles,
+   green arrows on the board.
+2. **Replay**: a "today" date, "Next day", reset; the whole screen computed at that date.
+3. **Game check and "To decide"** list, with "Ignore" only.
+4. **Add**: a proposed addition accepted after cutting branches; several player moves
+   per position; also used by "Study this line".
+5. **Review**: minimal debrief (red arrow played, green arrows repertoire, replay it).
+6. **Worked lines**: adherence, then score against before, on the priority tickets.
+7. **Engine correction at creation, and removals** (six months without the move).
+
+## Later
 
 - **Line view, next steps**: plug the explorer into the backend OAuth with the import;
-  "Add to my preparation" comes with Verify; glossary entries for key position and
-  decisive mistake.
+  glossary entries for key position and decisive mistake.
 - **Import** producing `PlayedGame` (Lichess OAuth is the decided auth; validate SAN
   there), then persistence.
 - **Engine signal on the whole tree** (priorities sorted into "a move to change" and

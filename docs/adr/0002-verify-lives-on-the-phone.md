@@ -62,6 +62,20 @@ opening mistakes in it. A tool that waits to be opened does not change that.
    and could not cover any of them; extended at their level, it reaches the
    position of a lost game (Philidor, 7…c5: 8.♘db5 where the game went 8.♘f5).
 
+   *Amended 2026-10-18 (bis):* preparations become one **repertoire** per side
+   (`CONTEXT.md`), and it may hold **several moves for the player** at a
+   position: alternating openings is a choice, not a mistake. A proposed
+   addition keeps every move the player plays regularly there (a fifth of their
+   games over the last 12 months), not only the most played one.
+
+   *Amended 2026-10-18 (ter):* when the repertoire is **created** from the
+   player's history, a habit the engine judges bad is kept, and its replacement
+   is offered as a pending decision instead of being imposed: the player has
+   not chosen anything yet, and a silent swap would cut the habitual moves that
+   follow and flag every later game as a deviation. Measured on 2025 games: one
+   habit out of 78 (the Slav, 3…♗f5, ~7 pts). The engine still replaces bad
+   habits inside an addition the player opens and accepts.
+
 ### Rejected alternatives
 
 - **Hand-written templates** (the v1 `repertoire_templates.go`: Italian, London,
@@ -102,6 +116,6 @@ opening mistakes in it. A tool that waits to be opened does not change that.
   playing before seeing the answer, and replaying whole lines, are left to test
   with real use. Moves are shown on a board with arrows, not in notation.
 - Until Verify is built, the workshop must not rule it out: preparations are
-  stored server-side (one move per position, comparable to a game while the app
-  is closed), the player's habits are computed in a pure domain module, and the
+  stored server-side (a few moves per position at most, comparable to a game
+  while the app is closed), the player's habits are computed in a pure domain module, and the
   priority list works on a phone.
