@@ -4,6 +4,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/kumquat/backend/internal/repertoiretree"
 )
 
 // DefaultExplorerSpeeds and DefaultExplorerRatings are the query parameters
@@ -17,6 +19,10 @@ var (
 
 // CanonicalKey returns a stable cache key for an opening query. Order of
 // speeds/ratings inside the slice does not matter — the key sorts them.
+// The FEN is normalized to its first four fields: halfmove/fullmove counters
+// never change opening stats, and callers key the same position with
+// different counters (raw client FENs vs the worker's ensureFullFEN output).
+// Without this normalization the worker misses every handler-filled entry.
 func CanonicalKey(q OpeningQuery) string {
 	speeds := append([]string{}, q.Speeds...)
 	ratings := append([]int{}, q.Ratings...)
@@ -29,7 +35,7 @@ func CanonicalKey(q OpeningQuery) string {
 	}
 	return strings.Join([]string{
 		"v=" + q.Variant,
-		"f=" + q.FEN,
+		"f=" + repertoiretree.NormalizeFEN(q.FEN),
 		"s=" + strings.Join(speeds, ","),
 		"r=" + strings.Join(rs, ","),
 	}, "&")

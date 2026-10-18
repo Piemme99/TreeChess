@@ -224,6 +224,12 @@ func (r *PostgresUserRepo) CreateOAuth(ctx context.Context, provider, oauthID, u
 	user, err := r.scanUser(r.pool.QueryRow(ctx, createOAuthUserSQL, id, username, provider, oauthID, lichessUsername).Scan)
 	if err != nil {
 		if isDuplicateKeyError(err) {
+			if isDuplicateOAuthError(err) {
+				// Concurrent creation for the same provider account (OAuth callback
+				// double-submit): the account exists now, so return it instead of
+				// misreporting a username conflict.
+				return r.FindByOAuth(ctx, provider, oauthID)
+			}
 			return nil, ErrUsernameExists
 		}
 		return nil, fmt.Errorf("failed to create OAuth user: %w", err)
@@ -393,6 +399,16 @@ func isDuplicateEmailError(err error) bool {
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) {
 		return pgErr.ConstraintName == "idx_users_email"
+	}
+	return false
+}
+
+// isDuplicateOAuthError checks if the duplicate key error is for the
+// UNIQUE(oauth_provider, oauth_id) constraint on users.
+func isDuplicateOAuthError(err error) bool {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		return pgErr.ConstraintName == "users_oauth_provider_oauth_id_key"
 	}
 	return false
 }

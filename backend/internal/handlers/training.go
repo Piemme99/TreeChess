@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/labstack/echo/v5"
@@ -41,6 +42,9 @@ func (h *TrainingHandler) AnalyzeHandler(c *echo.Context) error {
 
 	resp, err := h.trainingService.AnalyzeTrainingMoves(c.Request().Context(), userID, req.Moves, req.UserColor)
 	if err != nil {
+		if errors.Is(err, services.ErrInvalidMove) {
+			return BadRequestResponse(c, "moves contain an invalid move")
+		}
 		return InternalErrorResponse(c, "failed to analyze training moves")
 	}
 

@@ -36,7 +36,7 @@ func (s *TrainingService) AnalyzeTrainingMoves(ctx context.Context, userID strin
 	game := chess.NewGame()
 	for _, san := range moves {
 		if err := game.MoveStr(san); err != nil {
-			return nil, fmt.Errorf("invalid move %s: %w", san, err)
+			return nil, fmt.Errorf("%w: %s - %v", ErrInvalidMove, san, err)
 		}
 	}
 

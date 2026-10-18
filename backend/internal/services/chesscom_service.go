@@ -94,13 +94,13 @@ func (s *ChesscomService) FetchGames(username string, options models.ChesscomImp
 	}
 
 	if len(archives.Archives) == 0 {
-		return "", fmt.Errorf("no games found for user '%s'", username)
+		return "", fmt.Errorf("%w for user '%s'", ErrNoGamesFound, username)
 	}
 
 	// Step 2: Filter archives by date range
 	filteredArchives := s.filterArchivesByDate(archives.Archives, options.Since, options.Until)
 	if len(filteredArchives) == 0 {
-		return "", fmt.Errorf("no games found for user '%s' with given filters", username)
+		return "", fmt.Errorf("%w for user '%s' with given filters", ErrNoGamesFound, username)
 	}
 
 	// Step 3: Fetch PGN for each relevant month (most recent first, serially).
@@ -152,7 +152,7 @@ func (s *ChesscomService) FetchGames(username string, options models.ChesscomImp
 
 	pgnData := allPGN.String()
 	if pgnData == "" {
-		return "", fmt.Errorf("no games found for user '%s' with given filters", username)
+		return "", fmt.Errorf("%w for user '%s' with given filters", ErrNoGamesFound, username)
 	}
 
 	return pgnData, nil
