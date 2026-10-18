@@ -118,7 +118,8 @@ and the Sicilian is a repertoire, not a mistake); at each position where the
 opponent is to move, every reply the player keeps meeting, however rare at that
 position: the player chooses their moves, they only meet the opponent's. It is the one object every step of the loop
 reads and writes: created from the player's history, strengthened on their
-priorities, enriched after each game. Creation keeps to the player's habits,
+priorities, enriched after each game, and the central screen every other feature opens at one of its
+positions (ADR 0003). Creation keeps to the player's habits,
 even those the engine judges bad (their replacement becomes a
 [pending decision](#pending-decision)); going past their games is left to
 strengthening and to additions. A move
