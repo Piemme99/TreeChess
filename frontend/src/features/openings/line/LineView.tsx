@@ -12,7 +12,7 @@ import { LineHeader } from './LineHeader';
 import { MistakeLabel, Mistakes } from './Mistakes';
 import { Practice } from './Practice';
 import { PreparedCaption, Preparation, type PointedPreparation } from './Preparation';
-import { arrowMoves, BEST, moveTone } from './tone';
+import { arrowMoves, moveTone } from './tone';
 import { useLineDiagnosis } from './useLineDiagnosis';
 import { Verdict } from './Verdict';
 import { WholeLine, type PointedMove } from './WholeLine';
@@ -68,8 +68,8 @@ export function LineView({ tree, games, path, onBack, onOpen }: LineViewProps) {
       return {
         path: before,
         arrows: [
-          ...(move.dropped ? [{ san: move.dropped.san, tone: 'losing' as const, share: 0.6, emphasis: true }] : []),
-          { san: move.san, tone: 'even', colour: move.byPlayer ? BEST : undefined, share: 0.6, emphasis: true },
+          ...(move.dropped ? [{ san: move.dropped.san, kind: 'costly' as const, share: 0.6 }] : []),
+          { san: move.san, kind: move.byPlayer ? 'repertoire' : 'neutral', share: 0.6, emphasis: true },
         ],
         caption: <PreparedCaption move={move} />,
         link: { href: lichessPosition(replayLine(before).fens[before.length], black), label: 'Analyse on Lichess ↗' },
@@ -81,8 +81,8 @@ export function LineView({ tree, games, path, onBack, onOpen }: LineViewProps) {
       return {
         path: game.moves.slice(0, mistake.ply - 1),
         arrows: [
-          { san: mistake.san, tone: 'losing', share: 0.6, emphasis: true },
-          ...(mistake.best && mistake.best !== mistake.san ? [{ san: mistake.best, tone: 'winning' as const, colour: BEST, share: 0.6, emphasis: true }] : []),
+          { san: mistake.san, kind: 'costly', share: 0.6 },
+          ...(mistake.best && mistake.best !== mistake.san ? [{ san: mistake.best, kind: 'engine' as const, share: 0.6 }] : []),
         ],
         caption: <MistakeLabel mistake={mistake} />,
         link: { href: lichessGame(game.moves, mistake.ply - 1, black), label: 'Open this game on Lichess ↗' },

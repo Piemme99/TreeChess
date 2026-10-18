@@ -1,8 +1,7 @@
 import { WORTH_WORKING, type LineDiagnosis } from '../domain/diagnosis';
 import type { LineStep } from '../domain/line';
 import { figurineMove } from '../domain/notation';
-import { COLOURS, tile } from '../workshop/theme';
-import { BEST } from './tone';
+import { COLOURS, ENGINE, tile } from '../workshop/theme';
 
 const LISTED_MOVES = 3;
 
@@ -45,7 +44,7 @@ export function Verdict({ diagnosis, keyStep, positions }: { diagnosis: LineDiag
               <span className="font-extrabold">{Math.round(move.loss * 100)} pts</span>
               {move.best && (
                 <span className="ml-auto text-[14px] font-semibold" style={{ color: COLOURS.leafSoft }}>
-                  engine: <span className="font-extrabold" style={{ color: BEST }}>{figurineMove(move.best, move.ply)}</span>
+                  engine: <span className="font-extrabold" style={{ color: ENGINE }}>{figurineMove(move.best, move.ply)}</span>
                 </span>
               )}
             </li>

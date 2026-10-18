@@ -2,9 +2,8 @@ import type { ReactNode } from 'react';
 import { figurineMove } from '../domain/notation';
 import { countDropped, preparedDepth, type MoveSource, type PreparedMove } from '../domain/preparation';
 import { formatPercent } from '../flame/format';
-import { COLOURS, tile } from '../workshop/theme';
+import { COLOURS, REPERTOIRE, tile } from '../workshop/theme';
 import { hasExplorer } from './explorer';
-import { BEST } from './tone';
 import type { Preparation as PreparationState } from './useLineDiagnosis';
 
 export interface PointedPreparation {
@@ -141,7 +140,7 @@ export function PreparedCaption({ move }: { move: PreparedMove }) {
           <span style={{ color: COLOURS.terracotta }}>{figurineMove(move.dropped.san, move.ply)}</span> costs {Math.round(move.dropped.loss * 100)} pts ·{' '}
         </>
       )}
-      <span style={{ color: BEST }}>{figurineMove(move.san, move.ply)}</span> · {SOURCES[move.source ?? 'engine'].label}
+      <span style={{ color: REPERTOIRE }}>{figurineMove(move.san, move.ply)}</span> · {SOURCES[move.source ?? 'engine'].label}
       {move.share ? ` · ${formatPercent(move.share)} at your level` : ''}
     </>
   );

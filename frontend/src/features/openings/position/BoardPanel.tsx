@@ -24,7 +24,7 @@ export function BoardPanel({ history, recent, path, repertoire, onStudy }: Board
   const opening = useOpeningName(fens);
   const planned = useMemo(() => repertoireMovesAt(repertoire, fens[fens.length - 1]), [repertoire, fens]);
   const arrows = useMemo(
-    () => planned.map((move): BoardArrow => ({ san: move.san, tone: 'winning', colour: REPERTOIRE, share: 0.5, emphasis: true })),
+    () => planned.map((move): BoardArrow => ({ san: move.san, kind: 'repertoire', share: 0.5 })),
     [planned],
   );
 

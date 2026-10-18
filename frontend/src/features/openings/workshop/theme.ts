@@ -31,6 +31,19 @@ export const BOARD = {
 // plus saturé et plus froid que les cases, sinon la flèche se perd sur les cases sombres.
 export const REPERTOIRE = 'oklch(0.50 0.15 162)';
 
+/** Le coup que jouerait le moteur : orange partout, pour ne jamais le confondre avec le répertoire. */
+export const ENGINE = COLOURS.kumquatDeep;
+
+// Un sens, une couleur, sur tous les échiquiers : les écrans demandent un sens, jamais une couleur.
+export const ARROW = {
+  repertoire: { colour: REPERTOIRE, label: 'repertoire' },
+  engine: { colour: ENGINE, label: 'engine' },
+  costly: { colour: COLOURS.terracotta, label: 'costs points' },
+  neutral: { colour: 'oklch(0.45 0.03 60)', label: 'played' },
+} as const;
+
+export type ArrowKind = keyof typeof ARROW;
+
 export const TONES: Record<Tone, { bg: string; fg: string; label: string }> = {
   losing: { bg: COLOURS.terracotta, fg: 'white', label: 'leaking' },
   slipping: { bg: COLOURS.apricot, fg: COLOURS.leaf, label: 'shaky' },

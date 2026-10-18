@@ -71,6 +71,9 @@ Vocabulary (opening tree, deficit, priority, points to gain): `CONTEXT.md`.
 - **Art direction: Workshop** (warm cream, kumquat, Bricolage Grotesque, tactile tiles,
   springs), chosen over six other directions; verdict in `design-prototype/NOTES.md`.
   Everything on the screen, line view included, uses `workshop/theme.ts`.
+- **One colour per meaning on every board** (`ARROW` in `workshop/theme.ts`): repertoire green,
+  engine orange, a move that costs points red, other played moves grey. Screens ask for a
+  meaning, never a colour (PMG, 2026-10-18: the engine was green on Openings, orange on Games).
 - **Clicking a priority previews it** (side, zoom, board) and stays on the page; studying
   the line is an explicit "Study this line" from the board panel. Opening the line view
   straight from the click was tried and rejected: a click must give a preview first.

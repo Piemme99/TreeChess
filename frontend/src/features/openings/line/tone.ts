@@ -1,6 +1,6 @@
 import { Chess } from 'chess.js';
 import type { Tone } from '../flame/tone';
-import { COLOURS, REPERTOIRE } from '../workshop/theme';
+import { ARROW, COLOURS } from '../workshop/theme';
 
 const SMOOTHING_GAMES = 12;
 // Le seuil de 20 parties du flame graph éteindrait presque toute une ligne étudiée : le lissage suffit ici.
@@ -20,12 +20,10 @@ export function moveTone(rate: number, games: number, average: number): Tone {
 export const INK: Record<Tone, string> = {
   losing: COLOURS.terracotta,
   slipping: COLOURS.kumquatDeep,
-  even: 'oklch(0.45 0.03 60)',
+  even: ARROW.neutral.colour,
   winning: 'oklch(0.50 0.12 148)',
 };
 
-/** Le coup à jouer, dans le vert du répertoire. */
-export const BEST = REPERTOIRE;
 
 export function arrowMoves<T extends { onLine: boolean }>(moves: readonly T[]): T[] {
   return [...moves.filter((move) => move.onLine), ...moves.filter((move) => !move.onLine)].slice(0, MAX_ARROWS);

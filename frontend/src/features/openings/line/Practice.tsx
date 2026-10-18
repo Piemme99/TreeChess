@@ -3,10 +3,9 @@ import { useOpeningName } from '../../../shared/hooks/useOpeningName';
 import { figurineMove } from '../domain/notation';
 import { gamesIn } from '../domain/preparation';
 import { formatPercent } from '../flame/format';
-import { COLOURS, tile } from '../workshop/theme';
+import { COLOURS, REPERTOIRE, tile } from '../workshop/theme';
 import { explore, type ExplorerResult } from './explorer';
 import { lichessPuzzles, lichessVsComputer } from './lichess';
-import { BEST } from './tone';
 
 const MASTER_MOVES = 3;
 const MASTER_GAMES = 3;
@@ -36,7 +35,7 @@ export function Practice({ fens, habit }: PracticeProps) {
             <span className="font-extrabold">Masters here</span>
             <span style={{ color: COLOURS.leafSoft }}>{gamesIn(masters)} games</span>
             {masters.moves.slice(0, MASTER_MOVES).map((move) => (
-              <span key={move.san} style={move.san === habit ? { color: BEST } : undefined}>
+              <span key={move.san} style={move.san === habit ? { color: REPERTOIRE } : undefined}>
                 {figurineMove(move.san, ply)} {formatPercent(gamesIn(move) / gamesIn(masters))}
                 {move.san === habit && ' · yours'}
               </span>

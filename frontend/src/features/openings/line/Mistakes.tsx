@@ -1,9 +1,9 @@
 import type { DecisiveMistake, GameCourse } from '../domain/diagnosis';
 import { figurineMove } from '../domain/notation';
 import type { PlayedGame } from '../domain/playedGame';
-import { COLOURS, raised, tile } from '../workshop/theme';
+import { COLOURS, ENGINE, raised, tile } from '../workshop/theme';
 import { lichessGame } from './lichess';
-import { BEST, INK } from './tone';
+import { INK } from './tone';
 import { FOLLOWED_PLIES } from './useLineDiagnosis';
 
 interface MistakesProps {
@@ -78,13 +78,13 @@ export function Mistakes({ games, courses, black, keyPly, selected, onSelect }: 
 export function MistakeLabel({ mistake, inverted = false }: { mistake: DecisiveMistake; inverted?: boolean }) {
   return (
     <span className="font-semibold">
-      <span className="font-extrabold" style={{ color: inverted ? COLOURS.apricot : COLOURS.terracotta }}>
+      <span className="font-extrabold" style={{ color: inverted ? 'oklch(0.80 0.09 25)' : COLOURS.terracotta }}>
         {figurineMove(mistake.san, mistake.ply)}
       </span>
       {mistake.best && mistake.best !== mistake.san && (
         <>
           {' → '}
-          <span className="font-extrabold" style={{ color: inverted ? COLOURS.sage : BEST }}>
+          <span className="font-extrabold" style={{ color: inverted ? COLOURS.kumquat : ENGINE }}>
             {figurineMove(mistake.best, mistake.ply)}
           </span>
         </>

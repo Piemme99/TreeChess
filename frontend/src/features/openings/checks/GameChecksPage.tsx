@@ -6,7 +6,6 @@ import { judgeMove, type Judgement } from '../domain/judgement';
 import { repertoireMovesAt, type Repertoire } from '../domain/repertoire';
 import { gamesUntil } from '../domain/replay';
 import { useEvaluations } from '../line/engine';
-import { INK } from '../line/tone';
 import { playedGamesFixture } from '../fixtures/playedGames';
 import { ArrowBoard, type BoardArrow } from '../line/ArrowBoard';
 import { replayLine } from '../position/replay';
@@ -171,13 +170,13 @@ function CheckBoard({ checked, repertoires, judgement }: CheckBoardProps) {
     if (!checked || checked.check.kind === 'followed') return [];
     if (checked.check.kind === 'uncovered') {
       const costly = judgement === 'mistake' || judgement === 'blunder';
-      return [{ san: checked.check.played, tone: 'even', colour: costly ? COLOURS.terracotta : INK.even, share: 0.5, emphasis: true }];
+      return [{ san: checked.check.played, kind: costly ? 'costly' : 'neutral', share: 0.5, emphasis: true }];
     }
     const fen = replayLine(checkPath).fens[checkPath.length];
     const planned = repertoireMovesAt(repertoires[checked.game.side], fen).map(
-      (move): BoardArrow => ({ san: move.san, tone: 'winning', colour: REPERTOIRE, share: 0.5, emphasis: true }),
+      (move): BoardArrow => ({ san: move.san, kind: 'repertoire', share: 0.5 }),
     );
-    return [...planned, { san: checked.check.played, tone: 'losing', colour: COLOURS.terracotta, share: 0.5, emphasis: true }];
+    return [...planned, { san: checked.check.played, kind: 'costly', share: 0.5 }];
   }, [checked, checkPath, repertoires, judgement]);
 
   return (

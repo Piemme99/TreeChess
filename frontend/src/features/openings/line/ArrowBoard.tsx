@@ -1,16 +1,18 @@
 import { useMemo } from 'react';
 import { WorkshopBoard } from '../board/WorkshopBoard';
 import type { Tone } from '../flame/tone';
+import { ARROW, type ArrowKind } from '../workshop/theme';
 import { arrowSquares, INK } from './tone';
 
-export interface BoardArrow {
-  san: string;
-  tone: Tone;
-  colour?: string;
-  /** Part des parties, pour l'épaisseur. */
-  share: number;
-  emphasis?: boolean;
-}
+/** Une flèche porte un sens (répertoire, moteur…) ou, pour les coups comptés, le ton de leur score. */
+export type BoardArrow = { san: string; /** Part des parties, pour l'épaisseur. */ share: number; emphasis?: boolean } & (
+  | { kind: ArrowKind }
+  | { tone: Tone }
+);
+
+const inkOf = (arrow: BoardArrow) => ('kind' in arrow ? ARROW[arrow.kind].colour : INK[arrow.tone]);
+// Les sens tranchés se voient toujours pleinement ; seuls les coups comptés ou neutres s'estompent hors de la ligne.
+const emphasised = (arrow: BoardArrow) => arrow.emphasis ?? ('kind' in arrow && arrow.kind !== 'neutral');
 
 export function ArrowBoard({ path, flipped, arrows = [] }: { path: readonly string[]; flipped: boolean; arrows?: BoardArrow[] }) {
   return (
@@ -48,11 +50,11 @@ export function ArrowLayer({ path, flipped, arrows, className }: { path: readonl
           const baseX = tipX - ux * head;
           const baseY = tipY - uy * head;
           const points = `${tipX},${tipY} ${baseX - uy * width * 2},${baseY + ux * width * 2} ${baseX + uy * width * 2},${baseY - ux * width * 2}`;
-          const ink = arrow.colour ?? INK[arrow.tone];
+          const ink = inkOf(arrow);
           // Transparence portée par le groupe, comme sur Lichess : le trait et la pointe se fondent
           // en une seule forme et la pièce reste visible à travers.
           return (
-            <g key={arrow.san} opacity={arrow.emphasis ? 0.75 : 0.5}>
+            <g key={arrow.san} opacity={emphasised(arrow) ? 0.75 : 0.5}>
               <line x1={a.x} y1={a.y} x2={baseX + ux * 0.02} y2={baseY + uy * 0.02} stroke={ink} strokeWidth={width} strokeLinecap="round" />
               <polygon points={points} fill={ink} />
             </g>

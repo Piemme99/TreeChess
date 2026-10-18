@@ -4,8 +4,7 @@ import { draftMoves, type AddedMove } from '../domain/addition';
 import type { PlayedGame } from '../domain/playedGame';
 import { repertoireMovesAt, type Repertoire } from '../domain/repertoire';
 import type { BoardArrow } from '../line/ArrowBoard';
-import { INK } from '../line/tone';
-import { COLOURS, REPERTOIRE } from '../workshop/theme';
+import { ARROW } from '../workshop/theme';
 import { BuildPanel } from './BuildPanel';
 import type { CheckedGame } from './checkedGame';
 import { useBuilder, type Deviation } from './useBuilder';
@@ -62,14 +61,13 @@ export function BuildSession({ checked, games, repertoire, onAccept, onCancel, c
 
   const arrows = useMemo((): BoardArrow[] => {
     const shown = repertoireMovesAt(repertoire, builder.fen).map(
-      (move): BoardArrow => ({ san: move.san, tone: 'winning', colour: REPERTOIRE, share: 0.5 }),
+      (move): BoardArrow => ({ san: move.san, kind: 'repertoire', share: 0.5 }),
     );
     // Le coup de la partie reste rouge même s'il est candidat : c'est lui qu'on juge.
-    if (atStart && !agree) shown.push({ san: checked.check.played, tone: 'losing', colour: COLOURS.terracotta, share: 0.5 });
+    if (atStart && !agree) shown.push({ san: checked.check.played, kind: 'costly', share: 0.5 });
     for (const row of candidates.rows) {
       if (shown.some((arrow) => arrow.san === row.san)) continue;
-      const colour = row.engine ? COLOURS.kumquatDeep : INK.even;
-      shown.push({ san: row.san, tone: 'even', colour, share: Math.max(row.share ?? 0.2, 0.2), emphasis: row.engine || row.san === pointed });
+      shown.push({ san: row.san, kind: row.engine ? 'engine' : 'neutral', share: Math.max(row.share ?? 0.2, 0.2), emphasis: row.engine || row.san === pointed });
     }
     return shown;
   }, [repertoire, builder.fen, candidates.rows, atStart, agree, checked.check.played, pointed]);
@@ -78,11 +76,11 @@ export function BuildSession({ checked, games, repertoire, onAccept, onCancel, c
     <main className="mx-auto grid max-w-[84rem] grid-cols-[minmax(0,30rem)_1fr] gap-10 px-8 pt-8">
       <aside aria-label="Position" className="sticky top-6 flex flex-col gap-3 self-start">
         <PlayableBoard path={builder.path} flipped={checked.game.side === 'b'} arrows={arrows} suggestions={suggestions} onMove={builder.play} />
-        <p className="flex flex-wrap gap-x-4 gap-y-1 px-1 text-[12px] font-semibold" style={{ color: INK.even }}>
-          <Swatch colour={REPERTOIRE}>repertoire</Swatch>
-          {engine && <Swatch colour={COLOURS.kumquatDeep}>engine{agree && ' · your move'}</Swatch>}
-          {atStart && !agree && <Swatch colour={COLOURS.terracotta}>your move</Swatch>}
-          {arrows.some((arrow) => arrow.colour === INK.even) && <Swatch colour={INK.even}>at your level</Swatch>}
+        <p className="flex flex-wrap gap-x-4 gap-y-1 px-1 text-[12px] font-semibold" style={{ color: ARROW.neutral.colour }}>
+          <Swatch colour={ARROW.repertoire.colour}>repertoire</Swatch>
+          {engine && <Swatch colour={ARROW.engine.colour}>engine{agree && ' · your move'}</Swatch>}
+          {atStart && !agree && <Swatch colour={ARROW.costly.colour}>your move</Swatch>}
+          {arrows.some((arrow) => 'kind' in arrow && arrow.kind === 'neutral') && <Swatch colour={ARROW.neutral.colour}>at your level</Swatch>}
         </p>
       </aside>
       <div className="flex min-w-0 flex-col gap-10">
