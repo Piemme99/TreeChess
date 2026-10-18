@@ -65,7 +65,7 @@ export function BuildSession({ checked, games, repertoire, onAccept, onCancel, c
           <Swatch colour={REPERTOIRE}>repertoire</Swatch>
           {engine && <Swatch colour={COLOURS.kumquatDeep}>engine{agree && ' · your move'}</Swatch>}
           {atStart && !agree && <Swatch colour={COLOURS.terracotta}>your move</Swatch>}
-          <Swatch colour={INK.even}>at your level</Swatch>
+          {arrows.some((arrow) => arrow.colour === INK.even) && <Swatch colour={INK.even}>at your level</Swatch>}
         </p>
       </aside>
       <div className="flex min-w-0 flex-col gap-10">
