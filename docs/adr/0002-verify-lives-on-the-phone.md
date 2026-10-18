@@ -93,6 +93,12 @@ opening mistakes in it. A tool that waits to be opened does not change that.
    their level, the engine's evaluation of each candidate, the engine's own
    move, their own games. Choosing stays theirs.
 
+   *Amended 2026-10-18 (sexies):* building an addition is no longer a computer-only
+   workshop task. After ADR 0003, the game check opens a session on one position screen,
+   designed for a phone first, where the player both settles the deviation and builds the
+   addition. Only the dense diagnosis (flame graph) was a computer screen, and it has left
+   the path.
+
 ### Rejected alternatives
 
 - **Hand-written templates** (the v1 `repertoire_templates.go`: Italian, London,

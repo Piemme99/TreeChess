@@ -31,6 +31,14 @@ the repertoire, with no return trip to a games list between games.
   "re-analyse" action is needed.
 - Related: [Divergence](#divergence), [Add to repertoire](#add-to-repertoire-vs-open-in-repertoire).
 
+### Session
+
+What the player goes through after playing: the positions where their recent games
+left the [repertoire](#repertoire), one at a time, the most frequent first, each
+settled or skipped. A position several games left the same way is one step, naming
+those games. Unlike the earlier [analyse-session](#analyse-session), it walks
+positions, not games.
+
 ### Divergence
 
 The first move in a game that is not in the matched repertoire — status

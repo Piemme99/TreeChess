@@ -53,6 +53,41 @@ positions without knowing what the other says. Measured on Piemme78's games
 The user path: I play → the product shows where my repertoire held and where it
 gave way → I settle it at that position → I drill it.
 
+## User path (grilled with PMG, 2026-10-18)
+
+1. **A router on opening, two intentions, no more.** "I just played" (e.g. 10 April 2026:
+   38 games, the positions to settle) and "I want to work" (the first priority). Every
+   figure on it is a door, and every door leads to a position of the repertoire. Rejected:
+   more entries (repertoire health, stats, game history): that is the v1 dashboard, six
+   blocks each leading to its own screen.
+2. **"I just played" opens a session, one position at a time**, the most frequent first,
+   then "next" until "done for today", with a counter (3 / 20). It is the v1 analyse-session
+   (`CONTEXT.md`), by position instead of by game. Rejected: a list of the positions to
+   pick from, which is the Games page of today, barely shorter (10 April: 26 cards).
+3. **A position in the session shows a board, one line of facts, two choices and "Skip".**
+   Board: repertoire move green, played move grey. Facts: the moves' games today and over
+   12 months, with their score. Choices where the player left the repertoire: "Keep" the
+   played move (the addition is built on the same board, candidate table) or "Stay on" the
+   repertoire's (review). Where the opponent did: "Prepare an answer". "Skip" postpones;
+   the position comes back with the same deviation. Not on this screen: flame graph,
+   priorities, the all-time / 12-month figures: they serve "I want to work".
+4. **"I want to work" opens priority 1 on the same position screen**, not a list of five:
+   board at the key position, the verdict as the line of facts, "Prepare what follows" (an
+   addition from there, same board, same candidate table), "Practise on Lichess" as a
+   secondary link, and "Next priority". Rejected: tickets, preview, then the line view:
+   three more screens, and a work path unlike the one after games.
+5. **The position screen is the repertoire browser.** Clicking a green arrow plays it and
+   moves on, ← goes back, like the Lichess explorer; the session and the priorities only
+   pick the starting position. The flame graph leaves the path (kept on its dev route as a
+   reference). Rejected: a third entry "See my repertoire" opening the flame graph: a third
+   world, coloured by deficit (what the player does, not what they intend), as dense as the
+   diagnosis screen just set aside.
+6. **One position screen, designed for a phone first** (390 px), widened on a computer. The
+   player settles and builds where the notification found them, the game still fresh; on a
+   phone the candidate table shrinks to the arrows and one short row per move. Amends ADR
+   0002. Rejected: sorting only on the phone and building later on the computer: every
+   decision taken twice, the second time cold.
+
 ## Rejected alternatives
 
 - **An inbox of pending decisions as the centre.** It gives a daily path, but
@@ -63,10 +98,13 @@ gave way → I settle it at that position → I drill it.
 
 ## Consequences
 
-- Openings becomes the repertoire screen; Games becomes a feed that sends to it.
-  The domain is unchanged (`repertoire.ts`, `gameCheck.ts`, `addition.ts`):
+- Three screens: the router, the position screen, and the addition built on the latter.
+  Openings (flame graph, tickets, board panel), Games (cards) and the line view leave the
+  path; their parts move onto the position screen (verdict, candidate table, game check).
+  The domain is unchanged (`repertoire.ts`, `gameCheck.ts`, `addition.ts`, `diagnosis.ts`):
   this is a reorganisation of screens, not of rules.
-- Roadmap bricks 5–7 (Review, worked lines, removals) wait until the repertoire
+- A first try (2026-10-18) added a "Moves here" table to the Openings board panel; PMG
+  rejected it: one more block on a dense screen is not a centre. Reverted.
+- Roadmap bricks 5–7 (Review, worked lines, removals) wait until the position
   screen exists, so that they land on it instead of adding a page.
-- ADR 0002 holds: the repertoire screen is the workshop, on a computer; the
-  phone's game check opens a position of the repertoire.
+- ADR 0002 amended (sexies): the position screen is designed for a phone first.

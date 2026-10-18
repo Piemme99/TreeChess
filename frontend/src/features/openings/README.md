@@ -163,9 +163,10 @@ Built one brick at a time, each visible on its own:
    "Reset" empties it. Every game is checked against the current repertoire, so an addition
    settles the game that raised it and changes the checks of the days after.
    Not done yet: "Study this line" adding to the repertoire.
-**Since 2026-10-18 (ADR 0003): the repertoire is the central screen.** Openings becomes
-the repertoire screen, Games a feed that opens a position of it, pending decisions are
-grouped by position (2026: 174 decisions, 58 positions). Bricks 5–7 wait for that screen.
+**Since 2026-10-18 (ADR 0003, "User path"): a router with two doors ("I just played",
+"I want to work") leading to one position screen, phone first, browsable like an explorer.**
+Pending decisions are grouped by position (2026: 174 decisions, 58 positions). Openings,
+Games and the line view leave the path; bricks 5–7 wait for the position screen.
 
 5. **Review**: minimal debrief (red arrow played, green arrows repertoire, replay it).
 6. **Worked lines**: adherence, then score against before, on the priority tickets.
