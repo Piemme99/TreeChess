@@ -5,9 +5,11 @@ interface PrototypeSwitcherProps {
   variants: { key: string; name: string }[];
   current: string;
   onChange: (key: string) => void;
+  /** Touches précédent / suivant ; ← → par défaut, à changer quand la page s'en sert déjà. */
+  keys?: [string, string];
 }
 
-export function PrototypeSwitcher({ variants, current, onChange }: PrototypeSwitcherProps) {
+export function PrototypeSwitcher({ variants, current, onChange, keys = ['ArrowLeft', 'ArrowRight'] }: PrototypeSwitcherProps) {
   const index = Math.max(0, variants.findIndex((variant) => variant.key === current));
   const step = (delta: number) => onChange(variants[(index + delta + variants.length) % variants.length].key);
 
@@ -15,8 +17,8 @@ export function PrototypeSwitcher({ variants, current, onChange }: PrototypeSwit
     const onKey = (event: KeyboardEvent) => {
       const target = event.target;
       if (target instanceof HTMLElement && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
-      if (event.key === 'ArrowLeft') step(-1);
-      if (event.key === 'ArrowRight') step(1);
+      if (event.key === keys[0]) step(-1);
+      if (event.key === keys[1]) step(1);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);

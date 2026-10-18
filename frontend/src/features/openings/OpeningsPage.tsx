@@ -1,5 +1,5 @@
 import { MotionConfig } from 'framer-motion';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { buildOpeningTree, type OpeningTree } from './domain/openingTree';
 import { gamesOfLastMonths } from './domain/period';
 import type { PlayedGame, Side } from './domain/playedGame';
@@ -24,13 +24,23 @@ interface Line {
   path: readonly string[];
 }
 
-export function OpeningsPage() {
-  useWorkshopFont();
-  const [side, setSide] = useState<Side>('w');
-  const [focusPath, setFocusPath] = useState<readonly string[]>([]);
-  const [pointed, setPointed] = useState<Line | null>(null);
-  const [studied, setStudied] = useState<Line | null>(null);
+export interface LineSlotProps {
+  tree: OpeningTree;
+  path: readonly string[];
+  onBack: () => void;
+  onOpen: (path: readonly string[]) => void;
+}
 
+interface OpeningsPageProps {
+  /** Point d'injection du prototype de vue de ligne (line-prototype/) ; LineView par défaut. */
+  renderLine?: (props: LineSlotProps) => ReactNode;
+  studyFirstPriority?: boolean;
+}
+
+const defaultLine = (props: LineSlotProps) => <LineView key={`${props.tree.side}:${props.path.join(' ')}`} {...props} />;
+
+export function OpeningsPage({ renderLine = defaultLine, studyFirstPriority = false }: OpeningsPageProps = {}) {
+  useWorkshopFont();
   const trees = useMemo(() => treesOf(playedGamesFixture), []);
   const recentTrees = useMemo(
     () => treesOf(gamesOfLastMonths(playedGamesFixture, RECENT_MONTHS, new Date())),
@@ -40,6 +50,11 @@ export function OpeningsPage() {
     () => findPriorities(trees, recentTrees, MAX_PRIORITIES),
     [trees, recentTrees],
   );
+
+  const [side, setSide] = useState<Side>(() => (studyFirstPriority && priorities[0]?.side) || 'w');
+  const [focusPath, setFocusPath] = useState<readonly string[]>(() => (studyFirstPriority && priorities[0]?.path) || []);
+  const [pointed, setPointed] = useState<Line | null>(null);
+  const [studied, setStudied] = useState<Line | null>(() => (studyFirstPriority && priorities[0]) || null);
   const shown = pointed ?? { side, path: focusPath };
 
   const showSide = (next: Side) => {
@@ -95,13 +110,12 @@ export function OpeningsPage() {
 
         {studied ? (
           <main className="mx-auto max-w-[84rem] px-8 pt-8">
-            <LineView
-              key={`${studied.side}:${studied.path.join(' ')}`}
-              tree={recentTrees[studied.side]}
-              path={studied.path}
-              onBack={() => setStudied(null)}
-              onOpen={(path) => setStudied({ side: studied.side, path })}
-            />
+            {renderLine({
+              tree: recentTrees[studied.side],
+              path: studied.path,
+              onBack: () => setStudied(null),
+              onOpen: (path) => setStudied({ side: studied.side, path }),
+            })}
           </main>
         ) : (
           <main className="mx-auto grid max-w-[84rem] grid-cols-[minmax(0,30rem)_1fr] gap-10 px-8 pt-8">

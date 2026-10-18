@@ -75,7 +75,7 @@ Vocabulary (opening tree, deficit, priority, points to gain): `CONTEXT.md`.
 - **Import** producing `PlayedGame` (Lichess OAuth is the decided auth; validate SAN
   there), then persistence.
 - **Engine signal** ("opening leak": a move the engine finds bad), left out so far.
-- **Line view, rework**: restyled in Workshop as is; its layout is to be redesigned.
+- **Line view, rework**: prototype of three layouts in `line-prototype/` (`/dev/flame-graph?line=`), verdict pending.
 - **Design prototype** (`design-prototype/`, `/dev/flame-graph?variant=F…J`): the
   directions not chosen, kept for reference. They share the domain and `board/`, `flame/`,
   `workshop/` with the page; keep them compiling.
