@@ -1,6 +1,6 @@
 import { Chess } from 'chess.js';
 import type { Tone } from '../flame/tone';
-import { COLOURS } from '../workshop/theme';
+import { COLOURS, REPERTOIRE } from '../workshop/theme';
 
 const SMOOTHING_GAMES = 12;
 // Le seuil de 20 parties du flame graph éteindrait presque toute une ligne étudiée : le lissage suffit ici.
@@ -24,8 +24,8 @@ export const INK: Record<Tone, string> = {
   winning: 'oklch(0.50 0.12 148)',
 };
 
-/** Le vert des coups du moteur, plus soutenu que celui des lignes solides. */
-export const BEST = INK.winning;
+/** Le coup à jouer, en bleu comme le répertoire. */
+export const BEST = REPERTOIRE;
 
 export function arrowMoves<T extends { onLine: boolean }>(moves: readonly T[]): T[] {
   return [...moves.filter((move) => move.onLine), ...moves.filter((move) => !move.onLine)].slice(0, MAX_ARROWS);
