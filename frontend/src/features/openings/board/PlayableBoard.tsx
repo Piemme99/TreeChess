@@ -4,7 +4,6 @@ import { Chessboard, type PieceRenderObject } from 'react-chessboard';
 import { PIECE_SVG } from '../../../shared/components/Board/pieceSvg';
 import { ArrowLayer, type BoardArrow } from '../line/ArrowBoard';
 import { BOARD, COLOURS } from '../workshop/theme';
-import { placeLine } from './pieces';
 
 interface PlayableBoardProps {
   path: readonly string[];
@@ -15,7 +14,6 @@ interface PlayableBoardProps {
   onMove: (san: string) => void;
 }
 
-const FILES = 'abcdefgh';
 const PIECE_SHADOW = 'drop-shadow(0 2px 1.5px oklch(0.2 0.05 50 / 0.35))';
 
 // Le dessin est posé une fois, hors du rendu : réinjecté à l'appui du pointeur, il détacherait
@@ -31,8 +29,6 @@ const PieceSvg = memo(function PieceSvg({ code }: { code: string }) {
 // Le glisser vient de react-chessboard, comme sur la v1 : la bibliothèque gère seuil, fantôme et retour.
 const PIECES: PieceRenderObject = Object.fromEntries(Object.keys(PIECE_SVG).map((code) => [code, () => <PieceSvg code={code} />]));
 
-const isLight = (square: string) => (FILES.indexOf(square[0]) + Number(square[1])) % 2 === 0;
-
 /** L'échiquier de l'atelier où l'on joue comme sur Lichess : en glissant la pièce, ou en cliquant la pièce puis sa case. */
 export function PlayableBoard({ path, flipped, arrows = [], suggestions = [], onMove }: PlayableBoardProps) {
   const chess = useMemo(() => {
@@ -40,7 +36,6 @@ export function PlayableBoard({ path, flipped, arrows = [], suggestions = [], on
     for (const san of path) game.move(san);
     return game;
   }, [path]);
-  const lastMove = useMemo(() => placeLine(path).lastMove, [path]);
   const [from, setFrom] = useState<Square | null>(null);
   const [shownFor, setShownFor] = useState(path);
   if (shownFor !== path) {
@@ -79,12 +74,10 @@ export function PlayableBoard({ path, flipped, arrows = [], suggestions = [], on
     setFrom(piece && piece.color === chess.turn() && square !== from ? square : null);
   };
 
-  const marked = lastMove ? [lastMove.from, lastMove.to] : [];
   const renderSquare = ({ square, children }: { square: string; children?: ReactNode }) => {
     const target = targets.some((candidate) => candidate.to === square);
     const landing = !from && suggested.some((candidate) => candidate.to === square);
     const style: CSSProperties = { position: 'relative', width: '100%', height: '100%' };
-    if (marked.includes(square as Square)) style.background = isLight(square) ? BOARD.markLight : BOARD.markDark;
     if (square === from) style.boxShadow = `inset 0 0 0 3px ${COLOURS.kumquat}`;
     const occupied = Boolean(chess.get(square as Square));
     return (
