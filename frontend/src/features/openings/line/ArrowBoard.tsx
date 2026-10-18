@@ -35,8 +35,8 @@ export function ArrowBoard({ path, flipped, arrows = [] }: { path: readonly stri
             const length = Math.hypot(b.x - a.x, b.y - a.y);
             const ux = (b.x - a.x) / length;
             const uy = (b.y - a.y) / length;
-            const width = 0.09 + 0.2 * Math.sqrt(arrow.share);
-            const head = Math.max(0.28, width * 2.1);
+            const width = 0.06 + 0.09 * Math.sqrt(arrow.share);
+            const head = Math.max(0.26, width * 2.4);
             const tipX = b.x - ux * 0.12;
             const tipY = b.y - uy * 0.12;
             const baseX = tipX - ux * head;
@@ -46,8 +46,8 @@ export function ArrowBoard({ path, flipped, arrows = [] }: { path: readonly stri
             // Le liseré crème détache la flèche des cases vertes, quelle que soit sa couleur.
             return (
               <g key={arrow.san} opacity={arrow.emphasis ? 0.95 : 0.8}>
-                <line x1={a.x} y1={a.y} x2={baseX} y2={baseY} stroke={HALO} strokeWidth={width + 0.09} strokeLinecap="round" />
-                <polygon points={points} fill={HALO} stroke={HALO} strokeWidth={0.09} strokeLinejoin="round" />
+                <line x1={a.x} y1={a.y} x2={baseX} y2={baseY} stroke={HALO} strokeWidth={width + 0.05} strokeLinecap="round" />
+                <polygon points={points} fill={HALO} stroke={HALO} strokeWidth={0.05} strokeLinejoin="round" />
                 <line x1={a.x} y1={a.y} x2={baseX} y2={baseY} stroke={ink} strokeWidth={width} strokeLinecap="round" />
                 <polygon points={points} fill={ink} />
               </g>
