@@ -1,4 +1,4 @@
-// PROTOTYPE — état de l'écran recopié de FlameGraphPage, partagé par les trois directions.
+// PROTOTYPE — état de l'écran recopié de l'écran Openings, partagé par les directions non retenues.
 import { useEffect, useMemo, useState } from 'react';
 import { buildOpeningTree, type OpeningTree } from '../domain/openingTree';
 import { gamesOfLastMonths } from '../domain/period';

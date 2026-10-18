@@ -1,4 +1,3 @@
-// PROTOTYPE — échiquier dont les pièces glissent d'une position à l'autre.
 import { AnimatePresence, motion, type Transition } from 'framer-motion';
 import { useMemo, type CSSProperties } from 'react';
 import { PIECE_SVG } from '../../../shared/components/Board/pieceSvg';

@@ -12,9 +12,9 @@ import { labelFits } from '../flame/label';
 import { lineTone, type Tone } from '../flame/tone';
 import { useElementWidth } from '../flame/useElementWidth';
 import { replayLine } from '../position/replay';
-import { AnimatedNumber } from './AnimatedNumber';
-import { MotionBoard } from './MotionBoard';
-import { pathKey, useFlameCamera, type Placement, type Viewport } from './useFlameCamera';
+import { AnimatedNumber } from '../workshop/AnimatedNumber';
+import { MotionBoard } from '../board/MotionBoard';
+import { pathKey, useFlameCamera, type Placement, type Viewport } from '../flame/useFlameCamera';
 import type { OpeningsScreen } from './useOpeningsScreen';
 
 const C = {

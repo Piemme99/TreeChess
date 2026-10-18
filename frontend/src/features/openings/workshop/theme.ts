@@ -1,0 +1,45 @@
+import type { CSSProperties } from 'react';
+import type { Transition } from 'framer-motion';
+import type { Tone } from '../flame/tone';
+
+// Direction « Workshop », retenue le 17/10/2026 (design-prototype/NOTES.md).
+export const COLOURS = {
+  cream: 'oklch(0.962 0.028 85)',
+  paper: 'oklch(0.985 0.012 85)',
+  sand: 'oklch(0.915 0.035 80)',
+  leaf: 'oklch(0.33 0.06 150)',
+  leafSoft: 'oklch(0.50 0.05 150)',
+  kumquat: 'oklch(0.73 0.17 55)',
+  kumquatDeep: 'oklch(0.60 0.17 45)',
+  terracotta: 'oklch(0.60 0.155 35)',
+  apricot: 'oklch(0.84 0.11 70)',
+  sage: 'oklch(0.72 0.09 145)',
+  opponent: 'oklch(0.925 0.025 82)',
+};
+
+export const TONES: Record<Tone, { bg: string; fg: string; label: string }> = {
+  losing: { bg: COLOURS.terracotta, fg: 'white', label: 'leaking' },
+  slipping: { bg: COLOURS.apricot, fg: COLOURS.leaf, label: 'shaky' },
+  even: { bg: 'oklch(0.94 0.02 85)', fg: COLOURS.leaf, label: 'par' },
+  winning: { bg: COLOURS.sage, fg: 'oklch(0.25 0.05 150)', label: 'solid' },
+};
+
+export const BOUNCE: Transition = { type: 'spring', stiffness: 420, damping: 17 };
+export const ZOOM: Transition = { type: 'spring', stiffness: 190, damping: 19, mass: 1 };
+export const PIECE: Transition = { type: 'spring', stiffness: 300, damping: 20 };
+
+export const FONT_FAMILY = "'Bricolage Grotesque', system-ui, sans-serif";
+
+export const tile = (bg: string): CSSProperties => ({
+  background: bg,
+  boxShadow: 'inset 0 1.5px 0 oklch(1 0 0 / 0.45), inset 0 -2px 0 oklch(0 0 0 / 0.12), 0 1px 2px oklch(0.3 0.05 60 / 0.15)',
+});
+
+export const raised = (selected: boolean): CSSProperties =>
+  selected
+    ? { background: COLOURS.leaf, color: COLOURS.cream, boxShadow: '0 14px 28px -10px oklch(0.3 0.06 150 / 0.55)' }
+    : {
+        background: COLOURS.paper,
+        color: COLOURS.leaf,
+        boxShadow: '0 1px 0 oklch(1 0 0 / 0.8) inset, 0 2px 6px -2px oklch(0.35 0.06 60 / 0.2)',
+      };

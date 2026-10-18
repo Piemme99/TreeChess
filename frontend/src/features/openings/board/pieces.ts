@@ -1,4 +1,4 @@
-// PROTOTYPE — donne une identité stable à chaque pièce le long d'une ligne, pour que
+// Donne une identité stable à chaque pièce le long d'une ligne, pour que
 // passer d'une position à une autre fasse glisser les pièces au lieu de les redessiner.
 import { Chess, type Square } from 'chess.js';
 

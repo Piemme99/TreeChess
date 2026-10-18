@@ -45,3 +45,8 @@ avec le son, le rejeu et les figurines de Clubhouse, sans les objets de Club.
 - Les autres variantes sont **conservées** pour référence, pas supprimées. Les briques
   (son, rejeu coup par coup, pièces Staunton, figurines, tuile qui s'enfonce avant le zoom)
   restent disponibles si on veut en greffer une sur Workshop plus tard, une à la fois.
+
+## Adoption (18/10/2026)
+
+Workshop est devenu l'écran Openings (`OpeningsPage`, `/dev/flame-graph`), vue de ligne comprise.
+Le prototype `C` et l'ancien écran `0` ont été retirés ; `F` à `J` restent consultables.

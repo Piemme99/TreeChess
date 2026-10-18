@@ -2,7 +2,7 @@
 // gravées dans le cadre, pièces Staunton qui se soulèvent, glissent et se posent.
 import { AnimatePresence, motion, type Transition } from 'framer-motion';
 import { useMemo } from 'react';
-import { placeLine, squareCoords } from './pieces';
+import { placeLine, squareCoords } from '../board/pieces';
 import { grain, SHADOW, WOOD } from './wood';
 
 const PIECE_URLS = import.meta.glob<string>('./governor/*.svg', { eager: true, query: '?url', import: 'default' });

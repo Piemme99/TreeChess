@@ -1,4 +1,4 @@
-// PROTOTYPE — le flame graph vu comme une caméra sur un plan fixe.
+// Le flame graph vu comme une caméra sur un plan fixe.
 // Chaque barre a des coordonnées absolues (fraction de la racine, profondeur = demi-coup).
 // Zoomer, c'est déplacer la fenêtre : les barres hors champ glissent hors du cadre au lieu
 // de disparaître, ce qui garde le fil spatial.
