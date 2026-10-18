@@ -4,16 +4,17 @@ import { buildOpeningTree, type OpeningTree } from './domain/openingTree';
 import { gamesOfLastMonths } from './domain/period';
 import type { PlayedGame, Side } from './domain/playedGame';
 import { findPriorities, type Priority } from './domain/priorities';
-import { createRepertoire, repertoireLines, type Repertoire } from './domain/repertoire';
-import { dayBefore, gamesUntil } from './domain/replay';
+import { repertoireLines } from './domain/repertoire';
+import { gamesUntil } from './domain/replay';
 import { FlameTiles } from './flame/FlameTiles';
 import { playedGamesFixture } from './fixtures/playedGames';
 import { LineView } from './line/LineView';
 import { BoardPanel } from './position/BoardPanel';
 import { PriorityTickets } from './priorities/PriorityTickets';
-import { ReplayBar } from './replay/ReplayBar';
+import { formatDay } from './replay/formatDay';
+import { REPLAY_FIRST_DAY, REPLAY_START, repertoiresOf } from './replay/replaySetup';
 import { useReplayDay } from './replay/useReplayDay';
-import { Kumquat } from './workshop/Kumquat';
+import { PageHeader } from './workshop/PageHeader';
 import { SideSwitch } from './workshop/SideSwitch';
 import { COLOURS, FONT_FAMILY } from './workshop/theme';
 import { useWorkshopFont } from './workshop/useWorkshopFont';
@@ -22,8 +23,6 @@ import { useWorkshopFont } from './workshop/useWorkshopFont';
 const MAX_PLIES = 24;
 const MAX_PRIORITIES = 5;
 const RECENT_MONTHS = 12;
-// Début du rejeu de l'historique : le répertoire naît des parties d'avant (README, « the repertoire loop »).
-const REPLAY_START = '2026-01-01';
 
 interface Line {
   side: Side;
@@ -37,7 +36,7 @@ export function OpeningsPage() {
   const [pointed, setPointed] = useState<Line | null>(null);
   const [studied, setStudied] = useState<Line | null>(null);
 
-  const replay = useReplayDay(playedGamesFixture, dayBefore(REPLAY_START));
+  const replay = useReplayDay(playedGamesFixture, REPLAY_FIRST_DAY);
   const knownGames = useMemo(() => gamesUntil(playedGamesFixture, replay.day), [replay.day]);
   const trees = useMemo(() => treesOf(knownGames), [knownGames]);
   const recentGames = useMemo(
@@ -96,20 +95,16 @@ export function OpeningsPage() {
   return (
     <MotionConfig reducedMotion="user">
       <div className="min-h-screen pb-28" style={{ fontFamily: FONT_FAMILY, background: COLOURS.cream, color: COLOURS.leaf }}>
-        <header className="mx-auto flex max-w-[84rem] flex-wrap items-center gap-x-4 gap-y-3 px-8 pt-7">
-          <Kumquat />
-          <span className="text-[26px] font-bold tracking-[-0.03em]">kumquat</span>
+        <PageHeader>
           {!studied && (
-            <span className="ml-10">
-              <ReplayBar replay={replay} />
-            </span>
-          )}
-          {!studied && (
-            <span className="ml-auto">
+            <span className="ml-auto flex items-center gap-6">
+              <span className="text-[14px]" style={{ color: COLOURS.leafSoft }}>
+                as of <span className="font-semibold">{formatDay(replay.day)}</span>
+              </span>
               <SideSwitch side={side} onChange={showSide} />
             </span>
           )}
-        </header>
+        </PageHeader>
 
         {studied ? (
           <main className="mx-auto max-w-[84rem] px-8 pt-8">
@@ -159,6 +154,3 @@ function treesOf(games: readonly PlayedGame[]): Record<Side, OpeningTree> {
   return { w: buildOpeningTree(games, 'w', MAX_PLIES), b: buildOpeningTree(games, 'b', MAX_PLIES) };
 }
 
-function repertoiresOf(games: readonly PlayedGame[], today: string): Record<Side, Repertoire> {
-  return { w: createRepertoire(games, 'w', today), b: createRepertoire(games, 'b', today) };
-}

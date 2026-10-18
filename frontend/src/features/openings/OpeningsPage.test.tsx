@@ -1,13 +1,19 @@
 import { MotionGlobalConfig } from 'framer-motion';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { OpeningsPage } from './OpeningsPage';
+import { MemoryRouter } from 'react-router';
+import { OpeningsPage as Page } from './OpeningsPage';
+
+const OpeningsPage = () => (
+  <MemoryRouter>
+    <Page />
+  </MemoryRouter>
+);
 
 const tickets = () => within(screen.getByRole('region', { name: /Fix these first/ })).getAllByRole('button');
 const panel = () => screen.getByRole('complementary', { name: 'Position' });
 const period = (name: string) => within(panel()).getByRole('region', { name });
 const zoomPath = () => screen.getByRole('navigation', { name: 'Zoom path' });
-const replayBar = () => screen.getByRole('region', { name: 'Replay' });
 
 // La table des noms d'ouvertures (~480 Ko) est chargée à la demande : sous la charge de
 // la suite complète, le délai par défaut d'1 s ne suffit pas.
@@ -41,27 +47,12 @@ describe('OpeningsPage', () => {
     expect(lines.join()).not.toMatch(/1\.e4 e5 2\.Nf3 d6 3\.d4/);
   });
 
-  it('starts the replay the day the repertoire is created, then lives the days with games one by one', async () => {
+  it('reads the games known on the replay day, which the Games page moves on', async () => {
+    localStorage.setItem('kumquat.v2.replay-day', '2026-01-04');
     render(<OpeningsPage />);
-    expect(replayBar()).toHaveTextContent('Wed, 31 Dec 2025repertoire created');
-    expect(period('All time')).toHaveTextContent('2557games');
 
-    fireEvent.click(within(replayBar()).getByRole('button', { name: /Next day/ }));
-
-    expect(replayBar()).toHaveTextContent('Sun, 4 Jan 2026day 1 of 49 · 11 games');
+    expect(screen.getByRole('banner')).toHaveTextContent('as of Sun, 4 Jan 2026');
     await waitFor(() => expect(period('All time')).toHaveTextContent('2562games'));
-  });
-
-  it('keeps the replay day across reloads, until reset', () => {
-    const { unmount } = render(<OpeningsPage />);
-    fireEvent.click(within(replayBar()).getByRole('button', { name: /Next day/ }));
-    unmount();
-
-    render(<OpeningsPage />);
-    expect(replayBar()).toHaveTextContent('Sun, 4 Jan 2026');
-
-    fireEvent.click(within(replayBar()).getByRole('button', { name: 'Reset' }));
-    expect(replayBar()).toHaveTextContent('Wed, 31 Dec 2025');
   });
 
   it('shows the repertoire created from the games before the replay starts', () => {

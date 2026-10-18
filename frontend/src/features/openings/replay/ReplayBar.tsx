@@ -1,10 +1,8 @@
 import { motion } from 'framer-motion';
 import type { ReactNode } from 'react';
 import { COLOURS, SPRING, tile } from '../workshop/theme';
+import { formatDay } from './formatDay';
 import type { ReplayDay } from './useReplayDay';
-
-const formatDay = (iso: string) =>
-  new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
 
 export function ReplayBar({ replay }: { replay: ReplayDay }) {
   return (

@@ -18,6 +18,7 @@ Vocabulary (opening tree, deficit, priority, points to gain): `CONTEXT.md`.
   - `priorities.ts` — weak lines, proven on two time scales, weighed on the last 12 months.
   - `repertoire.ts` — the player's repertoire, one per side: moves keyed by position.
   - `replay.ts` — the games known on a replay day, and the days to come.
+  - `gameCheck.ts` — one game against the repertoire: followed, left, or not covered.
   - `line.ts` — a line studied on its own: score move after move, extended by its
     most played continuation, and the moves played at each of its positions.
   - `diagnosis.ts` — engine against results on a line: what the opening moves cost,
@@ -111,12 +112,17 @@ Built one brick at a time, each visible on its own:
    (5 games at least), opponent replies likewise; moves are keyed by position, so
    transpositions share them. Computed on load (stored once decisions change it, brick 4).
    Rim on the flame graph tiles, green arrows and a "Repertoire" line on the board panel.
-2. **Replay** — *done*: `replay/` and `domain/replay.ts`. The replay starts on 2025-12-31,
-   the day the repertoire is created; "Next day" jumps to the next day with games (49 in
-   2026), "Reset" goes back. Trees, priorities and the line view read the games played up
-   to that day, the last 12 months counted back from it. The repertoire does not follow the
-   clock: only the player's decisions will change it. The day is kept in `localStorage`.
-3. **Game check and "To decide"** list, with "Ignore" only.
+2. **Replay and game check, on their own page** — *done* (bricks 2 and 3 merged after PMG
+   found the clock confusing on the Openings screen: daily stats mixed with global ones).
+   Two pages: **Games** (`checks/`, `/dev/games`) lives the replay day by day — "Next day"
+   jumps to the next day with games (49 in 2026), "Reset" goes back and forgets the ignored
+   games — and checks each game of the day against the repertoire (`domain/gameCheck.ts`:
+   followed, left the repertoire, not covered), board at the deviation (red played, green
+   repertoire), "Ignore" only; the undecided games of the previous days stay below.
+   **Openings** stays the global view, computed "as of" the replay day, no clock on it.
+   The repertoire does not follow the clock: only the player's decisions will change it.
+   The day and the ignored games are kept in `localStorage`.
+3. *(merged into 2)*
 4. **Add**: a proposed addition accepted after cutting branches; several player moves
    per position; also used by "Study this line".
 5. **Review**: minimal debrief (red arrow played, green arrows repertoire, replay it).
