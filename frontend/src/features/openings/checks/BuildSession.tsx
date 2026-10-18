@@ -1,18 +1,15 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import { PlayableBoard } from '../board/PlayableBoard';
 import { draftMoves, type AddedMove } from '../domain/addition';
-import { uciToSan } from '../domain/diagnosis';
 import type { PlayedGame } from '../domain/playedGame';
 import { repertoireMovesAt, type Repertoire } from '../domain/repertoire';
 import type { BoardArrow } from '../line/ArrowBoard';
-import { useEvaluations } from '../line/engine';
 import { INK } from '../line/tone';
 import { COLOURS, REPERTOIRE } from '../workshop/theme';
 import { BuildPanel } from './BuildPanel';
 import type { CheckedGame } from './checkedGame';
 import { useBuilder, type Deviation } from './useBuilder';
-
-const HINT_DEPTH = 16;
+import { useCandidates } from './useCandidates';
 
 interface BuildSessionProps {
   checked: CheckedGame & { check: Deviation };
@@ -27,23 +24,24 @@ interface BuildSessionProps {
 /** Le joueur construit son ajout en jouant : l'échiquier devient jouable, le panneau le guide. */
 export function BuildSession({ checked, games, repertoire, onAccept, onCancel, children }: BuildSessionProps) {
   const builder = useBuilder(checked, games);
-  const [hintAt, setHintAt] = useState<string | null>(null);
-  const hint = hintAt === builder.fen;
-  const hintFens = useMemo(() => (hint ? [builder.fen] : []), [hint, builder.fen]);
-  const best = useEvaluations(hintFens, HINT_DEPTH, hint).get(builder.fen)?.best;
+  const candidates = useCandidates(builder);
+  // Un coup pointé n'a de sens que dans sa position : joué, il serait illégal dans la suivante.
+  const [pointedAt, setPointedAt] = useState<{ fen: string; san: string } | null>(null);
+  const pointed = pointedAt?.fen === builder.fen ? pointedAt.san : null;
+  const engine = builder.playerToMove ? (candidates.here?.san ?? null) : null;
+  const atStart = checked.check.kind === 'left' && builder.path.length === builder.start.length;
 
   const arrows = useMemo((): BoardArrow[] => {
-    const planned = repertoireMovesAt(repertoire, builder.fen).map(
+    const shown = repertoireMovesAt(repertoire, builder.fen).map(
       (move): BoardArrow => ({ san: move.san, tone: 'winning', colour: REPERTOIRE, share: 0.5 }),
     );
-    const shown = [...planned];
-    if (checked.check.kind === 'left' && builder.path.length === builder.start.length) {
-      shown.push({ san: checked.check.played, tone: 'even', colour: INK.even, share: 0.5 });
-    }
-    const engine = hint ? uciToSan(builder.fen, best) : null;
+    if (atStart) shown.push({ san: checked.check.played, tone: 'even', colour: INK.even, share: 0.5 });
     if (engine) shown.push({ san: engine, tone: 'winning', colour: COLOURS.kumquatDeep, share: 0.7, emphasis: true });
+    if (pointed && !shown.some((arrow) => arrow.san === pointed)) {
+      shown.push({ san: pointed, tone: 'even', colour: COLOURS.leafSoft, share: 0.5 });
+    }
     return shown;
-  }, [repertoire, builder.fen, builder.path.length, builder.start.length, checked.check, hint, best]);
+  }, [repertoire, builder.fen, atStart, checked.check.played, engine, pointed]);
 
   return (
     <main className="mx-auto grid max-w-[84rem] grid-cols-[minmax(0,30rem)_1fr] gap-10 px-8 pt-8">
@@ -51,8 +49,8 @@ export function BuildSession({ checked, games, repertoire, onAccept, onCancel, c
         <PlayableBoard path={builder.path} flipped={checked.game.side === 'b'} arrows={arrows} onMove={builder.play} />
         <p className="px-1 text-[14px]" style={{ color: INK.even }}>
           <span className="font-bold" style={{ color: REPERTOIRE }}>green</span> already in your repertoire
-          {checked.check.kind === 'left' && builder.path.length === builder.start.length && ' · grey: your move in the game'}
-          {hint && (
+          {atStart && ' · grey: your move in the game'}
+          {engine && (
             <>
               {' '}· <span className="font-bold" style={{ color: COLOURS.kumquatDeep }}>orange</span> the engine move
             </>
@@ -62,8 +60,8 @@ export function BuildSession({ checked, games, repertoire, onAccept, onCancel, c
       <div className="flex min-w-0 flex-col gap-10">
         <BuildPanel
           builder={builder}
-          hint={hint}
-          onHint={() => setHintAt(hint ? null : builder.fen)}
+          candidates={candidates}
+          onPoint={(san) => setPointedAt(san ? { fen: builder.fen, san } : null)}
           onAccept={() => onAccept(draftMoves(builder.draft))}
           onCancel={onCancel}
         />

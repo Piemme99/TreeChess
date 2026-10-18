@@ -137,11 +137,16 @@ Built one brick at a time, each visible on its own:
    "Ignore". The player **builds** the addition by playing on the board (`checks/BuildSession.tsx`,
    `board/PlayableBoard.tsx`: click the piece, then its square), from the position before their
    move, or after the opponent's unexpected move (which goes in with the answer). The panel
-   guides without answering (`BuildPanel.tsx`): at their move, what players of their level play
-   (share, score, their own games); after it, the engine's verdict (?!, ?, ??); the engine move
-   only on "Hint" (orange arrow); at the opponent's move, the frequent replies to pick from.
-   Back, undo, then "Add to my repertoire". PMG preferred this to a drafted tree with branches
-   to cut, tried the same day: playing and searching teaches more than a ready-made answer.
+   guides without answering (`BuildPanel.tsx`, `useCandidates.ts`): a table, one row per
+   candidate move, with the share and the player's score at their level (bar), the engine's
+   evaluation after the move (?!, ?, ?? when it costs), their own games; the engine's move
+   is tagged and drawn in orange at once (a "Hint" button was tried and dropped the same
+   day: every tool that helps the choice is on the table from the start). A row plays its
+   move, hovering it draws its arrow; any move can be played on the board, judged once played.
+   At the opponent's move, the same table over the frequent replies (≥ 5%). Back, undo, then
+   "Add to my repertoire", only once a move of the player's is in. PMG preferred building to a
+   drafted tree with branches to cut, tried the same day: playing and searching teaches more
+   than a ready-made answer.
    Accepted additions are a log in `localStorage` (`replay/useRepertoires.ts`,
    `domain/addition.ts`): the repertoire is the created one plus the log, on both pages, and
    "Reset" empties it. Every game is checked against the current repertoire, so an addition

@@ -17,6 +17,8 @@ export interface Builder {
   draft: readonly DraftMove[];
   /** Ce que le joueur a lui-même joué depuis la position courante dans ses parties. */
   mine: ReadonlyMap<string, number>;
+  /** Au moins un coup du joueur : le coup adverse imprévu seul ne fait pas un ajout. */
+  complete: boolean;
   play: (san: string) => void;
   back: (() => void) | undefined;
   undo: (() => void) | undefined;
@@ -59,6 +61,7 @@ export function useBuilder(checked: CheckedGame & { check: Deviation }, games: r
     playerToMove,
     draft,
     mine,
+    complete: draft.length > locked,
     play,
     back: path.length > start.length ? () => setPath(path.slice(0, -1)) : undefined,
     undo:

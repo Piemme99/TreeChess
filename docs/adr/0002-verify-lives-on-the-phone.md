@@ -86,6 +86,13 @@ opening mistakes in it. A tool that waits to be opened does not change that.
    moves, engine-checked) with branches to cut, judged to hand the answer
    ready-made. The draft remains the line view's plan.
 
+   *Amended 2026-10-18 (quinquies):* the engine's move is shown at once, not
+   on request. Hiding it behind a "Hint" was tried the same day and dropped:
+   the player is choosing a move to keep, not solving a puzzle, so every tool
+   that helps the choice is on the table from the start — share and score at
+   their level, the engine's evaluation of each candidate, the engine's own
+   move, their own games. Choosing stays theirs.
+
 ### Rejected alternatives
 
 - **Hand-written templates** (the v1 `repertoire_templates.go`: Italian, London,

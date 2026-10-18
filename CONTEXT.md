@@ -160,10 +160,11 @@ Moves the player adds to their [repertoire](#repertoire) by playing them on the
 board, from the position a [game check](#game-check) raised: the move they want
 to keep where they left the repertoire, or their answer to the opponent's
 unexpected move, and as far beyond as they like. The product guides without
-answering for them: what players of their level play from each position, and
-the engine's verdict on each of their moves once played; the engine's own move
-only on request. Choosing, rather than accepting a ready-made line, is how the
-moves are learned, and a main line the player does not want is their call.
+answering for them: at each position, one row per candidate move with what
+players of their level play (share, score), the engine's evaluation of the
+move, the engine's own move and their own games. Choosing, rather than
+accepting a ready-made line, is how the moves are learned, and a main line the
+player does not want is their call.
 
 ### Proposed addition
 
