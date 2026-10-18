@@ -76,6 +76,16 @@ opening mistakes in it. A tool that waits to be opened does not change that.
    habit out of 78 (the Slav, 3…♗f5, ~7 pts). The engine still replaces bad
    habits inside an addition the player opens and accepts.
 
+   *Amended 2026-10-18 (quater):* after a [game check](../../CONTEXT.md), the
+   player **builds** the addition by playing it on the board instead of
+   accepting a drafted one. The product guides — what players of their level
+   play from each position, the engine's verdict on each of the player's moves
+   once played, the engine's move only on request — but does not answer for
+   them: choosing is how a line is learned, and a player may not want the main
+   line. Tried and dropped the same day: a drafted tree (habits, then level
+   moves, engine-checked) with branches to cut, judged to hand the answer
+   ready-made. The draft remains the line view's plan.
+
 ### Rejected alternatives
 
 - **Hand-written templates** (the v1 `repertoire_templates.go`: Italian, London,

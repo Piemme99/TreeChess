@@ -66,7 +66,7 @@ export function useLineDiagnosis(tree: OpeningTree, games: readonly PlayedGame[]
   return { line, positions, average, fens, diagnosis, key, keyGames, courses, preparation };
 }
 
-export function usePreparation(keyPath: readonly string[] | null, side: Side, games: readonly PlayedGame[], plies?: number): Preparation {
+function usePreparation(keyPath: readonly string[] | null, side: Side, games: readonly PlayedGame[]): Preparation {
   const [preparation, setPreparation] = useState<Preparation>({ moves: [], steps: 0, done: false });
   useEffect(() => {
     if (!keyPath) return;
@@ -77,10 +77,10 @@ export function usePreparation(keyPath: readonly string[] | null, side: Side, ga
       cancelled: () => cancelled,
       onProgress: (steps) => !cancelled && setPreparation((current) => ({ ...current, steps })),
       onPartial: (moves) => !cancelled && setPreparation((current) => ({ ...current, moves })),
-    }, plies).then((moves) => !cancelled && setPreparation({ moves, steps: 0, done: true }));
+    }).then((moves) => !cancelled && setPreparation({ moves, steps: 0, done: true }));
     return () => {
       cancelled = true;
     };
-  }, [keyPath, side, games, plies]);
+  }, [keyPath, side, games]);
   return preparation;
 }

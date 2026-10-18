@@ -61,7 +61,6 @@ export async function proposePreparation(
   side: Side,
   games: readonly PlayedGame[],
   sources: PreparationSources,
-  plies = PLIES,
 ): Promise<PreparedMove[]> {
   const pov = (cp: number) => winChance(side === 'w' ? cp : -cp);
   let steps = 0;
@@ -74,7 +73,7 @@ export async function proposePreparation(
 
   // Chaque coup est rangé dans l'arbre dès qu'il est choisi, avant que sa suite ne soit cherchée.
   const grow = async (path: readonly string[], reach: number, reaching: readonly PlayedGame[], into: PreparedMove[]): Promise<void> => {
-    if (sources.cancelled() || path.length - keyPath.length >= plies) return;
+    if (sources.cancelled() || path.length - keyPath.length >= PLIES) return;
     const chess = new Chess();
     path.forEach((san) => chess.move(san));
     const fen = chess.fen();

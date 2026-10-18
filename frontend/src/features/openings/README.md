@@ -19,7 +19,7 @@ Vocabulary (opening tree, deficit, priority, points to gain): `CONTEXT.md`.
   - `repertoire.ts` — the player's repertoire, one per side: moves keyed by position.
   - `replay.ts` — the games known on a replay day, and the days to come.
   - `gameCheck.ts` — one game against the repertoire: followed, left, or not covered.
-  - `addition.ts` — the moves of an accepted addition, and the repertoire grown by them.
+  - `addition.ts` — the moves a player played to build an addition, and the repertoire grown by them.
   - `judgement.ts` — a move graded like on Lichess (?!, ?, ??) from two evaluations.
   - `line.ts` — a line studied on its own: score move after move, extended by its
     most played continuation, and the moves played at each of its positions.
@@ -133,18 +133,20 @@ Built one brick at a time, each visible on its own:
    The repertoire does not follow the clock: only the player's decisions will change it.
    The day and the ignored games are kept in `localStorage`.
 3. *(merged into 2)*
-4. **Add** — *done*: on the Games page, a game that asks for a decision offers "Add" next to
-   "Ignore". It opens a proposed addition (`checks/AdditionPanel.tsx`): the move that left
-   the repertoire, then the preparation that follows (`proposePreparation`, the line view's
-   planner, kept to 6 plies here: from move 1 the 12 plies of the line view took minutes of
-   explorer calls). A ✕ on an opponent reply cuts its branch; "Add to my repertoire" keeps the
-   rest. Accepted additions are a log in `localStorage` (`replay/useRepertoires.ts`,
+4. **Add** — *done*: on the Games page, a game that left the repertoire offers "Add" next to
+   "Ignore". The player **builds** the addition by playing on the board (`checks/BuildSession.tsx`,
+   `board/PlayableBoard.tsx`: click the piece, then its square), from the position before their
+   move, or after the opponent's unexpected move (which goes in with the answer). The panel
+   guides without answering (`BuildPanel.tsx`): at their move, what players of their level play
+   (share, score, their own games); after it, the engine's verdict (?!, ?, ??); the engine move
+   only on "Hint" (orange arrow); at the opponent's move, the frequent replies to pick from.
+   Back, undo, then "Add to my repertoire". PMG preferred this to a drafted tree with branches
+   to cut, tried the same day: playing and searching teaches more than a ready-made answer.
+   Accepted additions are a log in `localStorage` (`replay/useRepertoires.ts`,
    `domain/addition.ts`): the repertoire is the created one plus the log, on both pages, and
-   "Reset" empties it. The proposal shows as it grows (`onPartial`): each move appears as soon
-   as it is chosen, so the player reads and points at the first lines while the rest computes. Every game is checked against the current repertoire, so an addition
+   "Reset" empties it. Every game is checked against the current repertoire, so an addition
    settles the game that raised it and changes the checks of the days after.
-   Not done yet: several player moves per position in the proposal (the planner keeps one),
-   and "Study this line" adding to the repertoire.
+   Not done yet: "Study this line" adding to the repertoire.
 5. **Review**: minimal debrief (red arrow played, green arrows repertoire, replay it).
 6. **Worked lines**: adherence, then score against before, on the priority tickets.
 7. **Engine correction at creation, and removals** (six months without the move).

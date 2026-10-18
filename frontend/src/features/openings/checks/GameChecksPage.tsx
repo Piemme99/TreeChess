@@ -6,7 +6,6 @@ import { judgeMove, type Judgement } from '../domain/judgement';
 import { repertoireMovesAt, type Repertoire } from '../domain/repertoire';
 import { gamesUntil } from '../domain/replay';
 import { useEvaluations } from '../line/engine';
-import type { PointedPreparation } from '../line/Preparation';
 import { INK } from '../line/tone';
 import { playedGamesFixture } from '../fixtures/playedGames';
 import { ArrowBoard, type BoardArrow } from '../line/ArrowBoard';
@@ -19,7 +18,7 @@ import { PageHeader } from '../workshop/PageHeader';
 import { COLOURS, FONT_FAMILY, REPERTOIRE } from '../workshop/theme';
 import { useWorkshopFont } from '../workshop/useWorkshopFont';
 import { checkedPath, type CheckedGame } from './checkedGame';
-import { AdditionPanel } from './AdditionPanel';
+import { BuildSession } from './BuildSession';
 import { GameCard } from './GameCard';
 import { useIgnoredChecks } from './useIgnoredChecks';
 
@@ -29,7 +28,6 @@ export function GameChecksPage() {
   const { ignored, ignore, clear } = useIgnoredChecks();
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [addingId, setAddingId] = useState<number | null>(null);
-  const [pointed, setPointed] = useState<PointedPreparation | null>(null);
   const { repertoires, add, clear: forgetAdditions } = useRepertoires(playedGamesFixture);
   const lived = useMemo(() => {
     const games = playedGamesFixture
@@ -62,7 +60,6 @@ export function GameChecksPage() {
   };
   const stopAdding = () => {
     setAddingId(null);
-    setPointed(null);
   };
   const accept = (moves: AddedMove[]) => {
     if (adding) add({ side: adding.game.side, addedAt: replay.day, moves });
@@ -82,32 +79,8 @@ export function GameChecksPage() {
     stopAdding();
   });
 
-  return (
-    <MotionConfig reducedMotion="user">
-      <div className="min-h-screen pb-28" style={{ fontFamily: FONT_FAMILY, background: COLOURS.cream, color: COLOURS.leaf }}>
-        <PageHeader>
-          <span className="ml-auto">
-            <ReplayBar replay={{ ...replay, next, reset }} />
-          </span>
-        </PageHeader>
-        <main className="mx-auto grid max-w-[84rem] grid-cols-[minmax(0,30rem)_1fr] gap-10 px-8 pt-8">
-          <CheckBoard
-            checked={selected}
-            repertoires={repertoires}
-            pointed={adding ? pointed : null}
-            judgement={selected ? judgementOf(selected) : undefined}
-          />
-          <div className="flex min-w-0 flex-col gap-10">
-            {adding && adding.check.kind !== 'followed' && (
-              <AdditionPanel
-                key={adding.id}
-                checked={{ ...adding, check: adding.check }}
-                games={habits}
-                onPoint={setPointed}
-                onAccept={accept}
-                onCancel={stopAdding}
-              />
-            )}
+  const lists = (
+    <>
             <section aria-labelledby="decide-title" className="flex flex-col gap-3">
               <h2 id="decide-title" className="text-[22px] font-extrabold tracking-[-0.02em]">
                 To decide <span className="text-[15px] font-semibold" style={{ color: COLOURS.leafSoft }}>{toDecide.length}</span>
@@ -152,8 +125,34 @@ export function GameChecksPage() {
                 </ul>
               </section>
             )}
-          </div>
-        </main>
+    </>
+  );
+
+  return (
+    <MotionConfig reducedMotion="user">
+      <div className="min-h-screen pb-28" style={{ fontFamily: FONT_FAMILY, background: COLOURS.cream, color: COLOURS.leaf }}>
+        <PageHeader>
+          <span className="ml-auto">
+            <ReplayBar replay={{ ...replay, next, reset }} />
+          </span>
+        </PageHeader>
+        {adding && adding.check.kind !== 'followed' ? (
+          <BuildSession
+            key={adding.id}
+            checked={{ ...adding, check: adding.check }}
+            games={habits}
+            repertoire={repertoires[adding.game.side]}
+            onAccept={accept}
+            onCancel={stopAdding}
+          >
+            {lists}
+          </BuildSession>
+        ) : (
+          <main className="mx-auto grid max-w-[84rem] grid-cols-[minmax(0,30rem)_1fr] gap-10 px-8 pt-8">
+            <CheckBoard checked={selected} repertoires={repertoires} judgement={selected ? judgementOf(selected) : undefined} />
+            <div className="flex min-w-0 flex-col gap-10">{lists}</div>
+          </main>
+        )}
       </div>
     </MotionConfig>
   );
@@ -162,15 +161,13 @@ export function GameChecksPage() {
 interface CheckBoardProps {
   checked: CheckedGame | null;
   repertoires: Record<CheckedGame['game']['side'], Repertoire>;
-  pointed: PointedPreparation | null;
   judgement: Judgement | null | undefined;
 }
 
-function CheckBoard({ checked, repertoires, pointed, judgement }: CheckBoardProps) {
+function CheckBoard({ checked, repertoires, judgement }: CheckBoardProps) {
   const checkPath = useMemo(() => (checked ? checkedPath(checked) : []), [checked]);
-  const path = pointed ? pointed.path : checkPath;
+  const path = checkPath;
   const arrows = useMemo((): BoardArrow[] => {
-    if (pointed) return [{ san: pointed.move.san, tone: 'winning', colour: REPERTOIRE, share: 0.5, emphasis: true }];
     if (!checked || checked.check.kind === 'followed') return [];
     if (checked.check.kind === 'uncovered') {
       const costly = judgement === 'mistake' || judgement === 'blunder';
@@ -181,12 +178,12 @@ function CheckBoard({ checked, repertoires, pointed, judgement }: CheckBoardProp
       (move): BoardArrow => ({ san: move.san, tone: 'winning', colour: REPERTOIRE, share: 0.5, emphasis: true }),
     );
     return [...planned, { san: checked.check.played, tone: 'losing', colour: COLOURS.terracotta, share: 0.5, emphasis: true }];
-  }, [checked, checkPath, pointed, repertoires, judgement]);
+  }, [checked, checkPath, repertoires, judgement]);
 
   return (
     <aside aria-label="Position" className="sticky top-6 flex flex-col gap-3 self-start">
       <ArrowBoard path={path} flipped={checked?.game.side === 'b'} arrows={arrows} />
-      {!pointed && checked?.check.kind === 'left' && (
+      {checked?.check.kind === 'left' && (
         <p className="px-1 text-[14px]" style={{ color: COLOURS.leafSoft }}>
           <span className="font-bold" style={{ color: COLOURS.terracotta }}>red</span> played ·{' '}
           <span className="font-bold" style={{ color: REPERTOIRE }}>green</span> your repertoire

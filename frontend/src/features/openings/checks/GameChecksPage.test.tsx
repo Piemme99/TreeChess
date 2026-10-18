@@ -15,6 +15,10 @@ const page = () =>
     </MemoryRouter>,
   );
 const replayBar = () => screen.getByRole('region', { name: 'Replay' });
+const playOnBoard = (from: string, to: string) => {
+  fireEvent.click(screen.getByRole('button', { name: from }));
+  fireEvent.click(screen.getByRole('button', { name: to }));
+};
 const nextDay = () => fireEvent.click(within(replayBar()).getByRole('button', { name: /Next day/ }));
 const toDecide = () => within(screen.getByRole('region', { name: /^To decide/ })).queryAllByRole('listitem');
 const rest = () => {
@@ -95,27 +99,54 @@ describe('GameChecksPage', () => {
     expect(actionable()).toHaveLength(8);
   });
 
-  it('adds the move the player left the repertoire with, and checks the game again against it', async () => {
+  it('lets the player build the addition by playing the moves on the board', () => {
     page();
     nextDay();
-    const indian = () => dayGames().find((card) => card.textContent?.includes('1.d4') || card.textContent?.includes('1…♘f6'))!;
+    const indian = () => dayGames().find((card) => card.textContent?.includes('1…♘f6'))!;
     fireEvent.click(within(indian()).getByRole('button', { name: /^Add/ }));
 
     const panel = screen.getByRole('region', { name: 'Addition' });
-    expect(panel).toHaveTextContent('Add 1…♘f6 to your repertoire');
-    fireEvent.click(await within(panel).findByRole('button', { name: 'Add 1…♘f6 alone' }));
+    expect(panel).toHaveTextContent('You played 1…♘f6: what do you want to play here?');
+    playOnBoard('g8', 'f6');
+    expect(within(panel).getByRole('list', { name: 'To add' })).toHaveTextContent('1…♘f6');
+    fireEvent.click(within(panel).getByRole('button', { name: 'Add to my repertoire · 1 move' }));
 
     expect(screen.queryByRole('region', { name: 'Addition' })).not.toBeInTheDocument();
     expect(deviations()).toHaveLength(1);
     expect(screen.getAllByText(/Your repertoire held for 1 move$/)).toHaveLength(1);
   });
 
-  it('shows the added move on the Openings page too', async () => {
+  it("starts from the opponent's unexpected move, which goes in with the answer", () => {
     page();
     nextDay();
-    const indian = dayGames().find((card) => card.textContent?.includes('1…♘f6'))!;
-    fireEvent.click(within(indian).getByRole('button', { name: /^Add/ }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Add 1…♘f6 alone' }));
+    const philidor = dayGames().find((card) => card.textContent?.includes('3…b6'))!;
+    fireEvent.click(within(philidor).getByRole('button', { name: /^Add/ }));
+
+    const panel = screen.getByRole('region', { name: 'Addition' });
+    expect(panel).toHaveTextContent('Prepare your answer to 3…b6');
+    playOnBoard('d4', 'e5');
+
+    expect(within(panel).getByRole('list', { name: 'To add' })).toHaveTextContent('3…b6 4.dxe5');
+    expect(within(panel).getByRole('button', { name: 'Add to my repertoire · 2 moves' })).toBeInTheDocument();
+  });
+
+  it('takes back the last move played', () => {
+    page();
+    nextDay();
+    fireEvent.click(within(dayGames().find((card) => card.textContent?.includes('1…♘f6'))!).getByRole('button', { name: /^Add/ }));
+    playOnBoard('g8', 'f6');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Undo last move' }));
+
+    expect(screen.queryByRole('list', { name: 'To add' })).not.toBeInTheDocument();
+  });
+
+  it('shows the added move on the Openings page too', () => {
+    page();
+    nextDay();
+    fireEvent.click(within(dayGames().find((card) => card.textContent?.includes('1…♘f6'))!).getByRole('button', { name: /^Add/ }));
+    playOnBoard('g8', 'f6');
+    fireEvent.click(screen.getByRole('button', { name: /^Add to my repertoire/ }));
     cleanup();
 
     render(

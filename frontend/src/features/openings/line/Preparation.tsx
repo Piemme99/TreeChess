@@ -19,21 +19,13 @@ const SOURCES: Record<MoveSource, { background: string; label: string }> = {
   engine: { background: COLOURS.kumquat, label: 'new: engine move' },
 };
 
-/** Les branches que le joueur retire avant d'ajouter : un coup adverse coupé emporte toute sa suite. */
-export interface Cutting {
-  cut: ReadonlySet<string>;
-  toggle: (line: string) => void;
-}
-
 interface PreparationProps {
   preparation: PreparationState;
   keyPath: readonly string[];
   onPoint: (pointed: PointedPreparation | null) => void;
-  cutting?: Cutting;
-  actions?: ReactNode;
 }
 
-export function Preparation({ preparation, keyPath, onPoint, cutting, actions }: PreparationProps) {
+export function Preparation({ preparation, keyPath, onPoint }: PreparationProps) {
   if (!hasExplorer()) {
     return <Note>Needs a Lichess token (VITE_LICHESS_TOKEN in frontend/.env.local).</Note>;
   }
@@ -65,20 +57,18 @@ export function Preparation({ preparation, keyPath, onPoint, cutting, actions }:
       </p>
       <ul aria-label="Proposed preparation" className="flex flex-col gap-1.5" onMouseLeave={() => onPoint(null)}>
         {preparation.moves.map((move) => (
-          <Branch key={move.san} move={move} path={keyPath} onPoint={onPoint} cutting={cutting} />
+          <Branch key={move.san} move={move} path={keyPath} onPoint={onPoint} />
         ))}
       </ul>
-      {actions ?? (
-        <button
-          type="button"
-          disabled
-          title="Comes with Verify: your preparation, replayed on your phone"
-          className="self-start rounded-full px-4 py-1.5 text-[14px] font-bold opacity-50"
-          style={tile(COLOURS.sand)}
-        >
-          Add to my preparation
-        </button>
-      )}
+      <button
+        type="button"
+        disabled
+        title="Comes with Verify: your preparation, replayed on your phone"
+        className="self-start rounded-full px-4 py-1.5 text-[14px] font-bold opacity-50"
+        style={tile(COLOURS.sand)}
+      >
+        Add to my preparation
+      </button>
     </div>
   );
 }
@@ -92,16 +82,7 @@ function Note({ children }: { children: ReactNode }) {
 }
 
 // Un coup adverse et la réponse préparée tiennent sur une rangée ; les autres réponses adverses s'indentent dessous.
-interface BranchProps {
-  move: PreparedMove;
-  path: readonly string[];
-  onPoint: (pointed: PointedPreparation | null) => void;
-  cutting?: Cutting;
-}
-
-function Branch({ move, path, onPoint, cutting }: BranchProps) {
-  const line = [...path, move.san].join(' ');
-  const cut = cutting?.cut.has(line) ?? false;
+function Branch({ move, path, onPoint }: { move: PreparedMove; path: readonly string[]; onPoint: (pointed: PointedPreparation | null) => void }) {
   const chain = [{ move, path }];
   let last = move;
   let after = [...path, move.san];
@@ -113,25 +94,14 @@ function Branch({ move, path, onPoint, cutting }: BranchProps) {
   return (
     <li className="flex flex-col gap-1.5">
       <div className="flex flex-wrap items-center gap-1.5">
-        {(cut ? chain.slice(0, 1) : chain).map((link) => (
-          <Chip key={link.move.ply} move={link.move} onPoint={() => onPoint({ path: link.path, move: link.move })} cut={cut} />
+        {chain.map((link) => (
+          <Chip key={link.move.ply} move={link.move} onPoint={() => onPoint({ path: link.path, move: link.move })} />
         ))}
-        {cutting && !move.byPlayer && (
-          <button
-            type="button"
-            onClick={() => cutting.toggle(line)}
-            aria-label={`${cut ? 'Keep' : 'Cut'} ${figurineMove(move.san, move.ply)}`}
-            className="rounded-full px-2 text-[13px] font-bold"
-            style={{ color: COLOURS.leafSoft }}
-          >
-            {cut ? '↺' : '✕'}
-          </button>
-        )}
       </div>
-      {!cut && last.next.length > 0 && (
+      {last.next.length > 0 && (
         <ul className="ml-3 flex flex-col gap-1.5 border-l-2 pl-3" style={{ borderColor: COLOURS.sand }}>
           {last.next.map((next) => (
-            <Branch key={next.san} move={next} path={after} onPoint={onPoint} cutting={cutting} />
+            <Branch key={next.san} move={next} path={after} onPoint={onPoint} />
           ))}
         </ul>
       )}
@@ -139,14 +109,10 @@ function Branch({ move, path, onPoint, cutting }: BranchProps) {
   );
 }
 
-function Chip({ move, onPoint, cut = false }: { move: PreparedMove; onPoint: () => void; cut?: boolean }) {
+function Chip({ move, onPoint }: { move: PreparedMove; onPoint: () => void }) {
   if (!move.byPlayer) {
     return (
-      <span
-        onMouseEnter={onPoint}
-        className={`rounded-lg px-2 py-0.5 text-[13px] font-semibold ${cut ? 'line-through opacity-50' : ''}`}
-        style={{ background: COLOURS.opponent }}
-      >
+      <span onMouseEnter={onPoint} className="rounded-lg px-2 py-0.5 text-[13px] font-semibold" style={{ background: COLOURS.opponent }}>
         {figurineMove(move.san, move.ply)}{' '}
         <span className="text-[11px] opacity-60">{move.share ? formatPercent(move.share) : `${move.mine} of yours`}</span>
       </span>

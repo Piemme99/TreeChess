@@ -137,8 +137,8 @@ fresh. Two outcomes:
 
 - **Left the repertoire** — the player played a move their repertoire does not
   hold ("move 7: you played Bd7, your repertoire has e6"). The check cannot tell
-  a lapse from a new choice, so it asks instead of judging: **Add** it (a
-  [proposed addition](#proposed-addition) from there) or **Review** the
+  a lapse from a new choice, so it asks instead of judging: **Add** (an
+  [addition](#addition) built from there) or **Review** the
   repertoire's moves (an exercise on that position). Without an answer, nothing
   changes.
 - **Not covered** — the opponent played a move the repertoire does not prepare.
@@ -154,24 +154,32 @@ A game that follows the repertoire to its end needs no check. It is the phone
 side of Verify; [spaced repetition](#spaced-repetition) covers the days without
 games. See ADR 0002.
 
+### Addition
+
+Moves the player adds to their [repertoire](#repertoire) by playing them on the
+board, from the position a [game check](#game-check) raised: the move they want
+to keep where they left the repertoire, or their answer to the opponent's
+unexpected move, and as far beyond as they like. The product guides without
+answering for them: what players of their level play from each position, and
+the engine's verdict on each of their moves once played; the engine's own move
+only on request. Choosing, rather than accepting a ready-made line, is how the
+moves are learned, and a main line the player does not want is their call.
+
 ### Proposed addition
 
-Moves the product drafts for a part of the [repertoire](#repertoire) that does
-not exist yet, built from the player's own habits rather than from theory: at
-each position where they are to move, the moves they play regularly (a fifth of
-their games there, over the last 12 months) — each replaced only where the engine
-judges it bad. Opponent moves come from the player's games and
-the Lichess explorer at their rating. Where the player's games stop, it goes on
-with what players of their level play (the most played move the engine accepts,
-against the frequent replies), up to where their games are usually decided. The
-player accepts it, edits it, or ignores it. See ADR 0002 (amended 2026-10-18).
+Moves the product drafts for a line, from the player's own habits rather than
+from theory: at each position where they are to move, the moves they play
+regularly — each replaced only where the engine judges it bad; opponent moves
+from their games and the Lichess explorer at their rating, going on where their
+games stop. Today it is the plan of the line view; the player builds an
+[addition](#addition) instead of accepting one. See ADR 0002 (amended 2026-10-18).
 
 _Avoid_: proposed preparation.
 
 ### Pending decision
 
 Something the loop needs the player to settle: a [game check](#game-check)
-(Add or Review), a [proposed addition](#proposed-addition), a habit the engine
+(Add or Review), an addition, a habit the engine
 offers to replace, or a move offered for removal from the
 [repertoire](#repertoire). They wait together, newest first, each
 naming the game that raised it — apart from [priorities](#priority), which are
