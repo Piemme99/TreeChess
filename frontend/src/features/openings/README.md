@@ -69,6 +69,9 @@ Vocabulary (opening tree, deficit, priority, points to gain): `CONTEXT.md`.
   there), then persistence.
 - **Engine signal** ("opening leak": a move the engine finds bad), left out so far.
 - **Line view, rework**: restyled in Workshop as is; its layout is to be redesigned.
+- **Flame graph prototype** (`flame-prototype/`, `/dev/flame-graph?flame=`): four renderings of the
+  tree inside the real page, question and verdict in its `NOTES.md`. Throwaway: fold the winner
+  into `flame/`, then delete the folder and the `renderFlame` hook of `OpeningsPage`.
 - **Design prototype** (`design-prototype/`, `/dev/flame-graph?variant=F…J`): the
   directions not chosen, kept for reference. They share the domain and `board/`, `flame/`,
   `workshop/` with the page; keep them compiling.
