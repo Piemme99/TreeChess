@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { useMemo } from 'react';
 import { useOpeningName } from '../../../shared/hooks/useOpeningName';
+import { JUDGEMENT_MARK, type Judgement } from '../domain/judgement';
 import { figurineMove } from '../domain/notation';
 import { replayLine } from '../position/replay';
 import { formatDay } from '../replay/formatDay';
@@ -23,9 +24,11 @@ interface GameCardProps {
   onIgnore?: () => void;
   onAdd?: () => void;
   ignored?: boolean;
+  /** Pour un coup adverse hors répertoire : `undefined` tant que le moteur cherche. */
+  judgement?: Judgement | null;
 }
 
-export function GameCard({ checked, selected, onSelect, showDate = false, onIgnore, onAdd, ignored = false }: GameCardProps) {
+export function GameCard({ checked, selected, onSelect, showDate = false, onIgnore, onAdd, ignored = false, judgement }: GameCardProps) {
   const { game, check } = checked;
   const fens = useMemo(() => replayLine(game.moves.slice(0, Math.max(1, checkedPath(checked).length + 1))).fens, [checked, game.moves]);
   const opening = useOpeningName(fens);
@@ -53,7 +56,7 @@ export function GameCard({ checked, selected, onSelect, showDate = false, onIgno
         </span>
         <span className="truncate text-[16px] font-semibold">{opening?.name ?? 'Unnamed opening'}</span>
         <span className="text-[14px]" style={{ opacity: 0.8 }}>
-          <Verdict checked={checked} />
+          <Verdict checked={checked} judgement={judgement} />
         </span>
       </motion.button>
       {ignored && (
@@ -87,20 +90,33 @@ export function GameCard({ checked, selected, onSelect, showDate = false, onIgno
   );
 }
 
-function Verdict({ checked: { check, asks } }: { checked: CheckedGame }) {
+function Verdict({ checked: { check, asks }, judgement }: { checked: CheckedGame; judgement?: Judgement | null }) {
   if (check.kind === 'followed') {
     const moves = Math.ceil(check.plies / 2);
     return <>Your repertoire held for {moves} {moves === 1 ? 'move' : 'moves'}</>;
   }
   const played = figurineMove(check.played, check.ply + 1);
-  const planned = check.planned.map((san) => figurineMove(san, check.ply + 1)).join(' · ');
-  return check.kind === 'left' ? (
+  if (check.kind === 'left') {
+    const planned = check.planned.map((san) => figurineMove(san, check.ply + 1)).join(' · ');
+    return (
+      <>
+        You played <b>{played}</b>, your repertoire has {planned}
+      </>
+    );
+  }
+  return (
     <>
-      You played <b>{played}</b>, your repertoire has {planned}
-    </>
-  ) : (
-    <>
-      Opponent played <b>{played}</b>, your repertoire answers {planned}
+      Opponent played{' '}
+      <b>
+        {played}
+        {judgement && JUDGEMENT_MARK[judgement]}
+      </b>
+      {judgement && (
+        <span className="font-semibold" style={{ color: judgement === 'inaccuracy' ? COLOURS.kumquatDeep : COLOURS.terracotta }}>
+          {' '}
+          · {judgement}
+        </span>
+      )}
       {!asks && ' · first time: not kept for later'}
     </>
   );

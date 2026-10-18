@@ -2,9 +2,12 @@ import { MotionConfig } from 'framer-motion';
 import { useMemo, useState } from 'react';
 import { asksDecision, checkGame } from '../domain/gameCheck';
 import type { AddedMove } from '../domain/addition';
+import { judgeMove, type Judgement } from '../domain/judgement';
 import { repertoireMovesAt, type Repertoire } from '../domain/repertoire';
 import { gamesUntil } from '../domain/replay';
+import { useEvaluations } from '../line/engine';
 import type { PointedPreparation } from '../line/Preparation';
+import { INK } from '../line/tone';
 import { playedGamesFixture } from '../fixtures/playedGames';
 import { ArrowBoard, type BoardArrow } from '../line/ArrowBoard';
 import { replayLine } from '../position/replay';
@@ -45,6 +48,7 @@ export function GameChecksPage() {
   const earlier = lived.filter((checked) => checked.game.playedAt < replay.day && isPending(checked)).reverse();
   const toDecide = [...today.filter(isOpen), ...earlier];
   const settled = today.filter((checked) => !isOpen(checked));
+  const judgementOf = useOpponentJudgements(lived, replay.day);
   const selected = lived.find((checked) => checked.id === selectedId) ?? toDecide[0] ?? today[0] ?? null;
   const adding = lived.find((checked) => checked.id === addingId);
   const habits = useMemo(
@@ -87,7 +91,12 @@ export function GameChecksPage() {
           </span>
         </PageHeader>
         <main className="mx-auto grid max-w-[84rem] grid-cols-[minmax(0,30rem)_1fr] gap-10 px-8 pt-8">
-          <CheckBoard checked={selected} repertoires={repertoires} pointed={adding ? pointed : null} />
+          <CheckBoard
+            checked={selected}
+            repertoires={repertoires}
+            pointed={adding ? pointed : null}
+            judgement={selected ? judgementOf(selected) : undefined}
+          />
           <div className="flex min-w-0 flex-col gap-10">
             {adding && adding.check.kind !== 'followed' && (
               <AdditionPanel
@@ -114,6 +123,7 @@ export function GameChecksPage() {
                       onIgnore={() => ignore(checked.id)}
                       onAdd={() => startAdding(checked)}
                       showDate={checked.game.playedAt !== replay.day}
+                      judgement={judgementOf(checked)}
                     />
                   ))}
                 </ul>
@@ -136,6 +146,7 @@ export function GameChecksPage() {
                       selected={checked === selected}
                       onSelect={() => setSelectedId(checked.id)}
                       ignored={ignored.has(checked.id)}
+                      judgement={judgementOf(checked)}
                     />
                   ))}
                 </ul>
@@ -152,25 +163,30 @@ interface CheckBoardProps {
   checked: CheckedGame | null;
   repertoires: Record<CheckedGame['game']['side'], Repertoire>;
   pointed: PointedPreparation | null;
+  judgement: Judgement | null | undefined;
 }
 
-function CheckBoard({ checked, repertoires, pointed }: CheckBoardProps) {
+function CheckBoard({ checked, repertoires, pointed, judgement }: CheckBoardProps) {
   const checkPath = useMemo(() => (checked ? checkedPath(checked) : []), [checked]);
   const path = pointed ? pointed.path : checkPath;
   const arrows = useMemo((): BoardArrow[] => {
     if (pointed) return [{ san: pointed.move.san, tone: 'winning', colour: REPERTOIRE, share: 0.5, emphasis: true }];
     if (!checked || checked.check.kind === 'followed') return [];
+    if (checked.check.kind === 'uncovered') {
+      const costly = judgement === 'mistake' || judgement === 'blunder';
+      return [{ san: checked.check.played, tone: 'even', colour: costly ? COLOURS.terracotta : INK.even, share: 0.5, emphasis: true }];
+    }
     const fen = replayLine(checkPath).fens[checkPath.length];
     const planned = repertoireMovesAt(repertoires[checked.game.side], fen).map(
       (move): BoardArrow => ({ san: move.san, tone: 'winning', colour: REPERTOIRE, share: 0.5, emphasis: true }),
     );
     return [...planned, { san: checked.check.played, tone: 'losing', colour: COLOURS.terracotta, share: 0.5, emphasis: true }];
-  }, [checked, checkPath, pointed, repertoires]);
+  }, [checked, checkPath, pointed, repertoires, judgement]);
 
   return (
     <aside aria-label="Position" className="sticky top-6 flex flex-col gap-3 self-start">
       <ArrowBoard path={path} flipped={checked?.game.side === 'b'} arrows={arrows} />
-      {!pointed && checked && checked.check.kind !== 'followed' && (
+      {!pointed && checked?.check.kind === 'left' && (
         <p className="px-1 text-[14px]" style={{ color: COLOURS.leafSoft }}>
           <span className="font-bold" style={{ color: COLOURS.terracotta }}>red</span> played ·{' '}
           <span className="font-bold" style={{ color: REPERTOIRE }}>green</span> your repertoire
@@ -178,4 +194,32 @@ function CheckBoard({ checked, repertoires, pointed }: CheckBoardProps) {
       )}
     </aside>
   );
+}
+
+const JUDGED_DEPTH = 12;
+
+/**
+ * Ce que vaut chaque coup adverse hors répertoire, selon Stockfish : `undefined` tant que le moteur cherche.
+ * Seuls les coups montrés sont évalués : ceux du jour et ceux qui attendent une décision.
+ */
+function useOpponentJudgements(lived: readonly CheckedGame[], day: string) {
+  const judged = useMemo(
+    () =>
+      lived.flatMap((checked) => {
+        if (checked.check.kind !== 'uncovered' || (checked.game.playedAt !== day && !checked.asks)) return [];
+        const fens = replayLine(checked.game.moves.slice(0, checked.check.ply + 1)).fens;
+        return [{ id: checked.id, before: fens[checked.check.ply], after: fens[checked.check.ply + 1] }];
+      }),
+    [lived, day],
+  );
+  const fens = useMemo(() => judged.flatMap(({ before, after }) => [before, after]), [judged]);
+  const evaluations = useEvaluations(fens, JUDGED_DEPTH);
+
+  return (checked: CheckedGame): Judgement | null | undefined => {
+    const entry = judged.find(({ id }) => id === checked.id);
+    const before = entry && evaluations.get(entry.before);
+    const after = entry && evaluations.get(entry.after);
+    if (!before || !after) return undefined;
+    return judgeMove(before.cp, after.cp, checked.game.side === 'w' ? 'b' : 'w');
+  };
 }

@@ -20,6 +20,7 @@ Vocabulary (opening tree, deficit, priority, points to gain): `CONTEXT.md`.
   - `replay.ts` — the games known on a replay day, and the days to come.
   - `gameCheck.ts` — one game against the repertoire: followed, left, or not covered.
   - `addition.ts` — the moves of an accepted addition, and the repertoire grown by them.
+  - `judgement.ts` — a move graded like on Lichess (?!, ?, ??) from two evaluations.
   - `line.ts` — a line studied on its own: score move after move, extended by its
     most played continuation, and the moves played at each of its positions.
   - `diagnosis.ts` — engine against results on a line: what the opening moves cost,
@@ -124,7 +125,9 @@ Built one brick at a time, each visible on its own:
    repertoire), "Ignore" only; the undecided games of the previous days stay below. Every
    game that left the repertoire offers "Add" and "Ignore" on its day; a first "not covered"
    left alone is not kept for the next days, only one whose opponent move comes back is
-   (`asksDecision`, PMG: no game without an action). Over 2026: 226 games followed, 119 left, 185 not covered; 174
+   (`asksDecision`, PMG: no game without an action). A "not covered" names only the
+   opponent's move, judged by Stockfish with Lichess's thresholds (`domain/judgement.ts`:
+   ?! inaccuracy, ? mistake, ?? blunder); the board shows that move alone, red when it costs. Over 2026: 226 games followed, 119 left, 185 not covered; 174
    decisions, 3 a day (median), 15 at most.
    **Openings** stays the global view, computed "as of" the replay day, no clock on it.
    The repertoire does not follow the clock: only the player's decisions will change it.
