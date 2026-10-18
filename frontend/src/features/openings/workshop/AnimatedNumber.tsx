@@ -1,4 +1,3 @@
-// PROTOTYPE
 import { animate, useMotionValue, useTransform, motion } from 'framer-motion';
 import { useEffect } from 'react';
 

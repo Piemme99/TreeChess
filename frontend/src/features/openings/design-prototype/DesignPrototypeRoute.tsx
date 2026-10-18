@@ -1,18 +1,15 @@
-// PROTOTYPE — directions esthétiques pour l'écran Openings, sur la route /dev/flame-graph,
-// basculables via ?variant=. « 0 » est l'écran actuel ; C (Workshop) est la direction retenue, voir NOTES.md.
-// Question : quelle direction donne à la v2 son identité ?
+// Workshop, la direction retenue, est devenue l'écran Openings. Les autres directions restent
+// consultables via ?variant=, pour référence (voir NOTES.md).
 import { useEffect } from 'react';
 import { useSearchParams } from 'react-router';
-import { FlameGraphPage } from '../FlameGraphPage';
+import { OpeningsPage } from '../OpeningsPage';
 import { ClubhouseVariant } from './ClubhouseVariant';
 import { ClubVariant } from './ClubVariant';
 import { PrototypeSwitcher } from './PrototypeSwitcher';
 import { useOpeningsScreen } from './useOpeningsScreen';
-import { WorkshopVariant } from './WorkshopVariant';
 import { WorkshopWoodVariant } from './WorkshopWoodVariant';
 
 const VARIANTS = [
-  { key: '0', name: 'Current' },
   { key: 'C', name: 'Workshop (chosen)' },
   { key: 'F', name: 'Club' },
   { key: 'G', name: 'Clubhouse · wood table' },
@@ -35,21 +32,24 @@ function useVariantFonts() {
 }
 
 export function DesignPrototypeRoute() {
-  useVariantFonts();
   const [searchParams, setSearchParams] = useSearchParams();
-  const variant = searchParams.get('variant') ?? 'C';
+  const variant = searchParams.get('variant');
+  if (!variant || variant === 'C') return <OpeningsPage />;
+  return <Variant variant={variant} onChange={(key) => setSearchParams(key === 'C' ? {} : { variant: key }, { replace: true })} />;
+}
+
+function Variant({ variant, onChange }: { variant: string; onChange: (key: string) => void }) {
+  useVariantFonts();
   const screen = useOpeningsScreen();
 
   return (
     <>
-      {variant === '0' && <FlameGraphPage />}
-      {variant === 'C' && <WorkshopVariant screen={screen} />}
       {variant === 'F' && <ClubVariant screen={screen} />}
       {variant === 'G' && <ClubhouseVariant screen={screen} surface="wood" />}
       {variant === 'H' && <ClubhouseVariant screen={screen} surface="baize" />}
       {variant === 'I' && <ClubhouseVariant screen={screen} surface="cream" />}
       {variant === 'J' && <WorkshopWoodVariant screen={screen} />}
-      <PrototypeSwitcher variants={VARIANTS} current={variant} onChange={(key) => setSearchParams({ variant: key }, { replace: true })} />
+      <PrototypeSwitcher variants={VARIANTS} current={variant} onChange={onChange} />
     </>
   );
 }

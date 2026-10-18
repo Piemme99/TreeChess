@@ -1,0 +1,130 @@
+import { useEffect, useMemo, useState } from 'react';
+import { buildOpeningTree, type OpeningTree } from './domain/openingTree';
+import { gamesOfLastMonths } from './domain/period';
+import type { PlayedGame, Side } from './domain/playedGame';
+import { findPriorities, type Priority } from './domain/priorities';
+import { FlameTiles } from './flame/FlameTiles';
+import { playedGamesFixture } from './fixtures/playedGames';
+import { LineView } from './line/LineView';
+import { BoardPanel } from './position/BoardPanel';
+import { PriorityTickets } from './priorities/PriorityTickets';
+import { Kumquat } from './workshop/Kumquat';
+import { SideSwitch } from './workshop/SideSwitch';
+import { COLOURS, FONT_FAMILY } from './workshop/theme';
+import { useWorkshopFont } from './workshop/useWorkshopFont';
+
+const MAX_PLIES = 16;
+const MAX_PRIORITIES = 5;
+const RECENT_MONTHS = 12;
+
+interface Line {
+  side: Side;
+  path: readonly string[];
+}
+
+export function OpeningsPage() {
+  useWorkshopFont();
+  const [side, setSide] = useState<Side>('w');
+  const [focusPath, setFocusPath] = useState<readonly string[]>([]);
+  const [pointed, setPointed] = useState<Line | null>(null);
+  const [studied, setStudied] = useState<Line | null>(null);
+
+  const trees = useMemo(() => treesOf(playedGamesFixture), []);
+  const recentTrees = useMemo(
+    () => treesOf(gamesOfLastMonths(playedGamesFixture, RECENT_MONTHS, new Date())),
+    [],
+  );
+  const priorities = useMemo(
+    () => findPriorities(trees, recentTrees, MAX_PRIORITIES),
+    [trees, recentTrees],
+  );
+  const shown = pointed ?? { side, path: focusPath };
+
+  const showSide = (next: Side) => {
+    setSide(next);
+    setFocusPath([]);
+    setPointed(null);
+  };
+
+  const zoomTo = (path: readonly string[]) => {
+    setFocusPath(path);
+    setPointed(null);
+  };
+
+  // Cliquer une priorité n'en montre qu'un aperçu : l'étudier est un choix explicite.
+  const previewPriority = (priority: Priority) => {
+    setSide(priority.side);
+    zoomTo(priority.path);
+  };
+
+  const isShown = (priority: Priority) =>
+    priority.side === side && priority.path.join(' ') === focusPath.join(' ');
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' && event.key !== 'Backspace') return;
+      if (studied) {
+        setStudied(null);
+        return;
+      }
+      setFocusPath((path) => path.slice(0, -1));
+      setPointed(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [studied]);
+
+  return (
+    <div className="min-h-screen pb-28" style={{ fontFamily: FONT_FAMILY, background: COLOURS.cream, color: COLOURS.leaf }}>
+      <header className="mx-auto flex max-w-[84rem] items-center gap-4 px-8 pt-7">
+        <Kumquat />
+        <span className="text-[26px] font-bold tracking-[-0.03em]">kumquat</span>
+        {!studied && (
+          <span className="ml-auto">
+            <SideSwitch side={side} onChange={showSide} />
+          </span>
+        )}
+      </header>
+
+      {studied ? (
+        <main className="mx-auto max-w-[84rem] px-8 pt-8">
+          <LineView
+            key={`${studied.side}:${studied.path.join(' ')}`}
+            tree={recentTrees[studied.side]}
+            path={studied.path}
+            onBack={() => setStudied(null)}
+            onOpen={(path) => setStudied({ side: studied.side, path })}
+          />
+        </main>
+      ) : (
+        <main className="mx-auto grid max-w-[84rem] grid-cols-[minmax(0,30rem)_1fr] gap-10 px-8 pt-8">
+          <BoardPanel
+            history={trees[shown.side]}
+            recent={recentTrees[shown.side]}
+            path={shown.path}
+            onStudy={focusPath.length > 0 ? () => setStudied({ side, path: focusPath }) : undefined}
+          />
+          <div className="flex min-w-0 flex-col gap-10">
+            <PriorityTickets
+              priorities={priorities}
+              isSelected={isShown}
+              onSelect={previewPriority}
+              onPoint={setPointed}
+            />
+            <FlameTiles
+              key={side}
+              tree={trees[side]}
+              focusPath={focusPath}
+              onFocusChange={zoomTo}
+              onPoint={(path) => setPointed(path && { side, path })}
+            />
+          </div>
+        </main>
+      )}
+    </div>
+  );
+}
+
+function treesOf(games: readonly PlayedGame[]): Record<Side, OpeningTree> {
+  return { w: buildOpeningTree(games, 'w', MAX_PLIES), b: buildOpeningTree(games, 'b', MAX_PLIES) };
+}
