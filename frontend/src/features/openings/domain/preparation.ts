@@ -59,12 +59,13 @@ export async function proposePreparation(
   side: Side,
   games: readonly PlayedGame[],
   sources: PreparationSources,
+  plies = PLIES,
 ): Promise<PreparedMove[]> {
   const pov = (cp: number) => winChance(side === 'w' ? cp : -cp);
   let steps = 0;
 
   const grow = async (path: readonly string[], reach: number, reaching: readonly PlayedGame[]): Promise<PreparedMove[]> => {
-    if (sources.cancelled() || path.length - keyPath.length >= PLIES) return [];
+    if (sources.cancelled() || path.length - keyPath.length >= plies) return [];
     const chess = new Chess();
     path.forEach((san) => chess.move(san));
     const fen = chess.fen();

@@ -12,7 +12,8 @@ import { LineView } from './line/LineView';
 import { BoardPanel } from './position/BoardPanel';
 import { PriorityTickets } from './priorities/PriorityTickets';
 import { formatDay } from './replay/formatDay';
-import { REPLAY_FIRST_DAY, REPLAY_START, repertoiresOf } from './replay/replaySetup';
+import { REPLAY_FIRST_DAY } from './replay/replaySetup';
+import { useRepertoires } from './replay/useRepertoires';
 import { useReplayDay } from './replay/useReplayDay';
 import { PageHeader } from './workshop/PageHeader';
 import { SideSwitch } from './workshop/SideSwitch';
@@ -44,8 +45,7 @@ export function OpeningsPage() {
     [knownGames, replay.day],
   );
   const recentTrees = useMemo(() => treesOf(recentGames), [recentGames]);
-  // Le répertoire ne suit pas l'horloge : il ne change que par les décisions du joueur (briques suivantes).
-  const repertoires = useMemo(() => repertoiresOf(playedGamesFixture, REPLAY_START), []);
+  const { repertoires } = useRepertoires(playedGamesFixture);
   const coveredLines = useMemo(() => repertoireLines(repertoires[side], trees[side]), [repertoires, trees, side]);
   const priorities = useMemo(
     () => findPriorities(trees, recentTrees, MAX_PRIORITIES),

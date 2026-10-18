@@ -19,6 +19,7 @@ Vocabulary (opening tree, deficit, priority, points to gain): `CONTEXT.md`.
   - `repertoire.ts` — the player's repertoire, one per side: moves keyed by position.
   - `replay.ts` — the games known on a replay day, and the days to come.
   - `gameCheck.ts` — one game against the repertoire: followed, left, or not covered.
+  - `addition.ts` — the moves of an accepted addition, and the repertoire grown by them.
   - `line.ts` — a line studied on its own: score move after move, extended by its
     most played continuation, and the moves played at each of its positions.
   - `diagnosis.ts` — engine against results on a line: what the opening moves cost,
@@ -127,8 +128,17 @@ Built one brick at a time, each visible on its own:
    The repertoire does not follow the clock: only the player's decisions will change it.
    The day and the ignored games are kept in `localStorage`.
 3. *(merged into 2)*
-4. **Add**: a proposed addition accepted after cutting branches; several player moves
-   per position; also used by "Study this line".
+4. **Add** — *done*: on the Games page, a game that asks for a decision offers "Add" next to
+   "Ignore". It opens a proposed addition (`checks/AdditionPanel.tsx`): the move that left
+   the repertoire, then the preparation that follows (`proposePreparation`, the line view's
+   planner, kept to 6 plies here: from move 1 the 12 plies of the line view took minutes of
+   explorer calls). A ✕ on an opponent reply cuts its branch; "Add to my repertoire" keeps the
+   rest. Accepted additions are a log in `localStorage` (`replay/useRepertoires.ts`,
+   `domain/addition.ts`): the repertoire is the created one plus the log, on both pages, and
+   "Reset" empties it. Every game is checked against the current repertoire, so an addition
+   settles the game that raised it and changes the checks of the days after.
+   Not done yet: several player moves per position in the proposal (the planner keeps one),
+   and "Study this line" adding to the repertoire.
 5. **Review**: minimal debrief (red arrow played, green arrows repertoire, replay it).
 6. **Worked lines**: adherence, then score against before, on the priority tickets.
 7. **Engine correction at creation, and removals** (six months without the move).

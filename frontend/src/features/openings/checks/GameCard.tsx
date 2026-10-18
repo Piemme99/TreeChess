@@ -21,10 +21,11 @@ interface GameCardProps {
   onSelect: () => void;
   showDate?: boolean;
   onIgnore?: () => void;
+  onAdd?: () => void;
   ignored?: boolean;
 }
 
-export function GameCard({ checked, selected, onSelect, showDate = false, onIgnore, ignored = false }: GameCardProps) {
+export function GameCard({ checked, selected, onSelect, showDate = false, onIgnore, onAdd, ignored = false }: GameCardProps) {
   const { game, check } = checked;
   const fens = useMemo(() => replayLine(game.moves.slice(0, Math.max(1, checkedPath(checked).length + 1))).fens, [checked, game.moves]);
   const opening = useOpeningName(fens);
@@ -60,6 +61,17 @@ export function GameCard({ checked, selected, onSelect, showDate = false, onIgno
           Ignored
         </span>
       )}
+      {onAdd && (
+        <button
+          type="button"
+          onClick={onAdd}
+          aria-label={`Add ${opening?.name ?? 'this game'}`}
+          className="self-center rounded-full px-3.5 py-1.5 text-[13px] font-bold"
+          style={{ background: COLOURS.leaf, color: COLOURS.cream }}
+        >
+          Add
+        </button>
+      )}
       {onIgnore && (
         <button
           type="button"
@@ -76,7 +88,10 @@ export function GameCard({ checked, selected, onSelect, showDate = false, onIgno
 }
 
 function Verdict({ checked: { check, asks } }: { checked: CheckedGame }) {
-  if (check.kind === 'followed') return <>Your repertoire held for {Math.ceil(check.plies / 2)} moves</>;
+  if (check.kind === 'followed') {
+    const moves = Math.ceil(check.plies / 2);
+    return <>Your repertoire held for {moves} {moves === 1 ? 'move' : 'moves'}</>;
+  }
   const played = figurineMove(check.played, check.ply + 1);
   const planned = check.planned.map((san) => figurineMove(san, check.ply + 1)).join(' · ');
   return check.kind === 'left' ? (

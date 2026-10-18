@@ -1,8 +1,12 @@
 import { MotionGlobalConfig } from 'framer-motion';
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
+import { OpeningsPage } from '../OpeningsPage';
 import { GameChecksPage } from './GameChecksPage';
+
+// Sans explorateur, la proposition se réduit au coup qui l'ouvre : le test ne dépend ni de Lichess ni du moteur.
+vi.mock('../line/explorer', () => ({ explore: () => Promise.resolve(null), hasExplorer: () => false }));
 
 const page = () =>
   render(
@@ -73,5 +77,39 @@ describe('GameChecksPage', () => {
     nextDay();
 
     expect(toDecide()).toHaveLength(2);
+  });
+
+  it('adds the move the player left the repertoire with, and checks the game again against it', async () => {
+    page();
+    nextDay();
+    const indian = () => dayGames().find((card) => card.textContent?.includes('1.d4') || card.textContent?.includes('1…♘f6'))!;
+    fireEvent.click(within(indian()).getByRole('button', { name: /^Add/ }));
+
+    const panel = screen.getByRole('region', { name: 'Addition' });
+    expect(panel).toHaveTextContent('Add 1…♘f6 to your repertoire');
+    fireEvent.click(await within(panel).findByRole('button', { name: 'Add 1…♘f6 alone' }));
+
+    expect(screen.queryByRole('region', { name: 'Addition' })).not.toBeInTheDocument();
+    expect(toDecide()).toHaveLength(1);
+    expect(screen.getAllByText(/Your repertoire held for 1 move$/)).toHaveLength(1);
+  });
+
+  it('shows the added move on the Openings page too', async () => {
+    page();
+    nextDay();
+    const indian = dayGames().find((card) => card.textContent?.includes('1…♘f6'))!;
+    fireEvent.click(within(indian).getByRole('button', { name: /^Add/ }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Add 1…♘f6 alone' }));
+    cleanup();
+
+    render(
+      <MemoryRouter>
+        <OpeningsPage />
+      </MemoryRouter>,
+    );
+    fireEvent.click(screen.getByRole('switch', { name: 'Play as Black' }));
+    fireEvent.click(screen.getByRole('button', { name: '1.d4' }));
+
+    expect(screen.getByRole('complementary', { name: 'Position' })).toHaveTextContent('Repertoire 1…d5 · 1…♘f6');
   });
 });
