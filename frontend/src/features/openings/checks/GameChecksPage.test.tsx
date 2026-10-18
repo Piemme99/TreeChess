@@ -186,6 +186,9 @@ describe('GameChecksPage', () => {
     fireEvent.click(screen.getByRole('switch', { name: 'Play as Black' }));
     fireEvent.click(screen.getByRole('button', { name: '1.d4' }));
 
-    expect(screen.getByRole('complementary', { name: 'Position' })).toHaveTextContent('Repertoire 1…d5 · 1…♘f6');
+    const table = within(screen.getByRole('complementary', { name: 'Position' })).getByRole('table', { name: 'Moves here' });
+    const planned = within(table).getAllByRole('row').filter((row) => row.textContent?.includes('repertoire'));
+    expect(planned.map((row) => row.querySelector('td')?.textContent).sort()).toEqual(['1…d5', '1…♘f6']);
+    expect(table).not.toHaveTextContent('to decide');
   });
 });

@@ -13,6 +13,12 @@ const OpeningsPage = () => (
 const tickets = () => within(screen.getByRole('region', { name: /Fix these first/ })).getAllByRole('button');
 const panel = () => screen.getByRole('complementary', { name: 'Position' });
 const period = (name: string) => within(panel()).getByRole('region', { name });
+const movesHere = () => within(panel()).getByRole('table', { name: 'Moves here' });
+const planned = () =>
+  within(movesHere())
+    .getAllByRole('row')
+    .filter((row) => row.textContent?.endsWith('repertoire'))
+    .map((row) => row.querySelector('td')?.textContent);
 const zoomPath = () => screen.getByRole('navigation', { name: 'Zoom path' });
 
 // La table des noms d'ouvertures (~480 Ko) est chargée à la demande : sous la charge de
@@ -58,12 +64,23 @@ describe('OpeningsPage', () => {
   it('shows the repertoire created from the games before the replay starts', () => {
     render(<OpeningsPage />);
 
-    expect(panel()).toHaveTextContent('Repertoire 1.e4 · 1.d4');
+    expect(planned()).toEqual(['1.e4', '1.d4']);
 
     fireEvent.click(screen.getByRole('switch', { name: 'Play as Black' }));
     fireEvent.click(screen.getByRole('button', { name: '1.e4' }));
 
-    expect(panel()).toHaveTextContent('Repertoire 1…c6 · 1…c5');
+    expect(planned()).toEqual(['1…c6', '1…c5']);
+  });
+
+  it('shows on a position the decisions its games are waiting for', () => {
+    localStorage.setItem('kumquat.v2.replay-day', '2026-01-04');
+    render(<OpeningsPage />);
+    fireEvent.click(screen.getByRole('switch', { name: 'Play as Black' }));
+    fireEvent.click(screen.getByRole('button', { name: '1.d4' }));
+
+    const knight = within(movesHere()).getAllByRole('row').find((row) => row.querySelector('td')?.textContent === '1…♘f6');
+    expect(knight).toHaveTextContent(/1 to decide$/);
+    expect(planned()).toEqual(['1…d5']);
   });
 
   it('previews a clicked priority without leaving the page', async () => {
