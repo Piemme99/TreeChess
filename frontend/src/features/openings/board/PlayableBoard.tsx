@@ -3,7 +3,7 @@ import { memo, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, t
 import { Chessboard, type PieceRenderObject } from 'react-chessboard';
 import { PIECE_SVG } from '../../../shared/components/Board/pieceSvg';
 import { ArrowLayer, type BoardArrow } from '../line/ArrowBoard';
-import { BOARD, COLOURS } from '../workshop/theme';
+import { BOARD } from '../workshop/theme';
 
 interface PlayableBoardProps {
   path: readonly string[];
@@ -78,7 +78,6 @@ export function PlayableBoard({ path, flipped, arrows = [], suggestions = [], on
     const target = targets.some((candidate) => candidate.to === square);
     const landing = !from && suggested.some((candidate) => candidate.to === square);
     const style: CSSProperties = { position: 'relative', width: '100%', height: '100%' };
-    if (square === from) style.boxShadow = `inset 0 0 0 3px ${COLOURS.kumquat}`;
     const occupied = Boolean(chess.get(square as Square));
     return (
       <div style={style}>
@@ -102,7 +101,8 @@ export function PlayableBoard({ path, flipped, arrows = [], suggestions = [], on
             pieces: PIECES,
             lightSquareStyle: { backgroundColor: BOARD.light },
             darkSquareStyle: { backgroundColor: BOARD.dark },
-            dropSquareStyle: { boxShadow: `inset 0 0 0 3px ${COLOURS.kumquat}` },
+            // Ni cadre au départ ni à l'arrivée : les points des coups légaux suffisent (PMG).
+            dropSquareStyle: { boxShadow: 'none' },
             draggingPieceStyle: { transform: 'scale(1.15)', filter: 'drop-shadow(0 8px 6px oklch(0.2 0.05 50 / 0.4))' },
             showNotation: false,
             animationDurationInMs: 180,
