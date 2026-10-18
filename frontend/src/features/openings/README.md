@@ -37,9 +37,7 @@ Vocabulary (opening tree, deficit, priority, points to gain): `CONTEXT.md`.
   evaluations on a dedicated worker; `explorer.ts` queries the Lichess explorer with a
   personal token in `VITE_LICHESS_TOKEN` (`frontend/.env.local`) until it goes through the
   backend's Lichess OAuth and explorer proxy (`GET /api/training/opening`).
-- `position/` — the board panel; positions are replayed on demand (`replay.ts`). "Moves here"
-  (`movesHere.ts`) gathers at the position the repertoire's moves, the moves played over 12 months
-  and the decisions the Games page holds there (ADR 0003, first brick).
+- `position/` — the board panel; positions are replayed on demand (`replay.ts`).
 - `board/` — the board whose pieces slide from one position to the next (`pieces.ts`
   gives each piece a stable identity along a line).
 - `workshop/` — the Workshop art direction: colours, tones, springs, small shared objects.

@@ -1,7 +1,5 @@
 import { MotionConfig } from 'framer-motion';
 import { useEffect, useMemo, useState } from 'react';
-import { gamesToDecide, liveGames } from './checks/decisions';
-import { useIgnoredChecks } from './checks/useIgnoredChecks';
 import { buildOpeningTree, type OpeningTree } from './domain/openingTree';
 import { gamesOfLastMonths } from './domain/period';
 import type { PlayedGame, Side } from './domain/playedGame';
@@ -48,11 +46,6 @@ export function OpeningsPage() {
   );
   const recentTrees = useMemo(() => treesOf(recentGames), [recentGames]);
   const { repertoires } = useRepertoires(playedGamesFixture);
-  const { ignored } = useIgnoredChecks();
-  const toDecide = useMemo(
-    () => gamesToDecide(liveGames(playedGamesFixture, repertoires, REPLAY_FIRST_DAY, replay.day), ignored, replay.day),
-    [repertoires, replay.day, ignored],
-  );
   const coveredLines = useMemo(() => repertoireLines(repertoires[side], trees[side]), [repertoires, trees, side]);
   const priorities = useMemo(
     () => findPriorities(trees, recentTrees, MAX_PRIORITIES),
@@ -131,7 +124,6 @@ export function OpeningsPage() {
               recent={recentTrees[shown.side]}
               path={shown.path}
               repertoire={repertoires[shown.side]}
-              toDecide={toDecide}
               onStudy={focusPath.length > 0 ? () => setStudied({ side, path: focusPath }) : undefined}
             />
             <div className="flex min-w-0 flex-col gap-10">
