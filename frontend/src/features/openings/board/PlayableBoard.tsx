@@ -71,6 +71,8 @@ export function PlayableBoard({ path, flipped, arrows, suggestions = [], onMove 
       <div className="absolute inset-2.5 grid grid-cols-8 grid-rows-8">
         {squares.map((square) => {
           const target = targets.some((candidate) => candidate.to === square);
+          // Sans pièce choisie, un point discret sur la case d'arrivée d'une flèche dit qu'un clic la joue.
+          const landing = !from && suggested.some((candidate) => candidate.to === square);
           return (
             <button
               key={square}
@@ -80,10 +82,10 @@ export function PlayableBoard({ path, flipped, arrows, suggestions = [], onMove 
               className="relative cursor-pointer"
               style={square === from ? { boxShadow: `inset 0 0 0 3px ${COLOURS.kumquat}` } : undefined}
             >
-              {target && (
+              {(target || landing) && (
                 <span
-                  className="absolute top-1/2 left-1/2 size-[28%] -translate-x-1/2 -translate-y-1/2 rounded-full"
-                  style={{ background: 'oklch(0.3 0.06 150 / 0.35)' }}
+                  className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full"
+                  style={target ? { width: '28%', height: '28%', background: 'oklch(0.3 0.06 150 / 0.35)' } : { width: '18%', height: '18%', background: 'oklch(0.3 0.06 150 / 0.22)' }}
                 />
               )}
             </button>

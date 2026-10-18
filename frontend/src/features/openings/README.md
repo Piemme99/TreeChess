@@ -141,9 +141,11 @@ Built one brick at a time, each visible on its own:
    candidate move (three from the explorer, the engine's move, the player's own: PMG wanted
    few), with the share and the side's score at the named level (1400–1800 blitz & rapid), the
    engine's evaluation after the move, their own games; a move the engine marks (?!, ?, ??)
-   leaves the table and the board for a muted line, not suggested but still playable on the
-   board if the player wants it (PMG: never recommend a middling move); the engine's
-   move is tagged and drawn in orange at once (a "Hint" button was tried and dropped the same
+   drops to the bottom of the table, faded, with no arrow on the board: not suggested, still
+   one click away if the player wants it (PMG: never recommend a middling move); the engine's
+   move is tagged and drawn in orange at once. PMG asked for visuals over sentences: an eval
+   bar for the position, chips for the moves played so far (the last marked by the engine),
+   a dot on each arrow's landing square, swatches under the board, no legend prose (a "Hint" button was tried and dropped the same
    day: every tool that helps the choice is on the table from the start). Every row is an arrow
    on the board, thicker when played more: clicking where it lands plays it, so does its row;
    any other move is played piece then square, and judged once played. At the opponent's move,

@@ -1,14 +1,13 @@
 import { motion } from 'framer-motion';
 import { useMemo, type ReactNode } from 'react';
 import { draftLines } from '../domain/addition';
-import { MATE_CP } from '../domain/diagnosis';
+import { MATE_CP, winChance } from '../domain/diagnosis';
 import { figurineMove } from '../domain/notation';
 import { formatPercent } from '../flame/format';
-import { JUDGEMENT_MARK, judgeMove } from '../domain/judgement';
+import { JUDGEMENT_MARK, judgeMove, type Judgement } from '../domain/judgement';
 import { useEvaluations } from '../line/engine';
-import { LEVEL_LABEL } from '../line/explorer';
 import { replayLine } from '../position/replay';
-import { COLOURS, raised, SPRING, tile, TONES } from '../workshop/theme';
+import { COLOURS, raised, SPRING, tile } from '../workshop/theme';
 import type { Builder } from './useBuilder';
 import { ENGINE_DEPTH, type Candidate, type Candidates } from './useCandidates';
 
@@ -21,7 +20,7 @@ interface BuildPanelProps {
 }
 
 export function BuildPanel({ builder, candidates, onPoint, onAccept, onCancel }: BuildPanelProps) {
-  const { checked, start, path, draft } = builder;
+  const { checked, draft } = builder;
   const { check } = checked;
   const played = figurineMove(check.played, check.ply + 1);
   const lines = draftLines(draft);
@@ -32,13 +31,9 @@ export function BuildPanel({ builder, candidates, onPoint, onAccept, onCancel }:
       <h2 className="text-[22px] font-extrabold tracking-[-0.02em]">
         {check.kind === 'left' ? `You played ${played}: what do you want to play here?` : `Prepare your answer to ${played}`}
       </h2>
-      <p className="text-[14px]" style={{ color: COLOURS.leafSoft }}>
-        <EngineHere builder={builder} candidates={candidates} />
-        {path.length > start.length && <span className="font-semibold"> · {formatFrom(start.length, path.slice(start.length))}</span>}
-      </p>
 
+      <Played builder={builder} />
       <CandidateTable builder={builder} candidates={candidates} onPoint={onPoint} />
-      <Feedback builder={builder} />
 
       {lines.length > 0 && (
         <div className="flex flex-col gap-1">
@@ -67,43 +62,54 @@ export function BuildPanel({ builder, candidates, onPoint, onAccept, onCancel }:
   );
 }
 
-function EngineHere({ builder, candidates }: { builder: Builder; candidates: Candidates }) {
-  const { here } = candidates;
-  if (!here) return <>Engine: looking at the position…</>;
-  const ply = builder.path.length + 1;
+/** Les coups joués depuis le départ, le dernier du joueur marqué si le moteur le juge. */
+function Played({ builder }: { builder: Builder }) {
+  const { path, start, checked } = builder;
+  const last = path.length - 1;
+  const mover = last % 2 === 0 ? 'w' : 'b';
+  const relevant = path.length > start.length && mover === checked.game.side;
+  const fens = useMemo(() => (relevant ? replayLine(path).fens.slice(-2) : []), [relevant, path]);
+  const evaluations = useEvaluations(fens, ENGINE_DEPTH, relevant);
+  if (path.length === start.length) return null;
+  const [before, after] = fens.map((fen) => evaluations.get(fen));
+  const judgement = relevant && before && after ? judgeMove(before.cp, after.cp, mover) : null;
   return (
-    <>
-      Engine here: <b style={{ color: COLOURS.leaf }}>{formatCp(here.cp)}</b>
-      {builder.playerToMove && here.san && (
-        <>
-          {' '}· it would play <b style={{ color: COLOURS.kumquatDeep }}>{figurineMove(here.san, ply)}</b>, the orange arrow
-        </>
-      )}
-    </>
+    <p className="flex flex-wrap items-center gap-1.5 text-[14px] font-semibold">
+      {path.slice(start.length).map((san, index) => {
+        const ply = start.length + index + 1;
+        const byPlayer = (ply % 2 === 1) === (checked.game.side === 'w');
+        const marked = ply === path.length ? judgement : null;
+        return (
+          <span key={ply} className="rounded-lg px-2 py-0.5" style={byPlayer ? tile(COLOURS.sand) : { background: COLOURS.opponent }}>
+            {figurineMove(san, ply)}
+            {marked && <Mark judgement={marked} />}
+          </span>
+        );
+      })}
+    </p>
   );
 }
 
 function CandidateTable({ builder, candidates, onPoint }: { builder: Builder; candidates: Candidates; onPoint: (san: string | null) => void }) {
-  const { rows, explorer } = candidates;
+  const { rows, costly, here, explorer } = candidates;
   const ply = builder.path.length + 1;
   const side = builder.checked.game.side === 'w' ? 'White' : 'Black';
-  const caption = builder.playerToMove
-    ? 'Your move · the arrows on the board: click where one lands, or its row, to play it · any other move: click the piece, then its square'
-    : 'Their move · pick a reply to prepare, on the board or below · any other move: click the piece, then its square';
+  const all = [...rows, ...costly];
   return (
     <div className="flex flex-col gap-1.5">
-      <span className="text-[12px] font-semibold" style={{ color: COLOURS.leafSoft }}>
-        {caption}
+      <span className="flex items-center gap-3 text-[12px] font-semibold" style={{ color: COLOURS.leafSoft }}>
+        {builder.playerToMove ? 'Your move' : 'Their move'}
+        <EvalBar cp={here?.cp} />
       </span>
       {explorer === 'missing' && <Muted>Needs a Lichess token (VITE_LICHESS_TOKEN in frontend/.env.local).</Muted>}
       {explorer === 'asking' && <Muted>Asking the Lichess explorer…</Muted>}
-      {rows.length > 0 && (
+      {all.length > 0 && (
         <table aria-label="Candidate moves" className="w-full border-collapse text-[14px]" onMouseLeave={() => onPoint(null)}>
           <thead className="text-[11px] font-semibold" style={{ color: COLOURS.leafSoft }}>
             <tr>
               <th />
               <th colSpan={2} className="px-2 pb-0.5 text-center font-semibold" style={{ borderBottom: `1px solid ${COLOURS.sand}` }}>
-                At your level · {LEVEL_LABEL}
+                Lichess 1400–1800
               </th>
               <th />
               <th />
@@ -111,51 +117,35 @@ function CandidateTable({ builder, candidates, onPoint }: { builder: Builder; ca
             <tr className="text-left">
               <th className="pb-1 pr-2 font-semibold">Move</th>
               <th className="pb-1 px-2 font-semibold">played</th>
-              <th className="pb-1 px-2 text-right font-semibold">score for {side}</th>
+              <th className="pb-1 px-2 text-right font-semibold">{side} scores</th>
               <th className="pb-1 px-2 text-right font-semibold">Engine</th>
-              <th className="pb-1 pl-2 text-right font-semibold">{builder.playerToMove ? 'Your games' : 'Met in your games'}</th>
+              <th className="pb-1 pl-2 text-right font-semibold">{builder.playerToMove ? 'Your games' : 'Met'}</th>
             </tr>
           </thead>
           <tbody>
-            {rows.map((row) => (
-              <CandidateRow key={row.san} row={row} ply={ply} onPlay={() => builder.play(row.san)} onPoint={() => onPoint(row.san)} />
+            {all.map((row) => (
+              <CandidateRow
+                key={row.san}
+                row={row}
+                ply={ply}
+                faded={costly.includes(row)}
+                onPlay={() => builder.play(row.san)}
+                onPoint={() => onPoint(row.san)}
+              />
             ))}
           </tbody>
         </table>
       )}
-      {candidates.costly.length > 0 && (
-        <Muted>
-          Not suggested, the engine says they cost points:{' '}
-          {candidates.costly.map((row, index) => (
-            <span key={row.san}>
-              {index > 0 && ' · '}
-              <b style={{ color: COLOURS.leaf }}>{figurineMove(row.san, ply)}</b>
-              <b style={{ color: COLOURS.terracotta }}>{row.judgement && JUDGEMENT_MARK[row.judgement]}</b>
-              {row.share !== undefined && ` ${formatPercent(row.share)} played`}
-              {row.mine > 0 && ` · ${row.mine} of your games`}
-            </span>
-          ))}
-          . You can still play one on the board and keep it.
-        </Muted>
-      )}
-      <p className="flex flex-wrap gap-x-4 gap-y-1 text-[12px] font-semibold" style={{ color: COLOURS.leafSoft }}>
-        <Swatch colour={TONES.winning.bg}>in your games</Swatch>
-        {builder.playerToMove && <Swatch colour={COLOURS.kumquatDeep}>engine move</Swatch>}
-        <span>
-          <b style={{ color: COLOURS.terracotta }}>?!</b> costs 5% of win chances · <b style={{ color: COLOURS.terracotta }}>?</b> 10% ·{' '}
-          <b style={{ color: COLOURS.terracotta }}>??</b> 15%
-        </span>
-      </p>
     </div>
   );
 }
 
-function CandidateRow({ row, ply, onPlay, onPoint }: { row: Candidate; ply: number; onPlay: () => void; onPoint: () => void }) {
+function CandidateRow({ row, ply, faded, onPlay, onPoint }: { row: Candidate; ply: number; faded: boolean; onPlay: () => void; onPoint: () => void }) {
   const low = row.score !== undefined && Math.round(row.score * 100) < 50;
   return (
     <tr
       className="cursor-pointer hover:bg-[oklch(0.975_0.012_85)]"
-      style={{ borderTop: `1px solid ${COLOURS.sand}` }}
+      style={{ borderTop: `1px solid ${COLOURS.sand}`, opacity: faded ? 0.45 : 1 }}
       onMouseEnter={onPoint}
       onClick={onPlay}
       onKeyDown={(event) => event.key === 'Enter' && onPlay()}
@@ -164,6 +154,7 @@ function CandidateRow({ row, ply, onPlay, onPoint }: { row: Candidate; ply: numb
     >
       <td className="whitespace-nowrap py-1.5 pr-2 text-[15px] font-extrabold">
         {figurineMove(row.san, ply)}
+        {row.judgement && <Mark judgement={row.judgement} />}
         {row.engine && (
           <span className="ml-1.5 rounded-full px-1.5 text-[11px] font-extrabold align-[1px]" style={{ background: COLOURS.kumquatDeep, color: 'white' }}>
             engine
@@ -171,18 +162,13 @@ function CandidateRow({ row, ply, onPlay, onPoint }: { row: Candidate; ply: numb
         )}
       </td>
       <td className="px-2 py-1.5">
-        <ShareBar share={row.share} mine={row.mine > 0} />
+        <ShareBar share={row.share} />
       </td>
       <td className="whitespace-nowrap px-2 py-1.5 text-right font-bold" style={{ color: low ? COLOURS.terracotta : undefined }}>
         {row.score === undefined ? '—' : formatPercent(row.score)}
       </td>
       <td className="whitespace-nowrap px-2 py-1.5 text-right tabular-nums">
         {row.cp === undefined ? <span style={{ color: COLOURS.leafSoft }}>…</span> : formatCp(row.cp)}
-        {row.judgement && (
-          <b className="ml-1" style={{ color: COLOURS.terracotta }}>
-            {JUDGEMENT_MARK[row.judgement]}
-          </b>
-        )}
       </td>
       <td className="whitespace-nowrap py-1.5 pl-2 text-right" style={{ color: COLOURS.leafSoft }}>
         {row.mine > 0 ? row.mine : '—'}
@@ -191,47 +177,43 @@ function CandidateRow({ row, ply, onPlay, onPoint }: { row: Candidate; ply: numb
   );
 }
 
-function ShareBar({ share, mine }: { share: number | undefined; mine: boolean }) {
+function Mark({ judgement }: { judgement: Judgement }) {
+  return (
+    <b className="ml-0.5" title={judgement} style={{ color: COLOURS.terracotta }}>
+      {JUDGEMENT_MARK[judgement]}
+    </b>
+  );
+}
+
+function ShareBar({ share }: { share: number | undefined }) {
   return (
     <div className="relative h-4 min-w-[6rem] rounded-md" style={{ background: 'oklch(0.955 0.02 85)' }}>
       {share !== undefined && (
         <div
           className="h-full rounded-md"
-          style={{ width: `${Math.max(share * 100, 2)}%`, background: mine ? TONES.winning.bg : COLOURS.sand, boxShadow: 'inset 0 -1.5px 0 oklch(0 0 0 / 0.1)' }}
+          style={{ width: `${Math.max(share * 100, 2)}%`, background: COLOURS.sand, boxShadow: 'inset 0 -1.5px 0 oklch(0 0 0 / 0.1)' }}
         />
       )}
-      <span className="absolute left-1.5 top-0 text-[11px] font-bold leading-4">{share === undefined ? 'not at your level' : formatPercent(share)}</span>
+      <span className="absolute left-1.5 top-0 text-[11px] font-bold leading-4">{share === undefined ? '—' : formatPercent(share)}</span>
     </div>
   );
 }
 
-function Swatch({ colour, children }: { colour: string; children: ReactNode }) {
+/** La position vue par le moteur, comme la barre de Lichess : la part blanche est la chance des Blancs. */
+function EvalBar({ cp }: { cp: number | undefined }) {
+  const white = cp === undefined ? 0.5 : winChance(cp);
   return (
-    <span className="flex items-center gap-1.5">
-      <span className="size-3 rounded" style={{ background: colour }} />
-      {children}
+    <span className="flex items-center gap-1.5" title={cp === undefined ? 'Engine: looking…' : `Engine: ${formatCp(cp)}`}>
+      <span className="relative h-2.5 w-20 overflow-hidden rounded-full" style={{ background: COLOURS.leaf }}>
+        <motion.span
+          className="absolute inset-y-0 left-0 rounded-full"
+          style={{ background: COLOURS.cream }}
+          animate={{ width: `${white * 100}%` }}
+          transition={SPRING}
+        />
+      </span>
+      <span className="tabular-nums">{cp === undefined ? '…' : formatCp(cp)}</span>
     </span>
-  );
-}
-
-/** L'avis du moteur sur le dernier coup du joueur, une fois joué : utile pour un coup joué hors du tableau. */
-function Feedback({ builder }: { builder: Builder }) {
-  const { path, start, checked } = builder;
-  const last = path.length - 1;
-  const mover = last % 2 === 0 ? 'w' : 'b';
-  const relevant = path.length > start.length && mover === checked.game.side;
-  const fens = useMemo(() => (relevant ? replayLine(path).fens.slice(-2) : []), [relevant, path]);
-  const evaluations = useEvaluations(fens, ENGINE_DEPTH, relevant);
-  if (!relevant) return null;
-  const [before, after] = fens.map((fen) => evaluations.get(fen));
-  const move = figurineMove(path[last], last + 1);
-  if (!before || !after) return <Muted>Engine: looking at {move}…</Muted>;
-  const judgement = judgeMove(before.cp, after.cp, mover);
-  return (
-    <p className="text-[14px] font-semibold" style={{ color: judgement ? COLOURS.terracotta : COLOURS.leafSoft }}>
-      Engine: {move}
-      {judgement ? `${JUDGEMENT_MARK[judgement]} · ${judgement}. Go back and try another move, or keep it.` : ' holds.'}
-    </p>
   );
 }
 

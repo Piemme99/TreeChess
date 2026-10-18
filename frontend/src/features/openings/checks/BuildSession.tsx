@@ -11,6 +11,15 @@ import type { CheckedGame } from './checkedGame';
 import { useBuilder, type Deviation } from './useBuilder';
 import { useCandidates } from './useCandidates';
 
+function Swatch({ colour, children }: { colour: string; children: ReactNode }) {
+  return (
+    <span className="flex items-center gap-1.5">
+      <span className="size-3 rounded" style={{ background: colour }} />
+      {children}
+    </span>
+  );
+}
+
 interface BuildSessionProps {
   checked: CheckedGame & { check: Deviation };
   /** Les parties du joueur avec ce côté, connues le jour du rejeu : ses habitudes. */
@@ -52,20 +61,11 @@ export function BuildSession({ checked, games, repertoire, onAccept, onCancel, c
     <main className="mx-auto grid max-w-[84rem] grid-cols-[minmax(0,30rem)_1fr] gap-10 px-8 pt-8">
       <aside aria-label="Position" className="sticky top-6 flex flex-col gap-3 self-start">
         <PlayableBoard path={builder.path} flipped={checked.game.side === 'b'} arrows={arrows} suggestions={suggestions} onMove={builder.play} />
-        <p className="px-1 text-[14px]" style={{ color: INK.even }}>
-          <span className="font-bold" style={{ color: REPERTOIRE }}>green</span> already in your repertoire
-          {atStart && !agree && (
-            <>
-              {' '}· <span className="font-bold" style={{ color: COLOURS.terracotta }}>red</span> your move in the game
-            </>
-          )}
-          {engine && (
-            <>
-              {' '}· <span className="font-bold" style={{ color: COLOURS.kumquatDeep }}>orange</span> the engine move
-              {agree && ', the one you played'}
-            </>
-          )}
-          {' '}· the others are the table's moves, thicker when played more
+        <p className="flex flex-wrap gap-x-4 gap-y-1 px-1 text-[12px] font-semibold" style={{ color: INK.even }}>
+          <Swatch colour={REPERTOIRE}>repertoire</Swatch>
+          {engine && <Swatch colour={COLOURS.kumquatDeep}>engine{agree && ' · your move'}</Swatch>}
+          {atStart && !agree && <Swatch colour={COLOURS.terracotta}>your move</Swatch>}
+          <Swatch colour={INK.even}>at your level</Swatch>
         </p>
       </aside>
       <div className="flex min-w-0 flex-col gap-10">
