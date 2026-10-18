@@ -37,19 +37,20 @@ export function Preparation({ preparation, keyPath, onPoint, cutting, actions }:
   if (!hasExplorer()) {
     return <Note>Needs a Lichess token (VITE_LICHESS_TOKEN in frontend/.env.local).</Note>;
   }
-  if (!preparation.done) {
-    return <Note>Looking at what players of your level play, and asking the engine… {preparation.steps} positions</Note>;
-  }
-  if (preparation.moves.length === 0) {
+  if (preparation.done && preparation.moves.length === 0) {
     return <Note>Not enough games at your level from this position.</Note>;
   }
   const dropped = countDropped(preparation.moves);
   return (
     <div className="flex flex-col gap-3">
-      <Note>
-        Up to move {Math.ceil(preparedDepth(preparation.moves) / 2)} · your habits where you have some, otherwise the move most played at
-        your level that the engine approves{dropped > 0 && ` · ${dropped} habit${dropped > 1 ? 's' : ''} to drop`}
-      </Note>
+      {preparation.done ? (
+        <Note>
+          Up to move {Math.ceil(preparedDepth(preparation.moves) / 2)} · your habits where you have some, otherwise the move most played at
+          your level that the engine approves{dropped > 0 && ` · ${dropped} habit${dropped > 1 ? 's' : ''} to drop`}
+        </Note>
+      ) : (
+        <Note>Looking at what players of your level play, and asking the engine… {preparation.steps} positions</Note>
+      )}
       <p className="flex flex-wrap gap-3 text-[12px] font-semibold" style={{ color: COLOURS.leafSoft }}>
         {Object.values(SOURCES).map((source) => (
           <span key={source.label} className="flex items-center gap-1.5">

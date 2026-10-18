@@ -76,6 +76,7 @@ export function usePreparation(keyPath: readonly string[] | null, side: Side, ga
       evaluate: (fen) => evaluate(fen, PREPARATION_DEPTH),
       cancelled: () => cancelled,
       onProgress: (steps) => !cancelled && setPreparation((current) => ({ ...current, steps })),
+      onPartial: (moves) => !cancelled && setPreparation((current) => ({ ...current, moves })),
     }, plies).then((moves) => !cancelled && setPreparation({ moves, steps: 0, done: true }));
     return () => {
       cancelled = true;

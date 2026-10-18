@@ -36,6 +36,8 @@ export interface PreparationSources {
   evaluate: (fen: string) => Promise<Evaluation>;
   cancelled: () => boolean;
   onProgress: (steps: number) => void;
+  /** La préparation telle qu'elle est déjà, à chaque coup trouvé : on la montre sans attendre la fin. */
+  onPartial?: (moves: PreparedMove[]) => void;
 }
 
 const PLIES = 12;
@@ -64,8 +66,15 @@ export async function proposePreparation(
   const pov = (cp: number) => winChance(side === 'w' ? cp : -cp);
   let steps = 0;
 
-  const grow = async (path: readonly string[], reach: number, reaching: readonly PlayedGame[]): Promise<PreparedMove[]> => {
-    if (sources.cancelled() || path.length - keyPath.length >= plies) return [];
+  const root: PreparedMove[] = [];
+  const found = (into: PreparedMove[], move: PreparedMove) => {
+    into.push(move);
+    sources.onPartial?.(structuredClone(root));
+  };
+
+  // Chaque coup est rangé dans l'arbre dès qu'il est choisi, avant que sa suite ne soit cherchée.
+  const grow = async (path: readonly string[], reach: number, reaching: readonly PlayedGame[], into: PreparedMove[]): Promise<void> => {
+    if (sources.cancelled() || path.length - keyPath.length >= plies) return;
     const chess = new Chess();
     path.forEach((san) => chess.move(san));
     const fen = chess.fen();
@@ -74,7 +83,7 @@ export async function proposePreparation(
     const mine = countMoves(reaching, ply);
     const stats = await sources.explore(fen);
     sources.onProgress(++steps);
-    if (!stats || gamesIn(stats) < MIN_SAMPLE) return [];
+    if (!stats || gamesIn(stats) < MIN_SAMPLE) return;
     const shareOf = (san: string) => {
       const move = stats.moves.find((candidate) => candidate.san === san);
       return move ? gamesIn(move) / gamesIn(stats) : 0;
@@ -87,14 +96,14 @@ export async function proposePreparation(
         .map((move) => move.san)
         .filter((san) => shareOf(san) >= MIN_SHARE && reach * shareOf(san) >= MIN_REACH);
       for (const [san, count] of mine) if (count >= MIN_HABIT_GAMES && !replies.includes(san)) replies.push(san);
-      const moves: PreparedMove[] = [];
       for (const san of replies) {
         const share = shareOf(san);
+        const move: PreparedMove = { san, ply: ply + 1, byPlayer, share, mine: mine.get(san) ?? 0, source: null, dropped: null, next: [] };
+        found(into, move);
         // Une réponse que le joueur rencontre lui-même compte, même rare à son niveau.
-        const next = await grow([...path, san], reach * Math.max(share, MIN_REACH), follow(san));
-        moves.push({ san, ply: ply + 1, byPlayer, share, mine: mine.get(san) ?? 0, source: null, dropped: null, next });
+        await grow([...path, san], reach * Math.max(share, MIN_REACH), follow(san), move.next);
       }
-      return moves;
+      return;
     }
 
     const before = await sources.evaluate(fen);
@@ -122,14 +131,16 @@ export async function proposePreparation(
     }
     if (!pick) {
       const best = uciToSan(fen, before.best);
-      if (!best) return [];
+      if (!best) return;
       pick = { san: best, source: 'engine' };
     }
-    const next = await grow([...path, pick.san], reach, follow(pick.san));
-    return [{ san: pick.san, ply: ply + 1, byPlayer, share: shareOf(pick.san), mine: mine.get(pick.san) ?? 0, source: pick.source, dropped, next }];
+    const move: PreparedMove = { san: pick.san, ply: ply + 1, byPlayer, share: shareOf(pick.san), mine: mine.get(pick.san) ?? 0, source: pick.source, dropped, next: [] };
+    found(into, move);
+    await grow([...path, pick.san], reach, follow(pick.san), move.next);
   };
 
-  return grow(keyPath, 1, games.filter((game) => keyPath.every((san, index) => game.moves[index] === san)));
+  await grow(keyPath, 1, games.filter((game) => keyPath.every((san, index) => game.moves[index] === san)), root);
+  return root;
 }
 
 function countMoves(games: readonly PlayedGame[], ply: number): Map<string, number> {

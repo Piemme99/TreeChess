@@ -116,7 +116,8 @@ Built one brick at a time, each visible on its own:
    Rim on the flame graph tiles, green arrows and a "Repertoire" line on the board panel.
 2. **Replay and game check, on their own page** — *done* (bricks 2 and 3 merged after PMG
    found the clock confusing on the Openings screen: daily stats mixed with global ones).
-   Two pages: **Games** (`checks/`, `/dev/games`) lives the replay day by day — "Next day"
+   Two pages: **Games** (`checks/`, `/dev/games`, what is to decide on top: the day's games
+   that left the repertoire, then the decisions left from earlier days; the rest of the day below) lives the replay day by day — "Next day"
    jumps to the next day with games (49 in 2026), "Reset" goes back and forgets the ignored
    games — and checks each game of the day against the repertoire (`domain/gameCheck.ts`:
    followed, left the repertoire, not covered), board at the deviation (red played, green
@@ -136,7 +137,8 @@ Built one brick at a time, each visible on its own:
    explorer calls). A ✕ on an opponent reply cuts its branch; "Add to my repertoire" keeps the
    rest. Accepted additions are a log in `localStorage` (`replay/useRepertoires.ts`,
    `domain/addition.ts`): the repertoire is the created one plus the log, on both pages, and
-   "Reset" empties it. Every game is checked against the current repertoire, so an addition
+   "Reset" empties it. The proposal shows as it grows (`onPartial`): each move appears as soon
+   as it is chosen, so the player reads and points at the first lines while the rest computes. Every game is checked against the current repertoire, so an addition
    settles the game that raised it and changes the checks of the days after.
    Not done yet: several player moves per position in the proposal (the planner keeps one),
    and "Study this line" adding to the repertoire.

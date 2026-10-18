@@ -16,9 +16,13 @@ const page = () =>
   );
 const replayBar = () => screen.getByRole('region', { name: 'Replay' });
 const nextDay = () => fireEvent.click(within(replayBar()).getByRole('button', { name: /Next day/ }));
-const dayGames = () => within(screen.getByRole('region', { name: 'Games of the day' })).queryAllByRole('listitem');
-const earlier = () => screen.getByRole('region', { name: /Still to decide/ });
-const actionable = () => dayGames().filter((card) => within(card).queryByRole('button', { name: /^Ignore/ }));
+const toDecide = () => within(screen.getByRole('region', { name: /^To decide/ })).queryAllByRole('listitem');
+const rest = () => {
+  const region = screen.queryByRole('region', { name: 'Rest of the day' });
+  return region ? within(region).queryAllByRole('listitem') : [];
+};
+const dayGames = () => [...toDecide(), ...rest()];
+const actionable = () => toDecide().filter((card) => within(card).queryByRole('button', { name: /^Ignore/ }));
 const deviations = () => actionable().filter((card) => card.textContent?.includes('You played'));
 
 describe('GameChecksPage', () => {
@@ -55,24 +59,28 @@ describe('GameChecksPage', () => {
     expect(screen.getAllByText('Followed')).toHaveLength(3);
   });
 
-  it('offers an action on every game that left the repertoire', () => {
+  it('puts every game that left the repertoire at the top, with its actions', () => {
     page();
     nextDay();
 
     expect(actionable()).toHaveLength(8);
+    expect(rest().map((card) => card.textContent)).toEqual([
+      expect.stringContaining('Followed'),
+      expect.stringContaining('Followed'),
+      expect.stringContaining('Followed'),
+    ]);
   });
 
   it("carries over to the next day the player's own deviations, not the ignored ones nor a first unknown reply", () => {
     page();
     nextDay();
     expect(deviations()).toHaveLength(2);
-    const [first] = deviations();
-    fireEvent.click(within(first).getByRole('button', { name: /^Ignore/ }));
-    expect(first).toHaveTextContent('Ignored');
+    fireEvent.click(within(deviations()[0]).getByRole('button', { name: /^Ignore/ }));
+    expect(rest().some((card) => card.textContent?.includes('Ignored'))).toBe(true);
 
     nextDay();
 
-    expect(within(earlier()).getAllByRole('listitem')).toHaveLength(1);
+    expect(toDecide().filter((card) => card.textContent?.includes('Sun, 4 Jan 2026'))).toHaveLength(1);
   });
 
   it('forgets the ignored games when the replay is reset', () => {

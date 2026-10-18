@@ -43,7 +43,9 @@ export function GameChecksPage() {
   const isPending = (checked: CheckedGame) => checked.asks && isOpen(checked);
   // Les parties du jour portent leur propre décision : la liste suivante ne reprend que les jours passés.
   const earlier = lived.filter((checked) => checked.game.playedAt < replay.day && isPending(checked)).reverse();
-  const selected = lived.find((checked) => checked.id === selectedId) ?? today[0] ?? null;
+  const toDecide = [...today.filter(isOpen), ...earlier];
+  const settled = today.filter((checked) => !isOpen(checked));
+  const selected = lived.find((checked) => checked.id === selectedId) ?? toDecide[0] ?? today[0] ?? null;
   const adding = lived.find((checked) => checked.id === addingId);
   const habits = useMemo(
     () => (adding ? gamesUntil(playedGamesFixture, replay.day).filter((game) => game.side === adding.game.side) : []),
@@ -97,35 +99,13 @@ export function GameChecksPage() {
                 onCancel={stopAdding}
               />
             )}
-            <section aria-labelledby="day-title" className="flex flex-col gap-3">
-              <h2 id="day-title" className="text-[22px] font-extrabold tracking-[-0.02em]">
-                Games of the day
-              </h2>
-              {today.length ? (
-                <ul className="flex flex-col gap-2">
-                  {today.map((checked) => (
-                    <GameCard
-                      key={checked.id}
-                      checked={checked}
-                      selected={checked === selected}
-                      onSelect={() => setSelectedId(checked.id)}
-                      onIgnore={isOpen(checked) ? () => ignore(checked.id) : undefined}
-                      onAdd={isOpen(checked) ? () => startAdding(checked) : undefined}
-                      ignored={ignored.has(checked.id)}
-                    />
-                  ))}
-                </ul>
-              ) : (
-                <p style={{ color: COLOURS.leafSoft }}>No game yet: your repertoire was just created. Press “Next day”.</p>
-              )}
-            </section>
             <section aria-labelledby="decide-title" className="flex flex-col gap-3">
               <h2 id="decide-title" className="text-[22px] font-extrabold tracking-[-0.02em]">
-                Still to decide <span className="text-[15px] font-semibold" style={{ color: COLOURS.leafSoft }}>{earlier.length}</span>
+                To decide <span className="text-[15px] font-semibold" style={{ color: COLOURS.leafSoft }}>{toDecide.length}</span>
               </h2>
-              {earlier.length ? (
+              {toDecide.length ? (
                 <ul className="flex flex-col gap-2">
-                  {earlier.map((checked) => (
+                  {toDecide.map((checked) => (
                     <GameCard
                       key={checked.id}
                       checked={checked}
@@ -133,14 +113,34 @@ export function GameChecksPage() {
                       onSelect={() => setSelectedId(checked.id)}
                       onIgnore={() => ignore(checked.id)}
                       onAdd={() => startAdding(checked)}
-                      showDate
+                      showDate={checked.game.playedAt !== replay.day}
                     />
                   ))}
                 </ul>
               ) : (
-                <p style={{ color: COLOURS.leafSoft }}>Nothing left from the previous days.</p>
+                <p style={{ color: COLOURS.leafSoft }}>
+                  {replay.index ? 'Nothing to decide.' : 'No game yet: your repertoire was just created. Press “Next day”.'}
+                </p>
               )}
             </section>
+            {settled.length > 0 && (
+              <section aria-labelledby="day-title" className="flex flex-col gap-3">
+                <h2 id="day-title" className="text-[22px] font-extrabold tracking-[-0.02em]">
+                  Rest of the day
+                </h2>
+                <ul className="flex flex-col gap-2">
+                  {settled.map((checked) => (
+                    <GameCard
+                      key={checked.id}
+                      checked={checked}
+                      selected={checked === selected}
+                      onSelect={() => setSelectedId(checked.id)}
+                      ignored={ignored.has(checked.id)}
+                    />
+                  ))}
+                </ul>
+              </section>
+            )}
           </div>
         </main>
       </div>

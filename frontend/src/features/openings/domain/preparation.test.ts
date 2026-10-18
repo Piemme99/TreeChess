@@ -72,4 +72,26 @@ describe('proposePreparation', () => {
   it('stops where the games at their level run out', async () => {
     expect(await propose({ '': { white: 30, draws: 0, black: 0, moves: [{ san: 'Nf3', white: 30, draws: 0, black: 0 }] } }, [])).toEqual([]);
   });
+
+  it('shows the preparation as it grows, each move as soon as it is chosen', async () => {
+    const stats = new Map([
+      ['', level({ Nf3: 600, Bc4: 400 })],
+      ['Nf3', level({ Nc6: 700, d6: 300 })],
+    ].map(([moves, value]) => [fenAfter(moves as string), value as ExplorerStats]));
+    const snapshots: unknown[] = [];
+
+    await proposePreparation(KEY, 'w', games(2, 'Nf3 Nc6'), {
+      explore: async (fen) => stats.get(fen) ?? null,
+      evaluate: async () => ({ cp: 0 }),
+      cancelled: () => false,
+      onProgress: () => {},
+      onPartial: (moves) => snapshots.push(outline(moves)),
+    });
+
+    expect(snapshots).toEqual([
+      [['Nf3', 'habit']],
+      [['Nf3', 'habit', [['Nc6', 2]]]],
+      [['Nf3', 'habit', [['Nc6', 2], ['d6', 0]]]],
+    ]);
+  });
 });
