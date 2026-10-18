@@ -1,12 +1,7 @@
-// PROTOTYPE — explorateur Lichess (parties à ton niveau, parties de maîtres) avec le jeton personnel
-// de frontend/.env.local, en attendant le branchement sur l'OAuth du backend. À jeter avec le dossier.
-
-export interface ExplorerMove {
-  san: string;
-  white: number;
-  draws: number;
-  black: number;
-}
+// Explorateur Lichess : les parties au niveau du joueur et celles des maîtres. Il exige un jeton :
+// en attendant de passer par l'OAuth du backend (brique import), un jeton personnel dans
+// VITE_LICHESS_TOKEN (frontend/.env.local, ignoré par git).
+import type { ExplorerStats } from '../domain/preparation';
 
 export interface ExplorerGame {
   id: string;
@@ -16,11 +11,7 @@ export interface ExplorerGame {
   winner: 'white' | 'black' | null;
 }
 
-export interface ExplorerResult {
-  white: number;
-  draws: number;
-  black: number;
-  moves: ExplorerMove[];
+export interface ExplorerResult extends ExplorerStats {
   topGames?: ExplorerGame[];
 }
 
@@ -30,14 +21,12 @@ const TOKEN = import.meta.env.VITE_LICHESS_TOKEN as string | undefined;
 // Tranches de l'explorateur autour du joueur (Lichess : 1594 blitz, 1698 rapide le 18/10/2026).
 const RATINGS = '1400,1600,1800';
 const SPEEDS = 'blitz,rapid';
-const STORAGE = 'kumquat-prototype-explorer:';
+const STORAGE = 'kumquat-explorer:';
 // Lichess demande d'attendre une minute pleine après un 429.
 const RATE_LIMIT_PAUSE = 60_000;
 const SPACING = 250;
 
 export const hasExplorer = () => Boolean(TOKEN);
-
-export const total = (result: { white: number; draws: number; black: number }) => result.white + result.draws + result.black;
 
 let chain: Promise<unknown> = Promise.resolve();
 

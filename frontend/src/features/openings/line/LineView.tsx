@@ -1,197 +1,168 @@
-import { useMemo, useState } from 'react';
-import { useOpeningName } from '../../../shared/hooks/useOpeningName';
-import { WorkshopBoard } from '../board/WorkshopBoard';
-import { movesAt, studyLine, type LineStep, type PlayedMove } from '../domain/line';
-import { formatLine, formatMove } from '../domain/notation';
-import { isPlayerMove, type OpeningTree } from '../domain/openingTree';
-import { playerAverage } from '../domain/performance';
+import { useState, type ReactNode } from 'react';
+import type { OpeningTree } from '../domain/openingTree';
+import { figurineMove } from '../domain/notation';
+import type { PlayedGame } from '../domain/playedGame';
 import { formatPercent } from '../flame/format';
 import { replayLine } from '../position/replay';
-import { COLOURS, raised, tile } from '../workshop/theme';
+import { COLOURS } from '../workshop/theme';
+import { ArrowBoard, type BoardArrow } from './ArrowBoard';
+import { Fold } from './Fold';
+import { lichessGame, lichessPosition } from './lichess';
+import { LineHeader } from './LineHeader';
+import { MistakeLabel, Mistakes } from './Mistakes';
+import { Practice } from './Practice';
+import { PreparedCaption, Preparation, type PointedPreparation } from './Preparation';
+import { arrowMoves, BEST, moveTone } from './tone';
+import { useLineDiagnosis } from './useLineDiagnosis';
+import { Verdict } from './Verdict';
+import { WholeLine, type PointedMove } from './WholeLine';
 
 interface LineViewProps {
   tree: OpeningTree;
+  /** Les parties du joueur sur la même période que l'arbre. */
+  games: readonly PlayedGame[];
   path: readonly string[];
   onBack: () => void;
   onOpen: (path: readonly string[]) => void;
 }
 
-export function LineView({ tree, path, onBack, onOpen }: LineViewProps) {
-  const { steps, entry } = useMemo(() => studyLine(tree, path), [tree, path]);
-  const [focus, setFocus] = useState(entry);
-  const average = playerAverage(tree);
-  const entryStep = steps[entry - 1];
+interface Shown {
+  path: readonly string[];
+  arrows: BoardArrow[];
+  caption: ReactNode;
+  link: { href: string; label: string };
+}
 
-  const focusPath = useMemo(() => steps.slice(0, focus).map((step) => step.san), [steps, focus]);
-  const fens = useMemo(() => replayLine(path).fens, [path]);
-  const opening = useOpeningName(fens);
-  const moves = movesAt(tree, focusPath, steps[focus]?.san);
-  const playerToMove = isPlayerMove(tree.side, focus + 1);
+const WORTH = COLOURS.leaf;
+const SCORE = COLOURS.kumquatDeep;
+
+/**
+ * « Study this line » : d'où viennent les points perdus (un coup à changer, ou ce qui suit une
+ * ouverture saine), puis un plan pour la ligne. L'analyse se fait sur Lichess, gratuit et libre.
+ */
+export function LineView({ tree, games, path, onBack, onOpen }: LineViewProps) {
+  const black = tree.side === 'b';
+  const { line, positions, average, fens, diagnosis, key, keyGames, courses, preparation } = useLineDiagnosis(tree, games, path);
+  const [selected, setSelected] = useState<number | null>(null);
+  const [pointed, setPointed] = useState<PointedMove | null>(null);
+  const [prepared, setPrepared] = useState<PointedPreparation | null>(null);
+  const shownPly = key ?? line.entry;
+
+  const shown = ((): Shown => {
+    if (pointed) {
+      const position = positions[pointed.ply];
+      const move = position.moves.find((candidate) => candidate.san === pointed.san);
+      return {
+        path: position.path,
+        arrows: move ? [{ san: move.san, tone: moveTone(move.rate, move.games, average), share: 0.6, emphasis: true }] : [],
+        caption: move && (
+          <>
+            {figurineMove(move.san, position.ply + 1)} · {move.games} games · {formatPercent(move.rate)}
+          </>
+        ),
+        link: { href: lichessPosition(fens[pointed.ply], black), label: 'Analyse on Lichess ↗' },
+      };
+    }
+    if (prepared) {
+      const { path: before, move } = prepared;
+      return {
+        path: before,
+        arrows: [
+          ...(move.dropped ? [{ san: move.dropped.san, tone: 'losing' as const, share: 0.6, emphasis: true }] : []),
+          { san: move.san, tone: 'even', colour: move.byPlayer ? BEST : undefined, share: 0.6, emphasis: true },
+        ],
+        caption: <PreparedCaption move={move} />,
+        link: { href: lichessPosition(replayLine(before).fens[before.length], black), label: 'Analyse on Lichess ↗' },
+      };
+    }
+    const mistake = selected === null ? null : courses[selected]?.mistake;
+    if (selected !== null && mistake) {
+      const game = keyGames[selected];
+      return {
+        path: game.moves.slice(0, mistake.ply - 1),
+        arrows: [
+          { san: mistake.san, tone: 'losing', share: 0.6, emphasis: true },
+          ...(mistake.best && mistake.best !== mistake.san ? [{ san: mistake.best, tone: 'winning' as const, colour: BEST, share: 0.6, emphasis: true }] : []),
+        ],
+        caption: <MistakeLabel mistake={mistake} />,
+        link: { href: lichessGame(game.moves, mistake.ply - 1, black), label: 'Open this game on Lichess ↗' },
+      };
+    }
+    const position = positions[shownPly];
+    const point = diagnosis.points[shownPly];
+    return {
+      path: position.path,
+      arrows: arrowMoves(position.moves).map((move) => ({
+        san: move.san,
+        tone: moveTone(move.rate, move.games, average),
+        share: move.share,
+        emphasis: move.onLine,
+      })),
+      caption: point.worth !== null && (
+        <>
+          worth <span style={{ color: WORTH }}>{formatPercent(point.worth)}</span> · you score{' '}
+          <span style={{ color: SCORE }}>{formatPercent(point.score)}</span> · {point.games} games
+        </>
+      ),
+      link: { href: lichessPosition(fens[shownPly], black), label: 'Study this position on Lichess ↗' },
+    };
+  })();
 
   return (
     <section aria-label="Line" className="flex flex-col gap-8">
-      <header className="flex flex-col gap-3">
-        <button
-          type="button"
-          onClick={onBack}
-          className="self-start rounded-full px-3 py-1 text-[13px] font-semibold"
-          style={tile(COLOURS.sand)}
-        >
-          ← Openings
-        </button>
-        <h1 className="flex flex-col gap-1">
-          <span className="text-[30px] leading-none font-extrabold tracking-[-0.03em]">{opening?.name ?? 'Unnamed line'}</span>
-          <span className="text-[15px] font-medium" style={{ color: COLOURS.leafSoft }}>
-            {formatLine(path)}
-          </span>
-        </h1>
-        <p className="text-[14px]" style={{ color: COLOURS.leafSoft }}>
-          {tree.side === 'w' ? 'White' : 'Black'} · {entryStep?.games ?? 0} games ·{' '}
-          <span className="font-bold" style={{ color: COLOURS.leaf }}>
-            {entryStep ? formatPercent(entryStep.rate) : '—'}
-          </span>{' '}
-          vs {formatPercent(average)} average · Last 12 months
-        </p>
-      </header>
-
+      <LineHeader path={path} side={tree.side} studied={line.steps[line.entry - 1]} average={average} onBack={onBack} />
       <div className="grid grid-cols-[minmax(0,26rem)_1fr] items-start gap-10">
         <div className="sticky top-6 flex flex-col gap-3">
-          <WorkshopBoard path={focusPath} flipped={tree.side === 'b'} />
-          <p className="px-1 text-[15px] font-semibold">{focus === 0 ? 'Start' : formatMove(steps[focus - 1].san, focus)}</p>
+          <ArrowBoard path={shown.path} flipped={black} arrows={shown.arrows} />
+          <p className="min-h-5 px-1 text-[14px] font-semibold">{shown.caption}</p>
+          <a
+            href={shown.link.href}
+            target="_blank"
+            rel="noreferrer"
+            className="self-start rounded-full px-4 py-2 text-[15px] font-bold"
+            style={{ background: COLOURS.leaf, color: COLOURS.cream, boxShadow: '0 6px 14px -6px oklch(0.3 0.06 150 / 0.55)' }}
+          >
+            {shown.link.label}
+          </a>
         </div>
-
-        <div className="flex flex-col gap-10">
-          <ScoreProfile steps={steps} entry={entry} average={average} focus={focus} onFocus={setFocus} />
-          <MovesHere
-            moves={moves.shown}
-            hidden={moves.hidden}
-            ply={focus + 1}
-            playerToMove={playerToMove}
-            average={average}
-            onFollow={() => setFocus(focus + 1)}
-            onOpen={(san) => onOpen([...focusPath, san])}
-          />
+        <div className="flex min-w-0 flex-col gap-8">
+          <Verdict diagnosis={diagnosis} keyStep={key === null ? undefined : line.steps[key - 1]} positions={positions.length} />
+          {key !== null && (
+            <section aria-label="Your plan" className="flex flex-col gap-5">
+              <h2 className="text-[22px] font-extrabold tracking-[-0.02em]">Your plan for this line</h2>
+              <Step number={1} title="Extend your preparation">
+                <Preparation preparation={preparation} keyPath={positions[key].path} onPoint={setPrepared} />
+              </Step>
+              <Step number={2} title="Practise the position">
+                <Practice
+                  fens={fens.slice(0, key + 1)}
+                  habit={positions[key].playerToMove ? (positions[key].moves[0]?.san ?? null) : null}
+                />
+                <Fold title={`Your decisive mistakes from here · ${courses.filter(({ mistake }) => mistake).length}`}>
+                  <Mistakes games={keyGames} courses={courses} black={black} keyPly={key} selected={selected} onSelect={setSelected} />
+                </Fold>
+              </Step>
+            </section>
+          )}
+          <Fold title="The whole line">
+            <WholeLine positions={positions} entry={line.entry} average={average} pointed={pointed} onPoint={setPointed} onOpen={onOpen} />
+          </Fold>
         </div>
       </div>
     </section>
   );
 }
 
-interface ScoreProfileProps {
-  steps: readonly LineStep[];
-  entry: number;
-  average: number;
-  focus: number;
-  onFocus: (ply: number) => void;
-}
-
-function ScoreProfile({ steps, entry, average, focus, onFocus }: ScoreProfileProps) {
+function Step({ number, title, children }: { number: number; title: string; children: ReactNode }) {
   return (
-    <section aria-labelledby="profile-title" className="flex flex-col gap-3">
-      <h2 id="profile-title" className="text-[22px] font-extrabold tracking-[-0.02em]">
-        Score along the line
-      </h2>
-      <ol className="flex flex-col gap-1">
-        <li>
-          <button
-            type="button"
-            onClick={() => onFocus(0)}
-            aria-pressed={focus === 0}
-            className="w-full rounded-xl px-3 py-1.5 text-left text-[13px] font-semibold"
-            style={focus === 0 ? raised(true) : undefined}
-          >
-            Start
-          </button>
-        </li>
-        {steps.map((step) => (
-          <li key={step.ply}>
-            {step.ply === entry + 1 && (
-              <p className="mt-2 border-t-2 border-dashed px-3 pt-2 text-[12px] font-semibold" style={{ borderColor: COLOURS.sand, color: COLOURS.leafSoft }}>
-                Most played continuation
-              </p>
-            )}
-            <button
-              type="button"
-              onClick={() => onFocus(step.ply)}
-              aria-pressed={focus === step.ply}
-              className={`grid w-full grid-cols-[5rem_3rem_1fr_3rem] items-center gap-3 rounded-xl px-3 py-1.5 text-left text-[13px] ${
-                step.ply > entry && focus !== step.ply ? 'opacity-70' : ''
-              }`}
-              style={focus === step.ply ? raised(true) : undefined}
-            >
-              <span className={step.byPlayer ? 'font-bold' : 'font-medium opacity-70'}>{formatMove(step.san, step.ply)}</span>
-              <span className="text-right tabular-nums opacity-70">{step.games}</span>
-              <GapBar rate={step.rate} average={average} />
-              <span className="text-right font-bold tabular-nums">{formatPercent(step.rate)}</span>
-            </button>
-          </li>
-        ))}
-      </ol>
-    </section>
-  );
-}
-
-interface MovesHereProps {
-  moves: readonly PlayedMove[];
-  hidden: number;
-  ply: number;
-  playerToMove: boolean;
-  average: number;
-  onFollow: () => void;
-  onOpen: (san: string) => void;
-}
-
-function MovesHere({ moves, hidden, ply, playerToMove, average, onFollow, onOpen }: MovesHereProps) {
-  return (
-    <section aria-labelledby="moves-title" className="flex flex-col gap-3">
-      <h2 id="moves-title" className="text-[22px] font-extrabold tracking-[-0.02em]">
-        {playerToMove ? 'Your moves here' : 'Opponent moves here'}
-      </h2>
-      {moves.length === 0 ? (
-        <p className="text-[14px]" style={{ color: COLOURS.leafSoft }}>
-          None
-        </p>
-      ) : (
-        <ul className="flex flex-col gap-2">
-          {moves.map((move) => (
-            <li key={move.san}>
-              <button
-                type="button"
-                onClick={() => (move.onLine ? onFollow() : onOpen(move.san))}
-                aria-current={move.onLine ? 'step' : undefined}
-                className="grid w-full grid-cols-[5rem_3rem_3rem_1fr_3rem] items-center gap-3 rounded-2xl px-3.5 py-2 text-left text-[13px] transition-transform hover:-translate-y-0.5"
-                style={raised(move.onLine)}
-              >
-                <span className="text-[15px] font-bold">{formatMove(move.san, ply)}</span>
-                <span className="text-right tabular-nums opacity-70">{move.games}</span>
-                <span className="text-right tabular-nums opacity-70">{formatPercent(move.share)}</span>
-                <GapBar rate={move.rate} average={average} />
-                <span className="text-right font-bold tabular-nums">{formatPercent(move.rate)}</span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-      {hidden > 0 && (
-        <p className="text-[12px]" style={{ color: COLOURS.leafSoft }}>
-          +{hidden} played fewer than 3 times
-        </p>
-      )}
-    </section>
-  );
-}
-
-// Part du milieu, la moyenne du joueur : 25 points d'écart remplissent une moitié.
-function GapBar({ rate, average }: { rate: number; average: number }) {
-  const gap = rate - average;
-  const width = Math.min(50, Math.abs(gap) * 200);
-  return (
-    <span className="relative block h-2.5 rounded-full" style={{ background: COLOURS.sand }} aria-hidden="true">
-      <span className="absolute top-0 left-1/2 h-full w-0.5" style={{ background: COLOURS.leafSoft }} />
-      <span
-        className="absolute top-0 h-full rounded-full"
-        style={{ width: `${width}%`, left: gap < 0 ? `${50 - width}%` : '50%', background: gap < 0 ? COLOURS.terracotta : COLOURS.sage }}
-      />
-    </span>
+    <article aria-label={title} className="flex flex-col gap-3 rounded-3xl p-5" style={{ background: COLOURS.paper, boxShadow: '0 2px 10px -4px oklch(0.35 0.06 60 / 0.25)' }}>
+      <header className="flex items-center gap-3">
+        <span className="flex size-8 items-center justify-center rounded-full text-[16px] font-extrabold" style={{ background: COLOURS.leaf, color: COLOURS.cream }}>
+          {number}
+        </span>
+        <h3 className="text-[19px] font-extrabold tracking-[-0.02em]">{title}</h3>
+      </header>
+      {children}
+    </article>
   );
 }

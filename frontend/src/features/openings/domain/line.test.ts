@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildOpeningTree } from './openingTree';
-import { movesAt, studyLine } from './line';
+import { linePositions, movesAt, studyLine } from './line';
 import type { PlayedGame } from './playedGame';
 
 const game = (side: PlayedGame['side'], moves: string, score: PlayedGame['score']): PlayedGame => ({
@@ -86,5 +86,28 @@ describe('movesAt', () => {
 
     expect(shown.map((move) => move.san)).toEqual(['c5', 'd6']);
     expect(hidden).toBe(1);
+  });
+});
+
+describe('linePositions', () => {
+  it('gives each position of the line its score, whose move it is and the moves played there', () => {
+    const tree = buildOpeningTree(
+      [...times(6, game('b', 'e4 c5 Nf3', 0)), ...times(4, game('b', 'e4 c5 Nc3', 1)), ...times(2, game('b', 'd4 d5', 1))],
+      'b',
+      16,
+    );
+
+    const positions = linePositions(tree, studyLine(tree, ['e4', 'c5']));
+
+    expect(positions.map(({ ply, path, games, rate, playerToMove }) => ({ ply, path, games, rate, playerToMove }))).toEqual([
+      { ply: 0, path: [], games: 12, rate: 0.5, playerToMove: false },
+      { ply: 1, path: ['e4'], games: 10, rate: 0.4, playerToMove: true },
+      { ply: 2, path: ['e4', 'c5'], games: 10, rate: 0.4, playerToMove: false },
+      { ply: 3, path: ['e4', 'c5', 'Nf3'], games: 6, rate: 0, playerToMove: true },
+    ]);
+    expect(positions[2].moves.map((move) => [move.san, move.onLine])).toEqual([
+      ['Nf3', true],
+      ['Nc3', false],
+    ]);
   });
 });

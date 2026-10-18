@@ -2,7 +2,6 @@
 // consultables via ?variant=, pour référence (voir NOTES.md).
 import { useEffect } from 'react';
 import { useSearchParams } from 'react-router';
-import { LinePrototypeRoute } from '../line-prototype/LinePrototypeRoute';
 import { OpeningsPage } from '../OpeningsPage';
 import { ClubhouseVariant } from './ClubhouseVariant';
 import { ClubVariant } from './ClubVariant';
@@ -35,8 +34,6 @@ function useVariantFonts() {
 export function DesignPrototypeRoute() {
   const [searchParams, setSearchParams] = useSearchParams();
   const variant = searchParams.get('variant');
-  const line = searchParams.get('line');
-  if (line !== null) return <LinePrototypeRoute variant={line} />;
   if (!variant || variant === 'C') return <OpeningsPage />;
   return <Variant variant={variant} onChange={(key) => setSearchParams(key === 'C' ? {} : { variant: key }, { replace: true })} />;
 }

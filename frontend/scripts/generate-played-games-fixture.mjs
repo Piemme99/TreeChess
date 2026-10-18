@@ -1,7 +1,7 @@
 // Generates src/features/openings/fixtures/played-games.json from a chess.com
-// account's public archives: blitz and rapid games, opening moves only.
+// account's public archives: blitz and rapid games, the first 80 plies of each.
 //
-// Run with: node scripts/generate-played-games-fixture.mjs [username]
+// Run with: node scripts/generate-played-games-fixture.mjs [username] [until YYYY-MM-DD]
 //
 // The generated JSON is committed: it feeds the dev route and the tests with
 // real games until the import exists.
@@ -11,8 +11,11 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const USERNAME = (process.argv[2] ?? 'Piemme78').toLowerCase();
+// Freezing the end date keeps the same games, so the tests' counts hold when the script is rerun.
+const UNTIL = process.argv[3] ?? '9999-12-31';
 const TIME_CLASSES = new Set(['blitz', 'rapid']);
-const MAX_PLIES = 16;
+// The line view reads the games past the opening, where they are decided (around move 20).
+const MAX_PLIES = 80;
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const OUT = resolve(__dirname, '../src/features/openings/fixtures/played-games.json');
@@ -51,7 +54,7 @@ for (const url of archives) {
   const { games: monthly } = await getJson(url);
   for (const apiGame of monthly ?? []) {
     const game = toPlayedGame(apiGame);
-    if (game) games.push(game);
+    if (game && game.playedAt <= UNTIL) games.push(game);
   }
 }
 

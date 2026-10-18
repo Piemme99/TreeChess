@@ -68,7 +68,7 @@ describe('OpeningsPage', () => {
     fireEvent.click(screen.getByRole('button', { name: /1\.d4 Nf6/ }));
 
     fireEvent.click(screen.getByRole('button', { name: /Study this line/ }));
-    expect(screen.getByRole('region', { name: 'Line' })).toHaveTextContent('Black · 28 games');
+    expect(screen.getByRole('region', { name: 'Line' })).toHaveTextContent('28games · as Black');
 
     fireEvent.click(screen.getByRole('button', { name: /Openings/ }));
     expect(zoomPath()).toHaveTextContent('all1.d41…♘f6');

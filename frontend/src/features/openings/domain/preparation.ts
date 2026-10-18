@@ -1,15 +1,23 @@
-// PROTOTYPE — préparation prolongée au-delà des parties du joueur : ses habitudes là où il en a,
-// sinon le coup le plus joué à son niveau que le moteur valide ; les réponses adverses fréquentes
-// à son niveau. À jeter avec le dossier.
 import { Chess } from 'chess.js';
-import type { PlayedGame, Side } from '../domain/playedGame';
-import { sanOf, winChance } from './diagnosis';
-import type { Evaluation } from './engine';
-import { total, type ExplorerResult } from './explorer';
+import { uciToSan, winChance, type Evaluation } from './diagnosis';
+import type { PlayedGame, Side } from './playedGame';
 
-export type PlanSource = 'habit' | 'level' | 'engine';
+interface Tally {
+  white: number;
+  draws: number;
+  black: number;
+}
 
-export interface PlanMove {
+/** Ce que l'explorateur Lichess renvoie d'une position : ses parties et les coups joués. */
+export interface ExplorerStats extends Tally {
+  moves: (Tally & { san: string })[];
+}
+
+export const gamesIn = (tally: Tally) => tally.white + tally.draws + tally.black;
+
+export type MoveSource = 'habit' | 'level' | 'engine';
+
+export interface PreparedMove {
   san: string;
   ply: number;
   byPlayer: boolean;
@@ -17,14 +25,14 @@ export interface PlanMove {
   share: number | null;
   /** Parties du joueur passées par ce coup. */
   mine: number;
-  source: PlanSource | null;
+  source: MoveSource | null;
   /** L'habitude du joueur que le moteur écarte ici, et ce qu'elle coûte. */
   dropped: { san: string; loss: number } | null;
-  next: PlanMove[];
+  next: PreparedMove[];
 }
 
-export interface PlanDeps {
-  explore: (fen: string) => Promise<ExplorerResult | null>;
+export interface PreparationSources {
+  explore: (fen: string) => Promise<ExplorerStats | null>;
   evaluate: (fen: string) => Promise<Evaluation>;
   cancelled: () => boolean;
   onProgress: (steps: number) => void;
@@ -41,34 +49,44 @@ const CANDIDATES = 3;
 // Même seuil que « remplacée seulement là où le moteur la juge mauvaise » (préparation proposée, CONTEXT.md).
 const LOSS = 0.05;
 
-export async function planPreparation(keyPath: readonly string[], side: Side, games: readonly PlayedGame[], deps: PlanDeps): Promise<PlanMove[]> {
+/**
+ * La préparation proposée depuis la position clé (CONTEXT.md, ADR 0002) : à son coup, l'habitude
+ * du joueur si le moteur l'accepte, sinon le coup le plus joué à son niveau que le moteur accepte ;
+ * au coup adverse, les réponses fréquentes à son niveau et celles qu'il a lui-même rencontrées.
+ */
+export async function proposePreparation(
+  keyPath: readonly string[],
+  side: Side,
+  games: readonly PlayedGame[],
+  sources: PreparationSources,
+): Promise<PreparedMove[]> {
   const pov = (cp: number) => winChance(side === 'w' ? cp : -cp);
   let steps = 0;
 
-  const grow = async (path: readonly string[], reach: number, reaching: readonly PlayedGame[]): Promise<PlanMove[]> => {
-    if (deps.cancelled() || path.length - keyPath.length >= PLIES) return [];
+  const grow = async (path: readonly string[], reach: number, reaching: readonly PlayedGame[]): Promise<PreparedMove[]> => {
+    if (sources.cancelled() || path.length - keyPath.length >= PLIES) return [];
     const chess = new Chess();
     path.forEach((san) => chess.move(san));
     const fen = chess.fen();
     const ply = path.length;
     const byPlayer = (ply % 2 === 0) === (side === 'w');
     const mine = countMoves(reaching, ply);
-    const explorer = await deps.explore(fen);
-    deps.onProgress(++steps);
-    if (!explorer || total(explorer) < MIN_SAMPLE) return [];
+    const stats = await sources.explore(fen);
+    sources.onProgress(++steps);
+    if (!stats || gamesIn(stats) < MIN_SAMPLE) return [];
     const shareOf = (san: string) => {
-      const move = explorer.moves.find((candidate) => candidate.san === san);
-      return move ? total(move) / total(explorer) : 0;
+      const move = stats.moves.find((candidate) => candidate.san === san);
+      return move ? gamesIn(move) / gamesIn(stats) : 0;
     };
     const follow = (san: string) => reaching.filter((game) => game.moves[ply] === san);
 
     if (!byPlayer) {
-      const replies = explorer.moves
+      const replies = stats.moves
         .slice(0, MAX_REPLIES)
         .map((move) => move.san)
         .filter((san) => shareOf(san) >= MIN_SHARE && reach * shareOf(san) >= MIN_REACH);
       for (const [san, count] of mine) if (count >= MIN_HABIT_GAMES && !replies.includes(san)) replies.push(san);
-      const moves: PlanMove[] = [];
+      const moves: PreparedMove[] = [];
       for (const san of replies) {
         const share = shareOf(san);
         // Une réponse que le joueur rencontre lui-même compte, même rare à son niveau.
@@ -78,23 +96,23 @@ export async function planPreparation(keyPath: readonly string[], side: Side, ga
       return moves;
     }
 
-    const before = await deps.evaluate(fen);
+    const before = await sources.evaluate(fen);
     const lossOf = async (san: string) => {
       chess.move(san);
-      const after = await deps.evaluate(chess.fen());
+      const after = await sources.evaluate(chess.fen());
       chess.undo();
       return pov(before.cp) - pov(after.cp);
     };
 
-    let pick: { san: string; source: PlanSource } | null = null;
-    let dropped: PlanMove['dropped'] = null;
+    let pick: { san: string; source: MoveSource } | null = null;
+    let dropped: PreparedMove['dropped'] = null;
     const habit = [...mine.entries()].sort((a, b) => b[1] - a[1]).find(([, count]) => count >= MIN_HABIT_GAMES)?.[0];
     if (habit) {
       const loss = await lossOf(habit);
       if (loss < LOSS) pick = { san: habit, source: 'habit' };
       else dropped = { san: habit, loss };
     }
-    for (const move of pick ? [] : explorer.moves.slice(0, CANDIDATES)) {
+    for (const move of pick ? [] : stats.moves.slice(0, CANDIDATES)) {
       if (move.san === dropped?.san) continue;
       if ((await lossOf(move.san)) < LOSS) {
         pick = { san: move.san, source: 'level' };
@@ -102,7 +120,7 @@ export async function planPreparation(keyPath: readonly string[], side: Side, ga
       }
     }
     if (!pick) {
-      const best = sanOf(fen, before.best);
+      const best = uciToSan(fen, before.best);
       if (!best) return [];
       pick = { san: best, source: 'engine' };
     }
@@ -122,10 +140,10 @@ function countMoves(games: readonly PlayedGame[], ply: number): Map<string, numb
   return counts;
 }
 
-export function planDepth(moves: readonly PlanMove[]): number {
-  return moves.reduce((deepest, move) => Math.max(deepest, move.ply, planDepth(move.next)), 0);
+export function preparedDepth(moves: readonly PreparedMove[]): number {
+  return moves.reduce((deepest, move) => Math.max(deepest, move.ply, preparedDepth(move.next)), 0);
 }
 
-export function countDropped(moves: readonly PlanMove[]): number {
+export function countDropped(moves: readonly PreparedMove[]): number {
   return moves.reduce((sum, move) => sum + (move.dropped ? 1 : 0) + countDropped(move.next), 0);
 }

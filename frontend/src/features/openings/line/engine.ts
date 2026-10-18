@@ -1,14 +1,8 @@
-// PROTOTYPE — file d'évaluations Stockfish pour la vue de ligne, avec cache par FEN. À jeter avec le dossier.
+// File d'évaluations Stockfish de la vue de ligne : un worker dédié, une position à la fois, cache par FEN.
 import { Chess } from 'chess.js';
 import { useEffect, useState } from 'react';
 import { STOCKFISH_WORKER_PATH, getOptimalThreadCount } from '../../../services/stockfishConfig';
-
-export interface Evaluation {
-  /** Centipions du point de vue des Blancs ; un mat vaut ±MATE_CP. */
-  cp: number;
-  /** Meilleur coup en UCI, absent en fin de partie. */
-  best?: string;
-}
+import { MATE_CP, type Evaluation } from '../domain/diagnosis';
 
 interface Job {
   fen: string;
@@ -17,7 +11,6 @@ interface Job {
   cancelled: boolean;
 }
 
-const MATE_CP = 3000;
 const cache = new Map<string, Evaluation>();
 const queue: Job[] = [];
 let worker: Worker | null = null;
@@ -28,7 +21,8 @@ let last: { cp: number } | null = null;
 const keyOf = (fen: string, depth: number) => `${depth}|${fen}`;
 
 function boot() {
-  if (worker) return;
+  // Sans worker (tests, rendu serveur), les évaluations n'arrivent jamais : la vue reste en attente.
+  if (worker || typeof Worker === 'undefined') return;
   worker = new Worker(STOCKFISH_WORKER_PATH);
   worker.onmessage = ({ data }: MessageEvent) => {
     if (typeof data !== 'string') return;

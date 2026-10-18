@@ -78,3 +78,32 @@ function stepOf(tree: OpeningTree, node: OpeningNode, ply: number): LineStep {
     byPlayer: isPlayerMove(tree.side, ply),
   };
 }
+
+export interface LinePosition {
+  /** Demi-coups joués pour atteindre la position (0 = départ). */
+  ply: number;
+  path: readonly string[];
+  /** Score des parties qui atteignent la position. */
+  rate: number;
+  games: number;
+  playerToMove: boolean;
+  moves: PlayedMove[];
+  hidden: number;
+}
+
+/** Chaque position de la ligne, du départ au bout de sa suite la plus jouée. */
+export function linePositions(tree: OpeningTree, { steps }: StudiedLine): LinePosition[] {
+  return [tree.root, ...steps].map((_, ply) => {
+    const path = steps.slice(0, ply).map((step) => step.san);
+    const { shown, hidden } = movesAt(tree, path, steps[ply]?.san);
+    return {
+      ply,
+      path,
+      rate: ply === 0 ? scoreRate(tree.root) : steps[ply - 1].rate,
+      games: ply === 0 ? tree.root.games : steps[ply - 1].games,
+      playerToMove: isPlayerMove(tree.side, ply + 1),
+      moves: shown,
+      hidden,
+    };
+  });
+}
