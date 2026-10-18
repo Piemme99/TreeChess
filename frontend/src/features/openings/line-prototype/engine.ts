@@ -119,3 +119,9 @@ export function useEvaluations(fens: readonly string[], depth: number, enabled =
   }, [fens, depth, enabled]);
   return results;
 }
+
+export function evaluate(fen: string, depth: number): Promise<Evaluation> {
+  return new Promise((resolve) => {
+    request(fen, depth, resolve);
+  });
+}

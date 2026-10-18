@@ -92,6 +92,22 @@ thread, ~10 s pour les 9 parties de la Philidor, ~55 s pour les 5 priorités ent
       puzzles Lichess de la famille d'ouverture, erreurs décisives repliées dessous.
    3. **Suivre son score** : score mois par mois sur la ligne face à l'objectif, ce que vaut la position.
 
+7. Jeton personnel Lichess (dans `frontend/.env.local`, ignoré par git) en attendant de brancher
+   l'OAuth qui existe déjà dans le backend v1 (PKCE, jeton stocké, proxy `GET /api/training/opening`
+   avec cache Postgres) ; ce branchement viendra avec la brique import. L'étape 1 devient :
+   - à ton coup : ton habitude (≥ 2 parties) si le moteur l'accepte (perte < 5 pts), sinon le coup le
+     plus joué à ton niveau que le moteur accepte, sinon le coup du moteur ;
+   - au coup adverse : les réponses à ton niveau (Lichess, blitz + rapide, 1400-1800) qui pèsent
+     ≥ 15 %, trois au plus, tant que la branche concerne ≥ 8 % des parties, plus celles que tu as
+     rencontrées ≥ 2 fois ; 6 coups au-delà de la position clé.
+   Philidor : jusqu'au coup 8, ~20 appels à l'explorateur et 16 s ; après 7…c5 elle propose 8.♘db5,
+   là où une partie a été perdue sur 8.♘f5. L'étape 2 ajoute ce que jouent les maîtres à la position
+   clé et trois de leurs parties (liens Lichess). Explorateur limité en débit : une requête à la fois,
+   cache dans le localStorage, une minute de pause sur un 429 (vu en test).
+   **Contredit l'ADR 0002, point 5** (« la préparation proposée s'arrête là où s'arrêtent les parties
+   du joueur ») : elle va ici au-delà, avec ce que jouent les adversaires de son niveau. À trancher.
+   Position clé : à écart presque égal (90 %), celle où le joueur a le trait.
+
 Pour plus tard, avec l'OAuth Lichess : créer d'un clic une étude Lichess des positions d'erreur de la ligne.
 
 ## Verdict

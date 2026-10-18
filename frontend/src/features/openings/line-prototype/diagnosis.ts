@@ -14,6 +14,7 @@ const MOVE_LOSS = 0.02;
 /** Écart, en chances, à partir duquel une des deux causes mérite d'être travaillée. */
 export const WORTH_WORKING = 0.03;
 const TURN_DROP = 0.1;
+const KEY_TIE = 0.9;
 const TURN_HOLD = 0.08;
 
 export interface LinePoint {
@@ -72,16 +73,18 @@ export function diagnose(study: LineStudy, side: Side, evaluations: Map<string, 
   losses.sort((a, b) => b.loss - a.loss);
 
   const entry = points[study.entry];
+  const gapAt = (point: LinePoint) =>
+    point.worth === null || point.games < MIN_KEY_GAMES ? 0 : (point.worth - point.score) * (point.games / (point.games + SMOOTHING_GAMES));
   let key: number | null = null;
   let worst = 0;
   for (const point of points.slice(1)) {
-    if (point.worth === null || point.games < MIN_KEY_GAMES) continue;
-    const gap = (point.worth - point.score) * (point.games / (point.games + SMOOTHING_GAMES));
-    if (gap > worst) {
-      worst = gap;
+    if (gapAt(point) > worst) {
+      worst = gapAt(point);
       key = point.ply;
     }
   }
+  // À écart presque égal, la position où le joueur a le trait : c'est là qu'il a un choix à travailler.
+  if (key !== null && key > 1 && !study.positions[key].playerToMove && gapAt(points[key - 1]) >= worst * KEY_TIE) key -= 1;
 
   return {
     points,
