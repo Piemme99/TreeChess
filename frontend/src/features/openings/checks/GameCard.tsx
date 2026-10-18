@@ -90,7 +90,7 @@ export function GameCard({ checked, selected, onSelect, showDate = false, onIgno
   );
 }
 
-function Verdict({ checked: { check, asks }, judgement }: { checked: CheckedGame; judgement?: Judgement | null }) {
+function Verdict({ checked: { check }, judgement }: { checked: CheckedGame; judgement?: Judgement | null }) {
   if (check.kind === 'followed') {
     const moves = Math.ceil(check.plies / 2);
     return <>Your repertoire held for {moves} {moves === 1 ? 'move' : 'moves'}</>;
@@ -117,7 +117,6 @@ function Verdict({ checked: { check, asks }, judgement }: { checked: CheckedGame
           · {judgement}
         </span>
       )}
-      {!asks && ' · first time: not kept for later'}
     </>
   );
 }

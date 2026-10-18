@@ -55,7 +55,7 @@ describe('GameChecksPage', () => {
       'You played 3.c4, your repertoire has 3.♘f3',
       'You played 1…♘f6, your repertoire has 1…d5',
     ]);
-    expect(screen.getAllByText(/first time: not kept for later/)).toHaveLength(6);
+    expect(screen.getAllByText('Not covered')).toHaveLength(6);
     expect(screen.getAllByText('Followed')).toHaveLength(3);
   });
 
