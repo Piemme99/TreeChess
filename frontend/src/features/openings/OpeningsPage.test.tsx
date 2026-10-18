@@ -52,6 +52,17 @@ describe('OpeningsPage', () => {
     expect(screen.queryByRole('region', { name: 'Line' })).not.toBeInTheDocument();
   });
 
+  it('drops the preview back to the whole tree when the selected priority is clicked again', async () => {
+    render(<OpeningsPage />);
+    fireEvent.click(screen.getByRole('button', { name: /1\.d4 Nf6/ }));
+
+    fireEvent.click(screen.getByRole('button', { name: /1\.d4 Nf6/ }));
+
+    expect(screen.getByRole('button', { name: /1\.d4 Nf6/ })).toHaveAttribute('aria-pressed', 'false');
+    await waitFor(() => expect(zoomPath()).toHaveTextContent(/^all$/));
+    expect(screen.queryByRole('button', { name: /Study this line/ })).not.toBeInTheDocument();
+  });
+
   it('studies the previewed line over the last 12 months, then comes back zoomed on it', () => {
     render(<OpeningsPage />);
     fireEvent.click(screen.getByRole('button', { name: /1\.d4 Nf6/ }));

@@ -53,14 +53,18 @@ export function OpeningsPage() {
     setPointed(null);
   };
 
+  const isShown = (priority: Priority) =>
+    priority.side === side && priority.path.join(' ') === focusPath.join(' ');
+
   // Cliquer une priorité n'en montre qu'un aperçu : l'étudier est un choix explicite.
-  const previewPriority = (priority: Priority) => {
+  const togglePriority = (priority: Priority) => {
+    if (isShown(priority)) {
+      zoomTo([]);
+      return;
+    }
     setSide(priority.side);
     zoomTo(priority.path);
   };
-
-  const isShown = (priority: Priority) =>
-    priority.side === side && priority.path.join(' ') === focusPath.join(' ');
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -111,7 +115,7 @@ export function OpeningsPage() {
               <PriorityTickets
                 priorities={priorities}
                 isSelected={isShown}
-                onSelect={previewPriority}
+                onSelect={togglePriority}
                 onPoint={setPointed}
               />
               <FlameTiles
