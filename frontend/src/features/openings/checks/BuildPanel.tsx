@@ -85,6 +85,7 @@ function EngineHere({ builder, candidates }: { builder: Builder; candidates: Can
 function CandidateTable({ builder, candidates, onPoint }: { builder: Builder; candidates: Candidates; onPoint: (san: string | null) => void }) {
   const { rows, explorer } = candidates;
   const ply = builder.path.length + 1;
+  const side = builder.checked.game.side === 'w' ? 'White' : 'Black';
   const caption = builder.playerToMove ? 'Your move · tap one to play it, or play any move on the board' : 'Their move · pick a reply to prepare, or play any move on the board';
   return (
     <div className="flex flex-col gap-1.5">
@@ -95,13 +96,21 @@ function CandidateTable({ builder, candidates, onPoint }: { builder: Builder; ca
       {explorer === 'asking' && <Muted>Asking the Lichess explorer…</Muted>}
       {rows.length > 0 && (
         <table aria-label="Candidate moves" className="w-full border-collapse text-[14px]" onMouseLeave={() => onPoint(null)}>
-          <thead>
-            <tr className="text-left text-[11px] font-semibold" style={{ color: COLOURS.leafSoft }}>
+          <thead className="text-[11px] font-semibold" style={{ color: COLOURS.leafSoft }}>
+            <tr>
+              <th />
+              <th colSpan={2} className="px-2 pb-0.5 text-center font-semibold" style={{ borderBottom: `1px solid ${COLOURS.sand}` }}>
+                At your level
+              </th>
+              <th />
+              <th />
+            </tr>
+            <tr className="text-left">
               <th className="pb-1 pr-2 font-semibold">Move</th>
-              <th className="pb-1 px-2 font-semibold">Played at your level</th>
-              <th className="pb-1 px-2 text-right font-semibold">Your score</th>
+              <th className="pb-1 px-2 font-semibold">played</th>
+              <th className="pb-1 px-2 text-right font-semibold">score for {side}</th>
               <th className="pb-1 px-2 text-right font-semibold">Engine</th>
-              <th className="pb-1 pl-2 text-right font-semibold">{builder.playerToMove ? 'Yours' : 'Met'}</th>
+              <th className="pb-1 pl-2 text-right font-semibold">{builder.playerToMove ? 'Your games' : 'Met in your games'}</th>
             </tr>
           </thead>
           <tbody>
