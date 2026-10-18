@@ -38,7 +38,9 @@ export function GameChecksPage() {
     return games.map((checked, index): CheckedGame => ({ ...checked, asks: asks[index] }));
   }, [repertoires, replay.day]);
   const today = lived.filter(({ game }) => game.playedAt === replay.day);
-  const isPending = (checked: CheckedGame) => checked.asks && !ignored.has(checked.id);
+  // Toute partie sortie du répertoire se tranche le jour même ; seules celles qui demandent une décision attendent ensuite.
+  const isOpen = (checked: CheckedGame) => checked.check.kind !== 'followed' && !ignored.has(checked.id);
+  const isPending = (checked: CheckedGame) => checked.asks && isOpen(checked);
   // Les parties du jour portent leur propre décision : la liste suivante ne reprend que les jours passés.
   const earlier = lived.filter((checked) => checked.game.playedAt < replay.day && isPending(checked)).reverse();
   const selected = lived.find((checked) => checked.id === selectedId) ?? today[0] ?? null;
@@ -107,8 +109,8 @@ export function GameChecksPage() {
                       checked={checked}
                       selected={checked === selected}
                       onSelect={() => setSelectedId(checked.id)}
-                      onIgnore={isPending(checked) ? () => ignore(checked.id) : undefined}
-                      onAdd={isPending(checked) ? () => startAdding(checked) : undefined}
+                      onIgnore={isOpen(checked) ? () => ignore(checked.id) : undefined}
+                      onAdd={isOpen(checked) ? () => startAdding(checked) : undefined}
                       ignored={ignored.has(checked.id)}
                     />
                   ))}

@@ -101,7 +101,7 @@ function Verdict({ checked: { check, asks } }: { checked: CheckedGame }) {
   ) : (
     <>
       Opponent played <b>{played}</b>, your repertoire answers {planned}
-      {!asks && ' · first time, nothing to decide'}
+      {!asks && ' · first time: not kept for later'}
     </>
   );
 }

@@ -18,7 +18,8 @@ const replayBar = () => screen.getByRole('region', { name: 'Replay' });
 const nextDay = () => fireEvent.click(within(replayBar()).getByRole('button', { name: /Next day/ }));
 const dayGames = () => within(screen.getByRole('region', { name: 'Games of the day' })).queryAllByRole('listitem');
 const earlier = () => screen.getByRole('region', { name: /Still to decide/ });
-const toDecide = () => dayGames().filter((card) => within(card).queryByRole('button', { name: /^Ignore/ }));
+const actionable = () => dayGames().filter((card) => within(card).queryByRole('button', { name: /^Ignore/ }));
+const deviations = () => actionable().filter((card) => card.textContent?.includes('You played'));
 
 describe('GameChecksPage', () => {
   beforeAll(() => {
@@ -50,15 +51,22 @@ describe('GameChecksPage', () => {
       'You played 3.c4, your repertoire has 3.♘f3',
       'You played 1…♘f6, your repertoire has 1…d5',
     ]);
-    expect(screen.getAllByText(/first time, nothing to decide/)).toHaveLength(6);
+    expect(screen.getAllByText(/first time: not kept for later/)).toHaveLength(6);
     expect(screen.getAllByText('Followed')).toHaveLength(3);
   });
 
-  it('carries the undecided games over to the next day, without the ignored ones', () => {
+  it('offers an action on every game that left the repertoire', () => {
     page();
     nextDay();
-    expect(toDecide()).toHaveLength(2);
-    const [first] = toDecide();
+
+    expect(actionable()).toHaveLength(8);
+  });
+
+  it("carries over to the next day the player's own deviations, not the ignored ones nor a first unknown reply", () => {
+    page();
+    nextDay();
+    expect(deviations()).toHaveLength(2);
+    const [first] = deviations();
     fireEvent.click(within(first).getByRole('button', { name: /^Ignore/ }));
     expect(first).toHaveTextContent('Ignored');
 
@@ -70,13 +78,13 @@ describe('GameChecksPage', () => {
   it('forgets the ignored games when the replay is reset', () => {
     page();
     nextDay();
-    fireEvent.click(within(toDecide()[0]).getByRole('button', { name: /^Ignore/ }));
-    expect(toDecide()).toHaveLength(1);
+    fireEvent.click(within(actionable()[0]).getByRole('button', { name: /^Ignore/ }));
+    expect(actionable()).toHaveLength(7);
 
     fireEvent.click(within(replayBar()).getByRole('button', { name: 'Reset' }));
     nextDay();
 
-    expect(toDecide()).toHaveLength(2);
+    expect(actionable()).toHaveLength(8);
   });
 
   it('adds the move the player left the repertoire with, and checks the game again against it', async () => {
@@ -90,7 +98,7 @@ describe('GameChecksPage', () => {
     fireEvent.click(await within(panel).findByRole('button', { name: 'Add 1…♘f6 alone' }));
 
     expect(screen.queryByRole('region', { name: 'Addition' })).not.toBeInTheDocument();
-    expect(toDecide()).toHaveLength(1);
+    expect(deviations()).toHaveLength(1);
     expect(screen.getAllByText(/Your repertoire held for 1 move$/)).toHaveLength(1);
   });
 

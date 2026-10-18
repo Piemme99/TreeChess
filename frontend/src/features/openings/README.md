@@ -120,9 +120,10 @@ Built one brick at a time, each visible on its own:
    jumps to the next day with games (49 in 2026), "Reset" goes back and forgets the ignored
    games — and checks each game of the day against the repertoire (`domain/gameCheck.ts`:
    followed, left the repertoire, not covered), board at the deviation (red played, green
-   repertoire), "Ignore" only; the undecided games of the previous days stay below. A
-   "not covered" asks for a decision only when the same opponent move comes back
-   (`asksDecision`). Over 2026: 226 games followed, 119 left, 185 not covered; 174
+   repertoire), "Ignore" only; the undecided games of the previous days stay below. Every
+   game that left the repertoire offers "Add" and "Ignore" on its day; a first "not covered"
+   left alone is not kept for the next days, only one whose opponent move comes back is
+   (`asksDecision`, PMG: no game without an action). Over 2026: 226 games followed, 119 left, 185 not covered; 174
    decisions, 3 a day (median), 15 at most.
    **Openings** stays the global view, computed "as of" the replay day, no clock on it.
    The repertoire does not follow the clock: only the player's decisions will change it.

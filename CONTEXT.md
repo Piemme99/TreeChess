@@ -142,8 +142,9 @@ fresh. Two outcomes:
   repertoire's moves (an exercise on that position). Without an answer, nothing
   changes.
 - **Not covered** — the opponent played a move the repertoire does not prepare.
-  Met once, it may be chance: the check only says so. When the same move comes
-  back, it offers a proposed addition.
+  The player can add an answer or ignore it, like any game that left the
+  repertoire. Met once, it may be chance: left alone, it does not wait for them;
+  when the same move comes back, it becomes a [pending decision](#pending-decision).
 
 A move outside the repertoire that the player keeps playing (a fifth of their
 games there, over the last 12 months) is offered as an addition even if every
