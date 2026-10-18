@@ -5,11 +5,14 @@ import { gamesOfLastMonths } from './domain/period';
 import type { PlayedGame, Side } from './domain/playedGame';
 import { findPriorities, type Priority } from './domain/priorities';
 import { createRepertoire, repertoireLines, type Repertoire } from './domain/repertoire';
+import { dayBefore, gamesUntil } from './domain/replay';
 import { FlameTiles } from './flame/FlameTiles';
 import { playedGamesFixture } from './fixtures/playedGames';
 import { LineView } from './line/LineView';
 import { BoardPanel } from './position/BoardPanel';
 import { PriorityTickets } from './priorities/PriorityTickets';
+import { ReplayBar } from './replay/ReplayBar';
+import { useReplayDay } from './replay/useReplayDay';
 import { Kumquat } from './workshop/Kumquat';
 import { SideSwitch } from './workshop/SideSwitch';
 import { COLOURS, FONT_FAMILY } from './workshop/theme';
@@ -34,9 +37,15 @@ export function OpeningsPage() {
   const [pointed, setPointed] = useState<Line | null>(null);
   const [studied, setStudied] = useState<Line | null>(null);
 
-  const trees = useMemo(() => treesOf(playedGamesFixture), []);
-  const recentGames = useMemo(() => gamesOfLastMonths(playedGamesFixture, RECENT_MONTHS, new Date()), []);
+  const replay = useReplayDay(playedGamesFixture, dayBefore(REPLAY_START));
+  const knownGames = useMemo(() => gamesUntil(playedGamesFixture, replay.day), [replay.day]);
+  const trees = useMemo(() => treesOf(knownGames), [knownGames]);
+  const recentGames = useMemo(
+    () => gamesOfLastMonths(knownGames, RECENT_MONTHS, new Date(replay.day)),
+    [knownGames, replay.day],
+  );
   const recentTrees = useMemo(() => treesOf(recentGames), [recentGames]);
+  // Le répertoire ne suit pas l'horloge : il ne change que par les décisions du joueur (briques suivantes).
   const repertoires = useMemo(() => repertoiresOf(playedGamesFixture, REPLAY_START), []);
   const coveredLines = useMemo(() => repertoireLines(repertoires[side], trees[side]), [repertoires, trees, side]);
   const priorities = useMemo(
@@ -87,9 +96,14 @@ export function OpeningsPage() {
   return (
     <MotionConfig reducedMotion="user">
       <div className="min-h-screen pb-28" style={{ fontFamily: FONT_FAMILY, background: COLOURS.cream, color: COLOURS.leaf }}>
-        <header className="mx-auto flex max-w-[84rem] items-center gap-4 px-8 pt-7">
+        <header className="mx-auto flex max-w-[84rem] flex-wrap items-center gap-x-4 gap-y-3 px-8 pt-7">
           <Kumquat />
           <span className="text-[26px] font-bold tracking-[-0.03em]">kumquat</span>
+          {!studied && (
+            <span className="ml-10">
+              <ReplayBar replay={replay} />
+            </span>
+          )}
           {!studied && (
             <span className="ml-auto">
               <SideSwitch side={side} onChange={showSide} />

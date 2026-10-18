@@ -7,6 +7,7 @@ const tickets = () => within(screen.getByRole('region', { name: /Fix these first
 const panel = () => screen.getByRole('complementary', { name: 'Position' });
 const period = (name: string) => within(panel()).getByRole('region', { name });
 const zoomPath = () => screen.getByRole('navigation', { name: 'Zoom path' });
+const replayBar = () => screen.getByRole('region', { name: 'Replay' });
 
 // La table des noms d'ouvertures (~480 Ko) est chargée à la demande : sous la charge de
 // la suite complète, le délai par défaut d'1 s ne suffit pas.
@@ -28,14 +29,39 @@ describe('OpeningsPage', () => {
 
   afterEach(() => {
     vi.useRealTimers();
+    localStorage.clear();
   });
 
-  it('ranks the lines that cost points now, leaving out those fixed or abandoned', () => {
+  it('ranks the lines that cost points on the replay day', () => {
     render(<OpeningsPage />);
 
     const lines = tickets().map((ticket) => ticket.textContent);
-    expect(lines[0]).toMatch(/1\.e4 c5 2\.d4 cxd4 3\.c3/);
-    expect(lines.join()).not.toMatch(/1\.e4 d5 2\.exd5|1\.d4 d5 2\.Nc3 Nc6 3\.Bf4/);
+    expect(lines[0]).toMatch(/White.*1\.d4$/);
+    expect(lines.join()).toMatch(/1\.e4 c5 2\.d4/);
+    expect(lines.join()).not.toMatch(/1\.e4 e5 2\.Nf3 d6 3\.d4/);
+  });
+
+  it('starts the replay the day the repertoire is created, then lives the days with games one by one', async () => {
+    render(<OpeningsPage />);
+    expect(replayBar()).toHaveTextContent('Wed, 31 Dec 2025repertoire created');
+    expect(period('All time')).toHaveTextContent('2557games');
+
+    fireEvent.click(within(replayBar()).getByRole('button', { name: /Next day/ }));
+
+    expect(replayBar()).toHaveTextContent('Sun, 4 Jan 2026day 1 of 49 · 11 games');
+    await waitFor(() => expect(period('All time')).toHaveTextContent('2562games'));
+  });
+
+  it('keeps the replay day across reloads, until reset', () => {
+    const { unmount } = render(<OpeningsPage />);
+    fireEvent.click(within(replayBar()).getByRole('button', { name: /Next day/ }));
+    unmount();
+
+    render(<OpeningsPage />);
+    expect(replayBar()).toHaveTextContent('Sun, 4 Jan 2026');
+
+    fireEvent.click(within(replayBar()).getByRole('button', { name: 'Reset' }));
+    expect(replayBar()).toHaveTextContent('Wed, 31 Dec 2025');
   });
 
   it('shows the repertoire created from the games before the replay starts', () => {
@@ -58,8 +84,8 @@ describe('OpeningsPage', () => {
     expect(screen.getByRole('switch', { name: 'Play as Black' })).toBeChecked();
     expect(zoomPath()).toHaveTextContent('all1.d41…♘f6');
     expect(await findOpeningName('Indian Defense')).toBeInTheDocument();
-    expect(period('All time')).toHaveTextContent('124games');
-    expect(period('Last 12 months')).toHaveTextContent('28games');
+    expect(period('All time')).toHaveTextContent('103games');
+    expect(period('Last 12 months')).toHaveTextContent('33games');
     expect(screen.queryByRole('region', { name: 'Line' })).not.toBeInTheDocument();
   });
 
@@ -79,7 +105,7 @@ describe('OpeningsPage', () => {
     fireEvent.click(screen.getByRole('button', { name: /1\.d4 Nf6/ }));
 
     fireEvent.click(screen.getByRole('button', { name: /Study this line/ }));
-    expect(screen.getByRole('region', { name: 'Line' })).toHaveTextContent('28games · as Black');
+    expect(screen.getByRole('region', { name: 'Line' })).toHaveTextContent('33games · as Black');
 
     fireEvent.click(screen.getByRole('button', { name: /Openings/ }));
     expect(zoomPath()).toHaveTextContent('all1.d41…♘f6');
@@ -95,8 +121,8 @@ describe('OpeningsPage', () => {
     render(<OpeningsPage />);
     fireEvent.click(screen.getByRole('button', { name: /1\.d4 Nf6/ }));
 
-    fireEvent.mouseEnter(screen.getByRole('button', { name: /1\.e4 e5 2\.Nf3 d6 3\.d4/ }));
-    expect(await findOpeningName('Philidor Defense')).toBeInTheDocument();
+    fireEvent.mouseEnter(screen.getByRole('button', { name: /1\.e4 c5 2\.d4/ }));
+    expect(await findOpeningName('Sicilian Defense: Smith-Morra Gambit')).toBeInTheDocument();
 
     fireEvent.mouseLeave(within(screen.getByRole('region', { name: /Fix these first/ })).getByRole('list'));
     expect(await findOpeningName('Indian Defense')).toBeInTheDocument();

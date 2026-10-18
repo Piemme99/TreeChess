@@ -17,6 +17,7 @@ Vocabulary (opening tree, deficit, priority, points to gain): `CONTEXT.md`.
   - `performance.ts` — player average, smoothed deficit.
   - `priorities.ts` — weak lines, proven on two time scales, weighed on the last 12 months.
   - `repertoire.ts` — the player's repertoire, one per side: moves keyed by position.
+  - `replay.ts` — the games known on a replay day, and the days to come.
   - `line.ts` — a line studied on its own: score move after move, extended by its
     most played continuation, and the moves played at each of its positions.
   - `diagnosis.ts` — engine against results on a line: what the opening moves cost,
@@ -110,7 +111,11 @@ Built one brick at a time, each visible on its own:
    (5 games at least), opponent replies likewise; moves are keyed by position, so
    transpositions share them. Computed on load (stored once decisions change it, brick 4).
    Rim on the flame graph tiles, green arrows and a "Repertoire" line on the board panel.
-2. **Replay**: a "today" date, "Next day", reset; the whole screen computed at that date.
+2. **Replay** — *done*: `replay/` and `domain/replay.ts`. The replay starts on 2025-12-31,
+   the day the repertoire is created; "Next day" jumps to the next day with games (49 in
+   2026), "Reset" goes back. Trees, priorities and the line view read the games played up
+   to that day, the last 12 months counted back from it. The repertoire does not follow the
+   clock: only the player's decisions will change it. The day is kept in `localStorage`.
 3. **Game check and "To decide"** list, with "Ignore" only.
 4. **Add**: a proposed addition accepted after cutting branches; several player moves
    per position; also used by "Study this line".
