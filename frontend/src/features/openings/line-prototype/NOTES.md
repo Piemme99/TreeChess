@@ -35,6 +35,15 @@ Choix communs, à confirmer :
    théorie : la position n'est pas mauvaise, c'est le joueur qui la joue mal. Il faut distinguer
    un coup objectivement mauvais (solution simple : jouer le bon coup) d'un coup correct qui mène à
    une position où l'on perd (solution : travailler la position en profondeur). → variante `D`.
+4. La fork map (B) plaît, mais intimide un débutant → repliée sous la vue D (« The whole line »),
+   les rangées adverses réduites au coup de la ligne tant qu'on ne coche pas « show every opponent move ».
+5. Beaucoup d'informations, rien pour savoir quoi en faire. Être humble : dire « tu joues bien
+   l'ouverture et tu perds ensuite, travaille-la », récapituler les erreurs décisives, et renvoyer
+   l'analyse ailleurs — **Lichess**, gratuit et libre (pas chess.com : l'analyse y est payante).
+   → D réorganisée : verdict, récap des erreurs décisives avec lien Lichess sur chaque partie (ouverte
+   au coup fautif), position clé à étudier sur Lichess ; courbes et fork map repliées en dessous.
+   Un coup qui coûte est énoncé (« 4.c3 costs 3 pts · engine: ♘f3 »), pas prescrit : le choix d'une
+   ouverture, un gambit compris, reste au joueur (README).
 
 ## Variante D — le moteur contre les résultats
 
@@ -46,7 +55,8 @@ les parties du joueur depuis la position clé (profondeur 12, 40 demi-coups, 20 
   ensemble, l'aire entre elles est ce qui se perd en jouant.
 - **Partage des points perdus** à l'entrée de la ligne : *coups d'ouverture* = moyenne − valeur de la
   position ; *après l'ouverture* = valeur − score. La somme fait l'écart brut à la moyenne.
-- **Erreur d'ouverture** = coup du joueur sur la ligne qui perd ≥ 5 pts de chances.
+- **Verdict** : une cause est « à travailler » dès 3 pts (coups d'ouverture, ou après l'ouverture) ; les
+  coups listés sont ceux qui perdent ≥ 2 pts, les trois plus chers.
 - **Position clé** = celle où le score est le plus sous la valeur (lissé à 12 parties, 5 au moins).
 - **Coup décisif** d'une partie = coup du joueur qui fait le plus chuter ses chances (≥ 10 pts, et
   encore ≥ 8 deux demi-coups plus tard pour écarter les sauts d'évaluation en pleine prise). La
@@ -68,6 +78,8 @@ Aucun coup du joueur ne perd 5 pts sur ces lignes (le pire : 4.c3, ~3 pts) : ce 
 positions mal jouées, pas des coups faux. Dans la Philidor, les parties basculent entre les coups 8
 et 20 (10.g4, 15.♘f5, 15.f4, 18.♗xg5, 20.f5…). Coût : ~27 ms par position à profondeur 12 sur un
 thread, ~10 s pour les 9 parties de la Philidor, ~55 s pour les 5 priorités entières.
+
+Pour plus tard, avec l'OAuth Lichess : créer d'un clic une étude Lichess des positions d'erreur de la ligne.
 
 ## Verdict
 

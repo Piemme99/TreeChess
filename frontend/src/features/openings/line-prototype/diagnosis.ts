@@ -9,8 +9,10 @@ export const winChance = (cp: number) => 1 / (1 + Math.exp(-0.00368208 * cp));
 
 const SMOOTHING_GAMES = 12;
 const MIN_KEY_GAMES = 5;
-/** Perte de chances au-delà de laquelle un coup du joueur compte comme une erreur d'ouverture. */
-export const OPENING_LOSS = 0.05;
+/** En deçà, la perte d'un coup est du bruit de moteur. */
+const MOVE_LOSS = 0.02;
+/** Écart, en chances, à partir duquel une des deux causes mérite d'être travaillée. */
+export const WORTH_WORKING = 0.03;
 const TURN_DROP = 0.1;
 const TURN_HOLD = 0.08;
 
@@ -63,9 +65,11 @@ export function diagnose(study: LineStudy, side: Side, evaluations: Map<string, 
     if (!step.byPlayer) continue;
     const before = points[step.ply - 1].worth;
     const after = points[step.ply].worth;
-    if (before === null || after === null || before - after < OPENING_LOSS) continue;
+    if (before === null || after === null || before - after < MOVE_LOSS) continue;
     losses.push({ ply: step.ply, san: step.san, loss: before - after, best: sanOf(fens[step.ply - 1], evaluations.get(fens[step.ply - 1])?.best) });
   }
+
+  losses.sort((a, b) => b.loss - a.loss);
 
   const entry = points[study.entry];
   let key: number | null = null;

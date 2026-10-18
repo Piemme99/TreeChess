@@ -9,7 +9,7 @@ import { ArrowBoard, LineHeader } from './parts';
 import { arrowMoves, INK } from './ui';
 import { toneOf, useLineStudy, type LineStudy, type Position } from './study';
 
-interface Pointed {
+export interface Pointed {
   ply: number;
   san: string | null;
 }
@@ -70,13 +70,16 @@ interface ForkRowProps {
   pointed: Pointed | null;
   onPoint: (pointed: Pointed) => void;
   onOpen: (san: string) => void;
+  /** Ne garde, sur les rangées adverses, que le coup de la ligne : la carte complète intimide. */
+  foldOpponents?: boolean;
 }
 
-function ForkRow({ study, position, pointed, onPoint, onOpen }: ForkRowProps) {
+export function ForkRow({ study, position, pointed, onPoint, onOpen, foldOpponents = false }: ForkRowProps) {
+  const moves = foldOpponents && !position.playerToMove ? position.moves.filter((move) => move.onLine) : position.moves;
   const { average, entry, drop } = study;
   const tone = toneOf(position.rate, position.games, average);
   const height = position.playerToMove ? 40 : 24;
-  const shownGames = position.moves.reduce((sum, move) => sum + move.games, 0);
+  const shownGames = moves.reduce((sum, move) => sum + move.games, 0);
   const rest = Math.max(0, position.games - shownGames);
   const isDrop = position.ply === drop;
   const last = position.ply === study.positions.length - 1;
@@ -106,12 +109,12 @@ function ForkRow({ study, position, pointed, onPoint, onOpen }: ForkRowProps) {
           />
         </span>
         <div className="my-[3px] flex gap-[3px]" style={{ height }}>
-          {position.moves.length === 0 && (
+          {moves.length === 0 && (
             <span className="flex flex-1 items-center rounded-lg px-2 text-[12px] font-medium" style={{ background: COLOURS.opponent, color: COLOURS.leafSoft }}>
               {position.games} games, none played 3 times
             </span>
           )}
-          {position.moves.map((move) => {
+          {moves.map((move) => {
             const moveTone = toneOf(move.rate, move.games, average);
             const isPointed = pointed?.ply === position.ply && pointed.san === move.san;
             const width = move.games / position.games;
@@ -150,7 +153,7 @@ function ForkRow({ study, position, pointed, onPoint, onOpen }: ForkRowProps) {
               </button>
             );
           })}
-          {rest > 0 && position.moves.length > 0 && (
+          {rest > 0 && moves.length > 0 && (
             <span
               title={`${position.hidden} moves played fewer than 3 times`}
               className="rounded-lg"

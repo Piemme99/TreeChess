@@ -35,3 +35,13 @@ export function useStepKeys(focus: number, max: number, onFocus: (ply: number) =
 export function formatDate(iso: string) {
   return new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' });
 }
+
+// Lichess plutôt que chess.com : gratuit, libre, et l'analyse y marche sans compte.
+export function lichessPosition(fen: string, black: boolean) {
+  return `https://lichess.org/analysis/standard/${fen.replaceAll(' ', '_')}${black ? '?color=black' : ''}`;
+}
+
+/** La partie entière dans l'analyse Lichess, ouverte au demi-coup donné. */
+export function lichessGame(moves: readonly string[], ply: number, black: boolean) {
+  return `https://lichess.org/analysis/pgn/${moves.map(encodeURIComponent).join('_')}${black ? '?color=black' : ''}#${ply}`;
+}
