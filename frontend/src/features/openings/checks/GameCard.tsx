@@ -42,7 +42,7 @@ export function GameCard({ checked, selected, onSelect, showDate = false, onIgno
         onClick={onSelect}
         whileHover={{ y: -2 }}
         transition={SPRING}
-        className="flex min-w-0 flex-1 flex-col gap-1 rounded-2xl px-4 py-3 text-left"
+        className="flex min-w-0 flex-1 cursor-pointer flex-col gap-1 rounded-2xl px-4 py-3 text-left"
         style={raised(selected)}
       >
         <span className="flex items-center gap-2 text-[12px] font-semibold">
@@ -65,26 +65,32 @@ export function GameCard({ checked, selected, onSelect, showDate = false, onIgno
         </span>
       )}
       {onAdd && (
-        <button
+        <motion.button
           type="button"
           onClick={onAdd}
           aria-label={`Add ${opening?.name ?? 'this game'}`}
-          className="self-center rounded-full px-3.5 py-1.5 text-[13px] font-bold"
+          whileHover={{ y: -2, scale: 1.05 }}
+          whileTap={{ scale: 0.94 }}
+          transition={SPRING}
+          className="cursor-pointer self-center rounded-full px-3.5 py-1.5 text-[13px] font-bold transition-shadow hover:shadow-[0_6px_14px_-6px_oklch(0.3_0.06_150/0.6)]"
           style={{ background: COLOURS.leaf, color: COLOURS.cream }}
         >
           Add
-        </button>
+        </motion.button>
       )}
       {onIgnore && (
-        <button
+        <motion.button
           type="button"
           onClick={onIgnore}
           aria-label={`Ignore ${opening?.name ?? 'this game'}`}
-          className="self-center rounded-full px-3 py-1.5 text-[13px] font-semibold"
+          whileHover={{ y: -2 }}
+          whileTap={{ scale: 0.94 }}
+          transition={SPRING}
+          className="cursor-pointer self-center rounded-full px-3 py-1.5 text-[13px] font-semibold underline-offset-4 hover:underline"
           style={{ color: COLOURS.leafSoft }}
         >
           Ignore
-        </button>
+        </motion.button>
       )}
     </li>
   );
