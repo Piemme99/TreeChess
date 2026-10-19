@@ -176,6 +176,41 @@ Games and the line view leave the path; bricks 5–7 wait for the position scree
 6. **Worked lines**: adherence, then score against before, on the priority tickets.
 7. **Engine correction at creation, and removals** (six months without the move).
 
+## POC: the tree as the landing screen (grilled with PMG, 2026-10-19)
+
+Tries the v1 repertoire tree (`features/repertoire/shared/components/RepertoireTree/`, node-link,
+tidy layout, pan/zoom) as the landing screen, next to the router (`/dev/home`) so the two can be
+compared. If it wins, ADR 0003 "User path" is amended (§1 router, §5 "the position screen is the
+repertoire browser", and the rejected "See my repertoire" entry) and slimmed: the ADR keeps the
+decision (the repertoire is the central screen, the unit is a position), this README keeps the path.
+
+1. **One screen, two panes, computer first.** The tree on the left, the position pane on the
+   right. Below ~700 px the panes stack, unpolished: on the phone the path stays the notification
+   and `/dev/session`. One tree per side, side switch in the header.
+2. **The tree draws the v2 repertoire** (`domain/repertoire.ts` plus the additions log), left to
+   right, one ply per column, Workshop art direction. A position reached by two move orders is drawn
+   once; the other arrival is a stub "= …" that is not unfolded. Measured on Piemme78 (created on
+   2026-01-01): 194 positions as White, 166 as Black, 15 plies deep, up to 10 replies at a position.
+3. **Three encodings, nothing else**: edge thickness = games through it over the last 12 months;
+   a badge on a node = pending decisions there, showing the games that raised them ("37"); a pin on
+   a node = priority, with its rank. No deficit colour, no score: that is the flame graph, which
+   says what the player does. Scores live in the pane. A board on hover, like the v1.
+4. **Folded beyond the 6th ply** ("+N" tab on the last visible node, click unfolds, double click
+   folds), except the paths to a badge or a pin, always open: the landing must say where to act
+   without zooming.
+5. **The header holds the two doors as figures**: "20 to settle" starts the session on the first
+   badge, "Priority 1" focuses the first pin. Clicking any node fills the pane.
+6. **One pane, blocks by what the position carries**: board (repertoire green, played grey), the
+   repertoire's moves, then only the blocks present: "To settle" (deviation facts, Keep / Stay on /
+   Prepare an answer / Skip) and "Priority n" (verdict, "Prepare what follows", Lichess link). The
+   door only picks the starting node and what "Next" steps through; after the last badge, "Done for
+   today" and back to the root. 1.d4 d5 as Black is both a priority and 25 checks: it shows both.
+7. **"Extend from here" on every position**, opening `BuildSession` from it (same board, same
+   candidate table as Keep and Prepare). No deletion: removal stays a proposed decision (brick 7).
+
+Bricks: (1) the tree alone on `/dev/tree`, badges, pins, folding, hover board, click fills a
+read-only pane; (2) the pane's blocks and "Next"; (3) "Extend from here".
+
 ## Later
 
 - **Line view, next steps**: plug the explorer into the backend OAuth with the import;
