@@ -3,6 +3,7 @@ import { useMemo, type ReactNode } from 'react';
 import { draftLines } from '../domain/addition';
 import { MATE_CP, winChance } from '../domain/diagnosis';
 import { figurineMove } from '../domain/notation';
+import { isPlayerMove } from '../domain/openingTree';
 import { formatPercent } from '../flame/format';
 import { JUDGEMENT_MARK, judgeMove, type Judgement } from '../domain/judgement';
 import { useEvaluations } from '../line/engine';
@@ -20,20 +21,27 @@ interface BuildPanelProps {
 }
 
 export function BuildPanel({ builder, candidates, onPoint, onAccept, onCancel }: BuildPanelProps) {
-  const { checked, draft } = builder;
-  const { check } = checked;
-  const played = figurineMove(check.played, check.ply + 1);
+  const { origin, draft } = builder;
+  const played = origin.played && figurineMove(origin.played, origin.start.length + 1);
+  const lastGiven = origin.given.at(-1);
+  // Une ligne hors répertoire finissant sur un coup du joueur se garde comme un coup de partie gardé.
+  const givenMove = lastGiven && figurineMove(lastGiven[lastGiven.length - 1], lastGiven.length);
+  const givenByPlayer = lastGiven !== undefined && isPlayerMove(origin.side, lastGiven.length);
+  // « To add » montre dès le premier coup donné (adverse imprévu, ligne hors répertoire), sinon depuis le départ.
+  const shownFrom = origin.given.length ? origin.given[0].length - 1 : origin.start.length;
   const lines = draftLines(draft);
   const toAdd = draft.length;
 
   return (
     <section aria-label="Addition" className="flex flex-col gap-4 rounded-3xl p-5" style={raised(false)}>
       <h2 className="text-[22px] font-extrabold tracking-[-0.02em]">
-        {builder.kept
-          ? `${played} joins your repertoire: add it, or play on`
-          : check.kind === 'left'
+        {builder.kept || givenByPlayer
+          ? `${builder.kept ? played : givenMove} joins your repertoire: add it, or play on`
+          : played
             ? `You played ${played}: what do you want to play here?`
-            : `Prepare your answer to ${played}`}
+            : givenMove
+              ? `Prepare your answer to ${givenMove}`
+              : 'Extend your repertoire from here'}
       </h2>
 
       <Played builder={builder} />
@@ -47,8 +55,8 @@ export function BuildPanel({ builder, candidates, onPoint, onAccept, onCancel }:
           <ul aria-label="To add" className="flex flex-col gap-1 text-[14px] font-semibold">
             {lines.map((line) => (
               <li key={line.join(' ')} className="flex flex-wrap gap-1">
-                {line.slice(check.ply).map((san, index) => {
-                  const upTo = line.slice(0, check.ply + index + 1);
+                {line.slice(shownFrom).map((san, index) => {
+                  const upTo = line.slice(0, shownFrom + index + 1);
                   const here = upTo.length === builder.path.length && upTo.every((move, at) => builder.path[at] === move);
                   return (
                     <button
@@ -84,10 +92,10 @@ export function BuildPanel({ builder, candidates, onPoint, onAccept, onCancel }:
 
 /** Les coups joués depuis le départ, le dernier du joueur marqué si le moteur le juge. */
 function Played({ builder }: { builder: Builder }) {
-  const { path, start, checked } = builder;
+  const { path, start, origin } = builder;
   const last = path.length - 1;
   const mover = last % 2 === 0 ? 'w' : 'b';
-  const relevant = path.length > start.length && mover === checked.game.side;
+  const relevant = path.length > start.length && mover === origin.side;
   const fens = useMemo(() => (relevant ? replayLine(path).fens.slice(-2) : []), [relevant, path]);
   const evaluations = useEvaluations(fens, ENGINE_DEPTH, relevant);
   if (path.length === start.length) return null;
@@ -97,7 +105,7 @@ function Played({ builder }: { builder: Builder }) {
     <p className="flex flex-wrap items-center gap-1.5 text-[14px] font-semibold">
       {path.slice(start.length).map((san, index) => {
         const ply = start.length + index + 1;
-        const byPlayer = (ply % 2 === 1) === (checked.game.side === 'w');
+        const byPlayer = (ply % 2 === 1) === (origin.side === 'w');
         const marked = ply === path.length ? judgement : null;
         return (
           <span key={ply} className="rounded-lg px-2 py-0.5" style={byPlayer ? tile(COLOURS.sand) : { background: COLOURS.opponent }}>
@@ -113,7 +121,7 @@ function Played({ builder }: { builder: Builder }) {
 function CandidateTable({ builder, candidates, onPoint }: { builder: Builder; candidates: Candidates; onPoint: (san: string | null) => void }) {
   const { rows, costly, here, explorer } = candidates;
   const ply = builder.path.length + 1;
-  const side = builder.checked.game.side === 'w' ? 'White' : 'Black';
+  const side = builder.origin.side === 'w' ? 'White' : 'Black';
   const all = [...rows, ...costly];
   return (
     <div className="flex flex-col gap-1.5">

@@ -46,7 +46,7 @@ const afterMove = (fen: string, san: string) => {
 /** Les coups entre lesquels choisir depuis la position courante, avec tout ce qui aide à choisir. */
 export function useCandidates(builder: Builder): Candidates {
   const { fen, playerToMove, mine } = builder;
-  const side = builder.checked.game.side;
+  const side = builder.origin.side;
   const explorer = useExplorerAt(fen);
 
   const hereFens = useMemo(() => [fen], [fen]);

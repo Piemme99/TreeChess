@@ -222,9 +222,13 @@ as figures); (2) the pane's blocks and "Next" — *done*: "To settle" with the f
 Prepare an answer (Keep and Prepare open `checks/BuildSession` in place of the two panes, back on
 accept or cancel), "Priority n" with "Next priority"; the "to settle" door starts the session, which
 steps through the positions (counter, "Skip for now" postpones, "Done for today" at the end), the
-same blocks settle a position outside the session too. Left for brick 3: "Prepare what follows" and
-"Extend from here", both building from any position (today `useBuilder` starts from a game check),
-and the priority verdict (engine); (3) "Extend from here".
+same blocks settle a position outside the session too. (3) "Extend from here" — *done*: `useBuilder`
+now starts from a `BuildOrigin` (side, start position, moves already given, the move judged, keep)
+instead of a game check; `originOf` builds it from a check, `originAt` from any position of the
+tree, the board's line included when it already left the repertoire (those moves are given, and a
+player's move among them completes the addition on its own). "Extend from here" is on every
+position; "Prepare what follows" on a priority builds from its end. The accepted line is revealed
+and selected on return. Left: the priority verdict (engine) on the pane.
 
 ## Later
 

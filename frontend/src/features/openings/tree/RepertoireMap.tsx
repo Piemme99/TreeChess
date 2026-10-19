@@ -38,18 +38,21 @@ export function RepertoireMap({ root, side, selected, onSelect, focus }: Reperto
   const layout = useMemo(() => layoutMap(root, visibleNodes(root, LANDING_DEPTH, LANDING_SHARE * root.games, folding)), [root, folding]);
   const maxGames = root.games || 1;
 
-  const fitted = useRef<MapNode | null>(null);
-  useEffect(() => {
-    if (fitted.current === root || !size.width) return;
-    fitted.current = root;
-    setFolding({ opened: new Set(), closed: new Set(), revealed: new Set() });
-    fit(layout.bounds, size);
-  }, [root, size, layout.bounds, fit]);
+  // Un autre répertoire, une autre carte : le repli repart de zéro. Déclaré avant le dévoilement, qui doit lui survivre.
+  useEffect(() => setFolding({ opened: new Set(), closed: new Set(), revealed: new Set() }), [root]);
 
   useEffect(() => {
     if (!focus) return;
     setFolding((current) => ({ ...current, revealed: new Set([focus.key]), closed: new Set() }));
   }, [focus]);
+
+  // Le cadrage attend la taille du conteneur ; il ne touche pas au repli, sinon il effacerait le dévoilement.
+  const fitted = useRef<MapNode | null>(null);
+  useEffect(() => {
+    if (fitted.current === root || !size.width) return;
+    fitted.current = root;
+    fit(layout.bounds, size);
+  }, [root, size, layout.bounds, fit]);
 
   useEffect(() => {
     if (!focus || !focus.centre) return;

@@ -2,6 +2,7 @@ import { MotionConfig, motion } from 'framer-motion';
 import { useMemo, useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { BuildSession } from '../checks/BuildSession';
+import { originOf } from '../checks/useBuilder';
 import type { AddedMove } from '../domain/addition';
 import { figurineMove } from '../domain/notation';
 import { buildOpeningTree, nodeAt, type OpeningNode } from '../domain/openingTree';
@@ -57,10 +58,9 @@ export function SessionPage() {
         ) : building ? (
           <BuildSession
             key={`${step.key} ${building.keep}`}
-            checked={step.games[0]}
+            origin={originOf(step.games[0], building.keep)}
             games={habits}
             repertoire={repertoires[step.side]}
-            keep={building.keep}
             onAccept={accept}
             onCancel={() => setBuilding(null)}
           />

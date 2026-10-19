@@ -1,6 +1,7 @@
 import { MotionConfig, motion } from 'framer-motion';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { BuildSession } from '../checks/BuildSession';
+import { originAt, originOf, type BuildOrigin } from '../checks/useBuilder';
 import type { AddedMove } from '../domain/addition';
 import { buildOpeningTree, type OpeningTree } from '../domain/openingTree';
 import { figurineLine } from '../domain/notation';
@@ -36,7 +37,7 @@ export function TreePage() {
   const [paths, setPaths] = useState<Record<Side, readonly string[]>>({ w: [], b: [] });
   const [focus, setFocus] = useState<{ key: string; stamp: number; centre: boolean } | null>(null);
   const [session, setSession] = useState<Session | null>(null);
-  const [building, setBuilding] = useState<{ step: SessionStep; keep: boolean } | null>(null);
+  const [building, setBuilding] = useState<{ origin: BuildOrigin; stepKey?: string } | null>(null);
 
   const { maps, recent, priorities } = useMaps(known, replay.day, repertoires, steps);
   const root = maps[side];
@@ -80,14 +81,21 @@ export function TreePage() {
     setSession({ queue: steps.map((step) => step.key), done: new Set() });
     setBuilding(null);
   };
-  const accept = (moves: AddedMove[]) => {
+  const accept = (moves: AddedMove[], lines: (readonly string[])[]) => {
     if (!building) return;
-    add({ side: building.step.side, addedAt: replay.day, moves });
-    finish(building.step.key);
+    add({ side: building.origin.side, addedAt: replay.day, moves });
+    if (building.stepKey) finish(building.stepKey);
+    else setBuilding(null);
+    // La ligne ajoutée se voit tout de suite, même trop fine pour l'arrivée.
+    const line = lines[0];
+    if (line && !building.stepKey) {
+      setPaths((current) => ({ ...current, [building.origin.side]: line }));
+      setFocus({ key: line.join(' '), stamp: Date.now(), centre: false });
+    }
   };
   const actions = {
-    onKeep: (step: SessionStep) => setBuilding({ step, keep: true }),
-    onPrepare: (step: SessionStep) => setBuilding({ step, keep: false }),
+    onKeep: (step: SessionStep) => setBuilding({ origin: originOf(step.games[0], true), stepKey: step.key }),
+    onPrepare: (step: SessionStep) => setBuilding({ origin: originOf(step.games[0], false), stepKey: step.key }),
     onStay: (step: SessionStep) => {
       step.games.forEach((checked) => ignore(checked.id));
       finish(step.key);
@@ -123,7 +131,7 @@ export function TreePage() {
     forgetAdditions();
     setSession(null);
   });
-  const habits = useMemo(() => known.filter((game) => game.side === building?.step.side), [known, building?.step.side]);
+  const habits = useMemo(() => known.filter((game) => game.side === building?.origin.side), [known, building?.origin.side]);
 
   return (
     <MotionConfig reducedMotion="user">
@@ -135,11 +143,10 @@ export function TreePage() {
         </PageHeader>
         {building ? (
           <BuildSession
-            key={`${building.step.key} ${building.keep}`}
-            checked={building.step.games[0]}
+            key={`${building.origin.start.join(' ')} ${building.stepKey ?? ''} ${building.origin.keep}`}
+            origin={building.origin}
             games={habits}
-            repertoire={repertoires[building.step.side]}
-            keep={building.keep}
+            repertoire={repertoires[building.origin.side]}
             onAccept={accept}
             onCancel={() => setBuilding(null)}
           />
@@ -176,6 +183,8 @@ export function TreePage() {
                   actions={actions}
                   session={session && current ? { index: settled + 1, total: session.queue.length, onSkip: () => finish(current.key) } : undefined}
                   onNextPriority={pins.length > 1 && node.priority !== undefined ? () => goToPriority(node.priority! + 1) : undefined}
+                  onExtend={() => setBuilding({ origin: originAt(side, node.path, path) })}
+                  onPrepareFollows={priority ? () => setBuilding({ origin: originAt(side, priority.path, priority.path) }) : undefined}
                   onMove={play}
                   onBack={path.length ? back : undefined}
                 />

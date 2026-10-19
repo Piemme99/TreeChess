@@ -31,12 +31,15 @@ interface PositionPaneProps {
   /** La séance en cours : où l'on en est, et « Skip » qui remet la position à plus tard. */
   session?: { index: number; total: number; onSkip: () => void };
   onNextPriority?: () => void;
+  /** Construire depuis la position de l'échiquier, dans ou hors du répertoire. */
+  onExtend: () => void;
+  onPrepareFollows?: () => void;
   onMove: (san: string) => void;
   onBack?: () => void;
 }
 
 /** Le volet : on y joue comme sur l'explorateur Lichess, et on y tranche ce que la position porte. */
-export function PositionPane({ path, node, flipped, recent, steps, priority, actions, session, onNextPriority, onMove, onBack }: PositionPaneProps) {
+export function PositionPane({ path, node, flipped, recent, steps, priority, actions, session, onNextPriority, onExtend, onPrepareFollows, onMove, onBack }: PositionPaneProps) {
   const fens = useMemo(() => replayLine(path).fens, [path]);
   const opening = useOpeningName(fens);
   const inRepertoire = path.length === node.path.length;
@@ -117,9 +120,11 @@ export function PositionPane({ path, node, flipped, recent, steps, priority, act
           <span>
             {Math.round(priority.pointsToGain)} points to gain · {priority.games} games in 12 months
           </span>
-          <span className="text-[12px]" style={{ color: 'oklch(0.85 0.03 85)' }}>
-            “Prepare what follows” comes with brick 3.
-          </span>
+          {onPrepareFollows && (
+            <Action onClick={onPrepareFollows} light>
+              Prepare what follows
+            </Action>
+          )}
           {onNextPriority && (
             <Action onClick={onNextPriority} light>
               Next priority →
@@ -127,9 +132,11 @@ export function PositionPane({ path, node, flipped, recent, steps, priority, act
           )}
         </section>
       )}
+      <Action onClick={onExtend} primary={!inRepertoire}>
+        Extend from here
+      </Action>
       <p className="px-1 text-[12px]" style={{ color: COLOURS.leafSoft }}>
         Play on the board or click a node; ← and → move along the line, ↑ back to the start.
-        {!inRepertoire && ' “Extend from here” comes with brick 3.'}
       </p>
     </aside>
   );

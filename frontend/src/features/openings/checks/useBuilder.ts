@@ -1,14 +1,44 @@
 import { useMemo, useState } from 'react';
 import type { DraftMove } from '../domain/addition';
 import type { GameCheck } from '../domain/gameCheck';
-import type { PlayedGame } from '../domain/playedGame';
+import { isPlayerMove } from '../domain/openingTree';
+import type { PlayedGame, Side } from '../domain/playedGame';
 import { replayLine } from '../position/replay';
 import type { CheckedGame } from './checkedGame';
 
 export type Deviation = Extract<GameCheck, { kind: 'left' | 'uncovered' }>;
 
+/** D'où part une construction : un contrôle de partie, une priorité, ou n'importe quelle position de l'arbre. */
+export interface BuildOrigin {
+  side: Side;
+  /** La position d'où le joueur construit. */
+  start: readonly string[];
+  /** Les coups déjà dans l'ajout avant qu'il ne joue : le coup adverse imprévu, ou une ligne jouée hors répertoire. */
+  given: readonly (readonly string[])[];
+  /** Le coup du joueur jugé depuis `start`, là où il a quitté le répertoire. */
+  played?: string;
+  /** Le joueur garde `played` : l'ajout part de là. */
+  keep: boolean;
+}
+
+export function originOf(checked: CheckedGame & { check: Deviation }, keep = false): BuildOrigin {
+  const { game, check } = checked;
+  if (check.kind === 'uncovered') {
+    // Le coup adverse imprévu entre au répertoire avec la réponse : c'est lui qu'on prépare.
+    const start = game.moves.slice(0, check.ply + 1);
+    return { side: game.side, start, given: [start], keep: false };
+  }
+  return { side: game.side, start: game.moves.slice(0, check.ply), given: [], played: check.played, keep };
+}
+
+/** Construire depuis une position de l'arbre, `path` pouvant déjà dépasser le répertoire de quelques coups. */
+export function originAt(side: Side, known: readonly string[], path: readonly string[]): BuildOrigin {
+  const given = path.slice(known.length).map((_, index) => path.slice(0, known.length + index + 1));
+  return { side, start: known, given, keep: false };
+}
+
 export interface Builder {
-  checked: CheckedGame & { check: Deviation };
+  origin: BuildOrigin;
   /** La position d'où le joueur construit : avant son coup, ou après le coup adverse imprévu. */
   start: readonly string[];
   path: readonly string[];
@@ -29,19 +59,16 @@ export interface Builder {
   undo: (() => void) | undefined;
 }
 
-/** `keep` : le joueur garde le coup de la partie, l'ajout part de là. */
-export function useBuilder(checked: CheckedGame & { check: Deviation }, games: readonly PlayedGame[], keep = false): Builder {
-  const { game, check } = checked;
-  const start = useMemo(() => game.moves.slice(0, check.kind === 'left' ? check.ply : check.ply + 1), [game.moves, check]);
-  const [draft, setDraft] = useState<readonly DraftMove[]>(() => {
-    // Le coup adverse imprévu entre au répertoire avec la réponse : c'est lui qu'on prépare.
-    if (check.kind === 'uncovered') return [{ path: start, source: 'habit' }];
-    return keep ? [{ path: [...start, check.played], source: 'habit' }] : [];
-  });
+export function useBuilder(origin: BuildOrigin, games: readonly PlayedGame[]): Builder {
+  const { side, start, given, played, keep } = origin;
+  const [draft, setDraft] = useState<readonly DraftMove[]>(() => [
+    ...given.map((path): DraftMove => ({ path, source: 'habit' })),
+    ...(keep && played ? [{ path: [...start, played], source: 'habit' as const }] : []),
+  ]);
   const [path, setPath] = useState<readonly string[]>(() => (draft.at(-1)?.path ?? start));
 
   const fen = useMemo(() => replayLine(path).fens[path.length], [path]);
-  const playerToMove = (fen.split(' ')[1] === 'w') === (game.side === 'w');
+  const playerToMove = (fen.split(' ')[1] === 'w') === (side === 'w');
   const mine = useMemo(() => {
     const counts = new Map<string, number>();
     for (const played of games) {
@@ -78,17 +105,18 @@ export function useBuilder(checked: CheckedGame & { check: Deviation }, games: r
     }
   };
 
-  const locked = check.kind === 'uncovered' ? 1 : 0;
+  const locked = given.length;
   return {
-    checked,
+    origin,
     start,
     path,
     fen,
     playerToMove,
     draft,
     mine,
-    kept: keep && check.kind === 'left',
-    complete: draft.length > locked,
+    kept: keep && played !== undefined,
+    // Un coup du joueur au moins : les coups donnés (adverse imprévu, ligne hors répertoire) peuvent déjà en contenir un.
+    complete: draft.some((move) => isPlayerMove(side, move.path.length)),
     play,
     goTo: setPath,
     navigate,

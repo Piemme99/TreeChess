@@ -18,6 +18,7 @@ import { useWorkshopFont } from '../workshop/useWorkshopFont';
 import { checkedPath, type CheckedGame } from './checkedGame';
 import { gamesToDecide, isOpen, liveGames } from './decisions';
 import { BuildSession } from './BuildSession';
+import { originOf } from './useBuilder';
 import { GameCard } from './GameCard';
 import { useIgnoredChecks } from './useIgnoredChecks';
 
@@ -125,7 +126,7 @@ export function GameChecksPage() {
         {adding && adding.check.kind !== 'followed' ? (
           <BuildSession
             key={adding.id}
-            checked={{ ...adding, check: adding.check }}
+            origin={originOf({ ...adding, check: adding.check })}
             games={habits}
             repertoire={repertoires[adding.game.side]}
             onAccept={accept}
