@@ -4,10 +4,10 @@ import { useOpeningName } from '../../../shared/hooks/useOpeningName';
 import { PlayableBoard } from '../board/PlayableBoard';
 import { figurineMove, formatLine } from '../domain/notation';
 import type { Priority } from '../domain/priorities';
+import { relevantArrows } from '../position/arrows';
 import { replayLine } from '../position/replay';
 import type { SessionStep } from '../session/steps';
 import { COLOURS, REPERTOIRE, SPRING, tile } from '../workshop/theme';
-import { relevantArrows } from './arrows';
 import type { MapNode } from './repertoireMap';
 
 interface PositionPaneProps {
@@ -29,7 +29,11 @@ export function PositionPane({ path, node, flipped, steps, priority, onMove, onB
   const inRepertoire = path.length === node.path.length;
   const ply = path.length + 1;
   const planned = inRepertoire ? node.children.map((child) => child.san!) : [];
-  const arrows = useMemo(() => (inRepertoire ? relevantArrows(node, steps) : []), [inRepertoire, node, steps]);
+  const arrows = useMemo(() => {
+    if (!inRepertoire) return [];
+    const deviation = [...steps].sort((a, b) => b.games.length - a.games.length)[0];
+    return relevantArrows(node.children.map((child) => ({ san: child.san!, games: child.games })), node.games, deviation?.played);
+  }, [inRepertoire, node, steps]);
   // Un point d'atterrissage par flèche, pas par coup du répertoire : dix points sur l'échiquier, c'est dix flèches de plus.
   const suggestions = arrows.filter((arrow) => 'kind' in arrow && arrow.kind === 'repertoire').map((arrow) => arrow.san);
 

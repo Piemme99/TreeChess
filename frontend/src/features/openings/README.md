@@ -214,9 +214,10 @@ Bricks: (1) the tree alone on `/dev/tree` — *done* (`tree/`: `repertoireMap.ts
 from the repertoire, the recent opening tree and the marks; `fold.ts` what is visible; `mapLayout.ts`
 on d3-hierarchy; `RepertoireMap.tsx` the SVG with pan, zoom, hover board; `PositionPane.tsx` a playable board
 (PMG, 2026-10-19: one plays on it like on the Lichess explorer — a move walks the tree, a move off the
-repertoire is said so, ← → ↑ as in "Add"); `arrows.ts` three arrows at most, the most frequent
-deviation first then the repertoire moves most played over 12 months, thick by share, a landing dot
-only on those (PMG: fewer arrows, the relevant ones); `TreePage.tsx` the two panes and the two doors
+repertoire is said so, ← → ↑ as in "Add"); `position/arrows.ts` three arrows at most, the most
+frequent deviation first then the repertoire moves most played over 12 months, thick by share, a
+landing dot only on those (PMG: fewer arrows, the relevant ones; the same rule now drives the
+Openings board panel); `TreePage.tsx` the two panes and the two doors
 as figures); (2) the pane's blocks and "Next"; (3) "Extend from here".
 
 ## Later

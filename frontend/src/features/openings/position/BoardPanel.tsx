@@ -5,10 +5,11 @@ import { figurineMove, formatLine } from '../domain/notation';
 import { nodeAt, type OpeningTree } from '../domain/openingTree';
 import { scoreRate } from '../domain/performance';
 import { repertoireMovesAt, type Repertoire } from '../domain/repertoire';
-import { ArrowBoard, type BoardArrow } from '../line/ArrowBoard';
+import { ArrowBoard } from '../line/ArrowBoard';
 import { AnimatedNumber } from '../workshop/AnimatedNumber';
 import { Chip } from '../workshop/Chip';
 import { SPRING, COLOURS, REPERTOIRE } from '../workshop/theme';
+import { relevantArrows } from './arrows';
 import { replayLine } from './replay';
 
 interface BoardPanelProps {
@@ -23,10 +24,11 @@ export function BoardPanel({ history, recent, path, repertoire, onStudy }: Board
   const fens = useMemo(() => replayLine(path).fens, [path]);
   const opening = useOpeningName(fens);
   const planned = useMemo(() => repertoireMovesAt(repertoire, fens[fens.length - 1]), [repertoire, fens]);
-  const arrows = useMemo(
-    () => planned.map((move): BoardArrow => ({ san: move.san, kind: 'repertoire', share: 0.5 })),
-    [planned],
-  );
+  const arrows = useMemo(() => {
+    const here = nodeAt(recent, path);
+    const games = (san: string) => here?.children.find((child) => child.san === san)?.games ?? 0;
+    return relevantArrows(planned.map((move) => ({ san: move.san, games: games(move.san) })), here?.games ?? 0);
+  }, [planned, recent, path]);
 
   return (
     <aside aria-label="Position" className="sticky top-6 flex flex-col gap-4 self-start">
