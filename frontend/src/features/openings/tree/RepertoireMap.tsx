@@ -6,7 +6,7 @@ import { WorkshopBoard } from '../board/WorkshopBoard';
 import { COLOURS, REPERTOIRE } from '../workshop/theme';
 import { visibleNodes, type Folding } from './fold';
 import { layoutMap, PILL_HEIGHT, type PlacedNode } from './mapLayout';
-import { forEachNode, type MapNode } from './repertoireMap';
+import type { MapNode } from './repertoireMap';
 import { useElementSize, usePanZoom } from './usePanZoom';
 
 export const LANDING_DEPTH = 6;
@@ -18,8 +18,8 @@ interface RepertoireMapProps {
   side: Side;
   selected: string;
   onSelect: (key: string) => void;
-  /** Clé d'un nœud à amener sous les yeux ; change à chaque demande. */
-  focus: { key: string; stamp: number } | null;
+  /** Clé d'un nœud à rendre visible, centré ou non ; change à chaque demande. */
+  focus: { key: string; stamp: number; centre: boolean } | null;
 }
 
 interface Hover {
@@ -32,7 +32,7 @@ export function RepertoireMap({ root, side, selected, onSelect, focus }: Reperto
   const container = useRef<HTMLDivElement>(null);
   const size = useElementSize(container);
   const { transform, handlers, dragged, centreOn, fit } = usePanZoom(container);
-  const [folding, setFolding] = useState<Folding>({ opened: new Set(), closed: new Set() });
+  const [folding, setFolding] = useState<Folding>({ opened: new Set(), closed: new Set(), revealed: new Set() });
   const [hover, setHover] = useState<Hover | null>(null);
 
   const layout = useMemo(() => layoutMap(root, visibleNodes(root, LANDING_DEPTH, LANDING_SHARE * root.games, folding)), [root, folding]);
@@ -42,25 +42,25 @@ export function RepertoireMap({ root, side, selected, onSelect, focus }: Reperto
   useEffect(() => {
     if (fitted.current === root || !size.width) return;
     fitted.current = root;
-    setFolding({ opened: new Set(), closed: new Set() });
+    setFolding({ opened: new Set(), closed: new Set(), revealed: new Set() });
     fit(layout.bounds, size);
   }, [root, size, layout.bounds, fit]);
 
   useEffect(() => {
     if (!focus) return;
-    setFolding((current) => ({ ...current, opened: new Set([...current.opened, ...ancestorsOf(root, focus.key)]), closed: new Set() }));
-  }, [focus, root]);
+    setFolding((current) => ({ ...current, revealed: new Set([focus.key]), closed: new Set() }));
+  }, [focus]);
 
   useEffect(() => {
-    if (!focus) return;
+    if (!focus || !focus.centre) return;
     const placed = layout.nodes.find((node) => node.node.key === focus.key);
     if (placed) centreOn({ x: placed.x, y: placed.y }, { x: size.width * 0.4, y: size.height / 2 });
   }, [focus, layout.nodes, centreOn, size]);
 
   const open = (key: string) =>
-    setFolding((current) => ({ opened: new Set([...current.opened, key]), closed: new Set([...current.closed].filter((k) => k !== key)) }));
+    setFolding((current) => ({ ...current, opened: new Set([...current.opened, key]), closed: new Set([...current.closed].filter((k) => k !== key)) }));
   const close = (key: string) =>
-    setFolding((current) => ({ opened: new Set([...current.opened].filter((k) => k !== key)), closed: new Set([...current.closed, key]) }));
+    setFolding((current) => ({ ...current, opened: new Set([...current.opened].filter((k) => k !== key)), closed: new Set([...current.closed, key]) }));
 
   const select = (placed: PlacedNode) => {
     if (dragged.current) return;
@@ -115,17 +115,6 @@ export function RepertoireMap({ root, side, selected, onSelect, focus }: Reperto
   );
 }
 
-function ancestorsOf(root: MapNode, key: string): string[] {
-  const parents = new Map<string, string | null>();
-  forEachNode(root, (node, parent) => parents.set(node.key, parent?.key ?? null));
-  const keys: string[] = [];
-  let current = parents.get(key) ?? null;
-  while (current !== null) {
-    keys.push(current);
-    current = parents.get(current) ?? null;
-  }
-  return keys;
-}
 
 function edgePath(from: PlacedNode, to: PlacedNode): string {
   const x1 = from.x + from.width / 2;

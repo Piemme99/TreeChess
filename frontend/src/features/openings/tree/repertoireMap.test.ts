@@ -75,7 +75,7 @@ describe('buildRepertoireMap', () => {
 describe('visibleNodes', () => {
   const root = buildRepertoireMap(repertoire, recent, { toSettle: new Map(), priorities: [] });
   const keys = (depth: number, opened: string[] = [], closed: string[] = []) =>
-    visibleNodes(root, depth, 0, { opened: new Set(opened), closed: new Set(closed) }).map(({ node, hidden }) => `${node.key || 'start'}${hidden ? ` +${hidden}` : ''}`);
+    visibleNodes(root, depth, 0, { opened: new Set(opened), closed: new Set(closed), revealed: new Set() }).map(({ node, hidden }) => `${node.key || 'start'}${hidden ? ` +${hidden}` : ''}`);
 
   it('shows everything down to the depth, and counts what is hidden below', () => {
     expect(keys(2)).toEqual(['start', 'd4', 'd4 d5 +5', 'c4', 'c4 d5 +1']);
@@ -83,13 +83,18 @@ describe('visibleNodes', () => {
 
   it('keeps the path to a marked node open whatever the depth', () => {
     const marked = buildRepertoireMap(repertoire, recent, { toSettle: new Map([[after('d4 d5 c4 c6'), 3]]), priorities: [] });
-    const shown = visibleNodes(marked, 1, 0, { opened: new Set(), closed: new Set() }).map(({ node }) => node.key);
+    const shown = visibleNodes(marked, 1, 0, { opened: new Set(), closed: new Set(), revealed: new Set() }).map(({ node }) => node.key);
     expect(shown).toEqual(['', 'd4', 'd4 d5', 'd4 d5 c4', 'd4 d5 c4 c6', 'c4']);
   });
 
   it('folds the lines too thin to matter, and counts them', () => {
-    const shown = visibleNodes(root, 6, 5, { opened: new Set(), closed: new Set() }).map(({ node, hidden }) => `${node.key || 'start'}${hidden ? ` +${hidden}` : ''}`);
+    const shown = visibleNodes(root, 6, 5, { opened: new Set(), closed: new Set(), revealed: new Set() }).map(({ node, hidden }) => `${node.key || 'start'}${hidden ? ` +${hidden}` : ''}`);
     expect(shown).toEqual(['start +3', 'd4', 'd4 d5', 'd4 d5 c4 +2', 'd4 d5 c4 e6', 'd4 d5 c4 e6 Nc3']);
+  });
+
+  it('reveals the path to a node without its siblings', () => {
+    const shown = visibleNodes(root, 1, 0, { opened: new Set(), closed: new Set(), revealed: new Set(['d4 d5 c4 c6']) }).map(({ node }) => node.key);
+    expect(shown).toEqual(['', 'd4', 'd4 d5', 'd4 d5 c4', 'd4 d5 c4 c6', 'c4']);
   });
 
   it('unfolds and folds by hand', () => {

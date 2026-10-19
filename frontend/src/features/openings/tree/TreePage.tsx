@@ -1,5 +1,5 @@
 import { MotionConfig, motion } from 'framer-motion';
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { buildOpeningTree } from '../domain/openingTree';
 import { figurineLine } from '../domain/notation';
 import { gamesOfLastMonths } from '../domain/period';
@@ -25,21 +25,45 @@ export function TreePage() {
   useWorkshopFont();
   const { replay, known, repertoires, steps, forgetIgnored, forgetAdditions } = useReplayedSession();
   const [side, setSide] = useState<Side>('w');
-  const [selected, setSelected] = useState<Record<Side, string>>({ w: '', b: '' });
-  const [focus, setFocus] = useState<{ key: string; stamp: number } | null>(null);
+  const [paths, setPaths] = useState<Record<Side, readonly string[]>>({ w: [], b: [] });
+  const [focus, setFocus] = useState<{ key: string; stamp: number; centre: boolean } | null>(null);
 
   const { maps, priorities } = useMaps(known, replay.day, repertoires, steps);
   const root = maps[side];
-  const node = useMemo(() => findNode(root, selected[side]) ?? root, [root, selected, side]);
+  const path = paths[side];
+  const node = useMemo(() => nodeAlong(root, path), [root, path]);
   const marked = useMemo(() => markedNodes(root), [root]);
   const stepsHere = useMemo(() => steps.filter((step) => step.side === side && step.games[0].check.position === node.position), [steps, side, node]);
   const priority = node.priority !== undefined ? priorities[node.priority - 1] : undefined;
 
-  const goTo = (target: Side, key: string) => {
+  const goTo = (target: Side, key: string, centre: boolean) => {
+    const found = findNode(maps[target], key);
+    if (!found) return;
     setSide(target);
-    setSelected((current) => ({ ...current, [target]: key }));
-    setFocus({ key, stamp: Date.now() });
+    setPaths((current) => ({ ...current, [target]: found.path }));
+    setFocus({ key, stamp: Date.now(), centre });
   };
+  const play = (san: string) => {
+    const next = [...path, san];
+    setPaths((current) => ({ ...current, [side]: next }));
+    const reached = nodeAlong(root, next);
+    if (reached.path.length === next.length) setFocus({ key: reached.key, stamp: Date.now(), centre: false });
+  };
+  const back = () => setPaths((current) => ({ ...current, [side]: current[side].slice(0, -1) }));
+
+  useEffect(() => {
+    const press = (event: KeyboardEvent) => {
+      if (event.target instanceof HTMLElement && ['INPUT', 'TEXTAREA'].includes(event.target.tagName)) return;
+      if (event.key === 'ArrowLeft' && path.length) back();
+      else if (event.key === 'ArrowRight' && path.length === node.path.length && node.children.length) {
+        play([...node.children].sort((a, b) => b.games - a.games)[0].san!);
+      } else if (event.key === 'ArrowUp') setPaths((current) => ({ ...current, [side]: [] }));
+      else return;
+      event.preventDefault();
+    };
+    window.addEventListener('keydown', press);
+    return () => window.removeEventListener('keydown', press);
+  });
   const firstStep = steps[0];
   const firstStepNode = firstStep && findByPosition(maps[firstStep.side], firstStep.games[0].check.position);
   const firstPriority = priorities[0];
@@ -67,19 +91,27 @@ export function TreePage() {
               {positions} {positions === 1 ? 'position' : 'positions'} to settle as {side === 'w' ? 'White' : 'Black'}
             </span>
             <span className="flex flex-wrap gap-2 sm:ml-auto">
-              <Door onClick={firstStepNode ? () => goTo(firstStep.side, firstStepNode.key) : undefined} title={`${steps.length} to settle`}>
+              <Door onClick={firstStepNode ? () => goTo(firstStep.side, firstStepNode.key, true) : undefined} title={`${steps.length} to settle`}>
                 {firstStep ? `${firstStep.games.length} games at ${figurineLine(firstStep.path) || 'the start'}` : 'nothing to settle'}
               </Door>
-              <Door onClick={firstPriorityNode ? () => goTo(firstPriority.side, firstPriorityNode.key) : undefined} title="Priority 1">
+              <Door onClick={firstPriorityNode ? () => goTo(firstPriority.side, firstPriorityNode.key, true) : undefined} title="Priority 1">
                 {firstPriority ? `${firstPriority.side === 'w' ? 'White' : 'Black'} · ${figurineLine(firstPriority.path)}` : 'no priority'}
               </Door>
             </span>
           </div>
           <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_21rem]">
             <div className="h-[60vh] min-h-[380px] lg:h-[calc(100vh-13rem)]">
-              <RepertoireMap root={root} side={side} selected={node.key} onSelect={(key) => setSelected((current) => ({ ...current, [side]: key }))} focus={focus} />
+              <RepertoireMap root={root} side={side} selected={node.key} onSelect={(key) => goTo(side, key, false)} focus={focus} />
             </div>
-            <PositionPane key={`${side} ${node.key}`} node={node} flipped={side === 'b'} steps={stepsHere} priority={priority} />
+            <PositionPane
+              path={path}
+              node={node}
+              flipped={side === 'b'}
+              steps={stepsHere}
+              priority={priority}
+              onMove={play}
+              onBack={path.length ? back : undefined}
+            />
           </div>
         </main>
       </div>
@@ -123,6 +155,19 @@ function useMaps(known: readonly PlayedGame[], day: string, repertoires: ReturnT
     };
     return { maps, priorities };
   }, [known, day, repertoires, steps]);
+}
+
+/** Le nœud le plus profond de la carte sur la ligne, en passant par le propriétaire d'une transposition. */
+function nodeAlong(root: MapNode, path: readonly string[]): MapNode {
+  const byKey = new Map<string, MapNode>();
+  forEachNode(root, (node) => byKey.set(node.key, node));
+  let node = root;
+  for (const san of path) {
+    const child = node.children.find((candidate) => candidate.san === san);
+    if (!child) break;
+    node = child.stub ? byKey.get(child.owner!)! : child;
+  }
+  return node;
 }
 
 function findNode(root: MapNode, key: string): MapNode | undefined {

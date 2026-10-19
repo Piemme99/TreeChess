@@ -5,6 +5,8 @@ export interface Folding {
   opened: ReadonlySet<string>;
   /** Nœuds repliés à la main. */
   closed: ReadonlySet<string>;
+  /** Nœuds à garder sous les yeux, comme une pastille : leur chemin seul se déplie, pas leurs frères. */
+  revealed: ReadonlySet<string>;
 }
 
 export interface VisibleNode {
@@ -20,7 +22,7 @@ export interface VisibleNode {
  * 135 nœuds deviennent 49 pour les Blancs, 124 deviennent 40 pour les Noirs, lisibles sans zoom.
  */
 export function visibleNodes(root: MapNode, depth: number, minGames: number, folding: Folding): VisibleNode[] {
-  const carries = carriesMark(root);
+  const carries = carriesMark(root, folding.revealed);
   const visible: VisibleNode[] = [];
   const walk = (node: MapNode) => {
     const shown = folding.closed.has(node.key)
@@ -36,11 +38,11 @@ export function visibleNodes(root: MapNode, depth: number, minGames: number, fol
   return visible;
 }
 
-function carriesMark(root: MapNode): Map<string, boolean> {
+function carriesMark(root: MapNode, revealed: ReadonlySet<string>): Map<string, boolean> {
   const carries = new Map<string, boolean>();
   const walk = (node: MapNode): boolean => {
     const below = node.children.map(walk).some(Boolean);
-    const result = (!node.stub && isMarked(node)) || below;
+    const result = (!node.stub && (isMarked(node) || revealed.has(node.key))) || below;
     carries.set(node.key, result);
     return result;
   };
