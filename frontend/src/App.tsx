@@ -32,6 +32,9 @@ const HomePage = import.meta.env.DEV
 const SessionPage = import.meta.env.DEV
   ? lazy(() => import('./features/openings').then(m => ({ default: m.SessionPage })))
   : null;
+const TreePage = import.meta.env.DEV
+  ? lazy(() => import('./features/openings').then(m => ({ default: m.TreePage })))
+  : null;
 const NotFoundPage = lazy(() => import('./features/not-found/NotFoundPage').then(m => ({ default: m.NotFoundPage })));
 
 function App() {
@@ -84,6 +87,9 @@ function App() {
         ) : null}
         {SessionPage ? (
           <Route path="/dev/session" element={<Suspense fallback={<Loading size="lg" />}><SessionPage /></Suspense>} />
+        ) : null}
+        {TreePage ? (
+          <Route path="/dev/tree" element={<Suspense fallback={<Loading size="lg" />}><TreePage /></Suspense>} />
         ) : null}
         <Route path="*" element={<Suspense fallback={<Loading size="lg" />}><NotFoundPage /></Suspense>} />
       </Routes>

@@ -195,9 +195,11 @@ decision (the repertoire is the central screen, the unit is a position), this RE
    a badge on a node = pending decisions there, showing the games that raised them ("37"); a pin on
    a node = priority, with its rank. No deficit colour, no score: that is the flame graph, which
    says what the player does. Scores live in the pane. A board on hover, like the v1.
-4. **Folded beyond the 6th ply** ("+N" tab on the last visible node, click unfolds, double click
-   folds), except the paths to a badge or a pin, always open: the landing must say where to act
-   without zooming.
+4. **Folded beyond the 6th ply, and below 2 % of the side's games** ("+N" tab on the last visible
+   node, click unfolds, double click folds), except the paths to a badge or a pin, always open: the
+   landing must say where to act without zooming. The share rule was added while building brick 1:
+   by depth alone the six first plies still made 135 nodes and 56 leaves as White, fitted at 23 %
+   and unreadable; with it, 49 nodes and 15 leaves, fitted at 71 %.
 5. **The header holds the two doors as figures**: "20 to settle" starts the session on the first
    badge, "Priority 1" focuses the first pin. Clicking any node fills the pane.
 6. **One pane, blocks by what the position carries**: board (repertoire green, played grey), the
@@ -208,8 +210,11 @@ decision (the repertoire is the central screen, the unit is a position), this RE
 7. **"Extend from here" on every position**, opening `BuildSession` from it (same board, same
    candidate table as Keep and Prepare). No deletion: removal stays a proposed decision (brick 7).
 
-Bricks: (1) the tree alone on `/dev/tree`, badges, pins, folding, hover board, click fills a
-read-only pane; (2) the pane's blocks and "Next"; (3) "Extend from here".
+Bricks: (1) the tree alone on `/dev/tree` — *done* (`tree/`: `repertoireMap.ts` builds the map
+from the repertoire, the recent opening tree and the marks; `fold.ts` what is visible; `mapLayout.ts`
+on d3-hierarchy; `RepertoireMap.tsx` the SVG with pan, zoom, hover board; `PositionPane.tsx` read
+only; `TreePage.tsx` the two panes and the two doors as figures); (2) the pane's blocks and "Next";
+(3) "Extend from here".
 
 ## Later
 

@@ -5,6 +5,7 @@ import { COLOURS, tile } from './theme';
 
 const PAGES = [
   { to: '/dev/home', label: 'Home' },
+  { to: '/dev/tree', label: 'Tree' },
   { to: '/dev/flame-graph', label: 'Openings' },
   { to: '/dev/games', label: 'Games' },
 ];
