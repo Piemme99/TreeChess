@@ -218,7 +218,13 @@ repertoire is said so, ← → ↑ as in "Add"); `position/arrows.ts` three arro
 frequent deviation first then the repertoire moves most played over 12 months, thick by share, a
 landing dot only on those (PMG: fewer arrows, the relevant ones; the same rule now drives the
 Openings board panel); `TreePage.tsx` the two panes and the two doors
-as figures); (2) the pane's blocks and "Next"; (3) "Extend from here".
+as figures); (2) the pane's blocks and "Next" — *done*: "To settle" with the facts and Keep / Stay on /
+Prepare an answer (Keep and Prepare open `checks/BuildSession` in place of the two panes, back on
+accept or cancel), "Priority n" with "Next priority"; the "to settle" door starts the session, which
+steps through the positions (counter, "Skip for now" postpones, "Done for today" at the end), the
+same blocks settle a position outside the session too. Left for brick 3: "Prepare what follows" and
+"Extend from here", both building from any position (today `useBuilder` starts from a game check),
+and the priority verdict (engine); (3) "Extend from here".
 
 ## Later
 
