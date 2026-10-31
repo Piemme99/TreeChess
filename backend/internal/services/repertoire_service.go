@@ -55,6 +55,11 @@ var (
 	// is safe to retry with backoff.
 	ErrUpstreamUnavailable = fmt.Errorf("upstream service temporarily unavailable")
 
+	// ErrNoGamesFound flags an upstream fetch that succeeded but matched no
+	// games. Manual imports surface it to the user; periodic sync treats it
+	// as a normal empty result.
+	ErrNoGamesFound = fmt.Errorf("no games found")
+
 	// PGN parsing errors
 	ErrCustomStartingPosition = fmt.Errorf("chapter uses a custom starting position and cannot be imported as a repertoire")
 
@@ -1317,7 +1322,17 @@ func (s *RepertoireService) SetOrigin(ctx context.Context, repertoireID, userID 
 func (s *RepertoireService) PersistStudyImport(ctx context.Context, userID string, plan models.StudyImportPlan) (*models.StudyImportPersistResult, error) {
 	result := &models.StudyImportPersistResult{}
 
-	err := s.repo.WithinTx(ctx, func(tx repository.RepertoireTx) error {
+	// Check the repertoire limit up front so a many-chapter study near the cap
+	// surfaces as ErrLimitReached instead of the DB trigger's generic error.
+	count, err := s.repo.Count(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check repertoire count: %w", err)
+	}
+	if count+len(plan.Repertoires) > config.MaxRepertoires {
+		return nil, ErrLimitReached
+	}
+
+	err = s.repo.WithinTx(ctx, func(tx repository.RepertoireTx) error {
 		var categoryID *string
 		if plan.Category != nil {
 			cat, err := tx.CreateCategory(ctx, userID, plan.Category.Name, plan.Category.Color)

@@ -81,6 +81,13 @@ func ClassifyTimeControl(tc string) string {
 		return "daily"
 	}
 
+	// Correspondence games (chess.com daily) use the "moves/seconds" form,
+	// e.g. "1/86400". Sscanf would otherwise parse just the leading "1" and
+	// classify them as bullet.
+	if strings.Contains(tc, "/") {
+		return "daily"
+	}
+
 	parts := strings.Split(tc, "+")
 	var baseSeconds int
 	if _, err := fmt.Sscanf(parts[0], "%d", &baseSeconds); err != nil {

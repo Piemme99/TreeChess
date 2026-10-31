@@ -48,10 +48,6 @@ func TestRepertoireService_CreateRepertoire_NameTooLong(t *testing.T) {
 	assert.ErrorIs(t, err, ErrNameTooLong)
 }
 
-func TestRepertoireService_GetRepertoire_InvalidID_Skip(t *testing.T) {
-	t.Skip("Covered by mock-based test below")
-}
-
 func TestRepertoireService_RenameRepertoire_EmptyName(t *testing.T) {
 	mockRepo := &mocks.MockRepertoireRepo{}
 	svc := NewRepertoireService(mockRepo)
@@ -619,8 +615,23 @@ func TestListRepertoires_InvalidColor(t *testing.T) {
 	assert.Contains(t, err.Error(), "invalid color")
 }
 
-func TestRepertoireService_RenameRepertoire_NotFound_Skip(t *testing.T) {
-	t.Skip("Covered by mock-based test below")
+func TestRepertoireService_RenameRepertoire_DeletedBetweenCheckAndUpdate(t *testing.T) {
+	mockRepo := &mocks.MockRepertoireRepo{
+		ExistsFunc: func(_ context.Context, id string) (bool, error) {
+			return true, nil
+		},
+		UpdateNameFunc: func(_ context.Context, id string, userID string, name string) (*models.Repertoire, error) {
+			// The repertoire vanished (or belongs to another user) between the
+			// existence pre-check and the user-scoped update.
+			return nil, repository.ErrRepertoireNotFound
+		},
+	}
+	svc := NewRepertoireService(mockRepo)
+
+	rep, err := svc.RenameRepertoire(context.Background(), "user-1", "raced-id", "New Name")
+
+	assert.Nil(t, rep)
+	assert.ErrorIs(t, err, repository.ErrRepertoireNotFound)
 }
 
 // --- MergeRepertoires tests ---
