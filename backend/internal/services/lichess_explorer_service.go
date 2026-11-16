@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -37,6 +38,9 @@ func (e *RateLimitedError) Error() string {
 func (e *RateLimitedError) Unwrap() error {
 	return e.wrapped
 }
+
+// Une réponse de l'explorateur pèse quelques Ko ; la borne protège le cache d'un amont qui déraille.
+const maxExplorerBody = 1 << 20
 
 type OpeningQuery struct {
 	FEN     string
@@ -100,7 +104,24 @@ func (s *LichessExplorerService) FetchOpening(ctx context.Context, q OpeningQuer
 	}
 	values.Set("fen", q.FEN)
 
-	endpoint := s.baseURL + "/lichess?" + values.Encode()
+	body, err := s.FetchRaw(ctx, "lichess", values, token)
+	if err != nil {
+		return nil, err
+	}
+
+	var stats OpeningStats
+	if err := json.Unmarshal(body, &stats); err != nil {
+		return nil, fmt.Errorf("decode explorer response: %w", err)
+	}
+	return &stats, nil
+}
+
+type ExplorerRawFetcher interface {
+	FetchRaw(ctx context.Context, database string, values url.Values, token string) ([]byte, error)
+}
+
+func (s *LichessExplorerService) FetchRaw(ctx context.Context, database string, values url.Values, token string) ([]byte, error) {
+	endpoint := s.baseURL + "/" + database + "?" + values.Encode()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
 		return nil, fmt.Errorf("build explorer request: %w", err)
@@ -129,9 +150,9 @@ func (s *LichessExplorerService) FetchOpening(ctx context.Context, q OpeningQuer
 		return nil, fmt.Errorf("explorer returned status %d", resp.StatusCode)
 	}
 
-	var stats OpeningStats
-	if err := json.NewDecoder(resp.Body).Decode(&stats); err != nil {
-		return nil, fmt.Errorf("decode explorer response: %w", err)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxExplorerBody))
+	if err != nil {
+		return nil, fmt.Errorf("%w: %s", ErrExplorerUnavailable, err.Error())
 	}
-	return &stats, nil
+	return body, nil
 }
