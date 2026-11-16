@@ -8,7 +8,7 @@ import type { Builder } from './useBuilder';
 import { useExplorerAt } from './useExplorerAt';
 
 export const ENGINE_DEPTH = 14;
-// Peu de suggestions : trois coups du niveau, le coup du moteur et les siens suffisent à choisir.
+// Peu de suggestions : trois coups des forts joueurs, le coup du moteur et les siens suffisent à choisir.
 const MAX_CANDIDATES = 3;
 const MAX_REPLIES = 4;
 const MAX_OWN = 3;
@@ -38,6 +38,8 @@ export interface Candidates {
   /** Ce que vaut la position courante et le coup que jouerait le moteur. */
   here?: Evaluation & { san: string | null };
   explorer: 'missing' | 'asking' | 'failed' | 'ready';
+  /** D'où viennent les statistiques : les forts joueurs (coups du joueur) ou son niveau (réponses adverses). */
+  pool: 'strong' | 'level';
 }
 
 const afterMove = (fen: string, san: string) => {
@@ -50,7 +52,10 @@ const afterMove = (fen: string, san: string) => {
 export function useCandidates(builder: Builder): Candidates {
   const { fen, playerToMove, mine } = builder;
   const side = builder.origin.side;
-  const explorer = useExplorerAt(fen);
+  // Ses propres coups se choisissent sur ce que jouent les forts joueurs ; les réponses adverses à préparer
+  // sont celles de son niveau, les seules qu'il rencontrera vraiment.
+  const pool = playerToMove ? 'strong' : 'level';
+  const explorer = useExplorerAt(fen, playerToMove ? 'strong' : 'lichess');
 
   const hereFens = useMemo(() => [fen], [fen]);
   const here = useEvaluations(hereFens, ENGINE_DEPTH).get(fen);
@@ -108,5 +113,6 @@ export function useCandidates(builder: Builder): Candidates {
     costly,
     here: here && { ...here, san: engineSan },
     explorer: explorer === undefined ? 'asking' : typeof explorer === 'string' ? explorer : 'ready',
+    pool,
   };
 }

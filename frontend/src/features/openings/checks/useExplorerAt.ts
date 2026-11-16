@@ -1,24 +1,25 @@
 import { useEffect, useState } from 'react';
-import { explore, hasExplorer, type ExplorerResult } from '../line/explorer';
+import { explore, hasExplorer, type Database, type ExplorerResult } from '../line/explorer';
 
 // Au-delà, on dit au joueur que l'explorateur ne répond pas plutôt que de le laisser attendre.
 const TIMEOUT = 10_000;
 
 export type ExplorerAnswer = ExplorerResult | 'missing' | 'failed' | undefined;
 
-/** Ce que jouent les joueurs du niveau du joueur depuis une position ; `undefined` pendant la requête. */
-export function useExplorerAt(fen: string): ExplorerAnswer {
-  const [found, setFound] = useState<{ fen: string; result: ExplorerResult | 'failed' } | null>(null);
+/** Ce que jouent les joueurs d'une base depuis une position ; `undefined` pendant la requête. */
+export function useExplorerAt(fen: string, database: Database = 'lichess'): ExplorerAnswer {
+  const key = `${database} ${fen}`;
+  const [found, setFound] = useState<{ key: string; result: ExplorerResult | 'failed' } | null>(null);
   useEffect(() => {
     if (!hasExplorer()) return;
     let live = true;
-    const timer = setTimeout(() => live && setFound((known) => (known?.fen === fen ? known : { fen, result: 'failed' })), TIMEOUT);
-    explore('lichess', fen).then((result) => live && setFound({ fen, result: result ?? 'failed' }));
+    const timer = setTimeout(() => live && setFound((known) => (known?.key === key ? known : { key, result: 'failed' })), TIMEOUT);
+    explore(database, fen).then((result) => live && setFound({ key, result: result ?? 'failed' }));
     return () => {
       live = false;
       clearTimeout(timer);
     };
-  }, [fen]);
+  }, [key, database, fen]);
   if (!hasExplorer()) return 'missing';
-  return found?.fen === fen ? found.result : undefined;
+  return found?.key === key ? found.result : undefined;
 }

@@ -14,12 +14,16 @@ export interface ExplorerResult extends ExplorerStats {
   topGames?: ExplorerGame[];
 }
 
-export type Database = 'lichess' | 'masters';
+/** `lichess` : le niveau du joueur ; `strong` : les forts joueurs de Lichess, pour choisir ses propres coups. */
+export type Database = 'lichess' | 'strong' | 'masters';
 
 const TOKEN = import.meta.env.VITE_LICHESS_TOKEN as string | undefined;
 // Tranches de l'explorateur autour du joueur (Lichess : 1594 blitz, 1698 rapide le 18/10/2026).
 const RATINGS = '1400,1600,1800';
 const SPEEDS = 'blitz,rapid';
+// Des joueurs forts, mais assez nombreux pour couvrir les lignes d'amateur où la base des maîtres n'a que quelques parties.
+const STRONG_RATINGS = '2200,2500';
+const STRONG_SPEEDS = 'blitz,rapid,classical';
 /** La tranche interrogée, telle qu'on la nomme à l'écran. */
 export const LEVEL_LABEL = '1400–1800 · blitz & rapid · Lichess';
 const STORAGE = 'kumquat-explorer:';
@@ -33,15 +37,15 @@ let chain: Promise<unknown> = Promise.resolve();
 
 function urlOf(database: Database, fen: string) {
   const query = new URLSearchParams({ variant: 'standard', fen, moves: '8' });
-  if (database === 'lichess') {
-    query.set('speeds', SPEEDS);
-    query.set('ratings', RATINGS);
+  if (database === 'masters') {
+    query.set('topGames', '4');
+  } else {
+    query.set('speeds', database === 'strong' ? STRONG_SPEEDS : SPEEDS);
+    query.set('ratings', database === 'strong' ? STRONG_RATINGS : RATINGS);
     query.set('topGames', '0');
     query.set('recentGames', '0');
-  } else {
-    query.set('topGames', '4');
   }
-  return `https://explorer.lichess.ovh/${database}?${query}`;
+  return `https://explorer.lichess.ovh/${database === 'masters' ? 'masters' : 'lichess'}?${query}`;
 }
 
 const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));

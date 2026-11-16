@@ -184,7 +184,8 @@ export function BuildPanel({ builder, candidates, fresh, onPoint, onAccept, onCa
       {compact && notes}
 
       <Help compact={compact}>
-        <strong>{compact ? 'Lichess' : `${origin.side === 'w' ? 'White' : 'Black'} %`}</strong>: how players of your colour score after the move on Lichess, 1400–1800 ·{' '}
+        <strong>{compact ? POOL[candidates.pool].short : `${origin.side === 'w' ? 'White' : 'Black'} %`}</strong>: how players of your colour score after the move on Lichess,{' '}
+        {candidates.pool === 'strong' ? 'rated 2200+ (for your moves)' : 'rated 1400–1800 (for their replies: the ones you will meet)'} ·{' '}
         <strong>Engine</strong>: + is good for you · <strong>You</strong>: how often you played it in 12 months, and your score once you have 3 games (
         <span style={{ color: COLOURS.terracotta }}>red</span>: where you score worst).
       </Help>
@@ -222,7 +223,7 @@ function useLastJudgement(builder: Builder): Judgement | null {
 }
 
 function CandidateTable({ builder, candidates, onPoint, compact, planned }: { builder: Builder; candidates: Candidates; onPoint: (san: string | null) => void; compact: boolean; planned: ReadonlySet<string> }) {
-  const { rows, costly, here, explorer } = candidates;
+  const { rows, costly, here, explorer, pool } = candidates;
   // La barre dit ce que vaut la position avec le meilleur coup du tableau : le même chiffre que sa ligne.
   const engineRow = rows.filter((row) => row.engine && row.cp !== undefined)[0];
   const bestCp = builder.playerToMove ? engineRow?.cp : undefined;
@@ -261,7 +262,7 @@ function CandidateTable({ builder, candidates, onPoint, compact, planned }: { bu
               <tr>
                 <th />
                 <th colSpan={2} className={`whitespace-nowrap px-2 pb-0.5 text-center font-semibold ${compact ? 'hidden sm:table-cell' : ''}`} style={{ borderBottom: `1px solid ${COLOURS.sand}` }}>
-                  Lichess 1400–1800
+                  {POOL[pool].long}
                 </th>
 
                 <th />
@@ -272,8 +273,8 @@ function CandidateTable({ builder, candidates, onPoint, compact, planned }: { bu
               <th className="pb-1 pr-2 font-semibold">Move</th>
               {stats && <th className={`pb-1 px-2 font-semibold ${compact ? 'hidden sm:table-cell' : ''}`}>played</th>}
               {stats && (
-                <th className="pb-1 px-2 text-right font-semibold" title={`How ${side} scores after this move on Lichess, 1400–1800`}>
-                  {compact ? 'Lichess' : `${side} %`}
+                <th className="pb-1 px-2 text-right font-semibold" title={`How ${side} scores after this move: ${POOL[pool].long}`}>
+                  {compact ? POOL[pool].short : `${side} %`}
                 </th>
               )}
               <th className="pb-1 px-2 text-right font-semibold" title="Engine evaluation after the move, from your side: + is good for you">
@@ -468,6 +469,11 @@ function formatCp(cp: number): string {
 function Move({ children }: { children: ReactNode }) {
   return <span className="whitespace-nowrap">{children}</span>;
 }
+
+const POOL = {
+  strong: { short: '2200+', long: 'Lichess 2200+' },
+  level: { short: '1400–1800', long: 'Lichess 1400–1800' },
+} as const;
 
 /** L'aide du tableau : dépliée sur l'ordinateur, repliée au téléphone, où elle repoussait tout. */
 function Help({ compact, children }: { compact: boolean; children: ReactNode }) {
