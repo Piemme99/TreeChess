@@ -85,10 +85,13 @@ export function RepertoireMap({ root: drawn, side, selected, onSelect, focus, lo
 
   // « Fit » replie d'abord comme à l'arrivée, puis cadre la carte ainsi repliée.
   const refit = useRef(false);
+  // « Fit » montre toute la carte, quitte à la réduire ; l'arrivée, elle, garde la taille de lecture.
+  const wholeFit = useRef(false);
   useEffect(() => {
     if (!refit.current) return;
     refit.current = false;
-    fit(layout.bounds, size, READABLE);
+    fit(layout.bounds, size, wholeFit.current ? 0.5 : READABLE);
+    wholeFit.current = false;
   }, [layout.bounds, fit, size]);
   const anchor = () => {
     const placed = layout.nodes.find((node) => node.node.key === selected);
@@ -108,11 +111,12 @@ export function RepertoireMap({ root: drawn, side, selected, onSelect, focus, lo
     if (!placed) return;
     served.current = focus.stamp;
     // Le chemin depuis le départ, pas le nœud seul : sans ses ancêtres, le joueur ne sait plus où il est.
-    // Avec ses enfants : la suite du nœud doit se voir, pas seulement lui.
-    const along = layout.nodes.filter(
-      (node) => focus.key === node.node.key || focus.key.startsWith(`${node.node.key} `) || node.node.san === null || node.node.key.startsWith(`${focus.key} `) && node.node.path.length === placed.node.path.length + 1,
+    // Le nœud, son parent et ses enfants, sans toucher au zoom : la carte ne bouge que si ce voisinage sort du cadre.
+    const parentKey = placed.node.path.slice(0, -1).join(' ');
+    const around = layout.nodes.filter(
+      (node) => node === placed || (placed.node.path.length > 0 && node.node.key === parentKey) || (node.node.key.startsWith(`${focus.key} `) && node.node.path.length === placed.node.path.length + 1) || (focus.key === '' && node.node.path.length === 1),
     );
-    reveal(boxOf(along), size, focus.centre ? 0.8 : Math.min(transform.k, 0.9));
+    reveal(boxOf(around), size, transform.k);
     // `transform.k` n'est lu qu'au moment de servir la demande.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focus, layout.nodes, reveal, size]);
@@ -239,6 +243,7 @@ export function RepertoireMap({ root: drawn, side, selected, onSelect, focus, lo
             onClick={() => {
               setFolding({ opened: new Set(), closed: new Set(), revealed: new Set() });
               refit.current = true;
+              wholeFit.current = true;
             }}
           >
             Fit
@@ -467,7 +472,7 @@ function Pill({ placed, side, selected, onClick, onDoubleClick, onOpen, onHover,
         >
           <rect x={-2} y={-14} width={38} height={28} fill="transparent" />
           <rect x={0} y={-10} width={34} height={20} rx={10} fill={COLOURS.sand} />
-          <text x={17} textAnchor="middle" dominantBaseline="central" fontSize={12} fontWeight={700} fill={COLOURS.leaf}>
+          <text x={17} textAnchor="middle" dominantBaseline="central" fontSize={13} fontWeight={700} fill={COLOURS.leaf}>
             +{hidden}
           </text>
         </g>

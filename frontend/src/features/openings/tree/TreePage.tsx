@@ -1,5 +1,7 @@
 import { MotionConfig, motion } from 'framer-motion';
 import { useSearchParams } from 'react-router';
+import { useOpeningName } from '../../../shared/hooks/useOpeningName';
+import { replayLine } from '../position/replay';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { BuildSession } from '../checks/BuildSession';
 import { originAt, originOf, type BuildOrigin } from '../checks/useBuilder';
@@ -192,7 +194,7 @@ export function TreePage() {
   };
   const skip = (step: SessionStep) => {
     mark(step.key, 'skipped');
-    show({ text: 'Skipped: it stays to settle', undo: () => mark(step.key, null) });
+    show({ text: 'Skipped for this session', undo: () => mark(step.key, null) });
   };
 
   // La priorité montrée suit le camp regardé ; sur un nœud épinglé, c'est la sienne.
@@ -224,8 +226,9 @@ export function TreePage() {
       else if (event.key === 'ArrowRight' && inRepertoire && node.children.length) {
         play([...node.children].sort((a, b) => b.games - a.games)[0].san!);
       } else if ((event.key === 'ArrowUp' || event.key === 'ArrowDown') && siblings.length > 1 && at >= 0) {
-        const next = siblings[(at + (event.key === 'ArrowDown' ? 1 : siblings.length - 1)) % siblings.length];
-        walk([...path.slice(0, -1), next.san!]);
+        // Sans boucler : ↑ au premier frère ne doit pas sauter tout en bas de la carte.
+        const next = siblings[Math.min(siblings.length - 1, Math.max(0, at + (event.key === 'ArrowDown' ? 1 : -1)))];
+        if (next.san !== path[path.length - 1]) walk([...path.slice(0, -1), next.san!]);
       } else if (event.key === 'Home') walk([]);
       else return;
       event.preventDefault();
@@ -282,7 +285,7 @@ export function TreePage() {
                   tone={steps.length && !session ? 'terracotta' : 'plain'}
                 >
                   {first
-                    ? `${perSide.w} as White · ${perSide.b} as Black · start ${first.side === 'w' ? 'White' : 'Black'} ${figurineLine(first.path) || 'start'}`
+                    ? `${steps.reduce((sum, step) => sum + step.games.length, 0)} games · ${perSide.w} as White · ${perSide.b} as Black`
                     : replay.next
                       ? 'Press “Next day” to bring games in'
                       : 'All games replayed'}
@@ -320,6 +323,8 @@ export function TreePage() {
               {session && !current ? (
                 <Done settled={settled} skipped={skipped} left={steps.length} onClose={() => setSession(null)} />
               ) : building ? (
+                <>
+                <PaneHeading path={building.origin.start} />
                 <BuildSession
                   key={`${building.origin.start.join(' ')} ${building.stepKey ?? ''} ${building.origin.keep}`}
                   origin={building.origin}
@@ -330,6 +335,7 @@ export function TreePage() {
                   onLines={showLines}
                   stacked
                 />
+                </>
               ) : (
                 <PositionPane
                   side={side}
@@ -360,6 +366,22 @@ export function TreePage() {
         <Toast toast={toast} onClose={close} />
       </div>
     </MotionConfig>
+  );
+}
+
+/** Le nom de la position d'où l'on construit, à la place du titre du volet : le regard ne doit pas le chercher. */
+function PaneHeading({ path }: { path: readonly string[] }) {
+  const fens = useMemo(() => replayLine(path).fens, [path]);
+  const opening = useOpeningName(fens);
+  return (
+    <div className="flex min-w-0 flex-col px-1">
+      <h2 className="text-[19px] font-semibold leading-snug tracking-[-0.01em]">{opening?.name ?? (path.length ? 'Unnamed line' : 'Starting position')}</h2>
+      {path.length > 0 && (
+        <span className="text-[14px]" style={{ color: COLOURS.leafSoft }}>
+          {figurineLine(path)}
+        </span>
+      )}
+    </div>
   );
 }
 
@@ -417,7 +439,7 @@ function Door({ onClick, title, tone = 'plain', className = 'flex', children }: 
       style={{ ...raised(false), ...(accent ? { background: 'oklch(0.52 0.15 35)', color: 'white' } : {}), opacity: onClick ? 1 : 0.7 }}
     >
       <span className="text-[15px] font-extrabold tracking-[-0.01em]">{title}</span>
-      <span className="w-full truncate text-[13px] font-semibold" style={{ color: accent ? 'white' : COLOURS.leafSoft }}>
+      <span className="hidden w-full truncate text-[13px] font-semibold sm:block" style={{ color: accent ? 'white' : COLOURS.leafSoft }}>
         {children}
       </span>
     </motion.button>

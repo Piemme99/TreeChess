@@ -97,7 +97,7 @@ export function BuildSession({ origin, games, repertoire, onAccept, onCancel, ch
     >
       <aside
         aria-label="Position"
-        className={`flex flex-col gap-3 self-start ${stacked ? 'mx-auto w-full max-w-[17rem] lg:sticky lg:top-0 lg:z-10 lg:max-w-none lg:px-[3.5rem] lg:pt-2 lg:pb-3' : 'lg:sticky lg:top-6'}`}
+        className={`flex flex-col gap-3 self-start ${stacked ? 'sticky top-0 z-10 mx-auto w-full max-w-none px-[calc(50%-8rem)] pt-2 pb-2 lg:px-[3.5rem] lg:pb-3' : 'lg:sticky lg:top-6'}`}
         // L'échiquier reste en haut pendant qu'on fait défiler le tableau : on choisit en regardant la position.
         style={stacked ? { background: COLOURS.cream } : undefined}
       >

@@ -1,6 +1,9 @@
 import { MotionConfig } from 'framer-motion';
 import { useMemo, useRef, useState } from 'react';
-import type { AddedMove } from '../domain/addition';
+import type { AddedMove, Addition } from '../domain/addition';
+import { figurineMove } from '../domain/notation';
+import { Toast } from '../workshop/Toast';
+import { useToast } from '../workshop/useToast';
 import { judgeMove, type Judgement } from '../domain/judgement';
 import { repertoireMovesAt, type Repertoire } from '../domain/repertoire';
 import { gamesOfLastMonths } from '../domain/period';
@@ -26,10 +29,11 @@ import { useIgnoredChecks } from './useIgnoredChecks';
 export function GameChecksPage() {
   useWorkshopFont();
   const replay = useReplayDay(playedGamesFixture, REPLAY_FIRST_DAY);
-  const { ignored, ignore, clear } = useIgnoredChecks();
+  const { ignored, ignore, unignore, clear } = useIgnoredChecks();
+  const { toast, show, close } = useToast();
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [addingId, setAddingId] = useState<number | null>(null);
-  const { repertoires, add, clear: forgetAdditions } = useRepertoires(playedGamesFixture);
+  const { repertoires, add, remove, clear: forgetAdditions } = useRepertoires(playedGamesFixture);
   const lived = useMemo(() => liveGames(playedGamesFixture, repertoires, REPLAY_FIRST_DAY, replay.day), [repertoires, replay.day]);
   const today = lived.filter(({ game }) => game.playedAt === replay.day);
   const toDecide = gamesToDecide(lived, ignored, replay.day);
@@ -58,8 +62,23 @@ export function GameChecksPage() {
     setAddingId(null);
   };
   const accept = (moves: AddedMove[]) => {
-    if (adding) add({ side: adding.game.side, addedAt: replay.day, moves });
+    if (adding) {
+      const addition: Addition = { side: adding.game.side, addedAt: replay.day, moves };
+      add(addition);
+      show({ text: `${moves.length} ${moves.length === 1 ? 'move' : 'moves'} added to your repertoire`, undo: () => remove(addition) });
+    }
     stopAdding();
+  };
+  // Comme sur l'arbre : garder le coup joué l'ajoute tout de suite ; préparer une réponse demande de la jouer.
+  const addPlayed = (checked: CheckedGame) => {
+    if (checked.check.kind !== 'left') return startAdding(checked);
+    const addition: Addition = { side: checked.game.side, addedAt: replay.day, moves: [{ position: checked.check.position, san: checked.check.played, source: 'habit' }] };
+    add(addition);
+    show({ text: `${figurineMove(checked.check.played, checked.check.ply + 1)} added to your repertoire`, undo: () => remove(addition) });
+  };
+  const setAside = (checked: CheckedGame) => {
+    ignore(checked.id);
+    show({ text: 'Repertoire unchanged · game set aside', undo: () => unignore([checked.id]) });
   };
 
   const reset = replay.reset && (() => {
@@ -92,8 +111,9 @@ export function GameChecksPage() {
                       checked={checked}
                       selected={checked === selected}
                       onSelect={() => select(checked.id)}
-                      onIgnore={() => ignore(checked.id)}
-                      onAdd={() => startAdding(checked)}
+                      onIgnore={() => setAside(checked)}
+                      onAdd={() => addPlayed(checked)}
+                      onBuild={() => startAdding(checked)}
                       showDate={checked.game.playedAt !== replay.day}
                       judgement={judgementOf(checked)}
                     />
@@ -152,6 +172,7 @@ export function GameChecksPage() {
             <div className="flex min-w-0 flex-col gap-10">{lists}</div>
           </main>
         )}
+        <Toast toast={toast} onClose={close} />
       </div>
     </MotionConfig>
   );

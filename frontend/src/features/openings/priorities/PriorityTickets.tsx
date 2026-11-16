@@ -83,8 +83,8 @@ function Ticket({ priority, rank, share, selected, onSelect, onPoint }: TicketPr
         style={raised(selected)}
       >
         <span className="flex items-center justify-between">
-          <span className="text-[28px] leading-none font-extrabold" style={{ color: selected ? COLOURS.apricot : COLOURS.kumquatDeep }}>
-            {rank}
+          <span className="rounded px-1.5 py-0.5 text-[15px] leading-none font-extrabold" style={selected ? { background: COLOURS.cream, color: COLOURS.leaf } : { background: COLOURS.leaf, color: COLOURS.cream }}>
+            P{rank}
           </span>
           <span className="flex items-center gap-1.5 text-[12px] font-semibold" style={{ opacity: 0.8 }}>
             <span
@@ -111,7 +111,7 @@ function Ticket({ priority, rank, share, selected, onSelect, onPoint }: TicketPr
         >
           <motion.span
             className="block h-full rounded-full"
-            style={{ background: COLOURS.kumquat }}
+            style={{ background: COLOURS.leafSoft }}
             initial={{ width: 0 }}
             animate={{ width: `${impact}%` }}
             transition={{ ...ZOOM, delay: 0.2 + rank * 0.07 }}

@@ -47,11 +47,11 @@ describe('OpeningsPage', () => {
     expect(lines.join()).not.toMatch(/1\.e4 e5 2\.Nf3 d6 3\.d4/);
   });
 
-  it('reads the games known on the replay day, which the Games page moves on', async () => {
+  it('reads the games known on the replay day, which every page moves on', async () => {
     localStorage.setItem('kumquat.v2.replay-day', '2026-01-04');
     render(<OpeningsPage />);
 
-    expect(screen.getByRole('banner')).toHaveTextContent('as of Sun, 4 Jan 2026');
+    expect(screen.getByRole('region', { name: 'Replay' })).toHaveTextContent('Sun, 4 Jan 2026');
     await waitFor(() => expect(period('All time')).toHaveTextContent('2562games'));
   });
 

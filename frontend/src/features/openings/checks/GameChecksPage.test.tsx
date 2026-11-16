@@ -111,7 +111,7 @@ describe('GameChecksPage', () => {
     page();
     nextDay();
     const indian = () => dayGames().find((card) => card.textContent?.includes('1…♘f6'))!;
-    fireEvent.click(within(indian()).getByRole('button', { name: /^Add/ }));
+    fireEvent.click(within(indian()).getByRole('button', { name: /^Choose my move here/ }));
 
     const panel = screen.getByRole('region', { name: 'Addition' });
     expect(panel).toHaveTextContent('You played 1…♘f6: what do you want to play here?');
@@ -163,7 +163,7 @@ describe('GameChecksPage', () => {
   it('takes back the last move played', () => {
     page();
     nextDay();
-    fireEvent.click(within(dayGames().find((card) => card.textContent?.includes('1…♘f6'))!).getByRole('button', { name: /^Add/ }));
+    fireEvent.click(within(dayGames().find((card) => card.textContent?.includes('1…♘f6'))!).getByRole('button', { name: /^Choose my move here/ }));
     playOnBoard('g8', 'f6');
 
     fireEvent.click(screen.getByRole('button', { name: 'Undo last move' }));
@@ -174,7 +174,7 @@ describe('GameChecksPage', () => {
   it('shows the added move on the Openings page too', () => {
     page();
     nextDay();
-    fireEvent.click(within(dayGames().find((card) => card.textContent?.includes('1…♘f6'))!).getByRole('button', { name: /^Add/ }));
+    fireEvent.click(within(dayGames().find((card) => card.textContent?.includes('1…♘f6'))!).getByRole('button', { name: /^Choose my move here/ }));
     playOnBoard('g8', 'f6');
     fireEvent.click(screen.getByRole('button', { name: /^Add to my repertoire/ }));
     cleanup();

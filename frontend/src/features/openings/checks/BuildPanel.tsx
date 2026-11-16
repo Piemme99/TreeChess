@@ -43,6 +43,7 @@ export function BuildPanel({ builder, candidates, fresh, onPoint, onAccept, onCa
   const judgement = useLastJudgement(builder);
   // Le coup du joueur choisi juste après le départ, à comparer à sa réponse dans la partie.
   const second = useSecondChoice(builder, fresh, repertoire);
+  const planned = useMemo(() => new Set(repertoireMovesAt(repertoire, builder.fen).map((move) => move.san)), [repertoire, builder.fen]);
   const chosen = draft.find((move) => move.path.length === origin.start.length + 1 && move.path.every((san, at) => at >= origin.start.length || origin.start[at] === san))?.path.at(-1);
 
   return (
@@ -141,11 +142,11 @@ export function BuildPanel({ builder, candidates, fresh, onPoint, onAccept, onCa
           Your repertoire already plays {second.existing} here: {second.added} becomes a second choice.
         </p>
       )}
-      <CandidateTable builder={builder} candidates={candidates} onPoint={onPoint} compact={compact} />
+      <CandidateTable builder={builder} candidates={candidates} onPoint={onPoint} compact={compact} planned={planned} />
 
       <p className="text-[12px]" style={{ color: COLOURS.leafSoft }}>
-        <strong>{origin.side === 'w' ? 'White' : 'Black'} %</strong>: how your side scores after the move on Lichess, 1400–1800 ·{' '}
-        <strong>Engine</strong>: + is good for you · <strong>You</strong>: your games in 12 months, and your score from 3 games.
+        <strong>{origin.side === 'w' ? 'White' : 'Black'} %</strong>: how players of your colour score after the move on Lichess, 1400–1800 ·{' '}
+        <strong>Engine</strong>: + is good for you · <strong>You</strong>: how often you played it in 12 months, and how you scored (from 3 games).
       </p>
     </section>
   );
@@ -180,7 +181,7 @@ function useLastJudgement(builder: Builder): Judgement | null {
   return relevant && before && after ? judgeMove(before.cp, after.cp, mover) : null;
 }
 
-function CandidateTable({ builder, candidates, onPoint, compact }: { builder: Builder; candidates: Candidates; onPoint: (san: string | null) => void; compact: boolean }) {
+function CandidateTable({ builder, candidates, onPoint, compact, planned }: { builder: Builder; candidates: Candidates; onPoint: (san: string | null) => void; compact: boolean; planned: ReadonlySet<string> }) {
   const { rows, costly, here, explorer } = candidates;
   const ply = builder.path.length + 1;
   const side = builder.origin.side === 'w' ? 'White' : 'Black';
@@ -257,6 +258,7 @@ function CandidateTable({ builder, candidates, onPoint, compact }: { builder: Bu
                 worst={worst}
                 best={best}
                 yours={(row.san === builder.origin.reply && builder.path.length === builder.start.length) || row.san === habit}
+                planned={planned.has(row.san)}
                 onPlay={() => builder.play(row.san)}
                 onPoint={() => onPoint(row.san)}
               />
@@ -274,7 +276,7 @@ function CandidateTable({ builder, candidates, onPoint, compact }: { builder: Bu
   );
 }
 
-function CandidateRow({ row, ply, faded, stats, compact, side, worst, best, yours, onPlay, onPoint }: {
+function CandidateRow({ row, ply, faded, stats, compact, side, worst, best, yours, planned, onPlay, onPoint }: {
   row: Candidate;
   ply: number;
   faded: boolean;
@@ -284,6 +286,7 @@ function CandidateRow({ row, ply, faded, stats, compact, side, worst, best, your
   worst: string | undefined;
   best: number | undefined;
   yours: boolean;
+  planned: boolean;
   onPlay: () => void;
   onPoint: () => void;
 }) {
@@ -309,14 +312,19 @@ function CandidateRow({ row, ply, faded, stats, compact, side, worst, best, your
           {figurineMove(row.san, ply)}
         </button>
         {row.judgement && <Mark judgement={row.judgement} />}
-        {(row.engine || yours) && (
+        {(row.engine || yours || planned) && (
           <span className={compact ? 'mt-0.5 flex gap-1' : 'inline'}>
             {row.engine && (
               <span className={`${compact ? '' : 'ml-1.5 '}rounded-full px-1.5 text-[11px] font-extrabold align-[1px]`} style={{ background: COLOURS.kumquatDeep, color: 'white' }}>
                 engine
               </span>
             )}
-            {yours && (
+            {planned && (
+              <span className={`${compact ? '' : 'ml-1.5 '}rounded-full px-1.5 text-[11px] font-extrabold align-[1px]`} style={{ background: REPERTOIRE, color: 'white' }}>
+                in repertoire
+              </span>
+            )}
+            {yours && !planned && (
               <span className={`${compact ? '' : 'ml-1.5 '}rounded-full px-1.5 text-[11px] font-extrabold align-[1px]`} style={{ background: COLOURS.leaf, color: COLOURS.cream }}>
                 you play it
               </span>

@@ -10,7 +10,7 @@ import { FlameTiles } from './flame/FlameTiles';
 import { playedGamesFixture } from './fixtures/playedGames';
 import { BoardPanel } from './position/BoardPanel';
 import { PriorityTickets } from './priorities/PriorityTickets';
-import { formatDay } from './replay/formatDay';
+import { ReplayBar } from './replay/ReplayBar';
 import { REPLAY_FIRST_DAY } from './replay/replaySetup';
 import { useRepertoires } from './replay/useRepertoires';
 import { useReplayDay } from './replay/useReplayDay';
@@ -93,15 +93,13 @@ export function OpeningsPage() {
     <MotionConfig reducedMotion="user">
       <div className="min-h-screen pb-28" style={{ fontFamily: FONT_FAMILY, background: COLOURS.cream, color: COLOURS.leaf }}>
         <PageHeader>
-          <span className="flex items-center justify-between gap-6">
-            <span className="text-[14px]" style={{ color: COLOURS.leafSoft }}>
-              as of <span className="font-semibold">{formatDay(replay.day)}</span>
-            </span>
-            <SideSwitch side={side} onChange={showSide} />
-          </span>
+          <ReplayBar replay={{ ...replay, reset: undefined }} />
         </PageHeader>
 
-        <main className="mx-auto flex max-w-[84rem] flex-col gap-8 px-4 pt-6 sm:px-8 lg:grid lg:grid-cols-[minmax(0,30rem)_1fr] lg:gap-10 lg:pt-8">
+        <div className="mx-auto max-w-[84rem] px-4 pt-5 sm:px-8">
+          <SideSwitch side={side} onChange={showSide} />
+        </div>
+        <main className="mx-auto flex max-w-[84rem] flex-col gap-8 px-4 pt-5 sm:px-8 lg:grid lg:grid-cols-[minmax(0,30rem)_1fr] lg:gap-10">
             <BoardPanel
               history={trees[shown.side]}
               recent={recentTrees[shown.side]}

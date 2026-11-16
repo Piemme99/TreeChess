@@ -23,12 +23,14 @@ interface GameCardProps {
   showDate?: boolean;
   onIgnore?: () => void;
   onAdd?: () => void;
+  /** Ouvrir le constructeur depuis la position, pour choisir un autre coup ou préparer la suite. */
+  onBuild?: () => void;
   ignored?: boolean;
   /** Pour un coup adverse hors répertoire : `undefined` tant que le moteur cherche. */
   judgement?: Judgement | null;
 }
 
-export function GameCard({ checked, selected, onSelect, showDate = false, onIgnore, onAdd, ignored = false, judgement }: GameCardProps) {
+export function GameCard({ checked, selected, onSelect, showDate = false, onIgnore, onAdd, onBuild, ignored = false, judgement }: GameCardProps) {
   const { game, check } = checked;
   const fens = useMemo(() => replayLine(game.moves.slice(0, Math.max(1, checkedPath(checked).length + 1))).fens, [checked, game.moves]);
   const opening = useOpeningName(fens);
@@ -90,6 +92,16 @@ export function GameCard({ checked, selected, onSelect, showDate = false, onIgno
         >
           {check.kind !== 'left' ? 'Not worth preparing' : check.planned.length === 1 ? `Stay on ${figurineMove(check.planned[0], check.ply + 1)}` : 'Stay on my repertoire'}
         </motion.button>
+      )}
+      {onBuild && check.kind === 'left' && (
+        <button
+          type="button"
+          onClick={onBuild}
+          className="cursor-pointer self-center whitespace-nowrap rounded-full px-3 py-2 text-[13px] font-semibold underline-offset-4 hover:underline focus-visible:outline-2"
+          style={{ color: selected ? COLOURS.cream : COLOURS.leafSoft }}
+        >
+          Choose my move here →
+        </button>
       )}
       </span>
       )}

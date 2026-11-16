@@ -99,7 +99,7 @@ export function PositionPane({ side, path, node, recent, steps, priority, action
           )}
         </div>
       </div>
-      <div className={`order-2 mx-auto w-full ${card ? 'max-w-[18rem] lg:max-w-[17rem]' : 'max-w-[24rem] lg:max-w-[20rem]'}`}>
+      <div className={`order-2 mx-auto w-full lg:max-w-[18rem] ${card ? 'max-w-[18rem]' : 'max-w-[24rem]'}`}>
         <PlayableBoard path={path} flipped={side === 'b'} arrows={arrows} suggestions={suggestions} onMove={onMove} />
         {arrows.length > 0 && (
           <p className="mt-2 flex flex-wrap justify-center gap-x-4 text-[12px] font-semibold" style={{ color: COLOURS.leafSoft }}>
@@ -218,13 +218,13 @@ function PriorityVerdict({ priority, here, average, line }: { priority: Priority
   const lost = Math.round(priority.pointsToGain);
   const ply = priority.path.length + 1;
   const leak = here?.children
-    .filter((child) => child.games >= MIN_LEAK_GAMES && scoreRate(child) < average)
-    .sort((a, b) => (scoreRate(a) - average) * a.games - (scoreRate(b) - average) * b.games)[0];
+    .filter((child) => here !== undefined && child.games >= MIN_LEAK_GAMES && scoreRate(child) < scoreRate(here) - 0.03)
+    .sort((a, b) => scoreRate(a) - scoreRate(b))[0];
   return (
     <>
       <span className="text-[15px] leading-snug">
-        After <strong>{line}</strong> you score <strong>{here ? Math.round(scoreRate(here) * 100) : '—'}%</strong>, against <strong>{Math.round(average * 100)}%</strong> on
-        average: about {lost} {lost === 1 ? 'point' : 'points'} lost over {priority.games} games in 12 months (a win is 1 point, a draw ½).
+        After <strong>{line}</strong> you score <strong>{here ? Math.round(scoreRate(here) * 100) : '—'}%</strong>, against <strong>{Math.round(average * 100)}%</strong> in all
+        your games with this colour: about {lost} {lost === 1 ? 'point' : 'points'} lost over {priority.games} games in 12 months (a win is 1 point, a draw ½).
       </span>
       {leak ? (
         <span className="text-[14px] leading-snug">
