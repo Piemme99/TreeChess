@@ -106,11 +106,17 @@ func MustLoad() Config {
 		if err != nil {
 			panic(fmt.Sprintf("Invalid JWT_EXPIRY_MINUTES value: %s", jwtExpiryMinStr))
 		}
+		if mins <= 0 {
+			panic(fmt.Sprintf("JWT_EXPIRY_MINUTES must be positive, got: %d", mins))
+		}
 		jwtExpiry = time.Duration(mins) * time.Minute
 	} else if jwtExpiryStr := os.Getenv("JWT_EXPIRY_HOURS"); jwtExpiryStr != "" {
 		hours, err := strconv.Atoi(jwtExpiryStr)
 		if err != nil {
 			panic(fmt.Sprintf("Invalid JWT_EXPIRY_HOURS value: %s", jwtExpiryStr))
+		}
+		if hours <= 0 {
+			panic(fmt.Sprintf("JWT_EXPIRY_HOURS must be positive, got: %d", hours))
 		}
 		jwtExpiry = time.Duration(hours) * time.Hour
 	}
@@ -166,6 +172,9 @@ func MustLoad() Config {
 		hours, err := strconv.Atoi(expiryStr)
 		if err != nil {
 			panic(fmt.Sprintf("Invalid PASSWORD_RESET_EXPIRY_HOURS value: %s", expiryStr))
+		}
+		if hours <= 0 {
+			panic(fmt.Sprintf("PASSWORD_RESET_EXPIRY_HOURS must be positive, got: %d", hours))
 		}
 		passwordResetExpiryHours = hours
 	}

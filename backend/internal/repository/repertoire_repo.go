@@ -112,6 +112,9 @@ const (
 	deleteRepertoireSQL = `
 		DELETE FROM repertoires WHERE id = $1 AND user_id = $2
 	`
+	deleteDismissedGapsForRepertoireSQL = `
+		DELETE FROM dismissed_gaps WHERE repertoire_id = $1 AND user_id = $2
+	`
 	countRepertoiresSQL = `
 		SELECT COUNT(*) FROM repertoires WHERE user_id = $1
 	`
@@ -442,6 +445,9 @@ func (r *PostgresRepertoireRepo) UpdateName(ctx context.Context, id string, user
 		&rep.Version,
 	)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrRepertoireNotFound
+		}
 		return nil, fmt.Errorf("failed to update repertoire name: %w", err)
 	}
 
@@ -588,6 +594,12 @@ func (r *PostgresRepertoireRepo) Delete(ctx context.Context, id string, userID s
 
 	if result.RowsAffected() == 0 {
 		return ErrRepertoireNotFound
+	}
+
+	// dismissed_gaps has no FK to repertoires, so rows referencing the deleted
+	// repertoire must be cleaned up explicitly or they accumulate forever.
+	if _, err := r.db.Exec(ctx, deleteDismissedGapsForRepertoireSQL, id, userID); err != nil {
+		return fmt.Errorf("failed to delete dismissed gaps for repertoire: %w", err)
 	}
 
 	return nil

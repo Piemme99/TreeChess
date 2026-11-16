@@ -30,7 +30,7 @@ const (
 	markRefreshTokenConsumedSQL = `
 		UPDATE refresh_tokens
 		SET consumed = true
-		WHERE id = $1
+		WHERE id = $1 AND consumed = false
 	`
 
 	deleteRefreshTokenSQL = `
@@ -104,13 +104,20 @@ func (r *PostgresRefreshTokenRepo) GetByTokenHash(ctx context.Context, tokenHash
 // MarkConsumed flags a refresh token as consumed during rotation. The row is
 // retained (rather than deleted) so a replayed/stolen token can be detected and
 // trigger family-wide revocation. Consumed rows are purged once expired.
+//
+// The update only matches unconsumed rows, so concurrent rotations of the same
+// token cannot both succeed: the loser gets ErrRefreshTokenNotFound, which the
+// caller must treat as reuse.
 func (r *PostgresRefreshTokenRepo) MarkConsumed(ctx context.Context, id string) error {
 	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
-	_, err := r.pool.Exec(ctx, markRefreshTokenConsumedSQL, id)
+	tag, err := r.pool.Exec(ctx, markRefreshTokenConsumedSQL, id)
 	if err != nil {
 		return fmt.Errorf("failed to mark refresh token consumed: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrRefreshTokenNotFound
 	}
 	return nil
 }

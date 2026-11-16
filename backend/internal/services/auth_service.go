@@ -493,8 +493,16 @@ func (s *AuthService) RefreshTokens(ctx context.Context, rawRefreshToken string)
 	}
 
 	// Consume the old refresh token (single-use rotation). The row is retained so a
-	// replay of this token can be detected as reuse above.
+	// replay of this token can be detected as reuse above. The update is conditional
+	// on consumed=false, so of two concurrent rotations of the same token exactly one
+	// wins; the loser means the token was presented twice — treat it as reuse/theft.
 	if err := s.refreshTokenRepo.MarkConsumed(ctx, storedToken.ID); err != nil {
+		if errors.Is(err, repository.ErrRefreshTokenNotFound) {
+			if revokeErr := s.RevokeAllRefreshTokens(ctx, storedToken.UserID); revokeErr != nil {
+				slog.Error("failed to revoke refresh token family on concurrent reuse", "user_id", storedToken.UserID, "error", revokeErr)
+			}
+			return nil, ErrUnauthorized
+		}
 		return nil, fmt.Errorf("failed to rotate refresh token: %w", err)
 	}
 

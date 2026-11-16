@@ -205,7 +205,7 @@ func (s *LichessService) FetchGames(username string, options models.LichessImpor
 
 	pgnData := string(body)
 	if pgnData == "" {
-		return "", fmt.Errorf("no games found for user '%s' with given filters", username)
+		return "", fmt.Errorf("%w for user '%s' with given filters", ErrNoGamesFound, username)
 	}
 
 	return pgnData, nil

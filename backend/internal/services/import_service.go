@@ -395,11 +395,15 @@ func (s *ImportService) findNodeInRepertoire(root models.RepertoireNode, current
 	return repertoiretree.FindByFEN(&root, currentFEN)
 }
 
-// ValidatePGN validates PGN format
+// ValidatePGN validates PGN format. parsePGN skips unparsable games rather
+// than failing, so the meaningful signal is whether any game survived.
 func (s *ImportService) ValidatePGN(pgnData string) error {
-	_, err := s.parsePGN(pgnData)
+	games, err := s.parsePGN(pgnData)
 	if err != nil {
 		return fmt.Errorf("invalid PGN format: %w", err)
+	}
+	if len(games) == 0 {
+		return fmt.Errorf("invalid PGN format: no parsable games found")
 	}
 	return nil
 }
@@ -428,9 +432,12 @@ func (s *ImportService) GetLegalMoves(fen string) ([]string, error) {
 	}
 	game := chess.NewGame(fenFn)
 	moves := game.ValidMoves()
+	// move.String() is UCI ("e2e4"); the API convention everywhere else
+	// (repertoire moves, MoveAnalysis.SAN, validate-move) is SAN.
+	notation := chess.AlgebraicNotation{}
 	sanMoves := make([]string, len(moves))
 	for i, move := range moves {
-		sanMoves[i] = move.String()
+		sanMoves[i] = notation.Encode(game.Position(), move)
 	}
 	return sanMoves, nil
 }

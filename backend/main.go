@@ -123,7 +123,7 @@ func buildServices(cfg config.Config, db *repository.DB) *appServices {
 	chesscomSvc := services.NewChesscomService()
 	syncSvc := services.NewSyncService(userRepo, importSvc, lichessSvc, chesscomSvc)
 	studyImportSvc := services.NewStudyImportService(lichessSvc, repertoireSvc, userRepo)
-	explorerSvc := services.NewLichessExplorerService(cfg.LichessExplorerBaseURL, nil)
+	explorerSvc := services.NewLichessExplorerService(cfg.LichessExplorerBaseURL, &http.Client{Timeout: 15 * time.Second})
 
 	// Handlers
 	importHandler := handlers.NewImportHandler(importSvc, repertoireSvc, lichessSvc, chesscomSvc).

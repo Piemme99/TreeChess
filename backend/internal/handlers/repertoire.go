@@ -3,10 +3,12 @@ package handlers
 import (
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v5"
 
+	"github.com/kumquat/backend/config"
 	"github.com/kumquat/backend/internal/models"
 	"github.com/kumquat/backend/internal/services"
 )
@@ -143,6 +145,22 @@ func UpdateRepertoireHandler(svc *services.RepertoireService) echo.HandlerFunc {
 
 		if req.Name == nil && req.Description == nil {
 			return BadRequestResponse(c, "at least one of name or description must be provided")
+		}
+
+		// Validate both fields before mutating anything: the two updates are
+		// applied sequentially, so a late validation failure would otherwise
+		// return 4xx with the rename already persisted.
+		if req.Name != nil {
+			name := strings.TrimSpace(*req.Name)
+			if name == "" {
+				return BadRequestResponse(c, "name is required")
+			}
+			if len(name) > config.MaxRepertoireNameLen {
+				return BadRequestResponse(c, "name must be 100 characters or less")
+			}
+		}
+		if req.Description != nil && len(strings.TrimSpace(*req.Description)) > config.MaxRepertoireDescriptionLen {
+			return BadRequestResponse(c, "description must be 500 characters or less")
 		}
 
 		// Start with the current repertoire state
