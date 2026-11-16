@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router';
 import type { CheckedGame } from './checkedGame';
 import { GameCard } from './GameCard';
 
@@ -10,7 +11,12 @@ const scotch: CheckedGame = {
   asks: true,
 };
 
-const card = (judgement?: 'mistake' | null) => render(<GameCard checked={scotch} selected={false} onSelect={() => {}} judgement={judgement} />);
+const card = (judgement?: 'mistake' | null) =>
+  render(
+    <MemoryRouter>
+      <GameCard checked={scotch} selected={false} onSelect={() => {}} judgement={judgement} />
+    </MemoryRouter>,
+  );
 
 describe('GameCard', () => {
   it("names only the opponent's move, not the replies the repertoire prepares", () => {

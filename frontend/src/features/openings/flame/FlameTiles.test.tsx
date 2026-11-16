@@ -81,7 +81,7 @@ describe('FlameTiles', () => {
     render(<ZoomableTiles />);
 
     const tones = within(screen.getByRole('list', { name: 'Legend' })).getAllByRole('listitem').map((item) => item.textContent);
-    expect(tones).toEqual(['leaking', 'shaky', 'par', 'solid', '… too thin to read', 'in your repertoire', '1priority']);
+    expect(tones).toEqual(['leaking', 'shaky', 'par', 'solid', '… too thin to read', 'in your repertoire', 'P1priority']);
   });
 
   it('zooms into a line when its tile is clicked', async () => {

@@ -65,10 +65,24 @@ export function RepertoireMap({ root: drawn, side, selected, onSelect, focus, lo
     return best;
   }, [root, kept, room]);
   const maxGames = root.games || 1;
+  useEffect(() => {
+    shown.current = { side, keys: layout.nodes.filter((node) => node.node.children.length === 0 || node.hidden > 0).map((node) => node.node.key) };
+  }, [layout, side]);
 
   // Un autre camp, une autre carte : le repli repart de zéro. Un nouveau jour ou un ajout ne touchent pas au repli
   // du joueur. Déclaré avant le dévoilement, qui doit lui survivre.
   useEffect(() => setFolding({ opened: new Set(), closed: new Set(), revealed: new Set() }), [side]);
+  // Ce qui se voyait reste visible quand la carte change sous le joueur (un jour de plus, une décision) :
+  // sans ça, une branche réglée se replie et le joueur perd ses repères.
+  const shown = useRef<{ side: Side; keys: string[] }>({ side, keys: [] });
+  const lastRoot = useRef(drawn);
+  useEffect(() => {
+    if (lastRoot.current === drawn) return;
+    lastRoot.current = drawn;
+    if (shown.current.side !== side) return;
+    const keep = shown.current.keys;
+    setFolding((current) => ({ ...current, revealed: new Set([...current.revealed, ...keep]) }));
+  }, [drawn, side]);
 
   useEffect(() => {
     if (!focus) return;
@@ -90,7 +104,7 @@ export function RepertoireMap({ root: drawn, side, selected, onSelect, focus, lo
   useEffect(() => {
     if (!refit.current) return;
     refit.current = false;
-    fit(layout.bounds, size, wholeFit.current ? 0.5 : READABLE);
+    fit(layout.bounds, size, READABLE);
     wholeFit.current = false;
   }, [layout.bounds, fit, size]);
   const anchor = () => {
@@ -116,7 +130,7 @@ export function RepertoireMap({ root: drawn, side, selected, onSelect, focus, lo
     const along = layout.nodes.filter(
       (node) => node === placed || focus.key.startsWith(`${node.node.key} `) || node.node.san === null || (node.node.key.startsWith(`${focus.key} `) && node.node.path.length === placed.node.path.length + 1),
     );
-    reveal(boxOf(along), size, Math.min(transform.k, 0.75));
+    reveal(boxOf(along), size, Math.min(transform.k, READABLE));
     // `transform.k` n'est lu qu'au moment de servir la demande.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focus, layout.nodes, reveal, size]);

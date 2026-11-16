@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion';
+import { Link } from 'react-router';
 import { useMemo } from 'react';
 import { useOpeningName } from '../../../shared/hooks/useOpeningName';
 import { JUDGEMENT_MARK, type Judgement } from '../domain/judgement';
@@ -63,6 +64,20 @@ export function GameCard({ checked, selected, onSelect, showDate = false, onIgno
           Set aside
         </span>
       )}
+      <span className="flex flex-wrap items-center gap-x-3 px-4 pb-3 text-[13px] font-semibold">
+        <Link to={treeHref(checked)} className="rounded py-1 underline-offset-4 hover:underline focus-visible:outline-2" style={{ color: selected ? COLOURS.cream : COLOURS.leafSoft }}>
+          Open in the tree →
+        </Link>
+        <a
+          href={`https://lichess.org/analysis/pgn/${game.moves.join('_')}#${checkedPath(checked).length + 1}`}
+          target="_blank"
+          rel="noreferrer"
+          className="rounded py-1 underline-offset-4 hover:underline focus-visible:outline-2"
+          style={{ color: selected ? COLOURS.cream : COLOURS.leafSoft }}
+        >
+          Replay on Lichess ↗
+        </a>
+      </span>
       {(onAdd || onIgnore) && (
       <span className="flex flex-wrap items-center gap-2 px-4 pb-3">
       {onAdd && (
@@ -107,6 +122,11 @@ export function GameCard({ checked, selected, onSelect, showDate = false, onIgno
       )}
     </li>
   );
+}
+
+/** La position de la partie qui compte, ouverte dans l'arbre : là où elle a quitté le répertoire, ou là où il a tenu. */
+function treeHref(checked: CheckedGame): string {
+  return `/dev/tree?side=${checked.game.side}&line=${encodeURIComponent(checkedPath(checked).join(' '))}`;
 }
 
 function Verdict({ checked: { check }, judgement, selected }: { checked: CheckedGame; judgement?: Judgement | null; selected: boolean }) {

@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router';
 import { useOpeningName } from '../../../shared/hooks/useOpeningName';
 import { replayLine } from '../position/replay';
 import { positionKey } from '../domain/repertoire';
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { BuildSession } from '../checks/BuildSession';
 import { originAt, originOf, type BuildOrigin } from '../checks/useBuilder';
 import type { AddedMove, Addition } from '../domain/addition';
@@ -63,6 +63,11 @@ export function TreePage() {
   const [lead, setLead] = useState<'settle' | 'priority'>(asked.line.length ? 'priority' : 'settle');
   const [preview, setPreview] = useState<readonly (readonly string[])[]>([]);
   const [buildPath, setBuildPath] = useState<readonly string[] | null>(null);
+  // La carte suit l'échiquier du constructeur : le coup qu'on regarde y est sélectionné et gardé en vue.
+  const followBuild = useCallback((next: readonly string[]) => {
+    setBuildPath(next);
+    setFocus({ key: next.join(' '), stamp: Date.now(), centre: false });
+  }, []);
   const showLines = useCallback((lines: (readonly string[])[]) => {
     setPreview(lines);
     const last = lines.at(-1);
@@ -123,8 +128,9 @@ export function TreePage() {
       return { ...active, done };
     });
   // Au téléphone, le résultat d'une action est en haut du volet : on y remonte.
+  const pane = useRef<HTMLDivElement>(null);
   const toTop = () => {
-    if (!wide) window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (!wide) pane.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
   const startSession = () => {
     // Une couleur après l'autre, en commençant par celle qu'on regarde : changer de camp à chaque étape fait tout redessiner.
@@ -251,6 +257,23 @@ export function TreePage() {
     setSession(null);
     build(null);
   });
+  // Un jour de plus peut faire tomber des positions sans que le joueur ait rien fait : on dit pourquoi.
+  const before = useRef<string[] | null>(null);
+  const nextDay = () => {
+    close();
+    before.current = steps.map((step) => step.key);
+    replay.next!();
+  };
+  useEffect(() => {
+    if (!before.current) return;
+    const dropped = before.current.filter((key) => !live.has(key)).length;
+    before.current = null;
+    if (dropped) {
+      show({ text: `${dropped} ${dropped === 1 ? 'position' : 'positions'} dropped: an opponent move met once comes back only if it is played again` });
+    }
+    // Seul le changement de jour compte ; `steps` est recalculé dans le même rendu.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [replay.day]);
   const habits = useMemo(
     () => gamesOfLastMonths(known, RECENT_MONTHS, new Date(replay.day)).filter((game) => game.side === building?.origin.side),
     [known, replay.day, building?.origin.side],
@@ -262,12 +285,18 @@ export function TreePage() {
     <MotionConfig reducedMotion="user">
       <div className="min-h-screen pb-24" style={{ fontFamily: FONT_FAMILY, background: COLOURS.cream, color: COLOURS.leaf }}>
         <PageHeader>
-          <ReplayBar replay={{ ...replay, reset, next: replay.next && (() => (close(), replay.next!())) }} />
+          <ReplayBar replay={{ ...replay, reset, next: replay.next && nextDay }} />
         </PageHeader>
         <main className="mx-auto flex max-w-[84rem] flex-col gap-4 px-4 pt-5 sm:px-8">
           <div className="flex flex-wrap items-center gap-3">
             <SideSwitch side={side} onChange={(next) => !building && setSide(next)} counts={perSide} />
-            <div role="tablist" aria-label="View" className="ml-auto flex gap-1 rounded-full p-1 lg:hidden" style={{ background: COLOURS.sand }}>
+            {/* Au téléphone, les deux vues en barre fixe au bas de l'écran, sous le pouce, comme une appli. */}
+            <div
+              role="tablist"
+              aria-label="View"
+              className="fixed inset-x-3 bottom-3 z-30 flex gap-1 rounded-full p-1.5 lg:hidden"
+              style={{ background: COLOURS.sand, boxShadow: '0 10px 24px -10px oklch(0.3 0.06 150 / 0.5)' }}
+            >
               {(['map', 'position'] as const).map((tab) => (
                 <button
                   key={tab}
@@ -275,7 +304,7 @@ export function TreePage() {
                   role="tab"
                   aria-selected={view === tab}
                   onClick={() => setView(tab)}
-                  className="rounded-full px-4 py-1.5 text-[14px] font-bold"
+                  className="flex-1 rounded-full px-4 py-2.5 text-[15px] font-bold"
                   style={view === tab ? { background: COLOURS.leaf, color: COLOURS.cream } : { color: COLOURS.leaf }}
                 >
                   {tab === 'map' ? 'Moves' : building ? 'Building' : 'Board'}
@@ -314,7 +343,7 @@ export function TreePage() {
                   <RepertoireMap
                     root={root}
                     side={side}
-                    selected={node.key}
+                    selected={building && buildPath ? buildPath.join(' ') : node.key}
                     onSelect={(key) => goTo(side, key, false)}
                     focus={focus}
                     locked={building !== null}
@@ -326,7 +355,7 @@ export function TreePage() {
               </div>
             )}
             {(wide || view === 'position') && (
-            <div className="flex min-w-0 flex-col gap-3 lg:self-start">
+            <div ref={pane} className="flex min-w-0 scroll-mt-3 flex-col gap-3 lg:self-start">
               {session && !current ? (
                 <Done settled={settled} skipped={skipped} left={steps.length} onClose={() => setSession(null)} />
               ) : building ? (
@@ -340,7 +369,7 @@ export function TreePage() {
                   onAccept={accept}
                   onCancel={() => build(null)}
                   onLines={showLines}
-                  onPath={setBuildPath}
+                  onPath={followBuild}
                   stacked
                 />
                 </>
@@ -406,7 +435,7 @@ function SessionBar({ index, total, settled, side, onEnd }: { index: number; tot
     <div aria-label="Progress" className="flex w-full min-w-0 items-center gap-3 rounded-2xl px-4 py-3 text-[14px] font-semibold sm:w-auto sm:min-w-[24rem]" style={raised(false)}>
       <span className="whitespace-nowrap">
         Session · {index} of {total} ·{' '}
-        <motion.span key={side} initial={{ backgroundColor: COLOURS.apricot }} animate={{ backgroundColor: 'oklch(0 0 0 / 0)' }} transition={{ duration: 1.2 }} className="ml-1.5 rounded px-1">
+        <motion.span key={side} initial={{ backgroundColor: COLOURS.apricot }} animate={{ backgroundColor: 'oklch(0 0 0 / 0)' }} transition={{ duration: 1.2 }} className="rounded px-1">
           as {side === 'w' ? 'White' : 'Black'}
         </motion.span>
       </span>
@@ -428,7 +457,7 @@ function Done({ settled, skipped, left, onClose }: { settled: number; skipped: n
         <strong>{settled}</strong> settled · <strong>{skipped}</strong> skipped for later
       </span>
       <span className="text-[14px]" style={{ color: COLOURS.leafSoft }}>
-        {left ? `${left} still to settle: they stay marked on the map.` : 'Nothing left to settle. Come back after your next games.'}
+        {left ? `${left} still to settle: they stay marked in the tree.` : 'Nothing left to settle. Come back after your next games.'}
       </span>
       <motion.button type="button" onClick={onClose} whileTap={{ scale: 0.97 }} transition={SPRING} className="rounded-full px-4 py-2 font-bold focus-visible:outline-2" style={raised(true)}>
         Close

@@ -79,6 +79,23 @@ export function BuildPanel({ builder, candidates, fresh, onPoint, onAccept, onCa
         </span>
       </h2>
 
+      {origin.reply && chosen && chosen !== origin.reply && (
+        <p className="rounded-xl px-3 py-2 text-[13px]" style={{ background: COLOURS.cream }}>
+          You chose {figurineMove(chosen, origin.start.length + 1)}: the game where you played {figurineMove(origin.reply, origin.start.length + 1)} will come back to settle.
+        </p>
+      )}
+
+      {second && (
+        <p className="rounded-xl px-3 py-2 text-[13px]" style={{ background: COLOURS.cream }}>
+          Your repertoire already plays {second.existing} here: {second.added} becomes a second choice.
+        </p>
+      )}
+      <CandidateTable builder={builder} candidates={candidates} onPoint={onPoint} compact={compact} planned={planned} />
+
+      <p className="text-[12px]" style={{ color: COLOURS.leafSoft }}>
+        <strong>{origin.side === 'w' ? 'White' : 'Black'} %</strong>: how players of your colour score after the move on Lichess, 1400–1800 ·{' '}
+        <strong>Engine</strong>: + is good for you · <strong>You</strong>: how often you played it in 12 months, and how you scored (from 3 games).
+      </p>
       {lines.length > 0 && (
         <div className="flex flex-col gap-1.5">
           <span className="text-[12px] font-semibold" style={{ color: COLOURS.leafSoft }}>
@@ -117,6 +134,8 @@ export function BuildPanel({ builder, candidates, fresh, onPoint, onAccept, onCa
         </div>
       )}
 
+      {/* Les actions restent au bas du panneau, quoi qu'on fasse défiler au-dessus. */}
+      <div className={`flex flex-col gap-2 ${compact ? 'sticky bottom-20 -mx-4 -mb-4 rounded-b-3xl px-4 pt-3 pb-4 lg:bottom-0' : ''}`} style={compact ? { background: COLOURS.paper, boxShadow: '0 -10px 14px -12px oklch(0.3 0.05 60 / 0.35)' } : undefined}>
       <span className="flex flex-wrap gap-2">
         <Action onClick={onAccept} primary disabled={!complete}>
           {complete ? `Add to my repertoire · ${toAdd} new ${toAdd === 1 ? 'move' : 'moves'}` : 'Add to my repertoire'}
@@ -128,26 +147,10 @@ export function BuildPanel({ builder, candidates, fresh, onPoint, onAccept, onCa
       </span>
       {!complete && (
         <span className="-mt-2 text-[13px]" style={{ color: COLOURS.leafSoft }}>
-          {lines.length ? 'Play your answer to add it.' : 'Play a move on the board or click a row.'}
+          {lines.length ? 'Play your answer to add it.' : 'Play a move on the board, or pick one in the table.'}
         </span>
       )}
-      {origin.reply && chosen && chosen !== origin.reply && (
-        <p className="rounded-xl px-3 py-2 text-[13px]" style={{ background: COLOURS.cream }}>
-          You chose {figurineMove(chosen, origin.start.length + 1)}: the game where you played {figurineMove(origin.reply, origin.start.length + 1)} will come back to settle.
-        </p>
-      )}
-
-      {second && (
-        <p className="rounded-xl px-3 py-2 text-[13px]" style={{ background: COLOURS.cream }}>
-          Your repertoire already plays {second.existing} here: {second.added} becomes a second choice.
-        </p>
-      )}
-      <CandidateTable builder={builder} candidates={candidates} onPoint={onPoint} compact={compact} planned={planned} />
-
-      <p className="text-[12px]" style={{ color: COLOURS.leafSoft }}>
-        <strong>{origin.side === 'w' ? 'White' : 'Black'} %</strong>: how players of your colour score after the move on Lichess, 1400–1800 ·{' '}
-        <strong>Engine</strong>: + is good for you · <strong>You</strong>: how often you played it in 12 months, and how you scored (from 3 games).
-      </p>
+      </div>
     </section>
   );
 }
@@ -259,6 +262,7 @@ function CandidateTable({ builder, candidates, onPoint, compact, planned }: { bu
                 best={best}
                 yours={(row.san === builder.origin.reply && builder.path.length === builder.start.length) || row.san === habit}
                 planned={planned.has(row.san)}
+                mine={builder.playerToMove}
                 onPlay={() => builder.play(row.san)}
                 onPoint={() => onPoint(row.san)}
               />
@@ -276,7 +280,7 @@ function CandidateTable({ builder, candidates, onPoint, compact, planned }: { bu
   );
 }
 
-function CandidateRow({ row, ply, faded, stats, compact, side, worst, best, yours, planned, onPlay, onPoint }: {
+function CandidateRow({ row, ply, faded, stats, compact, side, worst, best, yours, planned, mine, onPlay, onPoint }: {
   row: Candidate;
   ply: number;
   faded: boolean;
@@ -287,6 +291,8 @@ function CandidateRow({ row, ply, faded, stats, compact, side, worst, best, your
   best: number | undefined;
   yours: boolean;
   planned: boolean;
+  /** Un coup du joueur : lui seul se juge ; ceux de l'adversaire, il les subit. */
+  mine: boolean;
   onPlay: () => void;
   onPoint: () => void;
 }) {
@@ -311,7 +317,7 @@ function CandidateRow({ row, ply, faded, stats, compact, side, worst, best, your
         >
           {figurineMove(row.san, ply)}
         </button>
-        {row.judgement && <Mark judgement={row.judgement} />}
+        {row.judgement && mine && <Mark judgement={row.judgement} />}
         {(row.engine || yours || planned) && (
           <span className={compact ? 'mt-0.5 flex gap-1' : 'inline'}>
             {row.engine && (

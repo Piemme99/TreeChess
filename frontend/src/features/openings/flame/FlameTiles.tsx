@@ -76,7 +76,7 @@ export function FlameTiles({ tree, focusPath, onFocusChange, onPoint, priorities
     <section aria-labelledby="tree-title" className="flex flex-col gap-4">
       <div className="flex flex-wrap items-baseline gap-3">
         <h2 id="tree-title" className="text-[22px] font-extrabold tracking-[-0.02em]">
-          Your tree
+          What you play, by result
           <span className="ml-2 text-[14px] font-medium tracking-normal" style={{ color: COLOURS.leafSoft }}>
             last 12 months
           </span>
@@ -189,11 +189,8 @@ export function FlameTiles({ tree, focusPath, onFocusChange, onPoint, priorities
           in your repertoire
         </li>
         <li className="flex items-center gap-1.5" style={{ color: COLOURS.leafSoft }}>
-          <span
-            className="flex h-[16px] w-[16px] items-center justify-center rounded-full text-[9px] font-extrabold"
-            style={{ background: COLOURS.leaf, color: COLOURS.cream }}
-          >
-            1
+          <span className="rounded px-1 text-[10px] font-extrabold" style={{ background: COLOURS.leaf, color: COLOURS.cream }}>
+            P1
           </span>
           priority
         </li>

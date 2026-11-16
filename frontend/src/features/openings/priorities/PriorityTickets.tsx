@@ -97,7 +97,7 @@ function Ticket({ priority, rank, share, selected, onSelect, onPoint }: TicketPr
         </span>
         <span className="line-clamp-3 min-h-[2.5em] text-[14px] leading-tight font-semibold">{opening?.name ?? 'Unnamed line'}</span>
         <span className="text-[13px]" style={{ opacity: 0.75 }}>
-          {figurineMove(priority.path[last - 1], last)}
+          {figurineMove(priority.path[last - 1], last)} · −{Math.round(priority.pointsToGain)} pts
         </span>
         <span className="sr-only">{formatLine(priority.path)}</span>
         <span

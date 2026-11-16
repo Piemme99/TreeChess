@@ -43,10 +43,10 @@ export function PriorityBadge({ mark }: { mark: Mark }) {
   return (
     <span
       aria-label={`priority ${mark.rank}`}
-      className="pointer-events-none absolute -top-2 right-0 z-10 flex h-[18px] w-[18px] items-center justify-center rounded-full text-[10px] font-extrabold"
+      className="pointer-events-none absolute -top-2 right-0 z-10 flex h-[16px] items-center justify-center rounded px-1 text-[10px] font-extrabold"
       style={{ background: COLOURS.leaf, color: COLOURS.cream, boxShadow: `0 0 0 2px ${COLOURS.cream}` }}
     >
-      {mark.rank}
+      P{mark.rank}
     </span>
   );
 }

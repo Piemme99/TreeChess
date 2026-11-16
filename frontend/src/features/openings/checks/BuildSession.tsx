@@ -100,14 +100,14 @@ export function BuildSession({ origin, games, repertoire, onAccept, onCancel, ch
     >
       <aside
         aria-label="Position"
-        className={`flex flex-col gap-3 self-start ${stacked ? 'mx-auto w-full max-w-[18rem] shrink-0 lg:max-w-[15rem]' : 'lg:sticky lg:top-6'}`}
+        className={`flex flex-col gap-3 self-start ${stacked ? 'mx-auto w-full max-w-[18rem] shrink-0 lg:max-w-[16rem]' : 'lg:sticky lg:top-6'}`}
       >
         <PlayableBoard path={builder.path} flipped={origin.side === 'b'} arrows={arrows} suggestions={suggestions} onMove={builder.play} />
         <p className="flex flex-wrap gap-x-4 gap-y-1 px-1 text-[12px] font-semibold" style={{ color: ARROW.neutral.colour }}>
           <Swatch colour={ARROW.repertoire.colour}>repertoire</Swatch>
           {engine && <Swatch colour={ARROW.engine.colour}>engine{agree && ' · your move'}</Swatch>}
           {atStart && !agree && <Swatch colour={ARROW.costly.colour}>your move</Swatch>}
-          {arrows.some((arrow) => 'kind' in arrow && arrow.kind === 'neutral') && <Swatch colour={ARROW.neutral.colour}>at your level</Swatch>}
+          {arrows.some((arrow) => 'kind' in arrow && arrow.kind === 'neutral') && <Swatch colour={ARROW.neutral.colour}>other moves in the table</Swatch>}
         </p>
       </aside>
       {/* Dans le volet, seul le panneau défile : l'échiquier au-dessus et le titre ne bougent pas. */}

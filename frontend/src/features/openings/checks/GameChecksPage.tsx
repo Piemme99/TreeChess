@@ -74,10 +74,13 @@ export function GameChecksPage() {
     if (checked.check.kind !== 'left') return startAdding(checked);
     const addition: Addition = { side: checked.game.side, addedAt: replay.day, moves: [{ position: checked.check.position, san: checked.check.played, source: 'habit' }] };
     add(addition);
+    // La partie réglée quitte la liste : on passe à la suivante plutôt que de garder un échiquier orphelin.
+    setSelectedId(null);
     show({ text: `${figurineMove(checked.check.played, checked.check.ply + 1)} added to your repertoire`, undo: () => remove(addition) });
   };
   const setAside = (checked: CheckedGame) => {
     ignore(checked.id);
+    setSelectedId(null);
     show({ text: 'Repertoire unchanged · game set aside', undo: () => unignore([checked.id]) });
   };
 

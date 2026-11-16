@@ -111,8 +111,9 @@ export function PlayableBoard({ path, flipped, arrows = [], suggestions = [], on
             // Le vert du texte sur les cases claires, le blanc sur les sombres : lisibles à 4,5:1.
             lightSquareNotationStyle: { color: BOARD.frame },
             darkSquareNotationStyle: { color: 'white', textShadow: '0 0 2px oklch(0.25 0.05 150), 0 0 1px oklch(0.25 0.05 150)' },
-            alphaNotationStyle: { fontSize: '12px', fontWeight: 800, position: 'absolute', bottom: 1, right: 3, userSelect: 'none' },
-            numericNotationStyle: { fontSize: '12px', fontWeight: 800, position: 'absolute', top: 1, left: 3, userSelect: 'none' },
+            // Au-dessus des pièces : sous elles, les coordonnées de la première rangée disparaissent.
+            alphaNotationStyle: { fontSize: '12px', fontWeight: 800, position: 'absolute', bottom: 1, right: 3, userSelect: 'none', zIndex: 2, pointerEvents: 'none' },
+            numericNotationStyle: { fontSize: '12px', fontWeight: 800, position: 'absolute', top: 1, left: 3, userSelect: 'none', zIndex: 2, pointerEvents: 'none' },
             animationDurationInMs: 180,
             allowDrawingArrows: false,
             dragActivationDistance: 3,
