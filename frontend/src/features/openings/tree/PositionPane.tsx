@@ -144,7 +144,9 @@ export function PositionPane({ side, path, node, recent, steps, priority, action
             <Action onClick={() => onPrepareFollows(leak ? [...priority.path, leak.san!] : priority.path)} tone="light">
               {leak
                 ? `Prepare my moves after ${figurineMove(leak.san!, priority.path.length + 1)}`
-                : `Prepare my moves after ${figurineMove(priority.path[priority.path.length - 1], priority.path.length)}`}
+                : isPlayerMove(side, priority.path.length + 1)
+                  ? `Prepare my moves after ${figurineMove(priority.path[priority.path.length - 1], priority.path.length)}`
+                  : `Prepare against their replies after ${figurineMove(priority.path[priority.path.length - 1], priority.path.length)}`}
             </Action>
           )}
           {waiting && (

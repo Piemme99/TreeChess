@@ -15,6 +15,7 @@ const LANDING_SHARES = [0.02, 0.03, 0.05, 0.08, 0.12, 0.2];
 // L'échelle sous laquelle les coups ne se lisent plus (15 px à 100 %).
 const READABLE = 0.9;
 const NO_PREVIEW: readonly (readonly string[])[] = [];
+const NO_PINS: readonly string[] = [];
 // Les ajouts du joueur, teintés du vert du répertoire pour qu'il retrouve son travail.
 const ADDED = 'oklch(0.91 0.06 162)';
 
@@ -29,6 +30,8 @@ interface RepertoireMapProps {
   locked?: boolean;
   /** Les lignes de la construction en cours, dessinées en fantômes. */
   preview?: readonly (readonly string[])[];
+  /** Les lignes ajoutées depuis l'ouverture de la page : la preuve du travail fait reste dépliée. */
+  pinned?: readonly string[];
 }
 
 interface Hover {
@@ -37,7 +40,7 @@ interface Hover {
   y: number;
 }
 
-export function RepertoireMap({ root: drawn, side, selected, onSelect, focus, locked = false, preview = NO_PREVIEW }: RepertoireMapProps) {
+export function RepertoireMap({ root: drawn, side, selected, onSelect, focus, locked = false, preview = NO_PREVIEW, pinned = NO_PINS }: RepertoireMapProps) {
   const root = useMemo(() => withPreview(drawn, preview), [drawn, preview]);
   const container = useRef<HTMLDivElement>(null);
   const size = useElementSize(container);
@@ -50,8 +53,8 @@ export function RepertoireMap({ root: drawn, side, selected, onSelect, focus, lo
 
   // La sélection et la construction en cours restent dépliées, quoi qu'il arrive à la carte autour.
   const kept = useMemo(
-    () => ({ ...folding, revealed: new Set([...folding.revealed, selected, ...preview.map((line) => line.join(' '))]) }),
-    [folding, selected, preview],
+    () => ({ ...folding, revealed: new Set([...folding.revealed, selected, ...pinned, ...preview.map((line) => line.join(' '))]) }),
+    [folding, selected, preview, pinned],
   );
   // Plutôt replier que réduire : on monte le seuil de parties jusqu'à ce que la carte tienne en hauteur à taille de
   // lecture. En largeur, les lignes marquées vont aussi loin qu'il faut : le bord signale ce qui dépasse.
@@ -130,8 +133,7 @@ export function RepertoireMap({ root: drawn, side, selected, onSelect, focus, lo
     const along = layout.nodes.filter(
       (node) => node === placed || focus.key.startsWith(`${node.node.key} `) || node.node.san === null || (node.node.key.startsWith(`${focus.key} `) && node.node.path.length === placed.node.path.length + 1),
     );
-    // Pendant une construction la carte n'est qu'un repère, plus étroite : elle peut descendre plus bas pour garder le départ.
-    reveal(boxOf(along), size, Math.min(transform.k, locked ? 0.65 : READABLE));
+    reveal(boxOf(along), size, Math.min(transform.k, READABLE));
     // `transform.k` n'est lu qu'au moment de servir la demande.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focus, layout.nodes, reveal, size]);
@@ -141,7 +143,7 @@ export function RepertoireMap({ root: drawn, side, selected, onSelect, focus, lo
     const placed = layout.nodes.find((node) => node.node.key === selected);
     if (!placed || !size.width) return;
     const along = layout.nodes.filter((node) => node === placed || selected.startsWith(`${node.node.key} `) || node.node.san === null);
-    reveal(boxOf(along), size, locked ? 0.65 : transform.k);
+    reveal(boxOf(along), size, transform.k);
     // Seul un changement de taille relance ce cadrage.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [size.width, size.height]);
@@ -276,7 +278,7 @@ export function RepertoireMap({ root: drawn, side, selected, onSelect, focus, lo
 
 const FOCUS_STYLE = `
   [role='treeitem']:focus { outline: none; }
-  [role='treeitem']:focus-visible > rect.pill, [data-unfold]:focus-visible > rect { stroke: ${COLOURS.leaf}; stroke-width: 3px; stroke-dasharray: none; }
+  [role='treeitem']:focus-visible > rect.pill, [data-unfold]:focus-visible > rect { stroke: ${COLOURS.kumquatDeep}; stroke-width: 3px; stroke-dasharray: 5 3; }
 `;
 
 function boxOf(nodes: readonly PlacedNode[]): Box {

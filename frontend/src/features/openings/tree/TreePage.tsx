@@ -7,7 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { BuildSession } from '../checks/BuildSession';
 import { originAt, originOf, type BuildOrigin } from '../checks/useBuilder';
 import type { AddedMove, Addition } from '../domain/addition';
-import { buildOpeningTree, type OpeningTree } from '../domain/openingTree';
+import { buildOpeningTree, isPlayerMove, type OpeningTree } from '../domain/openingTree';
 import { figurineLine, figurineMove } from '../domain/notation';
 import { gamesOfLastMonths } from '../domain/period';
 import type { PlayedGame, Side } from '../domain/playedGame';
@@ -22,6 +22,7 @@ import { COLOURS, FONT_FAMILY, raised, SPRING } from '../workshop/theme';
 import { Toast } from '../workshop/Toast';
 import { useToast } from '../workshop/useToast';
 import { useWide } from '../workshop/useWide';
+import { storedSide, storeSide } from '../workshop/storedSide';
 import { useWorkshopFont } from '../workshop/useWorkshopFont';
 import { PositionPane, type StepActions } from './PositionPane';
 import { RepertoireMap } from './RepertoireMap';
@@ -49,8 +50,12 @@ export function TreePage() {
   const { replay, known, repertoires, steps, add, remove, ignore, unignore, forgetIgnored, forgetAdditions } = useReplayedSession();
   // Openings envoie une ligne à travailler par l'adresse : /dev/tree?side=b&line=d4 Nf6.
   const [params] = useSearchParams();
-  const asked = useMemo(() => ({ side: params.get('side') === 'b' ? 'b' : 'w', line: params.get('line')?.split(' ').filter(Boolean) ?? [] }) as { side: Side; line: string[] }, [params]);
+  const asked = useMemo(
+    () => ({ side: params.get('side') === 'b' ? 'b' : params.get('side') === 'w' ? 'w' : storedSide(), line: params.get('line')?.split(' ').filter(Boolean) ?? [] }) as { side: Side; line: string[] },
+    [params],
+  );
   const [side, setSide] = useState<Side>(asked.side);
+  useEffect(() => storeSide(side), [side]);
   const [paths, setPaths] = useState<Record<Side, readonly string[]>>(() => ({ w: [], b: [], [asked.side]: asked.line }));
   const [focus, setFocus] = useState<{ key: string; stamp: number; centre: boolean } | null>(() =>
     asked.line.length ? { key: asked.line.join(' '), stamp: Date.now(), centre: true } : null,
@@ -63,6 +68,7 @@ export function TreePage() {
   const [lead, setLead] = useState<'settle' | 'priority'>(asked.line.length ? 'priority' : 'settle');
   const [preview, setPreview] = useState<readonly (readonly string[])[]>([]);
   const [buildPath, setBuildPath] = useState<readonly string[] | null>(null);
+  const [pinned, setPinned] = useState<readonly string[]>([]);
   // La carte suit l'échiquier du constructeur : le coup qu'on regarde y est sélectionné et gardé en vue.
   const followBuild = useCallback((next: readonly string[]) => {
     setBuildPath(next);
@@ -158,6 +164,7 @@ export function TreePage() {
   const accept = (moves: AddedMove[], lines: (readonly string[])[]) => {
     if (!building) return;
     const addition: Addition = { side: building.origin.side, addedAt: replay.day, moves };
+    setPinned((current) => [...current, ...lines.map((line) => line.join(' '))]);
     const reply = building.origin.reply;
     // La partie qui a posé la question revient si le joueur y avait répondu autrement : le dire, sinon le compteur étonne.
     const back = reply && !moves.some((move) => move.san === reply) ? ` · your game with ${figurineMove(reply, building.origin.start.length + 1)} comes back to settle` : '';
@@ -272,7 +279,7 @@ export function TreePage() {
     const dropped = before.current.filter((key) => !live.has(key)).length;
     before.current = null;
     if (dropped) {
-      show({ text: `${dropped} one-off opponent ${dropped === 1 ? 'move' : 'moves'} cleared: ${dropped === 1 ? 'it comes' : 'they come'} back if played again` });
+      show({ text: `${dropped} opponent ${dropped === 1 ? 'move' : 'moves'} met only once set aside: back on the list if played again` });
     }
     // Seul le changement de jour compte ; `steps` est recalculé dans le même rendu.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -316,17 +323,17 @@ export function TreePage() {
             </div>
             <span className="flex w-full flex-wrap gap-2 sm:ml-auto sm:w-auto sm:flex-nowrap">
               {session && current ? (
-                <SessionBar index={position} total={session.queue.length} settled={position - 1} side={current.side} onEnd={() => setSession((active) => active && { ...active, ended: true })} />
+                <SessionBar index={position} total={session.queue.length} settled={position} side={current.side} onEnd={() => setSession((active) => active && { ...active, ended: true })} />
               ) : (
                 <Door
-                  onClick={steps.length && !session ? startSession : undefined}
+                  onClick={steps.length ? startSession : undefined}
                   title={steps.length ? `${steps.length} ${steps.length === 1 ? 'position' : 'positions'} to settle` : 'Nothing to settle'}
-                  tone={steps.length && !session ? 'terracotta' : 'plain'}
+                  tone={steps.length ? 'terracotta' : 'plain'}
                 >
                   {first
                     ? `${perSide.w} as White · ${perSide.b} as Black`
                     : replay.next
-                      ? 'Press “Next day” to bring games in'
+                      ? 'Press “Next game day” to bring games in'
                       : 'All games replayed'}
                 </Door>
               )}
@@ -352,6 +359,7 @@ export function TreePage() {
                     focus={focus}
                     locked={building !== null}
                     preview={shownPreview}
+                    pinned={pinned}
                   />
                 ) : (
                   <TreeList root={root} side={side} node={node} offMoves={stepsHere} onSelect={(key) => goTo(side, key, false)} onOpen={() => setView('position')} />
@@ -395,7 +403,8 @@ export function TreePage() {
                     priority
                       ? (line) => {
                           const reached = nodeAlong(root, line);
-                          const heading = `Prepare your moves after ${figurineMove(line[line.length - 1], line.length)}`;
+                          const after = figurineMove(line[line.length - 1], line.length);
+                          const heading = isPlayerMove(side, line.length + 1) ? `Prepare your moves after ${after}` : `Prepare against their replies after ${after}`;
                           build({ origin: { ...originAt(side, line.slice(0, Math.min(reached.path.length, line.length)), line), heading } });
                         }
                       : undefined

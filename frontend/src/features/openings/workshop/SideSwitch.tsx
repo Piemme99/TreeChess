@@ -14,7 +14,7 @@ export function SideSwitch({ side, onChange, counts }: { side: Side; onChange: (
       onClick={() => onChange(black ? 'w' : 'b')}
       className="flex items-center gap-3 text-[15px] font-semibold"
     >
-      <span style={{ opacity: black ? 0.6 : 1 }}>
+      <span style={{ opacity: black ? 0.75 : 1 }}>
         White
         <Count n={counts?.w} />
       </span>
@@ -26,7 +26,7 @@ export function SideSwitch({ side, onChange, counts }: { side: Side; onChange: (
           style={{ boxShadow: '0 2px 4px oklch(0.3 0.05 60 / 0.3)' }}
         />
       </span>
-      <span style={{ opacity: black ? 1 : 0.6 }}>
+      <span style={{ opacity: black ? 1 : 0.75 }}>
         Black
         <Count n={counts?.b} />
       </span>

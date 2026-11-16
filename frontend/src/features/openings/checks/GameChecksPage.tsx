@@ -25,6 +25,7 @@ import { BuildSession } from './BuildSession';
 import { originOf } from './useBuilder';
 import { GameCard } from './GameCard';
 import { useIgnoredChecks } from './useIgnoredChecks';
+import { sessionSteps } from '../session/steps';
 
 export function GameChecksPage() {
   useWorkshopFont();
@@ -38,6 +39,8 @@ export function GameChecksPage() {
   const today = lived.filter(({ game }) => game.playedAt === replay.day);
   const toDecide = gamesToDecide(lived, ignored, replay.day);
   const settled = today.filter((checked) => !isOpen(checked, ignored));
+  // La même unité que l'arbre : des parties qui quittent le répertoire au même endroit font une seule position.
+  const positionsToSettle = useMemo(() => sessionSteps(toDecide).length, [toDecide]);
   const judgementOf = useOpponentJudgements(lived, replay.day);
   const selected = lived.find((checked) => checked.id === selectedId) ?? toDecide[0] ?? today[0] ?? null;
   const adding = lived.find((checked) => checked.id === addingId);
@@ -103,7 +106,8 @@ export function GameChecksPage() {
               <h2 id="decide-title" className="text-[22px] font-extrabold tracking-[-0.02em]">
                 To settle{' '}
                 <span className="text-[15px] font-semibold" style={{ color: COLOURS.leafSoft }}>
-                  · {toDecide.length} {toDecide.length === 1 ? 'game' : 'games'}
+                  · {toDecide.length} {toDecide.length === 1 ? 'game' : 'games'} on {positionsToSettle}{' '}
+                  {positionsToSettle === 1 ? 'position' : 'positions'}
                 </span>
               </h2>
               {toDecide.length ? (
@@ -169,7 +173,7 @@ export function GameChecksPage() {
           </BuildSession>
         ) : (
           <main className="mx-auto flex max-w-[84rem] flex-col gap-6 px-4 pt-6 sm:px-8 lg:grid lg:grid-cols-[minmax(0,30rem)_1fr] lg:gap-10 lg:pt-8">
-            <div ref={board} className="scroll-mt-4">
+            <div ref={board} className="sticky top-0 z-10 -mx-4 scroll-mt-4 px-4 pt-2 pb-2 lg:static lg:mx-0 lg:px-0 lg:pt-0" style={{ background: COLOURS.cream }}>
               <CheckBoard checked={selected} repertoires={repertoires} judgement={selected ? judgementOf(selected) : undefined} />
             </div>
             <div className="flex min-w-0 flex-col gap-10">{lists}</div>
@@ -204,7 +208,7 @@ function CheckBoard({ checked, repertoires, judgement }: CheckBoardProps) {
   }, [checked, checkPath, repertoires, judgement]);
 
   return (
-    <aside aria-label="Position" className="mx-auto flex w-full max-w-[26rem] flex-col gap-3 self-start lg:sticky lg:top-6 lg:max-w-none">
+    <aside aria-label="Position" className="mx-auto flex w-full max-w-[16rem] flex-col gap-3 self-start lg:sticky lg:top-6 lg:max-w-none">
       <ArrowBoard path={path} flipped={checked?.game.side === 'b'} arrows={arrows} />
       {checked?.check.kind === 'left' && (
         <p className="px-1 text-[14px]" style={{ color: COLOURS.leafSoft }}>

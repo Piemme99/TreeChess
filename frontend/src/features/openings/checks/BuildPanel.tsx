@@ -136,7 +136,7 @@ export function BuildPanel({ builder, candidates, fresh, onPoint, onAccept, onCa
       )}
 
       {/* Les actions restent au bas du panneau, quoi qu'on fasse défiler au-dessus. */}
-      <div className={`flex flex-col gap-2 ${compact ? 'sticky bottom-20 -mx-4 -mb-4 rounded-b-3xl px-4 pt-3 pb-4 lg:bottom-0' : ''}`} style={compact ? { background: COLOURS.paper, boxShadow: '0 -10px 14px -12px oklch(0.3 0.05 60 / 0.35)' } : undefined}>
+      <div className={`flex flex-col gap-2 ${compact ? 'sticky bottom-[5.25rem] -mx-4 -mb-4 rounded-b-3xl px-4 pt-3 pb-4 lg:static lg:mx-0 lg:mb-0 lg:px-0 lg:pt-0 lg:pb-0' : ''}`} style={compact ? { background: COLOURS.paper, boxShadow: '0 -10px 14px -12px oklch(0.3 0.05 60 / 0.35)' } : undefined}>
       <span className="flex flex-wrap gap-2">
         <Action onClick={onAccept} primary disabled={!complete}>
           {complete ? `Add to my repertoire · ${toAdd} new ${toAdd === 1 ? 'move' : 'moves'}` : 'Add to my repertoire'}

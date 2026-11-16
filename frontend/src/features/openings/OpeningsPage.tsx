@@ -16,6 +16,7 @@ import { useRepertoires } from './replay/useRepertoires';
 import { useReplayDay } from './replay/useReplayDay';
 import { PageHeader } from './workshop/PageHeader';
 import { SideSwitch } from './workshop/SideSwitch';
+import { storedSide, storeSide } from './workshop/storedSide';
 import { COLOURS, FONT_FAMILY } from './workshop/theme';
 import { useWorkshopFont } from './workshop/useWorkshopFont';
 
@@ -31,7 +32,8 @@ interface Line {
 
 export function OpeningsPage() {
   useWorkshopFont();
-  const [side, setSide] = useState<Side>('w');
+  const [side, setSide] = useState<Side>(storedSide);
+  useEffect(() => storeSide(side), [side]);
   const [focusPath, setFocusPath] = useState<readonly string[]>([]);
   const [pointed, setPointed] = useState<Line | null>(null);
 
