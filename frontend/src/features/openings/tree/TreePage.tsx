@@ -86,10 +86,8 @@ export function TreePage() {
     setBuilding(next);
     setPreview([]);
     setBuildPath(null);
-    if (next) {
-      setFocus({ key: next.origin.start.join(' '), stamp: Date.now(), centre: true });
-      if (!wide) window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
+    if (!wide) window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (next) setFocus({ key: next.origin.start.join(' '), stamp: Date.now(), centre: true });
   };
   const { toast, show, close } = useToast();
 
@@ -122,6 +120,20 @@ export function TreePage() {
   const trail = trails[side];
   const mainMove = path.length === node.path.length ? [...node.children].sort((a, b) => b.games - a.games)[0]?.san : undefined;
   const forward = trail.length > path.length && startsWith(trail, path) ? () => walk(trail.slice(0, path.length + 1)) : mainMove ? () => play(mainMove) : undefined;
+  // ▶| : le bout de la ligne gardée, sinon le bout de la ligne principale du répertoire.
+  const toEnd = forward
+    ? () => {
+        if (trail.length > path.length && startsWith(trail, path)) return walk(trail);
+        let reached = node;
+        const line = [...path];
+        while (reached.children.length) {
+          reached = [...reached.children].sort((a, b) => b.games - a.games)[0];
+          if (reached.stub) break;
+          line.push(reached.san!);
+        }
+        walk(line);
+      }
+    : undefined;
 
   // La séance : les positions à trancher, la plus fréquente d'abord, une par une.
   const live = useMemo(() => new Map(steps.map((step) => [step.key, step])), [steps]);
@@ -144,8 +156,9 @@ export function TreePage() {
     });
   // Au téléphone, le résultat d'une action est en haut du volet : on y remonte.
   const pane = useRef<HTMLDivElement>(null);
+  // Au téléphone, tout ce qui change la position remonte en haut : l'échiquier entier et la carte tiennent dans l'écran.
   const toTop = () => {
-    if (!wide) pane.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (!wide) window.scrollTo({ top: 0, behavior: 'smooth' });
   };
   const startSession = () => {
     // Une couleur après l'autre, en commençant par celle qu'on regarde : changer de camp à chaque étape fait tout redessiner.
@@ -284,10 +297,21 @@ export function TreePage() {
     setSession(null);
     build(null);
   });
+  const before = useRef<number | null>(null);
   const nextDay = () => {
     close();
+    before.current = steps.length;
     replay.next!();
   };
+  useEffect(() => {
+    if (before.current === null) return;
+    const added = steps.length - before.current;
+    before.current = null;
+    const games = replay.gamesThatDay;
+    show({ text: `${games} ${games === 1 ? 'game' : 'games'} played${added > 0 ? ` · ${added} new to settle` : ''}` });
+    // Seul le changement de jour compte ; `steps` est recalculé dans le même rendu.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [replay.day]);
   const habits = useMemo(
     () => gamesOfLastMonths(known, RECENT_MONTHS, new Date(replay.day)).filter((game) => game.side === building?.origin.side),
     [known, replay.day, building?.origin.side],
@@ -300,7 +324,7 @@ export function TreePage() {
   useEffect(() => {
     if (!finished || wide) return;
     setSession(null);
-    show({ text: `Session done · ${settled} settled${skipped ? ` · ${skipped} skipped` : ''}${steps.length ? ` · ${steps.length} left` : ''}` });
+    show({ text: `Session done · ${settled} settled${steps.length ? ` · ${steps.length} still to settle` : ''}` });
     // Seule la fin de la séance compte.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [finished]);
@@ -415,7 +439,7 @@ export function TreePage() {
             </div>
           </main>
         )}
-        {!wide && !building && <BottomBar onStart={path.length ? () => walk([]) : undefined} onBack={path.length ? back : undefined} onForward={forward} />}
+        {!wide && !building && <BottomBar onStart={path.length ? () => walk([]) : undefined} onBack={path.length ? back : undefined} onForward={forward} onEnd={toEnd} />}
         <Toast toast={toast} onClose={close} />
       </div>
     </MotionConfig>
@@ -477,12 +501,13 @@ function PhoneSession({ index, total, onEnd }: { index: number; total: number; o
   );
 }
 
-/** Sous le pouce, comme la barre de Lichess : début, coup précédent, coup suivant. */
-function BottomBar({ onStart, onBack, onForward }: { onStart?: () => void; onBack?: () => void; onForward?: () => void }) {
+/** Sous le pouce, comme la barre de Lichess : début, coup précédent, coup suivant, fin de ligne. */
+function BottomBar({ onStart, onBack, onForward, onEnd }: { onStart?: () => void; onBack?: () => void; onForward?: () => void; onEnd?: () => void }) {
   const buttons = [
     { label: 'Start', onClick: onStart, icon: 'M7 6v12M18 6l-8 6 8 6z' },
     { label: 'Previous move', onClick: onBack, icon: 'M16 6l-8 6 8 6z' },
     { label: 'Next move', onClick: onForward, icon: 'M8 6l8 6-8 6z' },
+    { label: 'End of the line', onClick: onEnd, icon: 'M17 6v12M6 6l8 6-8 6z' },
   ];
   return (
     <nav aria-label="Moves" className="fixed inset-x-0 bottom-0 z-30 flex pb-[env(safe-area-inset-bottom)]" style={{ background: COLOURS.leaf }}>
@@ -580,7 +605,8 @@ function useMaps(known: readonly PlayedGame[], day: string, repertoires: ReturnT
     const toSettle: Record<Side, Map<string, number>> = { w: new Map(), b: new Map() };
     for (const step of steps) {
       const position = step.games[0].check.position;
-      toSettle[step.side].set(position, (toSettle[step.side].get(position) ?? 0) + step.games.length);
+      // Des décisions, pas des parties : la même unité que « N to settle ».
+      toSettle[step.side].set(position, (toSettle[step.side].get(position) ?? 0) + 1);
     }
     const maps: Record<Side, MapNode> = {
       w: buildRepertoireMap(repertoires.w, recent.w, { toSettle: toSettle.w, priorities, createdAt: REPLAY_START, freshSince: daysBefore(day, FRESH_DAYS) }),

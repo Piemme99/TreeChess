@@ -4,20 +4,20 @@ import type { ToastMessage } from './useToast';
 
 export function Toast({ toast, onClose }: { toast: (ToastMessage & { stamp: number }) | null; onClose: () => void }) {
   return (
-    <div aria-live="polite" className="pointer-events-none fixed inset-x-0 top-2 z-50 flex justify-center px-3 lg:top-6">
+    <div aria-live="polite" className="pointer-events-none fixed inset-x-0 bottom-[max(0.25rem,env(safe-area-inset-bottom))] z-50 flex justify-center px-2 lg:top-6 lg:bottom-auto">
       <AnimatePresence>
         {toast && (
           <motion.div
             key={toast.stamp}
             role="status"
-            initial={{ opacity: 0, y: -12 }}
+            initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -12 }}
+            exit={{ opacity: 0, y: 12 }}
             transition={SPRING}
-            className="pointer-events-auto flex max-w-[34rem] items-center gap-4 rounded-2xl py-2.5 pl-4 pr-2 text-[14px] font-semibold"
+            className="pointer-events-auto flex min-h-12 w-full max-w-[34rem] items-center gap-3 rounded-2xl py-1.5 pl-4 pr-1.5 text-[14px] font-semibold leading-snug lg:w-auto"
             style={{ background: COLOURS.leaf, color: COLOURS.cream, boxShadow: '0 14px 28px -10px oklch(0.3 0.06 150 / 0.55)' }}
           >
-            <span>{toast.text}</span>
+            <span className="flex-1">{toast.text}</span>
             {toast.undo && (
               <button
                 type="button"

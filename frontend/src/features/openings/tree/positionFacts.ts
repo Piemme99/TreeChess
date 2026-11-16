@@ -32,7 +32,10 @@ export function usePositionFacts({ side, path, node, recent, steps, priority, le
   const arrows = useMemo(() => {
     if (!inRepertoire) return [];
     const deviation = [...steps].sort((a, b) => b.games.length - a.games.length)[0];
-    const shown = relevantArrows(node.children.map((child) => ({ san: child.san!, games: child.games })), node.games, deviation?.played);
+    // Deux couleurs sur l'arbre : le vert du répertoire, le terracotta de ce qui demande à être regardé.
+    const shown = relevantArrows(node.children.map((child) => ({ san: child.san!, games: child.games })), node.games, deviation?.played).map(
+      (arrow): BoardArrow => ('kind' in arrow && arrow.kind === 'neutral' ? { ...arrow, kind: 'costly' } : arrow),
+    );
     // La carte « Priority » nomme le coup où l'on perd le plus : il doit se voir sur l'échiquier.
     if (!leak || settling) return shown;
     return [...shown.filter((arrow) => arrow.san !== leak.san).slice(0, MAX_ARROWS - 1), { san: leak.san!, kind: 'costly' as const, share: 0.5, emphasis: true }];

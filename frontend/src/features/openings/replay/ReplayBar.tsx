@@ -8,7 +8,7 @@ export function ReplayBar({ replay }: { replay: ReplayDay }) {
   // Reset efface les ajouts et les décisions : jamais sur un seul clic.
   const [confirming, setConfirming] = useState(false);
   return (
-    <section aria-label="Replay" className="flex items-center gap-x-3 gap-y-2 text-[14px] sm:flex-wrap">
+    <section aria-label="Replay" className="relative flex items-center gap-x-3 gap-y-2 text-[14px] sm:flex-wrap">
       <span className="mr-auto flex flex-col leading-tight sm:mr-0">
         <span className="whitespace-nowrap text-[15px] font-bold sm:text-[16px]">
           <span className="sm:hidden">{formatShortDay(replay.day)}</span>
@@ -22,13 +22,13 @@ export function ReplayBar({ replay }: { replay: ReplayDay }) {
               : 'Replay · repertoire created'}
           </span>
           {replay.reset && (
-            <span className="relative">
+            <span>
               <button type="button" aria-expanded={confirming} onClick={() => setConfirming(!confirming)} className="-my-1.5 rounded px-1.5 py-1.5 font-semibold underline underline-offset-2 focus-visible:outline-2">
                 Reset…
               </button>
               {/* Hors de la ligne : la confirmation ne doit pas pousser « Next day » hors de l'écran. */}
               {confirming && (
-                <span role="group" aria-label="Confirm reset" className="absolute left-0 top-full z-50 mt-1 flex items-center gap-1.5 whitespace-nowrap rounded-xl p-2 font-semibold" style={{ background: COLOURS.paper, color: COLOURS.leaf, boxShadow: '0 14px 28px -10px oklch(0.3 0.06 150 / 0.45)' }}>
+                <span role="group" aria-label="Confirm reset" className="absolute right-0 top-full z-50 mt-2 flex items-center gap-2 whitespace-nowrap rounded-xl py-2 pl-3 pr-2 text-[14px] font-semibold" style={{ background: COLOURS.paper, color: COLOURS.leaf, boxShadow: '0 14px 28px -10px oklch(0.3 0.06 150 / 0.45)' }}>
                   Erase all?
                   <button
                     type="button"
@@ -36,12 +36,12 @@ export function ReplayBar({ replay }: { replay: ReplayDay }) {
                       setConfirming(false);
                       replay.reset!();
                     }}
-                    className="rounded-lg px-2.5 py-1.5 font-bold text-white focus-visible:outline-2"
+                    className="min-h-9 rounded-lg px-3 font-bold text-white focus-visible:outline-2"
                     style={{ background: COLOURS.terracotta }}
                   >
                     Reset
                   </button>
-                  <button type="button" onClick={() => setConfirming(false)} className="rounded-lg px-2.5 py-1.5 font-bold focus-visible:outline-2" style={tile(COLOURS.sand)}>
+                  <button type="button" onClick={() => setConfirming(false)} className="min-h-9 rounded-lg px-3 font-bold focus-visible:outline-2" style={tile(COLOURS.sand)}>
                     Keep
                   </button>
                 </span>

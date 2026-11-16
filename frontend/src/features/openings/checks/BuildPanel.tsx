@@ -46,39 +46,8 @@ export function BuildPanel({ builder, candidates, fresh, onPoint, onAccept, onCa
   const planned = useMemo(() => new Set(repertoireMovesAt(repertoire, builder.fen).map((move) => move.san)), [repertoire, builder.fen]);
   const chosen = draft.find((move) => move.path.length === origin.start.length + 1 && move.path.every((san, at) => at >= origin.start.length || origin.start[at] === san))?.path.at(-1);
 
-  return (
-    <section aria-label="Addition" className={`flex flex-col gap-4 rounded-3xl ${compact ? 'p-4' : 'p-5'}`} style={raised(false)}>
-      <h2 className={`${compact ? 'text-[19px]' : 'text-[22px]'} font-extrabold leading-snug tracking-[-0.02em]`}>
-        {origin.heading ? (
-          origin.heading
-        ) : builder.kept || givenByPlayer ? (
-          <>
-            <Move>{builder.kept ? played : givenMove}</Move> joins your repertoire: add it, or play on
-          </>
-        ) : played ? (
-          <>
-            You played <Move>{played}</Move>: what do you want to play here?
-          </>
-        ) : givenMove ? (
-          <>
-            Prepare your answer to <Move>{givenMove}</Move>
-          </>
-        ) : (
-          'Extend your repertoire from here'
-        )}
-        <span className="mt-1 block text-[14px] font-semibold tracking-normal" style={{ color: COLOURS.leafSoft }}>
-          {builder.start.length ? `From ${figurineLine(builder.start)}` : 'From the starting position'}
-          {origin.reply && (
-            <>
-              {' · in that game you answered '}
-              <span className="whitespace-nowrap" style={{ color: COLOURS.leaf }}>
-                {figurineMove(origin.reply, origin.start.length + 1)}
-              </span>
-            </>
-          )}
-        </span>
-      </h2>
-
+  const notes = (
+    <>
       {origin.reply && chosen && chosen !== origin.reply && (
         <p className="rounded-xl px-3 py-2 text-[13px]" style={{ background: COLOURS.cream }}>
           You chose {figurineMove(chosen, origin.start.length + 1)}: the game where you played {figurineMove(origin.reply, origin.start.length + 1)} will come back to settle.
@@ -93,7 +62,13 @@ export function BuildPanel({ builder, candidates, fresh, onPoint, onAccept, onCa
       {lines.length > 0 && (
         <div className="flex flex-col gap-1.5">
           <span className="text-[12px] font-semibold" style={{ color: COLOURS.leafSoft }}>
-            Your line{lines.length > 1 ? 's' : ''} · <span style={{ color: REPERTOIRE }}>green</span> = already in your repertoire
+            Your line{lines.length > 1 ? 's' : ''}
+            {!compact && (
+              <>
+                {' '}
+                · <span style={{ color: REPERTOIRE }}>green</span> = already in your repertoire
+              </>
+            )}
           </span>
           <ul aria-label="To add" className="flex flex-col gap-1 text-[14px]">
             {lines.map((line) => (
@@ -127,6 +102,43 @@ export function BuildPanel({ builder, candidates, fresh, onPoint, onAccept, onCa
         </div>
       )}
 
+    </>
+  );
+
+  return (
+    <section aria-label="Addition" className={`flex flex-col gap-4 rounded-3xl ${compact ? 'p-4' : 'p-5'}`} style={raised(false)}>
+      <h2 className={`${compact ? 'text-[17px]' : 'text-[22px]'} font-extrabold leading-snug tracking-[-0.02em]`}>
+        {origin.heading ? (
+          origin.heading
+        ) : builder.kept || givenByPlayer ? (
+          <>
+            <Move>{builder.kept ? played : givenMove}</Move> joins your repertoire: add it, or play on
+          </>
+        ) : played ? (
+          <>
+            You played <Move>{played}</Move>: what do you want to play here?
+          </>
+        ) : givenMove ? (
+          <>
+            Prepare your answer to <Move>{givenMove}</Move>
+          </>
+        ) : (
+          'Extend your repertoire from here'
+        )}
+        <span className={`mt-1 block font-semibold tracking-normal ${compact ? 'truncate text-[13px]' : 'text-[14px]'}`} style={{ color: COLOURS.leafSoft }}>
+          {builder.start.length ? `From ${figurineLine(builder.start)}` : 'From the starting position'}
+          {origin.reply && (
+            <>
+              {' · in that game you answered '}
+              <span className="whitespace-nowrap" style={{ color: COLOURS.leaf }}>
+                {figurineMove(origin.reply, origin.start.length + 1)}
+              </span>
+            </>
+          )}
+        </span>
+      </h2>
+
+      {!compact && notes}
       {compact ? (
         // Au téléphone, les actions prennent la place de la barre de navigation, sous le pouce, sur une ligne.
         <>
@@ -169,6 +181,7 @@ export function BuildPanel({ builder, candidates, fresh, onPoint, onAccept, onCa
         </div>
       )}
       <CandidateTable builder={builder} candidates={candidates} onPoint={onPoint} compact={compact} planned={planned} />
+      {compact && notes}
 
       <Help compact={compact}>
         <strong>{compact ? 'Lichess' : `${origin.side === 'w' ? 'White' : 'Black'} %`}</strong>: how players of your colour score after the move on Lichess, 1400–1800 ·{' '}

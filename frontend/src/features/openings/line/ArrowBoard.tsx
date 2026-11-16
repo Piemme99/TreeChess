@@ -43,7 +43,8 @@ export function ArrowLayer({ path, flipped, arrows, className }: { path: readonl
           const length = Math.hypot(b.x - a.x, b.y - a.y);
           const ux = (b.x - a.x) / length;
           const uy = (b.y - a.y) / length;
-          const width = 0.1 + 0.07 * Math.sqrt(arrow.share);
+          // Assez d'écart pour qu'un coup joué quatre fois plus souvent se voie d'un coup d'œil.
+          const width = 0.08 + 0.12 * Math.sqrt(arrow.share);
           const head = width * 3;
           const tipX = b.x - ux * 0.1;
           const tipY = b.y - uy * 0.1;

@@ -346,7 +346,7 @@ function Legend() {
         <span className="grid h-[18px] min-w-[22px] place-items-center rounded-full px-1 text-[11px] font-extrabold text-white" style={{ background: COLOURS.terracotta }}>
           n
         </span>
-        games to settle
+        moves to settle
       </li>
       <li className="flex items-center gap-1.5">
         <span className="h-[14px] w-6 rounded-full" style={{ background: COLOURS.cream, boxShadow: `inset 0 0 0 1.5px ${REPERTOIRE}` }} />
@@ -405,7 +405,7 @@ function Pill({ placed, side, selected, onClick, onDoubleClick, onOpen, onHover,
     node.san === null ? 'Starting position' : figurineLine(node.path),
     node.games ? `${node.games} ${node.games === 1 ? 'game' : 'games'}` : '',
     node.priority !== undefined ? `priority ${node.priority}` : '',
-    node.toSettle ? `${node.toSettle} ${node.toSettle === 1 ? 'game' : 'games'} to settle` : '',
+    node.toSettle ? `${node.toSettle} ${node.toSettle === 1 ? 'move' : 'moves'} to settle` : '',
     hidden ? `${hidden} folded, press + to unfold` : '',
     ghost ? 'being added' : '',
   ]
