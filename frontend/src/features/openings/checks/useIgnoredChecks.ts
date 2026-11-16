@@ -14,6 +14,7 @@ export function useIgnoredChecks() {
   return {
     ignored,
     ignore: (id: number) => setIgnored((current) => new Set(current).add(id)),
+    unignore: (ids: readonly number[]) => setIgnored((current) => new Set([...current].filter((id) => !ids.includes(id)))),
     clear: () => setIgnored(new Set()),
   };
 }

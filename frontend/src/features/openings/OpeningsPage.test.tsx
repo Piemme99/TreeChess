@@ -10,7 +10,7 @@ const OpeningsPage = () => (
   </MemoryRouter>
 );
 
-const tickets = () => within(screen.getByRole('region', { name: /Fix these first/ })).getAllByRole('button');
+const tickets = () => within(screen.getByRole('region', { name: /^Priorities/ })).getAllByRole('button');
 const panel = () => screen.getByRole('complementary', { name: 'Position' });
 const period = (name: string) => within(panel()).getByRole('region', { name });
 const zoomPath = () => screen.getByRole('navigation', { name: 'Zoom path' });
@@ -58,12 +58,12 @@ describe('OpeningsPage', () => {
   it('shows the repertoire created from the games before the replay starts', () => {
     render(<OpeningsPage />);
 
-    expect(panel()).toHaveTextContent('Repertoire 1.e4 · 1.d4');
+    expect(panel()).toHaveTextContent('Your repertoire here: 1.e4 · 1.d4');
 
     fireEvent.click(screen.getByRole('switch', { name: 'Play as Black' }));
     fireEvent.click(screen.getByRole('button', { name: '1.e4' }));
 
-    expect(panel()).toHaveTextContent('Repertoire 1…c6 · 1…c5');
+    expect(panel()).toHaveTextContent('Your repertoire here: 1…c6 · 1…c5');
   });
 
   it('previews a clicked priority without leaving the page', async () => {
@@ -115,7 +115,7 @@ describe('OpeningsPage', () => {
     fireEvent.mouseEnter(screen.getByRole('button', { name: /1\.e4 c5 2\.d4/ }));
     expect(await findOpeningName('Sicilian Defense: Smith-Morra Gambit')).toBeInTheDocument();
 
-    fireEvent.mouseLeave(within(screen.getByRole('region', { name: /Fix these first/ })).getByRole('list'));
+    fireEvent.mouseLeave(within(screen.getByRole('region', { name: /^Priorities/ })).getByRole('list'));
     expect(await findOpeningName('Indian Defense')).toBeInTheDocument();
   });
 

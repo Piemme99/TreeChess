@@ -8,6 +8,16 @@ export interface Transform {
 
 const MIN = 0.3;
 const MAX = 2.5;
+const MARGIN = 24;
+/** La bande du bas où se posent la légende et les commandes : rien d'utile ne doit y finir. */
+export const BOTTOM_BAR = 44;
+
+export interface Box {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
 
 export interface Size {
   width: number;
@@ -74,19 +84,52 @@ export function usePanZoom(ref: RefObject<HTMLElement | null>) {
     drag.current = null;
   }, []);
 
-  /** Centre un point de la carte sur un point de l'écran, sans changer l'échelle (sauf si trop petite pour lire). */
-  const centreOn = useCallback((point: { x: number; y: number }, at: { x: number; y: number }) => {
+  /**
+   * Montre une boîte de la carte (le chemin vers un nœud) en bougeant le moins possible : on dézoome
+   * jusqu'à `floor` s'il le faut, puis on décale juste assez pour la faire entrer dans le cadre.
+   */
+  const reveal = useCallback((box: Box, size: Size, floor = 0.55) => {
+    if (!size.width || !size.height) return;
     setTransform((current) => {
-      const k = Math.max(current.k, 0.8);
-      return { k, x: at.x - point.x * k, y: at.y - point.y * k };
+      const room = { width: size.width - 2 * MARGIN, height: size.height - 2 * MARGIN - BOTTOM_BAR };
+      const k = Math.max(Math.min(current.k, room.width / box.width, room.height / box.height), Math.min(floor, current.k));
+      // Trop grande pour le cadre, la boîte garde sa fin : le nœud visé.
+      const fitAxis = (start: number, length: number, offset: number, from: number, available: number) => {
+        const low = start * k + offset;
+        const high = (start + length) * k + offset;
+        if (high - low > available) return offset + (from + available - high);
+        if (low < from) return offset + (from - low);
+        if (high > from + available) return offset - (high - from - available);
+        return offset;
+      };
+      const f = k / current.k;
+      const x = size.width / 2 - (size.width / 2 - current.x) * f;
+      const y = size.height / 2 - (size.height / 2 - current.y) * f;
+      return {
+        k,
+        x: fitAxis(box.x, box.width, x, MARGIN, room.width),
+        y: fitAxis(box.y, box.height, y, MARGIN, room.height),
+      };
     });
   }, []);
 
-  const fit = useCallback((bounds: { x: number; y: number; width: number; height: number }, size: Size) => {
-    if (!size.width || !size.height) return;
-    const k = Math.min(1, size.width / bounds.width, size.height / bounds.height);
-    setTransform({ k, x: -bounds.x * k + 8, y: (size.height - bounds.height * k) / 2 - bounds.y * k });
+  const zoomBy = useCallback((factor: number, size: Size) => {
+    setTransform((current) => {
+      const k = Math.min(MAX, Math.max(MIN, current.k * factor));
+      const f = k / current.k;
+      const px = size.width / 2;
+      const py = size.height / 2;
+      return { k, x: px - (px - current.x) * f, y: py - (py - current.y) * f };
+    });
   }, []);
 
-  return { transform, handlers: { onPointerDown, onPointerMove, onPointerUp, onPointerCancel: onPointerUp }, dragged, centreOn, fit, setTransform };
+  // Au-dessous de `floor`, les étiquettes ne se lisent plus : on garde l'échelle et on cale la carte à gauche, sur le départ.
+  const fit = useCallback((bounds: Box, size: Size, floor = 0.8) => {
+    if (!size.width || !size.height) return;
+    const height = size.height - BOTTOM_BAR;
+    const k = Math.min(1, Math.max(Math.min(size.width / bounds.width, height / bounds.height), floor));
+    setTransform({ k, x: -bounds.x * k + 8, y: (height - bounds.height * k) / 2 - bounds.y * k });
+  }, []);
+
+  return { transform, handlers: { onPointerDown, onPointerMove, onPointerUp, onPointerCancel: onPointerUp }, dragged, reveal, zoomBy, fit, setTransform };
 }

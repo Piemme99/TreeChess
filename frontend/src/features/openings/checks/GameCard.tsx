@@ -35,14 +35,14 @@ export function GameCard({ checked, selected, onSelect, showDate = false, onIgno
   const verdict = VERDICT[check.kind];
 
   return (
-    <li className="flex items-stretch gap-2" style={{ opacity: ignored ? 0.5 : 1 }}>
+    <li className="flex flex-wrap items-stretch gap-2 sm:flex-nowrap" style={{ opacity: ignored ? 0.5 : 1 }}>
       <motion.button
         type="button"
         aria-pressed={selected}
         onClick={onSelect}
         whileHover={{ y: -2 }}
         transition={SPRING}
-        className="flex min-w-0 flex-1 cursor-pointer flex-col gap-1 rounded-2xl px-4 py-3 text-left"
+        className="flex min-w-0 flex-1 basis-full cursor-pointer flex-col gap-1 rounded-2xl px-4 py-3 text-left focus-visible:outline-2 sm:basis-auto"
         style={raised(selected)}
       >
         <span className="flex items-center gap-2 text-[12px] font-semibold">
@@ -61,35 +61,35 @@ export function GameCard({ checked, selected, onSelect, showDate = false, onIgno
       </motion.button>
       {ignored && (
         <span className="self-center px-3 text-[13px] font-semibold" style={{ color: COLOURS.leafSoft }}>
-          Ignored
+          Set aside
         </span>
       )}
       {onAdd && (
         <motion.button
           type="button"
           onClick={onAdd}
-          aria-label={`Add ${opening?.name ?? 'this game'}`}
+          aria-label={`${checked.check.kind === 'uncovered' ? 'Prepare an answer' : 'Add to repertoire'}: ${opening?.name ?? 'this game'}`}
           whileHover={{ y: -2, scale: 1.05 }}
           whileTap={{ scale: 0.94 }}
           transition={SPRING}
-          className="cursor-pointer self-center rounded-full px-3.5 py-1.5 text-[13px] font-bold transition-shadow hover:shadow-[0_6px_14px_-6px_oklch(0.3_0.06_150/0.6)]"
+          className="cursor-pointer self-center whitespace-nowrap rounded-full px-3.5 py-2 text-[13px] font-bold transition-shadow hover:shadow-[0_6px_14px_-6px_oklch(0.3_0.06_150/0.6)] focus-visible:outline-2"
           style={{ background: COLOURS.leaf, color: COLOURS.cream }}
         >
-          Add
+          {checked.check.kind === 'uncovered' ? 'Prepare an answer' : 'Add to repertoire'}
         </motion.button>
       )}
       {onIgnore && (
         <motion.button
           type="button"
           onClick={onIgnore}
-          aria-label={`Ignore ${opening?.name ?? 'this game'}`}
+          aria-label={`${checked.check.kind === 'uncovered' ? 'Not worth preparing' : 'Stay on my repertoire'}: ${opening?.name ?? 'this game'}`}
           whileHover={{ y: -2 }}
           whileTap={{ scale: 0.94 }}
           transition={SPRING}
-          className="cursor-pointer self-center rounded-full px-3 py-1.5 text-[13px] font-semibold underline-offset-4 hover:underline"
+          className="cursor-pointer self-center whitespace-nowrap rounded-full px-3 py-2 text-[13px] font-semibold underline-offset-4 hover:underline focus-visible:outline-2"
           style={{ color: COLOURS.leafSoft }}
         >
-          Ignore
+          {checked.check.kind === 'uncovered' ? 'Not worth preparing' : 'Stay on repertoire'}
         </motion.button>
       )}
     </li>

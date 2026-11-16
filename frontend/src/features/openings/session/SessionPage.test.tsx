@@ -72,7 +72,7 @@ describe('the session after games', () => {
     fireEvent.click(screen.getByRole('link', { name: 'I just played' }));
 
     fireEvent.click(screen.getByRole('button', { name: 'Keep 1…♘f6' }));
-    fireEvent.click(screen.getByRole('button', { name: /^Add to my repertoire · 1 move/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Add to my repertoire · 1 new move/ }));
 
     expect(progress()).toMatch(/^2 \//);
     expect(JSON.parse(localStorage.getItem('kumquat.v2.additions')!)).toHaveLength(1);

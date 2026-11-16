@@ -21,13 +21,13 @@ const playOnBoard = (from: string, to: string) => {
   fireEvent.click(square(to));
 };
 const nextDay = () => fireEvent.click(within(replayBar()).getByRole('button', { name: /Next day/ }));
-const toDecide = () => within(screen.getByRole('region', { name: /^To decide/ })).queryAllByRole('listitem');
+const toDecide = () => within(screen.getByRole('region', { name: /^To settle/ })).queryAllByRole('listitem');
 const rest = () => {
   const region = screen.queryByRole('region', { name: 'Rest of the day' });
   return region ? within(region).queryAllByRole('listitem') : [];
 };
 const dayGames = () => [...toDecide(), ...rest()];
-const actionable = () => toDecide().filter((card) => within(card).queryByRole('button', { name: /^Ignore/ }));
+const actionable = () => toDecide().filter((card) => within(card).queryByRole('button', { name: /^(Stay on|Not worth)/ }));
 const deviations = () => actionable().filter((card) => card.textContent?.includes('You played'));
 
 describe('GameChecksPage', () => {
@@ -52,7 +52,7 @@ describe('GameChecksPage', () => {
   it('starts on the day the repertoire is created, with no game yet', () => {
     page();
 
-    expect(replayBar()).toHaveTextContent('Wed, 31 Dec 2025repertoire created');
+    expect(replayBar()).toHaveTextContent('Wed, 31 Dec 2025Replay · repertoire created');
     expect(dayGames()).toHaveLength(0);
   });
 
@@ -60,7 +60,7 @@ describe('GameChecksPage', () => {
     page();
     nextDay();
 
-    expect(replayBar()).toHaveTextContent('Sun, 4 Jan 2026day 1 of 49 · 11 games');
+    expect(replayBar()).toHaveTextContent('Sun, 4 Jan 2026Replay · day 1 of 49 · 11 games');
     expect(dayGames()).toHaveLength(11);
     expect(screen.getAllByText(/You played/).map((verdict) => verdict.textContent)).toEqual([
       'You played 3.c4, your repertoire has 3.♘f3',
@@ -86,8 +86,8 @@ describe('GameChecksPage', () => {
     page();
     nextDay();
     expect(deviations()).toHaveLength(2);
-    fireEvent.click(within(deviations()[0]).getByRole('button', { name: /^Ignore/ }));
-    expect(rest().some((card) => card.textContent?.includes('Ignored'))).toBe(true);
+    fireEvent.click(within(deviations()[0]).getByRole('button', { name: /^(Stay on|Not worth)/ }));
+    expect(rest().some((card) => card.textContent?.includes('Set aside'))).toBe(true);
 
     nextDay();
 
@@ -97,7 +97,7 @@ describe('GameChecksPage', () => {
   it('forgets the ignored games when the replay is reset', () => {
     page();
     nextDay();
-    fireEvent.click(within(actionable()[0]).getByRole('button', { name: /^Ignore/ }));
+    fireEvent.click(within(actionable()[0]).getByRole('button', { name: /^(Stay on|Not worth)/ }));
     expect(actionable()).toHaveLength(7);
 
     fireEvent.click(within(replayBar()).getByRole('button', { name: 'Reset' }));
@@ -116,7 +116,7 @@ describe('GameChecksPage', () => {
     expect(panel).toHaveTextContent('You played 1…♘f6: what do you want to play here?');
     playOnBoard('g8', 'f6');
     expect(within(panel).getByRole('list', { name: 'To add' })).toHaveTextContent('1…♘f6');
-    fireEvent.click(within(panel).getByRole('button', { name: 'Add to my repertoire · 1 move' }));
+    fireEvent.click(within(panel).getByRole('button', { name: 'Add to my repertoire · 1 new move' }));
 
     expect(screen.queryByRole('region', { name: 'Addition' })).not.toBeInTheDocument();
     expect(deviations()).toHaveLength(1);
@@ -127,20 +127,20 @@ describe('GameChecksPage', () => {
     page();
     nextDay();
     const philidor = dayGames().find((card) => card.textContent?.includes('3…b6'))!;
-    fireEvent.click(within(philidor).getByRole('button', { name: /^Add/ }));
+    fireEvent.click(within(philidor).getByRole('button', { name: /^Prepare an answer/ }));
 
     const panel = screen.getByRole('region', { name: 'Addition' });
     expect(panel).toHaveTextContent('Prepare your answer to 3…b6');
     playOnBoard('d4', 'e5');
 
     expect(within(panel).getByRole('list', { name: 'To add' })).toHaveTextContent('3…b64.dxe5');
-    expect(within(panel).getByRole('button', { name: 'Add to my repertoire · 2 moves' })).toBeInTheDocument();
+    expect(within(panel).getByRole('button', { name: 'Add to my repertoire · 2 new moves' })).toBeInTheDocument();
   });
 
   it('opens a branch by going back with the arrow keys, and returns to a move from the list', () => {
     page();
     nextDay();
-    fireEvent.click(within(dayGames().find((card) => card.textContent?.includes('3…b6'))!).getByRole('button', { name: /^Add/ }));
+    fireEvent.click(within(dayGames().find((card) => card.textContent?.includes('3…b6'))!).getByRole('button', { name: /^Prepare an answer/ }));
     playOnBoard('d4', 'e5');
 
     fireEvent.keyDown(window, { key: 'ArrowLeft' });
@@ -186,6 +186,6 @@ describe('GameChecksPage', () => {
     fireEvent.click(screen.getByRole('switch', { name: 'Play as Black' }));
     fireEvent.click(screen.getByRole('button', { name: '1.d4' }));
 
-    expect(screen.getByRole('complementary', { name: 'Position' })).toHaveTextContent('Repertoire 1…d5 · 1…♘f6');
+    expect(screen.getByRole('complementary', { name: 'Position' })).toHaveTextContent('Your repertoire here: 1…d5 · 1…♘f6');
   });
 });

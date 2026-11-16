@@ -32,9 +32,7 @@ export function HomePage() {
     <MotionConfig reducedMotion="user">
       <div className="min-h-screen pb-20" style={{ fontFamily: FONT_FAMILY, background: COLOURS.cream, color: COLOURS.leaf }}>
         <PageHeader>
-          <span className="sm:ml-auto">
-            <ReplayBar replay={{ ...replay, reset }} />
-          </span>
+          <ReplayBar replay={{ ...replay, reset }} />
         </PageHeader>
         <main className="mx-auto flex max-w-[30rem] flex-col gap-4 px-4 pt-8">
           <Door
@@ -46,28 +44,19 @@ export function HomePage() {
                 : 'No game yet: your repertoire was just created'
             }
           />
-          <Door
-            title="I want to work"
-            detail={priority ? <PriorityLabel priority={priority} /> : 'No priority'}
-            note="Next brick"
-          />
+          <Door title="I want to work" to="/dev/tree" detail={priority ? <PriorityLabel priority={priority} /> : 'No priority'} />
         </main>
       </div>
     </MotionConfig>
   );
 }
 
-function Door({ to, title, detail, note }: { to?: string; title: string; detail: ReactNode; note?: string }) {
+function Door({ to, title, detail }: { to?: string; title: string; detail: ReactNode }) {
   const body = (
     <>
       <span className="flex items-baseline justify-between gap-3">
         <span className="text-[24px] font-extrabold tracking-[-0.02em]">{title}</span>
         {to && <span className="text-[22px] font-bold">→</span>}
-        {note && (
-          <span className="text-[12px] font-semibold" style={{ color: COLOURS.leafSoft }}>
-            {note}
-          </span>
-        )}
       </span>
       <span className="text-[15px]" style={{ color: to ? undefined : COLOURS.leafSoft }}>
         {detail}

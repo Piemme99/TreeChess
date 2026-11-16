@@ -3,10 +3,11 @@ import { figurine } from '../domain/notation';
 import type { VisibleNode } from './fold';
 import type { MapNode } from './repertoireMap';
 
-export const ROW = 38;
+export const ROW = 34;
 export const COLUMN = 128;
-export const PILL_HEIGHT = 26;
-const CHAR = 7.4;
+export const PILL_HEIGHT = 24;
+export const FONT_SIZE = 14;
+const CHAR = 8;
 const PADDING = 18;
 
 export interface PlacedNode {

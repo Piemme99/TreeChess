@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import { useMemo } from 'react';
 import { useOpeningName } from '../../../shared/hooks/useOpeningName';
-import { formatLine, formatMove } from '../domain/notation';
+import { figurineMove, formatLine } from '../domain/notation';
 import type { Priority } from '../domain/priorities';
 import { replayLine } from '../position/replay';
 import { SPRING, COLOURS, raised, ZOOM } from '../workshop/theme';
@@ -17,10 +17,10 @@ export function PriorityTickets({ priorities, isSelected, onSelect, onPoint }: P
   const heaviest = Math.max(...priorities.map((priority) => priority.pointsToGain));
   return (
     <section aria-labelledby="priorities-title" className="flex flex-col gap-4">
-      <h2 id="priorities-title" className="flex items-baseline gap-3 text-[30px] leading-none font-extrabold tracking-[-0.03em]">
-        Fix these first
+      <h2 id="priorities-title" className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-[30px] leading-none font-extrabold tracking-[-0.03em]">
+        Priorities
         <span className="text-[14px] font-medium tracking-normal" style={{ color: COLOURS.leafSoft }}>
-          last 12 months
+          where you lose the most points, last 12 months
         </span>
       </h2>
       {priorities.length === 0 ? (
@@ -28,7 +28,7 @@ export function PriorityTickets({ priorities, isSelected, onSelect, onPoint }: P
           None
         </p>
       ) : (
-        <ol className="grid grid-cols-5 gap-3" onMouseLeave={() => onPoint(null)}>
+        <ol className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5" onMouseLeave={() => onPoint(null)}>
           {priorities.map((priority, index) => (
             <Ticket
               key={`${priority.side}:${priority.path.join(' ')}`}
@@ -89,7 +89,7 @@ function Ticket({ priority, rank, share, selected, onSelect, onPoint }: TicketPr
         </span>
         <span className="line-clamp-2 min-h-[2.5em] text-[14px] leading-tight font-semibold">{opening?.name ?? 'Unnamed line'}</span>
         <span className="text-[13px]" style={{ opacity: 0.75 }}>
-          {formatMove(priority.path[last - 1], last)}
+          {figurineMove(priority.path[last - 1], last)}
         </span>
         <span className="sr-only">{formatLine(priority.path)}</span>
         <span

@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import { useMemo } from 'react';
 import { useOpeningName } from '../../../shared/hooks/useOpeningName';
-import { figurineMove, formatLine } from '../domain/notation';
+import { figurineLine, figurineMove } from '../domain/notation';
 import { nodeAt, type OpeningTree } from '../domain/openingTree';
 import { scoreRate } from '../domain/performance';
 import { repertoireMovesAt, type Repertoire } from '../domain/repertoire';
@@ -31,24 +31,26 @@ export function BoardPanel({ history, recent, path, repertoire, onStudy }: Board
   }, [planned, recent, path]);
 
   return (
-    <aside aria-label="Position" className="sticky top-6 flex flex-col gap-4 self-start">
+    <aside aria-label="Position" className="mx-auto flex w-full max-w-[26rem] flex-col gap-4 self-start lg:sticky lg:top-6 lg:max-w-none">
       <ArrowBoard path={path} flipped={history.side === 'b'} arrows={arrows} />
       <div className="flex min-w-0 flex-col px-1">
-        <span className="truncate text-[19px] font-semibold tracking-[-0.01em]">
+        <span className="text-[19px] font-semibold leading-snug tracking-[-0.01em]">
           {opening?.name ?? (path.length ? 'Unnamed line' : 'Starting position')}
         </span>
-        <span className="truncate text-[14px]" style={{ color: COLOURS.leafSoft }}>
-          {formatLine(path) || '—'}
-        </span>
+        {path.length > 0 && (
+          <span className="text-[14px]" style={{ color: COLOURS.leafSoft }}>
+            {figurineLine(path)}
+          </span>
+        )}
       </div>
       <p className="px-1 text-[14px]" style={{ color: COLOURS.leafSoft }}>
-        <span className="font-semibold">Repertoire </span>
+        <span className="font-semibold">Your repertoire here: </span>
         {planned.length ? (
           <span style={{ color: REPERTOIRE }} className="font-bold">
             {planned.map((move) => figurineMove(move.san, path.length + 1)).join(' · ')}
           </span>
         ) : (
-          'nothing planned here'
+          'nothing yet'
         )}
       </p>
       <div className="flex flex-wrap items-end gap-5 px-1">

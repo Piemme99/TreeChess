@@ -78,9 +78,12 @@ export function PlayableBoard({ path, flipped, arrows = [], suggestions = [], on
     const target = targets.some((candidate) => candidate.to === square);
     const landing = !from && suggested.some((candidate) => candidate.to === square);
     const style: CSSProperties = { position: 'relative', width: '100%', height: '100%' };
-    const occupied = Boolean(chess.get(square as Square));
+    const piece = chess.get(square as Square);
+    const occupied = Boolean(piece);
+    const name = piece ? `${square}, ${piece.color === 'w' ? 'white' : 'black'} ${PIECE_NAMES[piece.type]}` : square;
     return (
-      <div style={style}>
+      <div style={style} aria-label={name}>
+        {square === from && <span aria-hidden="true" style={{ position: 'absolute', inset: 0, background: 'oklch(0.80 0.14 75 / 0.55)' }} />}
         {children}
         {(target || landing) && <Dot ring={target && occupied} faint={!target} />}
       </div>
@@ -125,8 +128,11 @@ export function PlayableBoard({ path, flipped, arrows = [], suggestions = [], on
   );
 }
 
+const PIECE_NAMES: Record<string, string> = { p: 'pawn', n: 'knight', b: 'bishop', r: 'rook', q: 'queen', k: 'king' };
+
+// Assez sombres pour se voir sur les cases vertes, pas au point de couvrir la pièce.
 function Dot({ ring, faint }: { ring: boolean; faint: boolean }) {
-  const ink = faint ? 'oklch(0.3 0.06 150 / 0.22)' : 'oklch(0.3 0.06 150 / 0.35)';
+  const ink = faint ? 'oklch(0.25 0.06 150 / 0.35)' : 'oklch(0.25 0.06 150 / 0.55)';
   const style: CSSProperties = ring
     ? { inset: 0, borderRadius: '50%', boxShadow: `inset 0 0 0 5px ${ink}` }
     : { left: '50%', top: '50%', width: faint ? '18%' : '28%', height: faint ? '18%' : '28%', borderRadius: '50%', background: ink, transform: 'translate(-50%, -50%)' };

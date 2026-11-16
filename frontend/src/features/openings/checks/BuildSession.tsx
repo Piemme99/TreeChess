@@ -43,10 +43,15 @@ interface BuildSessionProps {
   onAccept: (moves: AddedMove[], lines: (readonly string[])[]) => void;
   onCancel: () => void;
   children?: ReactNode;
+  /** Dans un volet : l'échiquier au-dessus du panneau, quelle que soit la largeur. */
+  stacked?: boolean;
 }
 
+// Trois flèches au plus, comme partout : au-delà, l'échiquier ne se lit plus.
+const MAX_ARROWS = 3;
+
 /** Le joueur construit son ajout en jouant : l'échiquier devient jouable, le panneau le guide. */
-export function BuildSession({ origin, games, repertoire, onAccept, onCancel, children }: BuildSessionProps) {
+export function BuildSession({ origin, games, repertoire, onAccept, onCancel, children, stacked = false }: BuildSessionProps) {
   const builder = useBuilder(origin, games);
   const candidates = useCandidates(builder);
   useArrowKeys(builder.navigate);
@@ -57,24 +62,38 @@ export function BuildSession({ origin, games, repertoire, onAccept, onCancel, ch
   const atStart = origin.played !== undefined && builder.path.length === builder.start.length;
   // Quand le moteur jouerait le coup de la partie, la flèche est à lui : l'orange dit plus que le rouge.
   const agree = atStart && engine === origin.played;
-  const suggestions = useMemo(() => candidates.rows.map((row) => row.san), [candidates.rows]);
-
   const arrows = useMemo((): BoardArrow[] => {
-    const shown = repertoireMovesAt(repertoire, builder.fen).map(
-      (move): BoardArrow => ({ san: move.san, kind: 'repertoire', share: 0.5 }),
-    );
+    const shown = repertoireMovesAt(repertoire, builder.fen)
+      .slice(0, MAX_ARROWS)
+      .map((move): BoardArrow => ({ san: move.san, kind: 'repertoire', share: 0.5 }));
     // Le coup de la partie reste rouge même s'il est candidat : c'est lui qu'on juge.
     if (atStart && !agree) shown.push({ san: origin.played!, kind: 'costly', share: 0.5 });
-    for (const row of candidates.rows) {
+    const ranked = [...candidates.rows].sort((a, b) => Number(b.engine) - Number(a.engine) || (b.share ?? 0) - (a.share ?? 0) || b.mine - a.mine);
+    for (const row of ranked) {
       if (shown.some((arrow) => arrow.san === row.san)) continue;
+      if (shown.length >= MAX_ARROWS && row.san !== pointed) continue;
       shown.push({ san: row.san, kind: row.engine ? 'engine' : 'neutral', share: Math.max(row.share ?? 0.2, 0.2), emphasis: row.engine || row.san === pointed });
     }
     return shown;
   }, [repertoire, builder.fen, candidates.rows, atStart, agree, origin.played, pointed]);
+  const suggestions = useMemo(() => arrows.flatMap((arrow) => ('kind' in arrow && arrow.kind === 'costly' ? [] : [arrow.san])), [arrows]);
+  const fresh = useMemo(() => {
+    const added = draftMoves(builder.draft);
+    return builder.draft.filter((_, index) => !repertoire.moves.get(added[index].position)?.some((move) => move.san === added[index].san));
+  }, [builder.draft, repertoire]);
 
   return (
-    <main className="mx-auto flex max-w-[84rem] flex-col gap-6 px-4 pt-6 lg:grid lg:grid-cols-[minmax(0,30rem)_1fr] lg:gap-10 lg:px-8 lg:pt-8">
-      <aside aria-label="Position" className="flex flex-col gap-3 self-start lg:sticky lg:top-6">
+    <main
+      className={
+        stacked
+          ? 'flex flex-col gap-4 sm:grid sm:grid-cols-[minmax(0,16rem)_minmax(0,1fr)] sm:items-start lg:flex lg:flex-col xl:grid xl:grid-cols-[minmax(0,16rem)_minmax(0,1fr)]'
+          : 'mx-auto flex max-w-[84rem] flex-col gap-6 px-4 pt-6 lg:grid lg:grid-cols-[minmax(0,30rem)_1fr] lg:gap-10 lg:px-8 lg:pt-8'
+      }
+    >
+      <aside
+        aria-label="Position"
+        className={`flex flex-col gap-3 self-start ${stacked ? 'mx-auto w-full max-w-[20rem] sm:mx-0 sm:max-w-none lg:mx-auto lg:max-w-[20rem] xl:mx-0 xl:max-w-none' : 'lg:sticky lg:top-6'}`}
+      >
         <PlayableBoard path={builder.path} flipped={origin.side === 'b'} arrows={arrows} suggestions={suggestions} onMove={builder.play} />
         <p className="flex flex-wrap gap-x-4 gap-y-1 px-1 text-[12px] font-semibold" style={{ color: ARROW.neutral.colour }}>
           <Swatch colour={ARROW.repertoire.colour}>repertoire</Swatch>
@@ -83,12 +102,13 @@ export function BuildSession({ origin, games, repertoire, onAccept, onCancel, ch
           {arrows.some((arrow) => 'kind' in arrow && arrow.kind === 'neutral') && <Swatch colour={ARROW.neutral.colour}>at your level</Swatch>}
         </p>
       </aside>
-      <div className="flex min-w-0 flex-col gap-6 lg:gap-10">
+      <div className={`flex min-w-0 flex-col ${stacked ? 'gap-4' : 'gap-6 lg:gap-10'}`}>
         <BuildPanel
           builder={builder}
           candidates={candidates}
+          fresh={fresh}
           onPoint={(san) => setPointedAt(san ? { fen: builder.fen, san } : null)}
-          onAccept={() => onAccept(draftMoves(builder.draft), draftLines(builder.draft))}
+          onAccept={() => onAccept(draftMoves(fresh), draftLines(builder.draft))}
           onCancel={onCancel}
         />
         {children}

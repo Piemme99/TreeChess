@@ -97,7 +97,7 @@ export function OpeningsPage() {
       <div className="min-h-screen pb-28" style={{ fontFamily: FONT_FAMILY, background: COLOURS.cream, color: COLOURS.leaf }}>
         <PageHeader>
           {!studied && (
-            <span className="ml-auto flex items-center gap-6">
+            <span className="flex items-center justify-between gap-6">
               <span className="text-[14px]" style={{ color: COLOURS.leafSoft }}>
                 as of <span className="font-semibold">{formatDay(replay.day)}</span>
               </span>
@@ -107,7 +107,7 @@ export function OpeningsPage() {
         </PageHeader>
 
         {studied ? (
-          <main className="mx-auto max-w-[84rem] px-8 pt-8">
+          <main className="mx-auto max-w-[84rem] px-4 pt-6 sm:px-8 sm:pt-8">
             <LineView
               key={`${studied.side}:${studied.path.join(' ')}`}
               tree={recentTrees[studied.side]}
@@ -118,7 +118,7 @@ export function OpeningsPage() {
             />
           </main>
         ) : (
-          <main className="mx-auto grid max-w-[84rem] grid-cols-[minmax(0,30rem)_1fr] gap-10 px-8 pt-8">
+          <main className="mx-auto flex max-w-[84rem] flex-col gap-8 px-4 pt-6 sm:px-8 lg:grid lg:grid-cols-[minmax(0,30rem)_1fr] lg:gap-10 lg:pt-8">
             <BoardPanel
               history={trees[shown.side]}
               recent={recentTrees[shown.side]}

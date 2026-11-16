@@ -25,7 +25,7 @@ describe('PriorityTickets', () => {
 
     const [first, second] = screen.getAllByRole('button');
     for (const text of ['1', 'White', '2.exd5']) expect(first).toHaveTextContent(text);
-    for (const text of ['2', 'Black', '1…Nf6']) expect(second).toHaveTextContent(text);
+    for (const text of ['2', 'Black', '1…♘f6']) expect(second).toHaveTextContent(text);
   });
 
   it('shows each impact relative to the heaviest priority', () => {

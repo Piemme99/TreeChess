@@ -11,6 +11,7 @@ export const ENGINE_DEPTH = 14;
 // Peu de suggestions : trois coups du niveau, le coup du moteur et les siens suffisent à choisir.
 const MAX_CANDIDATES = 3;
 const MAX_REPLIES = 4;
+const MAX_OWN = 3;
 // Une réponse adverse plus rare que ça à ton niveau ne vaut pas une ligne ; on peut toujours la jouer.
 const MIN_REPLY_SHARE = 0.05;
 
@@ -34,7 +35,7 @@ export interface Candidates {
   costly: Candidate[];
   /** Ce que vaut la position courante et le coup que jouerait le moteur. */
   here?: Evaluation & { san: string | null };
-  explorer: 'missing' | 'asking' | 'ready';
+  explorer: 'missing' | 'asking' | 'failed' | 'ready';
 }
 
 const afterMove = (fen: string, san: string) => {
@@ -53,14 +54,17 @@ export function useCandidates(builder: Builder): Candidates {
   const here = useEvaluations(hereFens, ENGINE_DEPTH).get(fen);
   const engineSan = playerToMove ? uciToSan(fen, here?.best) : null;
 
+  const stats = typeof explorer === 'object' ? explorer : null;
   const base = useMemo(() => {
-    const total = explorer ? explorer.white + explorer.draws + explorer.black : 0;
-    const known = explorer?.moves ?? [];
+    const total = stats ? stats.white + stats.draws + stats.black : 0;
+    const known = stats?.moves ?? [];
     const listed = playerToMove
       ? known.slice(0, MAX_CANDIDATES)
       : known.filter((move) => (move.white + move.draws + move.black) / total >= MIN_REPLY_SHARE).slice(0, MAX_REPLIES);
     const sans = [...listed.map((move) => move.san)];
-    for (const san of mine.keys()) if (!sans.includes(san)) sans.push(san);
+    // Ses propres coups les plus joués seulement : une ligne par coup rencontré une fois noierait le choix.
+    const habits = [...mine.entries()].sort((a, b) => b[1] - a[1]).slice(0, MAX_OWN).map(([san]) => san);
+    for (const san of habits) if (!sans.includes(san)) sans.push(san);
     if (engineSan && !sans.includes(engineSan)) sans.push(engineSan);
     return sans.map((san) => {
       const stats = known.find((move) => move.san === san);
@@ -75,7 +79,7 @@ export function useCandidates(builder: Builder): Candidates {
         fen: afterMove(fen, san),
       };
     });
-  }, [explorer, playerToMove, mine, engineSan, side, fen]);
+  }, [stats, playerToMove, mine, engineSan, side, fen]);
 
   const fens = useMemo(() => base.map((row) => row.fen), [base]);
   const evaluations = useEvaluations(fens, ENGINE_DEPTH);
@@ -91,6 +95,6 @@ export function useCandidates(builder: Builder): Candidates {
     rows: all.filter((row) => !costly.includes(row)),
     costly,
     here: here && { ...here, san: engineSan },
-    explorer: explorer === null ? 'missing' : explorer === undefined ? 'asking' : 'ready',
+    explorer: explorer === undefined ? 'asking' : typeof explorer === 'string' ? explorer : 'ready',
   };
 }

@@ -2,9 +2,9 @@ import { MotionConfig, motion } from 'framer-motion';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { BuildSession } from '../checks/BuildSession';
 import { originAt, originOf, type BuildOrigin } from '../checks/useBuilder';
-import type { AddedMove } from '../domain/addition';
+import type { AddedMove, Addition } from '../domain/addition';
 import { buildOpeningTree, type OpeningTree } from '../domain/openingTree';
-import { figurineLine } from '../domain/notation';
+import { figurineLine, figurineMove } from '../domain/notation';
 import { gamesOfLastMonths } from '../domain/period';
 import type { PlayedGame, Side } from '../domain/playedGame';
 import { findPriorities, type Priority } from '../domain/priorities';
@@ -14,8 +14,10 @@ import { useReplayedSession } from '../session/useReplayedSession';
 import { PageHeader } from '../workshop/PageHeader';
 import { SideSwitch } from '../workshop/SideSwitch';
 import { COLOURS, FONT_FAMILY, raised, SPRING } from '../workshop/theme';
+import { Toast } from '../workshop/Toast';
+import { useToast } from '../workshop/useToast';
 import { useWorkshopFont } from '../workshop/useWorkshopFont';
-import { PositionPane } from './PositionPane';
+import { PositionPane, type StepActions } from './PositionPane';
 import { RepertoireMap } from './RepertoireMap';
 import { buildRepertoireMap, forEachNode, markedNodes, type MapNode } from './repertoireMap';
 
@@ -26,24 +28,29 @@ const MAX_PRIORITIES = 5;
 interface Session {
   /** Les étapes connues à l'ouverture : un ajout peut en régler d'autres en route. */
   queue: readonly string[];
-  done: ReadonlySet<string>;
+  /** Par étape traitée : réglée, ou remise à plus tard. */
+  done: ReadonlyMap<string, 'settled' | 'skipped'>;
 }
+
+type View = 'map' | 'position';
 
 /** POC (README, « the tree as the landing screen ») : le répertoire comme carte, à côté de l'aiguillage pour comparer. */
 export function TreePage() {
   useWorkshopFont();
-  const { replay, known, repertoires, steps, add, ignore, forgetIgnored, forgetAdditions } = useReplayedSession();
+  const { replay, known, repertoires, steps, add, remove, ignore, unignore, forgetIgnored, forgetAdditions } = useReplayedSession();
   const [side, setSide] = useState<Side>('w');
   const [paths, setPaths] = useState<Record<Side, readonly string[]>>({ w: [], b: [] });
   const [focus, setFocus] = useState<{ key: string; stamp: number; centre: boolean } | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [building, setBuilding] = useState<{ origin: BuildOrigin; stepKey?: string } | null>(null);
+  // Sur le téléphone, la carte et le volet ne tiennent pas ensemble : un onglet à la fois.
+  const [view, setView] = useState<View>('map');
+  const { toast, show, close } = useToast();
 
   const { maps, recent, priorities } = useMaps(known, replay.day, repertoires, steps);
   const root = maps[side];
   const path = paths[side];
   const node = useMemo(() => nodeAlong(root, path), [root, path]);
-  const marked = useMemo(() => markedNodes(root), [root]);
   const stepsHere = useMemo(() => steps.filter((step) => step.side === side && step.games[0].check.position === node.position), [steps, side, node]);
   const priority = node.priority !== undefined ? priorities[node.priority - 1] : undefined;
 
@@ -54,13 +61,13 @@ export function TreePage() {
     setPaths((current) => ({ ...current, [target]: found.path }));
     setFocus({ key, stamp: Date.now(), centre });
   };
-  const play = (san: string) => {
-    const next = [...path, san];
+  const walk = (next: readonly string[]) => {
     setPaths((current) => ({ ...current, [side]: next }));
     const reached = nodeAlong(root, next);
     if (reached.path.length === next.length) setFocus({ key: reached.key, stamp: Date.now(), centre: false });
   };
-  const back = () => setPaths((current) => ({ ...current, [side]: current[side].slice(0, -1) }));
+  const play = (san: string) => walk([...path, san]);
+  const back = () => walk(path.slice(0, -1));
 
   // La séance : les positions à trancher, la plus fréquente d'abord, une par une.
   const live = useMemo(() => new Map(steps.map((step) => [step.key, step])), [steps]);
@@ -73,51 +80,104 @@ export function TreePage() {
     // goTo change à chaque rendu ; seule l'étape courante doit relancer le recentrage.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentKey]);
-  const finish = (key: string) => {
-    setSession((active) => active && { ...active, done: new Set(active.done).add(key) });
-    setBuilding(null);
-  };
+  const mark = (key: string, how: 'settled' | 'skipped' | null) =>
+    setSession((active) => {
+      if (!active) return active;
+      const done = new Map(active.done);
+      if (how) done.set(key, how);
+      else done.delete(key);
+      return { ...active, done };
+    });
   const startSession = () => {
-    setSession({ queue: steps.map((step) => step.key), done: new Set() });
+    setSession({ queue: steps.map((step) => step.key), done: new Map() });
     setBuilding(null);
+    setView('position');
+  };
+  const settle = (step: SessionStep, addition: Addition | null, text: string) => {
+    if (addition) add(addition);
+    mark(step.key, 'settled');
+    setBuilding(null);
+    show({
+      text,
+      undo: () => {
+        if (addition) remove(addition);
+        mark(step.key, null);
+      },
+    });
   };
   const accept = (moves: AddedMove[], lines: (readonly string[])[]) => {
     if (!building) return;
-    add({ side: building.origin.side, addedAt: replay.day, moves });
-    if (building.stepKey) finish(building.stepKey);
-    else setBuilding(null);
+    const addition: Addition = { side: building.origin.side, addedAt: replay.day, moves };
+    const text = `${moves.length} ${moves.length === 1 ? 'move' : 'moves'} added to your repertoire`;
+    const step = building.stepKey ? live.get(building.stepKey) : undefined;
+    if (step) {
+      settle(step, addition, text);
+      return;
+    }
+    add(addition);
+    setBuilding(null);
+    show({ text, undo: () => remove(addition) });
     // La ligne ajoutée se voit tout de suite, même trop fine pour l'arrivée.
     const line = lines[0];
-    if (line && !building.stepKey) {
+    if (line) {
       setPaths((current) => ({ ...current, [building.origin.side]: line }));
-      setFocus({ key: line.join(' '), stamp: Date.now(), centre: false });
+      setFocus({ key: line.join(' '), stamp: Date.now(), centre: true });
     }
   };
-  const actions = {
-    onKeep: (step: SessionStep) => setBuilding({ origin: originOf(step.games[0], true), stepKey: step.key }),
-    onPrepare: (step: SessionStep) => setBuilding({ origin: originOf(step.games[0], false), stepKey: step.key }),
-    onStay: (step: SessionStep) => {
-      step.games.forEach((checked) => ignore(checked.id));
-      finish(step.key);
+  const actions: StepActions = {
+    onAdd: (step) => {
+      const played = figurineMove(step.played, step.path.length + 1);
+      const addition: Addition = { side: step.side, addedAt: replay.day, moves: [{ position: step.games[0].check.position, san: step.played, source: 'habit' }] };
+      settle(step, addition, `${played} added to your repertoire`);
     },
+    onBuild: (step) => setBuilding({ origin: originOf(step.games[0], true), stepKey: step.key }),
+    onPrepare: (step) => setBuilding({ origin: originOf(step.games[0], false), stepKey: step.key }),
+    onStay: (step) => {
+      const ids = step.games.map((checked) => checked.id);
+      ids.forEach(ignore);
+      mark(step.key, 'settled');
+      const games = ids.length;
+      show({
+        text: `Repertoire unchanged · ${games} ${games === 1 ? 'game' : 'games'} set aside`,
+        undo: () => {
+          unignore(ids);
+          mark(step.key, null);
+        },
+      });
+    },
+  };
+  const skip = (step: SessionStep) => {
+    mark(step.key, 'skipped');
+    show({ text: 'Skipped: it stays to settle', undo: () => mark(step.key, null) });
   };
 
   const pins = useMemo(() => [...markedNodes(maps.w).priorities.map((n) => ({ side: 'w' as Side, node: n })), ...markedNodes(maps.b).priorities.map((n) => ({ side: 'b' as Side, node: n }))].sort((a, b) => a.node.priority! - b.node.priority!), [maps]);
   const goToPriority = (rank: number) => {
     const pin = pins.find((candidate) => candidate.node.priority === rank) ?? pins[0];
     if (pin) goTo(pin.side, pin.node.key, true);
+    setView('position');
   };
-  const positions = marked.toSettle.length;
-  const settled = session ? session.queue.filter((key) => session.done.has(key) || !live.has(key)).length : 0;
+  const position = session ? session.queue.indexOf(currentKey ?? '') + 1 : 0;
+  const counts = session ? [...session.done.values()] : [];
+  const settled = counts.filter((how) => how === 'settled').length;
+  const skipped = counts.filter((how) => how === 'skipped').length;
 
   useEffect(() => {
     if (building) return;
     const press = (event: KeyboardEvent) => {
-      if (event.target instanceof HTMLElement && ['INPUT', 'TEXTAREA'].includes(event.target.tagName)) return;
+      if (event.altKey || event.ctrlKey || event.metaKey) return;
+      if (event.target instanceof HTMLElement && event.target.closest('input, textarea, select, [contenteditable]')) return;
+      const inRepertoire = path.length === node.path.length;
+      const parent = path.length ? nodeAlong(root, path.slice(0, -1)) : null;
+      const siblings = parent && inRepertoire ? parent.children.filter((child) => !child.stub) : [];
+      const at = siblings.findIndex((child) => child.san === path[path.length - 1]);
       if (event.key === 'ArrowLeft' && path.length) back();
-      else if (event.key === 'ArrowRight' && path.length === node.path.length && node.children.length) {
+      else if (event.key === 'ArrowRight' && inRepertoire && node.children.length) {
         play([...node.children].sort((a, b) => b.games - a.games)[0].san!);
-      } else if (event.key === 'ArrowUp') setPaths((current) => ({ ...current, [side]: [] }));
+      } else if ((event.key === 'ArrowUp' || event.key === 'ArrowDown') && siblings.length > 1 && at >= 0) {
+        const next = siblings[(at + (event.key === 'ArrowDown' ? 1 : siblings.length - 1)) % siblings.length];
+        walk([...path.slice(0, -1), next.san!]);
+      } else if (event.key === 'Home') walk([]);
       else return;
       event.preventDefault();
     };
@@ -130,58 +190,93 @@ export function TreePage() {
     forgetIgnored();
     forgetAdditions();
     setSession(null);
+    setBuilding(null);
   });
   const habits = useMemo(() => known.filter((game) => game.side === building?.origin.side), [known, building?.origin.side]);
+  const first = steps[0];
 
   return (
     <MotionConfig reducedMotion="user">
-      <div className="min-h-screen pb-10" style={{ fontFamily: FONT_FAMILY, background: COLOURS.cream, color: COLOURS.leaf }}>
+      <div className="min-h-screen pb-24" style={{ fontFamily: FONT_FAMILY, background: COLOURS.cream, color: COLOURS.leaf }}>
         <PageHeader>
-          <span className="sm:ml-auto">
-            <ReplayBar replay={{ ...replay, reset }} />
-          </span>
+          <ReplayBar replay={{ ...replay, reset }} />
         </PageHeader>
-        {building ? (
-          <BuildSession
-            key={`${building.origin.start.join(' ')} ${building.stepKey ?? ''} ${building.origin.keep}`}
-            origin={building.origin}
-            games={habits}
-            repertoire={repertoires[building.origin.side]}
-            onAccept={accept}
-            onCancel={() => setBuilding(null)}
-          />
-        ) : (
-          <main className="mx-auto flex max-w-[84rem] flex-col gap-4 px-4 pt-5 sm:px-8">
-            <div className="flex flex-wrap items-center gap-3">
-              <SideSwitch side={side} onChange={(next) => setSide(next)} />
-              <span className="text-[14px]" style={{ color: COLOURS.leafSoft }}>
-                {positions} {positions === 1 ? 'position' : 'positions'} to settle as {side === 'w' ? 'White' : 'Black'}
-              </span>
-              <span className="flex flex-wrap gap-2 sm:ml-auto">
-                <Door onClick={steps.length && !session ? startSession : undefined} title={session ? `Session · ${Math.min(settled + 1, session.queue.length)} / ${session.queue.length}` : `${steps.length} to settle`}>
-                  {session ? (current ? `${current.games.length} games at ${figurineLine(current.path) || 'the start'}` : 'done for today') : steps.length ? `${steps[0].games.length} games at ${figurineLine(steps[0].path) || 'the start'}` : 'nothing to settle'}
-                </Door>
-                <Door onClick={pins.length ? () => goToPriority(1) : undefined} title="Priority 1">
-                  {priorities[0] ? <PriorityLabel priority={priorities[0]} /> : 'no priority'}
-                </Door>
-              </span>
+        <main className="mx-auto flex max-w-[84rem] flex-col gap-4 px-4 pt-5 sm:px-8">
+          <div className="flex flex-wrap items-center gap-3">
+            <SideSwitch side={side} onChange={(next) => !building && setSide(next)} />
+            <div role="tablist" aria-label="View" className="ml-auto flex gap-1 rounded-full p-1 lg:hidden" style={{ background: COLOURS.sand }}>
+              {(['map', 'position'] as const).map((tab) => (
+                <button
+                  key={tab}
+                  type="button"
+                  role="tab"
+                  aria-selected={view === tab}
+                  onClick={() => setView(tab)}
+                  className="rounded-full px-4 py-1.5 text-[14px] font-bold"
+                  style={view === tab ? { background: COLOURS.leaf, color: COLOURS.cream } : { color: COLOURS.leaf }}
+                >
+                  {tab === 'map' ? 'Map' : building ? 'Building' : 'Position'}
+                </button>
+              ))}
             </div>
-            <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_21rem]">
-              <div className="h-[60vh] min-h-[380px] lg:h-[calc(100vh-13rem)]">
-                <RepertoireMap root={root} side={side} selected={node.key} onSelect={(key) => goTo(side, key, false)} focus={focus} />
-              </div>
+            <span className="flex w-full flex-wrap gap-2 sm:ml-auto sm:w-auto sm:flex-nowrap">
+              {session && current ? (
+                <SessionBar index={position} total={session.queue.length} settled={settled} onEnd={() => setSession(null)} />
+              ) : (
+                <Door
+                  onClick={steps.length && !session ? startSession : undefined}
+                  title={steps.length ? `${steps.length} to settle` : 'Nothing to settle'}
+                  tone={steps.length && !session ? 'terracotta' : 'plain'}
+                >
+                  {first
+                    ? `Start with ${first.games.length} ${first.games.length === 1 ? 'game' : 'games'} at ${figurineLine(first.path) || 'the start'}`
+                    : replay.next
+                      ? 'Press “Next day” to bring games in'
+                      : 'All games replayed'}
+                </Door>
+              )}
+              <Door onClick={pins.length ? () => goToPriority(1) : undefined} title={priorities.length ? `Priority 1 of ${priorities.length}` : 'No priority'}>
+                {priorities[0] ? <PriorityLabel priority={priorities[0]} /> : 'Nothing below your average'}
+              </Door>
+            </span>
+          </div>
+          <div className={`grid gap-5 ${building ? 'lg:grid-cols-[minmax(0,1fr)_minmax(0,46rem)]' : 'lg:grid-cols-[minmax(0,1fr)_24rem]'}`}>
+            <div className={`h-[68vh] min-h-[380px] lg:sticky lg:top-4 lg:block lg:h-[calc(100vh-11rem)] ${view === 'map' ? '' : 'hidden'}`}>
+              <RepertoireMap
+                root={root}
+                side={side}
+                selected={node.key}
+                onSelect={(key) => {
+                  goTo(side, key, false);
+                  setView('position');
+                }}
+                focus={focus}
+                locked={building !== null}
+              />
+            </div>
+            <div className={`flex min-w-0 flex-col gap-3 lg:sticky lg:top-4 lg:flex lg:max-h-[calc(100vh-2rem)] lg:self-start lg:overflow-y-auto lg:px-1 lg:pb-2 ${view === 'position' ? '' : 'hidden'}`}>
               {session && !current ? (
-                <Done settled={settled} onClose={() => setSession(null)} />
+                <Done settled={settled} skipped={skipped} left={steps.length} onClose={() => setSession(null)} />
+              ) : building ? (
+                <BuildSession
+                  key={`${building.origin.start.join(' ')} ${building.stepKey ?? ''} ${building.origin.keep}`}
+                  origin={building.origin}
+                  games={habits}
+                  repertoire={repertoires[building.origin.side]}
+                  onAccept={accept}
+                  onCancel={() => setBuilding(null)}
+                  stacked
+                />
               ) : (
                 <PositionPane
+                  side={side}
                   path={path}
                   node={node}
-                  flipped={side === 'b'}
                   recent={recent[side]}
                   steps={stepsHere}
                   priority={priority}
                   actions={actions}
-                  session={session && current ? { index: settled + 1, total: session.queue.length, onSkip: () => finish(current.key) } : undefined}
+                  onSkip={session && current && stepsHere.includes(current) ? () => skip(current) : undefined}
                   onNextPriority={pins.length > 1 && node.priority !== undefined ? () => goToPriority(node.priority! + 1) : undefined}
                   onExtend={() => setBuilding({ origin: originAt(side, node.path, path) })}
                   onPrepareFollows={priority ? () => setBuilding({ origin: originAt(side, priority.path, priority.path) }) : undefined}
@@ -190,8 +285,9 @@ export function TreePage() {
                 />
               )}
             </div>
-          </main>
-        )}
+          </div>
+        </main>
+        <Toast toast={toast} onClose={close} />
       </div>
     </MotionConfig>
   );
@@ -201,21 +297,41 @@ function PriorityLabel({ priority }: { priority: Priority }) {
   return <>{`${priority.side === 'w' ? 'White' : 'Black'} · ${figurineLine(priority.path)}`}</>;
 }
 
-function Done({ settled, onClose }: { settled: number; onClose: () => void }) {
+function SessionBar({ index, total, settled, onEnd }: { index: number; total: number; settled: number; onEnd: () => void }) {
+  return (
+    <div aria-label="Progress" className="flex w-full min-w-0 items-center gap-3 rounded-2xl px-4 py-3 text-[14px] font-semibold sm:w-[19rem]" style={raised(false)}>
+      <span className="whitespace-nowrap">
+        Session · {index} of {total}
+      </span>
+      <span className="h-1.5 min-w-8 flex-1 overflow-hidden rounded-full" style={{ background: COLOURS.sand }}>
+        <motion.span className="block h-full rounded-full" style={{ background: COLOURS.leaf }} animate={{ width: `${(settled / total) * 100}%` }} transition={SPRING} />
+      </span>
+      <button type="button" onClick={onEnd} className="whitespace-nowrap rounded-lg px-2 py-1 underline-offset-4 hover:underline focus-visible:outline-2" style={{ color: COLOURS.leafSoft }}>
+        End session
+      </button>
+    </div>
+  );
+}
+
+function Done({ settled, skipped, left, onClose }: { settled: number; skipped: number; left: number; onClose: () => void }) {
   return (
     <aside aria-label="Done" className="flex flex-col items-start gap-3 self-start rounded-3xl p-5" style={raised(false)}>
-      <span className="text-[24px] font-extrabold tracking-[-0.02em]">Done for today</span>
-      <span style={{ color: COLOURS.leafSoft }}>
-        {settled} {settled === 1 ? 'position' : 'positions'} gone through.
+      <span className="text-[24px] font-extrabold tracking-[-0.02em]">Session done</span>
+      <span className="text-[15px]">
+        <strong>{settled}</strong> settled · <strong>{skipped}</strong> skipped for later
       </span>
-      <motion.button type="button" onClick={onClose} whileTap={{ scale: 0.97 }} transition={SPRING} className="rounded-full px-4 py-2 font-bold" style={raised(true)}>
-        Back to the tree
+      <span className="text-[14px]" style={{ color: COLOURS.leafSoft }}>
+        {left ? `${left} still to settle: they stay marked on the map.` : 'Nothing left to settle. Come back after your next games.'}
+      </span>
+      <motion.button type="button" onClick={onClose} whileTap={{ scale: 0.97 }} transition={SPRING} className="rounded-full px-4 py-2 font-bold focus-visible:outline-2" style={raised(true)}>
+        Close
       </motion.button>
     </aside>
   );
 }
 
-function Door({ onClick, title, children }: { onClick?: () => void; title: string; children: ReactNode }) {
+function Door({ onClick, title, tone = 'plain', children }: { onClick?: () => void; title: string; tone?: 'plain' | 'terracotta'; children: ReactNode }) {
+  const accent = tone === 'terracotta';
   return (
     <motion.button
       type="button"
@@ -224,11 +340,11 @@ function Door({ onClick, title, children }: { onClick?: () => void; title: strin
       whileHover={onClick ? { y: -2 } : undefined}
       whileTap={onClick ? { scale: 0.97 } : undefined}
       transition={SPRING}
-      className="flex flex-col items-start rounded-2xl px-4 py-2 text-left"
-      style={{ ...raised(false), opacity: onClick ? 1 : 0.6 }}
+      className="flex min-w-0 flex-1 flex-col items-start rounded-2xl px-4 py-2 text-left focus-visible:outline-2 focus-visible:outline-offset-2 sm:max-w-[19rem] sm:flex-none"
+      style={{ ...raised(false), ...(accent ? { background: COLOURS.terracotta, color: 'white' } : {}), opacity: onClick ? 1 : 0.7 }}
     >
       <span className="text-[15px] font-extrabold tracking-[-0.01em]">{title}</span>
-      <span className="text-[12px]" style={{ color: COLOURS.leafSoft }}>
+      <span className="w-full truncate text-[12px]" style={{ color: accent ? 'oklch(1 0 0 / 0.85)' : COLOURS.leafSoft }}>
         {children}
       </span>
     </motion.button>

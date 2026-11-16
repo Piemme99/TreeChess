@@ -1,6 +1,5 @@
-// Explorateur Lichess : les parties au niveau du joueur et celles des maîtres. Il exige un jeton :
-// en attendant de passer par l'OAuth du backend (brique import), un jeton personnel dans
-// VITE_LICHESS_TOKEN (frontend/.env.local, ignoré par git).
+// Explorateur Lichess : les parties au niveau du joueur et celles des maîtres. Un jeton personnel
+// facultatif dans VITE_LICHESS_TOKEN (frontend/.env.local, ignoré par git), en attendant l'OAuth du backend.
 import type { ExplorerStats } from '../domain/preparation';
 
 export interface ExplorerGame {
@@ -28,7 +27,7 @@ const STORAGE = 'kumquat-explorer:';
 const RATE_LIMIT_PAUSE = 60_000;
 const SPACING = 250;
 
-export const hasExplorer = () => Boolean(TOKEN);
+export const hasExplorer = () => true;
 
 let chain: Promise<unknown> = Promise.resolve();
 
@@ -49,14 +48,18 @@ const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // Une requête à la fois, comme Lichess le demande ; le cache local évite de refaire l'arbre à chaque rechargement.
 export function explore(database: Database, fen: string): Promise<ExplorerResult | null> {
-  if (!TOKEN) return Promise.resolve(null);
   const url = urlOf(database, fen);
   const stored = localStorage.getItem(STORAGE + url);
   if (stored) return Promise.resolve(JSON.parse(stored) as ExplorerResult);
 
   const run = async (): Promise<ExplorerResult | null> => {
     for (let attempt = 0; attempt < 2; attempt++) {
-      const response = await fetch(url, { headers: { Authorization: `Bearer ${TOKEN}` } });
+      // Depuis novembre 2026, l'explorateur répond sans jeton mais son CORS refuse l'en-tête Authorization :
+      // le jeton ne sert plus qu'en second essai, si Lichess le redemande.
+      let response = await fetch(url).catch(() => null);
+      if (response?.status === 401 && TOKEN) response = await fetch(url, { headers: { Authorization: `Bearer ${TOKEN}` } }).catch(() => null);
+      // Un réseau coupé ou un refus CORS rejette le fetch : sans ce filet, l'appelant attendrait pour toujours.
+      if (!response) return null;
       if (response.status === 429) {
         await pause(RATE_LIMIT_PAUSE);
         continue;

@@ -70,7 +70,7 @@ export function GameChecksPage() {
     <>
             <section aria-labelledby="decide-title" className="flex flex-col gap-3">
               <h2 id="decide-title" className="text-[22px] font-extrabold tracking-[-0.02em]">
-                To decide <span className="text-[15px] font-semibold" style={{ color: COLOURS.leafSoft }}>{toDecide.length}</span>
+                To settle <span className="text-[15px] font-semibold" style={{ color: COLOURS.leafSoft }}>{toDecide.length}</span>
               </h2>
               {toDecide.length ? (
                 <ul className="flex flex-col gap-2">
@@ -89,7 +89,7 @@ export function GameChecksPage() {
                 </ul>
               ) : (
                 <p style={{ color: COLOURS.leafSoft }}>
-                  {replay.index ? 'Nothing to decide.' : 'No game yet: your repertoire was just created. Press “Next day”.'}
+                  {replay.index ? 'Nothing to settle.' : 'No game yet: your repertoire was just created. Press “Next day”.'}
                 </p>
               )}
             </section>
@@ -119,9 +119,7 @@ export function GameChecksPage() {
     <MotionConfig reducedMotion="user">
       <div className="min-h-screen pb-28" style={{ fontFamily: FONT_FAMILY, background: COLOURS.cream, color: COLOURS.leaf }}>
         <PageHeader>
-          <span className="ml-auto">
-            <ReplayBar replay={{ ...replay, next, reset }} />
-          </span>
+          <ReplayBar replay={{ ...replay, next, reset }} />
         </PageHeader>
         {adding && adding.check.kind !== 'followed' ? (
           <BuildSession
@@ -135,7 +133,7 @@ export function GameChecksPage() {
             {lists}
           </BuildSession>
         ) : (
-          <main className="mx-auto grid max-w-[84rem] grid-cols-[minmax(0,30rem)_1fr] gap-10 px-8 pt-8">
+          <main className="mx-auto flex max-w-[84rem] flex-col gap-6 px-4 pt-6 sm:px-8 lg:grid lg:grid-cols-[minmax(0,30rem)_1fr] lg:gap-10 lg:pt-8">
             <CheckBoard checked={selected} repertoires={repertoires} judgement={selected ? judgementOf(selected) : undefined} />
             <div className="flex min-w-0 flex-col gap-10">{lists}</div>
           </main>
@@ -168,7 +166,7 @@ function CheckBoard({ checked, repertoires, judgement }: CheckBoardProps) {
   }, [checked, checkPath, repertoires, judgement]);
 
   return (
-    <aside aria-label="Position" className="sticky top-6 flex flex-col gap-3 self-start">
+    <aside aria-label="Position" className="mx-auto flex w-full max-w-[26rem] flex-col gap-3 self-start lg:sticky lg:top-6 lg:max-w-none">
       <ArrowBoard path={path} flipped={checked?.game.side === 'b'} arrows={arrows} />
       {checked?.check.kind === 'left' && (
         <p className="px-1 text-[14px]" style={{ color: COLOURS.leafSoft }}>

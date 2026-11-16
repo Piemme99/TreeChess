@@ -1,8 +1,8 @@
 import { motion } from 'framer-motion';
 import { useMemo, type ReactNode } from 'react';
-import { draftLines } from '../domain/addition';
+import { draftLines, type DraftMove } from '../domain/addition';
 import { MATE_CP, winChance } from '../domain/diagnosis';
-import { figurineMove } from '../domain/notation';
+import { figurineLine, figurineMove } from '../domain/notation';
 import { isPlayerMove } from '../domain/openingTree';
 import { formatPercent } from '../flame/format';
 import { JUDGEMENT_MARK, judgeMove, type Judgement } from '../domain/judgement';
@@ -15,12 +15,14 @@ import { ENGINE_DEPTH, type Candidate, type Candidates } from './useCandidates';
 interface BuildPanelProps {
   builder: Builder;
   candidates: Candidates;
+  /** Les coups du brouillon que le répertoire n'a pas encore : seuls eux s'ajoutent. */
+  fresh: readonly DraftMove[];
   onPoint: (san: string | null) => void;
   onAccept: () => void;
   onCancel: () => void;
 }
 
-export function BuildPanel({ builder, candidates, onPoint, onAccept, onCancel }: BuildPanelProps) {
+export function BuildPanel({ builder, candidates, fresh, onPoint, onAccept, onCancel }: BuildPanelProps) {
   const { origin, draft } = builder;
   const played = origin.played && figurineMove(origin.played, origin.start.length + 1);
   const lastGiven = origin.given.at(-1);
@@ -30,7 +32,10 @@ export function BuildPanel({ builder, candidates, onPoint, onAccept, onCancel }:
   // « To add » montre dès le premier coup donné (adverse imprévu, ligne hors répertoire), sinon depuis le départ.
   const shownFrom = origin.given.length ? origin.given[0].length - 1 : origin.start.length;
   const lines = draftLines(draft);
-  const toAdd = draft.length;
+  const toAdd = fresh.length;
+  const isFresh = (path: readonly string[]) => fresh.some((move) => move.path.length === path.length && move.path.every((san, at) => path[at] === san));
+  const complete = fresh.some((move) => isPlayerMove(origin.side, move.path.length));
+  const judgement = useLastJudgement(builder);
 
   return (
     <section aria-label="Addition" className="flex flex-col gap-4 rounded-3xl p-5" style={raised(false)}>
@@ -42,32 +47,40 @@ export function BuildPanel({ builder, candidates, onPoint, onAccept, onCancel }:
             : givenMove
               ? `Prepare your answer to ${givenMove}`
               : 'Extend your repertoire from here'}
+        <span className="mt-1 block text-[14px] font-semibold tracking-normal" style={{ color: COLOURS.leafSoft }}>
+          {builder.start.length ? `From ${figurineLine(builder.start)}` : 'From the starting position'}
+        </span>
       </h2>
 
-      <Played builder={builder} />
       <CandidateTable builder={builder} candidates={candidates} onPoint={onPoint} />
 
       {lines.length > 0 && (
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-1.5">
           <span className="text-[12px] font-semibold" style={{ color: COLOURS.leafSoft }}>
-            To add
+            Your line{lines.length > 1 ? 's' : ''} · <span style={{ color: COLOURS.leaf }}>bold</span> = new, click a move to go back to it
           </span>
-          <ul aria-label="To add" className="flex flex-col gap-1 text-[14px] font-semibold">
+          <ul aria-label="To add" className="flex flex-col gap-1 text-[14px]">
             {lines.map((line) => (
               <li key={line.join(' ')} className="flex flex-wrap gap-1">
                 {line.slice(shownFrom).map((san, index) => {
                   const upTo = line.slice(0, shownFrom + index + 1);
                   const here = upTo.length === builder.path.length && upTo.every((move, at) => builder.path[at] === move);
+                  const isNew = isFresh(upTo);
                   return (
                     <button
                       key={upTo.length}
                       type="button"
                       onClick={() => builder.goTo(upTo)}
                       aria-current={here ? 'step' : undefined}
-                      className="cursor-pointer rounded-md px-1.5 py-0.5"
-                      style={here ? { background: COLOURS.leaf, color: COLOURS.cream } : { background: 'transparent' }}
+                      title={isNew ? 'New move' : 'Already in your repertoire'}
+                      className="cursor-pointer rounded-md px-1.5 py-0.5 focus-visible:outline-2"
+                      style={{
+                        ...(here ? { background: COLOURS.leaf, color: COLOURS.cream } : isNew ? tile(COLOURS.sand) : { background: 'transparent', color: COLOURS.leafSoft }),
+                        fontWeight: isNew ? 800 : 500,
+                      }}
                     >
                       {figurineMove(san, upTo.length)}
+                      {here && judgement && <Mark judgement={judgement} light />}
                     </button>
                   );
                 })}
@@ -78,10 +91,14 @@ export function BuildPanel({ builder, candidates, onPoint, onAccept, onCancel }:
       )}
 
       <span className="flex flex-wrap gap-2">
-        {builder.complete && (
+        {complete ? (
           <Action onClick={onAccept} primary>
-            Add to my repertoire · {toAdd} {toAdd === 1 ? 'move' : 'moves'}
+            Add to my repertoire · {toAdd} new {toAdd === 1 ? 'move' : 'moves'}
           </Action>
+        ) : (
+          <span className="self-center text-[13px]" style={{ color: COLOURS.leafSoft }}>
+            {lines.length ? 'Play one of your moves to add.' : 'Play a move on the board or click a row.'}
+          </span>
         )}
         {builder.undo && <Action onClick={builder.undo}>Undo last move</Action>}
         <Action onClick={onCancel}>Cancel</Action>
@@ -90,32 +107,15 @@ export function BuildPanel({ builder, candidates, onPoint, onAccept, onCancel }:
   );
 }
 
-/** Les coups joués depuis le départ, le dernier du joueur marqué si le moteur le juge. */
-function Played({ builder }: { builder: Builder }) {
+/** Le jugement du moteur sur le dernier coup du joueur, s'il vient d'en jouer un. */
+function useLastJudgement(builder: Builder): Judgement | null {
   const { path, start, origin } = builder;
-  const last = path.length - 1;
-  const mover = last % 2 === 0 ? 'w' : 'b';
+  const mover = (path.length - 1) % 2 === 0 ? 'w' : 'b';
   const relevant = path.length > start.length && mover === origin.side;
   const fens = useMemo(() => (relevant ? replayLine(path).fens.slice(-2) : []), [relevant, path]);
   const evaluations = useEvaluations(fens, ENGINE_DEPTH, relevant);
-  if (path.length === start.length) return null;
   const [before, after] = fens.map((fen) => evaluations.get(fen));
-  const judgement = relevant && before && after ? judgeMove(before.cp, after.cp, mover) : null;
-  return (
-    <p className="flex flex-wrap items-center gap-1.5 text-[14px] font-semibold">
-      {path.slice(start.length).map((san, index) => {
-        const ply = start.length + index + 1;
-        const byPlayer = (ply % 2 === 1) === (origin.side === 'w');
-        const marked = ply === path.length ? judgement : null;
-        return (
-          <span key={ply} className="rounded-lg px-2 py-0.5" style={byPlayer ? tile(COLOURS.sand) : { background: COLOURS.opponent }}>
-            {figurineMove(san, ply)}
-            {marked && <Mark judgement={marked} />}
-          </span>
-        );
-      })}
-    </p>
-  );
+  return relevant && before && after ? judgeMove(before.cp, after.cp, mover) : null;
 }
 
 function CandidateTable({ builder, candidates, onPoint }: { builder: Builder; candidates: Candidates; onPoint: (san: string | null) => void }) {
@@ -123,31 +123,36 @@ function CandidateTable({ builder, candidates, onPoint }: { builder: Builder; ca
   const ply = builder.path.length + 1;
   const side = builder.origin.side === 'w' ? 'White' : 'Black';
   const all = [...rows, ...costly];
+  // Sans l'explorateur, ses deux colonnes ne diraient que « — ».
+  const stats = explorer === 'ready' || explorer === 'asking';
   return (
     <div className="flex flex-col gap-1.5">
       <span className="flex items-center gap-3 text-[12px] font-semibold" style={{ color: COLOURS.leafSoft }}>
         {builder.playerToMove ? 'Your move' : 'Their move'}
         <EvalBar cp={here?.cp} />
       </span>
-      {explorer === 'missing' && <Muted>Needs a Lichess token (VITE_LICHESS_TOKEN in frontend/.env.local).</Muted>}
+      {explorer === 'missing' && <Muted>Lichess stats need a token (VITE_LICHESS_TOKEN in frontend/.env.local): engine and your games only.</Muted>}
+      {explorer === 'failed' && <Muted>The Lichess explorer is not answering: engine and your games only.</Muted>}
       {explorer === 'asking' && <Muted>Asking the Lichess explorer…</Muted>}
       {all.length > 0 && (
         <table aria-label="Candidate moves" className="w-full border-collapse text-[14px]" onMouseLeave={() => onPoint(null)}>
           <thead className="text-[11px] font-semibold" style={{ color: COLOURS.leafSoft }}>
-            <tr>
-              <th />
-              <th colSpan={2} className="px-2 pb-0.5 text-center font-semibold" style={{ borderBottom: `1px solid ${COLOURS.sand}` }}>
-                Lichess 1400–1800
-              </th>
-              <th />
-              <th />
-            </tr>
+            {stats && (
+              <tr>
+                <th />
+                <th colSpan={2} className="px-2 pb-0.5 text-center font-semibold" style={{ borderBottom: `1px solid ${COLOURS.sand}` }}>
+                  Lichess 1400–1800
+                </th>
+                <th />
+                <th />
+              </tr>
+            )}
             <tr className="text-left">
               <th className="pb-1 pr-2 font-semibold">Move</th>
-              <th className="pb-1 px-2 font-semibold">played</th>
-              <th className="pb-1 px-2 text-right font-semibold">{side} scores</th>
+              {stats && <th className="pb-1 px-2 font-semibold">played</th>}
+              {stats && <th className="pb-1 px-2 text-right font-semibold">{side} scores</th>}
               <th className="pb-1 px-2 text-right font-semibold">Engine</th>
-              <th className="pb-1 pl-2 text-right font-semibold">{builder.playerToMove ? 'Your games' : 'Met'}</th>
+              <th className="pb-1 pl-2 text-right font-semibold">Your games</th>
             </tr>
           </thead>
           <tbody>
@@ -157,6 +162,7 @@ function CandidateTable({ builder, candidates, onPoint }: { builder: Builder; ca
                 row={row}
                 ply={ply}
                 faded={costly.includes(row)}
+                stats={stats}
                 onPlay={() => builder.play(row.san)}
                 onPoint={() => onPoint(row.san)}
               />
@@ -168,11 +174,11 @@ function CandidateTable({ builder, candidates, onPoint }: { builder: Builder; ca
   );
 }
 
-function CandidateRow({ row, ply, faded, onPlay, onPoint }: { row: Candidate; ply: number; faded: boolean; onPlay: () => void; onPoint: () => void }) {
+function CandidateRow({ row, ply, faded, stats, onPlay, onPoint }: { row: Candidate; ply: number; faded: boolean; stats: boolean; onPlay: () => void; onPoint: () => void }) {
   const low = row.score !== undefined && Math.round(row.score * 100) < 50;
   return (
     <tr
-      className="cursor-pointer hover:bg-[oklch(0.975_0.012_85)]"
+      className="cursor-pointer hover:bg-[oklch(0.975_0.012_85)] focus-visible:outline-2"
       style={{ borderTop: `1px solid ${COLOURS.sand}`, opacity: faded ? 0.45 : 1 }}
       onMouseEnter={onPoint}
       onClick={onPlay}
@@ -189,12 +195,16 @@ function CandidateRow({ row, ply, faded, onPlay, onPoint }: { row: Candidate; pl
           </span>
         )}
       </td>
-      <td className="px-2 py-1.5">
-        <ShareBar share={row.share} />
-      </td>
-      <td className="whitespace-nowrap px-2 py-1.5 text-right font-bold" style={{ color: low ? COLOURS.terracotta : undefined }}>
-        {row.score === undefined ? '—' : formatPercent(row.score)}
-      </td>
+      {stats && (
+        <td className="px-2 py-1.5">
+          <ShareBar share={row.share} />
+        </td>
+      )}
+      {stats && (
+        <td className="whitespace-nowrap px-2 py-1.5 text-right font-bold" style={{ color: low ? COLOURS.terracotta : undefined }}>
+          {row.score === undefined ? '—' : formatPercent(row.score)}
+        </td>
+      )}
       <td className="whitespace-nowrap px-2 py-1.5 text-right tabular-nums">
         {row.cp === undefined ? <span style={{ color: COLOURS.leafSoft }}>…</span> : formatCp(row.cp)}
       </td>
@@ -205,9 +215,9 @@ function CandidateRow({ row, ply, faded, onPlay, onPoint }: { row: Candidate; pl
   );
 }
 
-function Mark({ judgement }: { judgement: Judgement }) {
+function Mark({ judgement, light = false }: { judgement: Judgement; light?: boolean }) {
   return (
-    <b className="ml-0.5" title={judgement} style={{ color: COLOURS.terracotta }}>
+    <b className="ml-0.5" title={judgement} style={{ color: light ? COLOURS.apricot : COLOURS.terracotta }}>
       {JUDGEMENT_MARK[judgement]}
     </b>
   );
