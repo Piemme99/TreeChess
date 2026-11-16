@@ -58,15 +58,19 @@ export function RepertoireMap({ root: drawn, side, selected, onSelect, focus, lo
   );
   // Plutôt replier que réduire : on monte le seuil de parties jusqu'à ce que la carte tienne en hauteur à taille de
   // lecture. En largeur, les lignes marquées vont aussi loin qu'il faut : le bord signale ce qui dépasse.
+  // Le seuil est choisi une fois, à l'arrivée (ou sur « Fit ») : recalculé à chaque dépliage, il replierait
+  // d'autres branches dès qu'on en ouvre une, et la carte bougerait sous le joueur.
   const room = Math.max(0, size.height - BOTTOM_BAR - 24);
-  const layout = useMemo(() => {
-    let best = layoutMap(root, visibleNodes(root, LANDING_DEPTH, LANDING_SHARES[0] * root.games, kept));
-    for (const share of LANDING_SHARES.slice(1)) {
-      if (!room || best.bounds.height * READABLE <= room) break;
-      best = layoutMap(root, visibleNodes(root, LANDING_DEPTH, share * root.games, kept));
-    }
-    return best;
-  }, [root, kept, room]);
+  const [share, setShare] = useState<number | null>(null);
+  useEffect(() => {
+    if (share !== null || !room) return;
+    const fits = LANDING_SHARES.find((candidate) => layoutMap(root, visibleNodes(root, LANDING_DEPTH, candidate * root.games, kept)).bounds.height * READABLE <= room);
+    setShare(fits ?? LANDING_SHARES[LANDING_SHARES.length - 1]);
+  }, [share, room, root, kept]);
+  const layout = useMemo(
+    () => layoutMap(root, visibleNodes(root, LANDING_DEPTH, (share ?? LANDING_SHARES[0]) * root.games, kept)),
+    [root, kept, share],
+  );
   const maxGames = root.games || 1;
   useEffect(() => {
     shown.current = { side, keys: layout.nodes.filter((node) => node.node.children.length === 0 || node.hidden > 0).map((node) => node.node.key) };
@@ -74,7 +78,10 @@ export function RepertoireMap({ root: drawn, side, selected, onSelect, focus, lo
 
   // Un autre camp, une autre carte : le repli repart de zéro. Un nouveau jour ou un ajout ne touchent pas au repli
   // du joueur. Déclaré avant le dévoilement, qui doit lui survivre.
-  useEffect(() => setFolding({ opened: new Set(), closed: new Set(), revealed: new Set() }), [side]);
+  useEffect(() => {
+    setFolding({ opened: new Set(), closed: new Set(), revealed: new Set() });
+    setShare(null);
+  }, [side]);
   // Ce qui se voyait reste visible quand la carte change sous le joueur (un jour de plus, une décision) :
   // sans ça, une branche réglée se replie et le joueur perd ses repères.
   const shown = useRef<{ side: Side; keys: string[] }>({ side, keys: [] });
@@ -95,21 +102,18 @@ export function RepertoireMap({ root: drawn, side, selected, onSelect, focus, lo
   // Le cadrage attend la taille du conteneur ; il ne touche pas au repli, sinon il effacerait le dévoilement.
   const fitted = useRef<Side | null>(null);
   useEffect(() => {
-    if (fitted.current === side || !size.width) return;
+    if (fitted.current === side || !size.width || share === null) return;
     fitted.current = side;
     fit(layout.bounds, size, READABLE);
-  }, [side, size, layout.bounds, fit]);
+  }, [side, size, layout.bounds, fit, share]);
 
   // « Fit » replie d'abord comme à l'arrivée, puis cadre la carte ainsi repliée.
   const refit = useRef(false);
-  // « Fit » montre toute la carte, quitte à la réduire ; l'arrivée, elle, garde la taille de lecture.
-  const wholeFit = useRef(false);
   useEffect(() => {
-    if (!refit.current) return;
+    if (!refit.current || share === null) return;
     refit.current = false;
     fit(layout.bounds, size, READABLE);
-    wholeFit.current = false;
-  }, [layout.bounds, fit, size]);
+  }, [layout.bounds, fit, size, share]);
   const anchor = () => {
     const placed = layout.nodes.find((node) => node.node.key === selected);
     return placed ? { x: placed.x * transform.k + transform.x, y: placed.y * transform.k + transform.y } : undefined;
@@ -180,8 +184,21 @@ export function RepertoireMap({ root: drawn, side, selected, onSelect, focus, lo
     setHover(null);
   };
 
-  const open = (key: string) =>
+  // Ce qu'on vient de déplier est amené dans le cadre : sinon les enfants s'ouvrent hors de la vue.
+  const unfolded = useRef<string | null>(null);
+  useEffect(() => {
+    const key = unfolded.current;
+    if (key === null) return;
+    unfolded.current = null;
+    const shownBelow = layout.nodes.filter((node) => node.node.key === key || (node.node.key.startsWith(`${key} `) && node.node.path.length === key.split(' ').length + 1));
+    if (shownBelow.length) reveal(boxOf(shownBelow), size, transform.k);
+    // Servi une fois, au rendu qui suit le dépliage.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [layout]);
+  const open = (key: string) => {
+    unfolded.current = key;
     setFolding((current) => ({ ...current, opened: new Set([...current.opened, key]), closed: new Set([...current.closed].filter((k) => k !== key)) }));
+  };
   const close = (key: string) =>
     setFolding((current) => ({ ...current, opened: new Set([...current.opened].filter((k) => k !== key)), closed: new Set([...current.closed, key]) }));
 
@@ -261,8 +278,8 @@ export function RepertoireMap({ root: drawn, side, selected, onSelect, focus, lo
             label="Fit the map"
             onClick={() => {
               setFolding({ opened: new Set(), closed: new Set(), revealed: new Set() });
+              setShare(null);
               refit.current = true;
-              wholeFit.current = true;
             }}
           >
             Fit
@@ -278,7 +295,7 @@ export function RepertoireMap({ root: drawn, side, selected, onSelect, focus, lo
 
 const FOCUS_STYLE = `
   [role='treeitem']:focus { outline: none; }
-  [role='treeitem']:focus-visible > rect.pill, [data-unfold]:focus-visible > rect { stroke: ${COLOURS.kumquatDeep}; stroke-width: 3px; stroke-dasharray: 5 3; }
+  [role='treeitem']:focus-visible > rect.pill, [data-unfold]:focus-visible > rect { stroke: ${COLOURS.kumquatDeep}; stroke-width: 3.5px; stroke-dasharray: none; }
 `;
 
 function boxOf(nodes: readonly PlacedNode[]): Box {

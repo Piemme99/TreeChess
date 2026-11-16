@@ -91,10 +91,16 @@ export function useCandidates(builder: Builder): Candidates {
   const evaluations = useEvaluations(fens, ENGINE_DEPTH);
   const mover: Side = playerToMove ? side : side === 'w' ? 'b' : 'w';
 
-  const all = base.map(({ fen: after, ...row }): Candidate => {
+  const evaluated = base.map(({ fen: after, ...row }): Candidate => {
     const cp = evaluations.get(after)?.cp;
     return { ...row, cp, judgement: here && cp !== undefined ? judgeMove(here.cp, cp, mover) : null };
   });
+  // Le badge « engine » suit la colonne : le meilleur coup du tableau, ex aequo compris. Le coup proposé par
+  // l'analyse de la position seule pouvait contredire les évaluations affichées, calculées coup par coup.
+  const forMover = (cp: number) => (mover === 'w' ? cp : -cp);
+  const scored = evaluated.filter((row) => row.cp !== undefined);
+  const top = playerToMove && scored.length === evaluated.length && scored.length > 0 ? Math.max(...scored.map((row) => forMover(row.cp!))) : undefined;
+  const all = evaluated.map((row) => ({ ...row, engine: top === undefined ? row.engine : forMover(row.cp!) >= top - 5 }));
   // On ne recommande pas un coup moyen ou mauvais ; l'adversaire, lui, peut jouer ce qu'il veut.
   const costly = playerToMove ? all.filter((row) => row.judgement) : [];
   return {

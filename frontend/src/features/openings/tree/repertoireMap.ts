@@ -23,8 +23,10 @@ export interface MapNode {
   priority?: number;
   /** Un coup de la construction en cours, pas encore au répertoire. */
   ghost?: boolean;
-  /** Un coup ajouté par le joueur depuis la création : son travail reste sous ses yeux, jamais replié. */
+  /** Un coup ajouté par le joueur depuis la création. */
   added?: boolean;
+  /** Un ajout récent : il reste déplié. */
+  fresh?: boolean;
 }
 
 export interface MapMarks {
@@ -33,6 +35,8 @@ export interface MapMarks {
   priorities: readonly Priority[];
   /** Jour de création du répertoire : un coup daté d'après est un ajout du joueur. */
   createdAt?: string;
+  /** Les ajouts faits depuis ce jour restent dépliés : la preuve du travail récent ne se replie pas. */
+  freshSince?: string;
 }
 
 export const keyOf = (path: readonly string[]) => path.join(' ');
@@ -52,6 +56,7 @@ export function buildRepertoireMap(repertoire: Repertoire, recent: OpeningTree, 
       const path = [...parent.path, move.san];
       const child = node(path, move.san, parent.ply + 1, positionKey(chess.fen()), recent, marks);
       if (marks.createdAt && move.addedAt !== marks.createdAt) child.added = true;
+      if (child.added && marks.freshSince && move.addedAt >= marks.freshSince) child.fresh = true;
       const owner = owners.get(child.position);
       if (owner) {
         child.stub = true;
@@ -133,7 +138,7 @@ export function forEachNode(root: MapNode, visit: (node: MapNode, parent: MapNod
 }
 
 // Les ajouts ne forcent pas le dépliage : ils prendraient la place des lignes jouées. Ils se voient quand ils pèsent, ou juste ajoutés.
-export const isMarked = (node: MapNode) => node.toSettle > 0 || node.priority !== undefined;
+export const isMarked = (node: MapNode) => node.toSettle > 0 || node.priority !== undefined || node.fresh === true;
 
 /** Les nœuds marqués, les plus de parties à trancher d'abord, puis les priorités par rang. */
 export function markedNodes(root: MapNode): { toSettle: MapNode[]; priorities: MapNode[] } {

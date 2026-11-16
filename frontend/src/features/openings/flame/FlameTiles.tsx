@@ -76,7 +76,7 @@ export function FlameTiles({ tree, focusPath, onFocusChange, onPoint, priorities
     <section aria-labelledby="tree-title" className="flex flex-col gap-4">
       <div className="flex flex-wrap items-baseline gap-3">
         <h2 id="tree-title" className="text-[22px] font-extrabold tracking-[-0.02em]">
-          What you play, by result
+          What you play, by result{' '}
           <span className="ml-2 text-[14px] font-medium tracking-normal" style={{ color: COLOURS.leafSoft }}>
             last 12 months
           </span>
@@ -137,6 +137,7 @@ export function FlameTiles({ tree, focusPath, onFocusChange, onPoint, priorities
                 <motion.button
                   type="button"
                   aria-label={name}
+                  title={placed.rest ? name : `${name} · ${placed.node.games} games · ${formatPercent(scoreRate(placed.node))}`}
                   disabled={placed.rest > 0}
                   data-repertoire={covered || undefined}
                   whileHover={placed.rest ? undefined : { y: -2 }}

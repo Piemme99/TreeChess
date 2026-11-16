@@ -90,18 +90,10 @@ export function BuildPanel({ builder, candidates, fresh, onPoint, onAccept, onCa
           Your repertoire already plays {second.existing} here: {second.added} becomes a second choice.
         </p>
       )}
-      <CandidateTable builder={builder} candidates={candidates} onPoint={onPoint} compact={compact} planned={planned} />
-
-      <p className="text-[12px]" style={{ color: COLOURS.leafSoft }}>
-        <strong>{origin.side === 'w' ? 'White' : 'Black'} %</strong>: how players of your colour score after the move on Lichess, 1400–1800 ·{' '}
-        <strong>Engine</strong>: + is good for you · <strong>You</strong>: how often you played it in 12 months, and your score once you have 3 games (
-        <span style={{ color: COLOURS.terracotta }}>red</span>: where you score worst).
-      </p>
       {lines.length > 0 && (
         <div className="flex flex-col gap-1.5">
           <span className="text-[12px] font-semibold" style={{ color: COLOURS.leafSoft }}>
-            Your line{lines.length > 1 ? 's' : ''}: click a move to go back to it.{' '}
-            <span style={{ color: REPERTOIRE }}>Green moves</span> are already in your repertoire.
+            Your line{lines.length > 1 ? 's' : ''} · <span style={{ color: REPERTOIRE }}>green</span> = already in your repertoire
           </span>
           <ul aria-label="To add" className="flex flex-col gap-1 text-[14px]">
             {lines.map((line) => (
@@ -135,14 +127,14 @@ export function BuildPanel({ builder, candidates, fresh, onPoint, onAccept, onCa
         </div>
       )}
 
-      {/* Les actions restent au bas du panneau, quoi qu'on fasse défiler au-dessus. */}
-      <div className={`flex flex-col gap-2 ${compact ? 'sticky bottom-[5.25rem] -mx-4 -mb-4 rounded-b-3xl px-4 pt-3 pb-4 lg:static lg:mx-0 lg:mb-0 lg:px-0 lg:pt-0 lg:pb-0' : ''}`} style={compact ? { background: COLOURS.paper, boxShadow: '0 -10px 14px -12px oklch(0.3 0.05 60 / 0.35)' } : undefined}>
+      {/* Les actions avant le tableau : on les voit sans défiler ; au téléphone, elles restent au-dessus des onglets. */}
+      <div className={`flex flex-col gap-2 ${compact ? 'sticky bottom-[4.25rem] z-10 -mx-4 px-4 pt-3 pb-3 lg:static lg:mx-0 lg:px-0 lg:pt-0 lg:pb-0 lg:shadow-none' : ''}`} style={compact ? { background: COLOURS.paper, boxShadow: '0 -10px 14px -12px oklch(0.3 0.05 60 / 0.35)' } : undefined}>
       <span className="flex flex-wrap gap-2">
         <Action onClick={onAccept} primary disabled={!complete}>
           {complete ? `Add to my repertoire · ${toAdd} new ${toAdd === 1 ? 'move' : 'moves'}` : 'Add to my repertoire'}
         </Action>
         <Action onClick={builder.undo ?? (() => undefined)} disabled={!builder.undo}>
-          Undo last move
+          Undo
         </Action>
         <Action onClick={onCancel}>Cancel</Action>
       </span>
@@ -152,6 +144,13 @@ export function BuildPanel({ builder, candidates, fresh, onPoint, onAccept, onCa
         </span>
       )}
       </div>
+      <CandidateTable builder={builder} candidates={candidates} onPoint={onPoint} compact={compact} planned={planned} />
+
+      <p className="text-[12px]" style={{ color: COLOURS.leafSoft }}>
+        <strong>{origin.side === 'w' ? 'White' : 'Black'} %</strong>: how players of your colour score after the move on Lichess, 1400–1800 ·{' '}
+        <strong>Engine</strong>: + is good for you · <strong>You</strong>: how often you played it in 12 months, and your score once you have 3 games (
+        <span style={{ color: COLOURS.terracotta }}>red</span>: where you score worst).
+      </p>
     </section>
   );
 }
@@ -187,6 +186,9 @@ function useLastJudgement(builder: Builder): Judgement | null {
 
 function CandidateTable({ builder, candidates, onPoint, compact, planned }: { builder: Builder; candidates: Candidates; onPoint: (san: string | null) => void; compact: boolean; planned: ReadonlySet<string> }) {
   const { rows, costly, here, explorer } = candidates;
+  // La barre dit ce que vaut la position avec le meilleur coup du tableau : le même chiffre que sa ligne.
+  const engineRow = rows.filter((row) => row.engine && row.cp !== undefined)[0];
+  const bestCp = builder.playerToMove ? engineRow?.cp : undefined;
   const ply = builder.path.length + 1;
   const side = builder.origin.side === 'w' ? 'White' : 'Black';
   const all = [...rows, ...costly];
@@ -208,7 +210,7 @@ function CandidateTable({ builder, candidates, onPoint, compact, planned }: { bu
         <span className="whitespace-nowrap">{builder.playerToMove ? 'Your move' : 'Their move'}</span>
         <span className="ml-auto flex items-center gap-1.5 whitespace-nowrap">
           Engine, for you
-          <EvalBar cp={here?.cp} side={builder.origin.side} />
+          <EvalBar cp={bestCp ?? here?.cp} side={builder.origin.side} />
         </span>
       </span>
       {explorer === 'missing' && <Muted>Lichess stats need a token (VITE_LICHESS_TOKEN in frontend/.env.local): engine and your games only.</Muted>}

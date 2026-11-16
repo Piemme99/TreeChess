@@ -60,7 +60,7 @@ describe('OpeningsPage', () => {
 
     expect(panel()).toHaveTextContent('Your repertoire here: 1.e4 · 1.d4');
 
-    fireEvent.click(screen.getByRole('switch', { name: 'Play as Black' }));
+    fireEvent.click(screen.getByRole('switch', { name: 'Show the Black repertoire' }));
     fireEvent.click(screen.getByRole('button', { name: '1.e4' }));
 
     expect(panel()).toHaveTextContent('Your repertoire here: 1…c6 · 1…c5');
@@ -72,7 +72,7 @@ describe('OpeningsPage', () => {
     fireEvent.click(screen.getByRole('button', { name: /1\.d4 Nf6/ }));
 
     expect(screen.getByRole('button', { name: /1\.d4 Nf6/ })).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByRole('switch', { name: 'Play as Black' })).toBeChecked();
+    expect(screen.getByRole('switch', { name: 'Show the Black repertoire' })).toBeChecked();
     expect(zoomPath()).toHaveTextContent('all1.d41…♘f6');
     expect(await findOpeningName('Indian Defense')).toBeInTheDocument();
     expect(period('All time')).toHaveTextContent('103games');
@@ -119,9 +119,9 @@ describe('OpeningsPage', () => {
     render(<OpeningsPage />);
     fireEvent.click(screen.getByRole('button', { name: /1\.d4 Nf6/ }));
 
-    fireEvent.click(screen.getByRole('switch', { name: 'Play as Black' }));
+    fireEvent.click(screen.getByRole('switch', { name: 'Show the Black repertoire' }));
 
-    expect(screen.getByRole('switch', { name: 'Play as Black' })).not.toBeChecked();
+    expect(screen.getByRole('switch', { name: 'Show the Black repertoire' })).not.toBeChecked();
     await waitFor(() => expect(zoomPath()).toHaveTextContent(/^all$/));
   });
 });

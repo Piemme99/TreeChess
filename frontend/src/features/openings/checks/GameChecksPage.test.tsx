@@ -166,7 +166,7 @@ describe('GameChecksPage', () => {
     fireEvent.click(within(dayGames().find((card) => card.textContent?.includes('1…♘f6'))!).getByRole('button', { name: /^Choose my move here/ }));
     playOnBoard('g8', 'f6');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Undo last move' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
 
     expect(screen.queryByRole('list', { name: 'To add' })).not.toBeInTheDocument();
   });
@@ -184,7 +184,7 @@ describe('GameChecksPage', () => {
         <OpeningsPage />
       </MemoryRouter>,
     );
-    fireEvent.click(screen.getByRole('switch', { name: 'Play as Black' }));
+    fireEvent.click(screen.getByRole('switch', { name: 'Show the Black repertoire' }));
     fireEvent.click(screen.getByRole('button', { name: '1.d4' }));
 
     expect(screen.getByRole('complementary', { name: 'Position' })).toHaveTextContent('Your repertoire here: 1…d5 · 1…♘f6');

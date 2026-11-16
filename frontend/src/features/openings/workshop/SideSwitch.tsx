@@ -10,7 +10,7 @@ export function SideSwitch({ side, onChange, counts }: { side: Side; onChange: (
       type="button"
       role="switch"
       aria-checked={black}
-      aria-label="Play as Black"
+      aria-label="Show the Black repertoire"
       onClick={() => onChange(black ? 'w' : 'b')}
       className="flex items-center gap-3 text-[15px] font-semibold"
     >

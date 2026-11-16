@@ -32,6 +32,9 @@ import { buildRepertoireMap, forEachNode, markedNodes, type MapNode } from './re
 const MAX_PLIES = 24;
 const RECENT_MONTHS = 12;
 const MAX_PRIORITIES = 5;
+// Un ajout reste déplié sur la carte pendant deux semaines de jeu.
+const FRESH_DAYS = 14;
+const daysBefore = (day: string, days: number) => new Date(Date.parse(`${day}T00:00:00Z`) - days * 86_400_000).toISOString().slice(0, 10);
 
 interface Session {
   /** Les étapes connues à l'ouverture : un ajout peut en régler d'autres en route. */
@@ -40,6 +43,8 @@ interface Session {
   done: ReadonlyMap<string, 'settled' | 'skipped'>;
   /** Arrêtée avant la fin : on montre quand même le bilan. */
   ended?: boolean;
+  /** Parties revenues à trancher parce que le joueur y a choisi un autre coup. */
+  returned?: number;
 }
 
 type View = 'map' | 'position';
@@ -172,6 +177,7 @@ export function TreePage() {
     const step = building.stepKey ? live.get(building.stepKey) : undefined;
     if (step) {
       settle(step, addition, text);
+      if (back) setSession((active) => active && { ...active, returned: (active.returned ?? 0) + 1 });
       return;
     }
     add(addition);
@@ -279,7 +285,7 @@ export function TreePage() {
     const dropped = before.current.filter((key) => !live.has(key)).length;
     before.current = null;
     if (dropped) {
-      show({ text: `${dropped} opponent ${dropped === 1 ? 'move' : 'moves'} met only once set aside: back on the list if played again` });
+      show({ text: `${dropped} opponent ${dropped === 1 ? 'move' : 'moves'} you met only once left the list: ${dropped === 1 ? 'it comes' : 'they come'} back if you meet ${dropped === 1 ? 'it' : 'them'} again` });
     }
     // Seul le changement de jour compte ; `steps` est recalculé dans le même rendu.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -327,13 +333,13 @@ export function TreePage() {
               ) : (
                 <Door
                   onClick={steps.length ? startSession : undefined}
-                  title={steps.length ? `${steps.length} ${steps.length === 1 ? 'position' : 'positions'} to settle` : 'Nothing to settle'}
+                  title={steps.length ? `${steps.length} to settle` : 'Nothing to settle'}
                   tone={steps.length ? 'terracotta' : 'plain'}
                 >
                   {first
                     ? `${perSide.w} as White · ${perSide.b} as Black`
                     : replay.next
-                      ? 'Press “Next game day” to bring games in'
+                      ? '“Next game day” brings games in'
                       : 'All games replayed'}
                 </Door>
               )}
@@ -346,8 +352,8 @@ export function TreePage() {
               </Door>
             </span>
           </div>
-          {/* Pendant une construction, le volet s'élargit : l'échiquier à côté du tableau, comme sur Games. */}
-          <div className={`grid gap-5 ${building ? 'lg:grid-cols-[minmax(0,1fr)_minmax(0,44rem)]' : 'lg:grid-cols-[minmax(0,1fr)_25rem]'}`}>
+          {/* Une seule géométrie : la carte garde sa largeur, le volet aussi, construction comprise. */}
+          <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_27rem]">
             {(wide || view === 'map') && (
               <div className="lg:sticky lg:top-4 lg:h-[calc(100vh-11rem)]">
                 {wide ? (
@@ -369,10 +375,13 @@ export function TreePage() {
             {(wide || view === 'position') && (
             <div ref={pane} className="flex min-w-0 scroll-mt-3 flex-col gap-3 lg:self-start">
               {session && !current ? (
-                <Done settled={settled} skipped={skipped} left={steps.length} onClose={() => setSession(null)} />
+                <Done settled={settled} skipped={skipped} returned={session.returned ?? 0} left={steps.length} onClose={() => setSession(null)} />
               ) : building ? (
                 <>
-                <PaneHeading path={buildPath ?? building.origin.start} />
+                {/* Sur l'ordinateur, le titre du constructeur dit déjà d'où l'on part : la place va au tableau. */}
+                <div className="lg:hidden">
+                  <PaneHeading path={buildPath ?? building.origin.start} />
+                </div>
                 <BuildSession
                   key={`${building.origin.start.join(' ')} ${building.stepKey ?? ''} ${building.origin.keep}`}
                   origin={building.origin}
@@ -462,12 +471,18 @@ function SessionBar({ index, total, settled, side, onEnd }: { index: number; tot
   );
 }
 
-function Done({ settled, skipped, left, onClose }: { settled: number; skipped: number; left: number; onClose: () => void }) {
+function Done({ settled, skipped, returned, left, onClose }: { settled: number; skipped: number; returned: number; left: number; onClose: () => void }) {
   return (
     <aside aria-label="Done" className="flex w-full flex-col items-start gap-3 rounded-3xl p-5" style={raised(false)}>
       <span className="text-[24px] font-extrabold tracking-[-0.02em]">Session done</span>
       <span className="text-[15px]">
         <strong>{settled}</strong> settled · <strong>{skipped}</strong> skipped for later
+        {returned > 0 && (
+          <>
+            {' '}
+            · <strong>{returned}</strong> came back, where you chose another move than in your game
+          </>
+        )}
       </span>
       <span className="text-[14px]" style={{ color: COLOURS.leafSoft }}>
         {left ? `${left} still to settle: they stay marked in the tree.` : 'Nothing left to settle. Come back after your next games.'}
@@ -511,8 +526,8 @@ function useMaps(known: readonly PlayedGame[], day: string, repertoires: ReturnT
       toSettle[step.side].set(position, (toSettle[step.side].get(position) ?? 0) + step.games.length);
     }
     const maps: Record<Side, MapNode> = {
-      w: buildRepertoireMap(repertoires.w, recent.w, { toSettle: toSettle.w, priorities, createdAt: REPLAY_START }),
-      b: buildRepertoireMap(repertoires.b, recent.b, { toSettle: toSettle.b, priorities, createdAt: REPLAY_START }),
+      w: buildRepertoireMap(repertoires.w, recent.w, { toSettle: toSettle.w, priorities, createdAt: REPLAY_START, freshSince: daysBefore(day, FRESH_DAYS) }),
+      b: buildRepertoireMap(repertoires.b, recent.b, { toSettle: toSettle.b, priorities, createdAt: REPLAY_START, freshSince: daysBefore(day, FRESH_DAYS) }),
     };
     return { maps, recent, priorities };
   }, [known, day, repertoires, steps]);

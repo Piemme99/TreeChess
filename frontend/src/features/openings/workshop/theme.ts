@@ -45,11 +45,11 @@ export const ARROW = {
 export type ArrowKind = keyof typeof ARROW;
 
 export const TONES: Record<Tone, { bg: string; fg: string; label: string }> = {
-  losing: { bg: COLOURS.terracotta, fg: 'white', label: 'leaking' },
-  slipping: { bg: COLOURS.apricot, fg: COLOURS.leaf, label: 'shaky' },
+  losing: { bg: COLOURS.terracotta, fg: 'white', label: 'losing points' },
+  slipping: { bg: COLOURS.apricot, fg: COLOURS.leaf, label: 'below your average' },
   // La moyenne et le solide reculent vers le papier : la question est où les points fuient.
-  even: { bg: 'oklch(0.975 0.012 85)', fg: COLOURS.leafSoft, label: 'par' },
-  winning: { bg: 'oklch(0.88 0.045 145)', fg: 'oklch(0.32 0.05 150)', label: 'solid' },
+  even: { bg: 'oklch(0.975 0.012 85)', fg: COLOURS.leafSoft, label: 'at your average' },
+  winning: { bg: 'oklch(0.88 0.045 145)', fg: 'oklch(0.32 0.05 150)', label: 'above your average' },
 };
 
 // Amortissements proches du critique : un rebond visible, répété à chaque survol, donne la nausée.
