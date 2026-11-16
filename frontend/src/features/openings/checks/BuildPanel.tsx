@@ -6,7 +6,7 @@ import { figurineLine, figurineMove } from '../domain/notation';
 import { isPlayerMove } from '../domain/openingTree';
 import { formatPercent } from '../flame/format';
 import { JUDGEMENT_MARK, judgeMove, type Judgement } from '../domain/judgement';
-import { useEvaluations } from '../line/engine';
+import { useEngineFailed, useEvaluations } from '../line/engine';
 import { repertoireMovesAt, type Repertoire } from '../domain/repertoire';
 import type { Side } from '../domain/playedGame';
 import { replayLine } from '../position/replay';
@@ -185,7 +185,7 @@ export function BuildPanel({ builder, candidates, fresh, onPoint, onAccept, onCa
 
       <Help compact={compact}>
         <strong>{compact ? POOL[candidates.pool].short : `${origin.side === 'w' ? 'White' : 'Black'} %`}</strong>: how players of your colour score after the move on Lichess,{' '}
-        {candidates.pool === 'strong' ? 'rated 2200+ (for your moves)' : 'rated 1400–1800 (for their replies: the ones you will meet)'} ·{' '}
+        {candidates.pool === 'strong' ? 'rated 2200+ (for your moves)' : 'rated 1600–2200 (for their replies: what you will meet, and a bit stronger)'} ·{' '}
         <strong>Engine</strong>: + is good for you · <strong>You</strong>: how often you played it in 12 months, and your score once you have 3 games (
         <span style={{ color: COLOURS.terracotta }}>red</span>: where you score worst).
       </Help>
@@ -224,6 +224,7 @@ function useLastJudgement(builder: Builder): Judgement | null {
 
 function CandidateTable({ builder, candidates, onPoint, compact, planned }: { builder: Builder; candidates: Candidates; onPoint: (san: string | null) => void; compact: boolean; planned: ReadonlySet<string> }) {
   const { rows, costly, here, explorer, pool } = candidates;
+  const engineFailed = useEngineFailed();
   // La barre dit ce que vaut la position avec le meilleur coup du tableau : le même chiffre que sa ligne.
   const engineRow = rows.filter((row) => row.engine && row.cp !== undefined)[0];
   const bestCp = builder.playerToMove ? engineRow?.cp : undefined;
@@ -248,12 +249,13 @@ function CandidateTable({ builder, candidates, onPoint, compact, planned }: { bu
         <span className="whitespace-nowrap">{builder.playerToMove ? 'Your move' : 'Their move'}</span>
         <span className="ml-auto flex items-center gap-1.5 whitespace-nowrap">
           Engine
-          <EvalBar cp={bestCp ?? here?.cp} side={builder.origin.side} />
+          <EvalBar cp={bestCp ?? here?.cp} side={builder.origin.side} failed={engineFailed} />
         </span>
       </span>
       {explorer === 'missing' && <Muted>Lichess stats need a token (VITE_LICHESS_TOKEN in frontend/.env.local): engine and your games only.</Muted>}
       {explorer === 'failed' && <Muted>The Lichess explorer is not answering: engine and your games only.</Muted>}
       {explorer === 'asking' && <Muted>Asking the Lichess explorer…</Muted>}
+      {engineFailed && <Muted>Stockfish does not run on this device: engine values come from the Lichess cloud, when it knows the position.</Muted>}
       {all.length > 0 && (
         <div className="-mx-1 overflow-x-auto px-1">
         <table aria-label="Candidate moves" className="w-full border-collapse text-[14px]" onMouseLeave={() => onPoint(null)}>
@@ -299,6 +301,7 @@ function CandidateTable({ builder, candidates, onPoint, compact, planned }: { bu
                 best={best}
                 yours={(row.san === builder.origin.reply && builder.path.length === builder.start.length) || row.san === habit}
                 planned={planned.has(row.san)}
+                engineFailed={engineFailed}
                 mine={builder.playerToMove}
                 onPlay={() => {
                   builder.play(row.san);
@@ -321,7 +324,7 @@ function CandidateTable({ builder, candidates, onPoint, compact, planned }: { bu
   );
 }
 
-function CandidateRow({ row, ply, faded, stats, compact, side, worst, best, yours, planned, mine, onPlay, onPoint }: {
+function CandidateRow({ row, ply, faded, stats, compact, side, worst, best, yours, planned, engineFailed, mine, onPlay, onPoint }: {
   row: Candidate;
   ply: number;
   faded: boolean;
@@ -332,6 +335,7 @@ function CandidateRow({ row, ply, faded, stats, compact, side, worst, best, your
   best: number | undefined;
   yours: boolean;
   planned: boolean;
+  engineFailed: boolean;
   /** Un coup du joueur : lui seul se juge ; ceux de l'adversaire, il les subit. */
   mine: boolean;
   onPlay: () => void;
@@ -390,7 +394,7 @@ function CandidateRow({ row, ply, faded, stats, compact, side, worst, best, your
         </td>
       )}
       <td className="whitespace-nowrap px-2 py-1.5 text-right tabular-nums">
-        {row.cp === undefined ? <span style={{ color: COLOURS.leafSoft }}>…</span> : formatCp(side === 'w' ? row.cp : -row.cp)}
+        {row.cp === undefined ? <span style={{ color: COLOURS.leafSoft }}>{engineFailed ? '—' : '…'}</span> : formatCp(side === 'w' ? row.cp : -row.cp)}
       </td>
       <td className="whitespace-nowrap py-1.5 pl-2 text-right" style={{ color: row.san === worst ? COLOURS.terracotta : COLOURS.leafSoft }}>
         {row.mine > 0 ? (
@@ -429,7 +433,7 @@ function ShareBar({ share }: { share: number | undefined }) {
 }
 
 /** La position vue par le moteur, comme la barre de Lichess, mais du côté du joueur : la part claire est sa chance. */
-function EvalBar({ cp: whiteCp, side }: { cp: number | undefined; side: Side }) {
+function EvalBar({ cp: whiteCp, side, failed }: { cp: number | undefined; side: Side; failed: boolean }) {
   // Du côté du joueur : un « −0.2 » lu par un joueur des Noirs doit vouloir dire « moins bien pour moi ».
   const cp = whiteCp === undefined ? undefined : side === 'w' ? whiteCp : -whiteCp;
   const white = cp === undefined ? 0.5 : winChance(cp);
@@ -443,7 +447,7 @@ function EvalBar({ cp: whiteCp, side }: { cp: number | undefined; side: Side }) 
           transition={SPRING}
         />
       </span>
-      <span className="whitespace-nowrap tabular-nums">{cp === undefined ? '…' : `${formatCp(cp)} ${verdictOf(cp)}`}</span>
+      <span className="whitespace-nowrap tabular-nums">{cp === undefined ? (failed ? '—' : '…') : `${formatCp(cp)} ${verdictOf(cp)}`}</span>
     </span>
   );
 }
@@ -472,7 +476,7 @@ function Move({ children }: { children: ReactNode }) {
 
 const POOL = {
   strong: { short: '2200+', long: 'Lichess 2200+' },
-  level: { short: '1400–1800', long: 'Lichess 1400–1800' },
+  level: { short: '1600–2200', long: 'Lichess 1600–2200' },
 } as const;
 
 /** L'aide du tableau : dépliée sur l'ordinateur, repliée au téléphone, où elle repoussait tout. */

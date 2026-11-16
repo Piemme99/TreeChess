@@ -18,14 +18,15 @@ export interface ExplorerResult extends ExplorerStats {
 export type Database = 'lichess' | 'strong' | 'masters';
 
 const TOKEN = import.meta.env.VITE_LICHESS_TOKEN as string | undefined;
-// Tranches de l'explorateur autour du joueur (Lichess : 1594 blitz, 1698 rapide le 18/10/2026).
-const RATINGS = '1400,1600,1800';
+// Les adversaires contre qui se préparer, un peu au-dessus du joueur (près de 1800, PMG le 16/11/2026) : il voulait
+// 1700–2100, l'explorateur ne connaît que des tranches de 200 points (1600 = 1600–1799).
+const RATINGS = '1600,1800,2000';
 const SPEEDS = 'blitz,rapid';
 // Des joueurs forts, mais assez nombreux pour couvrir les lignes d'amateur où la base des maîtres n'a que quelques parties.
 const STRONG_RATINGS = '2200,2500';
 const STRONG_SPEEDS = 'blitz,rapid,classical';
 /** La tranche interrogée, telle qu'on la nomme à l'écran. */
-export const LEVEL_LABEL = '1400–1800 · blitz & rapid · Lichess';
+export const LEVEL_LABEL = '1600–2200 · blitz & rapid · Lichess';
 const STORAGE = 'kumquat-explorer:';
 // Lichess demande d'attendre une minute pleine après un 429.
 const RATE_LIMIT_PAUSE = 60_000;

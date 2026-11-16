@@ -53,7 +53,7 @@ export function useCandidates(builder: Builder): Candidates {
   const { fen, playerToMove, mine } = builder;
   const side = builder.origin.side;
   // Ses propres coups se choisissent sur ce que jouent les forts joueurs ; les réponses adverses à préparer
-  // sont celles de son niveau, les seules qu'il rencontrera vraiment.
+  // sont celles des joueurs de son niveau et un peu au-dessus : ceux contre qui il veut se préparer.
   const pool = playerToMove ? 'strong' : 'level';
   const explorer = useExplorerAt(fen, playerToMove ? 'strong' : 'lichess');
 
