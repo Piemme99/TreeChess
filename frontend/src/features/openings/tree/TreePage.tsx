@@ -49,7 +49,7 @@ interface Session {
 /** POC (README, « the tree as the landing screen ») : le répertoire comme carte, à côté de l'aiguillage pour comparer. */
 export function TreePage() {
   useWorkshopFont();
-  const { replay, known, repertoires, steps, add, remove, ignore, unignore, forgetIgnored, forgetAdditions } = useReplayedSession();
+  const { replay, known, repertoires, steps, judging, add, remove, ignore, unignore, forgetIgnored, forgetAdditions } = useReplayedSession();
   // Openings envoie une ligne à travailler par l'adresse : /dev/tree?side=b&line=d4 Nf6.
   const [params] = useSearchParams();
   const asked = useMemo(
@@ -305,16 +305,17 @@ export function TreePage() {
   };
   useEffect(() => {
     const known = before.current;
-    if (!known) return;
+    // Les écarts du jour attendent l'avis du moteur : on ne les compte qu'une fois jugés.
+    if (!known || judging) return;
     before.current = null;
     const added = steps.filter((step) => !known.has(step.key)).length;
     // Un coup adverse croisé une seule fois sort de la liste au bout d'un temps : le compteur baisse, on dit pourquoi.
     const expired = [...known].filter((key) => !live.has(key)).length;
     const games = replay.gamesThatDay;
     show({ text: `${games} ${games === 1 ? 'game' : 'games'} played${added > 0 ? ` · ${added} new to settle` : ''}${expired > 0 ? ` · ${expired} expired` : ''}` });
-    // Seul le changement de jour compte ; `steps` est recalculé dans le même rendu.
+    // Seuls le changement de jour et la fin du jugement comptent ; `steps` est recalculé dans le même rendu.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [replay.day]);
+  }, [replay.day, judging]);
   const habits = useMemo(
     () => gamesOfLastMonths(known, RECENT_MONTHS, new Date(replay.day)).filter((game) => game.side === building?.origin.side),
     [known, replay.day, building?.origin.side],

@@ -145,9 +145,11 @@ their repertoire, and a notification brings them back to it while it is
 fresh. Two outcomes:
 
 - **Left the repertoire** — the player played a move their repertoire does not
-  hold ("move 7: you played Bd7, your repertoire has e6"). The check cannot tell
-  a lapse from a new choice, so it asks instead of judging: **Add** (an
-  [addition](#addition) built from there) or **Review** the
+  hold ("move 7: you played Bd7, your repertoire has e6"). The engine compares
+  that move with the repertoire's best one at that position: weaker by at least an
+  inaccuracy, it is a lapse to correct; better, a move worth adding; as good,
+  there is nothing to settle until the player plays it again. The player then
+  answers: **Add** (an [addition](#addition) built from there) or **Review** the
   repertoire's moves (an exercise on that position). Without an answer, nothing
   changes.
 - **Not covered** — the opponent played a move the repertoire does not prepare.

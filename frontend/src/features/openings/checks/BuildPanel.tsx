@@ -1,8 +1,8 @@
 import { motion } from 'framer-motion';
 import { useMemo, type ReactNode } from 'react';
 import { draftLines, type DraftMove } from '../domain/addition';
-import { MATE_CP, winChance } from '../domain/diagnosis';
-import { figurineLine, figurineMove } from '../domain/notation';
+import { winChance } from '../domain/diagnosis';
+import { figurineLine, figurineMove, formatCp } from '../domain/notation';
 import { isPlayerMove } from '../domain/openingTree';
 import { formatPercent } from '../flame/format';
 import { JUDGEMENT_MARK, judgeMove, type Judgement } from '../domain/judgement';
@@ -468,14 +468,6 @@ function verdictOf(cp: number): string {
   if (Math.abs(shown) < 30) return '(equal)';
   if (Math.abs(shown) < 100) return shown > 0 ? '(slightly better)' : '(slightly worse)';
   return cp > 0 ? '(better for you)' : '(worse for you)';
-}
-
-/** Centipions, comme sur Lichess : « −0.5 », « +1.2 », « #». */
-function formatCp(cp: number): string {
-  if (Math.abs(cp) >= MATE_CP) return cp > 0 ? '#' : '−#';
-  const pawns = (Math.abs(cp) / 100).toFixed(1);
-  if (pawns === '0.0') return '0.0';
-  return cp < 0 ? `−${pawns}` : `+${pawns}`;
 }
 
 

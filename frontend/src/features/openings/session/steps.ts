@@ -1,6 +1,7 @@
 import type { CheckedGame } from '../checks/checkedGame';
 import type { Side } from '../domain/playedGame';
 import type { Deviation } from '../checks/useBuilder';
+import type { StepVerdict } from './verdict';
 
 /** Une étape de la séance : une position que des parties ont quittée de la même façon. */
 export interface SessionStep {
@@ -13,6 +14,8 @@ export interface SessionStep {
   planned: readonly string[];
   /** La plus récente d'abord. */
   games: readonly (CheckedGame & { check: Deviation })[];
+  /** L'avis du moteur sur un écart du joueur, quand il est arrivé. */
+  verdict?: StepVerdict;
 }
 
 const isDeviation = (checked: CheckedGame): checked is CheckedGame & { check: Deviation } => checked.check.kind !== 'followed';
