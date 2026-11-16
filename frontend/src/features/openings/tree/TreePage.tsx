@@ -2,6 +2,7 @@ import { MotionConfig, motion } from 'framer-motion';
 import { useSearchParams } from 'react-router';
 import { useOpeningName } from '../../../shared/hooks/useOpeningName';
 import { replayLine } from '../position/replay';
+import { positionKey } from '../domain/repertoire';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { BuildSession } from '../checks/BuildSession';
 import { originAt, originOf, type BuildOrigin } from '../checks/useBuilder';
@@ -61,6 +62,7 @@ export function TreePage() {
   // Ce que le volet met en avant quand une position porte une décision et une priorité : ce qui y a mené.
   const [lead, setLead] = useState<'settle' | 'priority'>(asked.line.length ? 'priority' : 'settle');
   const [preview, setPreview] = useState<readonly (readonly string[])[]>([]);
+  const [buildPath, setBuildPath] = useState<readonly string[] | null>(null);
   const showLines = useCallback((lines: (readonly string[])[]) => {
     setPreview(lines);
     const last = lines.at(-1);
@@ -69,6 +71,7 @@ export function TreePage() {
   const build = (next: { origin: BuildOrigin; stepKey?: string } | null) => {
     setBuilding(next);
     setPreview([]);
+    setBuildPath(null);
     if (next) {
       setFocus({ key: next.origin.start.join(' '), stamp: Date.now(), centre: true });
       setView('position');
@@ -157,7 +160,11 @@ export function TreePage() {
     }
     add(addition);
     build(null);
-    show({ text, undo: () => remove(addition) });
+    // Une ligne qui retombe sur une position déjà dessinée y est rangée : sans le dire, l'ajout semble perdu.
+    const line0 = lines[0];
+    const landing = line0 && findByPosition(maps[building.origin.side], positionKey(replayLine(line0).fens[line0.length]));
+    const transposes = landing && landing.key !== line0.join(' ') ? ` · transposes to ${figurineLine(landing.path)}` : '';
+    show({ text: text + transposes, undo: () => remove(addition) });
     // La ligne ajoutée se voit tout de suite, même trop fine pour l'arrivée.
     const line = lines[0];
     if (line) {
@@ -285,7 +292,7 @@ export function TreePage() {
                   tone={steps.length && !session ? 'terracotta' : 'plain'}
                 >
                   {first
-                    ? `${steps.reduce((sum, step) => sum + step.games.length, 0)} games · ${perSide.w} as White · ${perSide.b} as Black`
+                    ? `${perSide.w} as White · ${perSide.b} as Black`
                     : replay.next
                       ? 'Press “Next day” to bring games in'
                       : 'All games replayed'}
@@ -314,7 +321,7 @@ export function TreePage() {
                     preview={shownPreview}
                   />
                 ) : (
-                  <TreeList root={root} side={side} node={node} onSelect={(key) => goTo(side, key, false)} onOpen={() => setView('position')} />
+                  <TreeList root={root} side={side} node={node} offMoves={stepsHere} onSelect={(key) => goTo(side, key, false)} onOpen={() => setView('position')} />
                 )}
               </div>
             )}
@@ -324,7 +331,7 @@ export function TreePage() {
                 <Done settled={settled} skipped={skipped} left={steps.length} onClose={() => setSession(null)} />
               ) : building ? (
                 <>
-                <PaneHeading path={building.origin.start} />
+                <PaneHeading path={buildPath ?? building.origin.start} />
                 <BuildSession
                   key={`${building.origin.start.join(' ')} ${building.stepKey ?? ''} ${building.origin.keep}`}
                   origin={building.origin}
@@ -333,6 +340,7 @@ export function TreePage() {
                   onAccept={accept}
                   onCancel={() => build(null)}
                   onLines={showLines}
+                  onPath={setBuildPath}
                   stacked
                 />
                 </>
@@ -352,7 +360,11 @@ export function TreePage() {
                   onExtend={() => build({ origin: originAt(side, node.path, path) })}
                   onPrepareFollows={
                     priority
-                      ? () => build({ origin: { ...originAt(side, priority.path, priority.path), heading: `Prepare your moves after ${figurineMove(priority.path[priority.path.length - 1], priority.path.length)}` } })
+                      ? (line) => {
+                          const reached = nodeAlong(root, line);
+                          const heading = `Prepare your moves after ${figurineMove(line[line.length - 1], line.length)}`;
+                          build({ origin: { ...originAt(side, line.slice(0, Math.min(reached.path.length, line.length)), line), heading } });
+                        }
                       : undefined
                   }
                   onMove={play}

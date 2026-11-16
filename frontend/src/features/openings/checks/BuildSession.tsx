@@ -4,7 +4,7 @@ import { draftLines, draftMoves, type AddedMove } from '../domain/addition';
 import type { PlayedGame } from '../domain/playedGame';
 import { repertoireMovesAt, type Repertoire } from '../domain/repertoire';
 import type { BoardArrow } from '../line/ArrowBoard';
-import { ARROW, COLOURS } from '../workshop/theme';
+import { ARROW } from '../workshop/theme';
 import { BuildPanel } from './BuildPanel';
 import { useBuilder, type BuildOrigin } from './useBuilder';
 import { useCandidates } from './useCandidates';
@@ -47,15 +47,18 @@ interface BuildSessionProps {
   stacked?: boolean;
   /** Les lignes du brouillon à chaque coup joué, pour les montrer ailleurs (la carte). */
   onLines?: (lines: (readonly string[])[]) => void;
+  /** La position sur l'échiquier, pour la nommer ailleurs. */
+  onPath?: (path: readonly string[]) => void;
 }
 
 // Trois flèches au plus, comme partout : au-delà, l'échiquier ne se lit plus.
 const MAX_ARROWS = 3;
 
 /** Le joueur construit son ajout en jouant : l'échiquier devient jouable, le panneau le guide. */
-export function BuildSession({ origin, games, repertoire, onAccept, onCancel, children, stacked = false, onLines }: BuildSessionProps) {
+export function BuildSession({ origin, games, repertoire, onAccept, onCancel, children, stacked = false, onLines, onPath }: BuildSessionProps) {
   const builder = useBuilder(origin, games);
   useEffect(() => onLines?.(draftLines(builder.draft)), [builder.draft, onLines]);
+  useEffect(() => onPath?.(builder.path), [builder.path, onPath]);
   const candidates = useCandidates(builder);
   useArrowKeys(builder.navigate);
   // Un coup pointé n'a de sens que dans sa position : joué, il serait illégal dans la suivante.
@@ -91,15 +94,13 @@ export function BuildSession({ origin, games, repertoire, onAccept, onCancel, ch
     <Wrapper
       className={
         stacked
-          ? 'flex flex-col gap-4'
+          ? 'flex flex-col gap-4 lg:h-[calc(100vh-15rem)] lg:min-h-[32rem]'
           : 'mx-auto flex max-w-[84rem] flex-col gap-6 px-4 pt-6 lg:grid lg:grid-cols-[minmax(0,30rem)_1fr] lg:gap-10 lg:px-8 lg:pt-8'
       }
     >
       <aside
         aria-label="Position"
-        className={`flex flex-col gap-3 self-start ${stacked ? 'sticky top-0 z-10 mx-auto w-full max-w-none px-[calc(50%-8rem)] pt-2 pb-2 lg:px-[3.5rem] lg:pb-3' : 'lg:sticky lg:top-6'}`}
-        // L'échiquier reste en haut pendant qu'on fait défiler le tableau : on choisit en regardant la position.
-        style={stacked ? { background: COLOURS.cream } : undefined}
+        className={`flex flex-col gap-3 self-start ${stacked ? 'mx-auto w-full max-w-[18rem] shrink-0 lg:max-w-[15rem]' : 'lg:sticky lg:top-6'}`}
       >
         <PlayableBoard path={builder.path} flipped={origin.side === 'b'} arrows={arrows} suggestions={suggestions} onMove={builder.play} />
         <p className="flex flex-wrap gap-x-4 gap-y-1 px-1 text-[12px] font-semibold" style={{ color: ARROW.neutral.colour }}>
@@ -109,7 +110,8 @@ export function BuildSession({ origin, games, repertoire, onAccept, onCancel, ch
           {arrows.some((arrow) => 'kind' in arrow && arrow.kind === 'neutral') && <Swatch colour={ARROW.neutral.colour}>at your level</Swatch>}
         </p>
       </aside>
-      <div className={`flex min-w-0 flex-col ${stacked ? 'gap-4' : 'gap-6 lg:gap-10'}`}>
+      {/* Dans le volet, seul le panneau défile : l'échiquier au-dessus et le titre ne bougent pas. */}
+      <div className={`flex min-w-0 flex-col ${stacked ? 'gap-4 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:rounded-3xl' : 'gap-6 lg:gap-10'}`}>
         <BuildPanel
           compact={stacked}
           repertoire={repertoire}

@@ -43,7 +43,7 @@ export function ReplayBar({ replay }: { replay: ReplayDay }) {
       </span>
       {replay.next && (
         <Action onClick={replay.next} primary>
-          Next day →
+          Next game day →
         </Action>
       )}
     </section>

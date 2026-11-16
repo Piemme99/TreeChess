@@ -3,6 +3,7 @@ import { figurineMove } from '../domain/notation';
 import { isPlayerMove } from '../domain/openingTree';
 import type { Side } from '../domain/playedGame';
 import { COLOURS, REPERTOIRE, tile } from '../workshop/theme';
+import type { SessionStep } from '../session/steps';
 import type { MapNode } from './repertoireMap';
 
 interface Below {
@@ -35,10 +36,12 @@ interface TreeListProps {
   node: MapNode;
   onSelect: (key: string) => void;
   onOpen: () => void;
+  /** Les coups joués ici hors du répertoire, à trancher : ils ont leur ligne, sinon on ne les voit pas. */
+  offMoves?: readonly SessionStep[];
 }
 
 /** L'arbre au téléphone : un étage à la fois, comme l'explorateur de Lichess, avec ce qui attend plus bas. */
-export function TreeList({ root, side, node, onSelect, onOpen }: TreeListProps) {
+export function TreeList({ root, side, node, onSelect, onOpen, offMoves = [] }: TreeListProps) {
   const marks = useMemo(() => marksBelow(root), [root]);
   const children = [...node.children].sort((a, b) => b.games - a.games);
   const most = Math.max(1, ...children.map((child) => child.games));
@@ -65,8 +68,26 @@ export function TreeList({ root, side, node, onSelect, onOpen }: TreeListProps) 
           See the board →
         </button>
       </div>
-      {children.length > 0 && (
+      {(children.length > 0 || offMoves.length > 0) && (
         <ul className="flex flex-col gap-1.5">
+          {offMoves.map((step) => (
+            <li key={step.key}>
+              <button
+                type="button"
+                onClick={onOpen}
+                className="flex min-h-12 w-full items-center gap-3 rounded-2xl px-3 py-2 text-left focus-visible:outline-2"
+                style={{ background: COLOURS.paper, boxShadow: `inset 0 0 0 1.5px ${COLOURS.terracotta}` }}
+              >
+                <span className="w-20 shrink-0 text-[16px] font-extrabold">{figurineMove(step.played, step.path.length + 1)}</span>
+                <span className="flex-1 text-[12px]" style={{ color: COLOURS.leafSoft }}>
+                  not in your repertoire · played in {step.games.length} {step.games.length === 1 ? 'game' : 'games'}
+                </span>
+                <span className="rounded-full px-2 py-0.5 text-[12px] font-extrabold text-white" style={{ background: COLOURS.terracotta }}>
+                  settle
+                </span>
+              </button>
+            </li>
+          ))}
           {children.map((child) => {
             const below = marks.get(child.key)!;
             return (

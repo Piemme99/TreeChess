@@ -5,7 +5,7 @@ export interface ToastMessage {
   undo?: () => void;
 }
 
-const DURATION = 10000;
+const DURATION = 7000;
 
 /** Le retour d'une action, avec de quoi la défaire tant qu'il est affiché. */
 export function useToast() {

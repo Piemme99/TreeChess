@@ -12,7 +12,7 @@ import { HoverCard, PriorityBadge, type Hover } from './TileHints';
 import { lineTone } from './tone';
 import { useElementWidth } from './useElementWidth';
 
-const ROW = { player: 34, opponent: 22 };
+const ROW = { player: 34, opponent: 24 };
 const GAP = 3;
 // Une tuile plus étroite que son coup en toutes lettres rejoint le « … » : une tuile muette ne dit rien.
 const PRUNE = { minPx: 52, coverageFloor: 0.4, minRows: 6, maxRows: 24, minGames: 2 };
@@ -114,7 +114,7 @@ export function FlameTiles({ tree, focusPath, onFocusChange, onPoint, priorities
           {tiles.map((placed) => {
             const player = isPlayerRow(placed.depth);
             const rowHeight = (player ? ROW.player : ROW.opponent) - GAP;
-            const fontSize = player ? 14 : 12;
+            const fontSize = player ? 14 : 13;
             const tileWidth = placed.width * widthPx;
             const tone = placed.rest ? REST : player ? TONES[lineTone(placed.node, average)] : OPPONENT;
             const name = tileName(placed);

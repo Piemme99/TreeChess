@@ -20,7 +20,7 @@ const playOnBoard = (from: string, to: string) => {
   fireEvent.click(square(from));
   fireEvent.click(square(to));
 };
-const nextDay = () => fireEvent.click(within(replayBar()).getByRole('button', { name: /Next day/ }));
+const nextDay = () => fireEvent.click(within(replayBar()).getByRole('button', { name: /Next game day/ }));
 const toDecide = () => within(screen.getByRole('region', { name: /^To settle/ })).queryAllByRole('listitem');
 const rest = () => {
   const region = screen.queryByRole('region', { name: 'Rest of the day' });

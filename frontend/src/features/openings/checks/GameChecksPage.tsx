@@ -17,7 +17,7 @@ import { REPLAY_FIRST_DAY } from '../replay/replaySetup';
 import { useRepertoires } from '../replay/useRepertoires';
 import { useReplayDay } from '../replay/useReplayDay';
 import { PageHeader } from '../workshop/PageHeader';
-import { COLOURS, FONT_FAMILY, REPERTOIRE } from '../workshop/theme';
+import { ARROW, COLOURS, FONT_FAMILY, REPERTOIRE } from '../workshop/theme';
 import { useWorkshopFont } from '../workshop/useWorkshopFont';
 import { checkedPath, type CheckedGame } from './checkedGame';
 import { gamesToDecide, isOpen, liveGames } from './decisions';
@@ -197,7 +197,7 @@ function CheckBoard({ checked, repertoires, judgement }: CheckBoardProps) {
     const planned = repertoireMovesAt(repertoires[checked.game.side], fen).map(
       (move): BoardArrow => ({ san: move.san, kind: 'repertoire', share: 0.5 }),
     );
-    return [...planned, { san: checked.check.played, kind: 'costly', share: 0.5 }];
+    return [...planned, { san: checked.check.played, kind: 'neutral', share: 0.5, emphasis: true }];
   }, [checked, checkPath, repertoires, judgement]);
 
   return (
@@ -205,7 +205,7 @@ function CheckBoard({ checked, repertoires, judgement }: CheckBoardProps) {
       <ArrowBoard path={path} flipped={checked?.game.side === 'b'} arrows={arrows} />
       {checked?.check.kind === 'left' && (
         <p className="px-1 text-[14px]" style={{ color: COLOURS.leafSoft }}>
-          <span className="font-bold" style={{ color: COLOURS.terracotta }}>red</span> played ·{' '}
+          <span className="font-bold" style={{ color: ARROW.neutral.colour }}>dark</span> played instead ·{' '}
           <span className="font-bold" style={{ color: REPERTOIRE }}>green</span> your repertoire
         </p>
       )}

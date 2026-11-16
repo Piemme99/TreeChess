@@ -41,7 +41,8 @@ interface PositionPaneProps {
   onNextPriority?: () => void;
   /** Construire depuis la position de l'échiquier, dans ou hors du répertoire. */
   onExtend: () => void;
-  onPrepareFollows?: () => void;
+  /** Construire depuis une ligne de la priorité : la sienne, ou celle où elle perd ses points. */
+  onPrepareFollows?: (line: readonly string[]) => void;
   onMove: (san: string) => void;
   onBack?: () => void;
 }
@@ -65,6 +66,7 @@ export function PositionPane({ side, path, node, recent, steps, priority, action
   const suggestions = arrows.filter((arrow) => 'kind' in arrow && arrow.kind === 'repertoire').map((arrow) => arrow.san);
   const here = useMemo(() => nodeAt(recent, path), [recent, path]);
   const average = useMemo(() => playerAverage(recent), [recent]);
+  const leak = priority ? leakOf(here) : undefined;
 
   const prioritised = inRepertoire && priority !== undefined;
   const settling = inRepertoire && steps.length > 0 && !(prioritised && lead === 'priority');
@@ -137,10 +139,12 @@ export function PositionPane({ side, path, node, recent, steps, priority, action
           <span className="text-[12px] font-bold uppercase tracking-[0.06em]" style={{ color: COLOURS.apricot }}>
             Priority {node.priority}
           </span>
-          <PriorityVerdict priority={priority} here={here} average={average} line={figurineLine(priority.path)} />
+          <PriorityVerdict priority={priority} here={here} average={average} line={figurineLine(priority.path)} leak={leak} />
           {onPrepareFollows && (
-            <Action onClick={onPrepareFollows} tone="light">
-              Prepare my moves after {figurineMove(priority.path[priority.path.length - 1], priority.path.length)}
+            <Action onClick={() => onPrepareFollows(leak ? [...priority.path, leak.san!] : priority.path)} tone="light">
+              {leak
+                ? `Prepare my moves after ${figurineMove(leak.san!, priority.path.length + 1)}`
+                : `Prepare my moves after ${figurineMove(priority.path[priority.path.length - 1], priority.path.length)}`}
             </Action>
           )}
           {waiting && (
@@ -214,12 +218,17 @@ function Repertoire({ side, path, node, inRepertoire, ply, here }: { side: Side;
 // Un fil qui coûte doit peser : sous ce nombre de parties, l'écart ne désigne rien.
 const MIN_LEAK_GAMES = 5;
 
-function PriorityVerdict({ priority, here, average, line }: { priority: Priority; here: OpeningNode | undefined; average: number; line: string }) {
+/** La suite où une priorité perd nettement plus qu'en moyenne sur sa ligne, s'il y en a une. */
+function leakOf(here: OpeningNode | undefined): OpeningNode | undefined {
+  if (!here) return undefined;
+  return here.children
+    .filter((child) => child.games >= MIN_LEAK_GAMES && scoreRate(child) < scoreRate(here) - 0.03)
+    .sort((a, b) => scoreRate(a) - scoreRate(b))[0];
+}
+
+function PriorityVerdict({ priority, here, average, line, leak }: { priority: Priority; here: OpeningNode | undefined; average: number; line: string; leak: OpeningNode | undefined }) {
   const lost = Math.round(priority.pointsToGain);
   const ply = priority.path.length + 1;
-  const leak = here?.children
-    .filter((child) => here !== undefined && child.games >= MIN_LEAK_GAMES && scoreRate(child) < scoreRate(here) - 0.03)
-    .sort((a, b) => scoreRate(a) - scoreRate(b))[0];
   return (
     <>
       <span className="text-[15px] leading-snug">

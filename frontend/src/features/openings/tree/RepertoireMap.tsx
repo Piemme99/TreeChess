@@ -111,12 +111,12 @@ export function RepertoireMap({ root: drawn, side, selected, onSelect, focus, lo
     if (!placed) return;
     served.current = focus.stamp;
     // Le chemin depuis le départ, pas le nœud seul : sans ses ancêtres, le joueur ne sait plus où il est.
-    // Le nœud, son parent et ses enfants, sans toucher au zoom : la carte ne bouge que si ce voisinage sort du cadre.
-    const parentKey = placed.node.path.slice(0, -1).join(' ');
-    const around = layout.nodes.filter(
-      (node) => node === placed || (placed.node.path.length > 0 && node.node.key === parentKey) || (node.node.key.startsWith(`${focus.key} `) && node.node.path.length === placed.node.path.length + 1) || (focus.key === '' && node.node.path.length === 1),
+    // Le chemin depuis le départ et les enfants du nœud : la carte bouge le moins possible, et ne dézoome
+    // qu'un peu, jusqu'à 75 %, pour garder le départ en vue ; au-delà, le nœud et sa suite passent d'abord.
+    const along = layout.nodes.filter(
+      (node) => node === placed || focus.key.startsWith(`${node.node.key} `) || node.node.san === null || (node.node.key.startsWith(`${focus.key} `) && node.node.path.length === placed.node.path.length + 1),
     );
-    reveal(boxOf(around), size, transform.k);
+    reveal(boxOf(along), size, Math.min(transform.k, 0.75));
     // `transform.k` n'est lu qu'au moment de servir la demande.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focus, layout.nodes, reveal, size]);
@@ -250,7 +250,7 @@ export function RepertoireMap({ root: drawn, side, selected, onSelect, focus, lo
           </MapButton>
         </div>
       </div>
-      {hover && !dragged.current && <HoverBoard hover={hover} side={side} />}
+      {hover && !dragged.current && <HoverBoard hover={hover} side={side} frame={container.current?.getBoundingClientRect()} />}
     </div>
       <Legend />
     </div>
@@ -259,7 +259,7 @@ export function RepertoireMap({ root: drawn, side, selected, onSelect, focus, lo
 
 const FOCUS_STYLE = `
   [role='treeitem']:focus { outline: none; }
-  [role='treeitem']:focus-visible > rect.pill, [data-unfold]:focus-visible > rect { stroke: ${COLOURS.kumquatDeep}; stroke-width: 3px; }
+  [role='treeitem']:focus-visible > rect.pill, [data-unfold]:focus-visible > rect { stroke: ${COLOURS.leaf}; stroke-width: 3px; stroke-dasharray: none; }
 `;
 
 function boxOf(nodes: readonly PlacedNode[]): Box {
@@ -445,7 +445,7 @@ function Pill({ placed, side, selected, onClick, onDoubleClick, onOpen, onHover,
         </g>
       )}
       {node.priority !== undefined && !node.stub && (
-        <g transform={`translate(${-width / 2 + 2} ${-h / 2 - 3})`} aria-hidden="true">
+        <g transform={`translate(${-width / 2 - 13} 0)`} aria-hidden="true">
           <rect x={-12} y={-8} width={24} height={16} rx={4} fill={COLOURS.leaf} stroke={COLOURS.paper} strokeWidth={2} />
           <text textAnchor="middle" dominantBaseline="central" fontSize={11} fontWeight={800} fill={COLOURS.cream}>
             P{node.priority}
@@ -481,11 +481,12 @@ function Pill({ placed, side, selected, onClick, onDoubleClick, onOpen, onHover,
   );
 }
 
-function HoverBoard({ hover, side }: { hover: Hover; side: Side }) {
-  // Au-dessus du pointeur et vers la gauche : les enfants d'un nœud sont à sa droite, il ne faut pas les cacher.
+function HoverBoard({ hover, side, frame }: { hover: Hover; side: Side; frame: DOMRect | undefined }) {
+  // Toujours au même coin de la carte, loin du pointeur : il ne cache pas la branche qu'on manipule.
   const width = 188;
-  const left = Math.min(Math.max(hover.x - width - 24, 8), window.innerWidth - width - 8);
-  const top = Math.min(Math.max(hover.y - 110, 8), window.innerHeight - 240);
+  const nearLeft = frame !== undefined && hover.x < frame.left + width + 40 && hover.y < frame.top + 260;
+  const left = frame ? (nearLeft ? frame.right - width - 12 : frame.left + 12) : hover.x + 16;
+  const top = frame ? frame.top + 12 : hover.y + 16;
   return (
     <div role="tooltip" className="pointer-events-none fixed z-40 flex flex-col gap-1.5" style={{ left, top, width }}>
       <WorkshopBoard path={hover.placed.node.path} flipped={side === 'b'} />

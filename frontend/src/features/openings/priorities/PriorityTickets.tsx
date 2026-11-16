@@ -111,7 +111,7 @@ function Ticket({ priority, rank, share, selected, onSelect, onPoint }: TicketPr
         >
           <motion.span
             className="block h-full rounded-full"
-            style={{ background: COLOURS.leafSoft }}
+            style={{ background: selected ? COLOURS.cream : COLOURS.leafSoft }}
             initial={{ width: 0 }}
             animate={{ width: `${impact}%` }}
             transition={{ ...ZOOM, delay: 0.2 + rank * 0.07 }}

@@ -403,8 +403,10 @@ function EvalBar({ cp: whiteCp, side }: { cp: number | undefined; side: Side }) 
 
 /** Ce que dit l'évaluation en mots, pour qui ne lit pas les centipions. */
 function verdictOf(cp: number): string {
-  if (Math.abs(cp) < 50) return '(equal)';
-  if (Math.abs(cp) < 150) return cp > 0 ? '(slightly better)' : '(slightly worse)';
+  // Sur la valeur affichée, arrondie au dixième : « +0.5 » doit toujours dire la même chose.
+  const shown = Math.round(cp / 10) * 10;
+  if (Math.abs(shown) < 50) return '(equal)';
+  if (Math.abs(shown) < 150) return shown > 0 ? '(slightly better)' : '(slightly worse)';
   return cp > 0 ? '(better for you)' : '(worse for you)';
 }
 
@@ -412,7 +414,8 @@ function verdictOf(cp: number): string {
 function formatCp(cp: number): string {
   if (Math.abs(cp) >= MATE_CP) return cp > 0 ? '#' : '−#';
   const pawns = (Math.abs(cp) / 100).toFixed(1);
-  return cp < 0 ? `−${pawns}` : cp > 0 ? `+${pawns}` : '0.0';
+  if (pawns === '0.0') return '0.0';
+  return cp < 0 ? `−${pawns}` : `+${pawns}`;
 }
 
 
