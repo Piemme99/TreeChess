@@ -8,7 +8,7 @@ export const COLOURS = {
   paper: 'oklch(0.985 0.012 85)',
   sand: 'oklch(0.915 0.035 80)',
   leaf: 'oklch(0.33 0.06 150)',
-  leafSoft: 'oklch(0.50 0.05 150)',
+  leafSoft: 'oklch(0.45 0.05 150)',
   kumquat: 'oklch(0.73 0.17 55)',
   kumquatDeep: 'oklch(0.60 0.17 45)',
   terracotta: 'oklch(0.60 0.155 35)',

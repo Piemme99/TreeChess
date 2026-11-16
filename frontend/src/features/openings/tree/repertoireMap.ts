@@ -51,7 +51,7 @@ export function buildRepertoireMap(repertoire: Repertoire, recent: OpeningTree, 
       chess.move(move.san);
       const path = [...parent.path, move.san];
       const child = node(path, move.san, parent.ply + 1, positionKey(chess.fen()), recent, marks);
-      if (marks.createdAt && move.addedAt > marks.createdAt) child.added = true;
+      if (marks.createdAt && move.addedAt !== marks.createdAt) child.added = true;
       const owner = owners.get(child.position);
       if (owner) {
         child.stub = true;

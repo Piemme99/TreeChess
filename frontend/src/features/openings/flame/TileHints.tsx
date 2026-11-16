@@ -35,7 +35,7 @@ export function PriorityBadge({ mark }: { mark: Mark }) {
     return (
       <span
         aria-label={`contains priority ${mark.rank}`}
-        className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full"
+        className="pointer-events-none absolute right-1.5 top-1 z-10 h-1.5 w-1.5 rounded-full"
         style={{ background: COLOURS.leaf, boxShadow: `0 0 0 2px ${COLOURS.cream}` }}
       />
     );
@@ -43,7 +43,7 @@ export function PriorityBadge({ mark }: { mark: Mark }) {
   return (
     <span
       aria-label={`priority ${mark.rank}`}
-      className="absolute right-1 top-1/2 flex h-[18px] w-[18px] -translate-y-1/2 items-center justify-center rounded-full text-[10px] font-extrabold"
+      className="pointer-events-none absolute -top-2 right-0 z-10 flex h-[18px] w-[18px] items-center justify-center rounded-full text-[10px] font-extrabold"
       style={{ background: COLOURS.leaf, color: COLOURS.cream, boxShadow: `0 0 0 2px ${COLOURS.cream}` }}
     >
       {mark.rank}

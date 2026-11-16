@@ -90,8 +90,8 @@ export function TreeList({ root, side, node, onSelect, onOpen }: TreeListProps) 
                   </span>
                   <span className="flex shrink-0 items-center gap-1">
                     {below.priority !== undefined && (
-                      <span className="grid size-6 place-items-center rounded-full text-[11px] font-extrabold" style={{ background: COLOURS.leaf, color: COLOURS.cream }} title="Priority">
-                        {below.priority}
+                      <span className="rounded px-1.5 py-0.5 text-[11px] font-extrabold" style={{ background: COLOURS.leaf, color: COLOURS.cream }} title="Priority">
+                        P{below.priority}
                       </span>
                     )}
                     {below.settle > 0 && (
@@ -110,8 +110,8 @@ export function TreeList({ root, side, node, onSelect, onOpen }: TreeListProps) 
         </ul>
       )}
       <p className="px-1 text-[12px]" style={{ color: COLOURS.leafSoft }}>
-        <span className="font-bold" style={{ color: COLOURS.leaf }}>
-          ●
+        <span className="rounded px-1 text-[10px] font-extrabold" style={{ background: COLOURS.leaf, color: COLOURS.cream }}>
+          P1
         </span>{' '}
         priority ·{' '}
         <span className="font-bold" style={{ color: COLOURS.terracotta }}>

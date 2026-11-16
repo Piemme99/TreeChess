@@ -86,8 +86,8 @@ export function BuildPanel({ builder, candidates, fresh, onPoint, onAccept, onCa
       {lines.length > 0 && (
         <div className="flex flex-col gap-1.5">
           <span className="text-[12px] font-semibold" style={{ color: COLOURS.leafSoft }}>
-            Your line{lines.length > 1 ? 's' : ''} · <span className="rounded px-1 font-extrabold" style={{ ...tile(COLOURS.sand), color: COLOURS.leaf }}>tile</span> = new,{' '}
-            <span className="font-semibold" style={{ color: REPERTOIRE }}>green</span> = already in your repertoire, ringed = on the board · click a move to go back to it
+            Your line{lines.length > 1 ? 's' : ''}: click a move to go back to it.{' '}
+            <span style={{ color: REPERTOIRE }}>Green moves</span> are already in your repertoire.
           </span>
           <ul aria-label="To add" className="flex flex-col gap-1 text-[14px]">
             {lines.map((line) => (
@@ -121,7 +121,7 @@ export function BuildPanel({ builder, candidates, fresh, onPoint, onAccept, onCa
         </div>
       )}
 
-      <span className="flex flex-wrap gap-2">
+      <span className={`flex flex-wrap gap-2 ${compact ? 'sticky bottom-0 -mx-4 -mb-4 rounded-b-3xl px-4 pt-3 pb-4' : ''}`} style={compact ? { background: COLOURS.paper, boxShadow: '0 -8px 16px -12px oklch(0.3 0.05 60 / 0.4)' } : undefined}>
         <Action onClick={onAccept} primary disabled={!complete}>
           {complete ? `Add to my repertoire · ${toAdd} new ${toAdd === 1 ? 'move' : 'moves'}` : 'Add to my repertoire'}
         </Action>
@@ -180,7 +180,7 @@ function CandidateTable({ builder, candidates, onPoint, compact }: { builder: Bu
               <tr>
                 <th />
                 <th colSpan={2} className="whitespace-nowrap px-2 pb-0.5 text-center font-semibold" style={{ borderBottom: `1px solid ${COLOURS.sand}` }}>
-                  {compact ? 'Lichess 1400+' : 'Lichess 1400–1800'}
+                  {compact ? 'Lichess, 1400+' : 'Lichess players 1400–1800'}
                 </th>
                 <th />
                 <th />
@@ -189,7 +189,11 @@ function CandidateTable({ builder, candidates, onPoint, compact }: { builder: Bu
             <tr className="text-left">
               <th className="pb-1 pr-2 font-semibold">Move</th>
               {stats && <th className="pb-1 px-2 font-semibold">played</th>}
-              {stats && <th className="pb-1 px-2 text-right font-semibold">{compact ? 'score' : `${side} scores`}</th>}
+              {stats && (
+                <th className="pb-1 px-2 text-right font-semibold" title={`How ${side} scores after this move, at this level`}>
+                  {side} %
+                </th>
+              )}
               <th className="pb-1 px-2 text-right font-semibold" title="Engine evaluation after the move, from your side: + is good for you">
                 Engine
               </th>
@@ -332,9 +336,16 @@ function EvalBar({ cp: whiteCp, side }: { cp: number | undefined; side: Side }) 
           transition={SPRING}
         />
       </span>
-      <span className="tabular-nums">{cp === undefined ? '…' : formatCp(cp)}</span>
+      <span className="whitespace-nowrap tabular-nums">{cp === undefined ? '…' : `${formatCp(cp)} ${verdictOf(cp)}`}</span>
     </span>
   );
+}
+
+/** Ce que dit l'évaluation en mots, pour qui ne lit pas les centipions. */
+function verdictOf(cp: number): string {
+  if (Math.abs(cp) < 50) return '(equal)';
+  if (Math.abs(cp) < 150) return cp > 0 ? '(slightly better)' : '(slightly worse)';
+  return cp > 0 ? '(better for you)' : '(worse for you)';
 }
 
 /** Centipions, comme sur Lichess : « −0.5 », « +1.2 », « #». */

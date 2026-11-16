@@ -1,5 +1,5 @@
 import { MotionConfig } from 'framer-motion';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import type { AddedMove } from '../domain/addition';
 import { judgeMove, type Judgement } from '../domain/judgement';
 import { repertoireMovesAt, type Repertoire } from '../domain/repertoire';
@@ -42,6 +42,12 @@ export function GameChecksPage() {
     [adding, replay.day],
   );
 
+  // Au téléphone l'échiquier est au-dessus de la liste : choisir une partie y ramène.
+  const board = useRef<HTMLDivElement>(null);
+  const select = (id: number) => {
+    setSelectedId(id);
+    if (!window.matchMedia?.('(min-width: 1024px)').matches) board.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
   const startAdding = (checked: CheckedGame) => {
     setSelectedId(checked.id);
     setAddingId(checked.id);
@@ -71,7 +77,10 @@ export function GameChecksPage() {
     <>
             <section aria-labelledby="decide-title" className="flex flex-col gap-3">
               <h2 id="decide-title" className="text-[22px] font-extrabold tracking-[-0.02em]">
-                To settle <span className="text-[15px] font-semibold" style={{ color: COLOURS.leafSoft }}>{toDecide.length}</span>
+                To settle{' '}
+                <span className="text-[15px] font-semibold" style={{ color: COLOURS.leafSoft }}>
+                  {toDecide.length} {toDecide.length === 1 ? 'game' : 'games'}
+                </span>
               </h2>
               {toDecide.length ? (
                 <ul className="flex flex-col gap-2">
@@ -80,7 +89,7 @@ export function GameChecksPage() {
                       key={checked.id}
                       checked={checked}
                       selected={checked === selected}
-                      onSelect={() => setSelectedId(checked.id)}
+                      onSelect={() => select(checked.id)}
                       onIgnore={() => ignore(checked.id)}
                       onAdd={() => startAdding(checked)}
                       showDate={checked.game.playedAt !== replay.day}
@@ -105,7 +114,7 @@ export function GameChecksPage() {
                       key={checked.id}
                       checked={checked}
                       selected={checked === selected}
-                      onSelect={() => setSelectedId(checked.id)}
+                      onSelect={() => select(checked.id)}
                       ignored={ignored.has(checked.id)}
                       judgement={judgementOf(checked)}
                     />
@@ -135,7 +144,9 @@ export function GameChecksPage() {
           </BuildSession>
         ) : (
           <main className="mx-auto flex max-w-[84rem] flex-col gap-6 px-4 pt-6 sm:px-8 lg:grid lg:grid-cols-[minmax(0,30rem)_1fr] lg:gap-10 lg:pt-8">
-            <CheckBoard checked={selected} repertoires={repertoires} judgement={selected ? judgementOf(selected) : undefined} />
+            <div ref={board} className="scroll-mt-4">
+              <CheckBoard checked={selected} repertoires={repertoires} judgement={selected ? judgementOf(selected) : undefined} />
+            </div>
             <div className="flex min-w-0 flex-col gap-10">{lists}</div>
           </main>
         )}

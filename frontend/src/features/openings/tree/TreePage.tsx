@@ -18,6 +18,7 @@ import { SideSwitch } from '../workshop/SideSwitch';
 import { COLOURS, FONT_FAMILY, raised, SPRING } from '../workshop/theme';
 import { Toast } from '../workshop/Toast';
 import { useToast } from '../workshop/useToast';
+import { useWide } from '../workshop/useWide';
 import { useWorkshopFont } from '../workshop/useWorkshopFont';
 import { PositionPane, type StepActions } from './PositionPane';
 import { RepertoireMap } from './RepertoireMap';
@@ -33,6 +34,8 @@ interface Session {
   queue: readonly string[];
   /** Par étape traitée : réglée, ou remise à plus tard. */
   done: ReadonlyMap<string, 'settled' | 'skipped'>;
+  /** Arrêtée avant la fin : on montre quand même le bilan. */
+  ended?: boolean;
 }
 
 type View = 'map' | 'position';
@@ -62,9 +65,13 @@ export function TreePage() {
   const build = (next: { origin: BuildOrigin; stepKey?: string } | null) => {
     setBuilding(next);
     setPreview([]);
-    if (next) setFocus({ key: next.origin.start.join(' '), stamp: Date.now(), centre: true });
+    if (next) {
+      setFocus({ key: next.origin.start.join(' '), stamp: Date.now(), centre: true });
+      setView('position');
+    }
   };
   const { toast, show, close } = useToast();
+  const wide = useWide();
 
   const { maps, recent, priorities } = useMaps(known, replay.day, repertoires, steps);
   const root = maps[side];
@@ -90,7 +97,7 @@ export function TreePage() {
 
   // La séance : les positions à trancher, la plus fréquente d'abord, une par une.
   const live = useMemo(() => new Map(steps.map((step) => [step.key, step])), [steps]);
-  const currentKey = session?.queue.find((key) => !session.done.has(key) && live.has(key));
+  const currentKey = session?.ended ? undefined : session?.queue.find((key) => !session.done.has(key) && live.has(key));
   const current = currentKey ? live.get(currentKey) : undefined;
   useEffect(() => {
     if (!current) return;
@@ -240,17 +247,17 @@ export function TreePage() {
                   className="rounded-full px-4 py-1.5 text-[14px] font-bold"
                   style={view === tab ? { background: COLOURS.leaf, color: COLOURS.cream } : { color: COLOURS.leaf }}
                 >
-                  {tab === 'map' ? 'Tree' : building ? 'Building' : 'Board'}
+                  {tab === 'map' ? 'Moves' : building ? 'Building' : 'Board'}
                 </button>
               ))}
             </div>
             <span className="flex w-full flex-wrap gap-2 sm:ml-auto sm:w-auto sm:flex-nowrap">
               {session && current ? (
-                <SessionBar index={position} total={session.queue.length} settled={settled} side={current.side} onEnd={() => setSession(null)} />
+                <SessionBar index={position} total={session.queue.length} settled={settled} side={current.side} onEnd={() => setSession((active) => active && { ...active, ended: true })} />
               ) : (
                 <Door
                   onClick={steps.length && !session ? startSession : undefined}
-                  title={steps.length ? `${steps.length} to settle` : 'Nothing to settle'}
+                  title={steps.length ? `${steps.length} ${steps.length === 1 ? 'position' : 'positions'} to settle` : 'Nothing to settle'}
                   tone={steps.length && !session ? 'terracotta' : 'plain'}
                 >
                   {first
@@ -270,23 +277,25 @@ export function TreePage() {
             </span>
           </div>
           <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_25rem]">
-            <div className={`lg:sticky lg:top-4 lg:block lg:h-[calc(100vh-11rem)] ${view === 'map' ? '' : 'hidden'}`}>
-              <div className="hidden h-full lg:block">
-                <RepertoireMap
-                  root={root}
-                  side={side}
-                  selected={node.key}
-                  onSelect={(key) => goTo(side, key, false)}
-                  focus={focus}
-                  locked={building !== null}
-                  preview={preview}
-                />
+            {(wide || view === 'map') && (
+              <div className="lg:sticky lg:top-4 lg:h-[calc(100vh-11rem)]">
+                {wide ? (
+                  <RepertoireMap
+                    root={root}
+                    side={side}
+                    selected={node.key}
+                    onSelect={(key) => goTo(side, key, false)}
+                    focus={focus}
+                    locked={building !== null}
+                    preview={preview}
+                  />
+                ) : (
+                  <TreeList root={root} side={side} node={node} onSelect={(key) => goTo(side, key, false)} onOpen={() => setView('position')} />
+                )}
               </div>
-              <div className="lg:hidden">
-                <TreeList root={root} side={side} node={node} onSelect={(key) => goTo(side, key, false)} onOpen={() => setView('position')} />
-              </div>
-            </div>
-            <div className={`flex min-w-0 flex-col gap-3 lg:flex lg:self-start ${view === 'position' ? '' : 'hidden'}`}>
+            )}
+            {(wide || view === 'position') && (
+            <div className="flex min-w-0 flex-col gap-3 lg:self-start">
               {session && !current ? (
                 <Done settled={settled} skipped={skipped} left={steps.length} onClose={() => setSession(null)} />
               ) : building ? (
@@ -322,6 +331,7 @@ export function TreePage() {
                 />
               )}
             </div>
+            )}
           </div>
         </main>
         <Toast toast={toast} onClose={close} />
@@ -338,7 +348,7 @@ function SessionBar({ index, total, settled, side, onEnd }: { index: number; tot
   return (
     <div aria-label="Progress" className="flex w-full min-w-0 items-center gap-3 rounded-2xl px-4 py-3 text-[14px] font-semibold sm:w-auto sm:min-w-[24rem]" style={raised(false)}>
       <span className="whitespace-nowrap">
-        Session · {index} of {total} ·
+        Session · {index} of {total} ·{' '}
         <motion.span key={side} initial={{ backgroundColor: COLOURS.apricot }} animate={{ backgroundColor: 'oklch(0 0 0 / 0)' }} transition={{ duration: 1.2 }} className="ml-1.5 rounded px-1">
           as {side === 'w' ? 'White' : 'Black'}
         </motion.span>

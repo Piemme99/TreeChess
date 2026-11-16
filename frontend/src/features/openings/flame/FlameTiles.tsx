@@ -54,7 +54,7 @@ export function FlameTiles({ tree, focusPath, onFocusChange, onPoint, priorities
     [tree, focusPath, widthPx, keep],
   );
   const marks = useMemo(
-    () => marksFor(tiles, priorities.filter((priority) => priority.side === tree.side)),
+    () => marksFor(tiles, priorities.flatMap((priority, index) => (priority.side === tree.side ? [{ path: priority.path, rank: index + 1 }] : []))),
     [tiles, priorities, tree.side],
   );
 
@@ -118,8 +118,7 @@ export function FlameTiles({ tree, focusPath, onFocusChange, onPoint, priorities
             const tone = placed.rest ? REST : player ? TONES[lineTone(placed.node, average)] : OPPONENT;
             const name = tileName(placed);
             const mark = marks.get(placed.key);
-            // Le rond de la priorité se pose à droite du libellé, pas dessus.
-            const text = tileLabel(placed, name, tileWidth - GAP - 8 - (mark?.exact ? 24 : 0), fontSize * 0.85);
+            const text = tileLabel(placed, name, tileWidth - GAP - 8, fontSize * 0.85);
             const covered = !placed.rest && placed.path.length > 0 && coveredLines.has(placed.path.join(' '));
             const surface = placed.rest ? { background: REST.bg, boxShadow: REST.edge } : tile(tone.bg);
             const edge = tone === TONES.even ? REST.edge : surface.boxShadow;
@@ -160,8 +159,8 @@ export function FlameTiles({ tree, focusPath, onFocusChange, onPoint, priorities
                   }}
                 >
                   {text && <span className="block whitespace-nowrap">{text}</span>}
-                  {mark && <PriorityBadge mark={mark} />}
                 </motion.button>
+                {mark && <PriorityBadge mark={mark} />}
               </motion.div>
             );
           })}
@@ -197,7 +196,7 @@ export function FlameTiles({ tree, focusPath, onFocusChange, onPoint, priorities
 }
 
 function tileName(placed: PlacedTile): string {
-  if (placed.rest) return `${placed.rest} other lines`;
+  if (placed.rest) return `${placed.rest} other ${placed.rest === 1 ? 'line' : 'lines'}`;
   if (placed.path.length === 0) return 'All games';
   return figurineMove(placed.path[placed.path.length - 1], placed.path.length);
 }

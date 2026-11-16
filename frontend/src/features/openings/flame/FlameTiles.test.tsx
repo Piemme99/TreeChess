@@ -46,7 +46,7 @@ describe('FlameTiles', () => {
   it('marks the tile of a priority with its rank', () => {
     render(<ZoomableTiles />);
 
-    expect(within(screen.getByRole('button', { name: '1…c5' })).getByLabelText('priority 1')).toBeInTheDocument();
+    expect(within(screen.getByRole('button', { name: '1…c5' }).parentElement!).getByLabelText('priority 1')).toBeInTheDocument();
   });
 
   it('rims the tiles of the lines in the repertoire', () => {

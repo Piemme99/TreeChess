@@ -44,17 +44,22 @@ function packChildren(parent: PlacedTile, depth: number, minFraction: number, mi
   for (const child of parent.node.children) {
     const width = child.games * perGame;
     const path = [...parent.path, child.san!];
-    if ((width < minFraction || child.games < minGames) && !keep.has(keyOf(path))) {
+    const forced = keep.has(keyOf(path));
+    if ((width < minFraction || child.games < minGames) && !forced) {
       dropped.push(child);
       continue;
     }
-    kept.push({ key: keyOf(path), path, node: child, depth, start: cursor, width, rest: 0 });
-    cursor += width;
+    // Une priorité gardée garde aussi de quoi se lire ; le reste se serre d'autant.
+    const shown = forced && width < minFraction ? Math.min(minFraction, parent.start + parent.width - cursor) : width;
+    kept.push({ key: keyOf(path), path, node: child, depth, start: cursor, width: shown, rest: 0 });
+    cursor += shown;
   }
 
   if (dropped.length > 0) {
     const node = restNode(dropped);
-    kept.push({ key: restKeyOf(parent.key), path: parent.path, node, depth, start: cursor, width: node.games * perGame, rest: dropped.length });
+    const room = parent.start + parent.width - cursor;
+    const width = node.games * perGame > room + 1e-9 ? Math.max(0, room) : node.games * perGame;
+    kept.push({ key: restKeyOf(parent.key), path: parent.path, node, depth, start: cursor, width, rest: dropped.length });
   }
   return kept;
 }
@@ -90,7 +95,7 @@ export interface Mark {
  * Chaque priorité est posée sur la tuile visible la plus profonde qui la contient : elle-même
  * quand elle est dessinée, sinon la tuile « reste » qui l'a absorbée, sinon son dernier ancêtre.
  */
-export function marksFor(tiles: readonly PlacedTile[], priorities: readonly { path: readonly string[] }[]): Map<string, Mark> {
+export function marksFor(tiles: readonly PlacedTile[], priorities: readonly { path: readonly string[]; rank?: number }[]): Map<string, Mark> {
   const marks = new Map<string, Mark>();
   priorities.forEach((priority, index) => {
     const target = keyOf(priority.path);
@@ -106,8 +111,9 @@ export function marksFor(tiles: readonly PlacedTile[], priorities: readonly { pa
     const carrier = (exact ? undefined : tiles.find((tile) => tile.key === restKeyOf(best.key))) ?? best;
     if (carrier.depth === 0) return;
     const existing = marks.get(carrier.key);
-    if (existing && existing.rank < index + 1) return;
-    marks.set(carrier.key, { rank: index + 1, exact });
+    const rank = priority.rank ?? index + 1;
+    if (existing && existing.rank < rank) return;
+    marks.set(carrier.key, { rank, exact });
   });
   return marks;
 }

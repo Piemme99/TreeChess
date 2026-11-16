@@ -130,14 +130,16 @@ export function RepertoireMap({ root: drawn, side, selected, onSelect, focus, lo
     setFolding((current) => ({ ...current, opened: new Set([...current.opened].filter((k) => k !== key)), closed: new Set([...current.closed, key]) }));
 
   const select = (placed: PlacedNode) => {
+    leave();
     if (dragged.current || locked) return;
     onSelect(placed.node.owner ?? placed.node.key);
   };
 
   return (
+    <div className="flex h-full flex-col gap-2">
     <div
       ref={container}
-      className="relative h-full w-full touch-none overflow-hidden rounded-3xl"
+      className="relative min-h-0 w-full flex-1 touch-none overflow-hidden rounded-3xl"
       style={{ background: COLOURS.paper, cursor: 'grab', opacity: locked ? 0.85 : 1, transition: 'opacity 200ms' }}
     >
       <svg
@@ -186,8 +188,7 @@ export function RepertoireMap({ root: drawn, side, selected, onSelect, focus, lo
           ))}
         </g>
       </svg>
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 p-3">
-        {locked ? <span /> : <Legend />}
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-end justify-end gap-3 p-3">
         <div className="pointer-events-auto flex items-center gap-1 rounded-full p-1 text-[13px] font-semibold" style={{ background: COLOURS.cream, color: COLOURS.leaf }}>
           <MapButton label="Zoom out" onClick={() => zoomBy(1 / 1.25, size)}>
             −
@@ -204,6 +205,8 @@ export function RepertoireMap({ root: drawn, side, selected, onSelect, focus, lo
         </div>
       </div>
       {hover && !dragged.current && <HoverBoard hover={hover} side={side} />}
+    </div>
+      <Legend />
     </div>
   );
 }
@@ -237,14 +240,14 @@ function MapButton({ label, onClick, children }: { label: string; onClick: () =>
 }
 
 /** Les trois encodages de la carte, et le repli. */
-export function Legend({ className = 'hidden sm:flex' }: { className?: string }) {
+function Legend() {
   return (
-    <ul aria-label="Legend" className={`flex-wrap items-center gap-x-3 gap-y-1 rounded-2xl px-3 py-1.5 text-[12px] font-semibold ${className}`} style={{ background: COLOURS.cream, color: COLOURS.leafSoft }}>
+    <ul aria-label="Legend" className="flex flex-wrap items-center gap-x-4 gap-y-1 px-2 text-[12px] font-semibold" style={{ color: COLOURS.leafSoft }}>
       <li className="flex items-center gap-1.5">
-        <span className="grid size-[18px] place-items-center rounded-full text-[10px] font-extrabold" style={{ background: COLOURS.leaf, color: COLOURS.cream }}>
-          1
+        <span className="rounded px-1 text-[10px] font-extrabold" style={{ background: COLOURS.leaf, color: COLOURS.cream }}>
+          P1
         </span>
-        priority
+        priority, by rank
       </li>
       <li className="flex items-center gap-1.5">
         <span className="grid h-[18px] min-w-[22px] place-items-center rounded-full px-1 text-[11px] font-extrabold text-white" style={{ background: COLOURS.terracotta }}>
@@ -368,9 +371,9 @@ function Pill({ placed, side, selected, onClick, onDoubleClick, onOpen, onHover,
       )}
       {node.priority !== undefined && !node.stub && (
         <g transform={`translate(${-width / 2 + 2} ${-h / 2 - 3})`} aria-hidden="true">
-          <circle r={9} fill={COLOURS.leaf} stroke={COLOURS.paper} strokeWidth={2} />
+          <rect x={-12} y={-8} width={24} height={16} rx={4} fill={COLOURS.leaf} stroke={COLOURS.paper} strokeWidth={2} />
           <text textAnchor="middle" dominantBaseline="central" fontSize={10} fontWeight={800} fill={COLOURS.cream}>
-            {node.priority}
+            P{node.priority}
           </text>
         </g>
       )}

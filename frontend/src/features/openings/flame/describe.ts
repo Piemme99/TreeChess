@@ -5,7 +5,7 @@ import { formatPercent } from './format';
 import type { PlacedTile } from './prune';
 
 export function headline(placed: PlacedTile): string {
-  if (placed.rest) return `${placed.rest} other lines`;
+  if (placed.rest) return `${placed.rest} other ${placed.rest === 1 ? 'line' : 'lines'}`;
   if (placed.path.length === 0) return 'All games';
   return figurineLine(placed.path);
 }

@@ -35,7 +35,7 @@ export function GameCard({ checked, selected, onSelect, showDate = false, onIgno
   const verdict = VERDICT[check.kind];
 
   return (
-    <li className="flex flex-col overflow-hidden rounded-2xl" style={{ ...raised(selected), opacity: ignored ? 0.7 : 1 }}>
+    <li className="flex flex-col overflow-hidden rounded-2xl" style={{ ...raised(selected), opacity: ignored ? 0.85 : 1 }}>
       <button
         type="button"
         aria-pressed={selected}
@@ -48,7 +48,7 @@ export function GameCard({ checked, selected, onSelect, showDate = false, onIgno
           </span>
           <span style={{ opacity: 0.7 }}>
             {game.side === 'w' ? 'White' : 'Black'} · {RESULT[game.score]}
-            {showDate && ` · ${formatDay(game.playedAt)}`}
+            {` · ${showDate ? formatDay(game.playedAt) : 'today'}`}
           </span>
         </span>
         <span className="truncate text-[16px] font-semibold">{opening?.name ?? 'Unnamed opening'}</span>

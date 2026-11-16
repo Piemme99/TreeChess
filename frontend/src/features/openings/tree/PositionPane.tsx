@@ -101,7 +101,7 @@ export function PositionPane({ side, path, node, recent, steps, priority, action
           <p className="mt-2 flex flex-wrap justify-center gap-x-4 text-[12px] font-semibold" style={{ color: COLOURS.leafSoft }}>
             <span className="flex items-center gap-1.5">
               <span className="size-3 rounded" style={{ background: ARROW.repertoire.colour }} />
-              your repertoire
+              {isPlayerMove(side, ply) ? 'your repertoire' : 'replies you prepared'}
             </span>
             {arrows.some((arrow) => 'kind' in arrow && arrow.kind === 'neutral') && (
               <span className="flex items-center gap-1.5">

@@ -130,7 +130,7 @@ export function usePanZoom(ref: RefObject<HTMLElement | null>) {
   const fit = useCallback((bounds: Box, size: Size, floor = 0.8) => {
     if (!size.width || !size.height) return;
     const height = size.height - BOTTOM_BAR;
-    const k = Math.min(1, Math.max(Math.min(size.width / bounds.width, height / bounds.height), floor));
+    const k = Math.min(1, Math.max(Math.min((size.width - 16) / bounds.width, height / bounds.height), floor));
     setTransform({ k, x: -bounds.x * k + 8, y: (height - bounds.height * k) / 2 - bounds.y * k, animate: true });
   }, []);
 
