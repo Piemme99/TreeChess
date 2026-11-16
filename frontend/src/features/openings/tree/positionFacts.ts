@@ -1,0 +1,69 @@
+import { useMemo } from 'react';
+import { isPlayerMove, nodeAt, type OpeningNode } from '../domain/openingTree';
+import { playerAverage, scoreRate } from '../domain/performance';
+import type { BoardArrow } from '../line/ArrowBoard';
+import { MAX_ARROWS, relevantArrows } from '../position/arrows';
+import type { PositionPaneProps } from './PositionPane';
+import type { MapNode } from './repertoireMap';
+
+export interface PositionFacts {
+  inRepertoire: boolean;
+  ply: number;
+  arrows: BoardArrow[];
+  suggestions: string[];
+  here: OpeningNode | undefined;
+  average: number;
+  leak: OpeningNode | undefined;
+  /** Le joueur a quitté son propre répertoire, et le coup qu'il y joue d'habitude. */
+  leftByPlayer: boolean;
+  usual: MapNode | undefined;
+  prioritised: boolean;
+  settling: boolean;
+  waiting: boolean;
+}
+
+/** Ce que la position porte, calculé une fois pour le volet de l'ordinateur comme pour celui du téléphone. */
+export function usePositionFacts({ side, path, node, recent, steps, priority, lead }: Pick<PositionPaneProps, 'side' | 'path' | 'node' | 'recent' | 'steps' | 'priority' | 'lead'>): PositionFacts {
+  const inRepertoire = path.length === node.path.length;
+  const here = useMemo(() => nodeAt(recent, path), [recent, path]);
+  const prioritised = inRepertoire && priority !== undefined;
+  const settling = inRepertoire && steps.length > 0 && !(prioritised && lead === 'priority');
+  const leak = priority ? leakOf(here) : undefined;
+  const arrows = useMemo(() => {
+    if (!inRepertoire) return [];
+    const deviation = [...steps].sort((a, b) => b.games.length - a.games.length)[0];
+    const shown = relevantArrows(node.children.map((child) => ({ san: child.san!, games: child.games })), node.games, deviation?.played);
+    // La carte « Priority » nomme le coup où l'on perd le plus : il doit se voir sur l'échiquier.
+    if (!leak || settling) return shown;
+    return [...shown.filter((arrow) => arrow.san !== leak.san).slice(0, MAX_ARROWS - 1), { san: leak.san!, kind: 'costly' as const, share: 0.5, emphasis: true }];
+  }, [inRepertoire, node, steps, leak, settling]);
+  // Un point d'atterrissage par flèche, pas par coup du répertoire : dix points sur l'échiquier, c'est dix flèches de plus.
+  const suggestions = useMemo(() => arrows.filter((arrow) => 'kind' in arrow && arrow.kind === 'repertoire').map((arrow) => arrow.san), [arrows]);
+  const average = useMemo(() => playerAverage(recent), [recent]);
+  return {
+    inRepertoire,
+    ply: path.length + 1,
+    arrows,
+    suggestions,
+    here,
+    average,
+    leak,
+    leftByPlayer: !inRepertoire && isPlayerMove(side, node.path.length + 1),
+    usual: [...node.children].sort((a, b) => b.games - a.games)[0],
+    prioritised,
+    settling,
+    waiting: inRepertoire && steps.length > 0 && !settling,
+  };
+}
+
+// Un fil qui coûte doit peser : sous ce nombre de parties, l'écart ne désigne rien.
+const MIN_LEAK_GAMES = 5;
+
+/** La suite où une priorité perd nettement plus qu'en moyenne sur sa ligne, s'il y en a une. */
+function leakOf(here: OpeningNode | undefined): OpeningNode | undefined {
+  if (!here) return undefined;
+  return here.children
+    .filter((child) => child.games >= MIN_LEAK_GAMES && scoreRate(child) < scoreRate(here) - 0.03)
+    .sort((a, b) => scoreRate(a) - scoreRate(b))[0];
+}
+

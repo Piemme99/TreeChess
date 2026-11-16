@@ -127,30 +127,54 @@ export function BuildPanel({ builder, candidates, fresh, onPoint, onAccept, onCa
         </div>
       )}
 
-      {/* Les actions avant le tableau : on les voit sans défiler ; au téléphone, elles restent au-dessus des onglets. */}
-      <div className={`flex flex-col gap-2 ${compact ? 'sticky bottom-[4.25rem] z-10 -mx-4 px-4 pt-3 pb-3 lg:static lg:mx-0 lg:px-0 lg:pt-0 lg:pb-0 lg:shadow-none' : ''}`} style={compact ? { background: COLOURS.paper, boxShadow: '0 -10px 14px -12px oklch(0.3 0.05 60 / 0.35)' } : undefined}>
-      <span className="flex flex-wrap gap-2">
-        <Action onClick={onAccept} primary disabled={!complete}>
-          {complete ? `Add to my repertoire · ${toAdd} new ${toAdd === 1 ? 'move' : 'moves'}` : 'Add to my repertoire'}
-        </Action>
-        <Action onClick={builder.undo ?? (() => undefined)} disabled={!builder.undo}>
-          Undo
-        </Action>
-        <Action onClick={onCancel}>Cancel</Action>
-      </span>
-      {!complete && (
-        <span className="-mt-2 text-[13px]" style={{ color: COLOURS.leafSoft }}>
-          {lines.length ? 'Play your answer to add it.' : 'Play a move on the board, or pick one in the table.'}
-        </span>
+      {compact ? (
+        // Au téléphone, les actions prennent la place de la barre de navigation, sous le pouce, sur une ligne.
+        <>
+          {!complete && (
+            <span className="-mt-2 text-[13px]" style={{ color: COLOURS.leafSoft }}>
+              {lines.length ? 'Play your answer to add it.' : 'Play a move on the board, or tap one below.'}
+            </span>
+          )}
+          <div
+            className="fixed inset-x-0 bottom-0 z-30 flex gap-2 px-3 pt-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] shadow-[0_-10px_14px_-12px_oklch(0.3_0.05_60/0.35)] lg:static lg:flex-wrap lg:p-0 lg:shadow-none"
+            style={{ background: COLOURS.paper }}
+          >
+            <Action onClick={onCancel}>Cancel</Action>
+            <Action onClick={builder.undo ?? (() => undefined)} disabled={!builder.undo}>
+              Undo
+            </Action>
+            <span className="flex flex-1">
+              <Action onClick={onAccept} primary disabled={!complete} wide>
+                {complete ? `Add · ${toAdd} new ${toAdd === 1 ? 'move' : 'moves'}` : 'Add'}
+              </Action>
+            </span>
+          </div>
+        </>
+      ) : (
+        <div className="flex flex-col gap-2">
+          <span className="flex flex-wrap gap-2">
+            <Action onClick={onAccept} primary disabled={!complete}>
+              {complete ? `Add to my repertoire · ${toAdd} new ${toAdd === 1 ? 'move' : 'moves'}` : 'Add to my repertoire'}
+            </Action>
+            <Action onClick={builder.undo ?? (() => undefined)} disabled={!builder.undo}>
+              Undo
+            </Action>
+            <Action onClick={onCancel}>Cancel</Action>
+          </span>
+          {!complete && (
+            <span className="-mt-2 text-[13px]" style={{ color: COLOURS.leafSoft }}>
+              {lines.length ? 'Play your answer to add it.' : 'Play a move on the board, or pick one in the table.'}
+            </span>
+          )}
+        </div>
       )}
-      </div>
       <CandidateTable builder={builder} candidates={candidates} onPoint={onPoint} compact={compact} planned={planned} />
 
-      <p className="text-[12px]" style={{ color: COLOURS.leafSoft }}>
-        <strong>{origin.side === 'w' ? 'White' : 'Black'} %</strong>: how players of your colour score after the move on Lichess, 1400–1800 ·{' '}
+      <Help compact={compact}>
+        <strong>{compact ? 'Lichess' : `${origin.side === 'w' ? 'White' : 'Black'} %`}</strong>: how players of your colour score after the move on Lichess, 1400–1800 ·{' '}
         <strong>Engine</strong>: + is good for you · <strong>You</strong>: how often you played it in 12 months, and your score once you have 3 games (
         <span style={{ color: COLOURS.terracotta }}>red</span>: where you score worst).
-      </p>
+      </Help>
     </section>
   );
 }
@@ -220,17 +244,13 @@ function CandidateTable({ builder, candidates, onPoint, compact, planned }: { bu
         <div className="-mx-1 overflow-x-auto px-1">
         <table aria-label="Candidate moves" className="w-full border-collapse text-[14px]" onMouseLeave={() => onPoint(null)}>
           <thead className="text-[11px] font-semibold" style={{ color: COLOURS.leafSoft }}>
-            {stats && (
+            {stats && !compact && (
               <tr>
                 <th />
                 <th colSpan={2} className={`whitespace-nowrap px-2 pb-0.5 text-center font-semibold ${compact ? 'hidden sm:table-cell' : ''}`} style={{ borderBottom: `1px solid ${COLOURS.sand}` }}>
                   Lichess 1400–1800
                 </th>
-                {compact && (
-                  <th className="whitespace-nowrap px-2 pb-0.5 text-right font-semibold sm:hidden" style={{ borderBottom: `1px solid ${COLOURS.sand}` }}>
-                    Lichess
-                  </th>
-                )}
+
                 <th />
                 <th />
               </tr>
@@ -239,8 +259,8 @@ function CandidateTable({ builder, candidates, onPoint, compact, planned }: { bu
               <th className="pb-1 pr-2 font-semibold">Move</th>
               {stats && <th className={`pb-1 px-2 font-semibold ${compact ? 'hidden sm:table-cell' : ''}`}>played</th>}
               {stats && (
-                <th className="pb-1 px-2 text-right font-semibold" title={`How ${side} scores after this move, at this level`}>
-                  {side} %
+                <th className="pb-1 px-2 text-right font-semibold" title={`How ${side} scores after this move on Lichess, 1400–1800`}>
+                  {compact ? 'Lichess' : `${side} %`}
                 </th>
               )}
               <th className="pb-1 px-2 text-right font-semibold" title="Engine evaluation after the move, from your side: + is good for you">
@@ -432,6 +452,23 @@ function Move({ children }: { children: ReactNode }) {
   return <span className="whitespace-nowrap">{children}</span>;
 }
 
+/** L'aide du tableau : dépliée sur l'ordinateur, repliée au téléphone, où elle repoussait tout. */
+function Help({ compact, children }: { compact: boolean; children: ReactNode }) {
+  if (!compact) {
+    return (
+      <p className="text-[12px]" style={{ color: COLOURS.leafSoft }}>
+        {children}
+      </p>
+    );
+  }
+  return (
+    <details className="text-[12px]" style={{ color: COLOURS.leafSoft }}>
+      <summary className="cursor-pointer py-1 font-semibold">What the columns mean</summary>
+      <p className="pt-1">{children}</p>
+    </details>
+  );
+}
+
 function Muted({ children }: { children: ReactNode }) {
   return (
     <p className="text-[13px]" style={{ color: COLOURS.leafSoft }}>
@@ -440,7 +477,7 @@ function Muted({ children }: { children: ReactNode }) {
   );
 }
 
-function Action({ onClick, primary = false, disabled = false, children }: { onClick: () => void; primary?: boolean; disabled?: boolean; children: ReactNode }) {
+function Action({ onClick, primary = false, disabled = false, wide = false, children }: { onClick: () => void; primary?: boolean; disabled?: boolean; wide?: boolean; children: ReactNode }) {
   return (
     <motion.button
       type="button"
@@ -449,7 +486,7 @@ function Action({ onClick, primary = false, disabled = false, children }: { onCl
       whileHover={disabled ? undefined : { y: -2 }}
       whileTap={disabled ? undefined : { scale: 0.96 }}
       transition={SPRING}
-      className="cursor-pointer whitespace-nowrap rounded-full px-4 py-2 text-[14px] font-bold focus-visible:outline-2 disabled:cursor-default"
+      className={`cursor-pointer whitespace-nowrap rounded-full px-4 py-2 text-[14px] font-bold focus-visible:outline-2 disabled:cursor-default ${wide ? 'flex-1' : ''}`}
       style={
         disabled
           ? { background: 'transparent', color: COLOURS.leafSoft, boxShadow: `inset 0 0 0 1.5px ${COLOURS.sand}`, opacity: 0.6, cursor: 'not-allowed' }

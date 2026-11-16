@@ -3,14 +3,14 @@ import { useMemo, useState, type ReactNode } from 'react';
 import { useOpeningName } from '../../../shared/hooks/useOpeningName';
 import { PlayableBoard } from '../board/PlayableBoard';
 import { figurineLine, figurineMove } from '../domain/notation';
-import { isPlayerMove, nodeAt, type OpeningNode, type OpeningTree } from '../domain/openingTree';
-import { playerAverage, scoreRate } from '../domain/performance';
+import { isPlayerMove, type OpeningNode, type OpeningTree } from '../domain/openingTree';
+import { scoreRate } from '../domain/performance';
 import type { Side } from '../domain/playedGame';
 import type { Priority } from '../domain/priorities';
-import { relevantArrows } from '../position/arrows';
 import { replayLine } from '../position/replay';
 import type { SessionStep } from '../session/steps';
-import { ARROW, COLOURS, raised, REPERTOIRE, SPRING, tile } from '../workshop/theme';
+import { COLOURS, raised, REPERTOIRE, SPRING, tile } from '../workshop/theme';
+import { usePositionFacts, type PositionFacts } from './positionFacts';
 import type { MapNode } from './repertoireMap';
 
 export interface StepActions {
@@ -23,7 +23,7 @@ export interface StepActions {
   onPrepare: (step: SessionStep) => void;
 }
 
-interface PositionPaneProps {
+export interface PositionPaneProps {
   side: Side;
   /** La ligne jouée sur l'échiquier ; au-delà de `node`, elle a quitté le répertoire. */
   path: readonly string[];
@@ -54,27 +54,12 @@ const MIN_GAMES_TO_COMPARE = 5;
 const SHOWN_MOVES = 4;
 
 /** Le volet : on y joue comme sur l'explorateur Lichess, et on y tranche ce que la position porte. */
-export function PositionPane({ side, path, node, recent, steps, priority, actions, lead, onLead, onSkip, onNextPriority, onExtend, onPrepareFollows, onMove, onJump, onBack }: PositionPaneProps) {
+export function PositionPane(props: PositionPaneProps) {
+  const { side, path, node, steps, priority, actions, onLead, onSkip, onNextPriority, onExtend, onPrepareFollows, onMove, onJump, onBack } = props;
   const fens = useMemo(() => replayLine(path).fens, [path]);
   const opening = useOpeningName(fens);
-  const inRepertoire = path.length === node.path.length;
-  const ply = path.length + 1;
-  const arrows = useMemo(() => {
-    if (!inRepertoire) return [];
-    const deviation = [...steps].sort((a, b) => b.games.length - a.games.length)[0];
-    return relevantArrows(node.children.map((child) => ({ san: child.san!, games: child.games })), node.games, deviation?.played);
-  }, [inRepertoire, node, steps]);
-  // Un point d'atterrissage par flèche, pas par coup du répertoire : dix points sur l'échiquier, c'est dix flèches de plus.
-  const suggestions = arrows.filter((arrow) => 'kind' in arrow && arrow.kind === 'repertoire').map((arrow) => arrow.san);
-  const here = useMemo(() => nodeAt(recent, path), [recent, path]);
-  const average = useMemo(() => playerAverage(recent), [recent]);
-  const leak = priority ? leakOf(here) : undefined;
-  const leftByPlayer = !inRepertoire && isPlayerMove(side, node.path.length + 1);
-  const usual = [...node.children].sort((a, b) => b.games - a.games)[0];
-
-  const prioritised = inRepertoire && priority !== undefined;
-  const settling = inRepertoire && steps.length > 0 && !(prioritised && lead === 'priority');
-  const waiting = inRepertoire && steps.length > 0 && !settling;
+  const facts = usePositionFacts(props);
+  const { inRepertoire, ply, arrows, suggestions, prioritised, settling } = facts;
   // Une seule carte par position : la décision passe d'abord, la priorité n'y est qu'une ligne.
   const card = settling || prioritised;
 
@@ -107,79 +92,26 @@ export function PositionPane({ side, path, node, recent, steps, priority, action
       </div>
       <div className={`order-2 mx-auto w-full lg:max-w-[16rem] ${card ? 'max-w-[15rem]' : 'max-w-[24rem]'}`}>
         <PlayableBoard path={path} flipped={side === 'b'} arrows={arrows} suggestions={suggestions} onMove={onMove} />
-        {arrows.length > 0 && (
-          <p className="mt-2 flex flex-wrap justify-center gap-x-4 text-[12px] font-semibold" style={{ color: COLOURS.leafSoft }}>
-            <span className="flex items-center gap-1.5">
-              <span className="size-3 rounded" style={{ background: ARROW.repertoire.colour }} />
-              {isPlayerMove(side, ply) ? 'your repertoire' : 'replies you prepared'}
-            </span>
-            {arrows.some((arrow) => 'kind' in arrow && arrow.kind === 'neutral') && (
-              <span className="flex items-center gap-1.5">
-                <span className="size-3 rounded" style={{ background: ARROW.neutral.colour }} />
-                played instead
-              </span>
-            )}
-          </p>
-        )}
       </div>
       {settling && (
-        <section aria-label="To settle" className="order-3 flex flex-col gap-4 rounded-2xl px-4 py-3.5 text-[14px]" style={{ background: COLOURS.paper, boxShadow: `inset 0 0 0 1.5px ${COLOURS.terracotta}` }}>
-          <span className="text-[12px] font-bold uppercase tracking-[0.06em]" style={{ color: COLOURS.terracotta }}>
-            To settle
-          </span>
-          {steps.map((step, index) => (
-            <Step key={step.key} step={step} ply={ply} here={here} actions={actions} onSkip={index === steps.length - 1 ? onSkip : undefined} />
-          ))}
-          {prioritised && (
-            <p className="border-t pt-2.5 text-[13px]" style={{ borderColor: COLOURS.sand, color: COLOURS.leafSoft }}>
-              <strong style={{ color: COLOURS.leaf }}>Also priority {node.priority}:</strong> you score {here ? Math.round(scoreRate(here) * 100) : '—'}% here against{' '}
-              {Math.round(average * 100)}% on average.
-            </p>
-          )}
-        </section>
+        <div className="order-3">
+          <SettleCard steps={steps} facts={facts} actions={actions} onSkip={onSkip} rank={node.priority} />
+        </div>
       )}
       {prioritised && !settling && (
-        <section aria-label="Priority" className="order-3 flex flex-col gap-2.5 rounded-2xl px-4 py-3.5 text-[14px]" style={{ background: COLOURS.leaf, color: COLOURS.cream }}>
-          <span className="text-[12px] font-bold uppercase tracking-[0.06em]" style={{ color: COLOURS.apricot }}>
-            Priority {node.priority}
-          </span>
-          <PriorityVerdict priority={priority} here={here} average={average} line={figurineLine(priority.path)} leak={leak} />
-          {onPrepareFollows && (
-            <Action onClick={() => onPrepareFollows(leak ? [...priority.path, leak.san!] : priority.path)} tone="light">
-              {leak
-                ? `Prepare my moves after ${figurineMove(leak.san!, priority.path.length + 1)}`
-                : isPlayerMove(side, priority.path.length + 1)
-                  ? `Prepare my moves after ${figurineMove(priority.path[priority.path.length - 1], priority.path.length)}`
-                  : `Prepare against their replies after ${figurineMove(priority.path[priority.path.length - 1], priority.path.length)}`}
-            </Action>
-          )}
-          {waiting && (
-            <button type="button" onClick={() => onLead('settle')} className="self-start rounded-lg py-1 text-[14px] font-semibold underline-offset-4 hover:underline focus-visible:outline-2" style={{ color: COLOURS.apricot }}>
-              Also {steps.length} to settle here →
-            </button>
-          )}
-          {onNextPriority && (
-            <button type="button" onClick={onNextPriority} className="self-start rounded-lg py-1 text-[14px] font-semibold underline-offset-4 hover:underline focus-visible:outline-2" style={{ color: COLOURS.cream }}>
-              Next priority →
-            </button>
-          )}
-        </section>
+        <div className="order-3">
+          <PriorityCard side={side} priority={priority!} rank={node.priority!} facts={facts} waiting={steps.length} onLead={onLead} onNextPriority={onNextPriority} onPrepareFollows={onPrepareFollows} />
+        </div>
       )}
-      <Repertoire side={side} path={path} node={node} inRepertoire={inRepertoire} ply={ply} here={here} onMove={onMove} />
-      {!inRepertoire && leftByPlayer && usual ? (
-        // Le joueur a quitté son propre répertoire : on propose d'abord d'y revenir, l'ajout reste possible.
-        <div className="order-5 flex flex-col gap-1.5">
-          <Action onClick={() => onJump([...node.path, usual.san!])} tone="primary">
-            Back to my repertoire: {figurineMove(usual.san!, node.path.length + 1)}
-          </Action>
-          <Action onClick={onExtend}>Add {figurineMove(path[node.path.length], node.path.length + 1)} to my repertoire instead</Action>
+      <Repertoire side={side} node={node} inRepertoire={inRepertoire} ply={ply} onMove={onMove} />
+      {!inRepertoire ? (
+        <div className="order-5">
+          <OffRepertoire path={path} node={node} facts={facts} onExtend={onExtend} onJump={onJump} />
         </div>
       ) : (
         !(prioritised && !settling && onPrepareFollows) && (
           <div className="order-5">
-            <Action onClick={onExtend} tone={inRepertoire || settling ? 'plain' : 'primary'}>
-              {inRepertoire ? 'Extend from here' : 'Prepare this line'}
-            </Action>
+            <Action onClick={onExtend}>Extend from here</Action>
           </div>
         )
       )}
@@ -190,24 +122,102 @@ export function PositionPane({ side, path, node, recent, steps, priority, action
   );
 }
 
-function Repertoire({ side, path, node, inRepertoire, ply, here, onMove }: { side: Side; path: readonly string[]; node: MapNode; inRepertoire: boolean; ply: number; here: OpeningNode | undefined; onMove: (san: string) => void }) {
+/** Les décisions de la position : ce qui a été joué, ce que dit le score, et les deux ou trois issues. */
+export function SettleCard({ steps, facts, actions, onSkip, rank }: { steps: readonly SessionStep[]; facts: PositionFacts; actions: StepActions; onSkip?: () => void; rank?: number }) {
+  const { ply, here, prioritised, average } = facts;
+  return (
+    <section aria-label="To settle" className="flex flex-col gap-3 rounded-2xl px-4 py-3.5 text-[14px]" style={{ background: COLOURS.paper, boxShadow: `inset 0 0 0 1.5px ${COLOURS.terracotta}` }}>
+      <span className="text-[12px] font-bold uppercase tracking-[0.06em]" style={{ color: COLOURS.terracotta }}>
+        To settle
+      </span>
+      {steps.map((step, index) => (
+        <Step key={step.key} step={step} ply={ply} here={here} actions={actions} onSkip={index === steps.length - 1 ? onSkip : undefined} />
+      ))}
+      {prioritised && (
+        <p className="border-t pt-2.5 text-[13px]" style={{ borderColor: COLOURS.sand, color: COLOURS.leafSoft }}>
+          <strong style={{ color: COLOURS.leaf }}>Also priority {rank}:</strong> you score {here ? Math.round(scoreRate(here) * 100) : '—'}% here, {Math.round(average * 100)}% on average.
+        </p>
+      )}
+    </section>
+  );
+}
+
+export function PriorityCard({ side, priority, rank, facts, waiting, onLead, onNextPriority, onPrepareFollows }: {
+  side: Side;
+  priority: Priority;
+  rank: number;
+  facts: PositionFacts;
+  /** Les décisions qui attendent sur la même position. */
+  waiting: number;
+  onLead: (lead: 'settle' | 'priority') => void;
+  onNextPriority?: () => void;
+  onPrepareFollows?: (line: readonly string[]) => void;
+}) {
+  const { here, average, leak } = facts;
+  return (
+    <section aria-label="Priority" className="flex flex-col gap-2.5 rounded-2xl px-4 py-3.5 text-[14px]" style={{ background: COLOURS.leaf, color: COLOURS.cream }}>
+      <span className="flex items-center justify-between gap-3">
+        <span className="text-[12px] font-bold uppercase tracking-[0.06em]" style={{ color: COLOURS.apricot }}>
+          Priority {rank}
+        </span>
+        {onNextPriority && (
+          <button type="button" onClick={onNextPriority} className="-my-1 rounded-lg px-1 py-1 text-[13px] font-semibold underline-offset-4 hover:underline focus-visible:outline-2">
+            Next priority →
+          </button>
+        )}
+      </span>
+      <PriorityVerdict priority={priority} here={here} average={average} leak={leak} />
+      {onPrepareFollows && (
+        <Action onClick={() => onPrepareFollows(leak ? [...priority.path, leak.san!] : priority.path)} tone="light">
+          {leak
+            ? `Prepare my moves after ${figurineMove(leak.san!, priority.path.length + 1)}`
+            : isPlayerMove(side, priority.path.length + 1)
+              ? `Prepare my moves after ${figurineMove(priority.path[priority.path.length - 1], priority.path.length)}`
+              : `Prepare against their replies after ${figurineMove(priority.path[priority.path.length - 1], priority.path.length)}`}
+        </Action>
+      )}
+      {waiting > 0 && (
+        <button type="button" onClick={() => onLead('settle')} className="self-start rounded-lg py-1 text-[14px] font-semibold underline-offset-4 hover:underline focus-visible:outline-2" style={{ color: COLOURS.apricot }}>
+          Also {waiting} to settle here →
+        </button>
+      )}
+    </section>
+  );
+}
+
+/** Hors du répertoire : où il s'arrête, ce que la position a donné, et comment y revenir ou l'étendre. */
+export function OffRepertoire({ path, node, facts, onExtend, onJump }: { path: readonly string[]; node: MapNode; facts: PositionFacts; onExtend: () => void; onJump: (path: readonly string[]) => void }) {
+  const { here, leftByPlayer, usual } = facts;
+  const left = figurineMove(path[node.path.length], node.path.length + 1);
+  return (
+    <section aria-label="Off your repertoire" className="flex flex-col gap-2.5 rounded-2xl px-4 py-3.5 text-[14px]" style={{ background: COLOURS.paper }}>
+      <p className="leading-snug">
+        <strong style={{ color: COLOURS.terracotta }}>Off your repertoire</strong> since {left}.{' '}
+        <span style={{ color: COLOURS.leafSoft }}>
+          {here ? `${here.games} ${here.games === 1 ? 'game' : 'games'} here in 12 months, you score ${Math.round(scoreRate(here) * 100)}%.` : 'Not reached in your last 12 months.'}
+        </span>
+      </p>
+      {leftByPlayer && usual ? (
+        // Le joueur a quitté son propre répertoire : on propose d'abord d'y revenir, l'ajout reste possible.
+        <span className="flex flex-col gap-1.5">
+          <Action onClick={() => onJump([...node.path, usual.san!])} tone="primary">
+            Back to {figurineMove(usual.san!, node.path.length + 1)}
+          </Action>
+          <Action onClick={onExtend}>Add {left} instead</Action>
+        </span>
+      ) : (
+        <Action onClick={onExtend} tone="primary">
+          Prepare this line
+        </Action>
+      )}
+    </section>
+  );
+}
+
+function Repertoire({ side, node, inRepertoire, ply, onMove }: { side: Side; node: MapNode; inRepertoire: boolean; ply: number; onMove: (san: string) => void }) {
   const mine = isPlayerMove(side, ply);
   const [all, setAll] = useState(false);
-  if (!inRepertoire) {
-    return (
-      <p className="order-4 px-1 text-[14px]" style={{ color: COLOURS.leafSoft }}>
-        <strong style={{ color: COLOURS.terracotta }}>Off your repertoire</strong> since {figurineMove(path[node.path.length], node.path.length + 1)}.{' '}
-        {here ? (
-          <>
-            You reached this position in {here.games} {here.games === 1 ? 'game' : 'games'} in 12 months and scored{' '}
-            <strong style={{ color: COLOURS.leaf }}>{Math.round(scoreRate(here) * 100)}%</strong>.
-          </>
-        ) : (
-          'Not reached in your games of the last 12 months.'
-        )}
-      </p>
-    );
-  }
+  if (!inRepertoire) return null;
   const moves = [...node.children].sort((a, b) => b.games - a.games);
   const shown = all ? moves : moves.slice(0, SHOWN_MOVES);
   return (
@@ -236,34 +246,21 @@ function Repertoire({ side, path, node, inRepertoire, ply, here, onMove }: { sid
   );
 }
 
-// Un fil qui coûte doit peser : sous ce nombre de parties, l'écart ne désigne rien.
-const MIN_LEAK_GAMES = 5;
-
-/** La suite où une priorité perd nettement plus qu'en moyenne sur sa ligne, s'il y en a une. */
-function leakOf(here: OpeningNode | undefined): OpeningNode | undefined {
-  if (!here) return undefined;
-  return here.children
-    .filter((child) => child.games >= MIN_LEAK_GAMES && scoreRate(child) < scoreRate(here) - 0.03)
-    .sort((a, b) => scoreRate(a) - scoreRate(b))[0];
-}
-
-function PriorityVerdict({ priority, here, average, line, leak }: { priority: Priority; here: OpeningNode | undefined; average: number; line: string; leak: OpeningNode | undefined }) {
+function PriorityVerdict({ priority, here, average, leak }: { priority: Priority; here: OpeningNode | undefined; average: number; leak: OpeningNode | undefined }) {
   const lost = Math.round(priority.pointsToGain);
   const ply = priority.path.length + 1;
   return (
     <>
       <span className="text-[15px] leading-snug">
-        After <strong>{line}</strong> you score <strong>{here ? Math.round(scoreRate(here) * 100) : '—'}%</strong>, against <strong>{Math.round(average * 100)}%</strong> in all
-        your games with this colour: about {lost} {lost === 1 ? 'point' : 'points'} lost over {priority.games} games in 12 months (a win is 1 point, a draw ½).
+        You score <strong>{here ? Math.round(scoreRate(here) * 100) : '—'}%</strong> here, <strong>{Math.round(average * 100)}%</strong> on average: about{' '}
+        <strong>
+          {lost} {lost === 1 ? 'point' : 'points'}
+        </strong>{' '}
+        lost in {priority.games} games this year.
       </span>
-      {leak ? (
+      {leak && (
         <span className="text-[14px] leading-snug">
-          Where it goes wrong: after <strong>{figurineMove(leak.san!, ply)}</strong> you score <strong>{Math.round(scoreRate(leak) * 100)}%</strong> in {leak.games}{' '}
-          games.
-        </span>
-      ) : (
-        <span className="text-[13px]" style={{ opacity: 0.8 }}>
-          No single next move stands out: the points go a little everywhere after it.
+          Worst after <strong>{figurineMove(leak.san!, ply)}</strong>: {Math.round(scoreRate(leak) * 100)}% in {leak.games} games.
         </span>
       )}
     </>
@@ -276,51 +273,62 @@ function Step({ step, ply, here, actions, onSkip }: { step: SessionStep; ply: nu
   const planned = step.planned.map((san) => figurineMove(san, ply)).join(' · ');
   const factOf = (san: string) => here?.children.find((child) => child.san === san);
   const games = step.games.length;
-  const playedFact = factOf(step.played);
   const best = left ? betterMove(step, factOf) : undefined;
 
   return (
     <div className="flex flex-col gap-2.5">
       <p className="text-[15px] leading-snug">
-        {left ? 'You played' : 'They played'} <strong>{played}</strong> in {games} recent {games === 1 ? 'game' : 'games'}
+        {left ? 'You played' : 'They played'} <strong>{played}</strong> in {games} new {games === 1 ? 'game' : 'games'}
         {left ? (
           <>
-            ; your repertoire has <strong style={{ color: REPERTOIRE }}>{planned}</strong>.
+            , not <strong style={{ color: REPERTOIRE }}>{planned}</strong>.
           </>
         ) : (
-          '; your repertoire does not cover it yet.'
+          ': no answer prepared.'
         )}
       </p>
-      <ul aria-label="Facts" className="flex flex-col gap-1 text-[13px]">
-        <Fact move={played} node={playedFact} who={left ? 'you' : 'they'} best={best === step.played} />
-        {left && step.planned.map((san) => <Fact key={san} move={figurineMove(san, ply)} node={factOf(san)} who="you" repertoire best={best === san} />)}
-      </ul>
-      {left && [step.played, ...step.planned].some((san) => (factOf(san)?.games ?? 0) < MIN_GAMES_TO_COMPARE) && (
-        <p className="-mt-1 text-[12px]" style={{ color: COLOURS.leafSoft }}>
-          Fewer than {MIN_GAMES_TO_COMPARE} games on a move: too few to tell which scores better.
-        </p>
+      {/* Sans coup du répertoire à mettre en face, le tableau répéterait la phrase. */}
+      {left && (
+        <table aria-label="Facts" className="w-full text-[13px]">
+          <thead className="text-[11px] font-semibold" style={{ color: COLOURS.leafSoft }}>
+            <tr>
+              <th className="sr-only">Move</th>
+              <th className="pb-1 pr-2 text-right font-semibold" colSpan={2}>
+                12 months · your score
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <Fact move={played} node={factOf(step.played)} best={best === step.played} />
+            {step.planned.map((san) => <Fact key={san} move={figurineMove(san, ply)} node={factOf(san)} repertoire best={best === san} />)}
+          </tbody>
+        </table>
       )}
       {left ? (
         <div className="flex flex-col gap-1.5">
-          <Action onClick={() => actions.onAdd(step)} tone={best === step.played ? 'primary' : 'plain'}>
-            Add {played} {step.planned.length ? 'as another choice' : 'to my repertoire'}
-          </Action>
-          <Action onClick={() => actions.onStay(step)} tone={best && best !== step.played ? 'primary' : 'plain'}>
-            Stay on {step.planned.length === 1 ? planned : 'my repertoire'}
-          </Action>
+          <span className="grid grid-cols-2 gap-1.5">
+            <Action onClick={() => actions.onAdd(step)} tone={best === step.played ? 'primary' : 'plain'}>
+              Add {played}
+            </Action>
+            <Action onClick={() => actions.onStay(step)} tone={best && best !== step.played ? 'primary' : 'plain'}>
+              Keep {step.planned.length === 1 ? planned : 'mine'}
+            </Action>
+          </span>
           <span className="flex flex-wrap items-center justify-between gap-x-3">
             <button type="button" onClick={() => actions.onBuild(step)} className="rounded-lg py-1.5 text-[13px] font-semibold underline-offset-4 hover:underline focus-visible:outline-2" style={{ color: COLOURS.leafSoft }}>
-              Add {played} and prepare what follows →
+              Add it and prepare what follows →
             </button>
             {onSkip && <Skip onSkip={onSkip} />}
           </span>
         </div>
       ) : (
         <div className="flex flex-col gap-1.5">
-          <Action onClick={() => actions.onPrepare(step)} tone="primary">
-            Prepare an answer to {played}
-          </Action>
-          <Action onClick={() => actions.onStay(step)}>Not worth preparing</Action>
+          <span className="grid grid-cols-2 gap-1.5">
+            <Action onClick={() => actions.onPrepare(step)} tone="primary">
+              Prepare a reply
+            </Action>
+            <Action onClick={() => actions.onStay(step)}>Not worth it</Action>
+          </span>
           {onSkip && (
             <span className="flex justify-end">
               <Skip onSkip={onSkip} />
@@ -350,28 +358,26 @@ function betterMove(step: SessionStep, factOf: (san: string) => OpeningNode | un
   return scoreRate(scored[0].node) - scoreRate(scored[1].node) >= 0.05 ? scored[0].san : undefined;
 }
 
-function Fact({ move, node, who, repertoire = false, best = false }: { move: string; node: OpeningNode | undefined; who: 'you' | 'they'; repertoire?: boolean; best?: boolean }) {
+function Fact({ move, node, repertoire = false, best = false }: { move: string; node: OpeningNode | undefined; repertoire?: boolean; best?: boolean }) {
+  // Sous ce nombre de parties, le score ne dit rien : on le grise plutôt que de l'expliquer.
+  const thin = !node || node.games < MIN_GAMES_TO_COMPARE;
   return (
-    <li className="flex flex-wrap items-baseline gap-x-2">
-      <span className="min-w-12 font-extrabold" style={{ color: repertoire ? REPERTOIRE : undefined }}>
+    <tr style={{ borderTop: `1px solid ${COLOURS.sand}` }}>
+      <td className="py-1 pr-2 font-extrabold" style={{ color: repertoire ? REPERTOIRE : undefined }}>
         {move}
-      </span>
-      <span style={{ color: COLOURS.leafSoft }}>
-        {node ? (
-          <>
-            {node.games} {node.games === 1 ? 'game' : 'games'} in 12 months · {who === 'they' && 'you score '}
-            <strong style={{ color: COLOURS.leaf }}>{Math.round(scoreRate(node) * 100)}%</strong>
-          </>
-        ) : (
-          'not played in 12 months'
+      </td>
+      <td className="py-1 pr-2 text-right tabular-nums" style={{ color: COLOURS.leafSoft }}>
+        {node ? `${node.games} ${node.games === 1 ? 'game' : 'games'}` : 'not played'}
+      </td>
+      <td className="w-24 py-1 text-right font-bold tabular-nums" style={{ opacity: thin ? 0.45 : 1 }} title={thin ? `Fewer than ${MIN_GAMES_TO_COMPARE} games: too few to compare` : 'Your score'}>
+        {node ? `${Math.round(scoreRate(node) * 100)}%` : '—'}
+        {best && (
+          <span className="ml-1.5 rounded-full px-1.5 text-[11px] font-bold" style={{ background: COLOURS.sage, color: COLOURS.leaf }}>
+            better
+          </span>
         )}
-      </span>
-      {best && (
-        <span className="rounded-full px-2 text-[11px] font-bold" style={{ background: COLOURS.sage, color: COLOURS.leaf }}>
-          scores better
-        </span>
-      )}
-    </li>
+      </td>
+    </tr>
   );
 }
 
@@ -383,7 +389,7 @@ function Action({ onClick, tone = 'plain', children }: { onClick: () => void; to
       onClick={onClick}
       whileTap={{ scale: 0.98 }}
       transition={SPRING}
-      className="w-full rounded-xl px-4 py-2.5 text-[15px] font-bold focus-visible:outline-2 focus-visible:outline-offset-2"
+      className="w-full rounded-xl px-3 py-2.5 text-[15px] font-bold leading-tight focus-visible:outline-2 focus-visible:outline-offset-2"
       style={style}
     >
       {children}

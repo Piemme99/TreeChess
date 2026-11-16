@@ -52,7 +52,7 @@ describe('GameChecksPage', () => {
   it('starts on the day the repertoire is created, with no game yet', () => {
     page();
 
-    expect(replayBar()).toHaveTextContent('Wed, 31 Dec 2025Replay · repertoire created');
+    expect(replayBar()).toHaveTextContent(/Wed, 31 Dec 2025.*Replay · repertoire created/);
     expect(dayGames()).toHaveLength(0);
   });
 
@@ -60,7 +60,7 @@ describe('GameChecksPage', () => {
     page();
     nextDay();
 
-    expect(replayBar()).toHaveTextContent('Sun, 4 Jan 2026Replay · day 1 of 49 · 11 games');
+    expect(replayBar()).toHaveTextContent(/Sun, 4 Jan 2026.*Replay · day 1 of 49 · 11 games/);
     expect(dayGames()).toHaveLength(11);
     expect(screen.getAllByText(/You played/).map((verdict) => verdict.textContent)).toEqual([
       'You played 3.c4, your repertoire has 3.♘f3',

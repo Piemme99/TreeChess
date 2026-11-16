@@ -1,6 +1,5 @@
 import { MotionConfig, motion } from 'framer-motion';
 import { useSearchParams } from 'react-router';
-import { useOpeningName } from '../../../shared/hooks/useOpeningName';
 import { replayLine } from '../position/replay';
 import { positionKey } from '../domain/repertoire';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
@@ -18,15 +17,15 @@ import type { SessionStep } from '../session/steps';
 import { useReplayedSession } from '../session/useReplayedSession';
 import { PageHeader } from '../workshop/PageHeader';
 import { SideSwitch } from '../workshop/SideSwitch';
-import { COLOURS, FONT_FAMILY, raised, SPRING } from '../workshop/theme';
+import { COLOURS, FONT_FAMILY, raised, SPRING, tile } from '../workshop/theme';
 import { Toast } from '../workshop/Toast';
 import { useToast } from '../workshop/useToast';
 import { useWide } from '../workshop/useWide';
 import { storedSide, storeSide } from '../workshop/storedSide';
 import { useWorkshopFont } from '../workshop/useWorkshopFont';
 import { PositionPane, type StepActions } from './PositionPane';
+import { PhonePane } from './PhonePane';
 import { RepertoireMap } from './RepertoireMap';
-import { TreeList } from './TreeList';
 import { buildRepertoireMap, forEachNode, markedNodes, type MapNode } from './repertoireMap';
 
 const MAX_PLIES = 24;
@@ -47,8 +46,6 @@ interface Session {
   returned?: number;
 }
 
-type View = 'map' | 'position';
-
 /** POC (README, « the tree as the landing screen ») : le répertoire comme carte, à côté de l'aiguillage pour comparer. */
 export function TreePage() {
   useWorkshopFont();
@@ -66,9 +63,10 @@ export function TreePage() {
     asked.line.length ? { key: asked.line.join(' '), stamp: Date.now(), centre: true } : null,
   );
   const [session, setSession] = useState<Session | null>(null);
+  const wide = useWide();
   const [building, setBuilding] = useState<{ origin: BuildOrigin; stepKey?: string } | null>(null);
-  // Sur le téléphone, la carte et le volet ne tiennent pas ensemble : un onglet à la fois.
-  const [view, setView] = useState<View>(asked.line.length ? 'position' : 'map');
+  // Ce que « coup suivant » rejoue au téléphone : la ligne d'où l'on vient de reculer, comme sur Lichess.
+  const [trails, setTrails] = useState<Record<Side, readonly string[]>>(() => ({ w: [], b: [], [asked.side]: asked.line }));
   // Ce que le volet met en avant quand une position porte une décision et une priorité : ce qui y a mené.
   const [lead, setLead] = useState<'settle' | 'priority'>(asked.line.length ? 'priority' : 'settle');
   const [preview, setPreview] = useState<readonly (readonly string[])[]>([]);
@@ -90,11 +88,10 @@ export function TreePage() {
     setBuildPath(null);
     if (next) {
       setFocus({ key: next.origin.start.join(' '), stamp: Date.now(), centre: true });
-      setView('position');
+      if (!wide) window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
   const { toast, show, close } = useToast();
-  const wide = useWide();
 
   const { maps, recent, priorities } = useMaps(known, replay.day, repertoires, steps);
   const root = maps[side];
@@ -111,15 +108,20 @@ export function TreePage() {
     setSession((active) => (active && (active.ended || !active.queue.some((k) => !active.done.has(k) && live.has(k))) ? null : active));
     setSide(target);
     setPaths((current) => ({ ...current, [target]: found.path }));
+    setTrails((current) => ({ ...current, [target]: startsWith(current[target], found.path) ? current[target] : found.path }));
     setFocus({ key, stamp: Date.now(), centre });
   };
   const walk = (next: readonly string[]) => {
     setPaths((current) => ({ ...current, [side]: next }));
+    setTrails((current) => ({ ...current, [side]: startsWith(current[side], next) ? current[side] : next }));
     const reached = nodeAlong(root, next);
     if (reached.path.length === next.length) setFocus({ key: reached.key, stamp: Date.now(), centre: false });
   };
   const play = (san: string) => walk([...path, san]);
   const back = () => walk(path.slice(0, -1));
+  const trail = trails[side];
+  const mainMove = path.length === node.path.length ? [...node.children].sort((a, b) => b.games - a.games)[0]?.san : undefined;
+  const forward = trail.length > path.length && startsWith(trail, path) ? () => walk(trail.slice(0, path.length + 1)) : mainMove ? () => play(mainMove) : undefined;
 
   // La séance : les positions à trancher, la plus fréquente d'abord, une par une.
   const live = useMemo(() => new Map(steps.map((step) => [step.key, step])), [steps]);
@@ -150,7 +152,6 @@ export function TreePage() {
     const ordered = [...steps.filter((step) => step.side === side), ...steps.filter((step) => step.side !== side)];
     setSession({ queue: ordered.map((step) => step.key), done: new Map() });
     build(null);
-    setView('position');
     toTop();
   };
   // Après un ajout, une partie de l'étape peut encore quitter le répertoire plus loin : on la guette au rendu suivant
@@ -245,7 +246,6 @@ export function TreePage() {
   const goToPriority = (rank: number) => {
     const pin = pins.find((candidate) => candidate.node.priority === rank) ?? pins[0];
     if (pin) goTo(pin.side, pin.node.key, true);
-    setView('position');
     setLead('priority');
   };
   const position = session ? session.queue.indexOf(currentKey ?? '') + 1 : 0;
@@ -284,23 +284,10 @@ export function TreePage() {
     setSession(null);
     build(null);
   });
-  // Un jour de plus peut faire tomber des positions sans que le joueur ait rien fait : on dit pourquoi.
-  const before = useRef<string[] | null>(null);
   const nextDay = () => {
     close();
-    before.current = steps.map((step) => step.key);
     replay.next!();
   };
-  useEffect(() => {
-    if (!before.current) return;
-    const dropped = before.current.filter((key) => !live.has(key)).length;
-    before.current = null;
-    if (dropped) {
-      show({ text: `${dropped} opponent ${dropped === 1 ? 'move' : 'moves'} you met only once left the list: ${dropped === 1 ? 'it comes' : 'they come'} back if you meet ${dropped === 1 ? 'it' : 'them'} again` });
-    }
-    // Seul le changement de jour compte ; `steps` est recalculé dans le même rendu.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [replay.day]);
   const habits = useMemo(
     () => gamesOfLastMonths(known, RECENT_MONTHS, new Date(replay.day)).filter((game) => game.side === building?.origin.side),
     [known, replay.day, building?.origin.side],
@@ -308,155 +295,213 @@ export function TreePage() {
   const first = steps.find((step) => step.side === side) ?? steps[0];
   const perSide = { w: steps.filter((step) => step.side === 'w').length, b: steps.filter((step) => step.side === 'b').length };
 
+  // Au téléphone, la séance finie se dit dans un toast : l'échiquier ne doit jamais disparaître.
+  const finished = Boolean(session && !current);
+  useEffect(() => {
+    if (!finished || wide) return;
+    setSession(null);
+    show({ text: `Session done · ${settled} settled${skipped ? ` · ${skipped} skipped` : ''}${steps.length ? ` · ${steps.length} left` : ''}` });
+    // Seule la fin de la séance compte.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [finished]);
+  const pane$ = session && !current && wide ? (
+    <Done settled={settled} skipped={skipped} returned={session.returned ?? 0} left={steps.length} onClose={() => setSession(null)} />
+  ) : building ? (
+    <BuildSession
+        key={`${building.origin.start.join(' ')} ${building.stepKey ?? ''} ${building.origin.keep}`}
+        origin={building.origin}
+        games={habits}
+        repertoire={repertoires[building.origin.side]}
+        onAccept={accept}
+        onCancel={() => build(null)}
+        onLines={showLines}
+        onPath={followBuild}
+        stacked
+      />
+  ) : null;
+  const paneProps = {
+    side,
+    path,
+    node,
+    recent: recent[side],
+    steps: stepsHere,
+    priority,
+    actions,
+    lead: session ? ('settle' as const) : lead,
+    onLead: setLead,
+    onSkip: session && current && stepsHere.includes(current) ? () => skip(current) : undefined,
+    onNextPriority: pins.length > 1 && node.priority !== undefined ? () => goToPriority(node.priority! + 1) : undefined,
+    onExtend: () => build({ origin: originAt(side, node.path, path) }),
+    onPrepareFollows: priority
+      ? (line: readonly string[]) => {
+          const reached = nodeAlong(root, line);
+          const after = figurineMove(line[line.length - 1], line.length);
+          const heading = isPlayerMove(side, line.length + 1) ? `Prepare your moves after ${after}` : `Prepare against their replies after ${after}`;
+          build({ origin: { ...originAt(side, line.slice(0, Math.min(reached.path.length, line.length)), line), heading } });
+        }
+      : undefined,
+    onMove: play,
+    onJump: walk,
+    onBack: path.length ? back : undefined,
+  };
+  const nextPriority = pins.length ? () => goToPriority(node.priority !== undefined ? (node.priority % pins.length) + 1 : shownRank) : undefined;
+  const endSession = () => setSession((active) => active && { ...active, ended: true });
+
   return (
     <MotionConfig reducedMotion="user">
-      <div className="min-h-screen pb-24" style={{ fontFamily: FONT_FAMILY, background: COLOURS.cream, color: COLOURS.leaf }}>
+      <div className={`min-h-screen pb-24`} style={{ fontFamily: FONT_FAMILY, background: COLOURS.cream, color: COLOURS.leaf }}>
         <PageHeader>
           <ReplayBar replay={{ ...replay, reset, next: replay.next && nextDay }} />
         </PageHeader>
-        <main className="mx-auto flex max-w-[84rem] flex-col gap-4 px-4 pt-5 sm:px-8">
-          <div className="flex flex-wrap items-center gap-3">
-            <SideSwitch side={side} onChange={(next) => !building && setSide(next)} counts={perSide} />
-            {/* Au téléphone, les deux vues en barre fixe au bas de l'écran, sous le pouce, comme une appli. */}
-            <div
-              role="tablist"
-              aria-label="View"
-              className="fixed inset-x-3 bottom-3 z-30 flex gap-1 rounded-full p-1.5 lg:hidden"
-              style={{ background: COLOURS.sand, boxShadow: '0 10px 24px -10px oklch(0.3 0.06 150 / 0.5)' }}
-            >
-              {(['map', 'position'] as const).map((tab) => (
-                <button
-                  key={tab}
-                  type="button"
-                  role="tab"
-                  aria-selected={view === tab}
-                  onClick={() => setView(tab)}
-                  className="flex-1 rounded-full px-4 py-2.5 text-[15px] font-bold"
-                  style={view === tab ? { background: COLOURS.leaf, color: COLOURS.cream } : { color: COLOURS.leaf }}
-                >
-                  {tab === 'map' ? 'Moves' : building ? 'Building' : 'Board'}
-                </button>
-              ))}
-            </div>
-            <span className="flex w-full flex-wrap gap-2 sm:ml-auto sm:w-auto sm:flex-nowrap">
-              {session && current ? (
-                <SessionBar index={position} total={session.queue.length} settled={position} side={current.side} onEnd={() => setSession((active) => active && { ...active, ended: true })} />
-              ) : (
-                <Door
-                  onClick={steps.length ? startSession : undefined}
-                  title={steps.length ? `${steps.length} to settle` : 'Nothing to settle'}
-                  tone={steps.length ? 'terracotta' : 'plain'}
-                >
-                  {first
-                    ? `${perSide.w} as White · ${perSide.b} as Black`
-                    : replay.next
-                      ? '“Next game day” brings games in'
-                      : 'All games replayed'}
-                </Door>
-              )}
-              <Door
-                onClick={pins.length ? () => goToPriority(node.priority !== undefined ? (node.priority % pins.length) + 1 : shownRank) : undefined}
-                title={priorities.length ? `Priority ${shownRank} of ${priorities.length}` : 'No priority'}
-                className={session && current ? 'hidden sm:flex' : undefined}
-              >
-                {priorities[shownRank - 1] ? <PriorityLabel priority={priorities[shownRank - 1]} /> : 'Nothing below your average'}
-              </Door>
-            </span>
-          </div>
-          {/* Une seule géométrie : la carte garde sa largeur, le volet aussi, construction comprise. */}
-          <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_27rem]">
-            {(wide || view === 'map') && (
-              <div className="lg:sticky lg:top-4 lg:h-[calc(100vh-11rem)]">
-                {wide ? (
-                  <RepertoireMap
-                    root={root}
-                    side={side}
-                    selected={building && buildPath ? buildPath.join(' ') : node.key}
-                    onSelect={(key) => goTo(side, key, false)}
-                    focus={focus}
-                    locked={building !== null}
-                    preview={shownPreview}
-                    pinned={pinned}
-                  />
+        {wide ? (
+          <main className="mx-auto flex max-w-[84rem] flex-col gap-4 px-8 pt-5">
+            <div className="flex flex-wrap items-center gap-3">
+              <SideSwitch side={side} onChange={(next) => !building && setSide(next)} counts={perSide} />
+              <span className="ml-auto flex gap-2">
+                {session && current ? (
+                  <SessionBar index={position} total={session.queue.length} settled={position} side={current.side} onEnd={endSession} />
                 ) : (
-                  <TreeList root={root} side={side} node={node} offMoves={stepsHere} onSelect={(key) => goTo(side, key, false)} onOpen={() => setView('position')} />
+                  <Door onClick={steps.length ? startSession : undefined} title={steps.length ? `${steps.length} to settle` : 'Nothing to settle'} tone={steps.length ? 'terracotta' : 'plain'}>
+                    {first ? `${perSide.w} as White · ${perSide.b} as Black` : replay.next ? '“Next game day” brings games in' : 'All games replayed'}
+                  </Door>
+                )}
+                <Door onClick={nextPriority} title={priorities.length ? `Priority ${shownRank} of ${priorities.length}` : 'No priority'}>
+                  {priorities[shownRank - 1] ? <PriorityLabel priority={priorities[shownRank - 1]} /> : 'Nothing below your average'}
+                </Door>
+              </span>
+            </div>
+            {/* Une seule géométrie : la carte garde sa largeur, le volet aussi, construction comprise. */}
+            <div className="grid grid-cols-[minmax(0,1fr)_27rem] gap-5">
+              <div className="sticky top-4 h-[calc(100vh-11rem)]">
+                <RepertoireMap
+                  root={root}
+                  side={side}
+                  selected={building && buildPath ? buildPath.join(' ') : node.key}
+                  onSelect={(key) => goTo(side, key, false)}
+                  focus={focus}
+                  locked={building !== null}
+                  preview={shownPreview}
+                  pinned={pinned}
+                />
+              </div>
+              <div className="flex min-w-0 flex-col gap-3 self-start">{pane$ ?? <PositionPane {...paneProps} />}</div>
+            </div>
+          </main>
+        ) : (
+          <main className="flex flex-col gap-3 px-4 pt-3">
+            {!building && (
+              <div className="flex items-center gap-2">
+                <SideTabs side={side} onChange={setSide} />
+                {session && current ? (
+                  <PhoneSession index={position} total={session.queue.length} onEnd={endSession} />
+                ) : (
+                  <span className="ml-auto flex gap-1.5">
+                    {steps.length > 0 && (
+                      <Pill onClick={startSession} tone="terracotta">
+                        {steps.length} to settle
+                      </Pill>
+                    )}
+                    {pins.length > 0 && (
+                      <Pill onClick={nextPriority!} active={node.priority !== undefined}>
+                        Priorities
+                      </Pill>
+                    )}
+                  </span>
                 )}
               </div>
             )}
-            {(wide || view === 'position') && (
-            <div ref={pane} className="flex min-w-0 scroll-mt-3 flex-col gap-3 lg:self-start">
-              {session && !current ? (
-                <Done settled={settled} skipped={skipped} returned={session.returned ?? 0} left={steps.length} onClose={() => setSession(null)} />
-              ) : building ? (
-                <>
-                {/* Sur l'ordinateur, le titre du constructeur dit déjà d'où l'on part : la place va au tableau. */}
-                <div className="lg:hidden">
-                  <PaneHeading path={buildPath ?? building.origin.start} />
-                </div>
-                <BuildSession
-                  key={`${building.origin.start.join(' ')} ${building.stepKey ?? ''} ${building.origin.keep}`}
-                  origin={building.origin}
-                  games={habits}
-                  repertoire={repertoires[building.origin.side]}
-                  onAccept={accept}
-                  onCancel={() => build(null)}
-                  onLines={showLines}
-                  onPath={followBuild}
-                  stacked
-                />
-                </>
-              ) : (
-                <PositionPane
-                  side={side}
-                  path={path}
-                  node={node}
-                  recent={recent[side]}
-                  steps={stepsHere}
-                  priority={priority}
-                  actions={actions}
-                  lead={session ? 'settle' : lead}
-                  onLead={setLead}
-                  onSkip={session && current && stepsHere.includes(current) ? () => skip(current) : undefined}
-                  onNextPriority={pins.length > 1 && node.priority !== undefined ? () => goToPriority(node.priority! + 1) : undefined}
-                  onExtend={() => build({ origin: originAt(side, node.path, path) })}
-                  onPrepareFollows={
-                    priority
-                      ? (line) => {
-                          const reached = nodeAlong(root, line);
-                          const after = figurineMove(line[line.length - 1], line.length);
-                          const heading = isPlayerMove(side, line.length + 1) ? `Prepare your moves after ${after}` : `Prepare against their replies after ${after}`;
-                          build({ origin: { ...originAt(side, line.slice(0, Math.min(reached.path.length, line.length)), line), heading } });
-                        }
-                      : undefined
-                  }
-                  onMove={play}
-                  onJump={walk}
-                  onBack={path.length ? back : undefined}
-                />
-              )}
+            <div ref={pane} className="flex min-w-0 scroll-mt-3 flex-col gap-3">
+              {pane$ ?? <PhonePane {...paneProps} trail={trail} onSelect={(key) => goTo(side, key, false)} />}
             </div>
-            )}
-          </div>
-        </main>
+          </main>
+        )}
+        {!wide && !building && <BottomBar onStart={path.length ? () => walk([]) : undefined} onBack={path.length ? back : undefined} onForward={forward} />}
         <Toast toast={toast} onClose={close} />
       </div>
     </MotionConfig>
   );
 }
 
-/** Le nom de la position d'où l'on construit, à la place du titre du volet : le regard ne doit pas le chercher. */
-function PaneHeading({ path }: { path: readonly string[] }) {
-  const fens = useMemo(() => replayLine(path).fens, [path]);
-  const opening = useOpeningName(fens);
+const startsWith = (line: readonly string[], prefix: readonly string[]) => prefix.length <= line.length && prefix.every((san, index) => line[index] === san);
+
+/** Le camp, en onglets serrés. */
+function SideTabs({ side, onChange }: { side: Side; onChange: (side: Side) => void }) {
   return (
-    <div className="flex min-w-0 flex-col px-1">
-      <h2 className="text-[19px] font-semibold leading-snug tracking-[-0.01em]">{opening?.name ?? (path.length ? 'Unnamed line' : 'Starting position')}</h2>
-      {path.length > 0 && (
-        <span className="text-[14px]" style={{ color: COLOURS.leafSoft }}>
-          {figurineLine(path)}
-        </span>
-      )}
+    <div role="tablist" aria-label="Repertoire" className="flex shrink-0 rounded-full p-0.5 text-[14px] font-bold" style={{ background: COLOURS.sand }}>
+      {(['w', 'b'] as const).map((tab) => (
+        <button
+          key={tab}
+          type="button"
+          role="tab"
+          aria-selected={side === tab}
+          onClick={() => onChange(tab)}
+          className="flex items-center gap-1 rounded-full px-3 py-1.5 focus-visible:outline-2"
+          style={side === tab ? { background: COLOURS.leaf, color: COLOURS.cream } : { color: COLOURS.leaf }}
+        >
+          {tab === 'w' ? 'White' : 'Black'}
+        </button>
+      ))}
     </div>
+  );
+}
+
+function Pill({ onClick, tone = 'plain', active = false, children }: { onClick: () => void; tone?: 'plain' | 'terracotta'; active?: boolean; children: ReactNode }) {
+  return (
+    <motion.button
+      type="button"
+      onClick={onClick}
+      whileTap={{ scale: 0.96 }}
+      transition={SPRING}
+      className="whitespace-nowrap rounded-full px-3 py-1.5 text-[14px] font-bold focus-visible:outline-2"
+      aria-pressed={tone === 'plain' ? active : undefined}
+      style={tone === 'terracotta' ? { background: COLOURS.terracotta, color: 'white' } : active ? { background: COLOURS.leaf, color: COLOURS.cream } : { ...tile(COLOURS.paper), color: COLOURS.leaf }}
+    >
+      {children}
+    </motion.button>
+  );
+}
+
+function PhoneSession({ index, total, onEnd }: { index: number; total: number; onEnd: () => void }) {
+  return (
+    <div aria-label="Progress" className="ml-auto flex min-w-0 flex-1 items-center gap-2 text-[13px] font-bold">
+      <span className="h-1.5 min-w-6 flex-1 overflow-hidden rounded-full" style={{ background: COLOURS.sand }}>
+        <motion.span className="block h-full rounded-full" style={{ background: COLOURS.terracotta }} animate={{ width: `${(index / total) * 100}%` }} transition={SPRING} />
+      </span>
+      <span className="whitespace-nowrap tabular-nums">
+        {index}/{total}
+      </span>
+      <button type="button" onClick={onEnd} className="whitespace-nowrap rounded-full px-2.5 py-1.5 focus-visible:outline-2" style={{ ...tile(COLOURS.paper), color: COLOURS.leaf }}>
+        End
+      </button>
+    </div>
+  );
+}
+
+/** Sous le pouce, comme la barre de Lichess : début, coup précédent, coup suivant. */
+function BottomBar({ onStart, onBack, onForward }: { onStart?: () => void; onBack?: () => void; onForward?: () => void }) {
+  const buttons = [
+    { label: 'Start', onClick: onStart, icon: 'M7 6v12M18 6l-8 6 8 6z' },
+    { label: 'Previous move', onClick: onBack, icon: 'M16 6l-8 6 8 6z' },
+    { label: 'Next move', onClick: onForward, icon: 'M8 6l8 6-8 6z' },
+  ];
+  return (
+    <nav aria-label="Moves" className="fixed inset-x-0 bottom-0 z-30 flex pb-[env(safe-area-inset-bottom)]" style={{ background: COLOURS.leaf }}>
+      {buttons.map((button) => (
+        <button
+          key={button.label}
+          type="button"
+          aria-label={button.label}
+          onClick={button.onClick}
+          disabled={!button.onClick}
+          className="grid h-14 flex-1 place-items-center focus-visible:outline-2 focus-visible:-outline-offset-4 active:bg-white/10 disabled:opacity-35"
+          style={{ color: COLOURS.cream }}
+        >
+          <svg viewBox="0 0 24 24" className="size-7" fill="currentColor" stroke="currentColor" strokeWidth={1.5} strokeLinejoin="round" aria-hidden="true">
+            <path d={button.icon} />
+          </svg>
+        </button>
+      ))}
+    </nav>
   );
 }
 

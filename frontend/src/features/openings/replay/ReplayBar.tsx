@@ -1,49 +1,59 @@
 import { motion } from 'framer-motion';
 import { useState, type ReactNode } from 'react';
 import { COLOURS, SPRING, tile } from '../workshop/theme';
-import { formatDay } from './formatDay';
+import { formatDay, formatShortDay } from './formatDay';
 import type { ReplayDay } from './useReplayDay';
 
 export function ReplayBar({ replay }: { replay: ReplayDay }) {
   // Reset efface les ajouts et les décisions : jamais sur un seul clic.
   const [confirming, setConfirming] = useState(false);
   return (
-    <section aria-label="Replay" className="flex flex-wrap items-center gap-x-3 gap-y-2 text-[14px]">
+    <section aria-label="Replay" className="flex items-center gap-x-3 gap-y-2 text-[14px] sm:flex-wrap">
       <span className="mr-auto flex flex-col leading-tight sm:mr-0">
-        <span className="whitespace-nowrap text-[16px] font-bold">{formatDay(replay.day)}</span>
+        <span className="whitespace-nowrap text-[15px] font-bold sm:text-[16px]">
+          <span className="sm:hidden">{formatShortDay(replay.day)}</span>
+          <span className="hidden sm:inline">{formatDay(replay.day)}</span>
+        </span>
         <span className="flex items-center gap-1.5 whitespace-nowrap text-[12px]" style={{ color: COLOURS.leafSoft }}>
-          {replay.index
-            ? `Replay · day ${replay.index} of ${replay.total} · ${replay.gamesThatDay} ${replay.gamesThatDay === 1 ? 'game' : 'games'}`
-            : 'Replay · repertoire created'}
-          {replay.reset &&
-            (confirming ? (
-              <span role="group" aria-label="Confirm reset" className="flex items-center gap-1 font-semibold">
-                · Erase all?
-                <button
-                  type="button"
-                  onClick={() => {
-                    setConfirming(false);
-                    replay.reset!();
-                  }}
-                  className="rounded px-2 py-1.5 font-bold text-white focus-visible:outline-2"
-                  style={{ background: COLOURS.terracotta }}
-                >
-                  Reset
-                </button>
-                <button type="button" onClick={() => setConfirming(false)} className="rounded px-2 py-1.5 font-bold underline-offset-2 hover:underline focus-visible:outline-2">
-                  Keep
-                </button>
-              </span>
-            ) : (
-              <button type="button" onClick={() => setConfirming(true)} className="-my-1.5 rounded px-1.5 py-1.5 font-semibold underline underline-offset-2 focus-visible:outline-2">
+          <span className="sm:hidden">{replay.index ? `Day ${replay.index}/${replay.total}` : 'Replay'}</span>
+          <span className="hidden sm:inline">
+            {replay.index
+              ? `Replay · day ${replay.index} of ${replay.total} · ${replay.gamesThatDay} ${replay.gamesThatDay === 1 ? 'game' : 'games'}`
+              : 'Replay · repertoire created'}
+          </span>
+          {replay.reset && (
+            <span className="relative">
+              <button type="button" aria-expanded={confirming} onClick={() => setConfirming(!confirming)} className="-my-1.5 rounded px-1.5 py-1.5 font-semibold underline underline-offset-2 focus-visible:outline-2">
                 Reset…
               </button>
-            ))}
+              {/* Hors de la ligne : la confirmation ne doit pas pousser « Next day » hors de l'écran. */}
+              {confirming && (
+                <span role="group" aria-label="Confirm reset" className="absolute left-0 top-full z-50 mt-1 flex items-center gap-1.5 whitespace-nowrap rounded-xl p-2 font-semibold" style={{ background: COLOURS.paper, color: COLOURS.leaf, boxShadow: '0 14px 28px -10px oklch(0.3 0.06 150 / 0.45)' }}>
+                  Erase all?
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setConfirming(false);
+                      replay.reset!();
+                    }}
+                    className="rounded-lg px-2.5 py-1.5 font-bold text-white focus-visible:outline-2"
+                    style={{ background: COLOURS.terracotta }}
+                  >
+                    Reset
+                  </button>
+                  <button type="button" onClick={() => setConfirming(false)} className="rounded-lg px-2.5 py-1.5 font-bold focus-visible:outline-2" style={tile(COLOURS.sand)}>
+                    Keep
+                  </button>
+                </span>
+              )}
+            </span>
+          )}
         </span>
       </span>
       {replay.next && (
         <Action onClick={replay.next} primary>
-          Next game day →
+          <span className="sm:hidden">Next day →</span>
+          <span className="hidden sm:inline">Next game day →</span>
         </Action>
       )}
     </section>

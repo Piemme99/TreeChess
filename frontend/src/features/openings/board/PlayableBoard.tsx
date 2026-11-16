@@ -43,6 +43,7 @@ export function PlayableBoard({ path, flipped, arrows = [], suggestions = [], on
     setFrom(null);
   }
   const targets = from ? chess.moves({ square: from, verbose: true }) : [];
+  const last = useMemo(() => chess.history({ verbose: true }).at(-1), [chess]);
   const suggested = useMemo(
     () =>
       suggestions.flatMap((san) => {
@@ -81,8 +82,10 @@ export function PlayableBoard({ path, flipped, arrows = [], suggestions = [], on
     const piece = chess.get(square as Square);
     const occupied = Boolean(piece);
     const name = piece ? `${square}, ${piece.color === 'w' ? 'white' : 'black'} ${PIECE_NAMES[piece.type]}` : square;
+    const moved = last && (square === last.from || square === last.to);
     return (
       <div style={style} aria-label={name}>
+        {moved && square !== from && <span aria-hidden="true" style={{ position: 'absolute', inset: 0, background: LAST_MOVE }} />}
         {square === from && <span aria-hidden="true" style={{ position: 'absolute', inset: 0, background: 'oklch(0.80 0.14 75 / 0.55)' }} />}
         {children}
         {(target || landing) && <Dot ring={target && occupied} faint={!target} />}
@@ -90,12 +93,22 @@ export function PlayableBoard({ path, flipped, arrows = [], suggestions = [], on
     );
   };
 
+  const files = flipped ? [...FILES].reverse() : FILES;
+  const ranks = flipped ? [...RANKS].reverse() : RANKS;
   return (
     <div
-      className="rounded-[18px] p-2.5"
+      className="grid grid-cols-[0.875rem_minmax(0,1fr)] grid-rows-[auto_0.875rem] rounded-[16px] pt-2 pr-2 sm:rounded-[18px]"
       style={{ background: BOARD.frame, boxShadow: '0 18px 40px -12px oklch(0.3 0.06 150 / 0.45), inset 0 1px 0 oklch(1 0 0 / 0.2)' }}
     >
-      <div className="relative overflow-hidden rounded-[10px]">
+      {/* Les coordonnées sur le cadre, pas dans les cases : en coin, elles mordaient sur les pièces (PMG). */}
+      <span aria-hidden="true" className="grid grid-rows-8 select-none text-center text-[9px] font-semibold" style={{ color: COORDINATES }}>
+        {ranks.map((rank) => (
+          <span key={rank} className="grid place-items-center">
+            {rank}
+          </span>
+        ))}
+      </span>
+      <div className="relative overflow-hidden rounded-[6px]">
         <Chessboard
           options={{
             id: 'workshop-playable',
@@ -107,13 +120,7 @@ export function PlayableBoard({ path, flipped, arrows = [], suggestions = [], on
             // Ni cadre au départ ni à l'arrivée : les points des coups légaux suffisent (PMG).
             dropSquareStyle: { boxShadow: 'none' },
             draggingPieceStyle: { transform: 'scale(1.15)', filter: 'drop-shadow(0 8px 6px oklch(0.2 0.05 50 / 0.4))' },
-            showNotation: true,
-            // Le vert du texte sur les cases claires, le blanc sur les sombres : lisibles à 4,5:1.
-            lightSquareNotationStyle: { color: BOARD.frame },
-            darkSquareNotationStyle: { color: 'white', textShadow: '0 0 2px oklch(0.25 0.05 150), 0 0 1px oklch(0.25 0.05 150)' },
-            // Au-dessus des pièces : sous elles, les coordonnées de la première rangée disparaissent.
-            alphaNotationStyle: { fontSize: '12px', fontWeight: 800, position: 'absolute', bottom: 1, right: 3, userSelect: 'none', zIndex: 2, pointerEvents: 'none' },
-            numericNotationStyle: { fontSize: '12px', fontWeight: 800, position: 'absolute', top: 1, left: 3, userSelect: 'none', zIndex: 2, pointerEvents: 'none' },
+            showNotation: false,
             animationDurationInMs: 180,
             allowDrawingArrows: false,
             dragActivationDistance: 3,
@@ -130,9 +137,22 @@ export function PlayableBoard({ path, flipped, arrows = [], suggestions = [], on
         />
         <ArrowLayer path={path} flipped={flipped} arrows={arrows} className="absolute inset-0 z-[1]" />
       </div>
+      <span aria-hidden="true" className="col-start-2 grid grid-cols-8 select-none text-center text-[9px] font-semibold" style={{ color: COORDINATES }}>
+        {files.map((file) => (
+          <span key={file} className="grid place-items-center">
+            {file}
+          </span>
+        ))}
+      </span>
     </div>
   );
 }
+
+const FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+const RANKS = ['8', '7', '6', '5', '4', '3', '2', '1'];
+const COORDINATES = 'oklch(0.92 0.03 85 / 0.75)';
+// Le kumquat de la palette Verger, translucide : la case garde sa couleur dessous.
+const LAST_MOVE = 'oklch(0.86 0.15 95 / 0.5)';
 
 const PIECE_NAMES: Record<string, string> = { p: 'pawn', n: 'knight', b: 'bishop', r: 'rook', q: 'queen', k: 'king' };
 
