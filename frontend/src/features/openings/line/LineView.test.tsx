@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type { Evaluation } from '../domain/diagnosis';
 import { buildOpeningTree } from '../domain/openingTree';
 import type { PlayedGame } from '../domain/playedGame';
@@ -87,8 +87,8 @@ describe('LineView', () => {
     level.set(fenAfter('e4 e5 Nf3 Nc6 Bc4'), stats({ Bc5: 700, Nf6: 300 }));
     view();
 
-    const preparation = await screen.findByRole('list', { name: 'Proposed preparation' });
-    expect(preparation).toHaveTextContent('3.♗c43…♗c5 70%3…♘f6 30%');
+    // La préparation se remplit coup par coup, en plusieurs attentes : la liste existe avant d'être complète.
+    await waitFor(() => expect(screen.getByRole('list', { name: 'Proposed preparation' })).toHaveTextContent('3.♗c43…♗c5 70%3…♘f6 30%'));
   });
 
   it('opens an opponent move off the line, from the whole line, as a line of its own', async () => {
