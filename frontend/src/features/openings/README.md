@@ -43,6 +43,10 @@ Vocabulary (opening tree, deficit, priority, points to gain): `CONTEXT.md`.
   "I want to work") and the session after games (`SessionPage`, `/dev/session`): the positions
   the games left, grouped by position and move (`steps.ts`), one at a time, phone first.
   Keep / Stay on / Prepare an answer / Skip; Keep and Prepare build on `checks/BuildSession`.
+- `home/` — Today (`/dev/today`, README "Path by use"): the simulated import on the first visit, then one hero
+  card (weak openings on the first day, the day's games, the review due, else priority 1) and one-line rows.
+- `review/` — the review drill (`/dev/review`): `domain/review.ts` (Leitner boxes seeded from habits, the line to
+  play, the opponent's reply), `useReview.ts` (stored state, lapses from game checks, weights).
 - `position/` — the board panel; positions are replayed on demand (`replay.ts`).
 - `board/` — the board whose pieces slide from one position to the next (`pieces.ts`
   gives each piece a stable identity along a line).
@@ -229,6 +233,92 @@ tree, the board's line included when it already left the repertoire (those moves
 player's move among them completes the addition on its own). "Extend from here" is on every
 position; "Prepare what follows" on a priority builds from its end. The accepted line is revealed
 and selected on return. Left: the priority verdict (engine) on the pane.
+
+## Path by use (PMG, 2026-11-16)
+
+Why: on the phone Tree, Openings and Games looked alike (same board on top, same header, same "Next day";
+Openings' top half repeats Tree and its Priorities button). The tabs split the app by data (positions,
+statistics, games), not by what the player comes to do. The app is now organised around the player's uses;
+the repertoire (the tree) is the object every use opens at one of its positions, not a use of its own.
+
+1. **Import** my games and get my repertoire, **and see my weak openings** to work on.
+2. **After a game**: check I followed my preparation; on a new line, analyse it and decide whether to add it.
+3. **Review** my repertoire.
+4. *Later*: **practise** — play openings in a loop against Lichess's most played moves, and feed the
+   repertoire with what I play (the v1 "explorer training", `features/training/`, is a base). A practice
+   game that leaves the repertoire is checked like a real one (use 2).
+
+Closing use 1: **does the work pay** on a line I worked on — said where it means something, on a new game
+through that line.
+
+Challenged once by a fresh reviewer before the POC: Today was four doors (the router again), the report
+competed with Today on the first day, the review quizzed moves played 2 000 times, the games card counted
+games while the session counts positions. Fixed below.
+
+**Navigation: Today · Repertoire.** Today is the landing screen and says what waits; Repertoire is the tree.
+Games and Openings leave the menu (routes kept, Openings stays the computer view of the results). No big
+board on Today.
+
+### Screen 1 — Import (first visit only)
+
+"Build your repertoire from your games", a Lichess username (the signed-in account by default), "Import",
+a progress line. Leads to Today in its first-day state. The real import is the "Import" brick of "Later";
+the POC replays PMG's fixture as if it came in.
+
+### Screen 2 — Today
+
+**One hero card, the most urgent non-empty one; everything else is a one-line row with a figure.**
+
+- **First day** (just imported, no game since): hero = **"Where you lose points"**, above it one line of
+  facts ("2 557 games · repertoire: 194 positions as White, 166 as Black"). The three heaviest priorities,
+  one row each (opening, line, games, points lost, impact bar), each with **"Work on it"** → the tree at
+  that line, priority card open.
+- **New games** (games since the last check): hero = one line per new game — "✓ Petrov · prep followed to
+  move 7", "✗ Caro-Kann · you played 3.♘c3?!, not 3.d4", "? Hungarian · new line 2.b3" — and the figure
+  "3 new · 17 waiting". A game through a worked line says it: "Worked line · prep followed 5 of 6 since
+  4 Jan". Action: **"Check them"** → the tree's session, newest first, back to Today at the end.
+- **Review due**: hero = "12 positions to review" → **"Review"**.
+- **Else**: hero = priority 1 → "Work on it".
+
+Rows under the hero (only the non-empty ones, never the hero again): "Review · 12 due", "Weak openings ·
+P1 Queen's Pawn Game −10 pts" (expands inline to the list), "To check · 17 waiting".
+
+### Screen 3 — Check the games (use 2)
+
+The tree's session as it exists (one position at a time, verdict in one line, Add · Prepare an answer ·
+Stay on / Not worth preparing, Skip, Undo). Opened from Today it shows "← Today" and returns to Today when
+done. Games that followed the preparation make no step.
+
+### Screen 4 — Work on a weak opening (use 1)
+
+The tree at the priority, card open (verdict, "Prepare what follows", Lichess link), "← Today". Accepting
+an addition from "Prepare what follows" marks the line **worked** from that day: from then on, new games
+through it report adherence (prep followed N of M), the score comparison stays on the priority card.
+
+### Screen 5 — Review (use 3)
+
+- **What is due.** Spaced repetition by position where the player is to move, three boxes (1, 7, 30 days),
+  a miss sends back to 1. At the import, a position the player answers with the repertoire move in ≥ 90 %
+  of ≥ 10 games starts in the 30-day box (spread over the month): no quiz on 1.e4. Due from the start: the
+  positions where the player varies, too few games, the additions. A position missed in a game check after
+  its last review is due again, and weighs more.
+- **A line.** The app picks the due position that weighs most, plays the line to it by itself up to the
+  player's two moves before it, then the player plays; opponent moves are played by the app, choosing the
+  reply that leads to the most due positions; the line goes on while something is due ahead. Any of
+  several repertoire moves is right.
+- **Wrong** → the repertoire move(s) in green on the board, the player plays it to go on, the position goes
+  back to box 1. A position passed on the way that was not due is not rescheduled unless missed.
+- **5 lines a session**, then "4 of 5 lines clean · 2 positions to see again tomorrow" → Today.
+
+### Not in the POC
+
+The real import, practice, the score comparison of worked lines, the tree losing its two doors on the phone
+(they stay until Today is validated).
+
+### POC (`home/`, `review/`)
+
+Dev routes, PMG's fixture as the imported history, the replay clock as time: `/dev/today` (import on the first
+visit, then Today), `/dev/review`; "Check them" and "Work on it" open `/dev/tree?from=today`.
 
 ## Later
 
