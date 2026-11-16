@@ -49,7 +49,7 @@ interface Session {
 /** POC (README, « the tree as the landing screen ») : le répertoire comme carte, à côté de l'aiguillage pour comparer. */
 export function TreePage() {
   useWorkshopFont();
-  const { replay, known, repertoires, steps, judging, add, remove, ignore, unignore, forgetIgnored, forgetAdditions } = useReplayedSession();
+  const { replay, known, repertoires, steps, adoptions, judging, add, remove, ignore, unignore, forgetIgnored, forgetAdditions } = useReplayedSession();
   // Openings envoie une ligne à travailler par l'adresse : /dev/tree?side=b&line=d4 Nf6.
   const [params] = useSearchParams();
   const asked = useMemo(
@@ -303,19 +303,45 @@ export function TreePage() {
     before.current = new Set(steps.map((step) => step.key));
     replay.next!();
   };
+  const announced = useRef(new Set<string>());
+  // Le changement de jour et les coups entrés seuls au répertoire se disent dans le même message.
   useEffect(() => {
     const known = before.current;
+    const fresh = adoptions.filter(({ key }) => !announced.current.has(key));
     // Les écarts du jour attendent l'avis du moteur : on ne les compte qu'une fois jugés.
-    if (!known || judging) return;
+    if (judging || (!known && !fresh.length)) return;
+    fresh.forEach(({ key }) => announced.current.add(key));
     before.current = null;
-    const added = steps.filter((step) => !known.has(step.key)).length;
-    // Un coup adverse croisé une seule fois sort de la liste au bout d'un temps : le compteur baisse, on dit pourquoi.
-    const expired = [...known].filter((key) => !live.has(key)).length;
-    const games = replay.gamesThatDay;
-    show({ text: `${games} ${games === 1 ? 'game' : 'games'} played${added > 0 ? ` · ${added} new to settle` : ''}${expired > 0 ? ` · ${expired} expired` : ''}` });
-    // Seuls le changement de jour et la fin du jugement comptent ; `steps` est recalculé dans le même rendu.
+    const parts: string[] = [];
+    if (known) {
+      const added = steps.filter((step) => !known.has(step.key)).length;
+      // Un coup adverse croisé une seule fois sort de la liste au bout d'un temps : le compteur baisse, on dit pourquoi.
+      const expired = [...known].filter((key) => !live.has(key)).length;
+      const games = replay.gamesThatDay;
+      parts.push(`${games} ${games === 1 ? 'game' : 'games'} played`);
+      if (added > 0) parts.push(`${added} new to settle`);
+      if (expired > 0) parts.push(`${expired} expired`);
+    }
+    if (fresh.length) {
+      const moves = fresh.map(({ step }) => figurineMove(step.played, step.path.length + 1)).join(', ');
+      parts.push(`${moves} now in your repertoire`);
+      setPinned((current) => [...current, ...fresh.map(({ step }) => [...step.path, step.played].join(' '))]);
+    }
+    show({
+      text: parts.join(' · '),
+      // Annuler une adoption met aussi ses parties de côté : sinon elle reviendrait au rendu suivant.
+      undo: fresh.length
+        ? () => {
+            fresh.forEach(({ step, addition }) => {
+              remove(addition);
+              step.games.forEach((checked) => ignore(checked.id));
+            });
+          }
+        : undefined,
+    });
+    // Seuls le changement de jour, la fin du jugement et une adoption comptent ; `steps` est recalculé dans le même rendu.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [replay.day, judging]);
+  }, [replay.day, judging, adoptions]);
   const habits = useMemo(
     () => gamesOfLastMonths(known, RECENT_MONTHS, new Date(replay.day)).filter((game) => game.side === building?.origin.side),
     [known, replay.day, building?.origin.side],

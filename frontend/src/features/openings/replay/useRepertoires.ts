@@ -23,7 +23,8 @@ export function useRepertoires(games: readonly PlayedGame[]) {
   return {
     repertoires,
     add: (addition: Addition) => setAdditions((current) => [...current, addition]),
-    remove: (addition: Addition) => setAdditions((current) => current.filter((known) => known !== addition)),
+    // Par contenu : un ajout relu du stockage ou recréé au rendu suivant n'est plus le même objet.
+    remove: (addition: Addition) => setAdditions((current) => current.filter((known) => JSON.stringify(known) !== JSON.stringify(addition))),
     clear: () => setAdditions([]),
   };
 }

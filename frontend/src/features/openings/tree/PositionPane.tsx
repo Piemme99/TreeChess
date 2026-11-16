@@ -2,7 +2,7 @@ import { motion } from 'framer-motion';
 import { useMemo, useState, type ReactNode } from 'react';
 import { useOpeningName } from '../../../shared/hooks/useOpeningName';
 import { PlayableBoard } from '../board/PlayableBoard';
-import { JUDGEMENT_MARK, type Judgement } from '../domain/judgement';
+import { JUDGEMENT_MARK } from '../domain/judgement';
 import { figurineLine, figurineMove, formatCp } from '../domain/notation';
 import { isPlayerMove, type OpeningNode, type OpeningTree } from '../domain/openingTree';
 import { scoreRate } from '../domain/performance';
@@ -10,7 +10,6 @@ import type { Side } from '../domain/playedGame';
 import type { Priority } from '../domain/priorities';
 import { replayLine } from '../position/replay';
 import type { SessionStep } from '../session/steps';
-import { useEngineBlind } from '../session/useJudgedSteps';
 import { COLOURS, raised, REPERTOIRE, SPRING, tile } from '../workshop/theme';
 import { usePositionFacts, type PositionFacts } from './positionFacts';
 import type { MapNode } from './repertoireMap';
@@ -278,24 +277,31 @@ function Step({ step, ply, here, actions, onSkip }: { step: SessionStep; ply: nu
   const played = figurineMove(step.played, ply);
   const planned = step.planned.map((san) => figurineMove(san, ply)).join(' · ');
   const factOf = (san: string) => here?.children.find((child) => child.san === san);
-  const games = step.games.length;
   const verdict = step.verdict;
-  // L'avis du moteur départage ; à défaut, le score du joueur quand ses parties suffisent.
-  const best = !left ? undefined : verdict ? (verdict.kind === 'worse' ? verdict.best : step.played) : betterMove(step, factOf);
+  // Une étape jugée est une erreur : on garde le répertoire. Sans moteur, le score du joueur quand ses parties suffisent.
+  const best = !left ? undefined : verdict ? verdict.best : betterMove(step, factOf);
+  const judgement = verdict?.judgement;
 
   return (
     <div className="flex flex-col gap-2.5">
       <p className="text-[15px] leading-snug">
-        {left ? 'You played' : 'They played'} <strong>{played}</strong> in {games} new {games === 1 ? 'game' : 'games'}
+        {left ? 'You played' : 'They played'}{' '}
+        <strong>
+          {played}
+          {judgement && (
+            <span title={judgement} style={{ color: COLOURS.terracotta }}>
+              {JUDGEMENT_MARK[judgement]}
+            </span>
+          )}
+        </strong>
         {left ? (
           <>
             , not <strong style={{ color: REPERTOIRE }}>{planned}</strong>.
           </>
         ) : (
-          ': no answer prepared.'
+          ': no answer yet.'
         )}
       </p>
-      {left && <EngineVerdict step={step} ply={ply} />}
       {/* Sans coup du répertoire à mettre en face, le tableau répéterait la phrase. */}
       {left && (
         <table aria-label="Facts" className="w-full text-[13px]">
@@ -388,40 +394,6 @@ function Fact({ move, node, cp, repertoire = false }: { move: string; node: Open
     </tr>
   );
 }
-
-/** Ce que le moteur pense du coup joué : c'est ce qui dit s'il y a quelque chose à corriger. */
-function EngineVerdict({ step, ply }: { step: SessionStep; ply: number }) {
-  const blind = useEngineBlind();
-  const { verdict } = step;
-  if (!verdict) {
-    return blind ? null : (
-      <p className="text-[13px]" style={{ color: COLOURS.leafSoft }}>
-        Asking the engine…
-      </p>
-    );
-  }
-  const played = <strong>{figurineMove(step.played, ply)}</strong>;
-  const best = <strong style={{ color: REPERTOIRE }}>{figurineMove(verdict.best, ply)}</strong>;
-  return (
-    <p className="text-[14px] leading-snug" style={{ color: verdict.kind === 'worse' ? COLOURS.terracotta : COLOURS.leaf }}>
-      {verdict.kind === 'worse' ? (
-        <>
-          Engine: {played} is {ARTICLE[verdict.judgement]} {verdict.judgement} {JUDGEMENT_MARK[verdict.judgement]}, {best} is better.
-        </>
-      ) : verdict.kind === 'better' ? (
-        <>
-          Engine: {played} is better than {best}.
-        </>
-      ) : (
-        <>
-          Engine: {played} is as good as {best}. You can add it.
-        </>
-      )}
-    </p>
-  );
-}
-
-const ARTICLE: Record<Judgement, string> = { inaccuracy: 'an', mistake: 'a', blunder: 'a' };
 
 function Action({ onClick, tone = 'plain', children }: { onClick: () => void; tone?: 'primary' | 'plain' | 'light'; children: ReactNode }) {
   const style = tone === 'primary' ? raised(true) : tone === 'light' ? { background: COLOURS.cream, color: COLOURS.leaf } : { ...tile(COLOURS.sand), color: COLOURS.leaf };

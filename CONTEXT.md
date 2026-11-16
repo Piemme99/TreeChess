@@ -146,12 +146,12 @@ fresh. Two outcomes:
 
 - **Left the repertoire** — the player played a move their repertoire does not
   hold ("move 7: you played Bd7, your repertoire has e6"). The engine compares
-  that move with the repertoire's best one at that position: weaker by at least an
-  inaccuracy, it is a lapse to correct; better, a move worth adding; as good,
-  there is nothing to settle until the player plays it again. The player then
-  answers: **Add** (an [addition](#addition) built from there) or **Review** the
-  repertoire's moves (an exercise on that position). Without an answer, nothing
-  changes.
+  that move with the repertoire's best one at that position. Weaker by at least an
+  inaccuracy, it is a lapse: the player answers **Add** (an [addition](#addition)
+  built from there) or **Review** the repertoire's moves (an exercise on that
+  position); without an answer, nothing changes. Not weaker, there is nothing to
+  ask: played once, it is left alone; played again, it joins the repertoire by
+  itself, announced with an undo.
 - **Not covered** — the opponent played a move the repertoire does not prepare.
   The player can add an answer or ignore it, like any game that left the
   repertoire. Met once, it may be chance: left alone, it does not wait for them;

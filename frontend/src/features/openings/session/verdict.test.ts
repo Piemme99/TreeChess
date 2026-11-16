@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Evaluation } from '../domain/diagnosis';
 import type { SessionStep } from './steps';
-import { isQuiet, judgeStep, verdictFens } from './verdict';
+import { isAdopted, isSound, judgeStep, verdictFens } from './verdict';
 
 const step = (side: 'w' | 'b', path: string[], played: string, planned: string[], games = 1): SessionStep => ({
   key: `${side} ${path.join(' ')} ${played}`,
@@ -26,35 +26,47 @@ describe('judgeStep', () => {
     expect(judgeStep(target, partial)).toBeUndefined();
   });
 
-  it('calls two moves equal when the gap stays below an inaccuracy', () => {
+  it('finds nothing to blame below an inaccuracy', () => {
     const target = step('w', ['e4', 'e5'], 'Bc4', ['Nf3']);
 
-    expect(judgeStep(target, evaluated(target, { Bc4: 25, Nf3: 40 }))).toMatchObject({ kind: 'equal', best: 'Nf3' });
+    expect(judgeStep(target, evaluated(target, { Bc4: 25, Nf3: 40 }))).toMatchObject({ judgement: null, best: 'Nf3' });
   });
 
   it('names the mistake from the player side, against the best repertoire move', () => {
     const target = step('b', ['e4'], 'f6', ['e5', 'c5']);
     const verdict = judgeStep(target, evaluated(target, { f6: 150, e5: 30, c5: 40 }));
 
-    expect(verdict).toMatchObject({ kind: 'worse', judgement: 'mistake', best: 'e5' });
+    expect(verdict).toMatchObject({ judgement: 'mistake', best: 'e5' });
     expect(verdict?.cp.get('f6')).toBe(-150);
   });
 
-  it('says when the played move beats the repertoire', () => {
+  it('does not blame a move better than the repertoire', () => {
     const target = step('w', ['e4', 'e5'], 'Nf3', ['Qh5']);
 
-    expect(judgeStep(target, evaluated(target, { Nf3: 40, Qh5: -60 }))).toMatchObject({ kind: 'better' });
+    expect(judgeStep(target, evaluated(target, { Nf3: 40, Qh5: -60 }))?.judgement).toBeNull();
   });
 });
 
-describe('isQuiet', () => {
-  it('keeps a sound move played once out of the way, until it comes back', () => {
-    const once = step('w', ['e4', 'e5'], 'Bc4', ['Nf3']);
-    const twice = step('w', ['e4', 'e5'], 'Bc4', ['Nf3'], 2);
-    const equal = judgeStep(once, evaluated(once, { Bc4: 25, Nf3: 40 }));
+describe('isSound and isAdopted', () => {
+  it('leaves a sound move played once alone, and adopts it once played again', () => {
+    const once = step('b', ['d4'], 'Nf6', ['d5']);
+    const twice = step('b', ['d4'], 'Nf6', ['d5'], 2);
+    const sound = judgeStep(once, evaluated(once, { Nf6: 10, d5: 30 }));
 
-    expect(isQuiet({ ...once, verdict: equal })).toBe(true);
-    expect(isQuiet({ ...twice, verdict: equal })).toBe(false);
-    expect(isQuiet(once)).toBe(false);
+    expect(isSound({ ...once, verdict: sound })).toBe(true);
+    expect(isAdopted({ ...once, verdict: sound })).toBe(false);
+    expect(isAdopted({ ...twice, verdict: sound })).toBe(true);
+  });
+
+  it('keeps a mistake to settle, however often it was played', () => {
+    const target = step('b', ['e4'], 'f6', ['e5'], 3);
+    const verdict = judgeStep(target, evaluated(target, { f6: 150, e5: 30 }));
+
+    expect(isSound({ ...target, verdict })).toBe(false);
+    expect(isAdopted({ ...target, verdict })).toBe(false);
+  });
+
+  it('judges nothing before the engine answers', () => {
+    expect(isSound(step('w', ['e4', 'e5'], 'Bc4', ['Nf3'], 2))).toBe(false);
   });
 });

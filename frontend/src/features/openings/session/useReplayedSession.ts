@@ -1,6 +1,7 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { gamesToDecide, liveGames } from '../checks/decisions';
 import { useIgnoredChecks } from '../checks/useIgnoredChecks';
+import type { Addition } from '../domain/addition';
 import { gamesUntil } from '../domain/replay';
 import { playedGamesFixture } from '../fixtures/playedGames';
 import { REPLAY_FIRST_DAY } from '../replay/replaySetup';
@@ -17,7 +18,27 @@ export function useReplayedSession() {
   const known = useMemo(() => gamesUntil(playedGamesFixture, replay.day), [replay.day]);
   const lived = useMemo(() => liveGames(playedGamesFixture, repertoires, REPLAY_FIRST_DAY, replay.day), [repertoires, replay.day]);
   const open = useMemo(() => sessionSteps(gamesToDecide(lived, ignored, replay.day)), [lived, ignored, replay.day]);
-  const { steps, judging } = useJudgedSteps(open);
+  const { steps, adopted, judging } = useJudgedSteps(open);
+  const adoptions = useMemo(
+    () =>
+      adopted.map((step) => ({
+        step,
+        key: `${step.key} ${step.games.map((checked) => checked.id).join(',')}`,
+        addition: { side: step.side, addedAt: replay.day, moves: [{ position: step.games[0].check.position, san: step.played, source: 'habit' }] } satisfies Addition,
+      })),
+    [adopted, replay.day],
+  );
+  // Une même adoption ne s'écrit qu'une fois, même si l'effet repasse avant que le répertoire ait changé.
+  const written = useRef(new Set<string>());
+  useEffect(() => {
+    for (const { key, addition } of adoptions) {
+      if (written.current.has(key)) continue;
+      written.current.add(key);
+      add(addition);
+    }
+    // `add` change à chaque rendu ; seules de nouvelles adoptions comptent.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [adoptions]);
 
-  return { replay, known, repertoires, steps, judging, add, remove, ignore, unignore, forgetIgnored, forgetAdditions };
+  return { replay, known, repertoires, steps, adoptions, judging, add, remove, ignore, unignore, forgetIgnored, forgetAdditions };
 }
