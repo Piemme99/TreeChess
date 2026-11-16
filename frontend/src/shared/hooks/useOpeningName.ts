@@ -18,6 +18,13 @@ function loadOpeningTable(): Promise<OpeningTable> {
  * loaded or when no position on the path is a named opening.
  */
 export function useOpeningName(fenPath: string[]): ResolvedOpening | null {
+  const table = useOpeningTable();
+  if (!table) return null;
+  return resolveOpening(fenPath, table);
+}
+
+/** The opening table itself, for screens naming many lines at once; null until loaded. */
+export function useOpeningTable(): OpeningTable | null {
   const [table, setTable] = useState<OpeningTable | null>(null);
 
   useEffect(() => {
@@ -30,6 +37,5 @@ export function useOpeningName(fenPath: string[]): ResolvedOpening | null {
     };
   }, []);
 
-  if (!table) return null;
-  return resolveOpening(fenPath, table);
+  return table;
 }

@@ -38,6 +38,12 @@ const SessionPage = import.meta.env.DEV
 const TreePage = V2_PAGES
   ? lazy(() => import('./features/openings').then(m => ({ default: m.TreePage })))
   : null;
+const TodayPage = V2_PAGES
+  ? lazy(() => import('./features/openings').then(m => ({ default: m.TodayPage })))
+  : null;
+const ReviewPage = V2_PAGES
+  ? lazy(() => import('./features/openings').then(m => ({ default: m.ReviewPage })))
+  : null;
 const NotFoundPage = lazy(() => import('./features/not-found/NotFoundPage').then(m => ({ default: m.NotFoundPage })));
 
 function App() {
@@ -103,7 +109,19 @@ function App() {
         {TreePage ? (
           <Route path="/v2/tree" element={<Suspense fallback={<PageSkeleton />}><TreePage /></Suspense>} />
         ) : null}
-        {TreePage ? <Route path="/v2" element={<Navigate to="/v2/tree" replace />} /> : null}
+        {TodayPage && import.meta.env.DEV ? (
+          <Route path="/dev/today" element={<Suspense fallback={<PageSkeleton />}><TodayPage /></Suspense>} />
+        ) : null}
+        {TodayPage ? (
+          <Route path="/v2/today" element={<Suspense fallback={<PageSkeleton />}><TodayPage /></Suspense>} />
+        ) : null}
+        {ReviewPage && import.meta.env.DEV ? (
+          <Route path="/dev/review" element={<Suspense fallback={<PageSkeleton />}><ReviewPage /></Suspense>} />
+        ) : null}
+        {ReviewPage ? (
+          <Route path="/v2/review" element={<Suspense fallback={<PageSkeleton />}><ReviewPage /></Suspense>} />
+        ) : null}
+        {TodayPage ? <Route path="/v2" element={<Navigate to="/v2/today" replace />} /> : null}
         <Route path="*" element={<Suspense fallback={<Loading size="lg" />}><NotFoundPage /></Suspense>} />
       </Routes>
       <ToastContainer />

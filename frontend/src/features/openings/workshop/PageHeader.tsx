@@ -6,18 +6,20 @@ import { Kumquat } from './Kumquat';
 import { useNoIndex, useV2Path, type V2Page } from './routes';
 import { COLOURS, tile } from './theme';
 
-// L'arbre est l'écran d'arrivée ; l'aiguillage (/dev/home) reste joignable par son adresse, hors du menu.
+// Deux lieux (README, « Path by use ») : ce qui attend le joueur, et son répertoire. Games et Openings restent
+// joignables par leur adresse et depuis Today.
 const PAGES: { page: V2Page; label: string }[] = [
-  { page: 'tree', label: 'Tree' },
-  { page: 'openings', label: 'Openings' },
-  { page: 'games', label: 'Games' },
+  { page: 'today', label: 'Today' },
+  { page: 'tree', label: 'Repertoire' },
 ];
+// Le titre du menu au téléphone dit aussi les pages hors du menu.
+const TITLES: Record<V2Page, string> = { today: 'Today', review: 'Review', tree: 'Repertoire', openings: 'Openings', games: 'Games' };
 
 export function PageHeader({ children }: { children?: ReactNode }) {
   const pathOf = useV2Path();
   useNoIndex();
   return (
-    <header className="mx-auto flex max-w-[84rem] items-center gap-x-3 gap-y-3 px-4 pt-3 sm:flex-wrap sm:gap-x-4 sm:px-8 sm:pt-7">
+    <header className="mx-auto flex max-w-[84rem] items-center gap-x-2 gap-y-3 px-3 pt-3 sm:flex-wrap sm:gap-x-4 sm:px-8 sm:pt-7">
       <Kumquat />
       <span className="hidden text-[26px] font-bold tracking-[-0.03em] sm:inline">kumquat</span>
       <nav aria-label="Pages" className="hidden gap-1.5 text-[15px] font-semibold sm:ml-6 sm:flex">
@@ -52,7 +54,7 @@ function PageMenu() {
     window.addEventListener('keydown', press);
     return () => window.removeEventListener('keydown', press);
   }, [open]);
-  const current = PAGES.find((page) => pathOf(page.page) === pathname) ?? PAGES[0];
+  const current = TITLES[(Object.keys(TITLES) as V2Page[]).find((page) => pathOf(page) === pathname) ?? 'today'];
   return (
     <div className="relative sm:hidden">
       <button
@@ -60,9 +62,9 @@ function PageMenu() {
         aria-expanded={open}
         aria-haspopup="true"
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-1 rounded-full py-1.5 pl-1 pr-2 text-[18px] font-extrabold tracking-[-0.02em] focus-visible:outline-2"
+        className="flex items-center gap-1 rounded-full py-1.5 pl-0.5 pr-1 text-[17px] font-extrabold tracking-[-0.02em] focus-visible:outline-2"
       >
-        {current.label}
+        {current}
         <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <path d="M6 9l6 6 6-6" />
         </svg>

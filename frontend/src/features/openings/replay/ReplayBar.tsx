@@ -8,7 +8,7 @@ export function ReplayBar({ replay }: { replay: ReplayDay }) {
   // Reset efface les ajouts et les décisions : jamais sur un seul clic.
   const [confirming, setConfirming] = useState(false);
   return (
-    <section aria-label="Replay" className="relative flex items-center gap-x-3 gap-y-2 text-[14px] sm:flex-wrap">
+    <section aria-label="Replay" className="relative flex items-center gap-x-2 gap-y-2 text-[14px] sm:flex-wrap sm:gap-x-3">
       <span className="mr-auto flex flex-col leading-tight sm:mr-0">
         <span className="whitespace-nowrap text-[15px] font-bold sm:text-[16px]">
           <span className="sm:hidden">{formatShortDay(replay.day)}</span>
@@ -68,7 +68,7 @@ function Action({ onClick, primary = false, children }: { onClick: () => void; p
       whileHover={{ y: -2 }}
       whileTap={{ scale: 0.96 }}
       transition={SPRING}
-      className="whitespace-nowrap rounded-full px-3.5 py-2 text-[14px] font-bold focus-visible:outline-2 focus-visible:outline-offset-2"
+      className="whitespace-nowrap rounded-full px-3 py-2 text-[14px] sm:px-3.5 font-bold focus-visible:outline-2 focus-visible:outline-offset-2"
       style={primary ? { background: COLOURS.leaf, color: COLOURS.cream } : { ...tile(COLOURS.sand), color: COLOURS.leaf }}
     >
       {children}

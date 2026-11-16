@@ -1,5 +1,5 @@
 import { MotionConfig, motion } from 'framer-motion';
-import { useSearchParams } from 'react-router';
+import { Link, useNavigate, useSearchParams } from 'react-router';
 import { replayLine } from '../position/replay';
 import { positionKey } from '../domain/repertoire';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
@@ -21,6 +21,8 @@ import { COLOURS, FONT_FAMILY, raised, SPRING, tile } from '../workshop/theme';
 import { Toast } from '../workshop/Toast';
 import { useToast } from '../workshop/useToast';
 import { useWide } from '../workshop/useWide';
+import { useV2Path } from '../workshop/routes';
+import { useWorkedLines } from '../replay/useWorkedLines';
 import { storedSide, storeSide } from '../workshop/storedSide';
 import { useWorkshopFont } from '../workshop/useWorkshopFont';
 import { PositionPane, type StepActions } from './PositionPane';
@@ -50,6 +52,9 @@ interface Session {
 export function TreePage() {
   useWorkshopFont();
   const { replay, known, repertoires, steps, adoptions, judging, add, remove, ignore, unignore, forgetIgnored, forgetAdditions } = useReplayedSession();
+  const { work } = useWorkedLines();
+  const pathOf = useV2Path();
+  const navigate = useNavigate();
   // Openings envoie une ligne à travailler par l'adresse : /dev/tree?side=b&line=d4 Nf6.
   const [params] = useSearchParams();
   const asked = useMemo(
@@ -63,8 +68,11 @@ export function TreePage() {
     asked.line.length ? { key: asked.line.join(' '), stamp: Date.now(), centre: true } : null,
   );
   const [session, setSession] = useState<Session | null>(null);
+  // Ouvert depuis Today : on y revient, et « Check them » y démarre la séance d'office.
+  const fromToday = params.get('from') === 'today';
+  const askedSession = fromToday && params.get('session') === '1';
   const wide = useWide();
-  const [building, setBuilding] = useState<{ origin: BuildOrigin; stepKey?: string } | null>(null);
+  const [building, setBuilding] = useState<{ origin: BuildOrigin; stepKey?: string; worked?: { side: Side; path: readonly string[] } } | null>(null);
   // Ce que « coup suivant » rejoue au téléphone : la ligne d'où l'on vient de reculer, comme sur Lichess.
   const [trails, setTrails] = useState<Record<Side, readonly string[]>>(() => ({ w: [], b: [], [asked.side]: asked.line }));
   // Ce que le volet met en avant quand une position porte une décision et une priorité : ce qui y a mené.
@@ -82,7 +90,7 @@ export function TreePage() {
     const last = lines.at(-1);
     if (last) setFocus({ key: last.join(' '), stamp: Date.now(), centre: true });
   }, []);
-  const build = (next: { origin: BuildOrigin; stepKey?: string } | null) => {
+  const build = (next: { origin: BuildOrigin; stepKey?: string; worked?: { side: Side; path: readonly string[] } } | null) => {
     setBuilding(next);
     setPreview([]);
     setBuildPath(null);
@@ -197,6 +205,7 @@ export function TreePage() {
   const accept = (moves: AddedMove[], lines: (readonly string[])[]) => {
     if (!building) return;
     const addition: Addition = { side: building.origin.side, addedAt: replay.day, moves };
+    if (building.worked) work({ ...building.worked, since: replay.day });
     setPinned((current) => [...current, ...lines.map((line) => line.join(' '))]);
     const text = `${moves.length} ${moves.length === 1 ? 'move' : 'moves'} added to your repertoire`;
     const step = building.stepKey ? live.get(building.stepKey) : undefined;
@@ -351,8 +360,22 @@ export function TreePage() {
 
   // Au téléphone, la séance finie se dit dans un toast : l'échiquier ne doit jamais disparaître.
   const finished = Boolean(session && !current);
+  const autoStarted = useRef(false);
   useEffect(() => {
-    if (!finished || wide) return;
+    // Les écarts n'apparaissent qu'une fois jugés : la séance attend le moteur.
+    if (!askedSession || autoStarted.current || judging || !steps.length) return;
+    autoStarted.current = true;
+    startSession();
+    // Une seule fois, dès que les étapes sont là.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [askedSession, judging, steps.length]);
+  useEffect(() => {
+    if (finished && fromToday) navigate(`${pathOf('today')}?done=${settled}`);
+    // Seule la fin de la séance compte.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [finished]);
+  useEffect(() => {
+    if (!finished || wide || fromToday) return;
     setSession(null);
     show({ text: `Session done · ${settled} settled${steps.length ? ` · ${steps.length} still to settle` : ''}` });
     // Seule la fin de la séance compte.
@@ -395,7 +418,7 @@ export function TreePage() {
           const reached = nodeAlong(root, line);
           const after = figurineMove(line[line.length - 1], line.length);
           const heading = isPlayerMove(side, line.length + 1) ? `Prepare your moves after ${after}` : `Prepare against their replies after ${after}`;
-          build({ origin: { ...originAt(side, line.slice(0, Math.min(reached.path.length, line.length)), line), heading } });
+          build({ origin: { ...originAt(side, line.slice(0, Math.min(reached.path.length, line.length)), line), heading }, worked: { side, path: priority.path } });
         }
       : undefined,
     onMove: play,
@@ -413,6 +436,7 @@ export function TreePage() {
         </PageHeader>
         {wide ? (
           <main className="mx-auto flex max-w-[84rem] flex-col gap-4 px-8 pt-5">
+            {fromToday && <BackToToday href={pathOf('today')} />}
             <div className="flex flex-wrap items-center gap-3">
               <SideSwitch side={side} onChange={(next) => !building && setSide(next)} counts={perSide} />
               <span className="ml-auto flex gap-2">
@@ -447,6 +471,7 @@ export function TreePage() {
           </main>
         ) : (
           <main className="flex flex-col gap-3 px-4 pt-3">
+            {fromToday && !building && <BackToToday href={pathOf('today')} />}
             {!building && (
               <div className="flex items-center gap-2">
                 <SideTabs side={side} onChange={setSide} />
@@ -477,6 +502,14 @@ export function TreePage() {
         <Toast toast={toast} onClose={close} />
       </div>
     </MotionConfig>
+  );
+}
+
+function BackToToday({ href }: { href: string }) {
+  return (
+    <Link to={href} className="self-start text-[14px] font-semibold underline-offset-4 hover:underline focus-visible:outline-2" style={{ color: COLOURS.leafSoft }}>
+      ← Today
+    </Link>
   );
 }
 

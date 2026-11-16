@@ -40,5 +40,5 @@ export function useReplayedSession() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [adoptions]);
 
-  return { replay, known, repertoires, steps, adoptions, judging, add, remove, ignore, unignore, forgetIgnored, forgetAdditions };
+  return { replay, known, lived, repertoires, steps, adoptions, judging, add, remove, ignore, unignore, forgetIgnored, forgetAdditions };
 }

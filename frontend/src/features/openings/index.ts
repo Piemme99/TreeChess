@@ -4,3 +4,5 @@ export { GameChecksPage } from './checks/GameChecksPage';
 export { HomePage } from './session/HomePage';
 export { SessionPage } from './session/SessionPage';
 export { TreePage } from './tree/TreePage';
+export { TodayPage } from './home/TodayPage';
+export { ReviewPage } from './review/ReviewPage';

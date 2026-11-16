@@ -1,0 +1,25 @@
+import { useEffect, useState } from 'react';
+import type { Side } from '../domain/playedGame';
+
+const STORAGE = 'kumquat.v2.worked';
+
+/** Une priorité sur laquelle le joueur a accepté un ajout : la ligne est travaillée à partir de ce jour. */
+export interface WorkedLine {
+  side: Side;
+  path: readonly string[];
+  since: string;
+}
+
+export function useWorkedLines() {
+  const [worked, setWorked] = useState<readonly WorkedLine[]>(() => JSON.parse(localStorage.getItem(STORAGE) ?? '[]') as WorkedLine[]);
+
+  useEffect(() => localStorage.setItem(STORAGE, JSON.stringify(worked)), [worked]);
+
+  return {
+    worked,
+    // Une ligne déjà travaillée garde sa première date : l'adhérence se compte depuis le premier travail.
+    work: (line: WorkedLine) =>
+      setWorked((current) => (current.some((known) => known.side === line.side && known.path.join(' ') === line.path.join(' ')) ? current : [...current, line])),
+    clear: () => setWorked([]),
+  };
+}
