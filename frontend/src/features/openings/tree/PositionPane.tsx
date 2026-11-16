@@ -33,6 +33,9 @@ interface PositionPaneProps {
   steps: readonly SessionStep[];
   priority?: Priority;
   actions: StepActions;
+  /** La carte mise en avant quand la position porte une décision et une priorité. */
+  lead: 'settle' | 'priority';
+  onLead: (lead: 'settle' | 'priority') => void;
   /** En séance, « Skip » remet la position à plus tard. */
   onSkip?: () => void;
   onNextPriority?: () => void;
@@ -48,7 +51,7 @@ const MIN_GAMES_TO_COMPARE = 5;
 const SHOWN_MOVES = 4;
 
 /** Le volet : on y joue comme sur l'explorateur Lichess, et on y tranche ce que la position porte. */
-export function PositionPane({ side, path, node, recent, steps, priority, actions, onSkip, onNextPriority, onExtend, onPrepareFollows, onMove, onBack }: PositionPaneProps) {
+export function PositionPane({ side, path, node, recent, steps, priority, actions, lead, onLead, onSkip, onNextPriority, onExtend, onPrepareFollows, onMove, onBack }: PositionPaneProps) {
   const fens = useMemo(() => replayLine(path).fens, [path]);
   const opening = useOpeningName(fens);
   const inRepertoire = path.length === node.path.length;
@@ -63,8 +66,9 @@ export function PositionPane({ side, path, node, recent, steps, priority, action
   const here = useMemo(() => nodeAt(recent, path), [recent, path]);
   const average = useMemo(() => playerAverage(recent), [recent]);
 
-  const settling = inRepertoire && steps.length > 0;
   const prioritised = inRepertoire && priority !== undefined;
+  const settling = inRepertoire && steps.length > 0 && !(prioritised && lead === 'priority');
+  const waiting = inRepertoire && steps.length > 0 && !settling;
   // Une seule carte par position : la décision passe d'abord, la priorité n'y est qu'une ligne.
   const card = settling || prioritised;
 
@@ -138,6 +142,11 @@ export function PositionPane({ side, path, node, recent, steps, priority, action
             <Action onClick={onPrepareFollows} tone="light">
               Prepare my moves after {figurineMove(priority.path[priority.path.length - 1], priority.path.length)}
             </Action>
+          )}
+          {waiting && (
+            <button type="button" onClick={() => onLead('settle')} className="self-start rounded-lg py-1 text-[14px] font-semibold underline-offset-4 hover:underline focus-visible:outline-2" style={{ color: COLOURS.apricot }}>
+              Also {steps.length} to settle here →
+            </button>
           )}
           {onNextPriority && (
             <button type="button" onClick={onNextPriority} className="self-start rounded-lg py-1 text-[14px] font-semibold underline-offset-4 hover:underline focus-visible:outline-2" style={{ color: COLOURS.cream }}>

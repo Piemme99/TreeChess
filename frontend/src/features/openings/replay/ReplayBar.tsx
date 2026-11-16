@@ -25,12 +25,12 @@ export function ReplayBar({ replay }: { replay: ReplayDay }) {
                     setConfirming(false);
                     replay.reset!();
                   }}
-                  className="rounded px-1.5 py-0.5 font-bold text-white focus-visible:outline-2"
+                  className="rounded px-2 py-1.5 font-bold text-white focus-visible:outline-2"
                   style={{ background: COLOURS.terracotta }}
                 >
                   Reset
                 </button>
-                <button type="button" onClick={() => setConfirming(false)} className="rounded px-1.5 py-0.5 font-bold underline-offset-2 hover:underline focus-visible:outline-2">
+                <button type="button" onClick={() => setConfirming(false)} className="rounded px-2 py-1.5 font-bold underline-offset-2 hover:underline focus-visible:outline-2">
                   Keep
                 </button>
               </span>

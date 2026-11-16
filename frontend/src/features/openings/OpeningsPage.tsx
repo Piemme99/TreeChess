@@ -61,6 +61,7 @@ export function OpeningsPage() {
   const zoomTo = (path: readonly string[]) => {
     setFocusPath(path);
     setPointed(null);
+    if (!window.matchMedia?.('(min-width: 1024px)').matches) window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const isShown = (priority: Priority) =>

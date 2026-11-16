@@ -4,7 +4,7 @@ import { draftLines, draftMoves, type AddedMove } from '../domain/addition';
 import type { PlayedGame } from '../domain/playedGame';
 import { repertoireMovesAt, type Repertoire } from '../domain/repertoire';
 import type { BoardArrow } from '../line/ArrowBoard';
-import { ARROW } from '../workshop/theme';
+import { ARROW, COLOURS } from '../workshop/theme';
 import { BuildPanel } from './BuildPanel';
 import { useBuilder, type BuildOrigin } from './useBuilder';
 import { useCandidates } from './useCandidates';
@@ -97,7 +97,9 @@ export function BuildSession({ origin, games, repertoire, onAccept, onCancel, ch
     >
       <aside
         aria-label="Position"
-        className={`flex flex-col gap-3 self-start ${stacked ? 'mx-auto w-full max-w-[17rem]' : 'lg:sticky lg:top-6'}`}
+        className={`flex flex-col gap-3 self-start ${stacked ? 'mx-auto w-full max-w-[17rem] lg:sticky lg:top-0 lg:z-10 lg:max-w-none lg:px-[3.5rem] lg:pt-2 lg:pb-3' : 'lg:sticky lg:top-6'}`}
+        // L'échiquier reste en haut pendant qu'on fait défiler le tableau : on choisit en regardant la position.
+        style={stacked ? { background: COLOURS.cream } : undefined}
       >
         <PlayableBoard path={builder.path} flipped={origin.side === 'b'} arrows={arrows} suggestions={suggestions} onMove={builder.play} />
         <p className="flex flex-wrap gap-x-4 gap-y-1 px-1 text-[12px] font-semibold" style={{ color: ARROW.neutral.colour }}>

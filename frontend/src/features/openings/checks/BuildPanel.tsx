@@ -191,16 +191,17 @@ function CandidateTable({ builder, candidates, onPoint, compact }: { builder: Bu
   const scored = all.filter((row) => row.mine >= 3 && row.mineScore !== undefined);
   // Rouge par rapport au meilleur candidat : sous 50 % tout le monde l'est souvent avec les Noirs, et le rouge ne dirait plus rien.
   const scores = all.flatMap((row) => (row.score === undefined ? [] : [row.score]));
-  const best = scores.length > 1 ? Math.max(...scores) : undefined;
+  // Le rouge juge un choix du joueur ; les coups de l'adversaire, il les subit.
+  const best = builder.playerToMove && scores.length > 1 ? Math.max(...scores) : undefined;
   // Le coup que le joueur joue vraiment d'abord : c'est par rapport à lui qu'il choisit.
   const habit = builder.playerToMove ? [...all].filter((row) => row.mine >= 2).sort((a, b) => b.mine - a.mine)[0]?.san : undefined;
   const ordered = habit ? [...all.filter((row) => row.san === habit), ...all.filter((row) => row.san !== habit)] : all;
   const worst = scored.length > 1 ? scored.reduce((low, row) => (row.mineScore! < low.mineScore! ? row : low)).san : undefined;
   return (
     <div className="flex flex-col gap-1.5">
-      <span className="flex items-center gap-3 text-[12px] font-semibold" style={{ color: COLOURS.leafSoft }}>
-        {builder.playerToMove ? 'Your move' : 'Their move'}
-        <span className="ml-auto flex items-center gap-1.5">
+      <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] font-semibold" style={{ color: COLOURS.leafSoft }}>
+        <span className="whitespace-nowrap">{builder.playerToMove ? 'Your move' : 'Their move'}</span>
+        <span className="ml-auto flex items-center gap-1.5 whitespace-nowrap">
           Engine, for you
           <EvalBar cp={here?.cp} side={builder.origin.side} />
         </span>
@@ -290,15 +291,23 @@ function CandidateRow({ row, ply, faded, stats, compact, side, worst, best, your
   return (
     <tr
       className="cursor-pointer hover:bg-[oklch(0.975_0.012_85)] focus-visible:outline-2"
-      style={{ borderTop: `1px solid ${COLOURS.sand}`, opacity: faded ? 0.45 : 1 }}
+      style={{ borderTop: `1px solid ${COLOURS.sand}`, opacity: faded ? 0.7 : 1 }}
       onMouseEnter={onPoint}
       onClick={onPlay}
-      onKeyDown={(event) => event.key === 'Enter' && onPlay()}
-      tabIndex={0}
       aria-label={`Play ${row.san}`}
     >
       <td className="whitespace-nowrap py-1.5 pr-2 text-[15px] font-extrabold">
-        {figurineMove(row.san, ply)}
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            onPlay();
+          }}
+          onFocus={onPoint}
+          className="rounded px-0.5 font-extrabold focus-visible:outline-2"
+        >
+          {figurineMove(row.san, ply)}
+        </button>
         {row.judgement && <Mark judgement={row.judgement} />}
         {(row.engine || yours) && (
           <span className={compact ? 'mt-0.5 flex gap-1' : 'inline'}>
@@ -421,7 +430,13 @@ function Action({ onClick, primary = false, disabled = false, children }: { onCl
       whileTap={disabled ? undefined : { scale: 0.96 }}
       transition={SPRING}
       className="cursor-pointer whitespace-nowrap rounded-full px-4 py-2 text-[14px] font-bold focus-visible:outline-2 disabled:cursor-default"
-      style={{ ...(primary ? { background: COLOURS.leaf, color: COLOURS.cream } : { ...tile(COLOURS.sand), color: COLOURS.leaf }), opacity: disabled ? 0.45 : 1 }}
+      style={
+        disabled
+          ? { background: 'transparent', color: COLOURS.leafSoft, boxShadow: `inset 0 0 0 1.5px ${COLOURS.sand}` }
+          : primary
+            ? { background: COLOURS.leaf, color: COLOURS.cream }
+            : { ...tile(COLOURS.sand), color: COLOURS.leaf }
+      }
     >
       {children}
     </motion.button>

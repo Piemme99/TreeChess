@@ -12,6 +12,8 @@ import { BOTTOM_BAR, useElementSize, usePanZoom, type Box } from './usePanZoom';
 export const LANDING_DEPTH = 6;
 // Sous cette part des parties du camp, une ligne se replie à l'arrivée (comme le Pruned du flame graph).
 const LANDING_SHARES = [0.02, 0.03, 0.05, 0.08, 0.12, 0.2];
+// L'échelle sous laquelle les coups ne se lisent plus (15 px à 100 %).
+const READABLE = 0.9;
 const NO_PREVIEW: readonly (readonly string[])[] = [];
 // Les ajouts du joueur, teintés du vert du répertoire pour qu'il retrouve son travail.
 const ADDED = 'oklch(0.91 0.06 162)';
@@ -39,7 +41,8 @@ export function RepertoireMap({ root: drawn, side, selected, onSelect, focus, lo
   const root = useMemo(() => withPreview(drawn, preview), [drawn, preview]);
   const container = useRef<HTMLDivElement>(null);
   const size = useElementSize(container);
-  const { transform, handlers, dragged, reveal, zoomBy, fit } = usePanZoom(container);
+  const { transform, handlers, dragged, reveal, zoomBy, fit, setTransform } = usePanZoom(container);
+  const pan = (dx: number) => setTransform((current) => ({ ...current, x: current.x + dx, animate: true }));
   const [folding, setFolding] = useState<Folding>({ opened: new Set(), closed: new Set(), revealed: new Set() });
   const [hover, setHover] = useState<Hover | null>(null);
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -50,12 +53,13 @@ export function RepertoireMap({ root: drawn, side, selected, onSelect, focus, lo
     () => ({ ...folding, revealed: new Set([...folding.revealed, selected, ...preview.map((line) => line.join(' '))]) }),
     [folding, selected, preview],
   );
-  // Plutôt replier que réduire : on monte le seuil de parties jusqu'à ce que la carte tienne à taille de lecture.
+  // Plutôt replier que réduire : on monte le seuil de parties jusqu'à ce que la carte tienne en hauteur à taille de
+  // lecture. En largeur, les lignes marquées vont aussi loin qu'il faut : le bord signale ce qui dépasse.
   const room = Math.max(0, size.height - BOTTOM_BAR - 24);
   const layout = useMemo(() => {
     let best = layoutMap(root, visibleNodes(root, LANDING_DEPTH, LANDING_SHARES[0] * root.games, kept));
     for (const share of LANDING_SHARES.slice(1)) {
-      if (!room || best.bounds.height <= room) break;
+      if (!room || best.bounds.height * READABLE <= room) break;
       best = layoutMap(root, visibleNodes(root, LANDING_DEPTH, share * root.games, kept));
     }
     return best;
@@ -76,8 +80,25 @@ export function RepertoireMap({ root: drawn, side, selected, onSelect, focus, lo
   useEffect(() => {
     if (fitted.current === side || !size.width) return;
     fitted.current = side;
-    fit(layout.bounds, size, 0.9);
+    fit(layout.bounds, size, READABLE);
   }, [side, size, layout.bounds, fit]);
+
+  // « Fit » replie d'abord comme à l'arrivée, puis cadre la carte ainsi repliée.
+  const refit = useRef(false);
+  useEffect(() => {
+    if (!refit.current) return;
+    refit.current = false;
+    fit(layout.bounds, size, READABLE);
+  }, [layout.bounds, fit, size]);
+  const anchor = () => {
+    const placed = layout.nodes.find((node) => node.node.key === selected);
+    return placed ? { x: placed.x * transform.k + transform.x, y: placed.y * transform.k + transform.y } : undefined;
+  };
+  // Ce qui dépasse du cadre se signale sur son bord, avec de quoi y aller.
+  const overflow = {
+    left: layout.bounds.x * transform.k + transform.x < -4,
+    right: (layout.bounds.x + layout.bounds.width) * transform.k + transform.x > size.width + 4,
+  };
 
   // Une demande de cadrage n'est servie qu'une fois, dès que son nœud est dessiné : déplier ailleurs ne doit pas ramener la carte.
   const served = useRef<number | null>(null);
@@ -87,7 +108,10 @@ export function RepertoireMap({ root: drawn, side, selected, onSelect, focus, lo
     if (!placed) return;
     served.current = focus.stamp;
     // Le chemin depuis le départ, pas le nœud seul : sans ses ancêtres, le joueur ne sait plus où il est.
-    const along = layout.nodes.filter((node) => focus.key === node.node.key || focus.key.startsWith(`${node.node.key} `) || node.node.san === null);
+    // Avec ses enfants : la suite du nœud doit se voir, pas seulement lui.
+    const along = layout.nodes.filter(
+      (node) => focus.key === node.node.key || focus.key.startsWith(`${node.node.key} `) || node.node.san === null || node.node.key.startsWith(`${focus.key} `) && node.node.path.length === placed.node.path.length + 1,
+    );
     reveal(boxOf(along), size, focus.centre ? 0.8 : Math.min(transform.k, 0.9));
     // `transform.k` n'est lu qu'au moment de servir la demande.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -197,18 +221,26 @@ export function RepertoireMap({ root: drawn, side, selected, onSelect, focus, lo
           ))}
         </g>
       </svg>
+      {overflow.right && <EdgeHint side="right" onClick={() => pan(-size.width * 0.5)} />}
+      {overflow.left && <EdgeHint side="left" onClick={() => pan(size.width * 0.5)} />}
       <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-end justify-end gap-3 p-3">
         <div className="pointer-events-auto flex items-center gap-1 rounded-full p-1 text-[13px] font-semibold" style={{ background: COLOURS.cream, color: COLOURS.leaf }}>
-          <MapButton label="Zoom out" onClick={() => zoomBy(1 / 1.25, size)}>
+          <MapButton label="Zoom out" onClick={() => zoomBy(1 / 1.25, size, anchor())}>
             −
           </MapButton>
           <span className="w-11 text-center tabular-nums" style={{ color: COLOURS.leafSoft }} aria-label="Zoom level">
             {Math.round(transform.k * 100)}%
           </span>
-          <MapButton label="Zoom in" onClick={() => zoomBy(1.25, size)}>
+          <MapButton label="Zoom in" onClick={() => zoomBy(1.25, size, anchor())}>
             +
           </MapButton>
-          <MapButton label="Fit the map" onClick={() => fit(layout.bounds, size, 0.6)}>
+          <MapButton
+            label="Fit the map"
+            onClick={() => {
+              setFolding({ opened: new Set(), closed: new Set(), revealed: new Set() });
+              refit.current = true;
+            }}
+          >
             Fit
           </MapButton>
         </div>
@@ -231,6 +263,27 @@ function boxOf(nodes: readonly PlacedNode[]): Box {
   const top = Math.min(...nodes.map((node) => node.y)) - ROW;
   const bottom = Math.max(...nodes.map((node) => node.y)) + ROW;
   return { x: left, y: top, width: right - left, height: bottom - top };
+}
+
+function EdgeHint({ side, onClick }: { side: 'left' | 'right'; onClick: () => void }) {
+  const right = side === 'right';
+  return (
+    <div
+      className={`pointer-events-none absolute inset-y-0 ${right ? 'right-0' : 'left-0'} flex w-14 items-center justify-center`}
+      style={{ background: `linear-gradient(to ${right ? 'left' : 'right'}, ${COLOURS.paper} 30%, oklch(0.985 0.012 85 / 0))` }}
+    >
+      <button
+        type="button"
+        onClick={onClick}
+        aria-label={right ? 'More of the map to the right' : 'More of the map to the left'}
+        title={right ? 'More to the right' : 'More to the left'}
+        className="pointer-events-auto grid size-9 place-items-center rounded-full text-[20px] font-bold focus-visible:outline-2"
+        style={{ background: COLOURS.sand, color: COLOURS.leaf, boxShadow: '0 2px 6px -2px oklch(0.35 0.06 60 / 0.35)' }}
+      >
+        {right ? '›' : '‹'}
+      </button>
+    </div>
+  );
 }
 
 function MapButton({ label, onClick, children }: { label: string; onClick: () => void; children: ReactNode }) {
@@ -271,6 +324,10 @@ function Legend() {
       <li className="flex items-center gap-1.5">
         <span className="h-[14px] w-6 rounded-full" style={{ background: ADDED, boxShadow: `inset 0 0 0 1.5px ${REPERTOIRE}` }} />
         your additions
+      </li>
+      <li className="flex items-center gap-1.5">
+        <span className="h-[14px] w-6 rounded-full" style={{ boxShadow: `inset 0 0 0 1.5px ${COLOURS.kumquatDeep}`, outline: `1px dashed ${COLOURS.kumquatDeep}`, outlineOffset: -1 }} />
+        being added
       </li>
       <li className="flex items-center gap-1.5">
         <span className="h-[5px] w-6 rounded-full" style={{ background: COLOURS.leafSoft, opacity: 0.6 }} />
@@ -423,7 +480,7 @@ function HoverBoard({ hover, side }: { hover: Hover; side: Side }) {
   // Au-dessus du pointeur et vers la gauche : les enfants d'un nœud sont à sa droite, il ne faut pas les cacher.
   const width = 188;
   const left = Math.min(Math.max(hover.x - width - 24, 8), window.innerWidth - width - 8);
-  const top = hover.y - 250 > 8 ? hover.y - 250 : hover.y + 24;
+  const top = Math.min(Math.max(hover.y - 110, 8), window.innerHeight - 240);
   return (
     <div role="tooltip" className="pointer-events-none fixed z-40 flex flex-col gap-1.5" style={{ left, top, width }}>
       <WorkshopBoard path={hover.placed.node.path} flipped={side === 'b'} />

@@ -116,12 +116,13 @@ export function usePanZoom(ref: RefObject<HTMLElement | null>) {
     });
   }, []);
 
-  const zoomBy = useCallback((factor: number, size: Size) => {
+  // Autour de la sélection quand il y en a une : zoomer ne doit pas la faire sortir du cadre.
+  const zoomBy = useCallback((factor: number, size: Size, around?: { x: number; y: number }) => {
     setTransform((current) => {
       const k = Math.min(MAX, Math.max(MIN, current.k * factor));
       const f = k / current.k;
-      const px = size.width / 2;
-      const py = size.height / 2;
+      const px = around?.x ?? size.width / 2;
+      const py = around?.y ?? size.height / 2;
       return { k, x: px - (px - current.x) * f, y: py - (py - current.y) * f, animate: true };
     });
   }, []);

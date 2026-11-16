@@ -1,8 +1,10 @@
 import { PageHeader } from './PageHeader';
 import { COLOURS, FONT_FAMILY } from './theme';
+import { useWorkshopFont } from './useWorkshopFont';
 
 /** Ce qui s'affiche pendant que la page et les parties du joueur se chargent : l'en-tête déjà là, la forme de l'écran. */
 export function PageSkeleton() {
+  useWorkshopFont();
   return (
     <div className="min-h-screen" style={{ fontFamily: FONT_FAMILY, background: COLOURS.cream, color: COLOURS.leaf }} aria-busy="true">
       <PageHeader />

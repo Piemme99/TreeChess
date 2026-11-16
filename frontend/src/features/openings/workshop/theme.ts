@@ -39,7 +39,7 @@ export const ARROW = {
   repertoire: { colour: REPERTOIRE, label: 'repertoire' },
   engine: { colour: ENGINE, label: 'engine' },
   costly: { colour: COLOURS.terracotta, label: 'costs points' },
-  neutral: { colour: 'oklch(0.36 0.04 60)', label: 'played' },
+  neutral: { colour: 'oklch(0.26 0.03 60)', label: 'played' },
 } as const;
 
 export type ArrowKind = keyof typeof ARROW;

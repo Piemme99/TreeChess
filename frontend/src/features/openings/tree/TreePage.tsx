@@ -56,6 +56,8 @@ export function TreePage() {
   const [building, setBuilding] = useState<{ origin: BuildOrigin; stepKey?: string } | null>(null);
   // Sur le téléphone, la carte et le volet ne tiennent pas ensemble : un onglet à la fois.
   const [view, setView] = useState<View>(asked.line.length ? 'position' : 'map');
+  // Ce que le volet met en avant quand une position porte une décision et une priorité : ce qui y a mené.
+  const [lead, setLead] = useState<'settle' | 'priority'>(asked.line.length ? 'priority' : 'settle');
   const [preview, setPreview] = useState<readonly (readonly string[])[]>([]);
   const showLines = useCallback((lines: (readonly string[])[]) => {
     setPreview(lines);
@@ -83,6 +85,7 @@ export function TreePage() {
   const goTo = (target: Side, key: string, centre: boolean) => {
     const found = findNode(maps[target], key);
     if (!found) return;
+    setLead('settle');
     setSide(target);
     setPaths((current) => ({ ...current, [target]: found.path }));
     setFocus({ key, stamp: Date.now(), centre });
@@ -141,7 +144,10 @@ export function TreePage() {
   const accept = (moves: AddedMove[], lines: (readonly string[])[]) => {
     if (!building) return;
     const addition: Addition = { side: building.origin.side, addedAt: replay.day, moves };
-    const text = `${moves.length} ${moves.length === 1 ? 'move' : 'moves'} added to your repertoire`;
+    const reply = building.origin.reply;
+    // La partie qui a posé la question revient si le joueur y avait répondu autrement : le dire, sinon le compteur étonne.
+    const back = reply && !moves.some((move) => move.san === reply) ? ` · your game with ${figurineMove(reply, building.origin.start.length + 1)} comes back to settle` : '';
+    const text = `${moves.length} ${moves.length === 1 ? 'move' : 'moves'} added to your repertoire${back}`;
     const step = building.stepKey ? live.get(building.stepKey) : undefined;
     if (step) {
       settle(step, addition, text);
@@ -189,7 +195,8 @@ export function TreePage() {
     show({ text: 'Skipped: it stays to settle', undo: () => mark(step.key, null) });
   };
 
-  const shownRank = node.priority ?? 1;
+  // La priorité montrée suit le camp regardé ; sur un nœud épinglé, c'est la sienne.
+  const shownRank = node.priority ?? (priorities.findIndex((candidate) => candidate.side === side) + 1 || 1);
   // Une ligne jouée hors du répertoire se voit aussi sur la carte, en fantôme, là où elle quitte le répertoire.
   const shownPreview = useMemo(() => (building ? preview : path.length > node.path.length ? [path] : []), [building, preview, path, node.path.length]);
   const pins = useMemo(() => [...markedNodes(maps.w).priorities.map((n) => ({ side: 'w' as Side, node: n })), ...markedNodes(maps.b).priorities.map((n) => ({ side: 'b' as Side, node: n }))].sort((a, b) => a.node.priority! - b.node.priority!), [maps]);
@@ -197,6 +204,7 @@ export function TreePage() {
     const pin = pins.find((candidate) => candidate.node.priority === rank) ?? pins[0];
     if (pin) goTo(pin.side, pin.node.key, true);
     setView('position');
+    setLead('priority');
   };
   const position = session ? session.queue.indexOf(currentKey ?? '') + 1 : 0;
   const counts = session ? [...session.done.values()] : [];
@@ -238,16 +246,17 @@ export function TreePage() {
     [known, replay.day, building?.origin.side],
   );
   const first = steps.find((step) => step.side === side) ?? steps[0];
+  const perSide = { w: steps.filter((step) => step.side === 'w').length, b: steps.filter((step) => step.side === 'b').length };
 
   return (
     <MotionConfig reducedMotion="user">
       <div className="min-h-screen pb-24" style={{ fontFamily: FONT_FAMILY, background: COLOURS.cream, color: COLOURS.leaf }}>
         <PageHeader>
-          <ReplayBar replay={{ ...replay, reset }} />
+          <ReplayBar replay={{ ...replay, reset, next: replay.next && (() => (close(), replay.next!())) }} />
         </PageHeader>
         <main className="mx-auto flex max-w-[84rem] flex-col gap-4 px-4 pt-5 sm:px-8">
           <div className="flex flex-wrap items-center gap-3">
-            <SideSwitch side={side} onChange={(next) => !building && setSide(next)} />
+            <SideSwitch side={side} onChange={(next) => !building && setSide(next)} counts={perSide} />
             <div role="tablist" aria-label="View" className="ml-auto flex gap-1 rounded-full p-1 lg:hidden" style={{ background: COLOURS.sand }}>
               {(['map', 'position'] as const).map((tab) => (
                 <button
@@ -273,14 +282,14 @@ export function TreePage() {
                   tone={steps.length && !session ? 'terracotta' : 'plain'}
                 >
                   {first
-                    ? `${first.games.length} ${first.games.length === 1 ? 'game' : 'games'} as ${first.side === 'w' ? 'White' : 'Black'} at ${figurineLine(first.path) || 'the start'}`
+                    ? `${perSide.w} as White · ${perSide.b} as Black · start ${first.side === 'w' ? 'White' : 'Black'} ${figurineLine(first.path) || 'start'}`
                     : replay.next
                       ? 'Press “Next day” to bring games in'
                       : 'All games replayed'}
                 </Door>
               )}
               <Door
-                onClick={pins.length ? () => goToPriority(node.priority !== undefined ? (node.priority % pins.length) + 1 : 1) : undefined}
+                onClick={pins.length ? () => goToPriority(node.priority !== undefined ? (node.priority % pins.length) + 1 : shownRank) : undefined}
                 title={priorities.length ? `Priority ${shownRank} of ${priorities.length}` : 'No priority'}
                 className={session ? 'hidden sm:flex' : undefined}
               >
@@ -330,6 +339,8 @@ export function TreePage() {
                   steps={stepsHere}
                   priority={priority}
                   actions={actions}
+                  lead={session ? 'settle' : lead}
+                  onLead={setLead}
                   onSkip={session && current && stepsHere.includes(current) ? () => skip(current) : undefined}
                   onNextPriority={pins.length > 1 && node.priority !== undefined ? () => goToPriority(node.priority! + 1) : undefined}
                   onExtend={() => build({ origin: originAt(side, node.path, path) })}

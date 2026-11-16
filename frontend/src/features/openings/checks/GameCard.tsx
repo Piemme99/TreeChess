@@ -5,7 +5,7 @@ import { JUDGEMENT_MARK, type Judgement } from '../domain/judgement';
 import { figurineMove } from '../domain/notation';
 import { replayLine } from '../position/replay';
 import { formatDay } from '../replay/formatDay';
-import { COLOURS, raised, SPRING, TONES } from '../workshop/theme';
+import { COLOURS, raised, SPRING, tile, TONES } from '../workshop/theme';
 import { checkedPath, type CheckedGame } from './checkedGame';
 
 const VERDICT = {
@@ -72,7 +72,7 @@ export function GameCard({ checked, selected, onSelect, showDate = false, onIgno
           whileTap={{ scale: 0.94 }}
           transition={SPRING}
           className="cursor-pointer self-center whitespace-nowrap rounded-full px-3.5 py-2 text-[13px] font-bold transition-shadow hover:shadow-[0_6px_14px_-6px_oklch(0.3_0.06_150/0.6)] focus-visible:outline-2"
-          style={selected ? { background: COLOURS.cream, color: COLOURS.leaf } : { background: COLOURS.leaf, color: COLOURS.cream }}
+          style={selected ? { background: COLOURS.cream, color: COLOURS.leaf } : { ...tile(COLOURS.sand), color: COLOURS.leaf }}
         >
           {check.kind === 'left' ? `Add ${figurineMove(check.played, check.ply + 1)}` : 'Prepare an answer'}
         </motion.button>

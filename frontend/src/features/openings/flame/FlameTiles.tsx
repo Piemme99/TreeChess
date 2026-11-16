@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion';
-import { useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useRef, useState, type ReactNode } from 'react';
 import { figurine, figurineMove } from '../domain/notation';
 import { isPlayerMove, nodeAt, type OpeningTree } from '../domain/openingTree';
 import { playerAverage, scoreRate } from '../domain/performance';
@@ -40,6 +40,7 @@ interface FlameTilesProps {
 export function FlameTiles({ tree, focusPath, onFocusChange, onPoint, priorities, coveredLines }: FlameTilesProps) {
   const [containerRef, containerWidth] = useElementWidth<HTMLDivElement>();
   const [hover, setHover] = useState<Hover | null>(null);
+  const touched = useRef(false);
   const average = playerAverage(tree);
   const isPlayerRow = (depth: number) => depth === 0 || isPlayerMove(tree.side, focusPath.length + depth);
   const widthPx = containerWidth || FALLBACK_WIDTH;
@@ -141,12 +142,20 @@ export function FlameTiles({ tree, focusPath, onFocusChange, onPoint, priorities
                   whileHover={placed.rest ? undefined : { y: -2 }}
                   whileTap={placed.rest ? undefined : { scale: 0.95, y: 1 }}
                   transition={SPRING}
-                  onClick={() => onFocusChange(placed.depth === 0 ? focusPath.slice(0, -1) : placed.path)}
+                  onClick={() => {
+                    onFocusChange(placed.depth === 0 ? focusPath.slice(0, -1) : placed.path);
+                    if (touched.current) setHover(null);
+                  }}
+                  // Au doigt, le navigateur simule un survol que rien ne viendrait fermer : la carte resterait affichée.
+                  onPointerDown={(event) => {
+                    touched.current = event.pointerType !== 'mouse';
+                  }}
                   onMouseEnter={(event) => {
                     setHover({ tile: placed, x: event.clientX, y: event.clientY });
                     onPoint(placed.path);
                   }}
                   onMouseMove={(event) => setHover({ tile: placed, x: event.clientX, y: event.clientY })}
+
                   className="absolute inset-y-0 left-0 overflow-hidden px-2 text-left font-semibold outline-none focus-visible:ring-2"
                   style={{
                     ...surface,

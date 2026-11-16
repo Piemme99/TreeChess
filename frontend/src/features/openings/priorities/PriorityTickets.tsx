@@ -42,6 +42,11 @@ export function PriorityTickets({ priorities, isSelected, onSelect, onPoint }: P
           ))}
         </ol>
       )}
+      {priorities.length > 0 && (
+        <p className="-mt-1 text-[12px]" style={{ color: COLOURS.leafSoft }}>
+          The bar: points lost over 12 months, against priority 1. Click a card to see its line below.
+        </p>
+      )}
     </section>
   );
 }
@@ -63,7 +68,7 @@ function Ticket({ priority, rank, share, selected, onSelect, onPoint }: TicketPr
   return (
     <motion.li
       initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: selected ? -6 : 0 }}
+      animate={{ opacity: 1, y: 0 }}
       whileHover={{ y: selected ? -10 : -4 }}
       whileTap={{ scale: 0.96 }}
       transition={{ ...SPRING, opacity: { delay: rank * 0.05 } }}
@@ -90,7 +95,7 @@ function Ticket({ priority, rank, share, selected, onSelect, onPoint }: TicketPr
             {priority.side === 'w' ? 'White' : 'Black'}
           </span>
         </span>
-        <span className="line-clamp-2 min-h-[2.5em] text-[14px] leading-tight font-semibold">{opening?.name ?? 'Unnamed line'}</span>
+        <span className="line-clamp-3 min-h-[2.5em] text-[14px] leading-tight font-semibold">{opening?.name ?? 'Unnamed line'}</span>
         <span className="text-[13px]" style={{ opacity: 0.75 }}>
           {figurineMove(priority.path[last - 1], last)}
         </span>
