@@ -234,10 +234,13 @@ and selected on return. Left: the priority verdict (engine) on the pane.
 
 ## Later
 
-- **Line view, next steps**: plug the explorer into the backend OAuth with the import;
-  glossary entries for key position and decisive mistake.
+- **Line view, next steps**: glossary entries for key position and decisive mistake.
 - **Import** producing `PlayedGame` (Lichess OAuth is the decided auth; validate SAN
-  there), then persistence.
+  there), then persistence. Same brick: the explorer ranges follow the player's Lichess rating
+  (blitz or rapid, whichever has more games; 1800 when signed out) instead of the constants
+  in `line/explorer.ts`: opponents from rating −100 to +300 rounded to the explorer's 200-point
+  buckets, the player's own moves from rating +400 and never below 2000; the column label
+  follows. Not before: until the import, the games shown are PMG's for everyone.
 - **Engine signal on the whole tree** (priorities sorted into "a move to change" and
   "a position to work on" from the Openings screen): the line view does it per line only.
 - **Design prototype** (`design-prototype/`, `/dev/flame-graph?variant=F…J`): the
