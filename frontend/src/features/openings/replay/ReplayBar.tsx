@@ -23,7 +23,7 @@ export function ReplayBar({ replay }: { replay: ReplayDay }) {
           </span>
           {replay.reset && (
             <span>
-              <button type="button" aria-expanded={confirming} onClick={() => setConfirming(!confirming)} className="-my-1.5 rounded px-1.5 py-1.5 font-semibold underline underline-offset-2 focus-visible:outline-2">
+              <button type="button" aria-expanded={confirming} onClick={() => setConfirming(!confirming)} className="-my-2.5 rounded px-1.5 py-2.5 font-semibold underline underline-offset-2 focus-visible:outline-2">
                 Reset…
               </button>
               {/* Hors de la ligne : la confirmation ne doit pas pousser « Next day » hors de l'écran. */}
@@ -42,7 +42,7 @@ export function ReplayBar({ replay }: { replay: ReplayDay }) {
                     Reset
                   </button>
                   <button type="button" onClick={() => setConfirming(false)} className="min-h-9 rounded-lg px-3 font-bold focus-visible:outline-2" style={tile(COLOURS.sand)}>
-                    Keep
+                    Cancel
                   </button>
                 </span>
               )}

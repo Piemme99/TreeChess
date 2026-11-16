@@ -297,18 +297,21 @@ export function TreePage() {
     setSession(null);
     build(null);
   });
-  const before = useRef<number | null>(null);
+  const before = useRef<ReadonlySet<string> | null>(null);
   const nextDay = () => {
     close();
-    before.current = steps.length;
+    before.current = new Set(steps.map((step) => step.key));
     replay.next!();
   };
   useEffect(() => {
-    if (before.current === null) return;
-    const added = steps.length - before.current;
+    const known = before.current;
+    if (!known) return;
     before.current = null;
+    const added = steps.filter((step) => !known.has(step.key)).length;
+    // Un coup adverse croisé une seule fois sort de la liste au bout d'un temps : le compteur baisse, on dit pourquoi.
+    const expired = [...known].filter((key) => !live.has(key)).length;
     const games = replay.gamesThatDay;
-    show({ text: `${games} ${games === 1 ? 'game' : 'games'} played${added > 0 ? ` · ${added} new to settle` : ''}` });
+    show({ text: `${games} ${games === 1 ? 'game' : 'games'} played${added > 0 ? ` · ${added} new to settle` : ''}${expired > 0 ? ` · ${expired} expired` : ''}` });
     // Seul le changement de jour compte ; `steps` est recalculé dans le même rendu.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [replay.day]);
@@ -352,8 +355,12 @@ export function TreePage() {
     priority,
     actions,
     lead: session ? ('settle' as const) : lead,
-    onLead: setLead,
+    onLead: (next: 'settle' | 'priority') => {
+      setLead(next);
+      toTop();
+    },
     onSkip: session && current && stepsHere.includes(current) ? () => skip(current) : undefined,
+    priorityCount: priorities.length,
     onNextPriority: pins.length > 1 && node.priority !== undefined ? () => goToPriority(node.priority! + 1) : undefined,
     onExtend: () => build({ origin: originAt(side, node.path, path) }),
     onPrepareFollows: priority

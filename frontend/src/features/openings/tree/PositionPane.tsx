@@ -32,6 +32,8 @@ export interface PositionPaneProps {
   /** Les étapes de la séance qui tombent sur cette position. */
   steps: readonly SessionStep[];
   priority?: Priority;
+  /** Combien de priorités en tout, les deux camps ensemble. */
+  priorityCount?: number;
   actions: StepActions;
   /** La carte mise en avant quand la position porte une décision et une priorité. */
   lead: 'settle' | 'priority';
@@ -100,7 +102,7 @@ export function PositionPane(props: PositionPaneProps) {
       )}
       {prioritised && !settling && (
         <div className="order-3">
-          <PriorityCard side={side} priority={priority!} rank={node.priority!} facts={facts} waiting={steps.length} onLead={onLead} onNextPriority={onNextPriority} onPrepareFollows={onPrepareFollows} />
+          <PriorityCard side={side} priority={priority!} rank={node.priority!} total={props.priorityCount} facts={facts} waiting={steps.length} onLead={onLead} onNextPriority={onNextPriority} onPrepareFollows={onPrepareFollows} />
         </div>
       )}
       <Repertoire side={side} node={node} inRepertoire={inRepertoire} ply={ply} onMove={onMove} />
@@ -142,10 +144,11 @@ export function SettleCard({ steps, facts, actions, onSkip, rank }: { steps: rea
   );
 }
 
-export function PriorityCard({ side, priority, rank, facts, waiting, onLead, onNextPriority, onPrepareFollows }: {
+export function PriorityCard({ side, priority, rank, total, facts, waiting, onLead, onNextPriority, onPrepareFollows }: {
   side: Side;
   priority: Priority;
   rank: number;
+  total?: number;
   facts: PositionFacts;
   /** Les décisions qui attendent sur la même position. */
   waiting: number;
@@ -159,6 +162,7 @@ export function PriorityCard({ side, priority, rank, facts, waiting, onLead, onN
       <span className="flex items-center justify-between gap-3">
         <span className="text-[12px] font-bold uppercase tracking-[0.06em]" style={{ color: COLOURS.apricot }}>
           Priority {rank}
+          {total ? ` of ${total}` : ''}
         </span>
         {onNextPriority && (
           <button type="button" onClick={onNextPriority} className="-my-1 rounded-lg px-1 py-1 text-[13px] font-semibold underline-offset-4 hover:underline focus-visible:outline-2">
@@ -203,7 +207,7 @@ export function OffRepertoire({ path, node, facts, onExtend, onJump }: { path: r
           <Action onClick={() => onJump([...node.path, usual.san!])} tone="primary">
             Back to {figurineMove(usual.san!, node.path.length + 1)}
           </Action>
-          <Action onClick={onExtend}>Add {left} instead</Action>
+          <Action onClick={onExtend}>Add {left} too</Action>
         </span>
       ) : (
         <Action onClick={onExtend} tone="primary">

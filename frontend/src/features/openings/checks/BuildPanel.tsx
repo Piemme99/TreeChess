@@ -125,7 +125,7 @@ export function BuildPanel({ builder, candidates, fresh, onPoint, onAccept, onCa
         ) : (
           'Extend your repertoire from here'
         )}
-        <span className={`mt-1 block font-semibold tracking-normal ${compact ? 'truncate text-[13px]' : 'text-[14px]'}`} style={{ color: COLOURS.leafSoft }}>
+        <span className={`mt-1 block font-semibold tracking-normal ${compact ? 'text-[13px]' : 'text-[14px]'}`} style={{ color: COLOURS.leafSoft }}>
           {builder.start.length ? `From ${figurineLine(builder.start)}` : 'From the starting position'}
           {origin.reply && (
             <>
@@ -246,7 +246,7 @@ function CandidateTable({ builder, candidates, onPoint, compact, planned }: { bu
       <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] font-semibold" style={{ color: COLOURS.leafSoft }}>
         <span className="whitespace-nowrap">{builder.playerToMove ? 'Your move' : 'Their move'}</span>
         <span className="ml-auto flex items-center gap-1.5 whitespace-nowrap">
-          Engine, for you
+          Engine
           <EvalBar cp={bestCp ?? here?.cp} side={builder.origin.side} />
         </span>
       </span>
@@ -299,7 +299,11 @@ function CandidateTable({ builder, candidates, onPoint, compact, planned }: { bu
                 yours={(row.san === builder.origin.reply && builder.path.length === builder.start.length) || row.san === habit}
                 planned={planned.has(row.san)}
                 mine={builder.playerToMove}
-                onPlay={() => builder.play(row.san)}
+                onPlay={() => {
+                  builder.play(row.san);
+                  // Au téléphone, le tableau est sous l'échiquier : le coup joué doit se voir en entier.
+                  if (compact) window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
                 onPoint={() => onPoint(row.san)}
               />
             ))}

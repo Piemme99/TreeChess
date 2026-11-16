@@ -32,7 +32,7 @@ export function PhonePane(props: PhonePaneProps) {
       <div className="empty:hidden">
         {settling && <SettleCard steps={steps} facts={facts} actions={actions} onSkip={onSkip} rank={node.priority} />}
         {prioritised && !settling && (
-          <PriorityCard side={side} priority={priority!} rank={node.priority!} facts={facts} waiting={steps.length} onLead={onLead} onNextPriority={onNextPriority} onPrepareFollows={onPrepareFollows} />
+          <PriorityCard side={side} priority={priority!} rank={node.priority!} total={props.priorityCount} facts={facts} waiting={steps.length} onLead={onLead} onNextPriority={onNextPriority} onPrepareFollows={onPrepareFollows} />
         )}
       </div>
       {inRepertoire ? (
@@ -56,12 +56,12 @@ function LineStrip({ path, trail, known, onJump }: { path: readonly string[]; tr
 
   return (
     <div className="flex min-w-0 flex-col gap-1 px-1">
-      <h2 className="truncate text-[16px] font-bold leading-tight">{opening?.name ?? (path.length ? 'Unnamed line' : 'Starting position')}</h2>
+      <h2 className="text-[16px] font-bold leading-tight">{opening?.name ?? (path.length ? 'Unnamed line' : 'Starting position')}</h2>
       {line.length > 0 && (
         <ol
           aria-label="Line"
           ref={strip}
-          className="-mx-1 flex gap-0.5 overflow-x-auto whitespace-nowrap px-1 pb-0.5 text-[14px] [scrollbar-width:none]"
+          className="-mx-1 flex gap-0.5 overflow-x-auto whitespace-nowrap px-1 text-[15px] [scrollbar-width:none]"
           style={{ maskImage: 'linear-gradient(to right, transparent, black 1rem, black calc(100% - 1rem), transparent)' }}
         >
           {line.map((san, index) => {
@@ -80,7 +80,7 @@ function LineStrip({ path, trail, known, onJump }: { path: readonly string[]; tr
                   type="button"
                   onClick={() => onJump(line.slice(0, ply))}
                   aria-current={current ? 'step' : undefined}
-                  className="rounded-md px-1.5 py-1 font-semibold focus-visible:outline-2"
+                  className="min-h-10 min-w-9 rounded-md px-1.5 font-semibold focus-visible:outline-2"
                   style={current ? { background: off ? COLOURS.terracotta : COLOURS.leaf, color: COLOURS.cream } : { color: off ? COLOURS.terracotta : COLOURS.leaf }}
                 >
                   {figurineMove(san, ply).replace(/^\d+(\.|…)/, '')}
