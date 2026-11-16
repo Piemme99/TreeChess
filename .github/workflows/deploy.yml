@@ -77,6 +77,8 @@ jobs:
         with:
           context: ./frontend
           target: prod
+          build-args: |
+            VITE_V2=1
           push: true
           tags: |
             ${{ steps.meta.outputs.frontend_image }}:${{ steps.meta.outputs.tag }}

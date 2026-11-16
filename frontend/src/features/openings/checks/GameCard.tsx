@@ -7,6 +7,7 @@ import { figurineMove } from '../domain/notation';
 import { replayLine } from '../position/replay';
 import { formatDay } from '../replay/formatDay';
 import { COLOURS, raised, SPRING, tile, TONES } from '../workshop/theme';
+import { useV2Path } from '../workshop/routes';
 import { checkedPath, type CheckedGame } from './checkedGame';
 
 const VERDICT = {
@@ -36,6 +37,7 @@ export function GameCard({ checked, selected, onSelect, showDate = false, onIgno
   const fens = useMemo(() => replayLine(game.moves.slice(0, Math.max(1, checkedPath(checked).length + 1))).fens, [checked, game.moves]);
   const opening = useOpeningName(fens);
   const verdict = VERDICT[check.kind];
+  const pathOf = useV2Path();
 
   return (
     <li className="flex flex-col overflow-hidden rounded-2xl" style={{ ...raised(selected), opacity: ignored ? 0.85 : 1 }}>
@@ -65,7 +67,7 @@ export function GameCard({ checked, selected, onSelect, showDate = false, onIgno
         </span>
       )}
       <span className="flex flex-wrap items-center gap-x-3 px-4 pb-3 text-[13px] font-semibold">
-        <Link to={treeHref(checked)} className="rounded py-1 underline-offset-4 hover:underline focus-visible:outline-2" style={{ color: selected ? COLOURS.cream : COLOURS.leafSoft }}>
+        <Link to={`${pathOf('tree')}${treeQuery(checked)}`} className="rounded py-1 underline-offset-4 hover:underline focus-visible:outline-2" style={{ color: selected ? COLOURS.cream : COLOURS.leafSoft }}>
           Open in the tree →
         </Link>
         <a
@@ -125,8 +127,8 @@ export function GameCard({ checked, selected, onSelect, showDate = false, onIgno
 }
 
 /** La position de la partie qui compte, ouverte dans l'arbre : là où elle a quitté le répertoire, ou là où il a tenu. */
-function treeHref(checked: CheckedGame): string {
-  return `/dev/tree?side=${checked.game.side}&line=${encodeURIComponent(checkedPath(checked).join(' '))}`;
+function treeQuery(checked: CheckedGame): string {
+  return `?side=${checked.game.side}&line=${encodeURIComponent(checkedPath(checked).join(' '))}`;
 }
 
 function Verdict({ checked: { check }, judgement, selected }: { checked: CheckedGame; judgement?: Judgement | null; selected: boolean }) {

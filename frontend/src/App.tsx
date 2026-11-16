@@ -1,5 +1,5 @@
 import { useEffect, lazy, Suspense } from 'react';
-import { Routes, Route } from 'react-router';
+import { Navigate, Routes, Route } from 'react-router';
 import { MainLayout } from './shared/components/Layout/MainLayout';
 import { ToastContainer, Loading } from './shared/components/UI';
 import { PageSkeleton } from './features/openings/workshop/PageSkeleton';
@@ -21,10 +21,12 @@ const TrainingPage = lazy(() => import('./features/training').then(m => ({ defau
 const ExplorePage = lazy(() => import('./features/explore').then(m => ({ default: m.ExplorePage })));
 // Conditionné à la déclaration : un lazy() hors condition ferait émettre le chunk
 // (et ses données figées) dans le build de prod, même sans route pour l'atteindre.
-const FlameGraphPage = import.meta.env.DEV
+// La v2 se publie en prod sous /v2 avec VITE_V2=1 au build (deploy.yml) ; l'aiguillage et la séance restent en dev.
+const V2_PAGES = import.meta.env.DEV || import.meta.env.VITE_V2 === '1';
+const FlameGraphPage = V2_PAGES
   ? lazy(() => import('./features/openings').then(m => ({ default: m.DesignPrototypeRoute })))
   : null;
-const GameChecksPage = import.meta.env.DEV
+const GameChecksPage = V2_PAGES
   ? lazy(() => import('./features/openings').then(m => ({ default: m.GameChecksPage })))
   : null;
 const HomePage = import.meta.env.DEV
@@ -33,7 +35,7 @@ const HomePage = import.meta.env.DEV
 const SessionPage = import.meta.env.DEV
   ? lazy(() => import('./features/openings').then(m => ({ default: m.SessionPage })))
   : null;
-const TreePage = import.meta.env.DEV
+const TreePage = V2_PAGES
   ? lazy(() => import('./features/openings').then(m => ({ default: m.TreePage })))
   : null;
 const NotFoundPage = lazy(() => import('./features/not-found/NotFoundPage').then(m => ({ default: m.NotFoundPage })));
@@ -77,11 +79,17 @@ function App() {
           <Route path="explore" element={<Suspense fallback={<Loading size="lg" />}><ExplorePage /></Suspense>} />
           <Route path="explore/repertoire/:id" element={<Suspense fallback={<Loading size="lg" />}><RepertoireEdit /></Suspense>} />
         </Route>
-        {FlameGraphPage ? (
+        {FlameGraphPage && import.meta.env.DEV ? (
           <Route path="/dev/flame-graph" element={<Suspense fallback={<PageSkeleton />}><FlameGraphPage /></Suspense>} />
         ) : null}
-        {GameChecksPage ? (
+        {FlameGraphPage ? (
+          <Route path="/v2/openings" element={<Suspense fallback={<PageSkeleton />}><FlameGraphPage /></Suspense>} />
+        ) : null}
+        {GameChecksPage && import.meta.env.DEV ? (
           <Route path="/dev/games" element={<Suspense fallback={<PageSkeleton />}><GameChecksPage /></Suspense>} />
+        ) : null}
+        {GameChecksPage ? (
+          <Route path="/v2/games" element={<Suspense fallback={<PageSkeleton />}><GameChecksPage /></Suspense>} />
         ) : null}
         {HomePage ? (
           <Route path="/dev/home" element={<Suspense fallback={<Loading size="lg" />}><HomePage /></Suspense>} />
@@ -89,9 +97,13 @@ function App() {
         {SessionPage ? (
           <Route path="/dev/session" element={<Suspense fallback={<Loading size="lg" />}><SessionPage /></Suspense>} />
         ) : null}
-        {TreePage ? (
+        {TreePage && import.meta.env.DEV ? (
           <Route path="/dev/tree" element={<Suspense fallback={<PageSkeleton />}><TreePage /></Suspense>} />
         ) : null}
+        {TreePage ? (
+          <Route path="/v2/tree" element={<Suspense fallback={<PageSkeleton />}><TreePage /></Suspense>} />
+        ) : null}
+        {TreePage ? <Route path="/v2" element={<Navigate to="/v2/tree" replace />} /> : null}
         <Route path="*" element={<Suspense fallback={<Loading size="lg" />}><NotFoundPage /></Suspense>} />
       </Routes>
       <ToastContainer />

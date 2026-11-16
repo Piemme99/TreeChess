@@ -16,6 +16,7 @@ import { useRepertoires } from './replay/useRepertoires';
 import { useReplayDay } from './replay/useReplayDay';
 import { PageHeader } from './workshop/PageHeader';
 import { SideSwitch } from './workshop/SideSwitch';
+import { useV2Path } from './workshop/routes';
 import { storedSide, storeSide } from './workshop/storedSide';
 import { COLOURS, FONT_FAMILY } from './workshop/theme';
 import { useWorkshopFont } from './workshop/useWorkshopFont';
@@ -32,6 +33,7 @@ interface Line {
 
 export function OpeningsPage() {
   useWorkshopFont();
+  const pathOf = useV2Path();
   const [side, setSide] = useState<Side>(storedSide);
   useEffect(() => storeSide(side), [side]);
   const [focusPath, setFocusPath] = useState<readonly string[]>([]);
@@ -107,7 +109,7 @@ export function OpeningsPage() {
               recent={recentTrees[shown.side]}
               path={shown.path}
               repertoire={repertoires[shown.side]}
-              studyHref={focusPath.length > 0 ? `/dev/tree?side=${side}&line=${encodeURIComponent(focusPath.join(' '))}` : undefined}
+              studyHref={focusPath.length > 0 ? `${pathOf('tree')}?side=${side}&line=${encodeURIComponent(focusPath.join(' '))}` : undefined}
             />
             <div className="flex min-w-0 flex-col gap-10">
               <PriorityTickets
