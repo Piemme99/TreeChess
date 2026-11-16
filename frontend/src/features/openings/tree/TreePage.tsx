@@ -153,42 +153,52 @@ export function TreePage() {
     setView('position');
     toTop();
   };
+  // Après un ajout, une partie de l'étape peut encore quitter le répertoire plus loin : on la guette au rendu suivant
+  // pour le dire tout de suite, plutôt que de laisser le compteur étonner.
+  const watched = useRef<{ ids: ReadonlySet<number>; text: string; undo: () => void } | null>(null);
+  useEffect(() => {
+    const watch = watched.current;
+    if (!watch) return;
+    watched.current = null;
+    const again = steps.find((candidate) => candidate.games.some((checked) => watch.ids.has(checked.id)));
+    if (!again) return;
+    const ply = again.path.length + 1;
+    show({ text: `${watch.text} · that game leaves the repertoire again at ${figurineMove(again.played, ply)}: still to settle`, undo: watch.undo });
+    setSession((active) => active && { ...active, returned: (active.returned ?? 0) + 1 });
+    // Seul un nouveau calcul des étapes compte.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [steps]);
   const settle = (step: SessionStep, addition: Addition | null, text: string) => {
     if (addition) add(addition);
     mark(step.key, 'settled');
     build(null);
     toTop();
-    show({
-      text,
-      undo: () => {
-        if (addition) remove(addition);
-        mark(step.key, null);
-      },
-    });
+    const undo = () => {
+      if (addition) remove(addition);
+      mark(step.key, null);
+    };
+    if (addition) watched.current = { ids: new Set(step.games.map((checked) => checked.id)), text, undo };
+    show({ text, undo });
   };
   const accept = (moves: AddedMove[], lines: (readonly string[])[]) => {
     if (!building) return;
     const addition: Addition = { side: building.origin.side, addedAt: replay.day, moves };
     setPinned((current) => [...current, ...lines.map((line) => line.join(' '))]);
-    const reply = building.origin.reply;
-    // La partie qui a posé la question revient si le joueur y avait répondu autrement : le dire, sinon le compteur étonne.
-    const back = reply && !moves.some((move) => move.san === reply) ? ` · your game with ${figurineMove(reply, building.origin.start.length + 1)} comes back to settle` : '';
-    const text = `${moves.length} ${moves.length === 1 ? 'move' : 'moves'} added to your repertoire${back}`;
+    const text = `${moves.length} ${moves.length === 1 ? 'move' : 'moves'} added to your repertoire`;
     const step = building.stepKey ? live.get(building.stepKey) : undefined;
     if (step) {
       settle(step, addition, text);
-      if (back) setSession((active) => active && { ...active, returned: (active.returned ?? 0) + 1 });
       return;
     }
     add(addition);
     build(null);
-    // Une ligne qui retombe sur une position déjà dessinée y est rangée : sans le dire, l'ajout semble perdu.
+    // Une ligne qui retombe sur une position déjà dessinée y est rangée : on le dit, et la sélection y va.
     const line0 = lines[0];
     const landing = line0 && findByPosition(maps[building.origin.side], positionKey(replayLine(line0).fens[line0.length]));
-    const transposes = landing && landing.key !== line0.join(' ') ? ` · transposes to ${figurineLine(landing.path)}` : '';
-    show({ text: text + transposes, undo: () => remove(addition) });
+    const transposed = landing && landing.key !== line0.join(' ') ? landing : undefined;
+    show({ text: transposed ? `${text} · same position as ${figurineLine(transposed.path)}: shown there, linked from here` : text, undo: () => remove(addition) });
     // La ligne ajoutée se voit tout de suite, même trop fine pour l'arrivée.
-    const line = lines[0];
+    const line = transposed ? transposed.path : lines[0];
     if (line) {
       setPaths((current) => ({ ...current, [building.origin.side]: line }));
       setFocus({ key: line.join(' '), stamp: Date.now(), centre: true });
@@ -198,6 +208,7 @@ export function TreePage() {
     onAdd: (step) => {
       const played = figurineMove(step.played, step.path.length + 1);
       const addition: Addition = { side: step.side, addedAt: replay.day, moves: [{ position: step.games[0].check.position, san: step.played, source: 'habit' }] };
+      setPinned((current) => [...current, [...step.path, step.played].join(' ')]);
       settle(step, addition, `${played} added to your repertoire`);
     },
     onBuild: (step) => build({ origin: originOf(step.games[0], true), stepKey: step.key }),
@@ -419,6 +430,7 @@ export function TreePage() {
                       : undefined
                   }
                   onMove={play}
+                  onJump={walk}
                   onBack={path.length ? back : undefined}
                 />
               )}
@@ -461,7 +473,7 @@ function SessionBar({ index, total, settled, side, onEnd }: { index: number; tot
           as {side === 'w' ? 'White' : 'Black'}
         </motion.span>
       </span>
-      <span className="hidden h-2.5 min-w-12 flex-1 overflow-hidden rounded-full sm:block" style={{ background: COLOURS.sand }}>
+      <span className="h-2.5 min-w-8 flex-1 overflow-hidden rounded-full" style={{ background: COLOURS.sand }}>
         <motion.span className="block h-full rounded-full" style={{ background: COLOURS.leaf }} animate={{ width: `${(settled / total) * 100}%` }} transition={SPRING} />
       </span>
       <button type="button" onClick={onEnd} className="ml-auto whitespace-nowrap rounded-lg px-2 py-1 underline-offset-4 hover:underline focus-visible:outline-2" style={{ color: COLOURS.leafSoft }}>
@@ -480,7 +492,7 @@ function Done({ settled, skipped, returned, left, onClose }: { settled: number; 
         {returned > 0 && (
           <>
             {' '}
-            · <strong>{returned}</strong> came back, where you chose another move than in your game
+            · <strong>{returned}</strong> {returned === 1 ? 'game' : 'games'} left the repertoire again further on
           </>
         )}
       </span>

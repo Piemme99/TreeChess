@@ -64,9 +64,6 @@ export function TreeList({ root, side, node, onSelect, onOpen, offMoves = [] }: 
         <span className="text-[13px] font-semibold" style={{ color: COLOURS.leafSoft }}>
           {children.length ? (mine ? 'Your moves here' : 'Their replies you have prepared') : mine ? 'Your repertoire stops here' : 'No reply prepared yet'}
         </span>
-        <button type="button" onClick={onOpen} className="rounded-full px-3 py-2 text-[13px] font-bold focus-visible:outline-2" style={{ background: COLOURS.leaf, color: COLOURS.cream }}>
-          See the board →
-        </button>
       </div>
       {(children.length > 0 || offMoves.length > 0) && (
         <ul className="flex flex-col gap-1.5">
@@ -120,8 +117,8 @@ export function TreeList({ root, side, node, onSelect, onOpen, offMoves = [] }: 
                         {below.settle}
                       </span>
                     )}
-                    <span aria-hidden="true" className="pl-1 text-[18px]" style={{ color: COLOURS.leafSoft }}>
-                      ›
+                    <span aria-hidden="true" className="pl-1 text-[16px] font-bold" style={{ color: COLOURS.leafSoft }}>
+                      →
                     </span>
                   </span>
                 </button>

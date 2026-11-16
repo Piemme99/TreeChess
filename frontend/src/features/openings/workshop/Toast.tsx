@@ -4,7 +4,7 @@ import type { ToastMessage } from './useToast';
 
 export function Toast({ toast, onClose }: { toast: (ToastMessage & { stamp: number }) | null; onClose: () => void }) {
   return (
-    <div aria-live="polite" className="pointer-events-none fixed inset-x-0 bottom-[4.75rem] z-50 flex justify-center px-3 lg:right-auto lg:bottom-6 lg:left-8">
+    <div aria-live="polite" className="pointer-events-none fixed inset-x-0 bottom-[4.75rem] z-50 flex justify-center px-3 lg:top-6 lg:bottom-auto">
       <AnimatePresence>
         {toast && (
           <motion.div

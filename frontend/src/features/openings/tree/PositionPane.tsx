@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { useMemo, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { useOpeningName } from '../../../shared/hooks/useOpeningName';
 import { PlayableBoard } from '../board/PlayableBoard';
 import { figurineLine, figurineMove } from '../domain/notation';
@@ -44,6 +44,8 @@ interface PositionPaneProps {
   /** Construire depuis une ligne de la priorité : la sienne, ou celle où elle perd ses points. */
   onPrepareFollows?: (line: readonly string[]) => void;
   onMove: (san: string) => void;
+  /** Aller à une ligne entière : revenir au répertoire depuis un écart. */
+  onJump: (path: readonly string[]) => void;
   onBack?: () => void;
 }
 
@@ -52,7 +54,7 @@ const MIN_GAMES_TO_COMPARE = 5;
 const SHOWN_MOVES = 4;
 
 /** Le volet : on y joue comme sur l'explorateur Lichess, et on y tranche ce que la position porte. */
-export function PositionPane({ side, path, node, recent, steps, priority, actions, lead, onLead, onSkip, onNextPriority, onExtend, onPrepareFollows, onMove, onBack }: PositionPaneProps) {
+export function PositionPane({ side, path, node, recent, steps, priority, actions, lead, onLead, onSkip, onNextPriority, onExtend, onPrepareFollows, onMove, onJump, onBack }: PositionPaneProps) {
   const fens = useMemo(() => replayLine(path).fens, [path]);
   const opening = useOpeningName(fens);
   const inRepertoire = path.length === node.path.length;
@@ -67,6 +69,8 @@ export function PositionPane({ side, path, node, recent, steps, priority, action
   const here = useMemo(() => nodeAt(recent, path), [recent, path]);
   const average = useMemo(() => playerAverage(recent), [recent]);
   const leak = priority ? leakOf(here) : undefined;
+  const leftByPlayer = !inRepertoire && isPlayerMove(side, node.path.length + 1);
+  const usual = [...node.children].sort((a, b) => b.games - a.games)[0];
 
   const prioritised = inRepertoire && priority !== undefined;
   const settling = inRepertoire && steps.length > 0 && !(prioritised && lead === 'priority');
@@ -101,7 +105,7 @@ export function PositionPane({ side, path, node, recent, steps, priority, action
           )}
         </div>
       </div>
-      <div className={`order-2 mx-auto w-full lg:max-w-[16rem] ${card ? 'max-w-[18rem]' : 'max-w-[24rem]'}`}>
+      <div className={`order-2 mx-auto w-full lg:max-w-[16rem] ${card ? 'max-w-[15rem]' : 'max-w-[24rem]'}`}>
         <PlayableBoard path={path} flipped={side === 'b'} arrows={arrows} suggestions={suggestions} onMove={onMove} />
         {arrows.length > 0 && (
           <p className="mt-2 flex flex-wrap justify-center gap-x-4 text-[12px] font-semibold" style={{ color: COLOURS.leafSoft }}>
@@ -161,13 +165,23 @@ export function PositionPane({ side, path, node, recent, steps, priority, action
           )}
         </section>
       )}
-      <Repertoire side={side} path={path} node={node} inRepertoire={inRepertoire} ply={ply} here={here} />
-      {!(prioritised && !settling && onPrepareFollows) && (
-        <div className="order-5">
-          <Action onClick={onExtend} tone={inRepertoire || settling ? 'plain' : 'primary'}>
-            {inRepertoire ? 'Extend from here' : 'Add this line to my repertoire'}
+      <Repertoire side={side} path={path} node={node} inRepertoire={inRepertoire} ply={ply} here={here} onMove={onMove} />
+      {!inRepertoire && leftByPlayer && usual ? (
+        // Le joueur a quitté son propre répertoire : on propose d'abord d'y revenir, l'ajout reste possible.
+        <div className="order-5 flex flex-col gap-1.5">
+          <Action onClick={() => onJump([...node.path, usual.san!])} tone="primary">
+            Back to my repertoire: {figurineMove(usual.san!, node.path.length + 1)}
           </Action>
+          <Action onClick={onExtend}>Add {figurineMove(path[node.path.length], node.path.length + 1)} to my repertoire instead</Action>
         </div>
+      ) : (
+        !(prioritised && !settling && onPrepareFollows) && (
+          <div className="order-5">
+            <Action onClick={onExtend} tone={inRepertoire || settling ? 'plain' : 'primary'}>
+              {inRepertoire ? 'Extend from here' : 'Prepare this line'}
+            </Action>
+          </div>
+        )
       )}
       <p className="order-6 hidden px-1 text-[12px] lg:block" style={{ color: COLOURS.leafSoft }}>
         Play on the board or click the map. Keys: ← back · → main move · ↑ ↓ other moves · Home start · + − fold.
@@ -176,8 +190,9 @@ export function PositionPane({ side, path, node, recent, steps, priority, action
   );
 }
 
-function Repertoire({ side, path, node, inRepertoire, ply, here }: { side: Side; path: readonly string[]; node: MapNode; inRepertoire: boolean; ply: number; here: OpeningNode | undefined }) {
+function Repertoire({ side, path, node, inRepertoire, ply, here, onMove }: { side: Side; path: readonly string[]; node: MapNode; inRepertoire: boolean; ply: number; here: OpeningNode | undefined; onMove: (san: string) => void }) {
   const mine = isPlayerMove(side, ply);
+  const [all, setAll] = useState(false);
   if (!inRepertoire) {
     return (
       <p className="order-4 px-1 text-[14px]" style={{ color: COLOURS.leafSoft }}>
@@ -194,7 +209,7 @@ function Repertoire({ side, path, node, inRepertoire, ply, here }: { side: Side;
     );
   }
   const moves = [...node.children].sort((a, b) => b.games - a.games);
-  const shown = moves.slice(0, SHOWN_MOVES);
+  const shown = all ? moves : moves.slice(0, SHOWN_MOVES);
   return (
     <div className="order-4 flex flex-col gap-1 px-1 text-[14px]">
       <span className="text-[12px] font-semibold" style={{ color: COLOURS.leafSoft }}>
@@ -204,11 +219,15 @@ function Repertoire({ side, path, node, inRepertoire, ply, here }: { side: Side;
       {moves.length ? (
         <span className="flex flex-wrap gap-x-3 gap-y-0.5 font-bold" style={{ color: mine ? REPERTOIRE : COLOURS.leaf }}>
           {shown.map((child) => (
-            <span key={child.key} className="whitespace-nowrap">
+            <button key={child.key} type="button" onClick={() => onMove(child.san!)} title="Go to this move" className="whitespace-nowrap rounded px-0.5 underline-offset-4 hover:underline focus-visible:outline-2">
               {figurineMove(child.san!, ply)}
-            </span>
+            </button>
           ))}
-          {moves.length > shown.length && <span style={{ color: COLOURS.leafSoft }}>+{moves.length - shown.length} more</span>}
+          {moves.length > shown.length && (
+            <button type="button" onClick={() => setAll(true)} className="rounded px-0.5 underline-offset-4 hover:underline focus-visible:outline-2" style={{ color: COLOURS.leafSoft }}>
+              +{moves.length - shown.length} more
+            </button>
+          )}
         </span>
       ) : (
         <span style={{ color: COLOURS.leafSoft }}>{mine ? 'Your repertoire stops here.' : 'No reply prepared yet.'}</span>

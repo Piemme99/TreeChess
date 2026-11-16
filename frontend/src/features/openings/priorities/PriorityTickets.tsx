@@ -90,7 +90,7 @@ function Ticket({ priority, rank, share, selected, onSelect, onPoint }: TicketPr
             <span
               aria-hidden="true"
               className="h-3.5 w-3.5 rounded-full"
-              style={{ background: priority.side === 'w' ? 'white' : COLOURS.leaf, boxShadow: `0 0 0 1.5px ${selected ? COLOURS.cream : COLOURS.leaf}` }}
+              style={{ background: priority.side === 'w' ? 'white' : 'oklch(0.2 0.02 150)', boxShadow: `0 0 0 1.5px ${selected ? COLOURS.cream : COLOURS.leaf}` }}
             />
             {priority.side === 'w' ? 'White' : 'Black'}
           </span>

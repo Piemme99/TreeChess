@@ -179,7 +179,7 @@ export function FlameTiles({ tree, focusPath, onFocusChange, onPoint, priorities
 
       <ul aria-label="Legend" className="flex flex-wrap items-center gap-2 text-[12px] font-medium">
         {(['losing', 'slipping', 'even', 'winning'] as const).map((toneKey) => (
-          <li key={toneKey} className="rounded-full px-2.5 py-1" style={{ ...tile(TONES[toneKey].bg), color: TONES[toneKey].fg }}>
+          <li key={toneKey} className="rounded-full px-2.5 py-1" style={{ background: TONES[toneKey].bg, color: TONES[toneKey].fg, boxShadow: toneKey === 'even' ? REST.edge : undefined }}>
             {TONES[toneKey].label}
           </li>
         ))}

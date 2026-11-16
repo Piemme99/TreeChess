@@ -16,6 +16,8 @@ const LANDING_SHARES = [0.02, 0.03, 0.05, 0.08, 0.12, 0.2];
 const READABLE = 0.9;
 const NO_PREVIEW: readonly (readonly string[])[] = [];
 const NO_PINS: readonly string[] = [];
+// Plus sombre que le terracotta : le chiffre blanc y reste lisible (≥ 4,5:1).
+const BADGE = 'oklch(0.5 0.15 35)';
 // Les ajouts du joueur, teintés du vert du répertoire pour qu'il retrouve son travail.
 const ADDED = 'oklch(0.91 0.06 162)';
 
@@ -261,10 +263,19 @@ export function RepertoireMap({ root: drawn, side, selected, onSelect, focus, lo
           ))}
         </g>
       </svg>
-      {overflow.right && <EdgeHint side="right" onClick={() => pan(-size.width * 0.5)} />}
-      {overflow.left && <EdgeHint side="left" onClick={() => pan(size.width * 0.5)} />}
       <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-end justify-end gap-3 p-3">
         <div className="pointer-events-auto flex items-center gap-1 rounded-full p-1 text-[13px] font-semibold" style={{ background: COLOURS.cream, color: COLOURS.leaf }}>
+          {/* Les flèches de défilement dans la barre, pas sur la carte : sur la carte, elles cachaient des nœuds. */}
+          {overflow.left && (
+            <MapButton label="Show more on the left" onClick={() => pan(size.width * 0.4)}>
+              ←
+            </MapButton>
+          )}
+          {overflow.right && (
+            <MapButton label="Show more on the right" onClick={() => pan(-size.width * 0.4)}>
+              →
+            </MapButton>
+          )}
           <MapButton label="Zoom out" onClick={() => zoomBy(1 / 1.25, size, anchor())}>
             −
           </MapButton>
@@ -275,14 +286,14 @@ export function RepertoireMap({ root: drawn, side, selected, onSelect, focus, lo
             +
           </MapButton>
           <MapButton
-            label="Fit the map"
+            label="Reset the view"
             onClick={() => {
               setFolding({ opened: new Set(), closed: new Set(), revealed: new Set() });
               setShare(null);
               refit.current = true;
             }}
           >
-            Fit
+            Reset view
           </MapButton>
         </div>
       </div>
@@ -304,27 +315,6 @@ function boxOf(nodes: readonly PlacedNode[]): Box {
   const top = Math.min(...nodes.map((node) => node.y)) - ROW;
   const bottom = Math.max(...nodes.map((node) => node.y)) + ROW;
   return { x: left, y: top, width: right - left, height: bottom - top };
-}
-
-function EdgeHint({ side, onClick }: { side: 'left' | 'right'; onClick: () => void }) {
-  const right = side === 'right';
-  return (
-    <div
-      className={`pointer-events-none absolute inset-y-0 ${right ? 'right-0' : 'left-0'} flex w-14 items-center justify-center`}
-      style={{ background: `linear-gradient(to ${right ? 'left' : 'right'}, ${COLOURS.paper} 30%, oklch(0.985 0.012 85 / 0))` }}
-    >
-      <button
-        type="button"
-        onClick={onClick}
-        aria-label={right ? 'More of the map to the right' : 'More of the map to the left'}
-        title={right ? 'More to the right' : 'More to the left'}
-        className="pointer-events-auto grid size-9 place-items-center rounded-full text-[20px] font-bold focus-visible:outline-2"
-        style={{ background: COLOURS.sand, color: COLOURS.leaf, boxShadow: '0 2px 6px -2px oklch(0.35 0.06 60 / 0.35)' }}
-      >
-        {right ? '›' : '‹'}
-      </button>
-    </div>
-  );
 }
 
 function MapButton({ label, onClick, children }: { label: string; onClick: () => void; children: ReactNode }) {
@@ -474,7 +464,7 @@ function Pill({ placed, side, selected, onClick, onDoubleClick, onOpen, onHover,
       </text>
       {node.toSettle > 0 && !node.stub && (
         <g transform={`translate(${width / 2 - 2} ${-h / 2 - 3})`} aria-hidden="true">
-          <rect x={-11} y={-9} width={node.toSettle > 9 ? 28 : 22} height={18} rx={9} fill={COLOURS.terracotta} stroke={COLOURS.paper} strokeWidth={2} />
+          <rect x={-11} y={-9} width={node.toSettle > 9 ? 28 : 22} height={18} rx={9} fill={BADGE} stroke={COLOURS.paper} strokeWidth={2} />
           <text x={node.toSettle > 9 ? 3 : 0} textAnchor="middle" dominantBaseline="central" fontSize={12} fontWeight={800} fill="white">
             {node.toSettle}
           </text>

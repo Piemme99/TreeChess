@@ -42,7 +42,8 @@ function carriesMark(root: MapNode, revealed: ReadonlySet<string>): Map<string, 
   const carries = new Map<string, boolean>();
   const walk = (node: MapNode): boolean => {
     const below = node.children.map(walk).some(Boolean);
-    const result = (!node.stub && (isMarked(node) || revealed.has(node.key))) || below;
+    // Un bout de transposition dévoilé se montre aussi : c'est le lien vers l'endroit où la ligne est rangée.
+    const result = (!node.stub && isMarked(node)) || revealed.has(node.key) || below;
     carries.set(node.key, result);
     return result;
   };

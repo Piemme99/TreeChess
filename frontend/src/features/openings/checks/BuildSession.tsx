@@ -100,7 +100,7 @@ export function BuildSession({ origin, games, repertoire, onAccept, onCancel, ch
     >
       <aside
         aria-label="Position"
-        className={`flex flex-col gap-3 self-start ${stacked ? 'mx-auto w-full max-w-[18rem] lg:max-w-[14rem]' : 'lg:sticky lg:top-6'}`}
+        className={`flex flex-col gap-3 self-start ${stacked ? 'mx-auto w-full max-w-[18rem] lg:max-w-[16rem]' : 'lg:sticky lg:top-6'}`}
       >
         <PlayableBoard path={builder.path} flipped={origin.side === 'b'} arrows={arrows} suggestions={suggestions} onMove={builder.play} />
         <p className="flex flex-wrap justify-center gap-x-3 gap-y-0.5 px-1 text-[11px] font-semibold" style={{ color: ARROW.neutral.colour }}>
