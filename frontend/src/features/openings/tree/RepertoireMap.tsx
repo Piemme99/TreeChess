@@ -130,7 +130,8 @@ export function RepertoireMap({ root: drawn, side, selected, onSelect, focus, lo
     const along = layout.nodes.filter(
       (node) => node === placed || focus.key.startsWith(`${node.node.key} `) || node.node.san === null || (node.node.key.startsWith(`${focus.key} `) && node.node.path.length === placed.node.path.length + 1),
     );
-    reveal(boxOf(along), size, Math.min(transform.k, READABLE));
+    // Pendant une construction la carte n'est qu'un repère, plus étroite : elle peut descendre plus bas pour garder le départ.
+    reveal(boxOf(along), size, Math.min(transform.k, locked ? 0.65 : READABLE));
     // `transform.k` n'est lu qu'au moment de servir la demande.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focus, layout.nodes, reveal, size]);
@@ -138,7 +139,9 @@ export function RepertoireMap({ root: drawn, side, selected, onSelect, focus, lo
   // La carte rétrécit quand le volet s'élargit (construction) : le nœud choisi doit rester dans le cadre.
   useEffect(() => {
     const placed = layout.nodes.find((node) => node.node.key === selected);
-    if (placed && size.width) reveal(boxOf([placed]), size, 0);
+    if (!placed || !size.width) return;
+    const along = layout.nodes.filter((node) => node === placed || selected.startsWith(`${node.node.key} `) || node.node.san === null);
+    reveal(boxOf(along), size, locked ? 0.65 : transform.k);
     // Seul un changement de taille relance ce cadrage.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [size.width, size.height]);
@@ -498,8 +501,9 @@ function Pill({ placed, side, selected, onClick, onDoubleClick, onOpen, onHover,
 function HoverBoard({ hover, side, frame }: { hover: Hover; side: Side; frame: DOMRect | undefined }) {
   // Toujours au même coin de la carte, loin du pointeur : il ne cache pas la branche qu'on manipule.
   const width = 188;
-  const nearLeft = frame !== undefined && hover.x < frame.left + width + 40 && hover.y < frame.top + 260;
-  const left = frame ? (nearLeft ? frame.right - width - 12 : frame.left + 12) : hover.x + 16;
+  // En haut à droite, là où la carte a le moins de nœuds ; à gauche si le pointeur y est déjà.
+  const nearRight = frame !== undefined && hover.x > frame.right - width - 40 && hover.y < frame.top + 260;
+  const left = frame ? (nearRight ? frame.left + 12 : frame.right - width - 12) : hover.x + 16;
   const top = frame ? frame.top + 12 : hover.y + 16;
   return (
     <div role="tooltip" className="pointer-events-none fixed z-40 flex flex-col gap-1.5" style={{ left, top, width }}>

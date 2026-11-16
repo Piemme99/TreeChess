@@ -94,7 +94,8 @@ export function BuildPanel({ builder, candidates, fresh, onPoint, onAccept, onCa
 
       <p className="text-[12px]" style={{ color: COLOURS.leafSoft }}>
         <strong>{origin.side === 'w' ? 'White' : 'Black'} %</strong>: how players of your colour score after the move on Lichess, 1400–1800 ·{' '}
-        <strong>Engine</strong>: + is good for you · <strong>You</strong>: how often you played it in 12 months, and how you scored (from 3 games).
+        <strong>Engine</strong>: + is good for you · <strong>You</strong>: how often you played it in 12 months, and your score once you have 3 games (
+        <span style={{ color: COLOURS.terracotta }}>red</span>: where you score worst).
       </p>
       {lines.length > 0 && (
         <div className="flex flex-col gap-1.5">
@@ -411,8 +412,8 @@ function EvalBar({ cp: whiteCp, side }: { cp: number | undefined; side: Side }) 
 function verdictOf(cp: number): string {
   // Sur la valeur affichée, arrondie au dixième : « +0.5 » doit toujours dire la même chose.
   const shown = Math.round(cp / 10) * 10;
-  if (Math.abs(shown) < 50) return '(equal)';
-  if (Math.abs(shown) < 150) return shown > 0 ? '(slightly better)' : '(slightly worse)';
+  if (Math.abs(shown) < 30) return '(equal)';
+  if (Math.abs(shown) < 100) return shown > 0 ? '(slightly better)' : '(slightly worse)';
   return cp > 0 ? '(better for you)' : '(worse for you)';
 }
 
@@ -449,7 +450,7 @@ function Action({ onClick, primary = false, disabled = false, children }: { onCl
       className="cursor-pointer whitespace-nowrap rounded-full px-4 py-2 text-[14px] font-bold focus-visible:outline-2 disabled:cursor-default"
       style={
         disabled
-          ? { background: 'transparent', color: COLOURS.leafSoft, boxShadow: `inset 0 0 0 1.5px ${COLOURS.sand}` }
+          ? { background: 'transparent', color: COLOURS.leafSoft, boxShadow: `inset 0 0 0 1.5px ${COLOURS.sand}`, opacity: 0.6, cursor: 'not-allowed' }
           : primary
             ? { background: COLOURS.leaf, color: COLOURS.cream }
             : { ...tile(COLOURS.sand), color: COLOURS.leaf }

@@ -94,13 +94,13 @@ export function BuildSession({ origin, games, repertoire, onAccept, onCancel, ch
     <Wrapper
       className={
         stacked
-          ? 'flex flex-col gap-4 lg:h-[calc(100vh-15rem)] lg:min-h-[32rem]'
+          ? 'flex flex-col gap-4 lg:grid lg:grid-cols-[17rem_minmax(0,1fr)] lg:items-start lg:gap-5'
           : 'mx-auto flex max-w-[84rem] flex-col gap-6 px-4 pt-6 lg:grid lg:grid-cols-[minmax(0,30rem)_1fr] lg:gap-10 lg:px-8 lg:pt-8'
       }
     >
       <aside
         aria-label="Position"
-        className={`flex flex-col gap-3 self-start ${stacked ? 'mx-auto w-full max-w-[18rem] shrink-0 lg:max-w-[16rem]' : 'lg:sticky lg:top-6'}`}
+        className={`flex flex-col gap-3 self-start ${stacked ? 'mx-auto w-full max-w-[18rem] lg:sticky lg:top-4 lg:max-w-none' : 'lg:sticky lg:top-6'}`}
       >
         <PlayableBoard path={builder.path} flipped={origin.side === 'b'} arrows={arrows} suggestions={suggestions} onMove={builder.play} />
         <p className="flex flex-wrap gap-x-4 gap-y-1 px-1 text-[12px] font-semibold" style={{ color: ARROW.neutral.colour }}>
@@ -110,8 +110,7 @@ export function BuildSession({ origin, games, repertoire, onAccept, onCancel, ch
           {arrows.some((arrow) => 'kind' in arrow && arrow.kind === 'neutral') && <Swatch colour={ARROW.neutral.colour}>other moves in the table</Swatch>}
         </p>
       </aside>
-      {/* Dans le volet, seul le panneau défile : l'échiquier au-dessus et le titre ne bougent pas. */}
-      <div className={`flex min-w-0 flex-col ${stacked ? 'gap-4 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:rounded-3xl' : 'gap-6 lg:gap-10'}`}>
+      <div className={`flex min-w-0 flex-col ${stacked ? 'gap-4' : 'gap-6 lg:gap-10'}`}>
         <BuildPanel
           compact={stacked}
           repertoire={repertoire}

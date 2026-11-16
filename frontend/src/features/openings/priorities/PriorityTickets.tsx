@@ -44,7 +44,7 @@ export function PriorityTickets({ priorities, isSelected, onSelect, onPoint }: P
       )}
       {priorities.length > 0 && (
         <p className="-mt-1 text-[12px]" style={{ color: COLOURS.leafSoft }}>
-          The bar: points lost over 12 months, against priority 1. Click a card to see its line below.
+          The bar: points lost over 12 months, against priority 1. Click a card to see its line on the board and in the chart.
         </p>
       )}
     </section>

@@ -101,7 +101,7 @@ export function PositionPane({ side, path, node, recent, steps, priority, action
           )}
         </div>
       </div>
-      <div className={`order-2 mx-auto w-full lg:max-w-[16rem] ${card ? 'max-w-[18rem]' : 'max-w-[24rem]'}`}>
+      <div className={`order-2 mx-auto w-full lg:max-w-[20rem] ${card ? 'max-w-[18rem]' : 'max-w-[24rem]'}`}>
         <PlayableBoard path={path} flipped={side === 'b'} arrows={arrows} suggestions={suggestions} onMove={onMove} />
         {arrows.length > 0 && (
           <p className="mt-2 flex flex-wrap justify-center gap-x-4 text-[12px] font-semibold" style={{ color: COLOURS.leafSoft }}>
@@ -274,6 +274,11 @@ function Step({ step, ply, here, actions, onSkip }: { step: SessionStep; ply: nu
         <Fact move={played} node={playedFact} who={left ? 'you' : 'they'} best={best === step.played} />
         {left && step.planned.map((san) => <Fact key={san} move={figurineMove(san, ply)} node={factOf(san)} who="you" repertoire best={best === san} />)}
       </ul>
+      {left && [step.played, ...step.planned].some((san) => (factOf(san)?.games ?? 0) < MIN_GAMES_TO_COMPARE) && (
+        <p className="-mt-1 text-[12px]" style={{ color: COLOURS.leafSoft }}>
+          Fewer than {MIN_GAMES_TO_COMPARE} games on a move: too few to tell which scores better.
+        </p>
+      )}
       {left ? (
         <div className="flex flex-col gap-1.5">
           <Action onClick={() => actions.onAdd(step)} tone={best === step.played ? 'primary' : 'plain'}>

@@ -132,7 +132,8 @@ export function forEachNode(root: MapNode, visit: (node: MapNode, parent: MapNod
   walk(root, null);
 }
 
-export const isMarked = (node: MapNode) => node.toSettle > 0 || node.priority !== undefined || node.added === true;
+// Les ajouts ne forcent pas le dépliage : ils prendraient la place des lignes jouées. Ils se voient quand ils pèsent, ou juste ajoutés.
+export const isMarked = (node: MapNode) => node.toSettle > 0 || node.priority !== undefined;
 
 /** Les nœuds marqués, les plus de parties à trancher d'abord, puis les priorités par rang. */
 export function markedNodes(root: MapNode): { toSettle: MapNode[]; priorities: MapNode[] } {

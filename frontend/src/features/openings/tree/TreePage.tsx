@@ -96,6 +96,8 @@ export function TreePage() {
     const found = findNode(maps[target], key);
     if (!found) return;
     setLead('settle');
+    // Le bilan d'une séance finie s'efface dès qu'on va ailleurs.
+    setSession((active) => (active && (active.ended || !active.queue.some((k) => !active.done.has(k) && live.has(k))) ? null : active));
     setSide(target);
     setPaths((current) => ({ ...current, [target]: found.path }));
     setFocus({ key, stamp: Date.now(), centre });
@@ -138,6 +140,7 @@ export function TreePage() {
     setSession({ queue: ordered.map((step) => step.key), done: new Map() });
     build(null);
     setView('position');
+    toTop();
   };
   const settle = (step: SessionStep, addition: Addition | null, text: string) => {
     if (addition) add(addition);
@@ -269,7 +272,7 @@ export function TreePage() {
     const dropped = before.current.filter((key) => !live.has(key)).length;
     before.current = null;
     if (dropped) {
-      show({ text: `${dropped} ${dropped === 1 ? 'position' : 'positions'} dropped: an opponent move met once comes back only if it is played again` });
+      show({ text: `${dropped} one-off opponent ${dropped === 1 ? 'move' : 'moves'} cleared: ${dropped === 1 ? 'it comes' : 'they come'} back if played again` });
     }
     // Seul le changement de jour compte ; `steps` est recalculé dans le même rendu.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -313,7 +316,7 @@ export function TreePage() {
             </div>
             <span className="flex w-full flex-wrap gap-2 sm:ml-auto sm:w-auto sm:flex-nowrap">
               {session && current ? (
-                <SessionBar index={position} total={session.queue.length} settled={settled} side={current.side} onEnd={() => setSession((active) => active && { ...active, ended: true })} />
+                <SessionBar index={position} total={session.queue.length} settled={position - 1} side={current.side} onEnd={() => setSession((active) => active && { ...active, ended: true })} />
               ) : (
                 <Door
                   onClick={steps.length && !session ? startSession : undefined}
@@ -330,13 +333,14 @@ export function TreePage() {
               <Door
                 onClick={pins.length ? () => goToPriority(node.priority !== undefined ? (node.priority % pins.length) + 1 : shownRank) : undefined}
                 title={priorities.length ? `Priority ${shownRank} of ${priorities.length}` : 'No priority'}
-                className={session ? 'hidden sm:flex' : undefined}
+                className={session && current ? 'hidden sm:flex' : undefined}
               >
                 {priorities[shownRank - 1] ? <PriorityLabel priority={priorities[shownRank - 1]} /> : 'Nothing below your average'}
               </Door>
             </span>
           </div>
-          <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_25rem]">
+          {/* Pendant une construction, le volet s'élargit : l'échiquier à côté du tableau, comme sur Games. */}
+          <div className={`grid gap-5 ${building ? 'lg:grid-cols-[minmax(0,1fr)_minmax(0,44rem)]' : 'lg:grid-cols-[minmax(0,1fr)_25rem]'}`}>
             {(wide || view === 'map') && (
               <div className="lg:sticky lg:top-4 lg:h-[calc(100vh-11rem)]">
                 {wide ? (
