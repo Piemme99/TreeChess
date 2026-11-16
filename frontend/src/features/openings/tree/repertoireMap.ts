@@ -21,6 +21,8 @@ export interface MapNode {
   toSettle: number;
   /** Rang de la priorité qui finit ici. */
   priority?: number;
+  /** Un coup de la construction en cours, pas encore au répertoire. */
+  ghost?: boolean;
 }
 
 export interface MapMarks {
@@ -88,6 +90,33 @@ function positionAfter(path: readonly string[]): string {
   const chess = new Chess();
   for (const san of path) chess.move(san);
   return positionKey(chess.fen());
+}
+
+/**
+ * La carte avec les lignes d'une construction en cours greffées en fantômes. Seuls les nœuds sur le
+ * chemin d'une greffe sont copiés : la carte d'origine, mémorisée, reste intacte.
+ */
+export function withPreview(root: MapNode, lines: readonly (readonly string[])[]): MapNode {
+  if (!lines.length) return root;
+  const copy = (node: MapNode): MapNode => ({ ...node, children: [...node.children] });
+  const grafted = copy(root);
+  for (const line of lines) {
+    let parent = grafted;
+    line.forEach((san, index) => {
+      const at = parent.children.findIndex((child) => child.san === san);
+      if (at >= 0) {
+        const child = copy(parent.children[at]);
+        parent.children[at] = child;
+        parent = child;
+        return;
+      }
+      const path = line.slice(0, index + 1);
+      const ghost: MapNode = { key: keyOf(path), path, san, ply: index + 1, position: '', games: 0, children: [], stub: false, toSettle: 0, ghost: true };
+      parent.children.push(ghost);
+      parent = ghost;
+    });
+  }
+  return grafted;
 }
 
 export function forEachNode(root: MapNode, visit: (node: MapNode, parent: MapNode | null) => void) {

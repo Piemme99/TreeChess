@@ -65,10 +65,10 @@ export function PositionPane({ side, path, node, recent, steps, priority, action
 
   return (
     <aside aria-label="Position" className="flex flex-col gap-4">
-      <div className="order-3 mx-auto w-full max-w-[24rem] lg:order-none lg:max-w-[20rem]">
+      <div className="order-3 mx-auto w-full max-w-[24rem] lg:max-w-[20rem]">
         <PlayableBoard path={path} flipped={side === 'b'} arrows={arrows} suggestions={suggestions} onMove={onMove} />
       </div>
-      <div className="order-1 flex items-start gap-3 px-1 lg:order-none">
+      <div className="order-1 flex items-start gap-3 px-1">
         {onBack && (
           <motion.button
             type="button"
@@ -95,7 +95,7 @@ export function PositionPane({ side, path, node, recent, steps, priority, action
       </div>
       <Repertoire side={side} path={path} node={node} inRepertoire={inRepertoire} ply={ply} />
       {inRepertoire && steps.length > 0 && (
-        <section aria-label="To settle" className="order-2 flex flex-col gap-4 rounded-2xl lg:order-none px-4 py-3.5 text-[14px]" style={{ background: COLOURS.paper, boxShadow: `inset 0 0 0 1.5px ${COLOURS.terracotta}` }}>
+        <section aria-label="To settle" className="order-2 flex flex-col gap-4 rounded-2xl px-4 py-3.5 text-[14px]" style={{ background: COLOURS.paper, boxShadow: `inset 0 0 0 1.5px ${COLOURS.terracotta}` }}>
           <span className="text-[12px] font-bold uppercase tracking-[0.06em]" style={{ color: COLOURS.terracotta }}>
             To settle
           </span>
@@ -110,14 +110,14 @@ export function PositionPane({ side, path, node, recent, steps, priority, action
         </section>
       )}
       {inRepertoire && priority && (
-        <section aria-label="Priority" className="order-2 flex flex-col gap-2.5 rounded-2xl lg:order-none px-4 py-3.5 text-[14px]" style={{ background: COLOURS.leaf, color: COLOURS.cream }}>
+        <section aria-label="Priority" className="order-2 flex flex-col gap-2.5 rounded-2xl px-4 py-3.5 text-[14px]" style={{ background: COLOURS.leaf, color: COLOURS.cream }}>
           <span className="text-[12px] font-bold uppercase tracking-[0.06em]" style={{ color: COLOURS.apricot }}>
             Priority {node.priority}
           </span>
           <PriorityVerdict priority={priority} here={here} average={average} />
           {onPrepareFollows && (
             <Action onClick={onPrepareFollows} tone="light">
-              Prepare what follows
+              Extend from here
             </Action>
           )}
           {onNextPriority && (
@@ -127,13 +127,15 @@ export function PositionPane({ side, path, node, recent, steps, priority, action
           )}
         </section>
       )}
-      <div className="order-5 lg:order-none">
+      {!(inRepertoire && priority && onPrepareFollows) && (
+      <div className="order-5">
         <Action onClick={onExtend} tone={inRepertoire ? 'plain' : 'primary'}>
           {inRepertoire ? 'Extend from here' : 'Add this line to my repertoire'}
         </Action>
       </div>
-      <p className="hidden px-1 text-[12px] lg:block" style={{ color: COLOURS.leafSoft }}>
-        Play on the board or click the map. Keys: ← back · → main move · ↑ ↓ other moves · Home start.
+      )}
+      <p className="order-6 hidden px-1 text-[12px] lg:block" style={{ color: COLOURS.leafSoft }}>
+        Play on the board or click the map. Keys: ← back · → main move · ↑ ↓ other moves · Home start · + − fold.
       </p>
     </aside>
   );
@@ -143,7 +145,7 @@ function Repertoire({ side, path, node, inRepertoire, ply }: { side: Side; path:
   const mine = isPlayerMove(side, ply);
   if (!inRepertoire) {
     return (
-      <p className="order-4 px-1 text-[14px] lg:order-none" style={{ color: COLOURS.leafSoft }}>
+      <p className="order-4 px-1 text-[14px]" style={{ color: COLOURS.leafSoft }}>
         <strong style={{ color: COLOURS.terracotta }}>Off your repertoire</strong> since {figurineMove(path[node.path.length], node.path.length + 1)}
       </p>
     );
@@ -151,7 +153,7 @@ function Repertoire({ side, path, node, inRepertoire, ply }: { side: Side; path:
   const moves = [...node.children].sort((a, b) => b.games - a.games);
   const shown = moves.slice(0, SHOWN_MOVES);
   return (
-    <div className="order-4 flex flex-col gap-1 px-1 text-[14px] lg:order-none">
+    <div className="order-4 flex flex-col gap-1 px-1 text-[14px]">
       <span className="text-[12px] font-semibold" style={{ color: COLOURS.leafSoft }}>
         {mine ? 'Your move here' : 'Their replies you have prepared'}
         {node.games > 0 && ` · ${node.games} ${node.games === 1 ? 'game' : 'games'} reached this in 12 months`}

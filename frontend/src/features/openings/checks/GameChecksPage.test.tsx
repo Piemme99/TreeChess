@@ -100,6 +100,7 @@ describe('GameChecksPage', () => {
     fireEvent.click(within(actionable()[0]).getByRole('button', { name: /^(Stay on|Not worth)/ }));
     expect(actionable()).toHaveLength(7);
 
+    fireEvent.click(within(replayBar()).getByRole('button', { name: 'Reset…' }));
     fireEvent.click(within(replayBar()).getByRole('button', { name: 'Reset' }));
     nextDay();
 

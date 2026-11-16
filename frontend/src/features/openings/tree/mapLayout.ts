@@ -6,8 +6,8 @@ import type { MapNode } from './repertoireMap';
 export const ROW = 34;
 export const COLUMN = 128;
 export const PILL_HEIGHT = 24;
-export const FONT_SIZE = 14;
-const CHAR = 8;
+export const FONT_SIZE = 15;
+const CHAR = 8.6;
 const PADDING = 18;
 
 export interface PlacedNode {

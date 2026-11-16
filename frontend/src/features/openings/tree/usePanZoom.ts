@@ -4,6 +4,8 @@ export interface Transform {
   x: number;
   y: number;
   k: number;
+  /** Un recadrage demandé glisse ; le glisser et la molette suivent le pointeur sans délai. */
+  animate?: boolean;
 }
 
 const MIN = 0.3;
@@ -53,7 +55,7 @@ export function usePanZoom(ref: RefObject<HTMLElement | null>) {
       setTransform((current) => {
         const k = Math.min(MAX, Math.max(MIN, current.k * Math.exp(-event.deltaY * 0.0018)));
         const f = k / current.k;
-        return { k, x: px - (px - current.x) * f, y: py - (py - current.y) * f };
+        return { k, x: px - (px - current.x) * f, y: py - (py - current.y) * f, animate: false };
       });
     };
     element.addEventListener('wheel', onWheel, { passive: false });
@@ -77,7 +79,7 @@ export function usePanZoom(ref: RefObject<HTMLElement | null>) {
     start.moved = true;
     dragged.current = true;
     drag.current = { x: event.clientX, y: event.clientY, moved: true };
-    setTransform((current) => ({ ...current, x: current.x + dx, y: current.y + dy }));
+    setTransform((current) => ({ ...current, x: current.x + dx, y: current.y + dy, animate: false }));
   }, []);
 
   const onPointerUp = useCallback(() => {
@@ -109,6 +111,7 @@ export function usePanZoom(ref: RefObject<HTMLElement | null>) {
         k,
         x: fitAxis(box.x, box.width, x, MARGIN, room.width),
         y: fitAxis(box.y, box.height, y, MARGIN, room.height),
+        animate: true,
       };
     });
   }, []);
@@ -119,7 +122,7 @@ export function usePanZoom(ref: RefObject<HTMLElement | null>) {
       const f = k / current.k;
       const px = size.width / 2;
       const py = size.height / 2;
-      return { k, x: px - (px - current.x) * f, y: py - (py - current.y) * f };
+      return { k, x: px - (px - current.x) * f, y: py - (py - current.y) * f, animate: true };
     });
   }, []);
 
@@ -128,7 +131,7 @@ export function usePanZoom(ref: RefObject<HTMLElement | null>) {
     if (!size.width || !size.height) return;
     const height = size.height - BOTTOM_BAR;
     const k = Math.min(1, Math.max(Math.min(size.width / bounds.width, height / bounds.height), floor));
-    setTransform({ k, x: -bounds.x * k + 8, y: (height - bounds.height * k) / 2 - bounds.y * k });
+    setTransform({ k, x: -bounds.x * k + 8, y: (height - bounds.height * k) / 2 - bounds.y * k, animate: true });
   }, []);
 
   return { transform, handlers: { onPointerDown, onPointerMove, onPointerUp, onPointerCancel: onPointerUp }, dragged, reveal, zoomBy, fit, setTransform };

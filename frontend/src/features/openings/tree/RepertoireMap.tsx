@@ -6,12 +6,13 @@ import { WorkshopBoard } from '../board/WorkshopBoard';
 import { COLOURS, REPERTOIRE } from '../workshop/theme';
 import { visibleNodes, type Folding } from './fold';
 import { FONT_SIZE, layoutMap, PILL_HEIGHT, ROW, type PlacedNode } from './mapLayout';
-import type { MapNode } from './repertoireMap';
+import { withPreview, type MapNode } from './repertoireMap';
 import { useElementSize, usePanZoom, type Box } from './usePanZoom';
 
 export const LANDING_DEPTH = 6;
 // Sous cette part des parties du camp, une ligne se replie à l'arrivée (comme le Pruned du flame graph).
 const LANDING_SHARE = 0.02;
+const NO_PREVIEW: readonly (readonly string[])[] = [];
 
 interface RepertoireMapProps {
   root: MapNode;
@@ -22,6 +23,8 @@ interface RepertoireMapProps {
   focus: { key: string; stamp: number; centre: boolean } | null;
   /** Pendant une construction, la carte reste sous les yeux mais ne change plus de position. */
   locked?: boolean;
+  /** Les lignes de la construction en cours, dessinées en fantômes. */
+  preview?: readonly (readonly string[])[];
 }
 
 interface Hover {
@@ -30,7 +33,8 @@ interface Hover {
   y: number;
 }
 
-export function RepertoireMap({ root, side, selected, onSelect, focus, locked = false }: RepertoireMapProps) {
+export function RepertoireMap({ root: drawn, side, selected, onSelect, focus, locked = false, preview = NO_PREVIEW }: RepertoireMapProps) {
+  const root = useMemo(() => withPreview(drawn, preview), [drawn, preview]);
   const container = useRef<HTMLDivElement>(null);
   const size = useElementSize(container);
   const { transform, handlers, dragged, reveal, zoomBy, fit } = usePanZoom(container);
@@ -39,11 +43,17 @@ export function RepertoireMap({ root, side, selected, onSelect, focus, locked = 
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pills = useRef(new Map<string, SVGGElement>());
 
-  const layout = useMemo(() => layoutMap(root, visibleNodes(root, LANDING_DEPTH, LANDING_SHARE * root.games, folding)), [root, folding]);
+  // La sélection et la construction en cours restent dépliées, quoi qu'il arrive à la carte autour.
+  const kept = useMemo(
+    () => ({ ...folding, revealed: new Set([...folding.revealed, selected, ...preview.map((line) => line.join(' '))]) }),
+    [folding, selected, preview],
+  );
+  const layout = useMemo(() => layoutMap(root, visibleNodes(root, LANDING_DEPTH, LANDING_SHARE * root.games, kept)), [root, kept]);
   const maxGames = root.games || 1;
 
-  // Un autre répertoire, une autre carte : le repli repart de zéro. Déclaré avant le dévoilement, qui doit lui survivre.
-  useEffect(() => setFolding({ opened: new Set(), closed: new Set(), revealed: new Set() }), [root]);
+  // Un autre camp, une autre carte : le repli repart de zéro. Un nouveau jour ou un ajout ne touchent pas au repli
+  // du joueur. Déclaré avant le dévoilement, qui doit lui survivre.
+  useEffect(() => setFolding({ opened: new Set(), closed: new Set(), revealed: new Set() }), [side]);
 
   useEffect(() => {
     if (!focus) return;
@@ -51,12 +61,12 @@ export function RepertoireMap({ root, side, selected, onSelect, focus, locked = 
   }, [focus]);
 
   // Le cadrage attend la taille du conteneur ; il ne touche pas au repli, sinon il effacerait le dévoilement.
-  const fitted = useRef<MapNode | null>(null);
+  const fitted = useRef<Side | null>(null);
   useEffect(() => {
-    if (fitted.current === root || !size.width) return;
-    fitted.current = root;
+    if (fitted.current === side || !size.width) return;
+    fitted.current = side;
     fit(layout.bounds, size);
-  }, [root, size, layout.bounds, fit]);
+  }, [side, size, layout.bounds, fit]);
 
   // Une demande de cadrage n'est servie qu'une fois, dès que son nœud est dessiné : déplier ailleurs ne doit pas ramener la carte.
   const served = useRef<number | null>(null);
@@ -66,7 +76,7 @@ export function RepertoireMap({ root, side, selected, onSelect, focus, locked = 
     if (!placed) return;
     served.current = focus.stamp;
     const along = focus.centre ? layout.nodes.filter((node) => focus.key === node.node.key || focus.key.startsWith(`${node.node.key} `) || node.node.san === null) : [placed];
-    reveal(boxOf(along), size, focus.centre ? 0.65 : transform.k);
+    reveal(boxOf(along), size, focus.centre ? 0.8 : transform.k);
     // `transform.k` n'est lu qu'au moment de servir la demande.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focus, layout.nodes, reveal, size]);
@@ -126,16 +136,22 @@ export function RepertoireMap({ root, side, selected, onSelect, focus, locked = 
         onPointerLeave={leave}
       >
         <style>{FOCUS_STYLE}</style>
-        <g transform={`translate(${transform.x} ${transform.y}) scale(${transform.k})`}>
+        <g
+          style={{
+            transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.k})`,
+            transformOrigin: '0 0',
+            transition: transform.animate ? 'transform 380ms cubic-bezier(0.22, 1, 0.36, 1)' : 'none',
+          }}
+        >
           {layout.edges.map(({ from, to }) => (
             <path
               key={to.node.key}
               d={edgePath(from, to)}
               fill="none"
-              stroke={to.node.stub ? COLOURS.sand : COLOURS.leafSoft}
-              strokeOpacity={to.node.stub ? 1 : 0.55}
-              strokeWidth={1 + 9 * Math.sqrt(to.node.games / maxGames)}
-              strokeDasharray={to.node.stub ? '3 4' : undefined}
+              stroke={to.node.ghost ? COLOURS.kumquatDeep : to.node.stub ? COLOURS.sand : COLOURS.leafSoft}
+              strokeOpacity={to.node.stub || to.node.ghost ? 1 : 0.55}
+              strokeWidth={to.node.ghost ? 1.8 : 1 + 9 * Math.sqrt(to.node.games / maxGames)}
+              strokeDasharray={to.node.stub ? '3 4' : to.node.ghost ? '5 4' : undefined}
               strokeLinecap="round"
             />
           ))}
@@ -209,9 +225,9 @@ function MapButton({ label, onClick, children }: { label: string; onClick: () =>
 }
 
 /** Les trois encodages de la carte, et le repli. */
-function Legend() {
+export function Legend({ className = 'hidden sm:flex' }: { className?: string }) {
   return (
-    <ul aria-label="Legend" className="hidden flex-wrap items-center gap-x-3 gap-y-1 rounded-2xl px-3 py-1.5 text-[12px] font-semibold sm:flex" style={{ background: COLOURS.cream, color: COLOURS.leafSoft }}>
+    <ul aria-label="Legend" className={`flex-wrap items-center gap-x-3 gap-y-1 rounded-2xl px-3 py-1.5 text-[12px] font-semibold ${className}`} style={{ background: COLOURS.cream, color: COLOURS.leafSoft }}>
       <li className="flex items-center gap-1.5">
         <span className="grid size-[18px] place-items-center rounded-full text-[10px] font-extrabold" style={{ background: COLOURS.leaf, color: COLOURS.cream }}>
           1
@@ -220,7 +236,7 @@ function Legend() {
       </li>
       <li className="flex items-center gap-1.5">
         <span className="grid h-[18px] min-w-[22px] place-items-center rounded-full px-1 text-[11px] font-extrabold text-white" style={{ background: COLOURS.terracotta }}>
-          4
+          n
         </span>
         games to settle
       </li>
@@ -260,15 +276,18 @@ interface PillProps {
 function Pill({ placed, side, selected, onClick, onDoubleClick, onOpen, onHover, onLeave, register }: PillProps) {
   const { node, x, y, width, label, hidden } = placed;
   const mine = node.san !== null && isPlayerMove(side, node.ply);
-  const fill = selected ? COLOURS.leaf : node.stub ? 'transparent' : mine ? COLOURS.cream : COLOURS.paper;
+  const ghost = node.ghost === true;
+  const fill = selected ? COLOURS.leaf : node.stub || ghost ? 'transparent' : mine ? COLOURS.cream : COLOURS.paper;
   const ink = selected ? COLOURS.cream : node.stub ? COLOURS.leafSoft : mine ? COLOURS.leaf : COLOURS.leafSoft;
-  const stroke = node.stub ? COLOURS.sand : mine ? REPERTOIRE : COLOURS.sand;
+  const stroke = ghost ? COLOURS.kumquatDeep : node.stub ? COLOURS.sand : mine ? REPERTOIRE : COLOURS.sand;
   const h = PILL_HEIGHT;
   const title = [
     node.san === null ? 'Starting position' : figurineLine(node.path),
     node.games ? `${node.games} ${node.games === 1 ? 'game' : 'games'}` : '',
     node.priority !== undefined ? `priority ${node.priority}` : '',
     node.toSettle ? `${node.toSettle} ${node.toSettle === 1 ? 'game' : 'games'} to settle` : '',
+    hidden ? `${hidden} folded, press + to unfold` : '',
+    ghost ? 'being added' : '',
   ]
     .filter(Boolean)
     .join(', ');
@@ -287,6 +306,12 @@ function Pill({ placed, side, selected, onClick, onDoubleClick, onOpen, onHover,
         if (event.key === 'Enter' || event.key === ' ') {
           event.preventDefault();
           onClick();
+        } else if ((event.key === '+' || event.key === '=') && hidden > 0) {
+          event.preventDefault();
+          onOpen();
+        } else if (event.key === '-' && node.children.length) {
+          event.preventDefault();
+          onDoubleClick();
         }
       }}
       onDoubleClick={onDoubleClick}
@@ -304,8 +329,8 @@ function Pill({ placed, side, selected, onClick, onDoubleClick, onOpen, onHover,
         rx={h / 2}
         fill={fill}
         stroke={selected ? COLOURS.leaf : stroke}
-        strokeWidth={mine && !node.stub ? 1.6 : 1}
-        strokeDasharray={node.stub ? '2 3' : undefined}
+        strokeWidth={ghost ? 1.8 : mine && !node.stub ? 1.6 : 1}
+        strokeDasharray={node.stub ? '2 3' : ghost ? '4 3' : undefined}
       />
       <text
         textAnchor="middle"
@@ -338,7 +363,7 @@ function Pill({ placed, side, selected, onClick, onDoubleClick, onOpen, onHover,
           transform={`translate(${width / 2 + 6} 0)`}
           role="button"
           data-unfold=""
-          tabIndex={0}
+          tabIndex={-1}
           aria-label={`Unfold ${hidden} more after ${title}`}
           onClick={(event) => {
             event.stopPropagation();
@@ -353,7 +378,7 @@ function Pill({ placed, side, selected, onClick, onDoubleClick, onOpen, onHover,
         >
           <rect x={-2} y={-14} width={38} height={28} fill="transparent" />
           <rect x={0} y={-10} width={34} height={20} rx={10} fill={COLOURS.sand} />
-          <text x={17} textAnchor="middle" dominantBaseline="central" fontSize={11} fontWeight={700} fill={COLOURS.leaf}>
+          <text x={17} textAnchor="middle" dominantBaseline="central" fontSize={12} fontWeight={700} fill={COLOURS.leaf}>
             +{hidden}
           </text>
         </g>

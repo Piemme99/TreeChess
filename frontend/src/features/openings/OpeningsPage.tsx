@@ -46,7 +46,7 @@ export function OpeningsPage() {
   );
   const recentTrees = useMemo(() => treesOf(recentGames), [recentGames]);
   const { repertoires } = useRepertoires(playedGamesFixture);
-  const coveredLines = useMemo(() => repertoireLines(repertoires[side], trees[side]), [repertoires, trees, side]);
+  const coveredLines = useMemo(() => repertoireLines(repertoires[side], recentTrees[side]), [repertoires, recentTrees, side]);
   const priorities = useMemo(
     () => findPriorities(trees, recentTrees, MAX_PRIORITIES),
     [trees, recentTrees],
@@ -135,7 +135,7 @@ export function OpeningsPage() {
               />
               <FlameTiles
                 key={side}
-                tree={trees[side]}
+                tree={recentTrees[side]}
                 focusPath={focusPath}
                 onFocusChange={zoomTo}
                 onPoint={(path) => setPointed(path && { side, path })}

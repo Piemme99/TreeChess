@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import type { AddedMove } from '../domain/addition';
 import { judgeMove, type Judgement } from '../domain/judgement';
 import { repertoireMovesAt, type Repertoire } from '../domain/repertoire';
+import { gamesOfLastMonths } from '../domain/period';
 import { gamesUntil } from '../domain/replay';
 import { useEvaluations } from '../line/engine';
 import { playedGamesFixture } from '../fixtures/playedGames';
@@ -37,7 +38,7 @@ export function GameChecksPage() {
   const selected = lived.find((checked) => checked.id === selectedId) ?? toDecide[0] ?? today[0] ?? null;
   const adding = lived.find((checked) => checked.id === addingId);
   const habits = useMemo(
-    () => (adding ? gamesUntil(playedGamesFixture, replay.day).filter((game) => game.side === adding.game.side) : []),
+    () => (adding ? gamesOfLastMonths(gamesUntil(playedGamesFixture, replay.day), 12, new Date(replay.day)).filter((game) => game.side === adding.game.side) : []),
     [adding, replay.day],
   );
 

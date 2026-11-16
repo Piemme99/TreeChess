@@ -40,7 +40,7 @@ export function Preparation({ preparation, keyPath, onPoint }: PreparationProps)
           your level that the engine approves{dropped > 0 && ` · ${dropped} habit${dropped > 1 ? 's' : ''} to drop`}
         </Note>
       ) : (
-        <Note>Looking at what players of your level play, and asking the engine… {preparation.steps} positions</Note>
+        <Note>Building your preparation from what players of your level play, checked by the engine… {preparation.steps} {preparation.steps === 1 ? 'position' : 'positions'} looked at so far</Note>
       )}
       <p className="flex flex-wrap gap-3 text-[12px] font-semibold" style={{ color: COLOURS.leafSoft }}>
         {Object.values(SOURCES).map((source) => (

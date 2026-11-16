@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { useMemo, useState, type ReactNode } from 'react';
-import { figurineMove } from '../domain/notation';
+import { figurine, figurineMove } from '../domain/notation';
 import { isPlayerMove, nodeAt, type OpeningTree } from '../domain/openingTree';
 import { playerAverage, scoreRate } from '../domain/performance';
 import type { Priority } from '../domain/priorities';
@@ -12,9 +12,10 @@ import { HoverCard, PriorityBadge, type Hover } from './TileHints';
 import { lineTone } from './tone';
 import { useElementWidth } from './useElementWidth';
 
-const ROW = { player: 32, opponent: 14 };
+const ROW = { player: 34, opponent: 22 };
 const GAP = 3;
-const PRUNE = { minPx: 28, coverageFloor: 0.4, minRows: 6, maxRows: 24 };
+// Une tuile plus étroite que son coup en toutes lettres rejoint le « … » : une tuile muette ne dit rien.
+const PRUNE = { minPx: 52, coverageFloor: 0.4, minRows: 6, maxRows: 24 };
 // Largeur de secours tant que le conteneur n'est pas mesuré (premier rendu, tests).
 const FALLBACK_WIDTH = 800;
 
@@ -67,9 +68,12 @@ export function FlameTiles({ tree, focusPath, onFocusChange, onPoint, priorities
 
   return (
     <section aria-labelledby="tree-title" className="flex flex-col gap-4">
-      <div className="flex items-baseline gap-3">
+      <div className="flex flex-wrap items-baseline gap-3">
         <h2 id="tree-title" className="text-[22px] font-extrabold tracking-[-0.02em]">
           Your tree
+          <span className="ml-2 text-[14px] font-medium tracking-normal" style={{ color: COLOURS.leafSoft }}>
+            last 12 months
+          </span>
         </h2>
         <nav aria-label="Zoom path" className="flex flex-wrap items-center gap-1.5 text-[13px] font-medium">
           <Crumb onClick={() => onFocusChange([])} active={focusPath.length === 0}>
@@ -104,7 +108,7 @@ export function FlameTiles({ tree, focusPath, onFocusChange, onPoint, priorities
           {tiles.map((placed) => {
             const player = isPlayerRow(placed.depth);
             const rowHeight = (player ? ROW.player : ROW.opponent) - GAP;
-            const fontSize = player ? 13 : 9;
+            const fontSize = player ? 14 : 11;
             const tileWidth = placed.width * widthPx;
             const tone = placed.rest ? REST : player ? TONES[lineTone(placed.node, average)] : OPPONENT;
             const name = tileName(placed);
@@ -197,7 +201,10 @@ function tileLabel(placed: PlacedTile, name: string, widthPx: number, fontSize: 
   if (placed.rest) return labelFits('…', widthPx, fontSize) ? '…' : '';
   const full = `${name} · ${placed.node.games} · ${formatPercent(scoreRate(placed.node))}`;
   if (labelFits(full, widthPx, fontSize)) return full;
-  return labelFits(name, widthPx, fontSize) ? name : '';
+  if (labelFits(name, widthPx, fontSize)) return name;
+  // Sans son numéro, le coup tient souvent encore : mieux qu'une tuile muette.
+  const san = figurine(placed.path[placed.path.length - 1] ?? '');
+  return labelFits(san, widthPx, fontSize) ? san : '';
 }
 
 function Crumb({ onClick, active, children }: { onClick: () => void; active: boolean; children: ReactNode }) {

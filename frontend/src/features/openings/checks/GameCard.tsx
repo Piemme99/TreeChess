@@ -35,7 +35,7 @@ export function GameCard({ checked, selected, onSelect, showDate = false, onIgno
   const verdict = VERDICT[check.kind];
 
   return (
-    <li className="flex flex-wrap items-stretch gap-2 sm:flex-nowrap" style={{ opacity: ignored ? 0.5 : 1 }}>
+    <li className="flex flex-wrap items-stretch gap-2 sm:flex-nowrap" style={{ opacity: ignored ? 0.7 : 1 }}>
       <motion.button
         type="button"
         aria-pressed={selected}
@@ -64,6 +64,8 @@ export function GameCard({ checked, selected, onSelect, showDate = false, onIgno
           Set aside
         </span>
       )}
+      {(onAdd || onIgnore) && (
+      <span className="flex shrink-0 items-center gap-1 sm:w-[16.5rem] sm:justify-end">
       {onAdd && (
         <motion.button
           type="button"
@@ -91,6 +93,8 @@ export function GameCard({ checked, selected, onSelect, showDate = false, onIgno
         >
           {checked.check.kind === 'uncovered' ? 'Not worth preparing' : 'Stay on repertoire'}
         </motion.button>
+      )}
+      </span>
       )}
     </li>
   );

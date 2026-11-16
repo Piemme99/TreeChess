@@ -8,7 +8,7 @@ import { formatPercent } from '../flame/format';
 import { JUDGEMENT_MARK, judgeMove, type Judgement } from '../domain/judgement';
 import { useEvaluations } from '../line/engine';
 import { replayLine } from '../position/replay';
-import { COLOURS, raised, SPRING, tile } from '../workshop/theme';
+import { COLOURS, raised, REPERTOIRE, SPRING, tile } from '../workshop/theme';
 import type { Builder } from './useBuilder';
 import { ENGINE_DEPTH, type Candidate, type Candidates } from './useCandidates';
 
@@ -40,13 +40,21 @@ export function BuildPanel({ builder, candidates, fresh, onPoint, onAccept, onCa
   return (
     <section aria-label="Addition" className="flex flex-col gap-4 rounded-3xl p-5" style={raised(false)}>
       <h2 className="text-[22px] font-extrabold tracking-[-0.02em]">
-        {builder.kept || givenByPlayer
-          ? `${builder.kept ? played : givenMove} joins your repertoire: add it, or play on`
-          : played
-            ? `You played ${played}: what do you want to play here?`
-            : givenMove
-              ? `Prepare your answer to ${givenMove}`
-              : 'Extend your repertoire from here'}
+        {builder.kept || givenByPlayer ? (
+          <>
+            <Move>{builder.kept ? played : givenMove}</Move> joins your repertoire: add it, or play on
+          </>
+        ) : played ? (
+          <>
+            You played <Move>{played}</Move>: what do you want to play here?
+          </>
+        ) : givenMove ? (
+          <>
+            Prepare your answer to <Move>{givenMove}</Move>
+          </>
+        ) : (
+          'Extend your repertoire from here'
+        )}
         <span className="mt-1 block text-[14px] font-semibold tracking-normal" style={{ color: COLOURS.leafSoft }}>
           {builder.start.length ? `From ${figurineLine(builder.start)}` : 'From the starting position'}
         </span>
@@ -57,7 +65,8 @@ export function BuildPanel({ builder, candidates, fresh, onPoint, onAccept, onCa
       {lines.length > 0 && (
         <div className="flex flex-col gap-1.5">
           <span className="text-[12px] font-semibold" style={{ color: COLOURS.leafSoft }}>
-            Your line{lines.length > 1 ? 's' : ''} · <span style={{ color: COLOURS.leaf }}>bold</span> = new, click a move to go back to it
+            Your line{lines.length > 1 ? 's' : ''} · <span className="rounded px-1 font-extrabold" style={{ ...tile(COLOURS.sand), color: COLOURS.leaf }}>framed</span> = new,{' '}
+            <span style={{ color: REPERTOIRE }}>green</span> = already in your repertoire · click a move to go back to it
           </span>
           <ul aria-label="To add" className="flex flex-col gap-1 text-[14px]">
             {lines.map((line) => (
@@ -75,7 +84,7 @@ export function BuildPanel({ builder, candidates, fresh, onPoint, onAccept, onCa
                       title={isNew ? 'New move' : 'Already in your repertoire'}
                       className="cursor-pointer rounded-md px-1.5 py-0.5 focus-visible:outline-2"
                       style={{
-                        ...(here ? { background: COLOURS.leaf, color: COLOURS.cream } : isNew ? tile(COLOURS.sand) : { background: 'transparent', color: COLOURS.leafSoft }),
+                        ...(here ? { background: COLOURS.leaf, color: COLOURS.cream } : isNew ? tile(COLOURS.sand) : { background: 'transparent', color: REPERTOIRE }),
                         fontWeight: isNew ? 800 : 500,
                       }}
                     >
@@ -129,12 +138,16 @@ function CandidateTable({ builder, candidates, onPoint }: { builder: Builder; ca
     <div className="flex flex-col gap-1.5">
       <span className="flex items-center gap-3 text-[12px] font-semibold" style={{ color: COLOURS.leafSoft }}>
         {builder.playerToMove ? 'Your move' : 'Their move'}
-        <EvalBar cp={here?.cp} />
+        <span className="ml-auto flex items-center gap-1.5">
+          Engine, White's view
+          <EvalBar cp={here?.cp} />
+        </span>
       </span>
       {explorer === 'missing' && <Muted>Lichess stats need a token (VITE_LICHESS_TOKEN in frontend/.env.local): engine and your games only.</Muted>}
       {explorer === 'failed' && <Muted>The Lichess explorer is not answering: engine and your games only.</Muted>}
       {explorer === 'asking' && <Muted>Asking the Lichess explorer…</Muted>}
       {all.length > 0 && (
+        <div className="-mx-1 overflow-x-auto px-1">
         <table aria-label="Candidate moves" className="w-full border-collapse text-[14px]" onMouseLeave={() => onPoint(null)}>
           <thead className="text-[11px] font-semibold" style={{ color: COLOURS.leafSoft }}>
             {stats && (
@@ -152,7 +165,9 @@ function CandidateTable({ builder, candidates, onPoint }: { builder: Builder; ca
               {stats && <th className="pb-1 px-2 font-semibold">played</th>}
               {stats && <th className="pb-1 px-2 text-right font-semibold">{side} scores</th>}
               <th className="pb-1 px-2 text-right font-semibold">Engine</th>
-              <th className="pb-1 pl-2 text-right font-semibold">Your games</th>
+              <th className="pb-1 pl-2 text-right font-semibold" title="Your games in the last 12 months">
+                Your games
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -169,6 +184,12 @@ function CandidateTable({ builder, candidates, onPoint }: { builder: Builder; ca
             ))}
           </tbody>
         </table>
+        </div>
+      )}
+      {stats && all.some((row) => row.score !== undefined && row.score < 0.5) && (
+        <span className="text-[11px]" style={{ color: COLOURS.leafSoft }}>
+          <span style={{ color: COLOURS.terracotta }}>Red</span> score: {side} scores under 50% after that move at this level.
+        </span>
       )}
     </div>
   );
@@ -225,7 +246,7 @@ function Mark({ judgement, light = false }: { judgement: Judgement; light?: bool
 
 function ShareBar({ share }: { share: number | undefined }) {
   return (
-    <div className="relative h-4 min-w-[6rem] rounded-md" style={{ background: 'oklch(0.955 0.02 85)' }}>
+    <div className="relative h-4 min-w-[4.5rem] rounded-md" style={{ background: 'oklch(0.955 0.02 85)' }}>
       {share !== undefined && (
         <div
           className="h-full rounded-md"
@@ -262,6 +283,10 @@ function formatCp(cp: number): string {
   return cp < 0 ? `−${pawns}` : cp > 0 ? `+${pawns}` : '0.0';
 }
 
+
+function Move({ children }: { children: ReactNode }) {
+  return <span className="whitespace-nowrap">{children}</span>;
+}
 
 function Muted({ children }: { children: ReactNode }) {
   return (
