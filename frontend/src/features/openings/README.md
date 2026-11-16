@@ -39,7 +39,7 @@ Vocabulary (opening tree, deficit, priority, points to gain): `CONTEXT.md`.
   token ("Sign in with Lichess" in the header) and serves cached positions to everyone. In dev
   without a backend, a personal token in `VITE_LICHESS_TOKEN` (`frontend/.env.local`) queries
   Lichess directly.
-- `session/` — the path of ADR 0003: the router (`HomePage`, `/dev/home`: "I just played",
+- `session/` — the router (`HomePage`, `/dev/home`: "I just played",
   "I want to work") and the session after games (`SessionPage`, `/dev/session`): the positions
   the games left, grouped by position and move (`steps.ts`), one at a time, phone first.
   Keep / Stay on / Prepare an answer / Skip; Keep and Prepare build on `checks/BuildSession`.
@@ -97,7 +97,7 @@ Vocabulary (opening tree, deficit, priority, points to gain): `CONTEXT.md`.
   So: **verdict first** (what the opening moves cost vs what is lost after, a position
   being worth the engine's winning chances — Lichess formula — shifted to the player's
   average), then **a plan, not a list of blunders**: 1. extend the preparation from the key
-  position, past the player's games, with what players of their level play (ADR 0002 amended);
+  position, past the player's games, with what players of their level play;
   2. practise the position (Stockfish and puzzles on Lichess, masters' moves and games, the
   decisive mistakes of the player's games, each opening on Lichess at that move). Rejected:
   a score curve along the line, "engine vs you" move by move, and a monthly score chart
@@ -112,7 +112,7 @@ Vocabulary (opening tree, deficit, priority, points to gain): `CONTEXT.md`.
 ## Next: the repertoire loop
 
 Designed on 2026-10-18 (vocabulary in `CONTEXT.md`: repertoire, game check, proposed
-addition, pending decision, worked line, adherence; ADR 0002 amended). One
+addition, pending decision, worked line, adherence). One
 **repertoire** per side, created from the player's habits, strengthened on priorities,
 enriched after each game. Shown on a **replay** of the history: the repertoire is
 created from the games before 2026-01-01, then the 2026 games come in day by day.
@@ -169,7 +169,7 @@ Built one brick at a time, each visible on its own:
    "Reset" empties it. Every game is checked against the current repertoire, so an addition
    settles the game that raised it and changes the checks of the days after.
    Not done yet: "Study this line" adding to the repertoire.
-**Since 2026-10-18 (ADR 0003, "User path"): a router with two doors ("I just played",
+**Since 2026-10-18 ("User path"): a router with two doors ("I just played",
 "I want to work") leading to one position screen, phone first, browsable like an explorer.**
 Pending decisions are grouped by position (2026: 174 decisions, 58 positions). Openings,
 Games and the line view leave the path; bricks 5–7 wait for the position screen.
@@ -182,9 +182,7 @@ Games and the line view leave the path; bricks 5–7 wait for the position scree
 
 Tries the v1 repertoire tree (`features/repertoire/shared/components/RepertoireTree/`, node-link,
 tidy layout, pan/zoom) as the landing screen, next to the router (`/dev/home`) so the two can be
-compared. If it wins, ADR 0003 "User path" is amended (§1 router, §5 "the position screen is the
-repertoire browser", and the rejected "See my repertoire" entry) and slimmed: the ADR keeps the
-decision (the repertoire is the central screen, the unit is a position), this README keeps the path.
+compared.
 
 1. **One screen, two panes, computer first.** The tree on the left, the position pane on the
    right. Below ~700 px the panes stack, unpolished: on the phone the path stays the notification

@@ -52,7 +52,7 @@ const CANDIDATES = 3;
 const LOSS = 0.05;
 
 /**
- * La préparation proposée depuis la position clé (CONTEXT.md, ADR 0002) : à son coup, l'habitude
+ * La préparation proposée depuis la position clé (CONTEXT.md) : à son coup, l'habitude
  * du joueur si le moteur l'accepte, sinon le coup le plus joué à son niveau que le moteur accepte ;
  * au coup adverse, les réponses fréquentes à son niveau et celles qu'il a lui-même rencontrées.
  */

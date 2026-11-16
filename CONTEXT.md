@@ -127,7 +127,7 @@ opponent is to move, every reply the player keeps meeting, however rare at that
 position: the player chooses their moves, they only meet the opponent's. It is the one object every step of the loop
 reads and writes: created from the player's history, strengthened on their
 priorities, enriched after each game, and the central screen every other feature opens at one of its
-positions (ADR 0003). Creation keeps to the player's habits,
+positions. Creation keeps to the player's habits,
 even those the engine judges bad (their replacement becomes a
 [pending decision](#pending-decision)); going past their games is left to
 strengthening and to additions. A move
@@ -163,7 +163,7 @@ check was ignored.
 
 A game that follows the repertoire to its end needs no check. It is the phone
 side of Verify; [spaced repetition](#spaced-repetition) covers the days without
-games. See ADR 0002.
+games.
 
 ### Addition
 
@@ -184,7 +184,7 @@ from theory: at each position where they are to move, the moves they play
 regularly — each replaced only where the engine judges it bad; opponent moves
 from their games and the Lichess explorer at their rating, going on where their
 games stop. Today it is the plan of the line view; the player builds an
-[addition](#addition) instead of accepting one. See ADR 0002 (amended 2026-10-18).
+[addition](#addition) instead of accepting one.
 
 _Avoid_: proposed preparation.
 
