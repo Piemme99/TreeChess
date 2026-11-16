@@ -4,15 +4,15 @@ import type { ToastMessage } from './useToast';
 
 export function Toast({ toast, onClose }: { toast: (ToastMessage & { stamp: number }) | null; onClose: () => void }) {
   return (
-    <div aria-live="polite" className="pointer-events-none fixed inset-x-0 bottom-5 z-50 flex justify-center px-4 lg:inset-x-auto lg:right-8">
+    <div aria-live="polite" className="pointer-events-none fixed inset-x-0 top-3 z-50 flex justify-center px-3 lg:top-auto lg:right-auto lg:bottom-6 lg:left-8">
       <AnimatePresence>
         {toast && (
           <motion.div
             key={toast.stamp}
             role="status"
-            initial={{ opacity: 0, y: 16 }}
+            initial={{ opacity: 0, y: -12 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 16 }}
+            exit={{ opacity: 0, y: -12 }}
             transition={SPRING}
             className="pointer-events-auto flex max-w-[34rem] items-center gap-4 rounded-2xl py-2.5 pl-4 pr-2 text-[14px] font-semibold"
             style={{ background: COLOURS.leaf, color: COLOURS.cream, boxShadow: '0 14px 28px -10px oklch(0.3 0.06 150 / 0.55)' }}

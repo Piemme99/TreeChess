@@ -21,6 +21,8 @@ export interface PruneOptions {
   maxRows: number;
   /** Une ligne jouée moins souvent rejoint le « reste », même large au zoom : une partie seule ne dit rien. */
   minGames?: number;
+  /** Lignes jamais fondues dans le reste, si étroites soient-elles : les priorités et leurs ancêtres. */
+  keep?: ReadonlySet<string>;
 }
 
 export const keyOf = (path: readonly string[]) => path.join(' ');
@@ -33,7 +35,7 @@ const restNode = (members: readonly OpeningNode[]): OpeningNode => ({
   children: [],
 });
 
-function packChildren(parent: PlacedTile, depth: number, minFraction: number, minGames: number): PlacedTile[] {
+function packChildren(parent: PlacedTile, depth: number, minFraction: number, minGames: number, keep: ReadonlySet<string>): PlacedTile[] {
   const perGame = parent.width / parent.node.games;
   const kept: PlacedTile[] = [];
   const dropped: OpeningNode[] = [];
@@ -41,11 +43,11 @@ function packChildren(parent: PlacedTile, depth: number, minFraction: number, mi
 
   for (const child of parent.node.children) {
     const width = child.games * perGame;
-    if (width < minFraction || child.games < minGames) {
+    const path = [...parent.path, child.san!];
+    if ((width < minFraction || child.games < minGames) && !keep.has(keyOf(path))) {
       dropped.push(child);
       continue;
     }
-    const path = [...parent.path, child.san!];
     kept.push({ key: keyOf(path), path, node: child, depth, start: cursor, width, rest: 0 });
     cursor += width;
   }
@@ -69,7 +71,7 @@ export function layoutPruned(focus: OpeningNode, focusPath: readonly string[], o
   const tiles = [root];
   let row = [root];
   for (let depth = 1; depth < options.maxRows; depth++) {
-    const next = row.flatMap((parent) => (parent.rest ? [] : packChildren(parent, depth, minFraction, options.minGames ?? 0)));
+    const next = row.flatMap((parent) => (parent.rest ? [] : packChildren(parent, depth, minFraction, options.minGames ?? 0, options.keep ?? new Set())));
     const coverage = next.reduce((sum, tile) => sum + (tile.rest ? 0 : tile.width), 0);
     if (next.length === 0 || (depth > options.minRows && coverage < options.coverageFloor)) break;
     tiles.push(...next);

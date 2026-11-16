@@ -35,15 +35,12 @@ export function GameCard({ checked, selected, onSelect, showDate = false, onIgno
   const verdict = VERDICT[check.kind];
 
   return (
-    <li className="flex flex-wrap items-stretch gap-2 sm:flex-nowrap" style={{ opacity: ignored ? 0.7 : 1 }}>
-      <motion.button
+    <li className="flex flex-col overflow-hidden rounded-2xl" style={{ ...raised(selected), opacity: ignored ? 0.7 : 1 }}>
+      <button
         type="button"
         aria-pressed={selected}
         onClick={onSelect}
-        whileHover={{ y: -2 }}
-        transition={SPRING}
-        className="flex min-w-0 flex-1 basis-full cursor-pointer flex-col gap-1 rounded-2xl px-4 py-3 text-left focus-visible:outline-2 sm:basis-auto"
-        style={raised(selected)}
+        className="flex min-w-0 cursor-pointer flex-col gap-1 px-4 pt-3 pb-2 text-left focus-visible:outline-2 focus-visible:-outline-offset-2"
       >
         <span className="flex items-center gap-2 text-[12px] font-semibold">
           <span className="rounded-full px-2 py-0.5" style={{ background: verdict.tone.bg, color: verdict.tone.fg }}>
@@ -58,14 +55,14 @@ export function GameCard({ checked, selected, onSelect, showDate = false, onIgno
         <span className="text-[14px]" style={{ opacity: 0.8 }}>
           <Verdict checked={checked} judgement={judgement} />
         </span>
-      </motion.button>
+      </button>
       {ignored && (
-        <span className="self-center px-3 text-[13px] font-semibold" style={{ color: COLOURS.leafSoft }}>
+        <span className="px-4 pb-3 text-[13px] font-semibold" style={{ opacity: 0.75 }}>
           Set aside
         </span>
       )}
       {(onAdd || onIgnore) && (
-      <span className="flex shrink-0 items-center gap-1 sm:w-[16.5rem] sm:justify-end">
+      <span className="flex flex-wrap items-center gap-2 px-4 pb-3">
       {onAdd && (
         <motion.button
           type="button"
@@ -75,7 +72,7 @@ export function GameCard({ checked, selected, onSelect, showDate = false, onIgno
           whileTap={{ scale: 0.94 }}
           transition={SPRING}
           className="cursor-pointer self-center whitespace-nowrap rounded-full px-3.5 py-2 text-[13px] font-bold transition-shadow hover:shadow-[0_6px_14px_-6px_oklch(0.3_0.06_150/0.6)] focus-visible:outline-2"
-          style={{ background: COLOURS.leaf, color: COLOURS.cream }}
+          style={selected ? { background: COLOURS.cream, color: COLOURS.leaf } : { background: COLOURS.leaf, color: COLOURS.cream }}
         >
           {check.kind === 'left' ? `Add ${figurineMove(check.played, check.ply + 1)}` : 'Prepare an answer'}
         </motion.button>
@@ -89,7 +86,7 @@ export function GameCard({ checked, selected, onSelect, showDate = false, onIgno
           whileTap={{ scale: 0.94 }}
           transition={SPRING}
           className="cursor-pointer self-center whitespace-nowrap rounded-full px-3 py-2 text-[13px] font-semibold underline-offset-4 hover:underline focus-visible:outline-2"
-          style={{ color: COLOURS.leafSoft }}
+          style={{ color: selected ? COLOURS.cream : COLOURS.leafSoft }}
         >
           {check.kind !== 'left' ? 'Not worth preparing' : check.planned.length === 1 ? `Stay on ${figurineMove(check.planned[0], check.ply + 1)}` : 'Stay on my repertoire'}
         </motion.button>

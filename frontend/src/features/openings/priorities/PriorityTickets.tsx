@@ -63,7 +63,7 @@ function Ticket({ priority, rank, share, selected, onSelect, onPoint }: TicketPr
   return (
     <motion.li
       initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: selected ? -8 : 0, rotate: selected ? (rank % 2 ? -2 : 2) : 0 }}
+      animate={{ opacity: 1, y: selected ? -6 : 0 }}
       whileHover={{ y: selected ? -10 : -4 }}
       whileTap={{ scale: 0.96 }}
       transition={{ ...SPRING, opacity: { delay: rank * 0.05 } }}

@@ -23,12 +23,16 @@ export interface MapNode {
   priority?: number;
   /** Un coup de la construction en cours, pas encore au répertoire. */
   ghost?: boolean;
+  /** Un coup ajouté par le joueur depuis la création : son travail reste sous ses yeux, jamais replié. */
+  added?: boolean;
 }
 
 export interface MapMarks {
   /** Par clé de position : les parties à trancher. */
   toSettle: ReadonlyMap<string, number>;
   priorities: readonly Priority[];
+  /** Jour de création du répertoire : un coup daté d'après est un ajout du joueur. */
+  createdAt?: string;
 }
 
 export const keyOf = (path: readonly string[]) => path.join(' ');
@@ -47,6 +51,7 @@ export function buildRepertoireMap(repertoire: Repertoire, recent: OpeningTree, 
       chess.move(move.san);
       const path = [...parent.path, move.san];
       const child = node(path, move.san, parent.ply + 1, positionKey(chess.fen()), recent, marks);
+      if (marks.createdAt && move.addedAt > marks.createdAt) child.added = true;
       const owner = owners.get(child.position);
       if (owner) {
         child.stub = true;
@@ -127,7 +132,7 @@ export function forEachNode(root: MapNode, visit: (node: MapNode, parent: MapNod
   walk(root, null);
 }
 
-export const isMarked = (node: MapNode) => node.toSettle > 0 || node.priority !== undefined;
+export const isMarked = (node: MapNode) => node.toSettle > 0 || node.priority !== undefined || node.added === true;
 
 /** Les nœuds marqués, les plus de parties à trancher d'abord, puis les priorités par rang. */
 export function markedNodes(root: MapNode): { toSettle: MapNode[]; priorities: MapNode[] } {

@@ -23,6 +23,8 @@ export interface Candidate {
   score?: number;
   /** Parties du joueur où ce coup a suivi. */
   mine: number;
+  /** Son score dans ces parties, de 0 à 1. */
+  mineScore?: number;
   /** Évaluation après le coup, centipions des Blancs ; absente tant que le moteur n'a pas répondu. */
   cp?: number;
   judgement: Judgement | null;
@@ -78,11 +80,12 @@ export function useCandidates(builder: Builder): Candidates {
         share: stats ? games / total : undefined,
         score: stats ? (wins + stats.draws / 2) / games : undefined,
         mine: mine.get(san) ?? 0,
+        mineScore: mine.get(san) ? (builder.minePoints.get(san) ?? 0) / mine.get(san)! : undefined,
         engine: san === engineSan,
         fen: afterMove(fen, san),
       };
     });
-  }, [stats, playerToMove, mine, engineSan, side, fen, builder.origin.reply, builder.path.length, builder.start.length]);
+  }, [stats, playerToMove, mine, engineSan, side, fen, builder.origin.reply, builder.path.length, builder.start.length, builder.minePoints]);
 
   const fens = useMemo(() => base.map((row) => row.fen), [base]);
   const evaluations = useEvaluations(fens, ENGINE_DEPTH);

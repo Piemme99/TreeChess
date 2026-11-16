@@ -91,13 +91,13 @@ export function BuildSession({ origin, games, repertoire, onAccept, onCancel, ch
     <Wrapper
       className={
         stacked
-          ? 'flex flex-col gap-4 sm:grid sm:grid-cols-[minmax(0,19rem)_minmax(0,1fr)] sm:items-start lg:flex lg:flex-col xl:grid xl:grid-cols-[minmax(0,19rem)_minmax(0,1fr)]'
+          ? 'flex flex-col gap-4'
           : 'mx-auto flex max-w-[84rem] flex-col gap-6 px-4 pt-6 lg:grid lg:grid-cols-[minmax(0,30rem)_1fr] lg:gap-10 lg:px-8 lg:pt-8'
       }
     >
       <aside
         aria-label="Position"
-        className={`flex flex-col gap-3 self-start ${stacked ? 'mx-auto w-full max-w-[22rem] sm:mx-0 sm:max-w-none lg:mx-auto lg:max-w-[22rem] xl:sticky xl:top-4 xl:mx-0 xl:max-w-none' : 'lg:sticky lg:top-6'}`}
+        className={`flex flex-col gap-3 self-start ${stacked ? 'mx-auto w-full max-w-[17rem]' : 'lg:sticky lg:top-6'}`}
       >
         <PlayableBoard path={builder.path} flipped={origin.side === 'b'} arrows={arrows} suggestions={suggestions} onMove={builder.play} />
         <p className="flex flex-wrap gap-x-4 gap-y-1 px-1 text-[12px] font-semibold" style={{ color: ARROW.neutral.colour }}>
@@ -109,6 +109,7 @@ export function BuildSession({ origin, games, repertoire, onAccept, onCancel, ch
       </aside>
       <div className={`flex min-w-0 flex-col ${stacked ? 'gap-4' : 'gap-6 lg:gap-10'}`}>
         <BuildPanel
+          compact={stacked}
           builder={builder}
           candidates={candidates}
           fresh={fresh}

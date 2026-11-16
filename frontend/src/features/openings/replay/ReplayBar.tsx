@@ -35,7 +35,7 @@ export function ReplayBar({ replay }: { replay: ReplayDay }) {
                 </button>
               </span>
             ) : (
-              <button type="button" onClick={() => setConfirming(true)} className="rounded px-0.5 font-semibold underline underline-offset-2 focus-visible:outline-2">
+              <button type="button" onClick={() => setConfirming(true)} className="-my-1.5 rounded px-1.5 py-1.5 font-semibold underline underline-offset-2 focus-visible:outline-2">
                 Reset…
               </button>
             ))}

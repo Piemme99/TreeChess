@@ -10,7 +10,7 @@ import type { Priority } from '../domain/priorities';
 import { relevantArrows } from '../position/arrows';
 import { replayLine } from '../position/replay';
 import type { SessionStep } from '../session/steps';
-import { COLOURS, raised, REPERTOIRE, SPRING, tile } from '../workshop/theme';
+import { ARROW, COLOURS, raised, REPERTOIRE, SPRING, tile } from '../workshop/theme';
 import type { MapNode } from './repertoireMap';
 
 export interface StepActions {
@@ -95,11 +95,25 @@ export function PositionPane({ side, path, node, recent, steps, priority, action
           )}
         </div>
       </div>
-      <div className={`order-2 mx-auto w-full lg:order-3 ${card ? 'max-w-[15rem] lg:max-w-[17rem]' : 'max-w-[24rem] lg:max-w-[20rem]'}`}>
+      <div className={`order-2 mx-auto w-full ${card ? 'max-w-[15rem] lg:max-w-[17rem]' : 'max-w-[24rem] lg:max-w-[20rem]'}`}>
         <PlayableBoard path={path} flipped={side === 'b'} arrows={arrows} suggestions={suggestions} onMove={onMove} />
+        {arrows.length > 0 && (
+          <p className="mt-2 flex flex-wrap justify-center gap-x-4 text-[12px] font-semibold" style={{ color: COLOURS.leafSoft }}>
+            <span className="flex items-center gap-1.5">
+              <span className="size-3 rounded" style={{ background: ARROW.repertoire.colour }} />
+              your repertoire
+            </span>
+            {arrows.some((arrow) => 'kind' in arrow && arrow.kind === 'neutral') && (
+              <span className="flex items-center gap-1.5">
+                <span className="size-3 rounded" style={{ background: ARROW.neutral.colour }} />
+                played instead
+              </span>
+            )}
+          </p>
+        )}
       </div>
       {settling && (
-        <section aria-label="To settle" className="order-3 flex flex-col gap-4 rounded-2xl px-4 py-3.5 text-[14px] lg:order-2" style={{ background: COLOURS.paper, boxShadow: `inset 0 0 0 1.5px ${COLOURS.terracotta}` }}>
+        <section aria-label="To settle" className="order-3 flex flex-col gap-4 rounded-2xl px-4 py-3.5 text-[14px]" style={{ background: COLOURS.paper, boxShadow: `inset 0 0 0 1.5px ${COLOURS.terracotta}` }}>
           <span className="text-[12px] font-bold uppercase tracking-[0.06em]" style={{ color: COLOURS.terracotta }}>
             To settle
           </span>
@@ -115,7 +129,7 @@ export function PositionPane({ side, path, node, recent, steps, priority, action
         </section>
       )}
       {prioritised && !settling && (
-        <section aria-label="Priority" className="order-3 flex flex-col gap-2.5 rounded-2xl px-4 py-3.5 text-[14px] lg:order-2" style={{ background: COLOURS.leaf, color: COLOURS.cream }}>
+        <section aria-label="Priority" className="order-3 flex flex-col gap-2.5 rounded-2xl px-4 py-3.5 text-[14px]" style={{ background: COLOURS.leaf, color: COLOURS.cream }}>
           <span className="text-[12px] font-bold uppercase tracking-[0.06em]" style={{ color: COLOURS.apricot }}>
             Priority {node.priority}
           </span>
@@ -186,10 +200,10 @@ function PriorityVerdict({ priority, here, average, line }: { priority: Priority
     <>
       <span className="text-[15px] leading-snug">
         After <strong>{line}</strong> you score <strong>{here ? Math.round(scoreRate(here) * 100) : '—'}%</strong>, against <strong>{Math.round(average * 100)}%</strong> on
-        average: about {lost} {lost === 1 ? 'point' : 'points'} lost over {priority.games} games in 12 months.
+        average: about {lost} {lost === 1 ? 'point' : 'points'} lost over {priority.games} games in 12 months (a win is 1 point, a draw ½).
       </span>
       <span className="text-[13px]" style={{ opacity: 0.8 }}>
-        The points usually go in the moves that follow: prepare them.
+        The points usually go in the moves that follow. The builder shows your own score after each one.
       </span>
     </>
   );

@@ -10,6 +10,7 @@ import { gamesOfLastMonths } from '../domain/period';
 import type { PlayedGame, Side } from '../domain/playedGame';
 import { findPriorities, type Priority } from '../domain/priorities';
 import { ReplayBar } from '../replay/ReplayBar';
+import { REPLAY_START } from '../replay/replaySetup';
 import type { SessionStep } from '../session/steps';
 import { useReplayedSession } from '../session/useReplayedSession';
 import { PageHeader } from '../workshop/PageHeader';
@@ -19,7 +20,8 @@ import { Toast } from '../workshop/Toast';
 import { useToast } from '../workshop/useToast';
 import { useWorkshopFont } from '../workshop/useWorkshopFont';
 import { PositionPane, type StepActions } from './PositionPane';
-import { Legend, RepertoireMap } from './RepertoireMap';
+import { RepertoireMap } from './RepertoireMap';
+import { TreeList } from './TreeList';
 import { buildRepertoireMap, forEachNode, markedNodes, type MapNode } from './repertoireMap';
 
 const MAX_PLIES = 24;
@@ -106,7 +108,9 @@ export function TreePage() {
       return { ...active, done };
     });
   const startSession = () => {
-    setSession({ queue: steps.map((step) => step.key), done: new Map() });
+    // Une couleur après l'autre, en commençant par celle qu'on regarde : changer de camp à chaque étape fait tout redessiner.
+    const ordered = [...steps.filter((step) => step.side === side), ...steps.filter((step) => step.side !== side)];
+    setSession({ queue: ordered.map((step) => step.key), done: new Map() });
     build(null);
     setView('position');
   };
@@ -214,7 +218,7 @@ export function TreePage() {
     () => gamesOfLastMonths(known, RECENT_MONTHS, new Date(replay.day)).filter((game) => game.side === building?.origin.side),
     [known, replay.day, building?.origin.side],
   );
-  const first = steps[0];
+  const first = steps.find((step) => step.side === side) ?? steps[0];
 
   return (
     <MotionConfig reducedMotion="user">
@@ -236,7 +240,7 @@ export function TreePage() {
                   className="rounded-full px-4 py-1.5 text-[14px] font-bold"
                   style={view === tab ? { background: COLOURS.leaf, color: COLOURS.cream } : { color: COLOURS.leaf }}
                 >
-                  {tab === 'map' ? 'Map' : building ? 'Building' : 'Position'}
+                  {tab === 'map' ? 'Tree' : building ? 'Building' : 'Board'}
                 </button>
               ))}
             </div>
@@ -250,7 +254,7 @@ export function TreePage() {
                   tone={steps.length && !session ? 'terracotta' : 'plain'}
                 >
                   {first
-                    ? `Start with ${first.games.length} ${first.games.length === 1 ? 'game' : 'games'} at ${figurineLine(first.path) || 'the start'}`
+                    ? `${first.games.length} ${first.games.length === 1 ? 'game' : 'games'} as ${first.side === 'w' ? 'White' : 'Black'} at ${figurineLine(first.path) || 'the start'}`
                     : replay.next
                       ? 'Press “Next day” to bring games in'
                       : 'All games replayed'}
@@ -265,21 +269,22 @@ export function TreePage() {
               </Door>
             </span>
           </div>
-          <div className={`grid gap-5 ${building ? 'lg:grid-cols-[minmax(0,1fr)_minmax(0,48rem)]' : 'lg:grid-cols-[minmax(0,1fr)_24rem]'}`}>
-            <div className={`h-[68vh] min-h-[380px] lg:sticky lg:top-4 lg:block lg:h-[calc(100vh-11rem)] ${view === 'map' ? '' : 'hidden'}`}>
-              <RepertoireMap
-                root={root}
-                side={side}
-                selected={node.key}
-                onSelect={(key) => {
-                  goTo(side, key, false);
-                  setView('position');
-                }}
-                focus={focus}
-                locked={building !== null}
-                preview={preview}
-              />
-              <Legend className="mt-2 flex sm:hidden" />
+          <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_25rem]">
+            <div className={`lg:sticky lg:top-4 lg:block lg:h-[calc(100vh-11rem)] ${view === 'map' ? '' : 'hidden'}`}>
+              <div className="hidden h-full lg:block">
+                <RepertoireMap
+                  root={root}
+                  side={side}
+                  selected={node.key}
+                  onSelect={(key) => goTo(side, key, false)}
+                  focus={focus}
+                  locked={building !== null}
+                  preview={preview}
+                />
+              </div>
+              <div className="lg:hidden">
+                <TreeList root={root} side={side} node={node} onSelect={(key) => goTo(side, key, false)} onOpen={() => setView('position')} />
+              </div>
             </div>
             <div className={`flex min-w-0 flex-col gap-3 lg:flex lg:self-start ${view === 'position' ? '' : 'hidden'}`}>
               {session && !current ? (
@@ -307,7 +312,11 @@ export function TreePage() {
                   onSkip={session && current && stepsHere.includes(current) ? () => skip(current) : undefined}
                   onNextPriority={pins.length > 1 && node.priority !== undefined ? () => goToPriority(node.priority! + 1) : undefined}
                   onExtend={() => build({ origin: originAt(side, node.path, path) })}
-                  onPrepareFollows={priority ? () => build({ origin: originAt(side, priority.path, priority.path) }) : undefined}
+                  onPrepareFollows={
+                    priority
+                      ? () => build({ origin: { ...originAt(side, priority.path, priority.path), heading: `Prepare your moves after ${figurineMove(priority.path[priority.path.length - 1], priority.path.length)}` } })
+                      : undefined
+                  }
                   onMove={play}
                   onBack={path.length ? back : undefined}
                 />
@@ -372,10 +381,10 @@ function Door({ onClick, title, tone = 'plain', className = 'flex', children }: 
       whileTap={onClick ? { scale: 0.97 } : undefined}
       transition={SPRING}
       className={`${className} min-w-0 flex-1 flex-col items-start rounded-2xl px-4 py-2 text-left focus-visible:outline-2 focus-visible:outline-offset-2 sm:w-[17rem] sm:flex-none`}
-      style={{ ...raised(false), ...(accent ? { background: COLOURS.terracotta, color: 'white' } : {}), opacity: onClick ? 1 : 0.7 }}
+      style={{ ...raised(false), ...(accent ? { background: 'oklch(0.52 0.15 35)', color: 'white' } : {}), opacity: onClick ? 1 : 0.7 }}
     >
       <span className="text-[15px] font-extrabold tracking-[-0.01em]">{title}</span>
-      <span className="w-full truncate text-[12px]" style={{ color: accent ? 'oklch(1 0 0 / 0.85)' : COLOURS.leafSoft }}>
+      <span className="w-full truncate text-[13px] font-semibold" style={{ color: accent ? 'white' : COLOURS.leafSoft }}>
         {children}
       </span>
     </motion.button>
@@ -393,8 +402,8 @@ function useMaps(known: readonly PlayedGame[], day: string, repertoires: ReturnT
       toSettle[step.side].set(position, (toSettle[step.side].get(position) ?? 0) + step.games.length);
     }
     const maps: Record<Side, MapNode> = {
-      w: buildRepertoireMap(repertoires.w, recent.w, { toSettle: toSettle.w, priorities }),
-      b: buildRepertoireMap(repertoires.b, recent.b, { toSettle: toSettle.b, priorities }),
+      w: buildRepertoireMap(repertoires.w, recent.w, { toSettle: toSettle.w, priorities, createdAt: REPLAY_START }),
+      b: buildRepertoireMap(repertoires.b, recent.b, { toSettle: toSettle.b, priorities, createdAt: REPLAY_START }),
     };
     return { maps, recent, priorities };
   }, [known, day, repertoires, steps]);

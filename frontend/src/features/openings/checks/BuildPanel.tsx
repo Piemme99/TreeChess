@@ -7,6 +7,7 @@ import { isPlayerMove } from '../domain/openingTree';
 import { formatPercent } from '../flame/format';
 import { JUDGEMENT_MARK, judgeMove, type Judgement } from '../domain/judgement';
 import { useEvaluations } from '../line/engine';
+import type { Side } from '../domain/playedGame';
 import { replayLine } from '../position/replay';
 import { COLOURS, raised, REPERTOIRE, SPRING, tile } from '../workshop/theme';
 import type { Builder } from './useBuilder';
@@ -20,9 +21,11 @@ interface BuildPanelProps {
   onPoint: (san: string | null) => void;
   onAccept: () => void;
   onCancel: () => void;
+  /** Dans le volet étroit : la part jouée en chiffres, sans barre. */
+  compact?: boolean;
 }
 
-export function BuildPanel({ builder, candidates, fresh, onPoint, onAccept, onCancel }: BuildPanelProps) {
+export function BuildPanel({ builder, candidates, fresh, onPoint, onAccept, onCancel, compact = false }: BuildPanelProps) {
   const { origin, draft } = builder;
   const played = origin.played && figurineMove(origin.played, origin.start.length + 1);
   const lastGiven = origin.given.at(-1);
@@ -40,9 +43,11 @@ export function BuildPanel({ builder, candidates, fresh, onPoint, onAccept, onCa
   const chosen = draft.find((move) => move.path.length === origin.start.length + 1 && move.path.every((san, at) => at >= origin.start.length || origin.start[at] === san))?.path.at(-1);
 
   return (
-    <section aria-label="Addition" className="flex flex-col gap-4 rounded-3xl p-5" style={raised(false)}>
-      <h2 className="text-[22px] font-extrabold tracking-[-0.02em]">
-        {builder.kept || givenByPlayer ? (
+    <section aria-label="Addition" className={`flex flex-col gap-4 rounded-3xl ${compact ? 'p-4' : 'p-5'}`} style={raised(false)}>
+      <h2 className={`${compact ? 'text-[19px]' : 'text-[22px]'} font-extrabold leading-snug tracking-[-0.02em]`}>
+        {origin.heading ? (
+          origin.heading
+        ) : builder.kept || givenByPlayer ? (
           <>
             <Move>{builder.kept ? played : givenMove}</Move> joins your repertoire: add it, or play on
           </>
@@ -70,7 +75,7 @@ export function BuildPanel({ builder, candidates, fresh, onPoint, onAccept, onCa
         </span>
       </h2>
 
-      <CandidateTable builder={builder} candidates={candidates} onPoint={onPoint} />
+      <CandidateTable builder={builder} candidates={candidates} onPoint={onPoint} compact={compact} />
 
       {origin.reply && chosen && chosen !== origin.reply && (
         <p className="rounded-xl px-3 py-2 text-[13px]" style={{ background: COLOURS.cream }}>
@@ -81,8 +86,8 @@ export function BuildPanel({ builder, candidates, fresh, onPoint, onAccept, onCa
       {lines.length > 0 && (
         <div className="flex flex-col gap-1.5">
           <span className="text-[12px] font-semibold" style={{ color: COLOURS.leafSoft }}>
-            Your line{lines.length > 1 ? 's' : ''} · <span className="rounded px-1 font-extrabold" style={{ ...tile(COLOURS.sand), color: COLOURS.leaf }}>framed</span> = new,{' '}
-            <span style={{ color: REPERTOIRE }}>green</span> = already in your repertoire · click a move to go back to it
+            Your line{lines.length > 1 ? 's' : ''} · <span className="rounded px-1 font-extrabold" style={{ ...tile(COLOURS.sand), color: COLOURS.leaf }}>tile</span> = new,{' '}
+            <span className="font-semibold" style={{ color: REPERTOIRE }}>green</span> = already in your repertoire, ringed = on the board · click a move to go back to it
           </span>
           <ul aria-label="To add" className="flex flex-col gap-1 text-[14px]">
             {lines.map((line) => (
@@ -100,12 +105,13 @@ export function BuildPanel({ builder, candidates, fresh, onPoint, onAccept, onCa
                       title={isNew ? 'New move' : 'Already in your repertoire'}
                       className="cursor-pointer rounded-md px-1.5 py-0.5 focus-visible:outline-2"
                       style={{
-                        ...(here ? { background: COLOURS.leaf, color: COLOURS.cream } : isNew ? tile(COLOURS.sand) : { background: 'transparent', color: REPERTOIRE }),
-                        fontWeight: isNew ? 800 : 500,
+                        ...(isNew ? { ...tile(COLOURS.sand), color: COLOURS.leaf } : { background: 'transparent', color: REPERTOIRE }),
+                        ...(here ? { outline: `2px solid ${COLOURS.leaf}`, outlineOffset: 1 } : {}),
+                        fontWeight: isNew ? 800 : 600,
                       }}
                     >
                       {figurineMove(san, upTo.length)}
-                      {here && judgement && <Mark judgement={judgement} light />}
+                      {here && judgement && <Mark judgement={judgement} />}
                     </button>
                   );
                 })}
@@ -117,7 +123,7 @@ export function BuildPanel({ builder, candidates, fresh, onPoint, onAccept, onCa
 
       <span className="flex flex-wrap gap-2">
         <Action onClick={onAccept} primary disabled={!complete}>
-          Add to my repertoire{toAdd ? ` · ${toAdd} new ${toAdd === 1 ? 'move' : 'moves'}` : ''}
+          {complete ? `Add to my repertoire · ${toAdd} new ${toAdd === 1 ? 'move' : 'moves'}` : 'Add to my repertoire'}
         </Action>
         <Action onClick={builder.undo ?? (() => undefined)} disabled={!builder.undo}>
           Undo last move
@@ -126,7 +132,7 @@ export function BuildPanel({ builder, candidates, fresh, onPoint, onAccept, onCa
       </span>
       {!complete && (
         <span className="-mt-2 text-[13px]" style={{ color: COLOURS.leafSoft }}>
-          {lines.length ? 'Play one of your moves to add.' : 'Play a move on the board or click a row.'}
+          {lines.length ? 'Play your answer to add it.' : 'Play a move on the board or click a row.'}
         </span>
       )}
     </section>
@@ -144,20 +150,23 @@ function useLastJudgement(builder: Builder): Judgement | null {
   return relevant && before && after ? judgeMove(before.cp, after.cp, mover) : null;
 }
 
-function CandidateTable({ builder, candidates, onPoint }: { builder: Builder; candidates: Candidates; onPoint: (san: string | null) => void }) {
+function CandidateTable({ builder, candidates, onPoint, compact }: { builder: Builder; candidates: Candidates; onPoint: (san: string | null) => void; compact: boolean }) {
   const { rows, costly, here, explorer } = candidates;
   const ply = builder.path.length + 1;
   const side = builder.origin.side === 'w' ? 'White' : 'Black';
   const all = [...rows, ...costly];
   // Sans l'explorateur, ses deux colonnes ne diraient que « — ».
   const stats = explorer === 'ready' || explorer === 'asking';
+  // Là où le joueur perd le plus dans ses propres parties : ce qu'une priorité lui demande de regarder.
+  const scored = all.filter((row) => row.mine >= 3 && row.mineScore !== undefined);
+  const worst = scored.length > 1 ? scored.reduce((low, row) => (row.mineScore! < low.mineScore! ? row : low)).san : undefined;
   return (
     <div className="flex flex-col gap-1.5">
       <span className="flex items-center gap-3 text-[12px] font-semibold" style={{ color: COLOURS.leafSoft }}>
         {builder.playerToMove ? 'Your move' : 'Their move'}
         <span className="ml-auto flex items-center gap-1.5">
-          Engine, White's view
-          <EvalBar cp={here?.cp} />
+          Engine, for you
+          <EvalBar cp={here?.cp} side={builder.origin.side} />
         </span>
       </span>
       {explorer === 'missing' && <Muted>Lichess stats need a token (VITE_LICHESS_TOKEN in frontend/.env.local): engine and your games only.</Muted>}
@@ -170,21 +179,22 @@ function CandidateTable({ builder, candidates, onPoint }: { builder: Builder; ca
             {stats && (
               <tr>
                 <th />
-                <th colSpan={2} className="hidden px-2 pb-0.5 text-center font-semibold sm:table-cell" style={{ borderBottom: `1px solid ${COLOURS.sand}` }}>
-                  Lichess 1400–1800
+                <th colSpan={2} className="whitespace-nowrap px-2 pb-0.5 text-center font-semibold" style={{ borderBottom: `1px solid ${COLOURS.sand}` }}>
+                  {compact ? 'Lichess 1400+' : 'Lichess 1400–1800'}
                 </th>
-                <th className="px-2 pb-0.5 text-right font-semibold sm:hidden">Lichess</th>
                 <th />
                 <th />
               </tr>
             )}
             <tr className="text-left">
               <th className="pb-1 pr-2 font-semibold">Move</th>
-              {stats && <th className="hidden pb-1 px-2 font-semibold sm:table-cell">played</th>}
-              {stats && <th className="pb-1 px-2 text-right font-semibold">{side} scores</th>}
-              <th className="pb-1 px-2 text-right font-semibold">Engine</th>
-              <th className="pb-1 pl-2 text-right font-semibold" title="Your games in the last 12 months">
-                Your games
+              {stats && <th className="pb-1 px-2 font-semibold">played</th>}
+              {stats && <th className="pb-1 px-2 text-right font-semibold">{compact ? 'score' : `${side} scores`}</th>}
+              <th className="pb-1 px-2 text-right font-semibold" title="Engine evaluation after the move, from your side: + is good for you">
+                Engine
+              </th>
+              <th className="pb-1 pl-2 text-right font-semibold" title="Your games in the last 12 months, and your score in them">
+                You
               </th>
             </tr>
           </thead>
@@ -196,6 +206,9 @@ function CandidateTable({ builder, candidates, onPoint }: { builder: Builder; ca
                 ply={ply}
                 faded={costly.includes(row)}
                 stats={stats}
+                compact={compact}
+                side={builder.origin.side}
+                worst={worst}
                 yours={row.san === builder.origin.reply && builder.path.length === builder.start.length}
                 onPlay={() => builder.play(row.san)}
                 onPoint={() => onPoint(row.san)}
@@ -214,7 +227,18 @@ function CandidateTable({ builder, candidates, onPoint }: { builder: Builder; ca
   );
 }
 
-function CandidateRow({ row, ply, faded, stats, yours, onPlay, onPoint }: { row: Candidate; ply: number; faded: boolean; stats: boolean; yours: boolean; onPlay: () => void; onPoint: () => void }) {
+function CandidateRow({ row, ply, faded, stats, compact, side, worst, yours, onPlay, onPoint }: {
+  row: Candidate;
+  ply: number;
+  faded: boolean;
+  stats: boolean;
+  compact: boolean;
+  side: Side;
+  worst: string | undefined;
+  yours: boolean;
+  onPlay: () => void;
+  onPoint: () => void;
+}) {
   const low = row.score !== undefined && Math.round(row.score * 100) < 50;
   return (
     <tr
@@ -229,20 +253,24 @@ function CandidateRow({ row, ply, faded, stats, yours, onPlay, onPoint }: { row:
       <td className="whitespace-nowrap py-1.5 pr-2 text-[15px] font-extrabold">
         {figurineMove(row.san, ply)}
         {row.judgement && <Mark judgement={row.judgement} />}
-        {row.engine && (
-          <span className="ml-1.5 rounded-full px-1.5 text-[11px] font-extrabold align-[1px]" style={{ background: COLOURS.kumquatDeep, color: 'white' }}>
-            engine
-          </span>
-        )}
-        {yours && (
-          <span className="ml-1.5 rounded-full px-1.5 text-[11px] font-extrabold align-[1px]" style={{ background: COLOURS.leaf, color: COLOURS.cream }}>
-            your game
+        {(row.engine || yours) && (
+          <span className={compact ? 'mt-0.5 flex gap-1' : 'inline'}>
+            {row.engine && (
+              <span className={`${compact ? '' : 'ml-1.5 '}rounded-full px-1.5 text-[11px] font-extrabold align-[1px]`} style={{ background: COLOURS.kumquatDeep, color: 'white' }}>
+                engine
+              </span>
+            )}
+            {yours && (
+              <span className={`${compact ? '' : 'ml-1.5 '}rounded-full px-1.5 text-[11px] font-extrabold align-[1px]`} style={{ background: COLOURS.leaf, color: COLOURS.cream }}>
+                your game
+              </span>
+            )}
           </span>
         )}
       </td>
       {stats && (
-        <td className="hidden px-2 py-1.5 sm:table-cell">
-          <ShareBar share={row.share} />
+        <td className="px-2 py-1.5">
+          {compact ? <span className="tabular-nums">{row.share === undefined ? '—' : formatPercent(row.share)}</span> : <ShareBar share={row.share} />}
         </td>
       )}
       {stats && (
@@ -251,10 +279,17 @@ function CandidateRow({ row, ply, faded, stats, yours, onPlay, onPoint }: { row:
         </td>
       )}
       <td className="whitespace-nowrap px-2 py-1.5 text-right tabular-nums">
-        {row.cp === undefined ? <span style={{ color: COLOURS.leafSoft }}>…</span> : formatCp(row.cp)}
+        {row.cp === undefined ? <span style={{ color: COLOURS.leafSoft }}>…</span> : formatCp(side === 'w' ? row.cp : -row.cp)}
       </td>
-      <td className="whitespace-nowrap py-1.5 pl-2 text-right" style={{ color: COLOURS.leafSoft }}>
-        {row.mine > 0 ? row.mine : '—'}
+      <td className="whitespace-nowrap py-1.5 pl-2 text-right" style={{ color: row.san === worst ? COLOURS.terracotta : COLOURS.leafSoft }}>
+        {row.mine > 0 ? (
+          <>
+            {row.mine}
+            {row.mine >= 3 && row.mineScore !== undefined && <span className="font-bold"> · {formatPercent(row.mineScore)}</span>}
+          </>
+        ) : (
+          '—'
+        )}
       </td>
     </tr>
   );
@@ -282,11 +317,13 @@ function ShareBar({ share }: { share: number | undefined }) {
   );
 }
 
-/** La position vue par le moteur, comme la barre de Lichess : la part blanche est la chance des Blancs. */
-function EvalBar({ cp }: { cp: number | undefined }) {
+/** La position vue par le moteur, comme la barre de Lichess, mais du côté du joueur : la part claire est sa chance. */
+function EvalBar({ cp: whiteCp, side }: { cp: number | undefined; side: Side }) {
+  // Du côté du joueur : un « −0.2 » lu par un joueur des Noirs doit vouloir dire « moins bien pour moi ».
+  const cp = whiteCp === undefined ? undefined : side === 'w' ? whiteCp : -whiteCp;
   const white = cp === undefined ? 0.5 : winChance(cp);
   return (
-    <span className="flex items-center gap-1.5" title={cp === undefined ? 'Engine: looking…' : `Engine: ${formatCp(cp)}`}>
+    <span className="flex items-center gap-1.5" title={cp === undefined ? 'Engine: looking…' : `Engine, for you: ${formatCp(cp)}`}>
       <span className="relative h-2.5 w-20 overflow-hidden rounded-full" style={{ background: COLOURS.leaf }}>
         <motion.span
           className="absolute inset-y-0 left-0 rounded-full"
@@ -300,7 +337,7 @@ function EvalBar({ cp }: { cp: number | undefined }) {
   );
 }
 
-/** Centipions des Blancs, comme sur Lichess : « −0.5 », « +1.2 », « #». */
+/** Centipions, comme sur Lichess : « −0.5 », « +1.2 », « #». */
 function formatCp(cp: number): string {
   if (Math.abs(cp) >= MATE_CP) return cp > 0 ? '#' : '−#';
   const pawns = (Math.abs(cp) / 100).toFixed(1);

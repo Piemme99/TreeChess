@@ -13,6 +13,8 @@ export const LANDING_DEPTH = 6;
 // Sous cette part des parties du camp, une ligne se replie à l'arrivée (comme le Pruned du flame graph).
 const LANDING_SHARE = 0.02;
 const NO_PREVIEW: readonly (readonly string[])[] = [];
+// Les ajouts du joueur, teintés du vert du répertoire pour qu'il retrouve son travail.
+const ADDED = 'oklch(0.91 0.06 162)';
 
 interface RepertoireMapProps {
   root: MapNode;
@@ -99,6 +101,15 @@ export function RepertoireMap({ root: drawn, side, selected, onSelect, focus, lo
   useEffect(() => () => {
     if (hoverTimer.current) clearTimeout(hoverTimer.current);
   }, []);
+  // Au clavier, l'aperçu du survol resterait figé sur un nœud qu'on a quitté.
+  useEffect(() => {
+    const hide = () => {
+      if (hoverTimer.current) clearTimeout(hoverTimer.current);
+      setHover(null);
+    };
+    window.addEventListener('keydown', hide);
+    return () => window.removeEventListener('keydown', hide);
+  }, []);
   const pointAt = (placed: PlacedNode, x: number, y: number) => {
     if (hoverTimer.current) clearTimeout(hoverTimer.current);
     if (hover?.placed.node.key === placed.node.key) {
@@ -127,7 +138,7 @@ export function RepertoireMap({ root: drawn, side, selected, onSelect, focus, lo
     <div
       ref={container}
       className="relative h-full w-full touch-none overflow-hidden rounded-3xl"
-      style={{ background: COLOURS.paper, cursor: 'grab', opacity: locked ? 0.55 : 1, transition: 'opacity 200ms' }}
+      style={{ background: COLOURS.paper, cursor: 'grab', opacity: locked ? 0.85 : 1, transition: 'opacity 200ms' }}
     >
       <svg
         role="tree"
@@ -242,6 +253,10 @@ export function Legend({ className = 'hidden sm:flex' }: { className?: string })
         games to settle
       </li>
       <li className="flex items-center gap-1.5">
+        <span className="h-[14px] w-6 rounded-full" style={{ background: ADDED, boxShadow: `inset 0 0 0 1.5px ${REPERTOIRE}` }} />
+        your additions
+      </li>
+      <li className="flex items-center gap-1.5">
         <span className="h-[5px] w-6 rounded-full" style={{ background: COLOURS.leafSoft, opacity: 0.6 }} />
         thicker = played more
       </li>
@@ -278,7 +293,7 @@ function Pill({ placed, side, selected, onClick, onDoubleClick, onOpen, onHover,
   const { node, x, y, width, label, hidden } = placed;
   const mine = node.san !== null && isPlayerMove(side, node.ply);
   const ghost = node.ghost === true;
-  const fill = selected ? COLOURS.leaf : node.stub || ghost ? 'transparent' : mine ? COLOURS.cream : COLOURS.paper;
+  const fill = selected ? COLOURS.leaf : node.stub || ghost ? 'transparent' : node.added ? ADDED : mine ? COLOURS.cream : COLOURS.paper;
   const ink = selected ? COLOURS.cream : node.stub ? COLOURS.leafSoft : mine ? COLOURS.leaf : COLOURS.leafSoft;
   const stroke = ghost ? COLOURS.kumquatDeep : node.stub ? COLOURS.sand : mine ? REPERTOIRE : COLOURS.sand;
   const h = PILL_HEIGHT;

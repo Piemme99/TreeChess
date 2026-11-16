@@ -44,9 +44,14 @@ export function FlameTiles({ tree, focusPath, onFocusChange, onPoint, priorities
   const isPlayerRow = (depth: number) => depth === 0 || isPlayerMove(tree.side, focusPath.length + depth);
   const widthPx = containerWidth || FALLBACK_WIDTH;
 
+  // Une priorité reste atteignable même sur un écran étroit : sa ligne n'est jamais fondue dans « … ».
+  const keep = useMemo(
+    () => new Set(priorities.filter((priority) => priority.side === tree.side).flatMap((priority) => priority.path.map((_, index) => priority.path.slice(0, index + 1).join(' ')))),
+    [priorities, tree.side],
+  );
   const tiles = useMemo(
-    () => layoutPruned(nodeAt(tree, focusPath) ?? tree.root, focusPath, { ...PRUNE, widthPx }),
-    [tree, focusPath, widthPx],
+    () => layoutPruned(nodeAt(tree, focusPath) ?? tree.root, focusPath, { ...PRUNE, widthPx, keep }),
+    [tree, focusPath, widthPx, keep],
   );
   const marks = useMemo(
     () => marksFor(tiles, priorities.filter((priority) => priority.side === tree.side)),
@@ -108,12 +113,13 @@ export function FlameTiles({ tree, focusPath, onFocusChange, onPoint, priorities
           {tiles.map((placed) => {
             const player = isPlayerRow(placed.depth);
             const rowHeight = (player ? ROW.player : ROW.opponent) - GAP;
-            const fontSize = player ? 14 : 11;
+            const fontSize = player ? 14 : 12;
             const tileWidth = placed.width * widthPx;
             const tone = placed.rest ? REST : player ? TONES[lineTone(placed.node, average)] : OPPONENT;
             const name = tileName(placed);
-            const text = tileLabel(placed, name, tileWidth - GAP - 8, fontSize * 0.85);
             const mark = marks.get(placed.key);
+            // Le rond de la priorité se pose à droite du libellé, pas dessus.
+            const text = tileLabel(placed, name, tileWidth - GAP - 8 - (mark?.exact ? 24 : 0), fontSize * 0.85);
             const covered = !placed.rest && placed.path.length > 0 && coveredLines.has(placed.path.join(' '));
             const surface = placed.rest ? { background: REST.bg, boxShadow: REST.edge } : tile(tone.bg);
             const edge = tone === TONES.even ? REST.edge : surface.boxShadow;

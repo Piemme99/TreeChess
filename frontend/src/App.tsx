@@ -2,6 +2,7 @@ import { useEffect, lazy, Suspense } from 'react';
 import { Routes, Route } from 'react-router';
 import { MainLayout } from './shared/components/Layout/MainLayout';
 import { ToastContainer, Loading } from './shared/components/UI';
+import { PageSkeleton } from './features/openings/workshop/PageSkeleton';
 import { LoginPage } from './features/auth/LoginPage';
 import { ForgotPasswordPage } from './features/auth/ForgotPasswordPage';
 import { ResetPasswordPage } from './features/auth/ResetPasswordPage';
@@ -77,10 +78,10 @@ function App() {
           <Route path="explore/repertoire/:id" element={<Suspense fallback={<Loading size="lg" />}><RepertoireEdit /></Suspense>} />
         </Route>
         {FlameGraphPage ? (
-          <Route path="/dev/flame-graph" element={<Suspense fallback={<Loading size="lg" />}><FlameGraphPage /></Suspense>} />
+          <Route path="/dev/flame-graph" element={<Suspense fallback={<PageSkeleton />}><FlameGraphPage /></Suspense>} />
         ) : null}
         {GameChecksPage ? (
-          <Route path="/dev/games" element={<Suspense fallback={<Loading size="lg" />}><GameChecksPage /></Suspense>} />
+          <Route path="/dev/games" element={<Suspense fallback={<PageSkeleton />}><GameChecksPage /></Suspense>} />
         ) : null}
         {HomePage ? (
           <Route path="/dev/home" element={<Suspense fallback={<Loading size="lg" />}><HomePage /></Suspense>} />
@@ -89,7 +90,7 @@ function App() {
           <Route path="/dev/session" element={<Suspense fallback={<Loading size="lg" />}><SessionPage /></Suspense>} />
         ) : null}
         {TreePage ? (
-          <Route path="/dev/tree" element={<Suspense fallback={<Loading size="lg" />}><TreePage /></Suspense>} />
+          <Route path="/dev/tree" element={<Suspense fallback={<PageSkeleton />}><TreePage /></Suspense>} />
         ) : null}
         <Route path="*" element={<Suspense fallback={<Loading size="lg" />}><NotFoundPage /></Suspense>} />
       </Routes>

@@ -21,6 +21,8 @@ export interface BuildOrigin {
   keep: boolean;
   /** Ce que le joueur a répondu dans la partie au coup adverse imprévu : s'il en choisit un autre, la partie reviendra à trancher. */
   reply?: string;
+  /** Le titre de la construction quand elle a un but précis (une priorité à travailler). */
+  heading?: string;
 }
 
 export function originOf(checked: CheckedGame & { check: Deviation }, keep = false): BuildOrigin {
@@ -49,6 +51,8 @@ export interface Builder {
   draft: readonly DraftMove[];
   /** Ce que le joueur a lui-même joué depuis la position courante dans ses parties. */
   mine: ReadonlyMap<string, number>;
+  /** Ses points dans ces parties, par coup (1 la victoire, ½ la nulle). */
+  minePoints: ReadonlyMap<string, number>;
   /** Le joueur garde le coup de la partie : l'ajout part de là. */
   kept: boolean;
   /** Au moins un coup du joueur : le coup adverse imprévu seul ne fait pas un ajout. */
@@ -71,14 +75,17 @@ export function useBuilder(origin: BuildOrigin, games: readonly PlayedGame[]): B
 
   const fen = useMemo(() => replayLine(path).fens[path.length], [path]);
   const playerToMove = (fen.split(' ')[1] === 'w') === (side === 'w');
-  const mine = useMemo(() => {
+  const { mine, minePoints } = useMemo(() => {
     const counts = new Map<string, number>();
+    const points = new Map<string, number>();
     for (const played of games) {
       if (!path.every((san, index) => played.moves[index] === san)) continue;
       const next = played.moves[path.length];
-      if (next) counts.set(next, (counts.get(next) ?? 0) + 1);
+      if (!next) continue;
+      counts.set(next, (counts.get(next) ?? 0) + 1);
+      points.set(next, (points.get(next) ?? 0) + played.score);
     }
-    return counts;
+    return { mine: counts, minePoints: points };
   }, [games, path]);
 
   const play = (san: string) => {
@@ -116,6 +123,7 @@ export function useBuilder(origin: BuildOrigin, games: readonly PlayedGame[]): B
     playerToMove,
     draft,
     mine,
+    minePoints,
     kept: keep && played !== undefined,
     // Un coup du joueur au moins : les coups donnés (adverse imprévu, ligne hors répertoire) peuvent déjà en contenir un.
     complete: draft.some((move) => isPlayerMove(side, move.path.length)),
