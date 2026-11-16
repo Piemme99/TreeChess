@@ -7,11 +7,11 @@ import { COLOURS, REPERTOIRE } from '../workshop/theme';
 import { visibleNodes, type Folding } from './fold';
 import { FONT_SIZE, layoutMap, PILL_HEIGHT, ROW, type PlacedNode } from './mapLayout';
 import { withPreview, type MapNode } from './repertoireMap';
-import { useElementSize, usePanZoom, type Box } from './usePanZoom';
+import { BOTTOM_BAR, useElementSize, usePanZoom, type Box } from './usePanZoom';
 
 export const LANDING_DEPTH = 6;
 // Sous cette part des parties du camp, une ligne se replie à l'arrivée (comme le Pruned du flame graph).
-const LANDING_SHARE = 0.02;
+const LANDING_SHARES = [0.02, 0.03, 0.05, 0.08, 0.12, 0.2];
 const NO_PREVIEW: readonly (readonly string[])[] = [];
 // Les ajouts du joueur, teintés du vert du répertoire pour qu'il retrouve son travail.
 const ADDED = 'oklch(0.91 0.06 162)';
@@ -50,7 +50,16 @@ export function RepertoireMap({ root: drawn, side, selected, onSelect, focus, lo
     () => ({ ...folding, revealed: new Set([...folding.revealed, selected, ...preview.map((line) => line.join(' '))]) }),
     [folding, selected, preview],
   );
-  const layout = useMemo(() => layoutMap(root, visibleNodes(root, LANDING_DEPTH, LANDING_SHARE * root.games, kept)), [root, kept]);
+  // Plutôt replier que réduire : on monte le seuil de parties jusqu'à ce que la carte tienne à taille de lecture.
+  const room = Math.max(0, size.height - BOTTOM_BAR - 24);
+  const layout = useMemo(() => {
+    let best = layoutMap(root, visibleNodes(root, LANDING_DEPTH, LANDING_SHARES[0] * root.games, kept));
+    for (const share of LANDING_SHARES.slice(1)) {
+      if (!room || best.bounds.height <= room) break;
+      best = layoutMap(root, visibleNodes(root, LANDING_DEPTH, share * root.games, kept));
+    }
+    return best;
+  }, [root, kept, room]);
   const maxGames = root.games || 1;
 
   // Un autre camp, une autre carte : le repli repart de zéro. Un nouveau jour ou un ajout ne touchent pas au repli
@@ -67,7 +76,7 @@ export function RepertoireMap({ root: drawn, side, selected, onSelect, focus, lo
   useEffect(() => {
     if (fitted.current === side || !size.width) return;
     fitted.current = side;
-    fit(layout.bounds, size);
+    fit(layout.bounds, size, 0.9);
   }, [side, size, layout.bounds, fit]);
 
   // Une demande de cadrage n'est servie qu'une fois, dès que son nœud est dessiné : déplier ailleurs ne doit pas ramener la carte.
@@ -79,7 +88,7 @@ export function RepertoireMap({ root: drawn, side, selected, onSelect, focus, lo
     served.current = focus.stamp;
     // Le chemin depuis le départ, pas le nœud seul : sans ses ancêtres, le joueur ne sait plus où il est.
     const along = layout.nodes.filter((node) => focus.key === node.node.key || focus.key.startsWith(`${node.node.key} `) || node.node.san === null);
-    reveal(boxOf(along), size, focus.centre ? 0.7 : Math.min(transform.k, 0.8));
+    reveal(boxOf(along), size, focus.centre ? 0.8 : Math.min(transform.k, 0.9));
     // `transform.k` n'est lu qu'au moment de servir la demande.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focus, layout.nodes, reveal, size]);
@@ -199,7 +208,7 @@ export function RepertoireMap({ root: drawn, side, selected, onSelect, focus, lo
           <MapButton label="Zoom in" onClick={() => zoomBy(1.25, size)}>
             +
           </MapButton>
-          <MapButton label="Fit the whole map" onClick={() => fit(layout.bounds, size, 0.3)}>
+          <MapButton label="Fit the map" onClick={() => fit(layout.bounds, size, 0.6)}>
             Fit
           </MapButton>
         </div>
@@ -254,6 +263,10 @@ function Legend() {
           n
         </span>
         games to settle
+      </li>
+      <li className="flex items-center gap-1.5">
+        <span className="h-[14px] w-6 rounded-full" style={{ background: COLOURS.cream, boxShadow: `inset 0 0 0 1.5px ${REPERTOIRE}` }} />
+        your move
       </li>
       <li className="flex items-center gap-1.5">
         <span className="h-[14px] w-6 rounded-full" style={{ background: ADDED, boxShadow: `inset 0 0 0 1.5px ${REPERTOIRE}` }} />
@@ -364,7 +377,7 @@ function Pill({ placed, side, selected, onClick, onDoubleClick, onOpen, onHover,
       {node.toSettle > 0 && !node.stub && (
         <g transform={`translate(${width / 2 - 2} ${-h / 2 - 3})`} aria-hidden="true">
           <rect x={-11} y={-9} width={node.toSettle > 9 ? 28 : 22} height={18} rx={9} fill={COLOURS.terracotta} stroke={COLOURS.paper} strokeWidth={2} />
-          <text x={node.toSettle > 9 ? 3 : 0} textAnchor="middle" dominantBaseline="central" fontSize={11} fontWeight={800} fill="white">
+          <text x={node.toSettle > 9 ? 3 : 0} textAnchor="middle" dominantBaseline="central" fontSize={12} fontWeight={800} fill="white">
             {node.toSettle}
           </text>
         </g>
@@ -372,7 +385,7 @@ function Pill({ placed, side, selected, onClick, onDoubleClick, onOpen, onHover,
       {node.priority !== undefined && !node.stub && (
         <g transform={`translate(${-width / 2 + 2} ${-h / 2 - 3})`} aria-hidden="true">
           <rect x={-12} y={-8} width={24} height={16} rx={4} fill={COLOURS.leaf} stroke={COLOURS.paper} strokeWidth={2} />
-          <text textAnchor="middle" dominantBaseline="central" fontSize={10} fontWeight={800} fill={COLOURS.cream}>
+          <text textAnchor="middle" dominantBaseline="central" fontSize={11} fontWeight={800} fill={COLOURS.cream}>
             P{node.priority}
           </text>
         </g>

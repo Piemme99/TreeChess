@@ -7,6 +7,7 @@ import { isPlayerMove } from '../domain/openingTree';
 import { formatPercent } from '../flame/format';
 import { JUDGEMENT_MARK, judgeMove, type Judgement } from '../domain/judgement';
 import { useEvaluations } from '../line/engine';
+import { repertoireMovesAt, type Repertoire } from '../domain/repertoire';
 import type { Side } from '../domain/playedGame';
 import { replayLine } from '../position/replay';
 import { COLOURS, raised, REPERTOIRE, SPRING, tile } from '../workshop/theme';
@@ -23,9 +24,10 @@ interface BuildPanelProps {
   onCancel: () => void;
   /** Dans le volet étroit : la part jouée en chiffres, sans barre. */
   compact?: boolean;
+  repertoire: Repertoire;
 }
 
-export function BuildPanel({ builder, candidates, fresh, onPoint, onAccept, onCancel, compact = false }: BuildPanelProps) {
+export function BuildPanel({ builder, candidates, fresh, onPoint, onAccept, onCancel, compact = false, repertoire }: BuildPanelProps) {
   const { origin, draft } = builder;
   const played = origin.played && figurineMove(origin.played, origin.start.length + 1);
   const lastGiven = origin.given.at(-1);
@@ -40,6 +42,7 @@ export function BuildPanel({ builder, candidates, fresh, onPoint, onAccept, onCa
   const complete = fresh.some((move) => isPlayerMove(origin.side, move.path.length));
   const judgement = useLastJudgement(builder);
   // Le coup du joueur choisi juste après le départ, à comparer à sa réponse dans la partie.
+  const second = useSecondChoice(builder, fresh, repertoire);
   const chosen = draft.find((move) => move.path.length === origin.start.length + 1 && move.path.every((san, at) => at >= origin.start.length || origin.start[at] === san))?.path.at(-1);
 
   return (
@@ -74,14 +77,6 @@ export function BuildPanel({ builder, candidates, fresh, onPoint, onAccept, onCa
           )}
         </span>
       </h2>
-
-      <CandidateTable builder={builder} candidates={candidates} onPoint={onPoint} compact={compact} />
-
-      {origin.reply && chosen && chosen !== origin.reply && (
-        <p className="rounded-xl px-3 py-2 text-[13px]" style={{ background: COLOURS.cream }}>
-          You chose {figurineMove(chosen, origin.start.length + 1)}: the game where you played {figurineMove(origin.reply, origin.start.length + 1)} will come back to settle.
-        </p>
-      )}
 
       {lines.length > 0 && (
         <div className="flex flex-col gap-1.5">
@@ -121,7 +116,7 @@ export function BuildPanel({ builder, candidates, fresh, onPoint, onAccept, onCa
         </div>
       )}
 
-      <span className={`flex flex-wrap gap-2 ${compact ? 'sticky bottom-0 -mx-4 -mb-4 rounded-b-3xl px-4 pt-3 pb-4' : ''}`} style={compact ? { background: COLOURS.paper, boxShadow: '0 -8px 16px -12px oklch(0.3 0.05 60 / 0.4)' } : undefined}>
+      <span className="flex flex-wrap gap-2">
         <Action onClick={onAccept} primary disabled={!complete}>
           {complete ? `Add to my repertoire · ${toAdd} new ${toAdd === 1 ? 'move' : 'moves'}` : 'Add to my repertoire'}
         </Action>
@@ -135,8 +130,43 @@ export function BuildPanel({ builder, candidates, fresh, onPoint, onAccept, onCa
           {lines.length ? 'Play your answer to add it.' : 'Play a move on the board or click a row.'}
         </span>
       )}
+      {origin.reply && chosen && chosen !== origin.reply && (
+        <p className="rounded-xl px-3 py-2 text-[13px]" style={{ background: COLOURS.cream }}>
+          You chose {figurineMove(chosen, origin.start.length + 1)}: the game where you played {figurineMove(origin.reply, origin.start.length + 1)} will come back to settle.
+        </p>
+      )}
+
+      {second && (
+        <p className="rounded-xl px-3 py-2 text-[13px]" style={{ background: COLOURS.cream }}>
+          Your repertoire already plays {second.existing} here: {second.added} becomes a second choice.
+        </p>
+      )}
+      <CandidateTable builder={builder} candidates={candidates} onPoint={onPoint} compact={compact} />
+
+      <p className="text-[12px]" style={{ color: COLOURS.leafSoft }}>
+        <strong>{origin.side === 'w' ? 'White' : 'Black'} %</strong>: how your side scores after the move on Lichess, 1400–1800 ·{' '}
+        <strong>Engine</strong>: + is good for you · <strong>You</strong>: your games in 12 months, and your score from 3 games.
+      </p>
     </section>
   );
+}
+
+/** Un coup du joueur ajouté là où le répertoire en a déjà un : un second choix, à dire avant d'ajouter. */
+function useSecondChoice(builder: Builder, fresh: readonly DraftMove[], repertoire: Repertoire): { existing: string; added: string } | null {
+  const { origin, path } = builder;
+  return useMemo(() => {
+    for (const move of fresh) {
+      if (!isPlayerMove(origin.side, move.path.length)) continue;
+      const before = move.path.slice(0, -1);
+      const known = repertoireMovesAt(repertoire, replayLine(before).fens[before.length]).map((known) => known.san);
+      if (known.length === 0) continue;
+      const ply = move.path.length;
+      return { existing: known.map((san) => figurineMove(san, ply)).join(' · '), added: figurineMove(move.path[ply - 1], ply) };
+    }
+    return null;
+    // `path` change avec chaque coup ; le brouillon suffit à décider.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fresh, origin.side, path, repertoire]);
 }
 
 /** Le jugement du moteur sur le dernier coup du joueur, s'il vient d'en jouer un. */
@@ -159,6 +189,12 @@ function CandidateTable({ builder, candidates, onPoint, compact }: { builder: Bu
   const stats = explorer === 'ready' || explorer === 'asking';
   // Là où le joueur perd le plus dans ses propres parties : ce qu'une priorité lui demande de regarder.
   const scored = all.filter((row) => row.mine >= 3 && row.mineScore !== undefined);
+  // Rouge par rapport au meilleur candidat : sous 50 % tout le monde l'est souvent avec les Noirs, et le rouge ne dirait plus rien.
+  const scores = all.flatMap((row) => (row.score === undefined ? [] : [row.score]));
+  const best = scores.length > 1 ? Math.max(...scores) : undefined;
+  // Le coup que le joueur joue vraiment d'abord : c'est par rapport à lui qu'il choisit.
+  const habit = builder.playerToMove ? [...all].filter((row) => row.mine >= 2).sort((a, b) => b.mine - a.mine)[0]?.san : undefined;
+  const ordered = habit ? [...all.filter((row) => row.san === habit), ...all.filter((row) => row.san !== habit)] : all;
   const worst = scored.length > 1 ? scored.reduce((low, row) => (row.mineScore! < low.mineScore! ? row : low)).san : undefined;
   return (
     <div className="flex flex-col gap-1.5">
@@ -179,16 +215,21 @@ function CandidateTable({ builder, candidates, onPoint, compact }: { builder: Bu
             {stats && (
               <tr>
                 <th />
-                <th colSpan={2} className="whitespace-nowrap px-2 pb-0.5 text-center font-semibold" style={{ borderBottom: `1px solid ${COLOURS.sand}` }}>
-                  {compact ? 'Lichess, 1400+' : 'Lichess players 1400–1800'}
+                <th colSpan={2} className={`whitespace-nowrap px-2 pb-0.5 text-center font-semibold ${compact ? 'hidden sm:table-cell' : ''}`} style={{ borderBottom: `1px solid ${COLOURS.sand}` }}>
+                  Lichess 1400–1800
                 </th>
+                {compact && (
+                  <th className="whitespace-nowrap px-2 pb-0.5 text-right font-semibold sm:hidden" style={{ borderBottom: `1px solid ${COLOURS.sand}` }}>
+                    Lichess
+                  </th>
+                )}
                 <th />
                 <th />
               </tr>
             )}
             <tr className="text-left">
               <th className="pb-1 pr-2 font-semibold">Move</th>
-              {stats && <th className="pb-1 px-2 font-semibold">played</th>}
+              {stats && <th className={`pb-1 px-2 font-semibold ${compact ? 'hidden sm:table-cell' : ''}`}>played</th>}
               {stats && (
                 <th className="pb-1 px-2 text-right font-semibold" title={`How ${side} scores after this move, at this level`}>
                   {side} %
@@ -203,7 +244,7 @@ function CandidateTable({ builder, candidates, onPoint, compact }: { builder: Bu
             </tr>
           </thead>
           <tbody>
-            {all.map((row) => (
+            {ordered.map((row) => (
               <CandidateRow
                 key={row.san}
                 row={row}
@@ -213,7 +254,8 @@ function CandidateTable({ builder, candidates, onPoint, compact }: { builder: Bu
                 compact={compact}
                 side={builder.origin.side}
                 worst={worst}
-                yours={row.san === builder.origin.reply && builder.path.length === builder.start.length}
+                best={best}
+                yours={(row.san === builder.origin.reply && builder.path.length === builder.start.length) || row.san === habit}
                 onPlay={() => builder.play(row.san)}
                 onPoint={() => onPoint(row.san)}
               />
@@ -222,16 +264,16 @@ function CandidateTable({ builder, candidates, onPoint, compact }: { builder: Bu
         </table>
         </div>
       )}
-      {stats && all.some((row) => row.score !== undefined && row.score < 0.5) && (
+      {best !== undefined && all.some((row) => row.score !== undefined && row.score < best - 0.05) && (
         <span className="text-[11px]" style={{ color: COLOURS.leafSoft }}>
-          <span style={{ color: COLOURS.terracotta }}>Red</span> score: {side} scores under 50% after that move at this level.
+          <span style={{ color: COLOURS.terracotta }}>Red</span>: {side} scores clearly less after that move than after the best one.
         </span>
       )}
     </div>
   );
 }
 
-function CandidateRow({ row, ply, faded, stats, compact, side, worst, yours, onPlay, onPoint }: {
+function CandidateRow({ row, ply, faded, stats, compact, side, worst, best, yours, onPlay, onPoint }: {
   row: Candidate;
   ply: number;
   faded: boolean;
@@ -239,11 +281,12 @@ function CandidateRow({ row, ply, faded, stats, compact, side, worst, yours, onP
   compact: boolean;
   side: Side;
   worst: string | undefined;
+  best: number | undefined;
   yours: boolean;
   onPlay: () => void;
   onPoint: () => void;
 }) {
-  const low = row.score !== undefined && Math.round(row.score * 100) < 50;
+  const low = row.score !== undefined && best !== undefined && row.score < best - 0.05;
   return (
     <tr
       className="cursor-pointer hover:bg-[oklch(0.975_0.012_85)] focus-visible:outline-2"
@@ -266,14 +309,14 @@ function CandidateRow({ row, ply, faded, stats, compact, side, worst, yours, onP
             )}
             {yours && (
               <span className={`${compact ? '' : 'ml-1.5 '}rounded-full px-1.5 text-[11px] font-extrabold align-[1px]`} style={{ background: COLOURS.leaf, color: COLOURS.cream }}>
-                your game
+                you play it
               </span>
             )}
           </span>
         )}
       </td>
       {stats && (
-        <td className="px-2 py-1.5">
+        <td className={`px-2 py-1.5 ${compact ? 'hidden sm:table-cell' : ''}`}>
           {compact ? <span className="tabular-nums">{row.share === undefined ? '—' : formatPercent(row.share)}</span> : <ShareBar share={row.share} />}
         </td>
       )}

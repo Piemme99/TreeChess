@@ -110,6 +110,7 @@ export function BuildSession({ origin, games, repertoire, onAccept, onCancel, ch
       <div className={`flex min-w-0 flex-col ${stacked ? 'gap-4' : 'gap-6 lg:gap-10'}`}>
         <BuildPanel
           compact={stacked}
+          repertoire={repertoire}
           builder={builder}
           candidates={candidates}
           fresh={fresh}

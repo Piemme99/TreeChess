@@ -51,6 +51,8 @@ export function GameChecksPage() {
   const startAdding = (checked: CheckedGame) => {
     setSelectedId(checked.id);
     setAddingId(checked.id);
+    // Le constructeur s'ouvre en haut de la page : sans ça, le bouton semble ne rien faire.
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
   const stopAdding = () => {
     setAddingId(null);
@@ -79,7 +81,7 @@ export function GameChecksPage() {
               <h2 id="decide-title" className="text-[22px] font-extrabold tracking-[-0.02em]">
                 To settle{' '}
                 <span className="text-[15px] font-semibold" style={{ color: COLOURS.leafSoft }}>
-                  {toDecide.length} {toDecide.length === 1 ? 'game' : 'games'}
+                  · {toDecide.length} {toDecide.length === 1 ? 'game' : 'games'}
                 </span>
               </h2>
               {toDecide.length ? (

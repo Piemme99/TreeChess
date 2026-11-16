@@ -95,7 +95,7 @@ export function PositionPane({ side, path, node, recent, steps, priority, action
           )}
         </div>
       </div>
-      <div className={`order-2 mx-auto w-full ${card ? 'max-w-[15rem] lg:max-w-[17rem]' : 'max-w-[24rem] lg:max-w-[20rem]'}`}>
+      <div className={`order-2 mx-auto w-full ${card ? 'max-w-[18rem] lg:max-w-[17rem]' : 'max-w-[24rem] lg:max-w-[20rem]'}`}>
         <PlayableBoard path={path} flipped={side === 'b'} arrows={arrows} suggestions={suggestions} onMove={onMove} />
         {arrows.length > 0 && (
           <p className="mt-2 flex flex-wrap justify-center gap-x-4 text-[12px] font-semibold" style={{ color: COLOURS.leafSoft }}>
@@ -146,7 +146,7 @@ export function PositionPane({ side, path, node, recent, steps, priority, action
           )}
         </section>
       )}
-      <Repertoire side={side} path={path} node={node} inRepertoire={inRepertoire} ply={ply} />
+      <Repertoire side={side} path={path} node={node} inRepertoire={inRepertoire} ply={ply} here={here} />
       {!(prioritised && !settling && onPrepareFollows) && (
         <div className="order-5">
           <Action onClick={onExtend} tone={inRepertoire || settling ? 'plain' : 'primary'}>
@@ -161,12 +161,20 @@ export function PositionPane({ side, path, node, recent, steps, priority, action
   );
 }
 
-function Repertoire({ side, path, node, inRepertoire, ply }: { side: Side; path: readonly string[]; node: MapNode; inRepertoire: boolean; ply: number }) {
+function Repertoire({ side, path, node, inRepertoire, ply, here }: { side: Side; path: readonly string[]; node: MapNode; inRepertoire: boolean; ply: number; here: OpeningNode | undefined }) {
   const mine = isPlayerMove(side, ply);
   if (!inRepertoire) {
     return (
       <p className="order-4 px-1 text-[14px]" style={{ color: COLOURS.leafSoft }}>
-        <strong style={{ color: COLOURS.terracotta }}>Off your repertoire</strong> since {figurineMove(path[node.path.length], node.path.length + 1)}
+        <strong style={{ color: COLOURS.terracotta }}>Off your repertoire</strong> since {figurineMove(path[node.path.length], node.path.length + 1)}.{' '}
+        {here ? (
+          <>
+            You reached this position in {here.games} {here.games === 1 ? 'game' : 'games'} in 12 months and scored{' '}
+            <strong style={{ color: COLOURS.leaf }}>{Math.round(scoreRate(here) * 100)}%</strong>.
+          </>
+        ) : (
+          'Not reached in your games of the last 12 months.'
+        )}
       </p>
     );
   }
@@ -194,17 +202,31 @@ function Repertoire({ side, path, node, inRepertoire, ply }: { side: Side; path:
   );
 }
 
+// Un fil qui coûte doit peser : sous ce nombre de parties, l'écart ne désigne rien.
+const MIN_LEAK_GAMES = 5;
+
 function PriorityVerdict({ priority, here, average, line }: { priority: Priority; here: OpeningNode | undefined; average: number; line: string }) {
   const lost = Math.round(priority.pointsToGain);
+  const ply = priority.path.length + 1;
+  const leak = here?.children
+    .filter((child) => child.games >= MIN_LEAK_GAMES && scoreRate(child) < average)
+    .sort((a, b) => (scoreRate(a) - average) * a.games - (scoreRate(b) - average) * b.games)[0];
   return (
     <>
       <span className="text-[15px] leading-snug">
         After <strong>{line}</strong> you score <strong>{here ? Math.round(scoreRate(here) * 100) : '—'}%</strong>, against <strong>{Math.round(average * 100)}%</strong> on
         average: about {lost} {lost === 1 ? 'point' : 'points'} lost over {priority.games} games in 12 months (a win is 1 point, a draw ½).
       </span>
-      <span className="text-[13px]" style={{ opacity: 0.8 }}>
-        The points usually go in the moves that follow. The builder shows your own score after each one.
-      </span>
+      {leak ? (
+        <span className="text-[14px] leading-snug">
+          Where it goes wrong: after <strong>{figurineMove(leak.san!, ply)}</strong> you score <strong>{Math.round(scoreRate(leak) * 100)}%</strong> in {leak.games}{' '}
+          games.
+        </span>
+      ) : (
+        <span className="text-[13px]" style={{ opacity: 0.8 }}>
+          No single next move stands out: the points go a little everywhere after it.
+        </span>
+      )}
     </>
   );
 }

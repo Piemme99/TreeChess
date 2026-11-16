@@ -74,6 +74,8 @@ export function OpeningsPage() {
     }
     setSide(priority.side);
     zoomTo(priority.path);
+    // Au téléphone l'échiquier est loin au-dessus des tickets.
+    if (!window.matchMedia?.('(min-width: 1024px)').matches) window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   useEffect(() => {

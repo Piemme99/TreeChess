@@ -114,6 +114,10 @@ export function TreePage() {
       else done.delete(key);
       return { ...active, done };
     });
+  // Au téléphone, le résultat d'une action est en haut du volet : on y remonte.
+  const toTop = () => {
+    if (!wide) window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
   const startSession = () => {
     // Une couleur après l'autre, en commençant par celle qu'on regarde : changer de camp à chaque étape fait tout redessiner.
     const ordered = [...steps.filter((step) => step.side === side), ...steps.filter((step) => step.side !== side)];
@@ -125,6 +129,7 @@ export function TreePage() {
     if (addition) add(addition);
     mark(step.key, 'settled');
     build(null);
+    toTop();
     show({
       text,
       undo: () => {
@@ -164,9 +169,14 @@ export function TreePage() {
       const ids = step.games.map((checked) => checked.id);
       ids.forEach(ignore);
       mark(step.key, 'settled');
+      toTop();
       const games = ids.length;
+      const ply = step.path.length + 1;
       show({
-        text: `Repertoire unchanged · ${games} ${games === 1 ? 'game' : 'games'} set aside`,
+        text:
+          step.kind === 'left'
+            ? `Kept ${step.planned.map((san) => figurineMove(san, ply)).join(' · ')} · ${games} ${games === 1 ? 'game' : 'games'} set aside`
+            : `${figurineMove(step.played, ply)} left unprepared · ${games} ${games === 1 ? 'game' : 'games'} set aside`,
         undo: () => {
           unignore(ids);
           mark(step.key, null);
@@ -180,6 +190,8 @@ export function TreePage() {
   };
 
   const shownRank = node.priority ?? 1;
+  // Une ligne jouée hors du répertoire se voit aussi sur la carte, en fantôme, là où elle quitte le répertoire.
+  const shownPreview = useMemo(() => (building ? preview : path.length > node.path.length ? [path] : []), [building, preview, path, node.path.length]);
   const pins = useMemo(() => [...markedNodes(maps.w).priorities.map((n) => ({ side: 'w' as Side, node: n })), ...markedNodes(maps.b).priorities.map((n) => ({ side: 'b' as Side, node: n }))].sort((a, b) => a.node.priority! - b.node.priority!), [maps]);
   const goToPriority = (rank: number) => {
     const pin = pins.find((candidate) => candidate.node.priority === rank) ?? pins[0];
@@ -287,7 +299,7 @@ export function TreePage() {
                     onSelect={(key) => goTo(side, key, false)}
                     focus={focus}
                     locked={building !== null}
-                    preview={preview}
+                    preview={shownPreview}
                   />
                 ) : (
                   <TreeList root={root} side={side} node={node} onSelect={(key) => goTo(side, key, false)} onOpen={() => setView('position')} />
@@ -365,7 +377,7 @@ function SessionBar({ index, total, settled, side, onEnd }: { index: number; tot
 
 function Done({ settled, skipped, left, onClose }: { settled: number; skipped: number; left: number; onClose: () => void }) {
   return (
-    <aside aria-label="Done" className="flex flex-col items-start gap-3 self-start rounded-3xl p-5" style={raised(false)}>
+    <aside aria-label="Done" className="flex w-full flex-col items-start gap-3 rounded-3xl p-5" style={raised(false)}>
       <span className="text-[24px] font-extrabold tracking-[-0.02em]">Session done</span>
       <span className="text-[15px]">
         <strong>{settled}</strong> settled · <strong>{skipped}</strong> skipped for later

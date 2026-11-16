@@ -53,7 +53,7 @@ export function GameCard({ checked, selected, onSelect, showDate = false, onIgno
         </span>
         <span className="truncate text-[16px] font-semibold">{opening?.name ?? 'Unnamed opening'}</span>
         <span className="text-[14px]" style={{ opacity: 0.8 }}>
-          <Verdict checked={checked} judgement={judgement} />
+          <Verdict checked={checked} judgement={judgement} selected={selected} />
         </span>
       </button>
       {ignored && (
@@ -97,7 +97,7 @@ export function GameCard({ checked, selected, onSelect, showDate = false, onIgno
   );
 }
 
-function Verdict({ checked: { check }, judgement }: { checked: CheckedGame; judgement?: Judgement | null }) {
+function Verdict({ checked: { check }, judgement, selected }: { checked: CheckedGame; judgement?: Judgement | null; selected: boolean }) {
   if (check.kind === 'followed') {
     const moves = Math.ceil(check.plies / 2);
     return <>Your repertoire held for {moves} {moves === 1 ? 'move' : 'moves'}</>;
@@ -119,7 +119,7 @@ function Verdict({ checked: { check }, judgement }: { checked: CheckedGame; judg
         {judgement && JUDGEMENT_MARK[judgement]}
       </b>
       {judgement && (
-        <span className="font-semibold" style={{ color: judgement === 'inaccuracy' ? COLOURS.kumquatDeep : COLOURS.terracotta }}>
+        <span className="font-semibold" style={{ color: selected ? COLOURS.apricot : judgement === 'inaccuracy' ? COLOURS.kumquatDeep : COLOURS.terracotta }}>
           {' '}
           · {judgement}
         </span>

@@ -46,7 +46,7 @@ export function BoardPanel({ history, recent, path, repertoire, studyHref }: Boa
         )}
       </div>
       <p className="px-1 text-[14px]" style={{ color: COLOURS.leafSoft }}>
-        <span className="font-semibold">Your repertoire here: </span>
+        <span className="font-semibold">{path.length % 2 === (history.side === 'w' ? 0 : 1) ? 'Your repertoire here: ' : 'Replies you prepared: '}</span>
         {planned.length ? (
           <span style={{ color: REPERTOIRE }} className="font-bold">
             {planned.map((move) => figurineMove(move.san, path.length + 1)).join(' · ')}
