@@ -75,8 +75,9 @@ export function RepertoireMap({ root: drawn, side, selected, onSelect, focus, lo
     const placed = layout.nodes.find((node) => node.node.key === focus.key);
     if (!placed) return;
     served.current = focus.stamp;
-    const along = focus.centre ? layout.nodes.filter((node) => focus.key === node.node.key || focus.key.startsWith(`${node.node.key} `) || node.node.san === null) : [placed];
-    reveal(boxOf(along), size, focus.centre ? 0.8 : transform.k);
+    // Le chemin depuis le départ, pas le nœud seul : sans ses ancêtres, le joueur ne sait plus où il est.
+    const along = layout.nodes.filter((node) => focus.key === node.node.key || focus.key.startsWith(`${node.node.key} `) || node.node.san === null);
+    reveal(boxOf(along), size, focus.centre ? 0.7 : Math.min(transform.k, 0.8));
     // `transform.k` n'est lu qu'au moment de servir la demande.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focus, layout.nodes, reveal, size]);
@@ -186,7 +187,7 @@ export function RepertoireMap({ root: drawn, side, selected, onSelect, focus, lo
           <MapButton label="Zoom in" onClick={() => zoomBy(1.25, size)}>
             +
           </MapButton>
-          <MapButton label="Fit the map" onClick={() => fit(layout.bounds, size)}>
+          <MapButton label="Fit the whole map" onClick={() => fit(layout.bounds, size, 0.3)}>
             Fit
           </MapButton>
         </div>

@@ -1,4 +1,5 @@
 import { MotionConfig, motion } from 'framer-motion';
+import { useSearchParams } from 'react-router';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { BuildSession } from '../checks/BuildSession';
 import { originAt, originOf, type BuildOrigin } from '../checks/useBuilder';
@@ -38,13 +39,18 @@ type View = 'map' | 'position';
 export function TreePage() {
   useWorkshopFont();
   const { replay, known, repertoires, steps, add, remove, ignore, unignore, forgetIgnored, forgetAdditions } = useReplayedSession();
-  const [side, setSide] = useState<Side>('w');
-  const [paths, setPaths] = useState<Record<Side, readonly string[]>>({ w: [], b: [] });
-  const [focus, setFocus] = useState<{ key: string; stamp: number; centre: boolean } | null>(null);
+  // Openings envoie une ligne à travailler par l'adresse : /dev/tree?side=b&line=d4 Nf6.
+  const [params] = useSearchParams();
+  const asked = useMemo(() => ({ side: params.get('side') === 'b' ? 'b' : 'w', line: params.get('line')?.split(' ').filter(Boolean) ?? [] }) as { side: Side; line: string[] }, [params]);
+  const [side, setSide] = useState<Side>(asked.side);
+  const [paths, setPaths] = useState<Record<Side, readonly string[]>>(() => ({ w: [], b: [], [asked.side]: asked.line }));
+  const [focus, setFocus] = useState<{ key: string; stamp: number; centre: boolean } | null>(() =>
+    asked.line.length ? { key: asked.line.join(' '), stamp: Date.now(), centre: true } : null,
+  );
   const [session, setSession] = useState<Session | null>(null);
   const [building, setBuilding] = useState<{ origin: BuildOrigin; stepKey?: string } | null>(null);
   // Sur le téléphone, la carte et le volet ne tiennent pas ensemble : un onglet à la fois.
-  const [view, setView] = useState<View>('map');
+  const [view, setView] = useState<View>(asked.line.length ? 'position' : 'map');
   const [preview, setPreview] = useState<readonly (readonly string[])[]>([]);
   const showLines = useCallback((lines: (readonly string[])[]) => {
     setPreview(lines);
@@ -252,7 +258,7 @@ export function TreePage() {
               )}
               <Door
                 onClick={pins.length ? () => goToPriority(node.priority !== undefined ? (node.priority % pins.length) + 1 : 1) : undefined}
-                title={priorities.length ? `Priority ${shownRank} of ${priorities.length}${node.priority !== undefined && pins.length > 1 ? ' · next →' : ''}` : 'No priority'}
+                title={priorities.length ? `Priority ${shownRank} of ${priorities.length}` : 'No priority'}
                 className={session ? 'hidden sm:flex' : undefined}
               >
                 {priorities[shownRank - 1] ? <PriorityLabel priority={priorities[shownRank - 1]} /> : 'Nothing below your average'}
@@ -328,10 +334,10 @@ function SessionBar({ index, total, settled, side, onEnd }: { index: number; tot
           as {side === 'w' ? 'White' : 'Black'}
         </motion.span>
       </span>
-      <span className="h-1.5 min-w-8 flex-1 overflow-hidden rounded-full" style={{ background: COLOURS.sand }}>
+      <span className="hidden h-2.5 min-w-12 flex-1 overflow-hidden rounded-full sm:block" style={{ background: COLOURS.sand }}>
         <motion.span className="block h-full rounded-full" style={{ background: COLOURS.leaf }} animate={{ width: `${(settled / total) * 100}%` }} transition={SPRING} />
       </span>
-      <button type="button" onClick={onEnd} className="whitespace-nowrap rounded-lg px-2 py-1 underline-offset-4 hover:underline focus-visible:outline-2" style={{ color: COLOURS.leafSoft }}>
+      <button type="button" onClick={onEnd} className="ml-auto whitespace-nowrap rounded-lg px-2 py-1 underline-offset-4 hover:underline focus-visible:outline-2" style={{ color: COLOURS.leafSoft }}>
         End session
       </button>
     </div>
@@ -365,7 +371,7 @@ function Door({ onClick, title, tone = 'plain', className = 'flex', children }: 
       whileHover={onClick ? { y: -2 } : undefined}
       whileTap={onClick ? { scale: 0.97 } : undefined}
       transition={SPRING}
-      className={`${className} min-w-0 flex-1 flex-col items-start rounded-2xl px-4 py-2 text-left focus-visible:outline-2 focus-visible:outline-offset-2 sm:max-w-[19rem] sm:flex-none`}
+      className={`${className} min-w-0 flex-1 flex-col items-start rounded-2xl px-4 py-2 text-left focus-visible:outline-2 focus-visible:outline-offset-2 sm:w-[17rem] sm:flex-none`}
       style={{ ...raised(false), ...(accent ? { background: COLOURS.terracotta, color: 'white' } : {}), opacity: onClick ? 1 : 0.7 }}
     >
       <span className="text-[15px] font-extrabold tracking-[-0.01em]">{title}</span>

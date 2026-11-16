@@ -81,11 +81,14 @@ function Ticket({ priority, rank, share, selected, onSelect, onPoint }: TicketPr
           <span className="text-[28px] leading-none font-extrabold" style={{ color: selected ? COLOURS.apricot : COLOURS.kumquatDeep }}>
             {rank}
           </span>
-          <span
-            className="h-4 w-4 rounded-full"
-            style={{ background: priority.side === 'w' ? 'white' : COLOURS.leaf, boxShadow: `0 0 0 1.5px ${selected ? COLOURS.cream : COLOURS.leaf}` }}
-          />
-          <span className="sr-only">{priority.side === 'w' ? 'White' : 'Black'}</span>
+          <span className="flex items-center gap-1.5 text-[12px] font-semibold" style={{ opacity: 0.8 }}>
+            <span
+              aria-hidden="true"
+              className="h-3.5 w-3.5 rounded-full"
+              style={{ background: priority.side === 'w' ? 'white' : COLOURS.leaf, boxShadow: `0 0 0 1.5px ${selected ? COLOURS.cream : COLOURS.leaf}` }}
+            />
+            {priority.side === 'w' ? 'White' : 'Black'}
+          </span>
         </span>
         <span className="line-clamp-2 min-h-[2.5em] text-[14px] leading-tight font-semibold">{opening?.name ?? 'Unnamed line'}</span>
         <span className="text-[13px]" style={{ opacity: 0.75 }}>

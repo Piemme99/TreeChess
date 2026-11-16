@@ -36,6 +36,8 @@ export function BuildPanel({ builder, candidates, fresh, onPoint, onAccept, onCa
   const isFresh = (path: readonly string[]) => fresh.some((move) => move.path.length === path.length && move.path.every((san, at) => path[at] === san));
   const complete = fresh.some((move) => isPlayerMove(origin.side, move.path.length));
   const judgement = useLastJudgement(builder);
+  // Le coup du joueur choisi juste après le départ, à comparer à sa réponse dans la partie.
+  const chosen = draft.find((move) => move.path.length === origin.start.length + 1 && move.path.every((san, at) => at >= origin.start.length || origin.start[at] === san))?.path.at(-1);
 
   return (
     <section aria-label="Addition" className="flex flex-col gap-4 rounded-3xl p-5" style={raised(false)}>
@@ -57,10 +59,24 @@ export function BuildPanel({ builder, candidates, fresh, onPoint, onAccept, onCa
         )}
         <span className="mt-1 block text-[14px] font-semibold tracking-normal" style={{ color: COLOURS.leafSoft }}>
           {builder.start.length ? `From ${figurineLine(builder.start)}` : 'From the starting position'}
+          {origin.reply && (
+            <>
+              {' · in that game you answered '}
+              <span className="whitespace-nowrap" style={{ color: COLOURS.leaf }}>
+                {figurineMove(origin.reply, origin.start.length + 1)}
+              </span>
+            </>
+          )}
         </span>
       </h2>
 
       <CandidateTable builder={builder} candidates={candidates} onPoint={onPoint} />
+
+      {origin.reply && chosen && chosen !== origin.reply && (
+        <p className="rounded-xl px-3 py-2 text-[13px]" style={{ background: COLOURS.cream }}>
+          You chose {figurineMove(chosen, origin.start.length + 1)}: the game where you played {figurineMove(origin.reply, origin.start.length + 1)} will come back to settle.
+        </p>
+      )}
 
       {lines.length > 0 && (
         <div className="flex flex-col gap-1.5">
@@ -100,18 +116,19 @@ export function BuildPanel({ builder, candidates, fresh, onPoint, onAccept, onCa
       )}
 
       <span className="flex flex-wrap gap-2">
-        {complete ? (
-          <Action onClick={onAccept} primary>
-            Add to my repertoire · {toAdd} new {toAdd === 1 ? 'move' : 'moves'}
-          </Action>
-        ) : (
-          <span className="self-center text-[13px]" style={{ color: COLOURS.leafSoft }}>
-            {lines.length ? 'Play one of your moves to add.' : 'Play a move on the board or click a row.'}
-          </span>
-        )}
-        {builder.undo && <Action onClick={builder.undo}>Undo last move</Action>}
+        <Action onClick={onAccept} primary disabled={!complete}>
+          Add to my repertoire{toAdd ? ` · ${toAdd} new ${toAdd === 1 ? 'move' : 'moves'}` : ''}
+        </Action>
+        <Action onClick={builder.undo ?? (() => undefined)} disabled={!builder.undo}>
+          Undo last move
+        </Action>
         <Action onClick={onCancel}>Cancel</Action>
       </span>
+      {!complete && (
+        <span className="-mt-2 text-[13px]" style={{ color: COLOURS.leafSoft }}>
+          {lines.length ? 'Play one of your moves to add.' : 'Play a move on the board or click a row.'}
+        </span>
+      )}
     </section>
   );
 }
@@ -153,16 +170,17 @@ function CandidateTable({ builder, candidates, onPoint }: { builder: Builder; ca
             {stats && (
               <tr>
                 <th />
-                <th colSpan={2} className="px-2 pb-0.5 text-center font-semibold" style={{ borderBottom: `1px solid ${COLOURS.sand}` }}>
+                <th colSpan={2} className="hidden px-2 pb-0.5 text-center font-semibold sm:table-cell" style={{ borderBottom: `1px solid ${COLOURS.sand}` }}>
                   Lichess 1400–1800
                 </th>
+                <th className="px-2 pb-0.5 text-right font-semibold sm:hidden">Lichess</th>
                 <th />
                 <th />
               </tr>
             )}
             <tr className="text-left">
               <th className="pb-1 pr-2 font-semibold">Move</th>
-              {stats && <th className="pb-1 px-2 font-semibold">played</th>}
+              {stats && <th className="hidden pb-1 px-2 font-semibold sm:table-cell">played</th>}
               {stats && <th className="pb-1 px-2 text-right font-semibold">{side} scores</th>}
               <th className="pb-1 px-2 text-right font-semibold">Engine</th>
               <th className="pb-1 pl-2 text-right font-semibold" title="Your games in the last 12 months">
@@ -178,6 +196,7 @@ function CandidateTable({ builder, candidates, onPoint }: { builder: Builder; ca
                 ply={ply}
                 faded={costly.includes(row)}
                 stats={stats}
+                yours={row.san === builder.origin.reply && builder.path.length === builder.start.length}
                 onPlay={() => builder.play(row.san)}
                 onPoint={() => onPoint(row.san)}
               />
@@ -195,7 +214,7 @@ function CandidateTable({ builder, candidates, onPoint }: { builder: Builder; ca
   );
 }
 
-function CandidateRow({ row, ply, faded, stats, onPlay, onPoint }: { row: Candidate; ply: number; faded: boolean; stats: boolean; onPlay: () => void; onPoint: () => void }) {
+function CandidateRow({ row, ply, faded, stats, yours, onPlay, onPoint }: { row: Candidate; ply: number; faded: boolean; stats: boolean; yours: boolean; onPlay: () => void; onPoint: () => void }) {
   const low = row.score !== undefined && Math.round(row.score * 100) < 50;
   return (
     <tr
@@ -215,9 +234,14 @@ function CandidateRow({ row, ply, faded, stats, onPlay, onPoint }: { row: Candid
             engine
           </span>
         )}
+        {yours && (
+          <span className="ml-1.5 rounded-full px-1.5 text-[11px] font-extrabold align-[1px]" style={{ background: COLOURS.leaf, color: COLOURS.cream }}>
+            your game
+          </span>
+        )}
       </td>
       {stats && (
-        <td className="px-2 py-1.5">
+        <td className="hidden px-2 py-1.5 sm:table-cell">
           <ShareBar share={row.share} />
         </td>
       )}
@@ -296,16 +320,17 @@ function Muted({ children }: { children: ReactNode }) {
   );
 }
 
-function Action({ onClick, primary = false, children }: { onClick: () => void; primary?: boolean; children: ReactNode }) {
+function Action({ onClick, primary = false, disabled = false, children }: { onClick: () => void; primary?: boolean; disabled?: boolean; children: ReactNode }) {
   return (
     <motion.button
       type="button"
       onClick={onClick}
-      whileHover={{ y: -2 }}
-      whileTap={{ scale: 0.96 }}
+      disabled={disabled}
+      whileHover={disabled ? undefined : { y: -2 }}
+      whileTap={disabled ? undefined : { scale: 0.96 }}
       transition={SPRING}
-      className="cursor-pointer whitespace-nowrap rounded-full px-4 py-1.5 text-[14px] font-bold"
-      style={primary ? { background: COLOURS.leaf, color: COLOURS.cream } : { ...tile(COLOURS.sand), color: COLOURS.leaf }}
+      className="cursor-pointer whitespace-nowrap rounded-full px-4 py-2 text-[14px] font-bold focus-visible:outline-2 disabled:cursor-default"
+      style={{ ...(primary ? { background: COLOURS.leaf, color: COLOURS.cream } : { ...tile(COLOURS.sand), color: COLOURS.leaf }), opacity: disabled ? 0.45 : 1 }}
     >
       {children}
     </motion.button>

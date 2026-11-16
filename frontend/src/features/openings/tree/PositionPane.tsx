@@ -63,11 +63,13 @@ export function PositionPane({ side, path, node, recent, steps, priority, action
   const here = useMemo(() => nodeAt(recent, path), [recent, path]);
   const average = useMemo(() => playerAverage(recent), [recent]);
 
+  const settling = inRepertoire && steps.length > 0;
+  const prioritised = inRepertoire && priority !== undefined;
+  // Une seule carte par position : la décision passe d'abord, la priorité n'y est qu'une ligne.
+  const card = settling || prioritised;
+
   return (
     <aside aria-label="Position" className="flex flex-col gap-4">
-      <div className="order-3 mx-auto w-full max-w-[24rem] lg:max-w-[20rem]">
-        <PlayableBoard path={path} flipped={side === 'b'} arrows={arrows} suggestions={suggestions} onMove={onMove} />
-      </div>
       <div className="order-1 flex items-start gap-3 px-1">
         {onBack && (
           <motion.button
@@ -93,31 +95,34 @@ export function PositionPane({ side, path, node, recent, steps, priority, action
           )}
         </div>
       </div>
-      <Repertoire side={side} path={path} node={node} inRepertoire={inRepertoire} ply={ply} />
-      {inRepertoire && steps.length > 0 && (
-        <section aria-label="To settle" className="order-2 flex flex-col gap-4 rounded-2xl px-4 py-3.5 text-[14px]" style={{ background: COLOURS.paper, boxShadow: `inset 0 0 0 1.5px ${COLOURS.terracotta}` }}>
+      <div className={`order-2 mx-auto w-full lg:order-3 ${card ? 'max-w-[15rem] lg:max-w-[17rem]' : 'max-w-[24rem] lg:max-w-[20rem]'}`}>
+        <PlayableBoard path={path} flipped={side === 'b'} arrows={arrows} suggestions={suggestions} onMove={onMove} />
+      </div>
+      {settling && (
+        <section aria-label="To settle" className="order-3 flex flex-col gap-4 rounded-2xl px-4 py-3.5 text-[14px] lg:order-2" style={{ background: COLOURS.paper, boxShadow: `inset 0 0 0 1.5px ${COLOURS.terracotta}` }}>
           <span className="text-[12px] font-bold uppercase tracking-[0.06em]" style={{ color: COLOURS.terracotta }}>
             To settle
           </span>
-          {steps.map((step) => (
-            <Step key={step.key} step={step} ply={ply} here={here} actions={actions} />
+          {steps.map((step, index) => (
+            <Step key={step.key} step={step} ply={ply} here={here} actions={actions} onSkip={index === steps.length - 1 ? onSkip : undefined} />
           ))}
-          {onSkip && (
-            <button type="button" onClick={onSkip} className="self-center rounded-lg px-3 py-1.5 text-[14px] font-semibold underline-offset-4 hover:underline focus-visible:outline-2" style={{ color: COLOURS.leafSoft }}>
-              Skip for now
-            </button>
+          {prioritised && (
+            <p className="border-t pt-2.5 text-[13px]" style={{ borderColor: COLOURS.sand, color: COLOURS.leafSoft }}>
+              <strong style={{ color: COLOURS.leaf }}>Also priority {node.priority}:</strong> you score {here ? Math.round(scoreRate(here) * 100) : '—'}% here against{' '}
+              {Math.round(average * 100)}% on average.
+            </p>
           )}
         </section>
       )}
-      {inRepertoire && priority && (
-        <section aria-label="Priority" className="order-2 flex flex-col gap-2.5 rounded-2xl px-4 py-3.5 text-[14px]" style={{ background: COLOURS.leaf, color: COLOURS.cream }}>
+      {prioritised && !settling && (
+        <section aria-label="Priority" className="order-3 flex flex-col gap-2.5 rounded-2xl px-4 py-3.5 text-[14px] lg:order-2" style={{ background: COLOURS.leaf, color: COLOURS.cream }}>
           <span className="text-[12px] font-bold uppercase tracking-[0.06em]" style={{ color: COLOURS.apricot }}>
             Priority {node.priority}
           </span>
-          <PriorityVerdict priority={priority} here={here} average={average} />
+          <PriorityVerdict priority={priority} here={here} average={average} line={figurineLine(priority.path)} />
           {onPrepareFollows && (
             <Action onClick={onPrepareFollows} tone="light">
-              Extend from here
+              Prepare my moves after {figurineMove(priority.path[priority.path.length - 1], priority.path.length)}
             </Action>
           )}
           {onNextPriority && (
@@ -127,12 +132,13 @@ export function PositionPane({ side, path, node, recent, steps, priority, action
           )}
         </section>
       )}
-      {!(inRepertoire && priority && onPrepareFollows) && (
-      <div className="order-5">
-        <Action onClick={onExtend} tone={inRepertoire ? 'plain' : 'primary'}>
-          {inRepertoire ? 'Extend from here' : 'Add this line to my repertoire'}
-        </Action>
-      </div>
+      <Repertoire side={side} path={path} node={node} inRepertoire={inRepertoire} ply={ply} />
+      {!(prioritised && !settling && onPrepareFollows) && (
+        <div className="order-5">
+          <Action onClick={onExtend} tone={inRepertoire || settling ? 'plain' : 'primary'}>
+            {inRepertoire ? 'Extend from here' : 'Add this line to my repertoire'}
+          </Action>
+        </div>
       )}
       <p className="order-6 hidden px-1 text-[12px] lg:block" style={{ color: COLOURS.leafSoft }}>
         Play on the board or click the map. Keys: ← back · → main move · ↑ ↓ other moves · Home start · + − fold.
@@ -174,21 +180,22 @@ function Repertoire({ side, path, node, inRepertoire, ply }: { side: Side; path:
   );
 }
 
-function PriorityVerdict({ priority, here, average }: { priority: Priority; here: OpeningNode | undefined; average: number }) {
+function PriorityVerdict({ priority, here, average, line }: { priority: Priority; here: OpeningNode | undefined; average: number; line: string }) {
   const lost = Math.round(priority.pointsToGain);
   return (
     <>
       <span className="text-[15px] leading-snug">
-        You score <strong>{here ? Math.round(scoreRate(here) * 100) : '—'}%</strong> here, against <strong>{Math.round(average * 100)}%</strong> on average.
+        After <strong>{line}</strong> you score <strong>{here ? Math.round(scoreRate(here) * 100) : '—'}%</strong>, against <strong>{Math.round(average * 100)}%</strong> on
+        average: about {lost} {lost === 1 ? 'point' : 'points'} lost over {priority.games} games in 12 months.
       </span>
       <span className="text-[13px]" style={{ opacity: 0.8 }}>
-        About {lost} {lost === 1 ? 'point' : 'points'} (a win = 1) lost over {priority.games} games in 12 months.
+        The points usually go in the moves that follow: prepare them.
       </span>
     </>
   );
 }
 
-function Step({ step, ply, here, actions }: { step: SessionStep; ply: number; here: OpeningNode | undefined; actions: StepActions }) {
+function Step({ step, ply, here, actions, onSkip }: { step: SessionStep; ply: number; here: OpeningNode | undefined; actions: StepActions; onSkip?: () => void }) {
   const left = step.kind === 'left';
   const played = figurineMove(step.played, ply);
   const planned = step.planned.map((san) => figurineMove(san, ply)).join(' · ');
@@ -206,7 +213,7 @@ function Step({ step, ply, here, actions }: { step: SessionStep; ply: number; he
             ; your repertoire has <strong style={{ color: REPERTOIRE }}>{planned}</strong>.
           </>
         ) : (
-          '; your repertoire has no answer yet.'
+          '; your repertoire does not cover it yet.'
         )}
       </p>
       <ul aria-label="Facts" className="flex flex-col gap-1 text-[13px]">
@@ -221,9 +228,12 @@ function Step({ step, ply, here, actions }: { step: SessionStep; ply: number; he
           <Action onClick={() => actions.onStay(step)} tone={best && best !== step.played ? 'primary' : 'plain'}>
             Stay on {step.planned.length === 1 ? planned : 'my repertoire'}
           </Action>
-          <button type="button" onClick={() => actions.onBuild(step)} className="self-start rounded-lg py-1 text-[13px] font-semibold underline-offset-4 hover:underline focus-visible:outline-2" style={{ color: COLOURS.leafSoft }}>
-            Add {played} and prepare what follows →
-          </button>
+          <span className="flex flex-wrap items-center justify-between gap-x-3">
+            <button type="button" onClick={() => actions.onBuild(step)} className="rounded-lg py-1.5 text-[13px] font-semibold underline-offset-4 hover:underline focus-visible:outline-2" style={{ color: COLOURS.leafSoft }}>
+              Add {played} and prepare what follows →
+            </button>
+            {onSkip && <Skip onSkip={onSkip} />}
+          </span>
         </div>
       ) : (
         <div className="flex flex-col gap-1.5">
@@ -231,9 +241,22 @@ function Step({ step, ply, here, actions }: { step: SessionStep; ply: number; he
             Prepare an answer to {played}
           </Action>
           <Action onClick={() => actions.onStay(step)}>Not worth preparing</Action>
+          {onSkip && (
+            <span className="flex justify-end">
+              <Skip onSkip={onSkip} />
+            </span>
+          )}
         </div>
       )}
     </div>
+  );
+}
+
+function Skip({ onSkip }: { onSkip: () => void }) {
+  return (
+    <button type="button" onClick={onSkip} className="rounded-lg px-2 py-1.5 text-[13px] font-semibold underline-offset-4 hover:underline focus-visible:outline-2" style={{ color: COLOURS.leafSoft }}>
+      Skip for now
+    </button>
   );
 }
 

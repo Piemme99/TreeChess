@@ -19,6 +19,8 @@ export interface BuildOrigin {
   played?: string;
   /** Le joueur garde `played` : l'ajout part de là. */
   keep: boolean;
+  /** Ce que le joueur a répondu dans la partie au coup adverse imprévu : s'il en choisit un autre, la partie reviendra à trancher. */
+  reply?: string;
 }
 
 export function originOf(checked: CheckedGame & { check: Deviation }, keep = false): BuildOrigin {
@@ -26,7 +28,7 @@ export function originOf(checked: CheckedGame & { check: Deviation }, keep = fal
   if (check.kind === 'uncovered') {
     // Le coup adverse imprévu entre au répertoire avec la réponse : c'est lui qu'on prépare.
     const start = game.moves.slice(0, check.ply + 1);
-    return { side: game.side, start, given: [start], keep: false };
+    return { side: game.side, start, given: [start], keep: false, reply: game.moves[check.ply + 1] };
   }
   return { side: game.side, start: game.moves.slice(0, check.ply), given: [], played: check.played, keep };
 }

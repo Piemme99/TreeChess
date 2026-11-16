@@ -54,7 +54,7 @@ export function ArrowLayer({ path, flipped, arrows, className }: { path: readonl
           // Transparence portée par le groupe, comme sur Lichess : le trait et la pointe se fondent
           // en une seule forme et la pièce reste visible à travers.
           return (
-            <g key={arrow.san} opacity={emphasised(arrow) ? 0.75 : 0.5}>
+            <g key={arrow.san} opacity={emphasised(arrow) ? 0.8 : 0.62}>
               <line x1={a.x} y1={a.y} x2={baseX + ux * 0.02} y2={baseY + uy * 0.02} stroke={ink} strokeWidth={width} strokeLinecap="round" />
               <polygon points={points} fill={ink} />
             </g>

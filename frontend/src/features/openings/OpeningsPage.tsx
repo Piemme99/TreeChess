@@ -8,7 +8,6 @@ import { repertoireLines } from './domain/repertoire';
 import { gamesUntil } from './domain/replay';
 import { FlameTiles } from './flame/FlameTiles';
 import { playedGamesFixture } from './fixtures/playedGames';
-import { LineView } from './line/LineView';
 import { BoardPanel } from './position/BoardPanel';
 import { PriorityTickets } from './priorities/PriorityTickets';
 import { formatDay } from './replay/formatDay';
@@ -35,7 +34,6 @@ export function OpeningsPage() {
   const [side, setSide] = useState<Side>('w');
   const [focusPath, setFocusPath] = useState<readonly string[]>([]);
   const [pointed, setPointed] = useState<Line | null>(null);
-  const [studied, setStudied] = useState<Line | null>(null);
 
   const replay = useReplayDay(playedGamesFixture, REPLAY_FIRST_DAY);
   const knownGames = useMemo(() => gamesUntil(playedGamesFixture, replay.day), [replay.day]);
@@ -81,50 +79,32 @@ export function OpeningsPage() {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== 'Escape' && event.key !== 'Backspace') return;
-      if (studied) {
-        setStudied(null);
-        return;
-      }
       setFocusPath((path) => path.slice(0, -1));
       setPointed(null);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [studied]);
+  }, []);
 
   return (
     <MotionConfig reducedMotion="user">
       <div className="min-h-screen pb-28" style={{ fontFamily: FONT_FAMILY, background: COLOURS.cream, color: COLOURS.leaf }}>
         <PageHeader>
-          {!studied && (
-            <span className="flex items-center justify-between gap-6">
-              <span className="text-[14px]" style={{ color: COLOURS.leafSoft }}>
-                as of <span className="font-semibold">{formatDay(replay.day)}</span>
-              </span>
-              <SideSwitch side={side} onChange={showSide} />
+          <span className="flex items-center justify-between gap-6">
+            <span className="text-[14px]" style={{ color: COLOURS.leafSoft }}>
+              as of <span className="font-semibold">{formatDay(replay.day)}</span>
             </span>
-          )}
+            <SideSwitch side={side} onChange={showSide} />
+          </span>
         </PageHeader>
 
-        {studied ? (
-          <main className="mx-auto max-w-[84rem] px-4 pt-6 sm:px-8 sm:pt-8">
-            <LineView
-              key={`${studied.side}:${studied.path.join(' ')}`}
-              tree={recentTrees[studied.side]}
-              games={recentGames}
-              path={studied.path}
-              onBack={() => setStudied(null)}
-              onOpen={(path) => setStudied({ side: studied.side, path })}
-            />
-          </main>
-        ) : (
-          <main className="mx-auto flex max-w-[84rem] flex-col gap-8 px-4 pt-6 sm:px-8 lg:grid lg:grid-cols-[minmax(0,30rem)_1fr] lg:gap-10 lg:pt-8">
+        <main className="mx-auto flex max-w-[84rem] flex-col gap-8 px-4 pt-6 sm:px-8 lg:grid lg:grid-cols-[minmax(0,30rem)_1fr] lg:gap-10 lg:pt-8">
             <BoardPanel
               history={trees[shown.side]}
               recent={recentTrees[shown.side]}
               path={shown.path}
               repertoire={repertoires[shown.side]}
-              onStudy={focusPath.length > 0 ? () => setStudied({ side, path: focusPath }) : undefined}
+              studyHref={focusPath.length > 0 ? `/dev/tree?side=${side}&line=${encodeURIComponent(focusPath.join(' '))}` : undefined}
             />
             <div className="flex min-w-0 flex-col gap-10">
               <PriorityTickets
@@ -143,8 +123,7 @@ export function OpeningsPage() {
                 coveredLines={coveredLines}
               />
             </div>
-          </main>
-        )}
+        </main>
       </div>
     </MotionConfig>
   );

@@ -10,7 +10,7 @@ import { checkedPath, type CheckedGame } from './checkedGame';
 
 const VERDICT = {
   left: { label: 'Left the repertoire', tone: TONES.losing },
-  uncovered: { label: 'Not covered', tone: TONES.slipping },
+  uncovered: { label: 'Not covered yet', tone: TONES.slipping },
   followed: { label: 'Followed', tone: TONES.winning },
 };
 
@@ -70,28 +70,28 @@ export function GameCard({ checked, selected, onSelect, showDate = false, onIgno
         <motion.button
           type="button"
           onClick={onAdd}
-          aria-label={`${checked.check.kind === 'uncovered' ? 'Prepare an answer' : 'Add to repertoire'}: ${opening?.name ?? 'this game'}`}
+          aria-label={`${check.kind === 'uncovered' ? 'Prepare an answer' : 'Add the move played'}: ${opening?.name ?? 'this game'}`}
           whileHover={{ y: -2, scale: 1.05 }}
           whileTap={{ scale: 0.94 }}
           transition={SPRING}
           className="cursor-pointer self-center whitespace-nowrap rounded-full px-3.5 py-2 text-[13px] font-bold transition-shadow hover:shadow-[0_6px_14px_-6px_oklch(0.3_0.06_150/0.6)] focus-visible:outline-2"
           style={{ background: COLOURS.leaf, color: COLOURS.cream }}
         >
-          {checked.check.kind === 'uncovered' ? 'Prepare an answer' : 'Add to repertoire'}
+          {check.kind === 'left' ? `Add ${figurineMove(check.played, check.ply + 1)}` : 'Prepare an answer'}
         </motion.button>
       )}
       {onIgnore && (
         <motion.button
           type="button"
           onClick={onIgnore}
-          aria-label={`${checked.check.kind === 'uncovered' ? 'Not worth preparing' : 'Stay on my repertoire'}: ${opening?.name ?? 'this game'}`}
+          aria-label={`${check.kind === 'uncovered' ? 'Not worth preparing' : 'Stay on my repertoire'}: ${opening?.name ?? 'this game'}`}
           whileHover={{ y: -2 }}
           whileTap={{ scale: 0.94 }}
           transition={SPRING}
           className="cursor-pointer self-center whitespace-nowrap rounded-full px-3 py-2 text-[13px] font-semibold underline-offset-4 hover:underline focus-visible:outline-2"
           style={{ color: COLOURS.leafSoft }}
         >
-          {checked.check.kind === 'uncovered' ? 'Not worth preparing' : 'Stay on repertoire'}
+          {check.kind !== 'left' ? 'Not worth preparing' : check.planned.length === 1 ? `Stay on ${figurineMove(check.planned[0], check.ply + 1)}` : 'Stay on my repertoire'}
         </motion.button>
       )}
       </span>

@@ -107,7 +107,11 @@ export function PlayableBoard({ path, flipped, arrows = [], suggestions = [], on
             // Ni cadre au départ ni à l'arrivée : les points des coups légaux suffisent (PMG).
             dropSquareStyle: { boxShadow: 'none' },
             draggingPieceStyle: { transform: 'scale(1.15)', filter: 'drop-shadow(0 8px 6px oklch(0.2 0.05 50 / 0.4))' },
-            showNotation: false,
+            showNotation: true,
+            lightSquareNotationStyle: { color: BOARD.dark },
+            darkSquareNotationStyle: { color: BOARD.light },
+            alphaNotationStyle: { fontSize: '10px', fontWeight: 700, position: 'absolute', bottom: 1, right: 3, userSelect: 'none' },
+            numericNotationStyle: { fontSize: '10px', fontWeight: 700, position: 'absolute', top: 1, left: 3, userSelect: 'none' },
             animationDurationInMs: 180,
             allowDrawingArrows: false,
             dragActivationDistance: 3,

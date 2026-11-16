@@ -88,24 +88,20 @@ describe('OpeningsPage', () => {
 
     expect(screen.getByRole('button', { name: /1\.d4 Nf6/ })).toHaveAttribute('aria-pressed', 'false');
     await waitFor(() => expect(zoomPath()).toHaveTextContent(/^all$/));
-    expect(screen.queryByRole('button', { name: /Study this line/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Work on it in the tree/ })).not.toBeInTheDocument();
   });
 
-  it('studies the previewed line over the last 12 months, then comes back zoomed on it', () => {
+  it('sends the previewed line to the tree, where it is worked on', () => {
     render(<OpeningsPage />);
     fireEvent.click(screen.getByRole('button', { name: /1\.d4 Nf6/ }));
 
-    fireEvent.click(screen.getByRole('button', { name: /Study this line/ }));
-    expect(screen.getByRole('region', { name: 'Line' })).toHaveTextContent('33games · as Black');
-
-    fireEvent.click(screen.getByRole('button', { name: /Openings/ }));
-    expect(zoomPath()).toHaveTextContent('all1.d41…♘f6');
+    expect(screen.getByRole('link', { name: /Work on it in the tree/ })).toHaveAttribute('href', '/dev/tree?side=b&line=d4%20Nf6');
   });
 
   it('offers no line to study before one is picked', () => {
     render(<OpeningsPage />);
 
-    expect(screen.queryByRole('button', { name: /Study this line/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Work on it in the tree/ })).not.toBeInTheDocument();
   });
 
   it('shows the position under the pointer, then falls back to the previewed one', async () => {

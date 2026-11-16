@@ -4,7 +4,7 @@ import type { VisibleNode } from './fold';
 import type { MapNode } from './repertoireMap';
 
 export const ROW = 34;
-export const COLUMN = 128;
+export const COLUMN = 112;
 export const PILL_HEIGHT = 24;
 export const FONT_SIZE = 15;
 const CHAR = 8.6;

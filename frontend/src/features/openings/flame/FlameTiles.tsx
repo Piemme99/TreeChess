@@ -15,7 +15,7 @@ import { useElementWidth } from './useElementWidth';
 const ROW = { player: 34, opponent: 22 };
 const GAP = 3;
 // Une tuile plus étroite que son coup en toutes lettres rejoint le « … » : une tuile muette ne dit rien.
-const PRUNE = { minPx: 52, coverageFloor: 0.4, minRows: 6, maxRows: 24 };
+const PRUNE = { minPx: 52, coverageFloor: 0.4, minRows: 6, maxRows: 24, minGames: 2 };
 // Largeur de secours tant que le conteneur n'est pas mesuré (premier rendu, tests).
 const FALLBACK_WIDTH = 800;
 

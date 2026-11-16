@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import { useMemo } from 'react';
+import { Link } from 'react-router';
 import { useOpeningName } from '../../../shared/hooks/useOpeningName';
 import { figurineLine, figurineMove } from '../domain/notation';
 import { nodeAt, type OpeningTree } from '../domain/openingTree';
@@ -17,10 +18,11 @@ interface BoardPanelProps {
   recent: OpeningTree;
   path: readonly string[];
   repertoire: Repertoire;
-  onStudy?: () => void;
+  /** La ligne prévisualisée, ouverte dans l'arbre : c'est là qu'on la travaille. */
+  studyHref?: string;
 }
 
-export function BoardPanel({ history, recent, path, repertoire, onStudy }: BoardPanelProps) {
+export function BoardPanel({ history, recent, path, repertoire, studyHref }: BoardPanelProps) {
   const fens = useMemo(() => replayLine(path).fens, [path]);
   const opening = useOpeningName(fens);
   const planned = useMemo(() => repertoireMovesAt(repertoire, fens[fens.length - 1]), [repertoire, fens]);
@@ -57,18 +59,16 @@ export function BoardPanel({ history, recent, path, repertoire, onStudy }: Board
         <Period label="All time" tree={history} path={path} />
         <Period label="Last 12 months" tree={recent} path={path} />
       </div>
-      {onStudy && (
-        <motion.button
-          type="button"
-          onClick={onStudy}
-          whileHover={{ y: -2 }}
-          whileTap={{ scale: 0.96 }}
-          transition={SPRING}
-          className="self-start rounded-full px-4 py-2 text-[15px] font-bold"
-          style={{ background: COLOURS.leaf, color: COLOURS.cream, boxShadow: '0 6px 14px -6px oklch(0.3 0.06 150 / 0.55)' }}
-        >
-          Study this line →
-        </motion.button>
+      {studyHref && (
+        <motion.span whileHover={{ y: -2 }} whileTap={{ scale: 0.96 }} transition={SPRING} className="self-start">
+          <Link
+            to={studyHref}
+            className="block rounded-full px-4 py-2 text-[15px] font-bold focus-visible:outline-2 focus-visible:outline-offset-2"
+            style={{ background: COLOURS.leaf, color: COLOURS.cream, boxShadow: '0 6px 14px -6px oklch(0.3 0.06 150 / 0.55)' }}
+          >
+            Work on it in the tree →
+          </Link>
+        </motion.span>
       )}
     </aside>
   );

@@ -65,6 +65,9 @@ export function useCandidates(builder: Builder): Candidates {
     // Ses propres coups les plus joués seulement : une ligne par coup rencontré une fois noierait le choix.
     const habits = [...mine.entries()].sort((a, b) => b[1] - a[1]).slice(0, MAX_OWN).map(([san]) => san);
     for (const san of habits) if (!sans.includes(san)) sans.push(san);
+    // La réponse de la partie qui a soulevé la question figure toujours au tableau.
+    const reply = builder.origin.reply;
+    if (reply && builder.path.length === builder.start.length && !sans.includes(reply)) sans.push(reply);
     if (engineSan && !sans.includes(engineSan)) sans.push(engineSan);
     return sans.map((san) => {
       const stats = known.find((move) => move.san === san);
@@ -79,7 +82,7 @@ export function useCandidates(builder: Builder): Candidates {
         fen: afterMove(fen, san),
       };
     });
-  }, [stats, playerToMove, mine, engineSan, side, fen]);
+  }, [stats, playerToMove, mine, engineSan, side, fen, builder.origin.reply, builder.path.length, builder.start.length]);
 
   const fens = useMemo(() => base.map((row) => row.fen), [base]);
   const evaluations = useEvaluations(fens, ENGINE_DEPTH);

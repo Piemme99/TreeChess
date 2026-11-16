@@ -19,6 +19,8 @@ export interface PruneOptions {
   coverageFloor: number;
   minRows: number;
   maxRows: number;
+  /** Une ligne jouée moins souvent rejoint le « reste », même large au zoom : une partie seule ne dit rien. */
+  minGames?: number;
 }
 
 export const keyOf = (path: readonly string[]) => path.join(' ');
@@ -31,7 +33,7 @@ const restNode = (members: readonly OpeningNode[]): OpeningNode => ({
   children: [],
 });
 
-function packChildren(parent: PlacedTile, depth: number, minFraction: number): PlacedTile[] {
+function packChildren(parent: PlacedTile, depth: number, minFraction: number, minGames: number): PlacedTile[] {
   const perGame = parent.width / parent.node.games;
   const kept: PlacedTile[] = [];
   const dropped: OpeningNode[] = [];
@@ -39,7 +41,7 @@ function packChildren(parent: PlacedTile, depth: number, minFraction: number): P
 
   for (const child of parent.node.children) {
     const width = child.games * perGame;
-    if (width < minFraction) {
+    if (width < minFraction || child.games < minGames) {
       dropped.push(child);
       continue;
     }
@@ -67,7 +69,7 @@ export function layoutPruned(focus: OpeningNode, focusPath: readonly string[], o
   const tiles = [root];
   let row = [root];
   for (let depth = 1; depth < options.maxRows; depth++) {
-    const next = row.flatMap((parent) => (parent.rest ? [] : packChildren(parent, depth, minFraction)));
+    const next = row.flatMap((parent) => (parent.rest ? [] : packChildren(parent, depth, minFraction, options.minGames ?? 0)));
     const coverage = next.reduce((sum, tile) => sum + (tile.rest ? 0 : tile.width), 0);
     if (next.length === 0 || (depth > options.minRows && coverage < options.coverageFloor)) break;
     tiles.push(...next);
