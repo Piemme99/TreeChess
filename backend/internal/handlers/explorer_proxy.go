@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"errors"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -26,9 +25,9 @@ var (
 
 const maxExplorerProxyCount = 30
 
-// ExplorerProxyHandler relaie l'explorateur Lichess sans compte Kumquat : depuis novembre 2026 Lichess exige un
-// jeton pour toutes ses bases, et celui du serveur ne doit jamais atteindre le navigateur.
-func ExplorerProxyHandler(fetcher services.ExplorerRawFetcher, cache repository.OpeningExplorerCacheRepository, token string, cacheTTL time.Duration) echo.HandlerFunc {
+// ExplorerProxyHandler relaie l'explorateur Lichess avec le jeton du compte Lichess connecté : depuis novembre 2026
+// Lichess exige un jeton pour toutes ses bases. Sans session, seules les positions déjà en cache répondent.
+func ExplorerProxyHandler(fetcher services.ExplorerRawFetcher, cache repository.OpeningExplorerCacheRepository, users repository.UserRepository, cacheTTL time.Duration) echo.HandlerFunc {
 	return func(c *echo.Context) error {
 		database := c.Param("database")
 		if !slices.Contains(explorerProxyDatabases, database) {
@@ -53,14 +52,24 @@ func ExplorerProxyHandler(fetcher services.ExplorerRawFetcher, cache repository.
 			slog.Warn("explorer proxy cache read failed; falling back to upstream", "error", err)
 		}
 
-		if token == "" {
-			return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "Lichess explorer is not configured"})
+		userID, _ := c.Get("userID").(string)
+		if userID == "" {
+			return c.JSON(http.StatusForbidden, map[string]string{
+				"error": "Sign in with Lichess to load explorer data",
+				"code":  "lichess_sign_in",
+			})
 		}
-		payload, err := fetcher.FetchRaw(ctx, database, values, token)
-		if errors.Is(err, services.ErrExplorerUnauthorized) {
-			slog.Error("lichess explorer rejected the server token (LICHESS_EXPLORER_TOKEN)")
-			return c.JSON(http.StatusBadGateway, map[string]string{"error": "Lichess explorer refused the request"})
+		user, err := users.GetByID(ctx, userID)
+		if err != nil || user == nil {
+			return InternalErrorResponse(c, "could not load user")
 		}
+		if user.LichessAccessToken == nil || *user.LichessAccessToken == "" {
+			return c.JSON(http.StatusForbidden, map[string]string{
+				"error": "Connect your Lichess account to load explorer data",
+				"code":  "lichess_not_linked",
+			})
+		}
+		payload, err := fetcher.FetchRaw(ctx, database, values, *user.LichessAccessToken)
 		if err != nil {
 			return mapFetchError(c, err)
 		}

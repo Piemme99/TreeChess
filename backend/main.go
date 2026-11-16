@@ -142,7 +142,7 @@ func buildServices(cfg config.Config, db *repository.DB) *appServices {
 		studyImportHandler:      handlers.NewStudyImportHandler(studyImportSvc),
 		trainingHandler:         handlers.NewTrainingHandler(trainingSvc),
 		trainingExplorerHandler: handlers.NewTrainingExplorerHandler(explorerSvc, openingCacheRepo, userRepo, cfg.LichessExplorerCacheTTL),
-		explorerProxyHandler:    handlers.ExplorerProxyHandler(explorerSvc, openingCacheRepo, cfg.LichessExplorerToken, cfg.LichessExplorerCacheTTL),
+		explorerProxyHandler:    handlers.ExplorerProxyHandler(explorerSvc, openingCacheRepo, userRepo, cfg.LichessExplorerCacheTTL),
 		importHandler:           importHandler,
 		dashboardHandler:        handlers.NewDashboardHandler(dashboardSvc, repertoireSvc),
 		categorySvc:             categorySvc,
@@ -198,7 +198,7 @@ func registerRoutes(e *echo.Echo, db *repository.DB, svc *appServices) {
 
 	// Public routes (no auth required)
 	e.GET("/api/health", handlers.HealthHandler(db.Pool))
-	e.GET("/api/explorer/:database", svc.explorerProxyHandler)
+	e.GET("/api/explorer/:database", svc.explorerProxyHandler, appMiddleware.OptionalJWTAuth(svc.authSvc))
 
 	// Stricter rate limit for auth endpoints: 20 requests/minute per IP.
 	authGroup := e.Group("")

@@ -1,15 +1,16 @@
 import { useEffect, useState } from 'react';
-import { explore, hasExplorer, type Database, type ExplorerResult } from '../line/explorer';
+import { explore, hasExplorer, useExplorerSignIn, type Database, type ExplorerResult } from '../line/explorer';
 
 // Au-delà, on dit au joueur que l'explorateur ne répond pas plutôt que de le laisser attendre.
 const TIMEOUT = 10_000;
 
-export type ExplorerAnswer = ExplorerResult | 'missing' | 'failed' | undefined;
+export type ExplorerAnswer = ExplorerResult | 'missing' | 'failed' | 'sign-in' | undefined;
 
 /** Ce que jouent les joueurs d'une base depuis une position ; `undefined` pendant la requête. */
 export function useExplorerAt(fen: string, database: Database = 'lichess'): ExplorerAnswer {
   const key = `${database} ${fen}`;
   const [found, setFound] = useState<{ key: string; result: ExplorerResult | 'failed' } | null>(null);
+  const signIn = useExplorerSignIn();
   useEffect(() => {
     if (!hasExplorer()) return;
     let live = true;
@@ -21,5 +22,6 @@ export function useExplorerAt(fen: string, database: Database = 'lichess'): Expl
     };
   }, [key, database, fen]);
   if (!hasExplorer()) return 'missing';
-  return found?.key === key ? found.result : undefined;
+  if (found?.key !== key) return undefined;
+  return found.result === 'failed' && signIn ? 'sign-in' : found.result;
 }

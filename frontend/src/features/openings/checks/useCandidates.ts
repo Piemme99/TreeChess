@@ -37,7 +37,7 @@ export interface Candidates {
   costly: Candidate[];
   /** Ce que vaut la position courante et le coup que jouerait le moteur. */
   here?: Evaluation & { san: string | null };
-  explorer: 'missing' | 'asking' | 'failed' | 'ready';
+  explorer: 'missing' | 'asking' | 'failed' | 'sign-in' | 'ready';
   /** D'où viennent les statistiques : les forts joueurs (coups du joueur) ou son niveau (réponses adverses). */
   pool: 'strong' | 'level';
 }

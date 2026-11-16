@@ -1,6 +1,8 @@
 // Explorateur Lichess : les parties au niveau du joueur et celles des maîtres. Lichess exige un jeton pour toutes
-// ses bases : en prod le backend relaie avec le sien ; en dev, sans backend, un jeton personnel dans
-// VITE_LICHESS_TOKEN (frontend/.env.local, ignoré par git) permet d'interroger Lichess directement.
+// ses bases : le backend relaie avec celui du compte Lichess connecté ; en dev, sans backend, un jeton personnel
+// dans VITE_LICHESS_TOKEN (frontend/.env.local, ignoré par git) permet d'interroger Lichess directement.
+import { useSyncExternalStore } from 'react';
+import { api } from '../../../services/api';
 import type { ExplorerStats } from '../domain/preparation';
 
 export interface ExplorerGame {
@@ -49,7 +51,45 @@ function urlOf(database: Database, fen: string) {
     query.set('recentGames', '0');
   }
   const path = database === 'masters' ? 'masters' : 'lichess';
-  return TOKEN ? `https://explorer.lichess.ovh/${path}?${query}` : `${API_BASE}/explorer/${path}?${query}`;
+  return TOKEN ? `https://explorer.lichess.ovh/${path}?${query}` : `/explorer/${path}?${query}`;
+}
+
+/** Où se connecter avec Lichess, pour revenir ensuite sur la page en cours. */
+export function lichessSignInUrl() {
+  return `${API_BASE}/auth/lichess/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`;
+}
+
+let signInNeeded = false;
+const listeners = new Set<() => void>();
+
+/** Le relais n'a pas la position en cache et il faut un compte Lichess connecté pour la demander. */
+export function useExplorerSignIn(): boolean {
+  return useSyncExternalStore(
+    (listener) => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+    () => signInNeeded,
+  );
+}
+
+interface Reply {
+  status: number;
+  data?: unknown;
+}
+
+function send(url: string): Promise<Reply | null> {
+  if (TOKEN) {
+    return fetch(url, { headers: { Authorization: `Bearer ${TOKEN}` } }).then(
+      async (response) => ({ status: response.status, data: response.ok ? await response.json() : undefined }),
+      () => null,
+    );
+  }
+  // Le client de l'API joint la session et rafraîchit le jeton d'accès s'il a expiré.
+  return api.get(url).then(
+    (response) => ({ status: response.status, data: response.data }),
+    (error: { response?: { status: number; data?: unknown } }) => (error.response ? { status: error.response.status, data: error.response.data } : null),
+  );
 }
 
 const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -62,15 +102,20 @@ export function explore(database: Database, fen: string): Promise<ExplorerResult
 
   const run = async (): Promise<ExplorerResult | null> => {
     for (let attempt = 0; attempt < 2; attempt++) {
-      const response = await fetch(url, TOKEN ? { headers: { Authorization: `Bearer ${TOKEN}` } } : undefined).catch(() => null);
-      // Un réseau coupé ou un refus CORS rejette le fetch : sans ce filet, l'appelant attendrait pour toujours.
-      if (!response) return null;
-      if (response.status === 429) {
+      // Un réseau coupé ou un refus CORS rejette la requête : sans ce filet, l'appelant attendrait pour toujours.
+      const reply = await send(url).catch(() => null);
+      if (!reply) return null;
+      if (reply.status === 429) {
         await pause(RATE_LIMIT_PAUSE);
         continue;
       }
-      if (!response.ok) return null;
-      const result = (await response.json()) as ExplorerResult;
+      if (reply.status === 403 && /^lichess_/.test((reply.data as { code?: string } | undefined)?.code ?? '')) {
+        signInNeeded = true;
+        listeners.forEach((listener) => listener());
+        return null;
+      }
+      if (reply.status !== 200 || !reply.data) return null;
+      const result = reply.data as ExplorerResult;
       localStorage.setItem(STORAGE + url, JSON.stringify(result));
       await pause(SPACING);
       return result;

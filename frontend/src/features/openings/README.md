@@ -34,9 +34,11 @@ Vocabulary (opening tree, deficit, priority, points to gain): `CONTEXT.md`.
 - `priorities/` — the priority tickets.
 - `line/` — the line view ("Study this line"), opened from the board panel: verdict,
   a two-step plan, the whole line folded below. `engine.ts` queues Stockfish
-  evaluations on a dedicated worker; `explorer.ts` queries the Lichess explorer with a
-  personal token in `VITE_LICHESS_TOKEN` (`frontend/.env.local`) until it goes through the
-  backend's Lichess OAuth and explorer proxy (`GET /api/training/opening`).
+  evaluations on a dedicated worker; `explorer.ts` queries the Lichess explorer through the
+  backend relay `GET /api/explorer/{lichess,masters}`, which uses the signed-in user's Lichess
+  token ("Sign in with Lichess" in the header) and serves cached positions to everyone. In dev
+  without a backend, a personal token in `VITE_LICHESS_TOKEN` (`frontend/.env.local`) queries
+  Lichess directly.
 - `session/` — the path of ADR 0003: the router (`HomePage`, `/dev/home`: "I just played",
   "I want to work") and the session after games (`SessionPage`, `/dev/session`): the positions
   the games left, grouped by position and move (`steps.ts`), one at a time, phone first.

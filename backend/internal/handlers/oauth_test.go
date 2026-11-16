@@ -1,9 +1,14 @@
 package handlers
 
 import (
+	"net/http"
+	"net/http/httptest"
+	"net/url"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/labstack/echo/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -79,4 +84,33 @@ func TestOAuthHandler_EncryptCookie_DifferentResults(t *testing.T) {
 
 	// Due to random nonce, encrypted values should be different
 	assert.NotEqual(t, enc1, enc2)
+}
+
+func TestOAuthHandler_LoginRedirect_KeepsLocalNextInStateCookie(t *testing.T) {
+	cases := map[string]string{
+		"/v2/tree?side=b":      "/v2/tree?side=b",
+		"":                     "",
+		"https://evil.example": "",
+		"//evil.example/v2":    "",
+		"/\\evil.example":      "",
+		"v2/tree":              "",
+		"/" + strings.Repeat("a", maxOAuthNextLength): "",
+	}
+	for next, want := range cases {
+		t.Run(next, func(t *testing.T) {
+			handler := newTestOAuthHandler()
+			e := echo.New()
+			rec := httptest.NewRecorder()
+			c := e.NewContext(httptest.NewRequest(http.MethodGet, "/api/auth/lichess/login?next="+url.QueryEscape(next), nil), rec)
+
+			require.NoError(t, handler.LoginRedirect(c))
+
+			assert.Equal(t, http.StatusTemporaryRedirect, rec.Code)
+			cookies := rec.Result().Cookies()
+			require.Len(t, cookies, 1)
+			data, err := handler.decryptCookie(cookies[0].Value)
+			require.NoError(t, err)
+			assert.Equal(t, want, data.Next)
+		})
+	}
 }

@@ -41,3 +41,16 @@ func JWTAuth(validator TokenValidator) echo.MiddlewareFunc {
 		}
 	}
 }
+
+// OptionalJWTAuth laisse passer les visiteurs sans session, mais refuse un jeton invalide en 401 : le front
+// rafraîchit alors son jeton d'accès au lieu de continuer en anonyme.
+func OptionalJWTAuth(validator TokenValidator) echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c *echo.Context) error {
+			if c.Request().Header.Get("Authorization") == "" {
+				return next(c)
+			}
+			return JWTAuth(validator)(next)(c)
+		}
+	}
+}

@@ -7,6 +7,7 @@ import { isPlayerMove } from '../domain/openingTree';
 import { formatPercent } from '../flame/format';
 import { JUDGEMENT_MARK, judgeMove, type Judgement } from '../domain/judgement';
 import { useEngineFailed, useEvaluations } from '../line/engine';
+import { lichessSignInUrl } from '../line/explorer';
 import { repertoireMovesAt, type Repertoire } from '../domain/repertoire';
 import type { Side } from '../domain/playedGame';
 import { replayLine } from '../position/replay';
@@ -254,6 +255,14 @@ function CandidateTable({ builder, candidates, onPoint, compact, planned }: { bu
       </span>
       {explorer === 'missing' && <Muted>Lichess stats need a token (VITE_LICHESS_TOKEN in frontend/.env.local): engine and your games only.</Muted>}
       {explorer === 'failed' && <Muted>The Lichess explorer is not answering: engine and your games only.</Muted>}
+      {explorer === 'sign-in' && (
+        <Muted>
+          <a href={lichessSignInUrl()} className="font-semibold underline underline-offset-2" style={{ color: COLOURS.leaf }}>
+            Sign in with Lichess
+          </a>{' '}
+          to see what players choose here: engine and your games only until then.
+        </Muted>
+      )}
       {explorer === 'asking' && <Muted>Asking the Lichess explorer…</Muted>}
       {engineFailed && <Muted>Stockfish does not run on this device: engine values come from the Lichess cloud, when it knows the position.</Muted>}
       {all.length > 0 && (

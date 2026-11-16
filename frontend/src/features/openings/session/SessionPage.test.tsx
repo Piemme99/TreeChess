@@ -5,7 +5,13 @@ import { MemoryRouter, Route, Routes } from 'react-router';
 import { HomePage } from './HomePage';
 import { SessionPage } from './SessionPage';
 
-vi.mock('../line/explorer', () => ({ explore: () => Promise.resolve(null), hasExplorer: () => false, LEVEL_LABEL: 'level' }));
+vi.mock('../line/explorer', () => ({
+  explore: () => Promise.resolve(null),
+  hasExplorer: () => false,
+  useExplorerSignIn: () => false,
+  lichessSignInUrl: () => '/api/auth/lichess/login',
+  LEVEL_LABEL: 'level',
+}));
 
 const app = () =>
   render(

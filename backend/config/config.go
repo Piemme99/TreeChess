@@ -37,7 +37,6 @@ type Config struct {
 	MetricsPort              int
 	LichessExplorerBaseURL   string
 	LichessExplorerCacheTTL  time.Duration
-	LichessExplorerToken     string
 	CleanupInterval          time.Duration
 }
 
@@ -227,7 +226,6 @@ func MustLoad() Config {
 		MetricsPort:              metricsPort,
 		LichessExplorerBaseURL:   explorerBaseURL,
 		LichessExplorerCacheTTL:  explorerCacheTTL,
-		LichessExplorerToken:     os.Getenv("LICHESS_EXPLORER_TOKEN"),
 		CleanupInterval:          cleanupInterval,
 	}
 }

@@ -137,3 +137,51 @@ func TestJWTAuth_BearerPrefixStripping(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, rec.Code)
 }
+
+func TestOptionalJWTAuth_NoHeader_PassesAnonymously(t *testing.T) {
+	e := echo.New()
+	rec := httptest.NewRecorder()
+	c := e.NewContext(httptest.NewRequest(http.MethodGet, "/api/test", nil), rec)
+	reached := false
+
+	err := OptionalJWTAuth(validValidator())(func(c *echo.Context) error {
+		reached = true
+		assert.Nil(t, c.Get("userID"))
+		return nil
+	})(c)
+
+	require.NoError(t, err)
+	assert.True(t, reached)
+}
+
+func TestOptionalJWTAuth_ValidToken_SetsUserID(t *testing.T) {
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "/api/test", nil)
+	req.Header.Set("Authorization", "Bearer valid-token")
+	c := e.NewContext(req, httptest.NewRecorder())
+	var userID any
+
+	err := OptionalJWTAuth(validValidator())(func(c *echo.Context) error {
+		userID = c.Get("userID")
+		return nil
+	})(c)
+
+	require.NoError(t, err)
+	assert.Equal(t, "user-123", userID)
+}
+
+func TestOptionalJWTAuth_InvalidToken_Returns401(t *testing.T) {
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "/api/test", nil)
+	req.Header.Set("Authorization", "Bearer invalid-token")
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	err := OptionalJWTAuth(validValidator())(func(c *echo.Context) error {
+		t.Fatal("should not reach handler")
+		return nil
+	})(c)
+
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusUnauthorized, rec.Code)
+}

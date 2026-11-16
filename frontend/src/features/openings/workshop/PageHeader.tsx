@@ -1,5 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { NavLink, useLocation } from 'react-router';
+import { useAuthStore } from '../../../stores/authStore';
+import { lichessSignInUrl } from '../line/explorer';
 import { Kumquat } from './Kumquat';
 import { useNoIndex, useV2Path, type V2Page } from './routes';
 import { COLOURS, tile } from './theme';
@@ -30,6 +32,9 @@ export function PageHeader({ children }: { children?: ReactNode }) {
           </NavLink>
         ))}
       </nav>
+      <span className="hidden text-[13px] font-semibold sm:inline">
+        <Account />
+      </span>
       <PageMenu />
       {children && <div className="ml-auto min-w-0 sm:w-auto">{children}</div>}
     </header>
@@ -77,9 +82,35 @@ function PageMenu() {
                 {page.label}
               </NavLink>
             ))}
+            <span className="mt-1 border-t px-4 pb-2 pt-3 text-[14px]" style={{ borderColor: COLOURS.sand }}>
+              <Account />
+            </span>
           </nav>
         </>
       )}
     </div>
+  );
+}
+
+/** Le compte Lichess sert à l'explorateur : sans lui, seules les positions déjà en cache ont leurs statistiques. */
+function Account() {
+  const user = useAuthStore((state) => state.user);
+  const loading = useAuthStore((state) => state.loading);
+  const logout = useAuthStore((state) => state.logout);
+  if (loading) return null;
+  if (!user) {
+    return (
+      <a href={lichessSignInUrl()} className="underline underline-offset-2 focus-visible:outline-2" style={{ color: COLOURS.leaf }}>
+        Sign in with Lichess
+      </a>
+    );
+  }
+  return (
+    <span className="flex flex-wrap items-center gap-x-2" style={{ color: COLOURS.leafSoft }}>
+      {user.lichessUsername ?? user.username}
+      <button type="button" onClick={logout} className="underline underline-offset-2 focus-visible:outline-2" style={{ color: COLOURS.leaf }}>
+        Sign out
+      </button>
+    </span>
   );
 }

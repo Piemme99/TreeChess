@@ -12,6 +12,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/kumquat/backend/internal/models"
+	"github.com/kumquat/backend/internal/repository/mocks"
 	"github.com/kumquat/backend/internal/services"
 )
 
@@ -34,6 +36,22 @@ func (f *stubRawFetcher) FetchRaw(_ context.Context, database string, values url
 
 const afterE4 = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1"
 
+func linkedUsers(token string) *mocks.MockUserRepo {
+	return &mocks.MockUserRepo{
+		GetByIDFunc: func(_ context.Context, id string) (*models.User, error) {
+			return &models.User{ID: id, LichessAccessToken: ptr(token)}, nil
+		},
+	}
+}
+
+// signedIn joue le rôle d'OptionalJWTAuth pour un utilisateur connecté.
+func signedIn(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c *echo.Context) error {
+		c.Set("userID", "user-1")
+		return next(c)
+	}
+}
+
 func proxyRequest(t *testing.T, handler echo.HandlerFunc, database string, query url.Values) *httptest.ResponseRecorder {
 	t.Helper()
 	e := echo.New()
@@ -44,10 +62,10 @@ func proxyRequest(t *testing.T, handler echo.HandlerFunc, database string, query
 	return rec
 }
 
-func TestExplorerProxyHandler_CacheMiss_FetchesWithServerTokenAndCaches(t *testing.T) {
+func TestExplorerProxyHandler_CacheMissSignedIn_FetchesWithUserTokenAndCaches(t *testing.T) {
 	cache := newStubCache()
 	fetcher := &stubRawFetcher{body: []byte(`{"white":1,"draws":2,"black":3,"moves":[]}`)}
-	handler := ExplorerProxyHandler(fetcher, cache, "server-token", time.Hour)
+	handler := signedIn(ExplorerProxyHandler(fetcher, cache, linkedUsers("user-token"), time.Hour))
 
 	rec := proxyRequest(t, handler, "lichess", url.Values{
 		"fen": {afterE4}, "variant": {"standard"}, "speeds": {"rapid,blitz,rapid"}, "ratings": {"2000,1600"}, "moves": {"8"}, "play": {"e2e4"},
@@ -56,33 +74,46 @@ func TestExplorerProxyHandler_CacheMiss_FetchesWithServerTokenAndCaches(t *testi
 	require.Equal(t, http.StatusOK, rec.Code)
 	assert.JSONEq(t, `{"white":1,"draws":2,"black":3,"moves":[]}`, rec.Body.String())
 	assert.Equal(t, "lichess", fetcher.lastDatabase)
-	assert.Equal(t, "server-token", fetcher.lastToken)
+	assert.Equal(t, "user-token", fetcher.lastToken)
 	assert.Equal(t, "blitz,rapid", fetcher.lastValues.Get("speeds"))
 	assert.Equal(t, "1600,2000", fetcher.lastValues.Get("ratings"))
 	assert.Empty(t, fetcher.lastValues.Get("play"), "unknown parameters are dropped")
 	assert.Equal(t, 1, cache.putCalls)
 }
 
-func TestExplorerProxyHandler_CacheHit_IgnoresMoveCounters(t *testing.T) {
+func TestExplorerProxyHandler_CacheHit_ServesAnonymousVisitorsIgnoringMoveCounters(t *testing.T) {
 	cache := newStubCache()
 	fetcher := &stubRawFetcher{body: []byte(`{"moves":[]}`)}
-	handler := ExplorerProxyHandler(fetcher, cache, "server-token", time.Hour)
+	users := linkedUsers("user-token")
 
-	first := proxyRequest(t, handler, "masters", url.Values{"fen": {afterE4}})
-	second := proxyRequest(t, handler, "masters", url.Values{"fen": {"rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 3 7"}})
+	first := proxyRequest(t, signedIn(ExplorerProxyHandler(fetcher, cache, users, time.Hour)), "masters", url.Values{"fen": {afterE4}})
+	second := proxyRequest(t, ExplorerProxyHandler(fetcher, cache, users, time.Hour), "masters", url.Values{"fen": {"rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 3 7"}})
 
 	assert.Equal(t, http.StatusOK, first.Code)
 	assert.Equal(t, http.StatusOK, second.Code)
 	assert.Equal(t, 1, fetcher.calls)
 }
 
-func TestExplorerProxyHandler_NoServerToken_Returns503(t *testing.T) {
+func TestExplorerProxyHandler_CacheMissAnonymous_AsksToSignIn(t *testing.T) {
 	fetcher := &stubRawFetcher{}
-	handler := ExplorerProxyHandler(fetcher, newStubCache(), "", time.Hour)
 
-	rec := proxyRequest(t, handler, "lichess", url.Values{"fen": {afterE4}})
+	rec := proxyRequest(t, ExplorerProxyHandler(fetcher, newStubCache(), linkedUsers("user-token"), time.Hour), "lichess", url.Values{"fen": {afterE4}})
 
-	assert.Equal(t, http.StatusServiceUnavailable, rec.Code)
+	assert.Equal(t, http.StatusForbidden, rec.Code)
+	assert.Contains(t, rec.Body.String(), `"code":"lichess_sign_in"`)
+	assert.Equal(t, 0, fetcher.calls)
+}
+
+func TestExplorerProxyHandler_CacheMissWithoutLichessLink_AsksToConnect(t *testing.T) {
+	fetcher := &stubRawFetcher{}
+	users := &mocks.MockUserRepo{
+		GetByIDFunc: func(_ context.Context, id string) (*models.User, error) { return &models.User{ID: id}, nil },
+	}
+
+	rec := proxyRequest(t, signedIn(ExplorerProxyHandler(fetcher, newStubCache(), users, time.Hour)), "lichess", url.Values{"fen": {afterE4}})
+
+	assert.Equal(t, http.StatusForbidden, rec.Code)
+	assert.Contains(t, rec.Body.String(), `"code":"lichess_not_linked"`)
 	assert.Equal(t, 0, fetcher.calls)
 }
 
@@ -101,19 +132,20 @@ func TestExplorerProxyHandler_InvalidQuery_Returns400(t *testing.T) {
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
 			fetcher := &stubRawFetcher{}
-			rec := proxyRequest(t, ExplorerProxyHandler(fetcher, newStubCache(), "server-token", time.Hour), tc.database, tc.query)
+			rec := proxyRequest(t, signedIn(ExplorerProxyHandler(fetcher, newStubCache(), linkedUsers("user-token"), time.Hour)), tc.database, tc.query)
 			assert.Equal(t, http.StatusBadRequest, rec.Code)
 			assert.Equal(t, 0, fetcher.calls)
 		})
 	}
 }
 
-func TestExplorerProxyHandler_TokenRejected_Returns502WithoutCaching(t *testing.T) {
+func TestExplorerProxyHandler_TokenRejectedByLichess_AsksToReconnectWithoutCaching(t *testing.T) {
 	cache := newStubCache()
 	fetcher := &stubRawFetcher{err: services.ErrExplorerUnauthorized}
 
-	rec := proxyRequest(t, ExplorerProxyHandler(fetcher, cache, "stale-token", time.Hour), "lichess", url.Values{"fen": {afterE4}})
+	rec := proxyRequest(t, signedIn(ExplorerProxyHandler(fetcher, cache, linkedUsers("revoked"), time.Hour)), "lichess", url.Values{"fen": {afterE4}})
 
-	assert.Equal(t, http.StatusBadGateway, rec.Code)
+	assert.Equal(t, http.StatusForbidden, rec.Code)
+	assert.Contains(t, rec.Body.String(), `"code":"lichess_token_invalid"`)
 	assert.Equal(t, 0, cache.putCalls)
 }

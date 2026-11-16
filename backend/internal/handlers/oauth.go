@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"log/slog"
 
@@ -51,6 +52,21 @@ func NewOAuthHandler(oauthSvc *services.OAuthService, userRepo repository.UserRe
 type oauthCookieData struct {
 	State        string `json:"s"`
 	CodeVerifier string `json:"v"`
+	Next         string `json:"n,omitempty"`
+}
+
+const maxOAuthNextLength = 512
+
+// oauthNext garde seulement un chemin local : préfixé par frontendURL, il ne peut pas renvoyer vers un autre site.
+func oauthNext(raw string) string {
+	if len(raw) > maxOAuthNextLength || !strings.HasPrefix(raw, "/") || strings.HasPrefix(raw, "//") || strings.Contains(raw, "\\") {
+		return ""
+	}
+	parsed, err := url.Parse(raw)
+	if err != nil || parsed.Scheme != "" || parsed.Host != "" {
+		return ""
+	}
+	return raw
 }
 
 func (h *OAuthHandler) LoginRedirect(c *echo.Context) error {
@@ -59,7 +75,7 @@ func (h *OAuthHandler) LoginRedirect(c *echo.Context) error {
 		return InternalErrorResponse(c, "failed to generate OAuth URL")
 	}
 
-	cookieData := oauthCookieData{State: state, CodeVerifier: codeVerifier}
+	cookieData := oauthCookieData{State: state, CodeVerifier: codeVerifier, Next: oauthNext(c.QueryParam("next"))}
 	encrypted, err := h.encryptCookie(cookieData)
 	if err != nil {
 		return InternalErrorResponse(c, "failed to prepare OAuth state")
@@ -144,6 +160,9 @@ func (h *OAuthHandler) Callback(c *echo.Context) error {
 	// into browser history, proxy logs, and the Referer header (issue #124).
 	// The refresh token cookie set above lets the frontend obtain an access
 	// token via /api/auth/refresh on the OAuth return.
+	if cookieData.Next != "" {
+		return c.Redirect(http.StatusTemporaryRedirect, h.frontendURL+cookieData.Next)
+	}
 	redirectURL := h.frontendURL + "/login"
 	if isNew {
 		redirectURL += "?new=1"
