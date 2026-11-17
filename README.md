@@ -6,6 +6,10 @@ Interactive chess opening repertoire builder with tree visualization and game an
 
 Build, visualize, and manage your chess opening repertoire. Import games from Lichess, Chess.com, or PGN files, analyze them against your repertoire, and identify gaps in your preparation.
 
+> **This version is frozen.** A new version is being built in `frontend/src/features/openings/`
+> (published under `/v2/`). The app described below will be removed once the new one imports games and
+> saves them server-side; until then it only gets fixes for production breakage.
+
 ## A Note on Origins
 
 This project started as a vibe coding experiment that I decided to see through and make publicly available. If you run into any bugs or issues, please don't hesitate to report them, feedback is always welcome!

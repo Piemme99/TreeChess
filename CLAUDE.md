@@ -2,6 +2,23 @@
 
 Kumquat — chess repertoire builder & trainer. Live: https://kumquatchess.com
 
+## v1 is frozen, v2 replaces it
+
+The app is being rebuilt as **v2** in `frontend/src/features/openings/` (published under `/v2/`, see its
+`README.md`). Everything else is **v1** and will be deleted.
+
+- **No work on v1**: no feature, no refactor, no polish. Only fixes for something broken in production.
+- **New work goes into v2.** Don't reuse v1 screens or components in it; v2 may only depend on what survives.
+- **v1 goes when v2 can stand alone**: real game import and server-side persistence (today v2 reads a fixture
+  and stores everything in localStorage), then `/` points to v2, then v1 is removed in one PR.
+- **What survives**: auth (email + Lichess OAuth), the explorer relay `/api/explorer/*` and its Postgres cache,
+  `stores/authStore` (minus its v1 ties: `repertoireStore`, game sync on login), `services/api`, `services/stockfishConfig`, `shared/hooks/useOpeningName`,
+  `shared/utils/openings`, `shared/components/Board/pieceSvg`. The rest of the frontend (`features/` other than
+  `openings`) and the v1 backend (JSONB repertoires, import, sync, training, dashboard, explore, re-analysis)
+  goes, unless the import brick reuses part of it. What happens to v1 data in production is still open.
+
+The sections below mostly describe v1; they stay true until the removal.
+
 ## Commands
 
 Everything day-to-day goes through the root `Makefile`:
