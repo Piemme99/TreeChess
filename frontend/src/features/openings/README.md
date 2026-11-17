@@ -259,6 +259,9 @@ games while the session counts positions. Fixed below.
 Games and Openings leave the menu (routes kept, Openings stays the computer view of the results). No big
 board on Today.
 
+Today is to be renamed **Home** (PMG, 2026-11-17): on the first day it shows a report of the whole history,
+and after days away a week of games, so "Today" misleads. The POC still says Today.
+
 ### Screen 1 — Import (first visit only)
 
 "Build your repertoire from your games", a Lichess username (the signed-in account by default), "Import",
