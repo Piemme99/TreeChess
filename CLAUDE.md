@@ -50,7 +50,7 @@ These are the project-specific ones; the rest is idiomatic Go / React.
 - **Sentinel errors** live in `internal/repository/errors.go` and at the top of service files; wrap with `%w`, test with `errors.Is`.
 - **No Prettier** on the frontend — formatting is by convention (2 spaces, semicolons, ~100 cols).
 - **Named exports**, never default. Lazy routes via `React.lazy(() => import(…).then(m => ({ default: m.Name })))`.
-- Test names: `TestServiceName_MethodName_Scenario`.
+- Go test names: `TestServiceName_MethodName_Scenario`. Frontend test names are sentences (see below).
 
 ## What to test (v2, `frontend/src/features/openings`)
 
@@ -59,9 +59,9 @@ A test exists to catch a bug in code the agent did not read, not to restate the 
 1. **Test rules, not screens.** Every product decision (a threshold, an order, what comes first, when something comes back) lives in a pure function with its test; the component only renders. Example: `home/hero.ts`.
 2. **One test = one sentence PMG would sign**, in `CONTEXT.md` vocabulary ("an opponent move off the repertoire comes back to settle only when it repeats"). If the sentence says nothing PMG cares about, don't write the test.
 3. **A failing test means a bug or a changed rule.** A changed rule changes its test in the same commit and the summary says so ("rule changed: …"). If the only fix is updating the expected value while the rule did not change, delete the test instead of fixing it.
-4. **No page or component tests while v2 is a POC**: no exact copy, no figures from the fixture, no DOM structure. Screens are checked in the browser (playwright, 390 px too). Exception: an interaction that cannot leave the component (building a line with the keyboard) — one test per path, queried by role.
-5. **One guard on PMG's real games** (`playedGamesFixture`) per major rule, e.g. the Morra and the Philidor ranked first in `priorities.test.ts`: it catches a threshold invented examples never hit.
-6. **Deleted code takes its tests with it.**
+4. **No page or component tests while v2 is a POC**: they pin exact copy, figures from the fixture and DOM structure, which change with every UI pass. Screens are checked in the browser (playwright, 390 px too). Exception: an interaction that cannot leave the component (building a line with the keyboard) — one test per path, queried by role.
+5. **One guard on PMG's real games** (`playedGamesFixture`) per major rule, e.g. the Morra and the Philidor ranked first in `priorities.test.ts`: it catches a threshold invented examples never hit. These are the only tests allowed to assert fixture figures.
+6. **Deleted code takes its tests with it**, and code only its own tests call is dead: delete both.
 
 ## Traps
 

@@ -59,4 +59,3 @@ export function usePositionFacts({ side, path, node, recent, steps, priority, le
     waiting: inRepertoire && steps.length > 0 && !settling,
   };
 }
-

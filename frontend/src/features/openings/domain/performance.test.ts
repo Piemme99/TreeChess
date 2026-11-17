@@ -37,7 +37,7 @@ describe('leakOf', () => {
   });
 
   it('names the reply where the line loses clearly more than on average, the worst first', () => {
-    expect(leakOf(line(reply('Nf3', 40, 24), reply('c3', 10, 3), reply('d4', 10, 4)))?.san).toBe('c3');
+    expect(leakOf(line(reply('Nf3', 40, 24), reply('d4', 10, 4), reply('c3', 10, 3)))?.san).toBe('c3');
   });
 
   it('ignores a reply met fewer than five times, however badly it goes', () => {

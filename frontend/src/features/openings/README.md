@@ -21,19 +21,15 @@ Vocabulary (opening tree, deficit, priority, points to gain): `CONTEXT.md`.
   - `gameCheck.ts` — one game against the repertoire: followed, left, or not covered.
   - `addition.ts` — the moves a player played to build an addition, and the repertoire grown by them.
   - `judgement.ts` — a move graded like on Lichess (?!, ?, ??) from two evaluations.
-  - `line.ts` — a line studied on its own: score move after move, extended by its
-    most played continuation, and the moves played at each of its positions.
-  - `diagnosis.ts` — engine against results on a line: what the opening moves cost,
-    what is lost after, the key position, and the decisive mistake of each game.
-  - `preparation.ts` — the proposed preparation from the key position (habits the
-    engine accepts, else the move most played at the player's level that it accepts).
+  - `diagnosis.ts` — an engine evaluation, its winning chances (Lichess formula), UCI to SAN.
+  - `preparation.ts` — the Lichess explorer stats and the source of a repertoire move.
   - `period.ts`, `notation.ts`.
 - `OpeningsPage.tsx` — the screen: priority tickets, flame graph as tiles, board panel.
 - `flame/` — layout (pure), camera (`useFlameCamera`: zooming moves a window over fixed
   coordinates, so tiles slide out of frame instead of vanishing) and the tiles.
 - `priorities/` — the priority tickets.
-- `line/` — the line view ("Study this line"), opened from the board panel: verdict,
-  a two-step plan, the whole line folded below. `engine.ts` queues Stockfish
+- `line/` — what the line view (deleted 2026-11-17, replaced by the Weak opening task) left in use:
+  `ArrowBoard.tsx`, arrow colours in `tone.ts`. `engine.ts` queues Stockfish
   evaluations on a dedicated worker; `explorer.ts` queries the Lichess explorer through the
   backend relay `GET /api/explorer/{lichess,masters}`, which uses the signed-in user's Lichess
   token ("Sign in with Lichess" in the header) and serves cached positions to everyone. In dev

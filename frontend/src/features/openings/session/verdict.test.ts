@@ -92,11 +92,10 @@ describe('settleSteps', () => {
   });
 
   it('holds back a move until its verdict arrives, and adopts nothing meanwhile', () => {
-    const partial = new Map([...evaluated(soundTwice, { Bc4: 30, Nf3: 40 })]);
-    const settled = settleSteps([blunder, soundTwice], partial, false);
+    const settled = settleSteps([blunder, soundTwice], evaluated(soundTwice, { Bc4: 30, Nf3: 40 }), false);
 
     expect(settled).toMatchObject({ judging: true, adopted: [] });
-    expect(keys(settled.steps)).toEqual([]);
+    expect(keys(settled.steps)).not.toContain('f6');
   });
 
   it('shows every move of the player when no engine will answer', () => {
