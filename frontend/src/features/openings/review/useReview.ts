@@ -2,10 +2,11 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { CheckedGame } from '../checks/checkedGame';
 import { buildOpeningTree } from '../domain/openingTree';
 import { gamesOfLastMonths } from '../domain/period';
+import { gamesUntil } from '../domain/replay';
 import type { PlayedGame, Side } from '../domain/playedGame';
 import type { Repertoire } from '../domain/repertoire';
 import { answered, dueCount, seededState, withLapses, type ReviewCard, type ReviewState } from '../domain/review';
-import { lapsesOf, reviewWeight } from './weights';
+import { encountersOf, lapsesOf, reviewWeight } from './weights';
 import { readStored, writeStored } from '../workshop/storage';
 
 /** Lignes par séance de révision : le chiffre que Home annonce. */
@@ -29,7 +30,14 @@ export function useReview(games: readonly PlayedGame[], repertoires: Record<Side
   const lapses = useMemo(() => lapsesOf(lived), [lived]);
   const state = useMemo(() => ({ w: withLapses(stored.w, lapses.w), b: withLapses(stored.b, lapses.b) }), [stored, lapses]);
   const due = useMemo(() => ({ w: dueCount(repertoires.w, state.w, today), b: dueCount(repertoires.b, state.b, today) }), [repertoires, state, today]);
-  const weight = useCallback((side: Side) => reviewWeight(lapses[side], repertoires[side], start), [lapses, repertoires, start]);
+  const encounters = useMemo(() => {
+    const recent = gamesUntil(gamesOfLastMonths(games, HABIT_MONTHS, new Date(today)), today);
+    return { w: encountersOf(recent, 'w'), b: encountersOf(recent, 'b') };
+  }, [games, today]);
+  const weight = useCallback(
+    (side: Side) => reviewWeight(lapses[side], encounters[side], repertoires[side], start),
+    [lapses, encounters, repertoires, start],
+  );
 
   return {
     state,

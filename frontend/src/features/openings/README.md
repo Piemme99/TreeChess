@@ -298,7 +298,8 @@ Accepting the preparation ends on "2 moves added · Next weak opening / Back to 
   of ≥ 10 games starts in the 30-day box (spread over the month): no quiz on 1.e4. Due from the start: the
   positions where the player varies, too few games, the additions. A position missed in a game check after
   its last review is due again, and weighs more.
-- **A line.** The app picks the due position that weighs most, plays the line to it by itself up to the
+- **A line.** The app picks the due position that weighs most (missed in a game, then a recent addition, then
+  the rest; within each, the one met in the most games over 12 months), plays the line to it by itself up to the
   player's two moves before it, then the player plays; opponent moves are played by the app, choosing the
   reply that leads to the most due positions; the line goes on while something is due ahead. Any of
   several repertoire moves is right.
