@@ -9,7 +9,7 @@ import { SourceContext } from './useSource';
 
 export function SourceProvider({ source, children }: { source: GameSource; children: ReactNode }) {
   // Avant le premier rendu des enfants : leurs états se lisent du stockage de cette source.
-  setStorageScope(source.id);
+  setStorageScope(source.id, source.saved);
   return (
     <SourceContext.Provider value={source}>
       <Fragment key={source.id}>{children}</Fragment>

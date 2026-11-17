@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { api } from '../../../services/api';
 import { useAuthStore } from '../../../stores/authStore';
 import { useImported } from '../home/useImported';
+import { mergeSaved, uploadStored } from '../workshop/storage';
 import { DEMO_SOURCE, importedSource, type GameSource, type ImportedGame } from './gameSource';
 
 export interface ImportState {
@@ -43,8 +44,14 @@ export function useGameSource() {
       setState({ kind: 'to-import', username: user.lichessUsername!, state: data });
       return;
     }
-    const { data: list } = await api.get<{ games: ImportedGame[] }>('/v2/games');
+    const [{ data: list }, { data: kept }] = await Promise.all([
+      api.get<{ games: ImportedGame[] }>('/v2/games'),
+      api.get<{ state: Record<string, unknown> }>('/v2/state'),
+    ]);
     const source = importedSource(user.lichessUsername!, list.games, (data.firstDoneAt ?? data.finishedAt ?? new Date().toISOString()).slice(0, 10));
+    const { values, upload } = mergeSaved(kept.state, (key) => localStorage.getItem(`kumquat.v2.${source.id}.${key}`));
+    uploadStored(upload, values);
+    source.saved = values;
     cached = { userId: user.id, source };
     setState({ kind: 'ready', source });
   }, [user, linked]);

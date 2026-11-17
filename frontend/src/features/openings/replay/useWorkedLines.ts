@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { Side } from '../domain/playedGame';
-import { storageKey } from '../workshop/storage';
+import { readStored, writeStored } from '../workshop/storage';
 
 /** Une priorité sur laquelle le joueur a accepté un ajout : la ligne est travaillée à partir de ce jour. */
 export interface WorkedLine {
@@ -10,9 +10,9 @@ export interface WorkedLine {
 }
 
 export function useWorkedLines() {
-  const [worked, setWorked] = useState<readonly WorkedLine[]>(() => JSON.parse(localStorage.getItem(storageKey('worked')) ?? '[]') as WorkedLine[]);
+  const [worked, setWorked] = useState<readonly WorkedLine[]>(() => JSON.parse(readStored('worked') ?? '[]') as WorkedLine[]);
 
-  useEffect(() => localStorage.setItem(storageKey('worked'), JSON.stringify(worked)), [worked]);
+  useEffect(() => writeStored('worked', JSON.stringify(worked)), [worked]);
 
   return {
     worked,

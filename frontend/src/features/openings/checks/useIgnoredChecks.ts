@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react';
-import { storageKey } from '../workshop/storage';
+import { readStored, writeStored } from '../workshop/storage';
 
 /** Les contrôles de partie écartés par le joueur, par identifiant de partie. */
 export function useIgnoredChecks() {
   const [ignored, setIgnored] = useState<ReadonlySet<number>>(() => {
-    const stored = localStorage.getItem(storageKey('ignored-checks'));
+    const stored = readStored('ignored-checks');
     return new Set(stored ? (JSON.parse(stored) as number[]) : []);
   });
 
-  useEffect(() => localStorage.setItem(storageKey('ignored-checks'), JSON.stringify([...ignored])), [ignored]);
+  useEffect(() => writeStored('ignored-checks', JSON.stringify([...ignored])), [ignored]);
 
   return {
     ignored,
