@@ -1,6 +1,6 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { api } from '../../../services/api';
-import { mergeSaved, setStorageScope, writeStored } from './storage';
+import { mergeSaved, readStored, setStorageScope, writeStored } from './storage';
 
 vi.mock('../../../services/api', () => ({ api: { put: vi.fn(() => Promise.resolve()) }, getAccessToken: () => null }));
 
@@ -21,15 +21,43 @@ describe('mergeSaved', () => {
 });
 
 describe('writeStored', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.mocked(api.put).mockReset();
+  });
+
   it('sends a decision up even when the account reloads before it leaves', () => {
     vi.useFakeTimers();
+    vi.mocked(api.put).mockResolvedValue(undefined);
     setStorageScope('lichess:pmg', new Map());
     writeStored('review', '{"w":[],"b":[]}');
-    const reloaded = new Map<string, string>();
-    setStorageScope('lichess:pmg', reloaded);
+    setStorageScope('lichess:pmg', new Map());
     vi.runAllTimers();
     expect(api.put).toHaveBeenCalledWith('/v2/state/review', '{"w":[],"b":[]}', expect.anything());
-    expect(reloaded.get('review')).toBe('{"w":[],"b":[]}');
-    vi.useRealTimers();
+  });
+
+  it('keeps a decision already sent when the account reloads what the server had before it', () => {
+    vi.useFakeTimers();
+    vi.mocked(api.put).mockResolvedValue(undefined);
+    setStorageScope('lichess:pmg', new Map());
+    writeStored('worked', '["d4"]');
+    vi.runAllTimers();
+    setStorageScope('lichess:pmg', new Map([['worked', '[]']]));
+    expect(readStored('worked')).toBe('["d4"]');
+  });
+
+  it('does not send an older answer again over a newer one', async () => {
+    vi.useFakeTimers();
+    let fail: (error: Error) => void = () => undefined;
+    vi.mocked(api.put).mockImplementationOnce(() => new Promise((_, reject) => (fail = reject))).mockResolvedValue(undefined);
+    setStorageScope('lichess:pmg', new Map());
+    writeStored('review', '"old"');
+    vi.advanceTimersByTime(300);
+    writeStored('review', '"new"');
+    vi.advanceTimersByTime(300);
+    fail(new Error('timeout'));
+    await vi.runAllTimersAsync();
+    const sent = vi.mocked(api.put).mock.calls.map(([, value]) => value);
+    expect(sent.at(-1)).toBe('"new"');
   });
 });

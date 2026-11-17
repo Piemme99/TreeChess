@@ -14,9 +14,9 @@ const pending = new Map<string, { timer: number; value: string }>();
 
 export function setStorageScope(sourceId: string, saved?: Map<string, string>) {
   const next = sourceId === 'demo' ? '' : `${sourceId}.`;
-  // Les parties d'un compte se relisent (double chargement, nouvelles parties) avec ce que le serveur avait :
-  // ce qui n'y est pas encore parti doit survivre au remplacement.
-  if (saved && saved !== server && next === scope) for (const [key, { value }] of pending) saved.set(key, value);
+  // Les parties d'un compte se relisent (double chargement, nouvelles parties) avec ce que le serveur avait au
+  // moment de la lecture : dans un même onglet, ce que la page a écrit depuis est plus récent.
+  if (saved && server && saved !== server && next === scope) for (const [key, value] of server) saved.set(key, value);
   scope = next;
   server = saved ?? null;
 }
@@ -44,8 +44,11 @@ export function writeStored(key: string, value: string) {
 
 function save(key: string, value: string, attempt = 0) {
   pending.delete(key);
+  const from = scope;
   api.put(`/v2/state/${key}`, value, { headers: { 'Content-Type': 'application/json' } }).catch(() => {
-    if (attempt < 3 && !pending.has(key)) pending.set(key, { value, timer: window.setTimeout(() => save(key, value, attempt + 1), 2000 * (attempt + 1)) });
+    // Ne réessayer que si rien de plus récent n'a été écrit depuis, et pour le même compte.
+    const current = attempt < 3 && scope === from && !pending.has(key) && server?.get(key) === value;
+    if (current) pending.set(key, { value, timer: window.setTimeout(() => save(key, value, attempt + 1), 2000 * (attempt + 1)) });
   });
 }
 
