@@ -6,14 +6,12 @@ import type { PlayedGame, Side } from '../domain/playedGame';
 import type { Repertoire } from '../domain/repertoire';
 import { answered, dueCount, seededState, withLapses, type ReviewCard, type ReviewState } from '../domain/review';
 import { REPLAY_START } from '../replay/replaySetup';
+import { lapsesOf, reviewWeight } from './weights';
 
 const STORAGE = 'kumquat.v2.review';
 /** Lignes par séance de révision : le chiffre que Home annonce. */
 export const REVIEW_LINES = 5;
 const HABIT_MONTHS = 12;
-// Une position manquée en partie passe devant ; un ajout récent devant le reste.
-const LAPSE_WEIGHT = 10;
-const ADDITION_WEIGHT = 3;
 
 type Stored = Record<Side, [string, ReviewCard][]>;
 
@@ -29,20 +27,10 @@ export function useReview(games: readonly PlayedGame[], repertoires: Record<Side
   const [stored, setStored] = useState<Record<Side, ReviewState>>(() => read() ?? seed(games, repertoires));
   useEffect(() => localStorage.setItem(STORAGE, JSON.stringify({ w: [...stored.w], b: [...stored.b] } satisfies Stored)), [stored]);
 
-  const lapses = useMemo(() => {
-    const found: Record<Side, Map<string, string>> = { w: new Map(), b: new Map() };
-    for (const { game, check } of lived) if (check.kind === 'left') found[game.side].set(check.position, game.playedAt);
-    return found;
-  }, [lived]);
+  const lapses = useMemo(() => lapsesOf(lived), [lived]);
   const state = useMemo(() => ({ w: withLapses(stored.w, lapses.w), b: withLapses(stored.b, lapses.b) }), [stored, lapses]);
   const due = useMemo(() => ({ w: dueCount(repertoires.w, state.w, today), b: dueCount(repertoires.b, state.b, today) }), [repertoires, state, today]);
-  const weight = useCallback(
-    (side: Side) => (key: string) => {
-      if (lapses[side].has(key)) return LAPSE_WEIGHT;
-      return repertoires[side].moves.get(key)?.some((move) => move.addedAt > REPLAY_START) ? ADDITION_WEIGHT : 1;
-    },
-    [lapses, repertoires],
-  );
+  const weight = useCallback((side: Side) => reviewWeight(lapses[side], repertoires[side], REPLAY_START), [lapses, repertoires]);
 
   return {
     state,

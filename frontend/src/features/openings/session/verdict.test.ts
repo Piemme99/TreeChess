@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Evaluation } from '../domain/diagnosis';
 import type { SessionStep } from './steps';
-import { isAdopted, isSound, judgeStep, verdictFens } from './verdict';
+import { isAdopted, isSound, judgeStep, settleSteps, verdictFens } from './verdict';
 
 const step = (side: 'w' | 'b', path: string[], played: string, planned: string[], games = 1): SessionStep => ({
   key: `${side} ${path.join(' ')} ${played}`,
@@ -68,5 +68,38 @@ describe('isSound and isAdopted', () => {
 
   it('judges nothing before the engine answers', () => {
     expect(isSound(step('w', ['e4', 'e5'], 'Bc4', ['Nf3'], 2))).toBe(false);
+  });
+});
+
+describe('settleSteps', () => {
+  const blunder = step('b', ['e4'], 'f6', ['e5']);
+  const soundOnce = step('b', ['d4'], 'Nf6', ['d5']);
+  const soundTwice = step('w', ['e4', 'e5'], 'Bc4', ['Nf3'], 2);
+  const surprise: SessionStep = { ...step('w', ['e4'], 'b6', ['e5']), kind: 'uncovered', key: 'surprise' };
+  const all = new Map([
+    ...evaluated(blunder, { f6: 150, e5: 30 }),
+    ...evaluated(soundOnce, { Nf6: 10, d5: 30 }),
+    ...evaluated(soundTwice, { Bc4: 30, Nf3: 40 }),
+  ]);
+  const keys = (steps: readonly SessionStep[]) => steps.map((settled) => settled.played);
+
+  it('keeps the moves the engine blames and the opponent surprises, not the sound moves', () => {
+    expect(keys(settleSteps([blunder, soundOnce, soundTwice, surprise], all, false).steps)).toEqual(['f6', 'b6']);
+  });
+
+  it('adds to the repertoire a sound move played twice', () => {
+    expect(keys(settleSteps([blunder, soundOnce, soundTwice], all, false).adopted)).toEqual(['Bc4']);
+  });
+
+  it('holds back a move until its verdict arrives, and adopts nothing meanwhile', () => {
+    const partial = new Map([...evaluated(soundTwice, { Bc4: 30, Nf3: 40 })]);
+    const settled = settleSteps([blunder, soundTwice], partial, false);
+
+    expect(settled).toMatchObject({ judging: true, adopted: [] });
+    expect(keys(settled.steps)).toEqual([]);
+  });
+
+  it('shows every move of the player when no engine will answer', () => {
+    expect(keys(settleSteps([blunder, soundOnce], new Map(), true).steps)).toEqual(['f6', 'Nf6']);
   });
 });

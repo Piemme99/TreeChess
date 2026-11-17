@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { CheckedGame } from '../checks/checkedGame';
-import { sessionSteps } from './steps';
+import { checkQueue, sessionSteps } from './steps';
 
 const deviation = (id: number, moves: string[], playedAt: string, kind: 'left' | 'uncovered' = 'left'): CheckedGame => ({
   id,
@@ -33,5 +33,28 @@ describe('sessionSteps', () => {
     const followed: CheckedGame = { ...deviation(1, ['d4', 'd5'], '2026-04-10'), check: { kind: 'followed', plies: 2 } };
 
     expect(sessionSteps([followed])).toEqual([]);
+  });
+});
+
+describe('checkQueue', () => {
+  const at = (side: 'w' | 'b', moves: string[], id: number): CheckedGame => {
+    const base = deviation(id, moves, '2026-04-10');
+    return { ...base, game: { ...base.game, side } };
+  };
+  const steps = sessionSteps([
+    at('b', ['d4', 'Nf6'], 1), at('b', ['d4', 'Nf6'], 2), at('b', ['d4', 'Nf6'], 3),
+    at('b', ['e4', 'c6'], 4), at('b', ['e4', 'c6'], 5),
+    at('b', ['d4', 'e6'], 6),
+    at('w', ['e4', 'c5', 'Bb5'], 7),
+  ]);
+  const queue = (side: 'w' | 'b') => checkQueue(steps, side).map((step) => `${step.side} ${step.path.join(' ')} ${step.played}`);
+
+  it('keeps the moves played at one position next to each other, so the board stays put', () => {
+    expect(queue('b').slice(0, 3)).toEqual(['b d4 Nf6', 'b d4 e6', 'b e4 c6']);
+  });
+
+  it('starts with the side being looked at, then the other', () => {
+    expect(queue('b').at(-1)).toBe('w e4 c5 Bb5');
+    expect(queue('w')[0]).toBe('w e4 c5 Bb5');
   });
 });

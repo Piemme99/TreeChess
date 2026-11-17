@@ -12,7 +12,7 @@ import { gamesOfLastMonths } from '../domain/period';
 import type { PlayedGame, Side } from '../domain/playedGame';
 import { findPriorities } from '../domain/priorities';
 import { REPLAY_START } from '../replay/replaySetup';
-import type { SessionStep } from '../session/steps';
+import { checkQueue, type SessionStep } from '../session/steps';
 import { useReplayedSession } from '../session/useReplayedSession';
 import { PageHeader } from '../workshop/PageHeader';
 import { TaskBar, TaskDone } from '../workshop/Task';
@@ -176,12 +176,7 @@ export function TreePage() {
     if (!wide) window.scrollTo({ top: 0, behavior: 'smooth' });
   };
   const startSession = () => {
-    // Une couleur après l'autre, en commençant par celle qu'on regarde : changer de camp à chaque étape fait tout redessiner.
-    const bySide = [...steps.filter((step) => step.side === side), ...steps.filter((step) => step.side !== side)];
-    // Les coups joués sur une même position passent l'un après l'autre, sur le même échiquier.
-    const at = (step: SessionStep) => `${step.side} ${step.games[0].check.position}`;
-    const ordered = bySide.filter((step, index) => bySide.findIndex((other) => at(other) === at(step)) === index).flatMap((first) => bySide.filter((step) => at(step) === at(first)));
-    setSession({ queue: ordered.map((step) => step.key), done: new Map() });
+    setSession({ queue: checkQueue(steps, side).map((step) => step.key), done: new Map() });
     build(null);
     toTop();
   };

@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { isPlayerMove, nodeAt, type OpeningNode } from '../domain/openingTree';
-import { playerAverage, scoreRate } from '../domain/performance';
+import { leakOf, playerAverage } from '../domain/performance';
 import type { BoardArrow } from '../line/ArrowBoard';
 import { MAX_ARROWS, relevantArrows } from '../position/arrows';
 import type { PositionPaneProps } from './PositionPane';
@@ -58,16 +58,5 @@ export function usePositionFacts({ side, path, node, recent, steps, priority, le
     settling,
     waiting: inRepertoire && steps.length > 0 && !settling,
   };
-}
-
-// Un fil qui coûte doit peser : sous ce nombre de parties, l'écart ne désigne rien.
-const MIN_LEAK_GAMES = 5;
-
-/** La suite où une priorité perd nettement plus qu'en moyenne sur sa ligne, s'il y en a une. */
-function leakOf(here: OpeningNode | undefined): OpeningNode | undefined {
-  if (!here) return undefined;
-  return here.children
-    .filter((child) => child.games >= MIN_LEAK_GAMES && scoreRate(child) < scoreRate(here) - 0.03)
-    .sort((a, b) => scoreRate(a) - scoreRate(b))[0];
 }
 
