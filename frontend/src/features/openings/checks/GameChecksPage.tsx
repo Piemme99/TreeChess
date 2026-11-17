@@ -12,7 +12,7 @@ import { useEvaluations } from '../line/engine';
 import { playedGamesFixture } from '../fixtures/playedGames';
 import { ArrowBoard, type BoardArrow } from '../line/ArrowBoard';
 import { replayLine } from '../position/replay';
-import { REPLAY_FIRST_DAY } from '../replay/replaySetup';
+import { REPLAY_FIRST_DAY, REPLAY_START } from '../replay/replaySetup';
 import { useRepertoires } from '../replay/useRepertoires';
 import { useReplayDay } from '../replay/useReplayDay';
 import { PageHeader } from '../workshop/PageHeader';
@@ -33,7 +33,7 @@ export function GameChecksPage() {
   const { toast, show, close } = useToast();
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [addingId, setAddingId] = useState<number | null>(null);
-  const { repertoires, add, remove, clear: forgetAdditions } = useRepertoires(playedGamesFixture);
+  const { repertoires, add, remove, clear: forgetAdditions } = useRepertoires(playedGamesFixture, REPLAY_START);
   const lived = useMemo(() => liveGames(playedGamesFixture, repertoires, REPLAY_FIRST_DAY, replay.day), [repertoires, replay.day]);
   const today = lived.filter(({ game }) => game.playedAt === replay.day);
   const toDecide = gamesToDecide(lived, ignored, replay.day);

@@ -11,7 +11,6 @@ import { figurineLine, figurineMove } from '../domain/notation';
 import { gamesOfLastMonths } from '../domain/period';
 import type { PlayedGame, Side } from '../domain/playedGame';
 import { findPriorities } from '../domain/priorities';
-import { REPLAY_START } from '../replay/replaySetup';
 import { checkQueue, type SessionStep } from '../session/steps';
 import { useReplayedSession } from '../session/useReplayedSession';
 import { PageHeader } from '../workshop/PageHeader';
@@ -51,7 +50,7 @@ interface Session {
  */
 export function TreePage() {
   useWorkshopFont();
-  const { replay, known, repertoires, steps, adoptions, judging, add, remove, ignore, unignore, forgetIgnored, forgetAdditions } = useReplayedSession();
+  const { source, replay, known, repertoires, steps, adoptions, judging, add, remove, ignore, unignore, forgetIgnored, forgetAdditions } = useReplayedSession();
   const { work, unwork } = useWorkedLines();
   // Openings envoie une ligne à travailler par l'adresse : /dev/tree?side=b&line=d4 Nf6.
   const [params, setParams] = useSearchParams();
@@ -97,7 +96,7 @@ export function TreePage() {
   };
   const { toast, show, close } = useToast();
 
-  const { maps, recent, priorities } = useMaps(known, replay.day, repertoires, steps);
+  const { maps, recent, priorities } = useMaps(known, replay.day, repertoires, steps, source.start);
   const root = maps[side];
   const path = paths[side];
   const node = useMemo(() => nodeAlong(root, path), [root, path]);
@@ -567,7 +566,7 @@ function BottomBar({ onStart, onBack, onForward, onEnd }: { onStart?: () => void
   );
 }
 
-function useMaps(known: readonly PlayedGame[], day: string, repertoires: ReturnType<typeof useReplayedSession>['repertoires'], steps: readonly SessionStep[]) {
+function useMaps(known: readonly PlayedGame[], day: string, repertoires: ReturnType<typeof useReplayedSession>['repertoires'], steps: readonly SessionStep[], createdAt: string) {
   return useMemo(() => {
     const trees = (games: readonly PlayedGame[]): Record<Side, OpeningTree> => ({ w: buildOpeningTree(games, 'w', MAX_PLIES), b: buildOpeningTree(games, 'b', MAX_PLIES) });
     const recent = trees(gamesOfLastMonths(known, RECENT_MONTHS, new Date(day)));
@@ -579,11 +578,11 @@ function useMaps(known: readonly PlayedGame[], day: string, repertoires: ReturnT
       toSettle[step.side].set(position, (toSettle[step.side].get(position) ?? 0) + 1);
     }
     const maps: Record<Side, MapNode> = {
-      w: buildRepertoireMap(repertoires.w, recent.w, { toSettle: toSettle.w, priorities, createdAt: REPLAY_START, freshSince: daysBefore(day, FRESH_DAYS) }),
-      b: buildRepertoireMap(repertoires.b, recent.b, { toSettle: toSettle.b, priorities, createdAt: REPLAY_START, freshSince: daysBefore(day, FRESH_DAYS) }),
+      w: buildRepertoireMap(repertoires.w, recent.w, { toSettle: toSettle.w, priorities, createdAt, freshSince: daysBefore(day, FRESH_DAYS) }),
+      b: buildRepertoireMap(repertoires.b, recent.b, { toSettle: toSettle.b, priorities, createdAt, freshSince: daysBefore(day, FRESH_DAYS) }),
     };
     return { maps, recent, priorities };
-  }, [known, day, repertoires, steps]);
+  }, [known, day, repertoires, steps, createdAt]);
 }
 
 /** Le nœud le plus profond de la carte sur la ligne, en passant par le propriétaire d'une transposition. */

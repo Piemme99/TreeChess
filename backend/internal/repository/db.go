@@ -197,6 +197,27 @@ func (db *DB) runMigrations() error {
 		`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_lichess_sync_at TIMESTAMP WITH TIME ZONE`,
 		`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_chesscom_sync_at TIMESTAMP WITH TIME ZONE`,
 		`ALTER TABLE users ADD COLUMN IF NOT EXISTS lichess_access_token TEXT`,
+		// v2 : les parties du joueur importées de Lichess, réduites à ce que lit l'arbre des ouvertures.
+		`CREATE TABLE IF NOT EXISTS played_games (
+			user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+			source VARCHAR(20) NOT NULL,
+			source_id VARCHAR(40) NOT NULL,
+			color VARCHAR(5) NOT NULL,
+			moves TEXT NOT NULL,
+			score REAL NOT NULL,
+			rating INTEGER,
+			played_at DATE NOT NULL,
+			PRIMARY KEY (user_id, source, source_id)
+		)`,
+		`CREATE TABLE IF NOT EXISTS played_game_imports (
+			user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+			status VARCHAR(10) NOT NULL,
+			imported INTEGER NOT NULL DEFAULT 0,
+			error TEXT,
+			started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+			updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+			finished_at TIMESTAMPTZ
+		)`,
 		`CREATE TABLE IF NOT EXISTS game_fingerprints (
 			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 			user_id UUID NOT NULL REFERENCES users(id),

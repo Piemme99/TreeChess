@@ -1,15 +1,14 @@
 import { useEffect, useState } from 'react';
-
-const STORAGE = 'kumquat.v2.ignored-checks';
+import { storageKey } from '../workshop/storage';
 
 /** Les contrôles de partie écartés par le joueur, par identifiant de partie. */
 export function useIgnoredChecks() {
   const [ignored, setIgnored] = useState<ReadonlySet<number>>(() => {
-    const stored = localStorage.getItem(STORAGE);
+    const stored = localStorage.getItem(storageKey('ignored-checks'));
     return new Set(stored ? (JSON.parse(stored) as number[]) : []);
   });
 
-  useEffect(() => localStorage.setItem(STORAGE, JSON.stringify([...ignored])), [ignored]);
+  useEffect(() => localStorage.setItem(storageKey('ignored-checks'), JSON.stringify([...ignored])), [ignored]);
 
   return {
     ignored,

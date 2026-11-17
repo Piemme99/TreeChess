@@ -3,20 +3,20 @@ import { gamesToDecide, liveGames } from '../checks/decisions';
 import { useIgnoredChecks } from '../checks/useIgnoredChecks';
 import type { Addition } from '../domain/addition';
 import { gamesUntil } from '../domain/replay';
-import { playedGamesFixture } from '../fixtures/playedGames';
-import { REPLAY_FIRST_DAY } from '../replay/replaySetup';
 import { useRepertoires } from '../replay/useRepertoires';
 import { useReplayDay } from '../replay/useReplayDay';
 import { sessionSteps } from './steps';
 import { useJudgedSteps } from './useJudgedSteps';
+import { useSource } from '../source/useSource';
 
 /** L'état du rejeu vu par le parcours : le jour, le répertoire, et les positions à trancher ce jour-là. */
 export function useReplayedSession() {
-  const replay = useReplayDay(playedGamesFixture, REPLAY_FIRST_DAY);
+  const source = useSource();
+  const replay = useReplayDay(source.games, source.firstDay, source.replay);
   const { ignored, ignore, unignore, clear: forgetIgnored } = useIgnoredChecks();
-  const { repertoires, add, remove, clear: forgetAdditions } = useRepertoires(playedGamesFixture);
-  const known = useMemo(() => gamesUntil(playedGamesFixture, replay.day), [replay.day]);
-  const lived = useMemo(() => liveGames(playedGamesFixture, repertoires, REPLAY_FIRST_DAY, replay.day), [repertoires, replay.day]);
+  const { repertoires, add, remove, clear: forgetAdditions } = useRepertoires(source.games, source.start);
+  const known = useMemo(() => gamesUntil(source.games, replay.day), [source.games, replay.day]);
+  const lived = useMemo(() => liveGames(source.games, repertoires, source.firstDay, replay.day), [source, repertoires, replay.day]);
   const open = useMemo(() => sessionSteps(gamesToDecide(lived, ignored, replay.day)), [lived, ignored, replay.day]);
   const { steps, adopted, judging } = useJudgedSteps(open);
   const adoptions = useMemo(
@@ -40,5 +40,5 @@ export function useReplayedSession() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [adoptions]);
 
-  return { replay, known, lived, repertoires, steps, adoptions, judging, add, remove, ignore, unignore, forgetIgnored, forgetAdditions };
+  return { source, replay, known, lived, repertoires, steps, adoptions, judging, add, remove, ignore, unignore, forgetIgnored, forgetAdditions };
 }

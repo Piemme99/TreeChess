@@ -12,7 +12,6 @@ import type { PlayedGame, Side } from '../domain/playedGame';
 import { findPriorities, type Priority } from '../domain/priorities';
 import { playerPositions } from '../domain/review';
 import { adherence, isThrough, type Adherence } from '../domain/worked';
-import { playedGamesFixture } from '../fixtures/playedGames';
 import { replayLine } from '../position/replay';
 import { formatShortDay } from '../replay/formatDay';
 import { useWorkedLines, type WorkedLine } from '../replay/useWorkedLines';
@@ -26,8 +25,10 @@ import { Toast } from '../workshop/Toast';
 import { useToast } from '../workshop/useToast';
 import { useWorkshopFont } from '../workshop/useWorkshopFont';
 import { homeHero } from './hero';
-import { ImportScreen } from './ImportScreen';
-import { useImported } from './useImported';
+import { ImportScreen, SignInScreen } from './ImportScreen';
+import { SourceProvider } from '../source/SourceContext';
+import { useGameSource } from '../source/useGameSource';
+import { PageSkeleton } from '../workshop/PageSkeleton';
 
 const MAX_PLIES = 24;
 const RECENT_MONTHS = 12;
@@ -37,11 +38,18 @@ const SHOWN_PRIORITIES = 3;
 /** Ce qui attend le joueur (docs/flow/target.html) : une carte en avant, la plus urgente, les autres tâches en lignes. */
 export function HomePage() {
   useWorkshopFont();
-  const [imported, setImported] = useImported();
+  const { state, startImport, tryDemo, leaveDemo } = useGameSource();
+  if (state.kind === 'loading') return <PageSkeleton />;
   return (
     <MotionConfig reducedMotion="user">
       <div className="min-h-screen pb-20" style={{ fontFamily: FONT_FAMILY, background: COLOURS.cream, color: COLOURS.leaf }}>
-        {imported ? <Home onForget={() => setImported(false)} /> : <ImportScreen onDone={() => setImported(true)} />}
+        {state.kind === 'signed-out' && <SignInScreen onDemo={tryDemo} />}
+        {state.kind === 'to-import' && <ImportScreen username={state.username} state={state.state} onImport={() => void startImport()} />}
+        {state.kind === 'ready' && (
+          <SourceProvider source={state.source}>
+            <Home onForget={leaveDemo} />
+          </SourceProvider>
+        )}
       </div>
     </MotionConfig>
   );
@@ -49,8 +57,8 @@ export function HomePage() {
 
 function Home({ onForget }: { onForget: () => void }) {
   const pathOf = useV2Path();
-  const { replay, known, lived, repertoires, steps, judging, forgetIgnored, forgetAdditions } = useReplayedSession();
-  const review = useReview(playedGamesFixture, repertoires, lived, replay.day);
+  const { source, replay, known, lived, repertoires, steps, judging, forgetIgnored, forgetAdditions } = useReplayedSession();
+  const review = useReview(source.games, repertoires, lived, replay.day, source.start);
   const { worked, clear: forgetWorked } = useWorkedLines();
   const table = useOpeningTable();
   const priorities = usePriorities(known, replay.day);

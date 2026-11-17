@@ -7,6 +7,7 @@ import type { ReplayDay } from '../replay/useReplayDay';
 import { Kumquat } from './Kumquat';
 import { useNoIndex, useV2Path, type V2Page } from './routes';
 import { COLOURS } from './theme';
+import { useWide } from './useWide';
 
 // Deux lieux (docs/flow/target.html) : ce qui attend le joueur, et son répertoire. Les tâches partent de Home.
 const PAGES: { page: V2Page; label: string }[] = [
@@ -41,6 +42,7 @@ export function PageHeader({ replay }: { replay?: ReplayDay }) {
 /** Ce qui ne sert pas tous les jours : le compte Lichess, la vue des ouvertures à l'ordinateur, le rejeu. */
 function Menu({ replay }: { replay?: ReplayDay }) {
   const pathOf = useV2Path();
+  const wide = useWide();
   const [open, setOpen] = useState(false);
   useEffect(() => {
     if (!open) return;
@@ -67,11 +69,14 @@ function Menu({ replay }: { replay?: ReplayDay }) {
           <div className="absolute right-0 top-full z-50 mt-1 flex w-72 flex-col divide-y divide-[oklch(0.915_0.035_80)] overflow-hidden rounded-2xl py-1 text-[15px]" style={{ background: COLOURS.paper, color: COLOURS.leaf, boxShadow: '0 14px 28px -10px oklch(0.3 0.06 150 / 0.45)' }}>
             <Account />
             {/* Le tableau des ouvertures ne tient pas dans un téléphone. */}
-            <Link to={pathOf('openings')} onClick={() => setOpen(false)} className="hidden px-4 py-3 font-semibold focus-visible:outline-2 lg:block">
-              All your openings by result →
-            </Link>
+            {wide && (
+              <Link to={pathOf('openings')} onClick={() => setOpen(false)} className="px-4 py-3 font-semibold focus-visible:outline-2">
+                All your openings by result →
+              </Link>
+            )}
             {/* Le jour suivant se voit sur la page : le menu se referme pour la laisser voir. */}
-            {replay && (
+            {/* Les parties importées ne se rejouent pas : le rejeu n'existe que dans la démo. */}
+            {replay && (replay.next || replay.reset) && (
               <ReplayPanel replay={{ ...replay, next: replay.next && (() => (replay.next!(), setOpen(false))), reset: replay.reset && (() => (replay.reset!(), setOpen(false))) }} />
             )}
           </div>

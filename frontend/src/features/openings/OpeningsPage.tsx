@@ -7,10 +7,9 @@ import { findPriorities, type Priority } from './domain/priorities';
 import { repertoireLines } from './domain/repertoire';
 import { gamesUntil } from './domain/replay';
 import { FlameTiles } from './flame/FlameTiles';
-import { playedGamesFixture } from './fixtures/playedGames';
 import { BoardPanel } from './position/BoardPanel';
 import { PriorityTickets } from './priorities/PriorityTickets';
-import { REPLAY_FIRST_DAY } from './replay/replaySetup';
+import { useSource } from './source/useSource';
 import { useRepertoires } from './replay/useRepertoires';
 import { useReplayDay } from './replay/useReplayDay';
 import { PageHeader } from './workshop/PageHeader';
@@ -38,15 +37,16 @@ export function OpeningsPage() {
   const [focusPath, setFocusPath] = useState<readonly string[]>([]);
   const [pointed, setPointed] = useState<Line | null>(null);
 
-  const replay = useReplayDay(playedGamesFixture, REPLAY_FIRST_DAY);
-  const knownGames = useMemo(() => gamesUntil(playedGamesFixture, replay.day), [replay.day]);
+  const source = useSource();
+  const replay = useReplayDay(source.games, source.firstDay, source.replay);
+  const knownGames = useMemo(() => gamesUntil(source.games, replay.day), [source.games, replay.day]);
   const trees = useMemo(() => treesOf(knownGames), [knownGames]);
   const recentGames = useMemo(
     () => gamesOfLastMonths(knownGames, RECENT_MONTHS, new Date(replay.day)),
     [knownGames, replay.day],
   );
   const recentTrees = useMemo(() => treesOf(recentGames), [recentGames]);
-  const { repertoires } = useRepertoires(playedGamesFixture);
+  const { repertoires } = useRepertoires(source.games, source.start);
   const coveredLines = useMemo(() => repertoireLines(repertoires[side], recentTrees[side]), [repertoires, recentTrees, side]);
   const priorities = useMemo(
     () => findPriorities(trees, recentTrees, MAX_PRIORITIES),
