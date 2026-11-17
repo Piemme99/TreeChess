@@ -48,7 +48,7 @@ func NewCleanupService(
 }
 
 // RunWorker runs an initial cleanup pass, then repeats on s.interval until the
-// context is cancelled. It mirrors EngineService.RunWorker: it recovers from
+// context is cancelled. It recovers from
 // panics and stops cleanly on ctx.Done().
 func (s *CleanupService) RunWorker(ctx context.Context) {
 	defer func() {

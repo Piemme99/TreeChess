@@ -457,90 +457,30 @@ func TestAuth_DeleteAccount_CascadesData(t *testing.T) {
 	repos := testDB.Repos()
 	ts := testhelpers.SetupTestServer(t, repos)
 
-	token := ts.AuthToken(t, "oscar", "password123")
-
-	// Create some data: a repertoire and a category.
-	repBody, _ := json.Marshal(map[string]string{"name": "My Rep", "color": "white"})
-	rec := ts.DoRequest(testhelpers.AuthRequest(http.MethodPost, "/api/repertoires", repBody, token))
-	require.Equal(t, http.StatusCreated, rec.Code)
-
-	catBody, _ := json.Marshal(map[string]string{"name": "My Cat", "color": "white"})
-	rec2 := ts.DoRequest(testhelpers.AuthRequest(http.MethodPost, "/api/categories", catBody, token))
-	require.Equal(t, http.StatusCreated, rec2.Code)
-
-	// Delete account.
-	delBody, _ := json.Marshal(models.DeleteAccountRequest{Password: "password123"})
-	rec3 := ts.DoRequest(testhelpers.AuthRequest(http.MethodDelete, "/api/auth/account", delBody, token))
-	require.Equal(t, http.StatusNoContent, rec3.Code)
-
-	// Verify login fails — account is deleted.
-	rec4 := ts.DoRequest(testhelpers.AuthRequest(
-		http.MethodPost, "/api/auth/login",
-		loginJSON("oscar@test.com", "password123"), ""))
-	assert.Equal(t, http.StatusUnauthorized, rec4.Code)
-
-	// Re-register a new user to verify old data doesn't linger.
-	// If repertoires/categories were not cascade-deleted, we'd see stale data.
-	rec5 := ts.DoRequest(testhelpers.AuthRequest(
-		http.MethodPost, "/api/auth/register",
-		registerJSON("oscar2@test.com", "oscar2", "password123"), ""))
-	require.Equal(t, http.StatusCreated, rec5.Code)
-	var newAuth models.AuthResponse
-	require.NoError(t, json.Unmarshal(rec5.Body.Bytes(), &newAuth))
-
-	// New user should have zero repertoires.
-	rec6 := ts.DoRequest(testhelpers.AuthRequest(http.MethodGet, "/api/repertoires", nil, newAuth.Token))
-	require.Equal(t, http.StatusOK, rec6.Code)
-	assert.Contains(t, rec6.Body.String(), "[]")
-}
-
-// TestAuth_DeleteAccount_WithDismissedGap is a regression test for issue #118:
-// dismissed_gaps.user_id has no ON DELETE CASCADE, so account deletion used to
-// fail with a foreign-key violation for any user who had dismissed a gap.
-func TestAuth_DeleteAccount_WithDismissedGap(t *testing.T) {
-	testDB.TruncateAll(t)
-	repos := testDB.Repos()
-	ts := testhelpers.SetupTestServer(t, repos)
-
-	// Register and capture the user ID so we can inspect dismissed_gaps directly.
 	rec := ts.DoRequest(testhelpers.AuthRequest(
 		http.MethodPost, "/api/auth/register",
-		registerJSON("sam@test.com", "sam", "password123"), ""))
+		registerJSON("oscar@test.com", "oscar", "password123"), ""))
 	require.Equal(t, http.StatusCreated, rec.Code)
 	var authResp models.AuthResponse
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &authResp))
-	token := authResp.Token
 	userID := authResp.User.ID
-	require.NotEmpty(t, userID)
 
-	// Dismiss an opponent gap (the dashboard handler ultimately calls this repo).
-	require.NoError(t, repos.DismissedGap.Dismiss(context.Background(),
-		userID,
-		"rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1",
-		"c5",
-		"00000000-0000-0000-0000-000000000001",
-	))
-
-	// Sanity-check the gap was actually persisted.
-	dismissed, err := repos.DismissedGap.GetDismissed(context.Background(), userID)
+	recState := ts.DoRequest(testhelpers.AuthRequest(http.MethodPut, "/api/v2/state/additions", []byte(`["e4"]`), authResp.Token))
+	require.Equal(t, http.StatusNoContent, recState.Code)
+	_, err := repos.PlayedGame.SaveGames(context.Background(), userID, []models.PlayedGame{{
+		Source: "lichess", SourceID: "abcd1234", Color: "white", Moves: "e4 e5", Score: 1, PlayedAt: "2026-11-01",
+	}})
 	require.NoError(t, err)
-	require.Len(t, dismissed, 1, "gap should be dismissed before deletion")
+	_, err = repos.PlayedGame.StartImport(context.Background(), userID)
+	require.NoError(t, err)
 
-	// Delete the account — previously this returned 500 due to the FK violation.
 	delBody, _ := json.Marshal(models.DeleteAccountRequest{Password: "password123"})
-	recDel := ts.DoRequest(testhelpers.AuthRequest(http.MethodDelete, "/api/auth/account", delBody, token))
-	require.Equal(t, http.StatusNoContent, recDel.Code, "deletion must succeed even with a dismissed gap")
+	recDel := ts.DoRequest(testhelpers.AuthRequest(http.MethodDelete, "/api/auth/account", delBody, authResp.Token))
+	require.Equal(t, http.StatusNoContent, recDel.Code)
 
-	// The dismissed_gaps rows for the user must be gone.
-	dismissedAfter, err := repos.DismissedGap.GetDismissed(context.Background(), userID)
-	require.NoError(t, err)
-	assert.Empty(t, dismissedAfter, "dismissed_gaps rows should be removed with the account")
-
-	// Login should now fail — the account is deleted.
-	recLogin := ts.DoRequest(testhelpers.AuthRequest(
-		http.MethodPost, "/api/auth/login",
-		loginJSON("sam@test.com", "password123"), ""))
-	assert.Equal(t, http.StatusUnauthorized, recLogin.Code)
+	for _, table := range []string{"users", "refresh_tokens", "player_state", "played_games", "played_game_imports"} {
+		assert.Zero(t, countRows(t, table), table)
+	}
 }
 
 func TestAuth_DeleteAccount_Unauthenticated(t *testing.T) {

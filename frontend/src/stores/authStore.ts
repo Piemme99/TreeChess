@@ -1,123 +1,29 @@
 import { create } from 'zustand';
-import { authApi, syncApi, setAccessToken, getAccessToken } from '../services/api';
-import { useRepertoireStore } from './repertoireStore';
-import { getApiErrorMessage, getApiErrorStatus } from '../shared/utils/apiError';
-import type { AuthResponse, User, UpdateProfileRequest, SyncResult } from '../types';
+import { authApi, setAccessToken, getAccessToken } from '../services/api';
+import { getApiErrorStatus } from '../shared/utils/apiError';
+import type { AuthResponse, User } from '../types';
 
 interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
   loading: boolean;
-  error: string | null;
-  needsOnboarding: boolean;
-  syncing: boolean;
-  lastSyncResult: SyncResult | null;
-  lastSyncError: string | null;
-  login: (email: string, password: string) => Promise<void>;
-  register: (email: string, username: string, password: string) => Promise<void>;
-  completeOAuthLogin: (isNew?: boolean) => Promise<void>;
   logout: () => Promise<void>;
   checkAuth: () => Promise<void>;
-  clearError: () => void;
-  updateProfile: (data: UpdateProfileRequest) => Promise<void>;
-  clearOnboarding: () => void;
-  triggerSync: () => Promise<void>;
-  deleteAccount: (password?: string, username?: string) => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   isAuthenticated: false,
   loading: true,
-  error: null,
-  needsOnboarding: false,
-  syncing: false,
-  lastSyncResult: null,
-  lastSyncError: null,
-
-  login: async (email: string, password: string) => {
-    set({ error: null });
-    try {
-      const response = await authApi.login(email, password);
-      // Store access token in memory only (never localStorage)
-      setAccessToken(response.token);
-      set({
-        user: response.user,
-        isAuthenticated: true,
-        error: null,
-      });
-      // Fire-and-forget sync if user has platform usernames configured
-      if (response.user.lichessUsername || response.user.chesscomUsername) {
-        useAuthStore.getState().triggerSync();
-      }
-    } catch (err: unknown) {
-      const message = getApiErrorMessage(err, 'Login failed');
-      set({ error: message });
-      throw new Error(message, { cause: err });
-    }
-  },
-
-  register: async (email: string, username: string, password: string) => {
-    set({ error: null });
-    try {
-      const response = await authApi.register(email, username, password);
-      // Store access token in memory only (never localStorage)
-      setAccessToken(response.token);
-      set({
-        user: response.user,
-        isAuthenticated: true,
-        needsOnboarding: true,
-        error: null,
-      });
-    } catch (err: unknown) {
-      const message = getApiErrorMessage(err, 'Registration failed');
-      set({ error: message });
-      throw new Error(message, { cause: err });
-    }
-  },
-
-  completeOAuthLogin: async (isNew = false) => {
-    // The OAuth callback no longer puts the access token in the URL (it would
-    // leak the JWT into history/logs/Referer — see issue #124). Instead the
-    // backend set an httpOnly refresh cookie; exchange it here for an in-memory
-    // access token via the existing refresh flow.
-    set({ error: null });
-    try {
-      const response = await refreshWithRetry();
-      setAccessToken(response.token);
-      set({
-        user: response.user,
-        isAuthenticated: true,
-        needsOnboarding: isNew,
-        loading: false,
-      });
-      // Fire-and-forget sync for returning OAuth users with platform usernames
-      if (!isNew && (response.user.lichessUsername || response.user.chesscomUsername)) {
-        useAuthStore.getState().triggerSync();
-      }
-    } catch {
-      setAccessToken(null);
-      set({
-        user: null,
-        isAuthenticated: false,
-        loading: false,
-        error: 'Failed to complete OAuth sign-in',
-      });
-      throw new Error('Failed to complete OAuth sign-in');
-    }
-  },
 
   logout: async () => {
     // Clear local state first so a slow or failed revocation call can't strand
     // the user in a logging-out limbo.
     setAccessToken(null);
-    // Clear cached data from other stores to prevent data leaking between accounts
-    useRepertoireStore.getState().clearAll();
     set({
       user: null,
       isAuthenticated: false,
       loading: false,
-      error: null,
     });
     // Fire-and-forget the backend revocation (clears the httpOnly refresh cookie).
     authApi.logout().catch(() => {});
@@ -137,56 +43,6 @@ export const useAuthStore = create<AuthState>((set) => ({
       await checkAuthInFlight;
     } finally {
       checkAuthInFlight = null;
-    }
-  },
-
-  clearError: () => set({ error: null }),
-
-  updateProfile: async (data: UpdateProfileRequest) => {
-    const user = await authApi.updateProfile(data);
-    set({ user });
-  },
-
-  clearOnboarding: () => set({ needsOnboarding: false }),
-
-  deleteAccount: async (password?: string, username?: string) => {
-    await authApi.deleteAccount(password, username);
-    // Clean up exactly like logout
-    setAccessToken(null);
-    useRepertoireStore.getState().clearAll();
-    set({
-      user: null,
-      isAuthenticated: false,
-      loading: false,
-      error: null,
-    });
-  },
-
-  triggerSync: async () => {
-    if (useAuthStore.getState().syncing) {
-      return;
-    }
-    set({ syncing: true, lastSyncResult: null, lastSyncError: null });
-    try {
-      const result = await syncApi.sync();
-      set({ syncing: false, lastSyncResult: result });
-    } catch (err) {
-      // A 429 means the sync was throttled, not failed: either the per-user
-      // cooldown (games were synced very recently) or the global rate limit.
-      // Background sync is fire-and-forget (login/register/OAuth/onboarding and
-      // re-fired on every app mount via checkAuth), so a throttled attempt is
-      // expected and benign — the games are already current and the next
-      // eligible trigger will sync. Surfacing it as an error would show users a
-      // scary "wait 5m between syncs" message just for reloading the dashboard.
-      if (getApiErrorStatus(err) === 429) {
-        set({ syncing: false });
-        return;
-      }
-      // Real failures are surfaced via `lastSyncError` (rendered
-      // non-intrusively on the Dashboard) and logged.
-      const message = getApiErrorMessage(err, 'Failed to sync games');
-      console.warn('Game sync failed:', message);
-      set({ syncing: false, lastSyncError: message });
     }
   },
 }));
@@ -237,9 +93,6 @@ async function doCheckAuth(set: AuthSetState): Promise<void> {
         isAuthenticated: true,
         loading: false,
       });
-      if (user.lichessUsername || user.chesscomUsername) {
-        useAuthStore.getState().triggerSync();
-      }
       return;
     } catch {
       // Access token expired or invalid — try refreshing below
@@ -259,9 +112,6 @@ async function doCheckAuth(set: AuthSetState): Promise<void> {
       isAuthenticated: true,
       loading: false,
     });
-    if (response.user.lichessUsername || response.user.chesscomUsername) {
-      useAuthStore.getState().triggerSync();
-    }
   } catch (err) {
     if (isAuthRejection(err)) {
       // Definitive: the refresh cookie is gone or rejected by the server.

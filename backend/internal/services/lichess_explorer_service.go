@@ -2,7 +2,6 @@ package services
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -18,59 +17,17 @@ var (
 )
 
 // RateLimitedError reports an upstream HTTP 429. RetryAfterSeconds carries the
-// parsed Retry-After header (0 when absent). An optional wrapped sentinel (e.g.
-// ErrLichessRateLimited) lets callers keep using errors.Is for platform-specific
-// handling while still extracting the retry delay via errors.As.
+// parsed Retry-After header (0 when absent).
 type RateLimitedError struct {
 	RetryAfterSeconds int
-	wrapped           error
 }
 
 func (e *RateLimitedError) Error() string {
-	if e.wrapped != nil {
-		return fmt.Sprintf("%s (retry after %ds)", e.wrapped.Error(), e.RetryAfterSeconds)
-	}
 	return fmt.Sprintf("lichess explorer rate-limited (retry after %ds)", e.RetryAfterSeconds)
-}
-
-// Unwrap exposes the wrapped sentinel so errors.Is(err, ErrLichessRateLimited)
-// (and the chess.com equivalent) still matches.
-func (e *RateLimitedError) Unwrap() error {
-	return e.wrapped
 }
 
 // Une réponse de l'explorateur pèse quelques Ko ; la borne protège le cache d'un amont qui déraille.
 const maxExplorerBody = 1 << 20
-
-type OpeningQuery struct {
-	FEN     string
-	Variant string
-	Speeds  []string
-	Ratings []int
-}
-
-type OpeningStats struct {
-	White int           `json:"white"`
-	Draws int           `json:"draws"`
-	Black int           `json:"black"`
-	Moves []OpeningMove `json:"moves"`
-}
-
-type OpeningMove struct {
-	UCI           string `json:"uci"`
-	SAN           string `json:"san"`
-	White         int    `json:"white"`
-	Draws         int    `json:"draws"`
-	Black         int    `json:"black"`
-	AverageRating int    `json:"averageRating"`
-}
-
-// OpeningExplorerFetcher is the seam used by the HTTP handler and the engine
-// worker. LichessExplorerService is its production implementation; tests can
-// substitute a stub.
-type OpeningExplorerFetcher interface {
-	FetchOpening(ctx context.Context, q OpeningQuery, token string) (*OpeningStats, error)
-}
 
 type LichessExplorerService struct {
 	baseURL    string
@@ -85,35 +42,6 @@ func NewLichessExplorerService(baseURL string, httpClient *http.Client) *Lichess
 		baseURL:    strings.TrimRight(baseURL, "/"),
 		httpClient: httpClient,
 	}
-}
-
-func (s *LichessExplorerService) FetchOpening(ctx context.Context, q OpeningQuery, token string) (*OpeningStats, error) {
-	values := url.Values{}
-	if q.Variant != "" {
-		values.Set("variant", q.Variant)
-	}
-	if len(q.Speeds) > 0 {
-		values.Set("speeds", strings.Join(q.Speeds, ","))
-	}
-	if len(q.Ratings) > 0 {
-		ratings := make([]string, len(q.Ratings))
-		for i, r := range q.Ratings {
-			ratings[i] = strconv.Itoa(r)
-		}
-		values.Set("ratings", strings.Join(ratings, ","))
-	}
-	values.Set("fen", q.FEN)
-
-	body, err := s.FetchRaw(ctx, "lichess", values, token)
-	if err != nil {
-		return nil, err
-	}
-
-	var stats OpeningStats
-	if err := json.Unmarshal(body, &stats); err != nil {
-		return nil, fmt.Errorf("decode explorer response: %w", err)
-	}
-	return &stats, nil
 }
 
 type ExplorerRawFetcher interface {

@@ -25,9 +25,6 @@ COPY package*.json ./
 RUN npm ci
 
 COPY . .
-# VITE_V2=1 publie la v2 sous /v2 (pages de test, sans utilisateurs) ; sans lui, le build l'exclut.
-ARG VITE_V2
-ENV VITE_V2=$VITE_V2
 RUN npm run build
 
 FROM nginxinc/nginx-unprivileged:1.27-alpine AS prod

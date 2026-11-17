@@ -23,7 +23,7 @@ type User struct {
 }
 
 // MarshalJSON exposes a derived `lichessLinked` boolean so the frontend can
-// gate Lichess-dependent features (Training tab) without ever seeing the
+// gate Lichess-dependent features (explorer, game import) without ever seeing the
 // raw access token. The field is true only when a non-empty token is stored.
 func (u User) MarshalJSON() ([]byte, error) {
 	type alias User
@@ -34,13 +34,6 @@ func (u User) MarshalJSON() ([]byte, error) {
 		alias:         alias(u),
 		LichessLinked: u.LichessAccessToken != nil && *u.LichessAccessToken != "",
 	})
-}
-
-type SyncResult struct {
-	LichessGamesImported  int    `json:"lichessGamesImported"`
-	ChesscomGamesImported int    `json:"chesscomGamesImported"`
-	LichessError          string `json:"lichessError,omitempty"`
-	ChesscomError         string `json:"chesscomError,omitempty"`
 }
 
 type UpdateProfileRequest struct {

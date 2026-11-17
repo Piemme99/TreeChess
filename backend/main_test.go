@@ -36,19 +36,6 @@ func newTestDB() *repository.DB {
 	return &repository.DB{}
 }
 
-// TestBuildServices_WiresReanalysisQueue guards the one piece of wiring the issue
-// calls out as fragile: the re-analysis queue must be injected back into the
-// repertoire service after importSvc is built. A mis-wire would silently disable
-// auto-re-analysis, so we assert the queue is actually attached.
-func TestBuildServices_WiresReanalysisQueue(t *testing.T) {
-	svc := buildServices(testConfig(), newTestDB())
-
-	require.NotNil(t, svc)
-	require.NotNil(t, svc.repertoireSvc, "repertoire service must be constructed")
-	assert.NotNil(t, svc.repertoireSvc.ReanalysisQueue(),
-		"re-analysis queue must be wired into the repertoire service; a nil queue silently disables auto-re-analysis")
-}
-
 // TestBuildServices_ConstructsAllHandlers asserts every handler the HTTP layer
 // depends on is non-nil, so a future refactor that drops one is caught here
 // rather than at server start-up.
@@ -56,17 +43,13 @@ func TestBuildServices_ConstructsAllHandlers(t *testing.T) {
 	svc := buildServices(testConfig(), newTestDB())
 
 	require.NotNil(t, svc)
-	assert.NotNil(t, svc.engineSvc, "engine service")
+	assert.NotNil(t, svc.cleanupSvc, "cleanup service")
 	assert.NotNil(t, svc.authSvc, "auth service")
-	assert.NotNil(t, svc.categorySvc, "category service")
 	assert.NotNil(t, svc.authHandler, "auth handler")
 	assert.NotNil(t, svc.oauthHandler, "oauth handler")
-	assert.NotNil(t, svc.syncHandler, "sync handler")
-	assert.NotNil(t, svc.studyImportHandler, "study import handler")
-	assert.NotNil(t, svc.trainingHandler, "training handler")
-	assert.NotNil(t, svc.trainingExplorerHandler, "training explorer handler")
-	assert.NotNil(t, svc.importHandler, "import handler")
-	assert.NotNil(t, svc.dashboardHandler, "dashboard handler")
+	assert.NotNil(t, svc.explorerProxyHandler, "explorer proxy handler")
+	assert.NotNil(t, svc.playedGames, "played games handler")
+	assert.NotNil(t, svc.playerState, "player state repo")
 }
 
 // TestRateLimiter_ReturnsConfiguredMessage verifies the shared rate-limiter
@@ -112,7 +95,7 @@ func TestNewServer_RegistersRoutes(t *testing.T) {
 	// A protected route is registered and guarded by auth middleware: an
 	// unauthenticated request must be rejected (401), not 404.
 	protected := httptest.NewRecorder()
-	e.ServeHTTP(protected, httptest.NewRequest(http.MethodGet, "/api/repertoires", nil))
+	e.ServeHTTP(protected, httptest.NewRequest(http.MethodGet, "/api/v2/games", nil))
 	assert.Equal(t, http.StatusUnauthorized, protected.Code,
 		"protected route should be registered and require auth")
 }

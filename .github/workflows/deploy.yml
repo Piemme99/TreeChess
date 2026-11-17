@@ -77,8 +77,6 @@ jobs:
         with:
           context: ./frontend
           target: prod
-          build-args: |
-            VITE_V2=1
           push: true
           tags: |
             ${{ steps.meta.outputs.frontend_image }}:${{ steps.meta.outputs.tag }}
@@ -138,6 +136,23 @@ jobs:
 
             # Pull latest code (for docker-compose, nginx configs, migrations, etc.)
             git pull origin main
+
+            # Une seule fois : un export complet de la base, gardé hors rotation, avant que le nouveau backend
+            # ne supprime au démarrage les tables de la v1. Sans export lisible, le déploiement s'arrête.
+            if [ ! -s backups/v1-final.sql.gz ]; then
+              mkdir -p backups
+              pg_user="$(get_env POSTGRES_USER)"
+              set -o pipefail
+              if ! docker compose --env-file .env.production -f docker-compose.prod.ghcr.yml exec -T postgres \
+                  pg_dump -U "${pg_user:-treechess}" -d treechess | gzip > backups/v1-final.sql.gz \
+                  || ! gzip -t backups/v1-final.sql.gz || [ "$(gzip -dc backups/v1-final.sql.gz | head -c 64 | wc -c)" -lt 64 ]; then
+                rm -f backups/v1-final.sql.gz
+                echo "::error::v1 export failed: deploy aborted before the v1 tables are dropped"
+                exit 1
+              fi
+              set +o pipefail
+              echo "v1 export: $(du -h backups/v1-final.sql.gz | cut -f1) in backups/v1-final.sql.gz"
+            fi
 
             # Log in to GHCR and pull new images
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin

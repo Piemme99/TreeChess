@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import type { ReactNode } from 'react';
+import { useSearchParams } from 'react-router';
 import { lichessSignInUrl } from '../line/explorer';
 import type { ImportState } from '../source/useGameSource';
 import { PageHeader } from '../workshop/PageHeader';
@@ -7,9 +8,16 @@ import { COLOURS, raised, SPRING } from '../workshop/theme';
 
 /** Sans compte Lichess (README, « Import », écran 1) : se connecter, ou essayer sur les parties d'un joueur exemple. */
 export function SignInScreen({ onDemo }: { onDemo: () => void }) {
+  // Lichess renvoie ici, avec ?error=…, une connexion refusée ou échouée.
+  const [params] = useSearchParams();
   return (
     <Card title="Build your repertoire from your games">
       <p>Sign in with Lichess: we import your blitz, rapid and classical games, and keep your repertoire on your account.</p>
+      {params.get('error') && (
+        <p role="alert" className="font-semibold" style={{ color: COLOURS.terracotta }}>
+          The Lichess sign-in did not go through. Try again.
+        </p>
+      )}
       <a href={lichessSignInUrl()} className="self-start rounded-full px-6 py-2.5 text-[16px] font-bold focus-visible:outline-2" style={raised(true)}>
         Sign in with Lichess
       </a>

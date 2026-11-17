@@ -9,10 +9,8 @@ import type {
 import {
   api,
   authApi,
-  repertoireApi,
   setAccessToken,
   getAccessToken,
-  __resetRepertoireVersions,
 } from './api';
 
 // We exercise the REAL request/response interceptors on the `api` instance.
@@ -116,7 +114,6 @@ beforeEach(() => {
   originalAdapter = api.defaults.adapter;
   api.defaults.adapter = makeAdapter(queue, calls);
   setAccessToken(null);
-  __resetRepertoireVersions();
   vi.restoreAllMocks();
 });
 
@@ -318,87 +315,6 @@ describe('response interceptor — non-401 / cancellation', () => {
     });
 
     expect(refreshSpy).not.toHaveBeenCalled();
-  });
-});
-
-describe('repertoire optimistic concurrency (If-Match / 409)', () => {
-  const REP_ID = '123e4567-e89b-12d3-a456-426614174000';
-  const NODE_ID = '223e4567-e89b-12d3-a456-426614174000';
-
-  it('caches the version from a GET response (body) and a mutation response', async () => {
-    // GET seeds the cache from the JSON body's version.
-    queue.push(ok({ id: REP_ID, version: 4 }));
-    await repertoireApi.get(REP_ID);
-
-    // Next mutation should carry If-Match: 4 and update the cache from the
-    // response (version 5).
-    queue.push(ok({ id: REP_ID, version: 5 }));
-    await repertoireApi.updateNodeComment(REP_ID, NODE_ID, 'hi');
-
-    expect(calls).toHaveLength(2);
-    expect(calls[1].headers['If-Match']).toBe('4');
-
-    // A subsequent mutation uses the bumped version from the prior response.
-    queue.push(ok({ id: REP_ID, version: 6 }));
-    await repertoireApi.updateNodeComment(REP_ID, NODE_ID, 'again');
-    expect(calls[2].headers['If-Match']).toBe('5');
-  });
-
-  it('prefers the ETag response header when caching the version', async () => {
-    queue.push(ok({ id: REP_ID }, 200, { etag: '9' }));
-    await repertoireApi.get(REP_ID);
-
-    queue.push(ok({ id: REP_ID, version: 10 }));
-    await repertoireApi.toggleNodeCollapsed(REP_ID, NODE_ID);
-
-    expect(calls[1].headers['If-Match']).toBe('9');
-  });
-
-  it('does not attach If-Match to a GET (reads need no precondition)', async () => {
-    queue.push(ok({ id: REP_ID, version: 2 }));
-    await repertoireApi.get(REP_ID);
-
-    queue.push(ok({ id: REP_ID, version: 2 }));
-    await repertoireApi.get(REP_ID);
-
-    expect(calls[1].headers['If-Match']).toBeUndefined();
-  });
-
-  it('on 409, re-fetches the repertoire and retries the mutation once with the fresh version', async () => {
-    // Seed cache at version 1.
-    queue.push(ok({ id: REP_ID, version: 1 }));
-    await repertoireApi.get(REP_ID);
-
-    // Mutation with stale If-Match: 1 → 409; re-fetch returns version 7; retry
-    // succeeds with If-Match: 7.
-    queue.push(status(409, { error: 'conflict' }));
-    queue.push(ok({ id: REP_ID, version: 7 })); // the re-fetch GET
-    queue.push(ok({ id: REP_ID, version: 8 })); // the retried mutation
-
-    const result = await repertoireApi.setMainLine(REP_ID, NODE_ID);
-
-    expect(result.version).toBe(8);
-    // calls: [0] initial GET, [1] mutation (409), [2] re-fetch GET, [3] retry mutation
-    expect(calls).toHaveLength(4);
-    expect(calls[1].headers['If-Match']).toBe('1');
-    expect(calls[2].method).toBe('get');
-    expect(calls[3].headers['If-Match']).toBe('7');
-  });
-
-  it('does not retry a second time if the replayed mutation also 409s', async () => {
-    queue.push(ok({ id: REP_ID, version: 1 }));
-    await repertoireApi.get(REP_ID);
-
-    queue.push(status(409)); // first mutation
-    queue.push(ok({ id: REP_ID, version: 2 })); // re-fetch GET
-    queue.push(status(409)); // retried mutation 409s again
-
-    await expect(repertoireApi.clearMainLine(REP_ID)).rejects.toMatchObject({
-      response: { status: 409 },
-    });
-
-    // initial GET + mutation + re-fetch + single retry = 4 calls, then stop.
-    expect(calls).toHaveLength(4);
   });
 });
 

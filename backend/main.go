@@ -21,14 +21,10 @@ import (
 	"github.com/labstack/echo/v5/middleware"
 )
 
-// appServices bundles every service and handler the HTTP layer depends on. It is
-// produced by buildServices so that route registration and the engine worker can
-// be wired from a single, fully-constructed object instead of a long sequence of
-// order-dependent local variables in main().
+// appServices bundles every service and handler the HTTP layer depends on, so
+// route registration and the background worker are wired from a single,
+// fully-constructed object.
 type appServices struct {
-	// engineSvc drives the background opening-analysis worker.
-	engineSvc *services.EngineService
-
 	// cleanupSvc drives the background worker that purges expired tokens and
 	// stale explorer cache entries.
 	cleanupSvc *services.CleanupService
@@ -36,117 +32,36 @@ type appServices struct {
 	// authSvc is needed by main() to build the JWT auth middleware.
 	authSvc *services.AuthService
 
-	// repertoireSvc and categorySvc back the closure-style handler factories that
-	// registerRoutes invokes at mount time. repertoireSvc is also retained so the
-	// re-analysis queue wiring can be asserted in tests.
-	repertoireSvc *services.RepertoireService
-	categorySvc   *services.CategoryService
-
-	// Handlers consumed by registerRoutes.
-	authHandler             *handlers.AuthHandler
-	oauthHandler            *handlers.OAuthHandler
-	syncHandler             *handlers.SyncHandler
-	studyImportHandler      *handlers.StudyImportHandler
-	trainingHandler         *handlers.TrainingHandler
-	trainingExplorerHandler *handlers.TrainingExplorerHandler
-	explorerProxyHandler    echo.HandlerFunc
-	importHandler           *handlers.ImportHandler
-	dashboardHandler        *handlers.DashboardHandler
-	playedGames             *handlers.PlayedGames
-	playerState             *repository.PostgresPlayerStateRepo
+	authHandler          *handlers.AuthHandler
+	oauthHandler         *handlers.OAuthHandler
+	explorerProxyHandler echo.HandlerFunc
+	playedGames          *handlers.PlayedGames
+	playerState          *repository.PostgresPlayerStateRepo
 }
 
 // buildServices constructs the full dependency graph (repositories, services and
 // handlers) from config and an open database pool.
-//
-// The re-analysis queue is the one piece of wiring that cannot be expressed as a
-// plain constructor chain: it must be created after importSvc (whose method it
-// calls) yet injected back into repertoireSvc (which notifies it on every tree
-// mutation). That cycle is resolved explicitly here, and the resulting wiring is
-// observable via RepertoireService.ReanalysisQueue so a mis-wire is caught by a
-// test rather than silently disabling auto-re-analysis.
 func buildServices(cfg config.Config, db *repository.DB) *appServices {
-	// Repositories
 	userRepo := repository.NewPostgresUserRepo(db.Pool, cfg.JWTSecret)
-	repertoireRepo := repository.NewPostgresRepertoireRepo(db.Pool)
-	categoryRepo := repository.NewPostgresCategoryRepo(db.Pool)
-	analysisRepo := repository.NewPostgresAnalysisRepo(db.Pool)
-	fingerprintRepo := repository.NewPostgresFingerprintRepo(db.Pool)
-	engineEvalRepo := repository.NewPostgresEngineEvalRepo(db.Pool)
-	dismissedMistakeRepo := repository.NewDismissedMistakeRepo(db.Pool)
-	dismissedGapRepo := repository.NewDismissedGapRepo(db.Pool)
 	passwordResetRepo := repository.NewPostgresPasswordResetRepo(db.Pool)
 	refreshTokenRepo := repository.NewPostgresRefreshTokenRepo(db.Pool)
 	openingCacheRepo := repository.NewPostgresOpeningExplorerCacheRepo(db.Pool)
 
-	// Opening analysis service (cache-only; cache is populated by the user-facing
-	// TrainingExplorerHandler when authenticated users request a position).
-	engineSvc := services.NewEngineService(engineEvalRepo, analysisRepo, openingCacheRepo)
-
-	// Periodic cleanup of expired refresh/reset tokens and stale explorer cache.
 	cleanupSvc := services.NewCleanupService(refreshTokenRepo, passwordResetRepo, openingCacheRepo, cfg.CleanupInterval)
 
-	// Services
 	authSvc := services.NewAuthService(userRepo, cfg.JWTSecret, cfg.JWTExpiry)
 	authSvc.WithRefreshTokens(refreshTokenRepo)
 	emailSvc := services.NewEmailService(cfg)
 	authSvc.WithPasswordReset(passwordResetRepo, emailSvc, cfg.PasswordResetExpiryHours)
 	oauthSvc := services.NewOAuthService(userRepo, authSvc, cfg.LichessClientID, cfg.OAuthCallbackURL)
-	repertoireSvc := services.NewRepertoireService(repertoireRepo)
-	categorySvc := services.NewCategoryService(categoryRepo, repertoireRepo)
-	importSvc := services.NewImportService(repertoireSvc, analysisRepo,
-		services.WithFingerprintRepo(fingerprintRepo),
-		services.WithEngineService(engineSvc),
-	)
-
-	// Focused services carved out of the former ImportService god object so each
-	// handler depends only on the data it actually reads (issue #128).
-	dashboardSvc := services.NewDashboardStatsService(repertoireSvc, analysisRepo,
-		services.WithDashboardDismissedGapRepo(dismissedGapRepo),
-	)
-	insightsSvc := services.NewInsightsService(repertoireSvc, analysisRepo,
-		services.WithInsightsEngineService(engineSvc),
-		services.WithInsightsDismissedMistakeRepo(dismissedMistakeRepo),
-	)
-	trainingSvc := services.NewTrainingService(repertoireSvc)
-
-	// Auto re-analyse games whenever a repertoire mutates (issue #45).
-	// In-memory debounce coalesces rapid edits into one run per user.
-	// The queue closes over importSvc and is injected back into repertoireSvc,
-	// closing the construction cycle described above.
-	reanalysisQueue := services.NewReanalysisQueue(func(userID string) error {
-		// Debounced auto-re-analysis runs in a background goroutine that is not
-		// tied to any single HTTP request, so it uses a fresh background context.
-		_, err := importSvc.ReanalyzeAllGames(context.Background(), userID, true)
-		return err
-	}, services.DefaultReanalysisDebounce)
-	repertoireSvc.WithReanalysisQueue(reanalysisQueue)
-
-	lichessSvc := services.NewLichessService()
-	chesscomSvc := services.NewChesscomService()
-	syncSvc := services.NewSyncService(userRepo, importSvc, lichessSvc, chesscomSvc)
-	studyImportSvc := services.NewStudyImportService(lichessSvc, repertoireSvc, userRepo)
 	explorerSvc := services.NewLichessExplorerService(cfg.LichessExplorerBaseURL, &http.Client{Timeout: 15 * time.Second})
 
-	// Handlers
-	importHandler := handlers.NewImportHandler(importSvc, repertoireSvc, lichessSvc, chesscomSvc).
-		WithReanalysisQueue(reanalysisQueue).
-		WithInsightsService(insightsSvc)
-
 	return &appServices{
-		engineSvc:               engineSvc,
-		cleanupSvc:              cleanupSvc,
-		authSvc:                 authSvc,
-		repertoireSvc:           repertoireSvc,
-		authHandler:             handlers.NewAuthHandler(authSvc, cfg.SecureCookies),
-		oauthHandler:            handlers.NewOAuthHandler(oauthSvc, userRepo, cfg.FrontendURL, cfg.JWTSecret, cfg.SecureCookies),
-		syncHandler:             handlers.NewSyncHandler(syncSvc),
-		studyImportHandler:      handlers.NewStudyImportHandler(studyImportSvc),
-		trainingHandler:         handlers.NewTrainingHandler(trainingSvc),
-		trainingExplorerHandler: handlers.NewTrainingExplorerHandler(explorerSvc, openingCacheRepo, userRepo, cfg.LichessExplorerCacheTTL),
-		explorerProxyHandler:    handlers.ExplorerProxyHandler(explorerSvc, openingCacheRepo, userRepo, cfg.LichessExplorerCacheTTL),
-		importHandler:           importHandler,
-		dashboardHandler:        handlers.NewDashboardHandler(dashboardSvc, repertoireSvc),
+		cleanupSvc:           cleanupSvc,
+		authSvc:              authSvc,
+		authHandler:          handlers.NewAuthHandler(authSvc, cfg.SecureCookies),
+		oauthHandler:         handlers.NewOAuthHandler(oauthSvc, userRepo, cfg.FrontendURL, cfg.JWTSecret, cfg.SecureCookies),
+		explorerProxyHandler: handlers.ExplorerProxyHandler(explorerSvc, openingCacheRepo, userRepo, cfg.LichessExplorerCacheTTL),
 		playedGames: handlers.NewPlayedGames(
 			services.NewPlayedGameImportService(
 				repository.NewPostgresPlayedGameRepo(db.Pool),
@@ -156,7 +71,6 @@ func buildServices(cfg config.Config, db *repository.DB) *appServices {
 			userRepo,
 		),
 		playerState: repository.NewPostgresPlayerStateRepo(db.Pool),
-		categorySvc: categorySvc,
 	}
 }
 
@@ -204,9 +118,6 @@ func rateLimiter(rate float64, burst int, msg string) echo.MiddlewareFunc {
 
 // registerRoutes mounts every HTTP route onto e using the supplied services.
 func registerRoutes(e *echo.Echo, db *repository.DB, svc *appServices) {
-	repertoireSvc := svc.repertoireSvc
-	categorySvc := svc.categorySvc
-
 	// Public routes (no auth required)
 	e.GET("/api/health", handlers.HealthHandler(db.Pool))
 	e.GET("/api/explorer/:database", svc.explorerProxyHandler, appMiddleware.OptionalJWTAuth(svc.authSvc))
@@ -225,81 +136,20 @@ func registerRoutes(e *echo.Echo, db *repository.DB, svc *appServices) {
 	authGroup.POST("/api/auth/refresh", svc.authHandler.RefreshHandler)
 	authGroup.POST("/api/auth/logout", svc.authHandler.LogoutHandler)
 
-	// Protected routes (auth required)
-	// 30s request timeout for standard operations; heavy ops use the server WriteTimeout (120s)
+	// Protected routes (auth required), with a 30s request timeout.
 	protected := e.Group("", appMiddleware.JWTAuth(svc.authSvc))
 	protected.Use(middleware.ContextTimeoutWithConfig(middleware.ContextTimeoutConfig{
 		Timeout: 30 * time.Second,
 	}))
 
-	// Heavy operations rate limit: 5 requests/minute per IP.
-	// For expensive endpoints like imports, sync, reanalyze that trigger
-	// external API calls, PGN parsing, or bulk database writes.
-	heavyOps := e.Group("", appMiddleware.JWTAuth(svc.authSvc))
-	heavyOps.Use(rateLimiter(5.0/60.0, 3, "too many requests for this operation, please wait"))
-
-	// Auth - current user
 	protected.GET("/api/auth/me", svc.authHandler.MeHandler)
 	protected.PUT("/api/auth/profile", svc.authHandler.UpdateProfileHandler)
 	protected.POST("/api/auth/change-password", svc.authHandler.ChangePasswordHandler)
 	protected.GET("/api/auth/has-password", svc.authHandler.HasPasswordHandler)
 	protected.DELETE("/api/auth/account", svc.authHandler.DeleteAccountHandler)
 
-	// Repertoire API
-	protected.GET("/api/repertoires/templates", handlers.ListTemplatesHandler())
-	protected.POST("/api/repertoires/seed", handlers.SeedHandler(repertoireSvc))
-	protected.GET("/api/repertoires", handlers.ListRepertoiresHandler(repertoireSvc))
-	protected.POST("/api/repertoires", handlers.CreateRepertoireHandler(repertoireSvc))
-	protected.GET("/api/repertoires/:id", handlers.GetRepertoireHandler(repertoireSvc))
-	protected.PATCH("/api/repertoires/:id", handlers.UpdateRepertoireHandler(repertoireSvc))
-	protected.DELETE("/api/repertoires/:id", handlers.DeleteRepertoireHandler(repertoireSvc))
-	protected.POST("/api/repertoires/:id/nodes", handlers.AddNodeHandler(repertoireSvc))
-	protected.DELETE("/api/repertoires/:id/nodes/:nodeId", handlers.DeleteNodeHandler(repertoireSvc))
-	protected.PATCH("/api/repertoires/:id/nodes/:nodeId/comment", handlers.UpdateNodeCommentHandler(repertoireSvc))
-	protected.PATCH("/api/repertoires/:id/nodes/:nodeId/branch-name", handlers.UpdateNodeBranchNameHandler(repertoireSvc))
-	protected.PATCH("/api/repertoires/:id/nodes/:nodeId/branch-color", handlers.UpdateNodeBranchColorHandler(repertoireSvc))
-	protected.PATCH("/api/repertoires/:id/nodes/:nodeId/annotations", handlers.UpdateNodeAnnotationsHandler(repertoireSvc))
-	protected.POST("/api/repertoires/:id/nodes/:nodeId/toggle-collapsed", handlers.ToggleNodeCollapsedHandler(repertoireSvc))
-	protected.POST("/api/repertoires/:id/nodes/:nodeId/expand-to", handlers.ExpandToNodeHandler(repertoireSvc))
-	protected.POST("/api/repertoires/:id/nodes/:nodeId/set-main-line", handlers.SetMainLineHandler(repertoireSvc))
-	protected.POST("/api/repertoires/:id/clear-main-line", handlers.ClearMainLineHandler(repertoireSvc))
-	heavyOps.POST("/api/repertoires/merge", handlers.MergeRepertoiresHandler(repertoireSvc))
-	protected.POST("/api/repertoires/:id/extract", handlers.ExtractSubtreeHandler(repertoireSvc))
-	protected.POST("/api/repertoires/:id/merge-transpositions", handlers.MergeTranspositionsHandler(repertoireSvc))
-	protected.PATCH("/api/repertoires/:id/category", handlers.AssignCategoryHandler(repertoireSvc, categorySvc))
-	protected.PATCH("/api/repertoires/:id/visibility", handlers.UpdateVisibilityHandler(repertoireSvc))
-
-	// Explore API (public repertoires + starter templates)
-	protected.GET("/api/explore/templates", handlers.ListExploreTemplatesHandler())
-	protected.POST("/api/explore/templates/:id/import", handlers.ImportExploreTemplateHandler(repertoireSvc))
-	protected.GET("/api/explore/repertoires", handlers.ListPublicRepertoiresHandler(repertoireSvc))
-	protected.GET("/api/explore/repertoires/:id", handlers.GetPublicRepertoireHandler(repertoireSvc))
-	protected.POST("/api/explore/repertoires/:id/import", handlers.ImportRepertoireHandler(repertoireSvc))
-
-	// Category API
-	protected.GET("/api/categories", handlers.ListCategoriesHandler(categorySvc))
-	protected.POST("/api/categories", handlers.CreateCategoryHandler(categorySvc))
-	protected.GET("/api/categories/:id", handlers.GetCategoryHandler(categorySvc))
-	protected.PATCH("/api/categories/:id", handlers.UpdateCategoryHandler(categorySvc))
-	protected.DELETE("/api/categories/:id", handlers.DeleteCategoryHandler(categorySvc))
-
-	// Dashboard API
-	protected.GET("/api/dashboard/stats", svc.dashboardHandler.GetStats)
-	protected.POST("/api/dashboard/gaps/dismiss", svc.dashboardHandler.DismissGap)
-
-	// Import/Analysis API
-	heavyOps.POST("/api/imports", svc.importHandler.UploadHandler)
-	heavyOps.POST("/api/imports/lichess", svc.importHandler.LichessImportHandler)
-	heavyOps.POST("/api/imports/chesscom", svc.importHandler.ChesscomImportHandler)
-	protected.GET("/api/analyses", svc.importHandler.ListAnalysesHandler)
-	protected.GET("/api/analyses/:id", svc.importHandler.GetAnalysisHandler)
-	protected.DELETE("/api/analyses/:id", svc.importHandler.DeleteAnalysisHandler)
-	protected.POST("/api/imports/validate-pgn", svc.importHandler.ValidatePGNHandler)
-	protected.POST("/api/imports/validate-move", svc.importHandler.ValidateMoveHandler)
-	protected.GET("/api/imports/legal-moves", svc.importHandler.GetLegalMovesHandler)
-
 	// v2 : les parties Lichess du joueur, importées une fois puis lues par toutes les pages.
-	// Sa propre limite : Home relance l'import à chaque chargement, il ne doit pas épuiser celle des opérations lourdes.
+	// Sa propre limite : Home relance l'import à chaque chargement.
 	gameImports := e.Group("", appMiddleware.JWTAuth(svc.authSvc))
 	gameImports.Use(rateLimiter(6.0/60.0, 3, "too many imports, please wait"))
 	gameImports.POST("/api/v2/games/import", svc.playedGames.StartImport)
@@ -307,29 +157,6 @@ func registerRoutes(e *echo.Echo, db *repository.DB, svc *appServices) {
 	protected.GET("/api/v2/games", svc.playedGames.List)
 	protected.GET("/api/v2/state", handlers.GetPlayerStateHandler(svc.playerState))
 	protected.PUT("/api/v2/state/:key", handlers.PutPlayerStateHandler(svc.playerState))
-
-	// Study Import API
-	protected.GET("/api/studies/preview", svc.studyImportHandler.PreviewStudyHandler)
-	heavyOps.POST("/api/studies/import", svc.studyImportHandler.ImportStudyHandler)
-	protected.GET("/api/studies/browse", svc.studyImportHandler.BrowseStudiesHandler)
-	protected.GET("/api/studies/topics", svc.studyImportHandler.StudyTopicsHandler)
-
-	// Training API
-	protected.POST("/api/training/analyze", svc.trainingHandler.AnalyzeHandler)
-	protected.GET("/api/training/opening", svc.trainingExplorerHandler.GetOpening)
-
-	// Sync API
-	heavyOps.POST("/api/sync", svc.syncHandler.HandleSync)
-
-	// Games API
-	protected.GET("/api/games/insights", svc.importHandler.GetInsightsHandler)
-	protected.POST("/api/games/insights/dismiss", svc.importHandler.DismissMistakeHandler)
-	protected.GET("/api/games/repertoires", svc.importHandler.GetDistinctRepertoiresHandler)
-	heavyOps.POST("/api/games/reanalyze-all", svc.importHandler.ReanalyzeAllGamesHandler)
-	protected.GET("/api/games/reanalysis-status", svc.importHandler.ReanalysisStatusHandler)
-	protected.GET("/api/games", svc.importHandler.GetGamesHandler)
-	protected.POST("/api/games/:analysisId/:gameIndex/reanalyze", svc.importHandler.ReanalyzeGameHandler)
-	protected.POST("/api/games/:analysisId/:gameIndex/view", svc.importHandler.MarkGameViewedHandler)
 }
 
 // newServer builds a fully-configured Echo instance: middleware stack plus all
@@ -397,18 +224,11 @@ func main() {
 	metrics := echo.New()
 	metrics.GET("/metrics", echoprometheus.NewHandler())
 
-	// Start background workers under a shared cancellable context. A WaitGroup
-	// lets us join them on shutdown before closing the DB pool, so no eval is
-	// left half-written and no query runs against a closed pool.
+	// Start the background worker under a cancellable context. A WaitGroup lets
+	// us join it on shutdown before closing the DB pool, so no query runs against
+	// a closed pool.
 	workerCtx, workerCancel := context.WithCancel(context.Background())
 	var workerWG sync.WaitGroup
-
-	// Start opening analysis worker
-	workerWG.Add(1)
-	go func() {
-		defer workerWG.Done()
-		svc.engineSvc.RunWorker(workerCtx)
-	}()
 
 	// Start periodic cleanup worker (expired tokens + stale explorer cache)
 	workerWG.Add(1)
@@ -437,7 +257,7 @@ func main() {
 		Handler:           e,
 		ReadTimeout:       10 * time.Second,
 		ReadHeaderTimeout: 5 * time.Second,
-		WriteTimeout:      120 * time.Second, // generous for long-running imports/sync
+		WriteTimeout:      120 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}
 	go func() {

@@ -51,25 +51,3 @@ func TestIsDuplicateEmailError(t *testing.T) {
 		})
 	}
 }
-
-func TestIsRepertoireNameConflict(t *testing.T) {
-	tests := []struct {
-		name string
-		err  error
-		want bool
-	}{
-		{"nil error", nil, false},
-		{"repertoire unique violation", &pgconn.PgError{Code: pgUniqueViolation, TableName: "repertoires"}, true},
-		{"wrapped repertoire unique violation", fmt.Errorf("create repertoire: %w", &pgconn.PgError{Code: pgUniqueViolation, TableName: "repertoires"}), true},
-		// A unique violation on another table must not be swallowed as a name conflict.
-		{"categories unique violation", &pgconn.PgError{Code: pgUniqueViolation, TableName: "categories"}, false},
-		{"non-unique pg error on repertoires", &pgconn.PgError{Code: "23514", TableName: "repertoires"}, false}, // check_violation
-		{"non-pg error", fmt.Errorf("repertoires table is busy"), false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, isRepertoireNameConflict(tt.err))
-		})
-	}
-}

@@ -4,21 +4,6 @@ import "fmt"
 
 // Sentinel errors for repository operations
 var (
-	// Category errors
-	ErrCategoryNotFound = fmt.Errorf("category not found")
-
-	// Repertoire errors
-	ErrRepertoireNotFound   = fmt.Errorf("repertoire not found")
-	ErrRepertoireNameExists = fmt.Errorf("repertoire name already exists for this color")
-	// ErrRepertoireConflict signals an optimistic-lock failure: the caller's
-	// expected version no longer matches the persisted version because another
-	// write landed first. Surfaced to clients as HTTP 409.
-	ErrRepertoireConflict = fmt.Errorf("repertoire version conflict")
-
-	// Analysis errors
-	ErrAnalysisNotFound = fmt.Errorf("analysis not found")
-	ErrGameNotFound     = fmt.Errorf("game not found")
-
 	// User errors
 	ErrUserNotFound   = fmt.Errorf("user not found")
 	ErrUsernameExists = fmt.Errorf("username already exists")

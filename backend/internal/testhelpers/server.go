@@ -58,9 +58,6 @@ func (m *CapturingEmailService) LastToken() string {
 type TestServer struct {
 	Echo         *echo.Echo
 	AuthSvc      *services.AuthService
-	RepSvc       *services.RepertoireService
-	ImportSvc    *services.ImportService
-	CategorySvc  *services.CategoryService
 	EmailCapture *CapturingEmailService
 }
 
@@ -75,17 +72,6 @@ func SetupTestServer(t *testing.T, repos *Repos) *TestServer {
 	authSvc := services.NewAuthService(repos.User, testJWTSecret, 168*time.Hour)
 	authSvc.WithRefreshTokens(repos.RefreshToken)
 	authSvc.WithPasswordReset(repos.PasswordReset, emailCapture, 1)
-
-	repertoireSvc := services.NewRepertoireService(repos.Repertoire)
-	engineSvc := services.NewEngineService(repos.EngineEval, repos.Analysis, repos.OpeningExplorerCache)
-	importSvc := services.NewImportService(repertoireSvc, repos.Analysis,
-		services.WithFingerprintRepo(repos.Fingerprint),
-		services.WithEngineService(engineSvc),
-	)
-	insightsSvc := services.NewInsightsService(repertoireSvc, repos.Analysis,
-		services.WithInsightsEngineService(engineSvc),
-	)
-	categorySvc := services.NewCategoryService(repos.Category, repos.Repertoire)
 
 	e := echo.New()
 
@@ -109,46 +95,12 @@ func SetupTestServer(t *testing.T, repos *Repos) *TestServer {
 	protected.GET("/api/auth/has-password", authHandler.HasPasswordHandler)
 	protected.DELETE("/api/auth/account", authHandler.DeleteAccountHandler)
 
-	// Repertoire routes
-	protected.GET("/api/repertoires", handlers.ListRepertoiresHandler(repertoireSvc))
-	protected.POST("/api/repertoires", handlers.CreateRepertoireHandler(repertoireSvc))
-	protected.GET("/api/repertoires/:id", handlers.GetRepertoireHandler(repertoireSvc))
-	protected.PATCH("/api/repertoires/:id", handlers.UpdateRepertoireHandler(repertoireSvc))
-	protected.DELETE("/api/repertoires/:id", handlers.DeleteRepertoireHandler(repertoireSvc))
-	protected.POST("/api/repertoires/:id/nodes", handlers.AddNodeHandler(repertoireSvc))
-	protected.DELETE("/api/repertoires/:id/nodes/:nodeId", handlers.DeleteNodeHandler(repertoireSvc))
-	protected.POST("/api/repertoires/merge", handlers.MergeRepertoiresHandler(repertoireSvc))
-	protected.POST("/api/repertoires/:id/extract", handlers.ExtractSubtreeHandler(repertoireSvc))
-	protected.POST("/api/repertoires/:id/merge-transpositions", handlers.MergeTranspositionsHandler(repertoireSvc))
-	protected.PATCH("/api/repertoires/:id/category", handlers.AssignCategoryHandler(repertoireSvc, categorySvc))
-
-	// Category routes
-	protected.GET("/api/categories", handlers.ListCategoriesHandler(categorySvc))
-	protected.POST("/api/categories", handlers.CreateCategoryHandler(categorySvc))
-	protected.GET("/api/categories/:id", handlers.GetCategoryHandler(categorySvc))
-	protected.PATCH("/api/categories/:id", handlers.UpdateCategoryHandler(categorySvc))
-	protected.DELETE("/api/categories/:id", handlers.DeleteCategoryHandler(categorySvc))
-
-	// Import routes
-	importHandler := handlers.NewImportHandler(importSvc, repertoireSvc, nil, nil).
-		WithInsightsService(insightsSvc)
-	protected.POST("/api/imports", importHandler.UploadHandler)
-	protected.GET("/api/analyses", importHandler.ListAnalysesHandler)
-	protected.GET("/api/analyses/:id", importHandler.GetAnalysisHandler)
-	protected.DELETE("/api/analyses/:id", importHandler.DeleteAnalysisHandler)
-
-	// Games routes
-	protected.GET("/api/games", importHandler.GetGamesHandler)
-	protected.POST("/api/games/:analysisId/:gameIndex/reanalyze", importHandler.ReanalyzeGameHandler)
-	protected.POST("/api/games/:analysisId/:gameIndex/view", importHandler.MarkGameViewedHandler)
-	protected.GET("/api/games/insights", importHandler.GetInsightsHandler)
+	protected.GET("/api/v2/state", handlers.GetPlayerStateHandler(repos.PlayerState))
+	protected.PUT("/api/v2/state/:key", handlers.PutPlayerStateHandler(repos.PlayerState))
 
 	return &TestServer{
 		Echo:         e,
 		AuthSvc:      authSvc,
-		RepSvc:       repertoireSvc,
-		ImportSvc:    importSvc,
-		CategorySvc:  categorySvc,
 		EmailCapture: emailCapture,
 	}
 }

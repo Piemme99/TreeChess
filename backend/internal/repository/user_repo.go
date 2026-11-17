@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -56,15 +55,6 @@ const (
 		WHERE id = $1
 		RETURNING ` + userColumns + `
 	`
-	updateSyncTimestampsSQL = `
-		UPDATE users SET last_lichess_sync_at = COALESCE($2, last_lichess_sync_at), last_chesscom_sync_at = COALESCE($3, last_chesscom_sync_at)
-		WHERE id = $1
-	`
-	resetSyncTimestampsSQL = `
-		UPDATE users SET last_lichess_sync_at = NULL, last_chesscom_sync_at = NULL
-		WHERE id = $1
-	`
-
 	updateLichessTokenSQL = `
 		UPDATE users SET lichess_access_token = $2
 		WHERE id = $1
@@ -248,28 +238,6 @@ func (r *PostgresUserRepo) UpdateProfile(ctx context.Context, userID string, lic
 	return user, nil
 }
 
-func (r *PostgresUserRepo) UpdateSyncTimestamps(ctx context.Context, userID string, lichessSyncAt, chesscomSyncAt *time.Time) error {
-	ctx, cancel := dbContext(ctx)
-	defer cancel()
-
-	_, err := r.pool.Exec(ctx, updateSyncTimestampsSQL, userID, lichessSyncAt, chesscomSyncAt)
-	if err != nil {
-		return fmt.Errorf("failed to update sync timestamps: %w", err)
-	}
-	return nil
-}
-
-func (r *PostgresUserRepo) ResetSyncTimestamps(ctx context.Context, userID string) error {
-	ctx, cancel := dbContext(ctx)
-	defer cancel()
-
-	_, err := r.pool.Exec(ctx, resetSyncTimestampsSQL, userID)
-	if err != nil {
-		return fmt.Errorf("failed to reset sync timestamps: %w", err)
-	}
-	return nil
-}
-
 func (r *PostgresUserRepo) UpdateLichessToken(ctx context.Context, userID, token string) error {
 	ctx, cancel := dbContext(ctx)
 	defer cancel()
@@ -331,51 +299,14 @@ func (r *PostgresUserRepo) Delete(ctx context.Context, id string) error {
 	ctx, cancel := context.WithTimeout(ctx, config.UserDeleteDBTimeout)
 	defer cancel()
 
-	tx, err := r.pool.Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to begin transaction: %w", err)
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-
-	// Delete in order respecting FK constraints (no ON DELETE CASCADE on user_id)
-	// 1. dismissed_mistakes (leaf table, only references users)
-	if _, err := tx.Exec(ctx, `DELETE FROM dismissed_mistakes WHERE user_id = $1`, id); err != nil {
-		return fmt.Errorf("failed to delete dismissed_mistakes: %w", err)
-	}
-
-	// 2. dismissed_gaps (leaf table, only references users)
-	if _, err := tx.Exec(ctx, `DELETE FROM dismissed_gaps WHERE user_id = $1`, id); err != nil {
-		return fmt.Errorf("failed to delete dismissed_gaps: %w", err)
-	}
-
-	// 3. analyses (cascades to game_fingerprints, viewed_games, engine_evals via analysis_id FK)
-	if _, err := tx.Exec(ctx, `DELETE FROM analyses WHERE user_id = $1`, id); err != nil {
-		return fmt.Errorf("failed to delete analyses: %w", err)
-	}
-
-	// 4. repertoires (references users and categories)
-	if _, err := tx.Exec(ctx, `DELETE FROM repertoires WHERE user_id = $1`, id); err != nil {
-		return fmt.Errorf("failed to delete repertoires: %w", err)
-	}
-
-	// 5. categories (references users; repertoires already deleted)
-	if _, err := tx.Exec(ctx, `DELETE FROM categories WHERE user_id = $1`, id); err != nil {
-		return fmt.Errorf("failed to delete categories: %w", err)
-	}
-
-	// 6. user row (password_reset_tokens cascade automatically via ON DELETE CASCADE)
-	result, err := tx.Exec(ctx, `DELETE FROM users WHERE id = $1`, id)
+	// Les jetons et les tables v2 (parties, état du joueur) partent en cascade.
+	result, err := r.pool.Exec(ctx, `DELETE FROM users WHERE id = $1`, id)
 	if err != nil {
 		return fmt.Errorf("failed to delete user: %w", err)
 	}
 	if result.RowsAffected() == 0 {
 		return ErrUserNotFound
 	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return fmt.Errorf("failed to commit transaction: %w", err)
-	}
-
 	return nil
 }
 

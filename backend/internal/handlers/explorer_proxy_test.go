@@ -149,3 +149,38 @@ func TestExplorerProxyHandler_TokenRejectedByLichess_AsksToReconnectWithoutCachi
 	assert.Contains(t, rec.Body.String(), `"code":"lichess_token_invalid"`)
 	assert.Equal(t, 0, cache.putCalls)
 }
+
+func ptr(s string) *string { return &s }
+
+func TestExplorerProxyHandler_RateLimitedByLichess_PassesRetryDelay(t *testing.T) {
+	fetcher := &stubRawFetcher{err: &services.RateLimitedError{RetryAfterSeconds: 17}}
+
+	rec := proxyRequest(t, signedIn(ExplorerProxyHandler(fetcher, newStubCache(), linkedUsers("user-token"), time.Hour)), "lichess", url.Values{"fen": {afterE4}})
+
+	assert.Equal(t, http.StatusTooManyRequests, rec.Code)
+	assert.Contains(t, rec.Body.String(), `"retryAfterSeconds":17`)
+}
+
+type stubExplorerCache struct {
+	putCalls int
+	store    map[string][]byte
+}
+
+func newStubCache() *stubExplorerCache {
+	return &stubExplorerCache{store: map[string][]byte{}}
+}
+
+func (c *stubExplorerCache) Get(_ context.Context, key string) ([]byte, bool, error) {
+	v, ok := c.store[key]
+	return v, ok, nil
+}
+
+func (c *stubExplorerCache) Put(_ context.Context, key string, payload []byte, _ time.Time) error {
+	c.putCalls++
+	c.store[key] = payload
+	return nil
+}
+
+func (c *stubExplorerCache) DeleteExpired(_ context.Context) error {
+	return nil
+}
