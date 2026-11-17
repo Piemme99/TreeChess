@@ -355,7 +355,11 @@ hero card. No replay for a signed-in player: "Next day" and "Reset" stay in the 
    through `source/` (imported games, or the demo fixture with its replay). The repertoire is born the day of the
    import from every game up to it. Decisions, additions, review and worked lines stay in the browser, one set per
    source (`workshop/storage.ts`).
-2. **New games at each visit** (the `since` of both APIs), "new" meaning since the last Check.
+2. **New games at each visit** (done): once per load of the app, the server reads Lichess from the day before
+   the last known game (`since`), duplicates dropped; Home says "Looking for new games on Lichess…". The new games
+   are those of the last day played since the import (`lastDayPlayed`), like a replay day in the demo; the import
+   day stays the day of the first import (`first_done_at`), and games keep their rank (`seq`) so decisions on them
+   hold.
 3. **Decisions on the server** (additions, settled and ignored games, review boxes, worked lines), then v1
    removal (`CLAUDE.md`).
 4. **Explorer ranges from the player's rating** (rule above in "Later").

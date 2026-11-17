@@ -21,3 +21,8 @@ export function dayAfter(day: string): string {
   date.setUTCDate(date.getUTCDate() + 1);
   return date.toISOString().slice(0, 10);
 }
+
+/** Pour des parties importées, les nouvelles sont celles du dernier jour joué depuis l'import ; avant, le jour de l'import. */
+export function lastDayPlayed(games: readonly PlayedGame[], importedOn: string): string {
+  return gameDaysAfter(games, importedOn).at(-1) ?? importedOn;
+}

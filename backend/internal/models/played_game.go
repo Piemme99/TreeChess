@@ -20,6 +20,8 @@ type PlayedGameImport struct {
 	Error      string     `json:"error,omitempty"`
 	StartedAt  time.Time  `json:"startedAt"`
 	FinishedAt *time.Time `json:"finishedAt,omitempty"`
+	// FirstDoneAt est la fin du premier import réussi.
+	FirstDoneAt *time.Time `json:"firstDoneAt,omitempty"`
 }
 
 const (

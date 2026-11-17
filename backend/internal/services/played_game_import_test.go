@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -77,17 +78,31 @@ func TestPlayedGameFromLichess_LeavesOutWhatIsNotAPlayedGame(t *testing.T) {
 
 type fakePlayedGameStore struct {
 	mu       sync.Mutex
+	last     string
 	saved    []models.PlayedGame
 	progress []int
 	failure  *string
 	running  bool
 }
 
-func (f *fakePlayedGameStore) SaveGames(_ context.Context, _ string, games []models.PlayedGame) error {
+func (f *fakePlayedGameStore) SaveGames(_ context.Context, _ string, games []models.PlayedGame) (int, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	f.saved = append(f.saved, games...)
-	return nil
+	added := 0
+	for _, game := range games {
+		known := false
+		for _, saved := range f.saved {
+			known = known || saved.SourceID == game.SourceID
+		}
+		if !known {
+			f.saved = append(f.saved, game)
+			added++
+		}
+	}
+	return added, nil
+}
+func (f *fakePlayedGameStore) LastPlayedOn(context.Context, string) (string, error) {
+	return f.last, nil
 }
 func (f *fakePlayedGameStore) ListGames(context.Context, string) ([]models.PlayedGame, error) {
 	return f.saved, nil
@@ -114,9 +129,13 @@ func (f *fakePlayedGameStore) FinishImport(_ context.Context, _ string, _ int, f
 type fakeStreamer struct {
 	games []LichessExportedGame
 	err   error
+	since *int64
 }
 
-func (f fakeStreamer) StreamGames(_ context.Context, _, _ string, each func(LichessExportedGame) error) error {
+func (f fakeStreamer) StreamGames(_ context.Context, _, _ string, since int64, each func(LichessExportedGame) error) error {
+	if f.since != nil {
+		*f.since = since
+	}
 	for _, game := range f.games {
 		if err := each(game); err != nil {
 			return err
@@ -138,7 +157,9 @@ func TestPlayedGameImportService_Run_SavesTheKeptGamesAndRecordsTheEnd(t *testin
 		if i%3 == 0 {
 			speed = "bullet"
 		}
-		games = append(games, lichessGame(speed, "Piemme78", "rival", "white", "e4 e5"))
+		game := lichessGame(speed, "Piemme78", "rival", "white", "e4 e5")
+		game.ID = strconv.Itoa(i)
+		games = append(games, game)
 	}
 	store := &fakePlayedGameStore{}
 	NewPlayedGameImportService(store, fakeStreamer{games: games}).run("u1", "Piemme78", "token")
@@ -166,10 +187,28 @@ func TestLichessGameExport_StreamGames_ReadsTheNDJSONExportWithTheToken(t *testi
 	defer server.Close()
 
 	var ids []string
-	err := NewLichessGameExport(server.URL, server.Client()).StreamGames(context.Background(), "Piemme78", "secret", func(game LichessExportedGame) error {
+	err := NewLichessGameExport(server.URL, server.Client()).StreamGames(context.Background(), "Piemme78", "secret", 0, func(game LichessExportedGame) error {
 		ids = append(ids, game.ID)
 		return nil
 	})
 	require.NoError(t, err)
 	assert.Equal(t, []string{"a", "b"}, ids)
+}
+
+func TestPlayedGameImportService_Run_ReadsOnlyFromTheDayBeforeTheLastKnownGame(t *testing.T) {
+	var since int64 = -1
+	store := &fakePlayedGameStore{last: "2026-11-15"}
+	NewPlayedGameImportService(store, fakeStreamer{since: &since}).run("u1", "Piemme78", "token")
+	assert.Equal(t, int64(1794614400000), since) // 14 novembre 2026, 00:00 UTC
+}
+
+func TestPlayedGameImportService_Run_CountsOnlyTheGamesItDidNotHave(t *testing.T) {
+	known := lichessGame("blitz", "Piemme78", "rival", "white", "e4 e5")
+	known.ID = "known"
+	fresh := known
+	fresh.ID = "fresh"
+	store := &fakePlayedGameStore{last: "2026-11-15"}
+	_, _ = store.SaveGames(context.Background(), "u1", []models.PlayedGame{{SourceID: "known"}})
+	NewPlayedGameImportService(store, fakeStreamer{games: []LichessExportedGame{known, fresh}}).run("u1", "Piemme78", "token")
+	assert.Equal(t, []int{1}, store.progress)
 }

@@ -9,6 +9,7 @@ export interface ImportState {
   imported: number;
   error?: string;
   finishedAt?: string;
+  firstDoneAt?: string;
 }
 
 export type SourceState =
@@ -21,6 +22,8 @@ export type SourceState =
 
 // Les parties ne changent pas d'une page à l'autre : on ne les relit qu'une fois par compte.
 let cached: { userId: string; source: GameSource } | null = null;
+// Les nouvelles parties se demandent à Lichess une fois par chargement de l'application.
+const refreshed = new Set<string>();
 
 /** La source des parties des pages v2, et ce qui manque pour l'avoir. */
 export function useGameSource() {
@@ -40,7 +43,7 @@ export function useGameSource() {
       return;
     }
     const { data: list } = await api.get<{ games: ImportedGame[] }>('/v2/games');
-    const source = importedSource(user.lichessUsername!, list.games, (data.finishedAt ?? new Date().toISOString()).slice(0, 10));
+    const source = importedSource(user.lichessUsername!, list.games, (data.firstDoneAt ?? data.finishedAt ?? new Date().toISOString()).slice(0, 10));
     cached = { userId: user.id, source };
     setState({ kind: 'ready', source });
   }, [user, linked]);
@@ -73,5 +76,30 @@ export function useGameSource() {
     }
   }, [state]);
 
-  return { state, startImport, tryDemo: () => setDemo(true), leaveDemo: () => setDemo(false) };
+  // Une fois les parties là, celles jouées depuis le dernier import arrivent en tâche de fond.
+  const [syncing, setSyncing] = useState(false);
+  const ready = state.kind === 'ready' && !state.source.replay;
+  useEffect(() => {
+    if (!ready || !user || refreshed.has(user.id)) return;
+    refreshed.add(user.id);
+    setSyncing(true);
+    const poll = async () => {
+      const { data } = await api.get<ImportState>('/v2/games/import');
+      if (data.status === 'running') {
+        window.setTimeout(() => void poll().catch(() => setSyncing(false)), 1000);
+        return;
+      }
+      if (data.status === 'done' && data.imported > 0) {
+        cached = null;
+        await load();
+      }
+      setSyncing(false);
+    };
+    api
+      .post<ImportState>('/v2/games/import')
+      .then(poll)
+      .catch(() => setSyncing(false));
+  }, [ready, user, load]);
+
+  return { state, syncing, startImport, tryDemo: () => setDemo(true), leaveDemo: () => setDemo(false) };
 }

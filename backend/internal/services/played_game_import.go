@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -110,7 +111,8 @@ func PlayedGameFromLichess(game LichessExportedGame, username string) (models.Pl
 
 // PlayedGameStore garde les parties importées et l'état de l'import.
 type PlayedGameStore interface {
-	SaveGames(ctx context.Context, userID string, games []models.PlayedGame) error
+	SaveGames(ctx context.Context, userID string, games []models.PlayedGame) (int, error)
+	LastPlayedOn(ctx context.Context, userID string) (string, error)
 	ListGames(ctx context.Context, userID string) ([]models.PlayedGame, error)
 	GetImport(ctx context.Context, userID string) (*models.PlayedGameImport, error)
 	StartImport(ctx context.Context, userID string) (bool, error)
@@ -118,9 +120,9 @@ type PlayedGameStore interface {
 	FinishImport(ctx context.Context, userID string, imported int, failure string) error
 }
 
-// LichessGameStreamer lit les parties d'un joueur, une à une, dans l'ordre où Lichess les envoie.
+// LichessGameStreamer lit les parties d'un joueur commencées depuis `since` (ms, 0 pour toutes), une à une.
 type LichessGameStreamer interface {
-	StreamGames(ctx context.Context, username, token string, each func(LichessExportedGame) error) error
+	StreamGames(ctx context.Context, username, token string, since int64, each func(LichessExportedGame) error) error
 }
 
 type PlayedGameImportService struct {
@@ -132,7 +134,8 @@ func NewPlayedGameImportService(store PlayedGameStore, streamer LichessGameStrea
 	return &PlayedGameImportService{store: store, streamer: streamer}
 }
 
-// Start lance l'import des parties Lichess du joueur en tâche de fond ; un import en cours n'est pas doublé.
+// Start lance l'import des parties Lichess du joueur en tâche de fond ; un import en cours n'est pas doublé. Après le
+// premier, seules les parties depuis la plus récente connue sont lues.
 func (s *PlayedGameImportService) Start(ctx context.Context, user *models.User) (*models.PlayedGameImport, error) {
 	if user.LichessUsername == nil || *user.LichessUsername == "" || user.LichessAccessToken == nil || *user.LichessAccessToken == "" {
 		return nil, ErrLichessNotLinked
@@ -160,20 +163,25 @@ func (s *PlayedGameImportService) run(userID, username, token string) {
 	ctx, cancel := context.WithTimeout(context.Background(), playedGameTimeout)
 	defer cancel()
 
+	since, err := s.since(ctx, userID)
+	if err != nil {
+		slog.Error("played game import: cannot read the last game", "user", userID, "error", err)
+	}
 	imported := 0
 	batch := make([]models.PlayedGame, 0, playedGameBatch)
 	flush := func() error {
 		if len(batch) == 0 {
 			return nil
 		}
-		if err := s.store.SaveGames(ctx, userID, batch); err != nil {
+		added, err := s.store.SaveGames(ctx, userID, batch)
+		if err != nil {
 			return err
 		}
-		imported += len(batch)
+		imported += added
 		batch = batch[:0]
 		return s.store.UpdateProgress(ctx, userID, imported)
 	}
-	err := s.streamer.StreamGames(ctx, username, token, func(game LichessExportedGame) error {
+	err = s.streamer.StreamGames(ctx, username, token, since, func(game LichessExportedGame) error {
 		if played, ok := PlayedGameFromLichess(game, username); ok {
 			batch = append(batch, played)
 		}
@@ -195,6 +203,20 @@ func (s *PlayedGameImportService) run(userID, username, token string) {
 	}
 }
 
+// since part de la veille de la partie la plus récente : une partie commencée avant minuit et finie après est relue,
+// les doublons sont écartés à l'enregistrement.
+func (s *PlayedGameImportService) since(ctx context.Context, userID string) (int64, error) {
+	last, err := s.store.LastPlayedOn(ctx, userID)
+	if err != nil || last == "" {
+		return 0, err
+	}
+	day, err := time.Parse("2006-01-02", last)
+	if err != nil {
+		return 0, err
+	}
+	return day.AddDate(0, 0, -1).UnixMilli(), nil
+}
+
 // LichessGameExport lit l'export NDJSON des parties d'un joueur.
 type LichessGameExport struct {
 	baseURL string
@@ -205,7 +227,7 @@ func NewLichessGameExport(baseURL string, client *http.Client) *LichessGameExpor
 	return &LichessGameExport{baseURL: strings.TrimRight(baseURL, "/"), client: client}
 }
 
-func (l *LichessGameExport) StreamGames(ctx context.Context, username, token string, each func(LichessExportedGame) error) error {
+func (l *LichessGameExport) StreamGames(ctx context.Context, username, token string, since int64, each func(LichessExportedGame) error) error {
 	query := url.Values{}
 	query.Set("perfType", "blitz,rapid,classical")
 	query.Set("finished", "true")
@@ -214,6 +236,9 @@ func (l *LichessGameExport) StreamGames(ctx context.Context, username, token str
 	query.Set("clocks", "false")
 	query.Set("evals", "false")
 	query.Set("opening", "false")
+	if since > 0 {
+		query.Set("since", strconv.FormatInt(since, 10))
+	}
 	endpoint := fmt.Sprintf("%s/games/user/%s?%s", l.baseURL, url.PathEscape(username), query.Encode())
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {

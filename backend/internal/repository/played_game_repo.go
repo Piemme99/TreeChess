@@ -23,10 +23,10 @@ func NewPostgresPlayedGameRepo(pool *pgxpool.Pool) *PostgresPlayedGameRepo {
 	return &PostgresPlayedGameRepo{pool: pool}
 }
 
-// SaveGames enregistre un lot de parties ; une partie déjà importée est laissée telle quelle.
-func (r *PostgresPlayedGameRepo) SaveGames(ctx context.Context, userID string, games []models.PlayedGame) error {
+// SaveGames enregistre un lot de parties et rend combien sont nouvelles ; une partie déjà importée est laissée telle quelle.
+func (r *PostgresPlayedGameRepo) SaveGames(ctx context.Context, userID string, games []models.PlayedGame) (int, error) {
 	if len(games) == 0 {
-		return nil
+		return 0, nil
 	}
 	batch := &pgx.Batch{}
 	for _, game := range games {
@@ -37,16 +37,40 @@ func (r *PostgresPlayedGameRepo) SaveGames(ctx context.Context, userID string, g
 			userID, game.Source, game.SourceID, game.Color, game.Moves, game.Score, game.Rating, game.PlayedAt,
 		)
 	}
-	if err := r.pool.SendBatch(ctx, batch).Close(); err != nil {
-		return fmt.Errorf("save played games: %w", err)
+	results := r.pool.SendBatch(ctx, batch)
+	added := 0
+	for range games {
+		tag, err := results.Exec()
+		if err != nil {
+			_ = results.Close()
+			return 0, fmt.Errorf("save played games: %w", err)
+		}
+		added += int(tag.RowsAffected())
 	}
-	return nil
+	if err := results.Close(); err != nil {
+		return 0, fmt.Errorf("save played games: %w", err)
+	}
+	return added, nil
+}
+
+// LastPlayedOn rend le jour de la partie la plus récente, vide s'il n'y en a pas.
+func (r *PostgresPlayedGameRepo) LastPlayedOn(ctx context.Context, userID string) (string, error) {
+	var day *string
+	if err := r.pool.QueryRow(ctx,
+		`SELECT to_char(MAX(played_at), 'YYYY-MM-DD') FROM played_games WHERE user_id = $1`, userID,
+	).Scan(&day); err != nil {
+		return "", fmt.Errorf("last played game: %w", err)
+	}
+	if day == nil {
+		return "", nil
+	}
+	return *day, nil
 }
 
 func (r *PostgresPlayedGameRepo) ListGames(ctx context.Context, userID string) ([]models.PlayedGame, error) {
 	rows, err := r.pool.Query(ctx,
 		`SELECT source, source_id, color, moves, score, rating, to_char(played_at, 'YYYY-MM-DD')
-		 FROM played_games WHERE user_id = $1 ORDER BY played_at, source_id`,
+		 FROM played_games WHERE user_id = $1 ORDER BY played_at, seq`,
 		userID,
 	)
 	if err != nil {
@@ -70,9 +94,9 @@ func (r *PostgresPlayedGameRepo) GetImport(ctx context.Context, userID string) (
 	var message *string
 	var updatedAt time.Time
 	err := r.pool.QueryRow(ctx,
-		`SELECT status, imported, error, started_at, updated_at, finished_at FROM played_game_imports WHERE user_id = $1`,
+		`SELECT status, imported, error, started_at, updated_at, finished_at, first_done_at FROM played_game_imports WHERE user_id = $1`,
 		userID,
-	).Scan(&state.Status, &state.Imported, &message, &state.StartedAt, &updatedAt, &state.FinishedAt)
+	).Scan(&state.Status, &state.Imported, &message, &state.StartedAt, &updatedAt, &state.FinishedAt, &state.FirstDoneAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
@@ -123,8 +147,11 @@ func (r *PostgresPlayedGameRepo) FinishImport(ctx context.Context, userID string
 		message = &failure
 	}
 	if _, err := r.pool.Exec(ctx,
-		`UPDATE played_game_imports SET status = $2, imported = $3, error = $4, updated_at = NOW(), finished_at = NOW() WHERE user_id = $1`,
-		userID, status, imported, message,
+		`UPDATE played_game_imports
+		 SET status = $2, imported = $3, error = $4, updated_at = NOW(), finished_at = NOW(),
+		     first_done_at = CASE WHEN $5 THEN COALESCE(first_done_at, NOW()) ELSE first_done_at END
+		 WHERE user_id = $1`,
+		userID, status, imported, message, failure == "",
 	); err != nil {
 		return fmt.Errorf("finish played game import: %w", err)
 	}
