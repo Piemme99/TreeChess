@@ -2,22 +2,14 @@
 
 Kumquat — chess repertoire builder & trainer. Live: https://kumquatchess.com
 
-## v1 is frozen, v2 replaces it
+## The app is v2
 
-The app is being rebuilt as **v2** in `frontend/src/features/openings/` (published under `/v2/`, see its
-`README.md`). Everything else is **v1** and will be deleted.
-
-- **No work on v1**: no feature, no refactor, no polish. Only fixes for something broken in production.
-- **New work goes into v2.** Don't reuse v1 screens or components in it; v2 may only depend on what survives.
-- **v1 goes when v2 can stand alone**: real game import and server-side persistence (today v2 reads a fixture
-  and stores everything in localStorage), then `/` points to v2, then v1 is removed in one PR.
-- **What survives**: auth (email + Lichess OAuth), the explorer relay `/api/explorer/*` and its Postgres cache,
-  `stores/authStore` (minus its v1 ties: `repertoireStore`, game sync on login), `services/api`, `services/stockfishConfig`, `shared/hooks/useOpeningName`,
-  `shared/utils/openings`, `shared/components/Board/pieceSvg`. The rest of the frontend (`features/` other than
-  `openings`) and the v1 backend (JSONB repertoires, import, sync, training, dashboard, explore, re-analysis)
-  goes, unless the import brick reuses part of it. What happens to v1 data in production is still open.
-
-The sections below mostly describe v1; they stay true until the removal.
+The app lives in `frontend/src/features/openings/` (published under `/v2/`, `/` redirects to `/v2/home`; see its
+`README.md`). The v1 (JSONB repertoires, PGN import, sync, training, dashboard, explore) was removed on
+2026-11-17; the first production deploy after it exported the whole database to `backups/v1-final.sql.gz` on the
+server before the backend dropped the v1 tables. Backend: auth (email + Lichess OAuth), the explorer relay
+`/api/explorer/*` and its Postgres cache, and the v2 routes `/api/v2/games*` (Lichess import) and `/api/v2/state*`
+(the player's decisions).
 
 ## Commands
 
@@ -49,14 +41,14 @@ cd frontend && npx vitest run -t "test name"
 
 **Frontend** React 19 · TypeScript 6 · Vite 8 · Tailwind 4 · Zustand · chess.js · D3 · Framer Motion · Vitest 4
 **Backend** Go 1.25 · Echo **v5** · pgx v5 · notnil/chess · golang-jwt v5 · testify · testcontainers
-**Data** PostgreSQL 17, repertoire trees stored as JSONB
+**Data** PostgreSQL 17 (schema created by the backend at boot, `internal/repository/db.go`)
 **Engine** Stockfish 18 NNUE lite WASM, vendored in `frontend/public/stockfish-18-lite.{js,wasm}`
 
 ## Layout
 
-- `backend/` — `main.go` wires dependencies and routes; `config/` (env + `limits.go`); `internal/{handlers,middleware,models,repository,services,testhelpers}` plus three pure-logic packages worth knowing: `repertoiretree` (tree walking/merging), `analysiscore` (game-vs-repertoire adherence), `crypto` (cookie sealing); `tests/integration/`. Module `github.com/kumquat/backend`.
-- `frontend/src/` — `features/` (one folder per screen), `shared/`, `stores/`, `services/` (`api.ts`, `stockfish.ts`), `types/`.
-- `migrations/`, `monitoring/`, `scripts/`, `testdata/`.
+- `backend/` — `main.go` wires dependencies and routes; `config/` (env + `limits.go`); `internal/{handlers,middleware,models,repository,services,testhelpers}` plus `crypto` (cookie sealing); `tests/integration/`. Module `github.com/kumquat/backend`.
+- `frontend/src/` — `features/openings/` (the app), `shared/` (opening names, piece SVGs, error boundary), `stores/authStore`, `services/` (`api.ts`, `stockfishConfig.ts`), `types/`.
+- `monitoring/`, `scripts/`.
 
 ## Conventions worth knowing
 
@@ -85,23 +77,16 @@ A test exists to catch a bug in code the agent did not read, not to restate the 
 - **Color values differ across the wire**: backend JSON uses `"white"/"black"`, the frontend uses `'w'/'b'` for chess.js.
 - **Never trust raw SAN** — validate through `notnil/chess` (Go) or `chess.js` (frontend).
 - Positions are stored as **full FEN**; comparing two positions for transposition means ignoring the clock fields.
-- Transpositions are merged on demand via `POST /api/repertoires/:id/merge-transpositions`.
-- Duplicate imports are blocked by `PostgresFingerprintRepo`, not by a unique constraint on the game.
-- Every tree mutation enqueues a debounced re-analysis (`ReanalysisQueue`) — results change *after* the write returns.
 - API errors are always `{"error": "message"}`.
-- Limits are centralised in `config/limits.go` (50 repertoires, 10MB PGN, 5000 games/import, 100 games/page…).
+- An imported game's `id` on the frontend is its rank in `GET /api/v2/games` (ordered by day, then arrival `seq`): decisions are keyed on it, so never reorder that list.
 
 ## Auth & middleware
 
 - Access JWT 15 min, held in memory only. Refresh token in an httpOnly cookie, 30 days, single-use rotation. All refresh tokens are revoked on password change/reset.
 - Lichess OAuth uses PKCE; cookie encryption via HKDF.
-- Three rate-limit tiers, per IP, in-memory: global 100/min (burst 20), auth endpoints 20/min (burst 10), heavy operations 5/min (burst 3). Identity comes from `RealIP()` — see the deployment note in `.env.example` before putting a proxy in front.
+- Rate limits per IP, in-memory: global 100/min (burst 20), auth endpoints 20/min (burst 10), starting a game import 6/min (burst 3). Identity comes from `RealIP()` — see the deployment note in `.env.example` before putting a proxy in front.
 - Body limit 10MB. CORS origins from `CORS_ALLOWED_ORIGINS` (a `*` panics at boot: credentials are enabled).
 - Prometheus metrics on a separate port (9090 in-container), middleware prefix `kumquat`.
-
-## UI conventions
-
-**Control placement (toolbar vs tree-view):** controls that *mutate the repertoire* (CRUD, metadata, extract) live on the repertoire toolbar. Controls that *mutate the tree view* (navigation, zoom, display mode) live inside the tree-view component. Keep navigation visually separate from repertoire actions.
 
 ## Docs
 

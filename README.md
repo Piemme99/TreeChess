@@ -2,13 +2,12 @@
 
 **[kumquatchess.com](https://kumquatchess.com)**
 
-Interactive chess opening repertoire builder with tree visualization and game analysis.
+Build your chess opening repertoire from your own games, check your games against it, and review it.
 
-Build, visualize, and manage your chess opening repertoire. Import games from Lichess, Chess.com, or PGN files, analyze them against your repertoire, and identify gaps in your preparation.
-
-> **This version is frozen.** A new version is being built in `frontend/src/features/openings/`
-> (published under `/v2/`). The app described below will be removed once the new one imports games and
-> saves them server-side; until then it only gets fixes for production breakage.
+Sign in with Lichess: your blitz, rapid and classical games are imported, your repertoire is drawn from the
+moves you play, and the app shows where you lose points. After each session of games it asks only what needs a
+decision; a spaced-repetition review keeps the lines in memory. The screens and their rules are described in
+`frontend/src/features/openings/README.md`; the vocabulary in `CONTEXT.md`.
 
 ## A Note on Origins
 
@@ -16,19 +15,12 @@ This project started as a vibe coding experiment that I decided to see through a
 
 ## Features
 
-- Visual repertoire tree editor with D3-based interactive tree rendering (pan/zoom, tidy/radial layouts)
-- Multiple repertoires per color (max 50), with categories for organization
-- Import games from Lichess, Chess.com, or PGN files with fingerprint-based deduplication
-- Import Lichess studies as repertoires (selective chapter import, comments, arrows/highlights)
-- Analyze games against your repertoire to find deviations and score adherence
-- Dashboard with aggregate stats (win rate, coverage, error rate), per-repertoire breakdowns, opponent gaps, and branch performance
-- Training modes: repertoire drill (play through your lines) and explorer training (compare against Lichess opening explorer)
-- Opening insights powered by Lichess Explorer API (detect recurring mistakes)
-- Browser-side Stockfish WASM engine for real-time position evaluation
-- Explore and import public repertoires from other users
-- Auto-sync games from Lichess and Chess.com on login
-- Starter repertoire templates for onboarding new users
-- Repertoire operations: merge, extract subtree, auto-merge transpositions, branch naming/coloring, main line marking
+- Lichess sign-in (OAuth PKCE); games imported server-side, new ones fetched at each visit
+- Repertoire created from your habits, shown as a tree; weak openings ranked by points lost
+- Check: each game that left the repertoire, judged by the engine, settled one decision at a time
+- Review: lines played against the app, spaced repetition seeded from your habits
+- Lichess opening explorer (relayed with your account) and browser-side Stockfish WASM
+- A demo on a sample player's games, replayed day by day, without an account
 
 ## Quick Start
 
@@ -126,8 +118,7 @@ kumquat/
 │   ├── main.go
 │   ├── config/               # Environment config + application limits
 │   ├── internal/
-│   │   ├── handlers/         # HTTP handlers (auth, OAuth, repertoire, import, study import,
-│   │   │                     #   dashboard, training, explore, category, sync, health)
+│   │   ├── handlers/         # HTTP handlers (auth, OAuth, explorer relay, v2 games and state, health)
 │   │   ├── middleware/        # JWT auth middleware
 │   │   ├── models/           # Data structures
 │   │   ├── repository/       # Database access (interfaces + pgx + mocks)
@@ -138,19 +129,15 @@ kumquat/
 │   ├── nginx.conf            # Nginx config (dev)
 │   ├── nginx.prod.conf       # Nginx config (production, TLS)
 │   └── src/
-│       ├── features/         # Feature modules (auth, dashboard, repertoire, training, games,
-│       │                     #   game-analysis, analyse-tab, analyse-import, explore, profile,
-│       │                     #   landing, not-found)
+│       ├── features/openings # The app: Home, repertoire tree, Check, Review (see its README)
 │       ├── services/         # API client & Stockfish WASM bridge
 │       ├── shared/           # Shared components, hooks, utils
 │       ├── stores/           # Zustand state stores
 │       ├── test/             # Test utilities and setup
 │       └── types/            # TypeScript types
-├── migrations/               # SQL schema migrations (001-003)
 ├── monitoring/               # Prometheus + Grafana configs
 ├── postgres/                 # Custom PostgreSQL configuration
 ├── scripts/                  # Backup, restore, SSL init scripts
-├── testdata/                 # Sample PGNs and repertoire seeds
 ├── docker-compose.yml        # Development
 ├── docker-compose.prod.yml   # Production (TLS, monitoring, isolated networks)
 └── docker-compose.prod.ghcr.yml  # Production with pre-built GHCR images (CD pipeline)
@@ -158,9 +145,9 @@ kumquat/
 
 ## Tech Stack
 
-- **Frontend:** React 19, TypeScript 5, Vite 5, Tailwind CSS 4, chess.js, Zustand, Axios, D3, Framer Motion, Lucide React
+- **Frontend:** React 19, TypeScript 5, Vite 5, Tailwind CSS 4, chess.js, Zustand, Axios, D3, Framer Motion
 - **Backend:** Go 1.25, Echo v4, pgx v5, notnil/chess, golang-jwt/jwt v5, testify
-- **Database:** PostgreSQL 17 with JSONB tree storage
+- **Database:** PostgreSQL 17
 - **Monitoring:** Prometheus + Grafana dashboards
 - **Testing:** Vitest + Testing Library (frontend), Go testing + testify + testcontainers (backend)
 - **Dev tools:** Mailhog (email testing), Air (Go hot reload)

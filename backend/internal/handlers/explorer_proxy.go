@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"errors"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -11,7 +12,6 @@ import (
 
 	"github.com/labstack/echo/v5"
 
-	"github.com/kumquat/backend/internal/repertoiretree"
 	"github.com/kumquat/backend/internal/repository"
 	"github.com/kumquat/backend/internal/services"
 )
@@ -44,7 +44,7 @@ func ExplorerProxyHandler(fetcher services.ExplorerRawFetcher, cache repository.
 		for name, value := range values {
 			keyed[name] = value
 		}
-		keyed.Set("fen", repertoiretree.NormalizeFEN(values.Get("fen")))
+		keyed.Set("fen", normalizeFEN(values.Get("fen")))
 		cacheKey := "proxy/" + database + "?" + keyed.Encode()
 		if payload, found, err := cache.Get(ctx, cacheKey); err == nil && found {
 			return c.Blob(http.StatusOK, "application/json", payload)
@@ -130,4 +130,40 @@ func explorerProxyQuery(c *echo.Context, database string) (url.Values, bool) {
 		values.Set(name, strings.Join(picked, ","))
 	}
 	return values, true
+}
+
+func mapFetchError(c *echo.Context, err error) error {
+	var rl *services.RateLimitedError
+	if errors.As(err, &rl) {
+		return c.JSON(http.StatusTooManyRequests, map[string]any{
+			"error":             "Lichess rate limit reached",
+			"code":              "rate_limited",
+			"retryAfterSeconds": rl.RetryAfterSeconds,
+		})
+	}
+	if errors.Is(err, services.ErrExplorerUnauthorized) {
+		return c.JSON(http.StatusForbidden, map[string]string{
+			"error": "Lichess token rejected; please reconnect your Lichess account",
+			"code":  "lichess_token_invalid",
+		})
+	}
+	if errors.Is(err, services.ErrExplorerUnavailable) {
+		return c.JSON(http.StatusBadGateway, map[string]string{
+			"error": "Lichess Explorer is unavailable; try again later",
+			"code":  "upstream_unavailable",
+		})
+	}
+	slog.Error("opening explorer fetch failed", "error", err)
+	return c.JSON(http.StatusBadGateway, map[string]string{
+		"error": "Failed to fetch opening data",
+		"code":  "upstream_error",
+	})
+}
+
+func normalizeFEN(fen string) string {
+	parts := strings.Fields(fen)
+	if len(parts) >= 4 {
+		return strings.Join(parts[:4], " ")
+	}
+	return fen
 }
