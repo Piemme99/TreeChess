@@ -64,7 +64,9 @@ Vocabulary (opening tree, deficit, priority, points to gain): `CONTEXT.md`.
   priority if proven on the whole history *and still current* (played, not back at
   average over 12 months), or proven on the last 12 months. All are weighed on the
   points lost over the last 12 months. A period selector was tried and removed.
-- **Impact bar, not a number**: "points to gain" only serves ranking.
+- **Impact bar, not a number**: "points to gain" only serves ranking. The figure shown is the
+  score on the line against the player's average ("43% · avg 53%"): "−4 pts" read as nothing,
+  and it is shrunk on small samples so it is not the points actually lost.
 - **The flame graph is pruned** (prototype of 2026-10-18, "Pruned" chosen over "player rows
   only" and "heat map"): lines too thin to read at the current zoom fold into one hatched
   "…" tile per parent, rows are not drawn once they cover less than 40% of the width, and
@@ -278,7 +280,7 @@ the POC replays PMG's fixture as if it came in.
 - **Review due**: hero = "Review", "5 lines" → **"Start"**.
 - **Else**: hero = weak opening 1 → "Work on it".
 
-Rows under the hero: "To settle · 6", "Review · 5 lines", "Weak openings · Queen's Pawn Game −10 pts" (expands).
+Rows under the hero: "To settle · 6", "Review · 5 lines", "Weak openings · Queen's Pawn Game 41%" (expands).
 
 ### Screen 3 — Check (use 2)
 

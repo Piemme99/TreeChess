@@ -4,6 +4,7 @@ import { Link } from 'react-router';
 import { useOpeningTable } from '../../../shared/hooks/useOpeningName';
 import { resolveOpening, type OpeningTable } from '../../../shared/utils/openings';
 import type { CheckedGame } from '../checks/checkedGame';
+import { formatPercent } from '../flame/format';
 import { JUDGEMENT_MARK } from '../domain/judgement';
 import { figurineLine, figurineMove } from '../domain/notation';
 import { buildOpeningTree, type OpeningTree } from '../domain/openingTree';
@@ -209,11 +210,11 @@ function PriorityList({ priorities, table, href, workedOf, lived }: {
             <span className="flex items-baseline gap-2">
               <span className="text-[16px] font-bold leading-tight">{openingName(table, priority.path)}</span>
               <span className="ml-auto whitespace-nowrap text-[13px] font-semibold" style={{ color: COLOURS.terracotta }}>
-                −{Math.round(priority.pointsToGain)} pts
+                {formatPercent(priority.score)}
               </span>
             </span>
             <span className="text-[13px]" style={{ color: COLOURS.leafSoft }}>
-              {priority.side === 'w' ? 'White' : 'Black'} · {figurineLine(priority.path)} · {priority.games} games
+              {priority.side === 'w' ? 'White' : 'Black'} · {figurineLine(priority.path)} · {priority.games} games · avg {formatPercent(priority.average)}
             </span>
             <span className="h-1.5 overflow-hidden rounded-full" style={{ background: COLOURS.sand }}>
               <motion.span className="block h-full rounded-full" style={{ background: COLOURS.terracotta }} initial={{ width: 0 }} animate={{ width: `${(priority.pointsToGain / heaviest) * 100}%` }} transition={ZOOM} />
@@ -248,7 +249,7 @@ function WeakOpenings(props: Parameters<typeof PriorityList>[0]) {
       <button type="button" aria-expanded={open} onClick={() => setOpen(!open)} className="flex min-h-12 items-center gap-3 px-4 text-left text-[15px] focus-visible:outline-2">
         <span className="shrink-0 font-bold">Weak openings</span>
         <span className="ml-auto min-w-0 truncate" style={{ color: COLOURS.leafSoft }}>
-          {open ? `${props.priorities.length}` : `${openingName(props.table, first.path)} −${Math.round(first.pointsToGain)} pts`}
+          {open ? `${props.priorities.length}` : `${openingName(props.table, first.path)} ${formatPercent(first.score)}`}
         </span>
         <span aria-hidden="true">{open ? '▴' : '▾'}</span>
       </button>

@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import { useOpeningName } from '../../../shared/hooks/useOpeningName';
 import { figurineMove, formatLine } from '../domain/notation';
 import type { Priority } from '../domain/priorities';
+import { formatPercent } from '../flame/format';
 import { replayLine } from '../position/replay';
 import { SPRING, COLOURS, raised, ZOOM } from '../workshop/theme';
 
@@ -97,7 +98,7 @@ function Ticket({ priority, rank, share, selected, onSelect, onPoint }: TicketPr
         </span>
         <span className="line-clamp-3 min-h-[2.5em] text-[14px] leading-tight font-semibold">{opening?.name ?? 'Unnamed line'}</span>
         <span className="text-[13px]" style={{ opacity: 0.75 }}>
-          {figurineMove(priority.path[last - 1], last)} · −{Math.round(priority.pointsToGain)} pts
+          {figurineMove(priority.path[last - 1], last)} · {formatPercent(priority.score)} (avg {formatPercent(priority.average)})
         </span>
         <span className="sr-only">{formatLine(priority.path)}</span>
         <span

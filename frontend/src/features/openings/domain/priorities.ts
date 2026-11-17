@@ -7,6 +7,8 @@ export interface Priority {
   side: Side;
   path: readonly string[];
   games: number;
+  score: number;
+  average: number;
   pointsToGain: number;
 }
 
@@ -50,11 +52,14 @@ function isStillCurrent(line: Priority, recent: OpeningTree): boolean {
 
 function recentCost(line: Priority, recent: OpeningTree): Priority {
   const recentLine = nodeAt(recent, line.path);
-  if (!recentLine) return { ...line, games: 0, pointsToGain: 0 };
+  const average = playerAverage(recent);
+  if (!recentLine) return { ...line, games: 0, score: 0, average, pointsToGain: 0 };
   return {
     ...line,
     games: recentLine.games,
-    pointsToGain: deficit(recentLine, playerAverage(recent)) * recentLine.games,
+    score: scoreRate(recentLine),
+    average,
+    pointsToGain: deficit(recentLine, average) * recentLine.games,
   };
 }
 
@@ -70,6 +75,8 @@ export function weakLines(tree: OpeningTree): Priority[] {
       side: tree.side,
       path,
       games: node.games,
+      score: scoreRate(node),
+      average,
       pointsToGain: deficit(node, average) * node.games,
     });
   });
