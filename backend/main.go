@@ -52,6 +52,7 @@ type appServices struct {
 	explorerProxyHandler    echo.HandlerFunc
 	importHandler           *handlers.ImportHandler
 	dashboardHandler        *handlers.DashboardHandler
+	playedGames             *handlers.PlayedGames
 }
 
 // buildServices constructs the full dependency graph (repositories, services and
@@ -145,7 +146,15 @@ func buildServices(cfg config.Config, db *repository.DB) *appServices {
 		explorerProxyHandler:    handlers.ExplorerProxyHandler(explorerSvc, openingCacheRepo, userRepo, cfg.LichessExplorerCacheTTL),
 		importHandler:           importHandler,
 		dashboardHandler:        handlers.NewDashboardHandler(dashboardSvc, repertoireSvc),
-		categorySvc:             categorySvc,
+		playedGames: handlers.NewPlayedGames(
+			services.NewPlayedGameImportService(
+				repository.NewPostgresPlayedGameRepo(db.Pool),
+				// Pas de délai global : l'export d'un historique se lit en flux pendant plusieurs minutes.
+				services.NewLichessGameExport("https://lichess.org/api", &http.Client{}),
+			),
+			userRepo,
+		),
+		categorySvc: categorySvc,
 	}
 }
 
@@ -286,6 +295,11 @@ func registerRoutes(e *echo.Echo, db *repository.DB, svc *appServices) {
 	protected.POST("/api/imports/validate-pgn", svc.importHandler.ValidatePGNHandler)
 	protected.POST("/api/imports/validate-move", svc.importHandler.ValidateMoveHandler)
 	protected.GET("/api/imports/legal-moves", svc.importHandler.GetLegalMovesHandler)
+
+	// v2 : les parties Lichess du joueur, importées une fois puis lues par toutes les pages.
+	heavyOps.POST("/api/v2/games/import", svc.playedGames.StartImport)
+	protected.GET("/api/v2/games/import", svc.playedGames.ImportStatus)
+	protected.GET("/api/v2/games", svc.playedGames.List)
 
 	// Study Import API
 	protected.GET("/api/studies/preview", svc.studyImportHandler.PreviewStudyHandler)

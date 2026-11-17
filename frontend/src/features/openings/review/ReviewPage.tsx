@@ -6,10 +6,9 @@ import { figurineLine, figurineMove } from '../domain/notation';
 import type { Side } from '../domain/playedGame';
 import { positionKey } from '../domain/repertoire';
 import { acceptedMoves, hasDueAhead, nextReply, planLine } from '../domain/review';
-import { playedGamesFixture } from '../fixtures/playedGames';
 import { replayLine } from '../position/replay';
 import { liveGames } from '../checks/decisions';
-import { REPLAY_FIRST_DAY } from '../replay/replaySetup';
+import { useSource } from '../source/useSource';
 import { useRepertoires } from '../replay/useRepertoires';
 import { useReplayDay } from '../replay/useReplayDay';
 import { TaskBar, TaskDone } from '../workshop/Task';
@@ -34,11 +33,12 @@ interface Line {
 export function ReviewPage() {
   useWorkshopFont();
   // Pas de séance ici : les verdicts du moteur sur les écarts n'y servent pas.
-  const replay = useReplayDay(playedGamesFixture, REPLAY_FIRST_DAY);
-  const { repertoires } = useRepertoires(playedGamesFixture);
+  const source = useSource();
+  const replay = useReplayDay(source.games, source.firstDay, source.replay);
+  const { repertoires } = useRepertoires(source.games, source.start);
   const today = replay.day;
-  const lived = useMemo(() => liveGames(playedGamesFixture, repertoires, REPLAY_FIRST_DAY, today), [repertoires, today]);
-  const review = useReview(playedGamesFixture, repertoires, lived, today);
+  const lived = useMemo(() => liveGames(source.games, repertoires, source.firstDay, today), [source, repertoires, today]);
+  const review = useReview(source.games, repertoires, lived, today, source.start);
   const [line, setLine] = useState<Line | null>(null);
   const [exhausted, setExhausted] = useState(false);
   const [results, setResults] = useState<{ clean: number; lines: number; missed: Set<string> }>({ clean: 0, lines: 0, missed: new Set() });

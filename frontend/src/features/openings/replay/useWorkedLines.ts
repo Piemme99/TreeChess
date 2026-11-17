@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { Side } from '../domain/playedGame';
-
-const STORAGE = 'kumquat.v2.worked';
+import { storageKey } from '../workshop/storage';
 
 /** Une priorité sur laquelle le joueur a accepté un ajout : la ligne est travaillée à partir de ce jour. */
 export interface WorkedLine {
@@ -11,9 +10,9 @@ export interface WorkedLine {
 }
 
 export function useWorkedLines() {
-  const [worked, setWorked] = useState<readonly WorkedLine[]>(() => JSON.parse(localStorage.getItem(STORAGE) ?? '[]') as WorkedLine[]);
+  const [worked, setWorked] = useState<readonly WorkedLine[]>(() => JSON.parse(localStorage.getItem(storageKey('worked')) ?? '[]') as WorkedLine[]);
 
-  useEffect(() => localStorage.setItem(STORAGE, JSON.stringify(worked)), [worked]);
+  useEffect(() => localStorage.setItem(storageKey('worked'), JSON.stringify(worked)), [worked]);
 
   return {
     worked,

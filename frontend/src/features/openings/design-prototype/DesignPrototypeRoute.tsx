@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { useSearchParams } from 'react-router';
 import { OpeningsPage } from '../OpeningsPage';
+import { SourceGate } from '../source/SourceContext';
 import { ClubhouseVariant } from './ClubhouseVariant';
 import { ClubVariant } from './ClubVariant';
 import { PrototypeSwitcher } from './PrototypeSwitcher';
@@ -34,7 +35,13 @@ function useVariantFonts() {
 export function DesignPrototypeRoute() {
   const [searchParams, setSearchParams] = useSearchParams();
   const variant = searchParams.get('variant');
-  if (!variant || variant === 'C') return <OpeningsPage />;
+  if (!variant || variant === 'C') {
+    return (
+      <SourceGate>
+        <OpeningsPage />
+      </SourceGate>
+    );
+  }
   return <Variant variant={variant} onChange={(key) => setSearchParams(key === 'C' ? {} : { variant: key }, { replace: true })} />;
 }
 

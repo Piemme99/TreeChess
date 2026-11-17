@@ -315,15 +315,15 @@ The real import, practice, the score comparison of worked lines.
 Dev routes, PMG's fixture as the imported history, the replay clock as time: `/dev/home` (import on the first
 visit, then Home), `/dev/review`, `/dev/tree` (Repertoire, or a task with `?task=`). Published under `/v2/`.
 
-## Import (path, to validate with PMG, 2026-11-17)
+## Import (PMG, 2026-11-17: Lichess only for now)
 
 Why: every visitor sees PMG's games, replayed day by day. The import replaces them with the player's own
 games, stored on the server; with the decisions stored there too (brick 3), v1 can be deleted.
 
 Facts: the fixture is PMG's **chess.com** history (blitz and rapid, 5 654 games, May 2023 to Aug 2026, first 80
 plies). On Lichess PMG has 855 games (287 bullet, 375 blitz, 183 rapid). The account is Lichess (OAuth, needed by
-the explorer relay). v1 already fetches both: `services/lichess_service.go` (games export) and
-`services/chesscom_service.go` (public monthly archives, spaced to avoid 429s).
+the explorer relay). PMG chose Lichess only for now; chess.com (where his history is) can come later as a second
+source of the same table.
 
 ### Screen 1 — Sign in (signed-out visitor)
 
@@ -333,14 +333,14 @@ the browser), unchanged.
 
 ### Screen 2 — Your games (first visit after sign-in)
 
-The Lichess account is filled in ("Lichess · Piemme78 · 558 blitz and rapid games"); a **chess.com username**
-field, optional. One button, **"Import"**. Kept: standard chess, blitz, rapid and classical (bullet left out, as
+The Lichess account is filled in ("Lichess · Piemme78"). One button, **"Import"**. Kept: standard chess, blitz, rapid and classical (bullet left out, as
 in the fixture: too fast to follow a preparation), the first 80 plies.
 
 ### Screen 3 — Import running
 
 "Importing your games… 1 240", the count growing. The server does the work: leaving the page does not stop it,
-coming back shows where it is. About a minute for 5 000 games. At the end, Home in its first-day state
+coming back shows where it is. PMG's 558 Lichess games took 28 s (`GET /api/games/user`, NDJSON, with the
+account's token). At the end, Home in its first-day state
 ("Weak openings"), built from the games of the last 12 months as today.
 
 ### Later visits
@@ -350,10 +350,11 @@ hero card. No replay for a signed-in player: "Next day" and "Reset" stay in the 
 
 ### Bricks
 
-1. **Import and store**: `v2_games` table (user, source, source game id unique, side, SAN moves, score, played
-   at), an import job per user with its progress, `GET /api/v2/games`; screens 1–3; signed-in pages read their
-   games from the server, the demo keeps the fixture. Decisions, additions, review and worked lines stay in the
-   browser for now.
+1. **Import and store** (done): `played_games` and `played_game_imports` tables, `POST|GET /api/v2/games/import`,
+   `GET /api/v2/games` (`backend/internal/services/played_game_import.go`); screens 1–3; pages read their games
+   through `source/` (imported games, or the demo fixture with its replay). The repertoire is born the day of the
+   import from every game up to it. Decisions, additions, review and worked lines stay in the browser, one set per
+   source (`workshop/storage.ts`).
 2. **New games at each visit** (the `since` of both APIs), "new" meaning since the last Check.
 3. **Decisions on the server** (additions, settled and ignored games, review boxes, worked lines), then v1
    removal (`CLAUDE.md`).
