@@ -73,7 +73,7 @@ func SetupTestServer(t *testing.T, repos *Repos) *TestServer {
 	authSvc.WithRefreshTokens(repos.RefreshToken)
 	authSvc.WithPasswordReset(repos.PasswordReset, emailCapture, 1)
 
-	e := echo.New()
+	e := echo.NewWithConfig(echo.Config{NoGroupAutoRegister404Routes: true})
 
 	authHandler := handlers.NewAuthHandler(authSvc, false)
 
