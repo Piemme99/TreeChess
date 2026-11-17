@@ -10,10 +10,14 @@ const SAVE_DELAY = 300;
 // Chaque source de parties a ses décisions : la démo garde les clés d'avant, un compte importé a les siennes.
 let scope = '';
 let server: Map<string, string> | null = null;
-const pending = new Map<string, number>();
+const pending = new Map<string, { timer: number; value: string }>();
 
 export function setStorageScope(sourceId: string, saved?: Map<string, string>) {
-  scope = sourceId === 'demo' ? '' : `${sourceId}.`;
+  const next = sourceId === 'demo' ? '' : `${sourceId}.`;
+  // Les parties d'un compte se relisent (double chargement, nouvelles parties) avec ce que le serveur avait au
+  // moment de la lecture : dans un même onglet, ce que la page a écrit depuis est plus récent.
+  if (saved && server && saved !== server && next === scope) for (const [key, value] of server) saved.set(key, value);
+  scope = next;
   server = saved ?? null;
 }
 
@@ -34,25 +38,24 @@ export function writeStored(key: string, value: string) {
   const known = server!.get(key);
   if (known === value || (known !== undefined && sameJson(known, value))) return;
   server!.set(key, value);
-  window.clearTimeout(pending.get(key));
-  pending.set(key, window.setTimeout(() => save(key), SAVE_DELAY));
+  window.clearTimeout(pending.get(key)?.timer);
+  pending.set(key, { value, timer: window.setTimeout(() => save(key, value), SAVE_DELAY) });
 }
 
-function save(key: string, attempt = 0) {
+function save(key: string, value: string, attempt = 0) {
   pending.delete(key);
-  const value = server?.get(key);
-  if (value === undefined) return;
+  const from = scope;
   api.put(`/v2/state/${key}`, value, { headers: { 'Content-Type': 'application/json' } }).catch(() => {
-    if (attempt < 3) pending.set(key, window.setTimeout(() => save(key, attempt + 1), 2000 * (attempt + 1)));
+    // Ne réessayer que si rien de plus récent n'a été écrit depuis, et pour le même compte.
+    const current = attempt < 3 && scope === from && !pending.has(key) && server?.get(key) === value;
+    if (current) pending.set(key, { value, timer: window.setTimeout(() => save(key, value, attempt + 1), 2000 * (attempt + 1)) });
   });
 }
 
 /** Une décision prise juste avant de fermer la page part quand même. */
 export function flushStored() {
-  for (const [key, timer] of pending) {
+  for (const [key, { timer, value }] of pending) {
     window.clearTimeout(timer);
-    const value = server?.get(key);
-    if (value === undefined) continue;
     void fetch(`${API_BASE}/v2/state/${key}`, {
       method: 'PUT',
       keepalive: true,
