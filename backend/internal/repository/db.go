@@ -218,6 +218,11 @@ func (db *DB) runMigrations() error {
 			updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 			finished_at TIMESTAMPTZ
 		)`,
+		// L'ordre d'arrivée garde stable le rang d'une partie quand un import suivant en ajoute le même jour.
+		`ALTER TABLE played_games ADD COLUMN IF NOT EXISTS seq BIGSERIAL`,
+		// Le jour du premier import réussi : le répertoire naît ce jour-là, les imports suivants n'y touchent pas.
+		`ALTER TABLE played_game_imports ADD COLUMN IF NOT EXISTS first_done_at TIMESTAMPTZ`,
+		`UPDATE played_game_imports SET first_done_at = finished_at WHERE first_done_at IS NULL AND status = 'done'`,
 		`CREATE TABLE IF NOT EXISTS game_fingerprints (
 			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 			user_id UUID NOT NULL REFERENCES users(id),

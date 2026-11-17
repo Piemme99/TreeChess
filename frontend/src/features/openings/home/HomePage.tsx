@@ -38,7 +38,7 @@ const SHOWN_PRIORITIES = 3;
 /** Ce qui attend le joueur (docs/flow/target.html) : une carte en avant, la plus urgente, les autres tâches en lignes. */
 export function HomePage() {
   useWorkshopFont();
-  const { state, startImport, tryDemo, leaveDemo } = useGameSource();
+  const { state, syncing, startImport, tryDemo, leaveDemo } = useGameSource();
   if (state.kind === 'loading') return <PageSkeleton />;
   return (
     <MotionConfig reducedMotion="user">
@@ -47,7 +47,7 @@ export function HomePage() {
         {state.kind === 'to-import' && <ImportScreen username={state.username} state={state.state} onImport={() => void startImport()} />}
         {state.kind === 'ready' && (
           <SourceProvider source={state.source}>
-            <Home onForget={leaveDemo} />
+            <Home onForget={leaveDemo} syncing={syncing} />
           </SourceProvider>
         )}
       </div>
@@ -55,10 +55,10 @@ export function HomePage() {
   );
 }
 
-function Home({ onForget }: { onForget: () => void }) {
+function Home({ onForget, syncing }: { onForget: () => void; syncing: boolean }) {
   const pathOf = useV2Path();
   const { source, replay, known, lived, repertoires, steps, judging, forgetIgnored, forgetAdditions } = useReplayedSession();
-  const review = useReview(source.games, repertoires, lived, replay.day, source.start);
+  const review = useReview(source.games, repertoires, lived, replay.today, source.start);
   const { worked, clear: forgetWorked } = useWorkedLines();
   const table = useOpeningTable();
   const priorities = usePriorities(known, replay.day);
@@ -90,6 +90,11 @@ function Home({ onForget }: { onForget: () => void }) {
     <>
       <PageHeader replay={{ ...replay, reset }} />
       <main className="mx-auto flex max-w-[34rem] flex-col gap-4 px-4 pt-5">
+        {syncing && (
+          <p role="status" className="-mb-2 px-1 text-[13px] font-semibold" style={{ color: COLOURS.leafSoft }}>
+            Looking for new games on Lichess…
+          </p>
+        )}
         {hero === 'first' && (
           <Hero title="Weak openings" facts={<Facts games={known.length} repertoires={repertoires} />}>
             <PriorityList priorities={priorities.slice(0, SHOWN_PRIORITIES)} table={table} href={workOn} workedOf={workedOf} lived={lived} />

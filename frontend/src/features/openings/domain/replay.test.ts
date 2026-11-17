@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { PlayedGame } from './playedGame';
-import { dayBefore, gameDaysAfter, gamesUntil } from './replay';
+import { dayBefore, gameDaysAfter, gamesUntil, lastDayPlayed } from './replay';
 
 const on = (playedAt: string): PlayedGame => ({ side: 'w', moves: ['e4'], score: 1, playedAt });
 
@@ -23,5 +23,15 @@ describe('gameDaysAfter', () => {
 describe('dayBefore', () => {
   it('steps back across a year', () => {
     expect(dayBefore('2026-01-01')).toBe('2025-12-31');
+  });
+});
+
+describe('lastDayPlayed', () => {
+  it('makes the games of the last day played since the import the new ones', () => {
+    expect(lastDayPlayed([on('2026-11-10'), on('2026-11-18'), on('2026-11-20')], '2026-11-17')).toBe('2026-11-20');
+  });
+
+  it('stays on the import day while nothing was played since', () => {
+    expect(lastDayPlayed([on('2026-11-10')], '2026-11-17')).toBe('2026-11-17');
   });
 });

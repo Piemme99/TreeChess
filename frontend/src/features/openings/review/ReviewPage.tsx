@@ -36,8 +36,8 @@ export function ReviewPage() {
   const source = useSource();
   const replay = useReplayDay(source.games, source.firstDay, source.replay);
   const { repertoires } = useRepertoires(source.games, source.start);
-  const today = replay.day;
-  const lived = useMemo(() => liveGames(source.games, repertoires, source.firstDay, today), [source, repertoires, today]);
+  const today = replay.today;
+  const lived = useMemo(() => liveGames(source.games, repertoires, source.firstDay, replay.day), [source, repertoires, replay.day]);
   const review = useReview(source.games, repertoires, lived, today, source.start);
   const [line, setLine] = useState<Line | null>(null);
   const [exhausted, setExhausted] = useState(false);

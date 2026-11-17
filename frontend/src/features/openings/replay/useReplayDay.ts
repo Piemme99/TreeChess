@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { PlayedGame } from '../domain/playedGame';
-import { gameDaysAfter } from '../domain/replay';
+import { gameDaysAfter, lastDayPlayed } from '../domain/replay';
 import { storageKey } from '../workshop/storage';
 
 export interface ReplayDay {
@@ -9,13 +9,15 @@ export interface ReplayDay {
   index: number;
   total: number;
   gamesThatDay: number;
+  /** Le jour réel des révisions : celui du rejeu dans la démo, la date du jour pour des parties importées. */
+  today: string;
   next: (() => void) | undefined;
   reset: (() => void) | undefined;
 }
 
 /**
  * Le jour vécu du rejeu : `start` est la veille du premier jour rejoué, le jour où naît le répertoire. Sans rejeu
- * (parties importées), c'est aujourd'hui.
+ * (parties importées), c'est le dernier jour joué depuis l'import : ses parties sont les nouvelles.
  */
 export function useReplayDay(games: readonly PlayedGame[], start: string, replayed = true): ReplayDay {
   const days = useMemo(() => gameDaysAfter(games, start), [games, start]);
@@ -26,7 +28,18 @@ export function useReplayDay(games: readonly PlayedGame[], start: string, replay
 
   useEffect(() => localStorage.setItem(storageKey('replay-day'), day), [day]);
 
-  if (!replayed) return { day: new Date().toISOString().slice(0, 10), index: 0, total: 0, gamesThatDay: 0, next: undefined, reset: undefined };
+  if (!replayed) {
+    const last = lastDayPlayed(games, start);
+    return {
+      day: last,
+      index: days.length,
+      total: days.length,
+      gamesThatDay: days.length ? games.filter((game) => game.playedAt === last).length : 0,
+      today: new Date().toISOString().slice(0, 10),
+      next: undefined,
+      reset: undefined,
+    };
+  }
   const index = days.indexOf(day) + 1;
   const following = days[index];
   return {
@@ -34,6 +47,7 @@ export function useReplayDay(games: readonly PlayedGame[], start: string, replay
     index,
     total: days.length,
     gamesThatDay: index ? games.filter((game) => game.playedAt === day).length : 0,
+    today: day,
     next: following ? () => setDay(following) : undefined,
     reset: index ? () => setDay(start) : undefined,
   };
