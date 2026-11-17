@@ -1,6 +1,6 @@
 import { MotionConfig, motion } from 'framer-motion';
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Link, useSearchParams } from 'react-router';
+import { useMemo, useState, type ReactNode } from 'react';
+import { Link } from 'react-router';
 import { useOpeningTable } from '../../../shared/hooks/useOpeningName';
 import { resolveOpening, type OpeningTable } from '../../../shared/utils/openings';
 import type { CheckedGame } from '../checks/checkedGame';
@@ -15,9 +15,8 @@ import { adherence, isThrough, type Adherence } from '../domain/worked';
 import { playedGamesFixture } from '../fixtures/playedGames';
 import { replayLine } from '../position/replay';
 import { formatShortDay } from '../replay/formatDay';
-import { ReplayBar } from '../replay/ReplayBar';
 import { useWorkedLines, type WorkedLine } from '../replay/useWorkedLines';
-import { useReview } from '../review/useReview';
+import { REVIEW_LINES, useReview } from '../review/useReview';
 import type { SessionStep } from '../session/steps';
 import { useReplayedSession } from '../session/useReplayedSession';
 import { PageHeader } from '../workshop/PageHeader';
@@ -34,34 +33,27 @@ const RECENT_MONTHS = 12;
 const MAX_PRIORITIES = 5;
 const SHOWN_PRIORITIES = 3;
 
-/** Ce qui attend le joueur (README, « Path by use ») : une carte en avant, la plus urgente, le reste en lignes. */
-export function TodayPage() {
+/** Ce qui attend le joueur (docs/flow/target.html) : une carte en avant, la plus urgente, les autres tâches en lignes. */
+export function HomePage() {
   useWorkshopFont();
   const [imported, setImported] = useImported();
   return (
     <MotionConfig reducedMotion="user">
       <div className="min-h-screen pb-20" style={{ fontFamily: FONT_FAMILY, background: COLOURS.cream, color: COLOURS.leaf }}>
-        {imported ? <Today onForget={() => setImported(false)} /> : <ImportScreen onDone={() => setImported(true)} />}
+        {imported ? <Home onForget={() => setImported(false)} /> : <ImportScreen onDone={() => setImported(true)} />}
       </div>
     </MotionConfig>
   );
 }
 
-function Today({ onForget }: { onForget: () => void }) {
+function Home({ onForget }: { onForget: () => void }) {
   const pathOf = useV2Path();
   const { replay, known, lived, repertoires, steps, judging, forgetIgnored, forgetAdditions } = useReplayedSession();
   const review = useReview(playedGamesFixture, repertoires, lived, replay.day);
   const { worked, clear: forgetWorked } = useWorkedLines();
   const table = useOpeningTable();
   const priorities = usePriorities(known, replay.day);
-  const { toast, show, close } = useToast();
-  const [params, setParams] = useSearchParams();
-  useEffect(() => {
-    const done = params.get('done');
-    if (done === null) return;
-    show({ text: `Check done · ${done} settled` });
-    setParams({}, { replace: true });
-  }, [params, setParams, show]);
+  const { toast, close } = useToast();
 
   const reset = replay.reset && (() => {
     replay.reset!();
@@ -73,60 +65,57 @@ function Today({ onForget }: { onForget: () => void }) {
   });
 
   const tree = pathOf('tree');
-  const workOn = (line: { side: Side; path: readonly string[] }) => `${tree}?from=today&side=${line.side}&line=${encodeURIComponent(line.path.join(' '))}`;
-  const checkHref = `${tree}?from=today&session=1`;
+  const workOn = (line: { side: Side; path: readonly string[] }) => `${tree}?task=weak&side=${line.side}&line=${encodeURIComponent(line.path.join(' '))}`;
+  const checkHref = `${tree}?task=check`;
   const dayGames = replay.index ? lived.filter(({ game }) => game.playedAt === replay.day) : [];
   const stepOf = (checked: CheckedGame) => steps.find((step) => step.games.some((game) => game.id === checked.id));
   const openToday = dayGames.filter(stepOf).length;
   const waiting = steps.length;
   const due = review.due.w + review.due.b;
+  const lines = `${REVIEW_LINES} lines`;
   const workedOf = (priority: { side: Side; path: readonly string[] }) => worked.find((line) => line.side === priority.side && line.path.join(' ') === priority.path.join(' '));
 
   const hero: 'first' | 'games' | 'review' | 'work' = !replay.index ? 'first' : openToday ? 'games' : due ? 'review' : 'work';
 
   return (
     <>
-      <PageHeader>
-        <ReplayBar replay={{ ...replay, reset }} />
-      </PageHeader>
+      <PageHeader replay={{ ...replay, reset }} />
       <main className="mx-auto flex max-w-[34rem] flex-col gap-4 px-4 pt-5">
         {hero === 'first' && (
-          <Hero title="Where you lose points" facts={<Facts games={known.length} repertoires={repertoires} />}>
+          <Hero title="Weak openings" facts={<Facts games={known.length} repertoires={repertoires} />}>
             <PriorityList priorities={priorities.slice(0, SHOWN_PRIORITIES)} table={table} href={workOn} workedOf={workedOf} lived={lived} />
           </Hero>
         )}
         {hero === 'games' && (
           <Hero title={`${dayGames.length} new ${dayGames.length === 1 ? 'game' : 'games'}`} facts={judging ? 'The engine is judging your moves…' : `${waiting} to settle${waiting > openToday ? `, ${waiting - openToday} from earlier days` : ''}`}>
+            {/* Le bouton avant la liste : avec dix parties, il passerait sous l'écran du téléphone. */}
+            {!judging && waiting > 0 && <Action to={checkHref}>Check them</Action>}
             <ul className="flex flex-col">
               {dayGames.map((checked) => (
                 <GameLine key={checked.id} checked={checked} step={stepOf(checked)} table={table} worked={worked} lived={lived} />
               ))}
             </ul>
-            <Action to={checkHref}>Check them</Action>
           </Hero>
         )}
         {hero === 'review' && (
-          <Hero title={`${due} ${due === 1 ? 'position' : 'positions'} to review`} facts={`${review.due.w} as White · ${review.due.b} as Black`}>
-            <Action to={pathOf('review')}>Review</Action>
+          <Hero title="Review" facts={`${lines}, played from your repertoire. The app plays their moves; you play yours.`}>
+            <Action to={pathOf('review')}>Start</Action>
           </Hero>
         )}
         {hero === 'work' && priorities[0] && (
-          <Hero title="Work on your weakest opening" facts="Nothing to check, nothing due">
+          <Hero title="Weak openings" facts="Nothing to check, nothing due">
             <PriorityList priorities={priorities.slice(0, 1)} table={table} href={workOn} workedOf={workedOf} lived={lived} />
           </Hero>
         )}
 
         <ul className="flex flex-col gap-2">
-          {hero !== 'games' && dayGames.length > 0 && <Row label="Today's games" figure={`${dayGames.length} checked ✓`} />}
-          {hero !== 'games' && waiting > 0 && <Row label="To settle" figure={`${waiting} waiting`} to={checkHref} />}
-          {hero !== 'review' && due > 0 && <Row label="Review" figure={`${due} due`} to={pathOf('review')} />}
-          {hero !== 'first' && priorities.length > 0 && (
+          {hero !== 'games' && dayGames.length > 0 && <Row label="New games" figure={`${dayGames.length} checked ✓`} />}
+          {hero !== 'games' && waiting > 0 && <Row label="To settle" figure={`${waiting}`} to={checkHref} />}
+          {hero !== 'review' && due > 0 && <Row label="Review" figure={lines} to={pathOf('review')} />}
+          {hero !== 'first' && hero !== 'work' && priorities.length > 0 && (
             <WeakOpenings priorities={priorities} table={table} href={workOn} workedOf={workedOf} lived={lived} />
           )}
         </ul>
-        <Link to={pathOf('openings')} className="hidden self-start text-[14px] font-semibold underline-offset-4 hover:underline sm:inline" style={{ color: COLOURS.leafSoft }}>
-          All your openings by result →
-        </Link>
       </main>
       <Toast toast={toast} onClose={close} />
     </>
@@ -265,12 +254,18 @@ function GameLine({ checked, step, table, worked, lived }: { checked: CheckedGam
   const name = openingName(table, game.moves.slice(0, Math.max(reached, 2)));
   const line = worked.find((candidate) => candidate.side === game.side && game.playedAt > candidate.since && isThrough(game, candidate.path));
   const mark = check.kind === 'left' && step?.verdict?.judgement ? JUDGEMENT_MARK[step.verdict.judgement] : '';
+  const played = check.kind === 'followed' ? '' : figurineMove(check.played, check.ply + 1);
+  // ! une erreur à trancher, ? un coup adverse sans réponse, · un écart qui n'attend rien, ✓ la préparation suivie.
   const [icon, colour, text] =
     check.kind === 'followed'
       ? ['✓', REPERTOIRE, check.plies ? `prep followed to move ${Math.ceil(check.plies / 2)}` : 'no prep here']
       : check.kind === 'left'
-        ? ['✗', COLOURS.terracotta, `you played ${figurineMove(check.played, check.ply + 1)}${mark}, not ${figurineMove(check.planned[0], check.ply + 1)}`]
-        : ['?', COLOURS.kumquatDeep, `new line ${figurineMove(check.played, check.ply + 1)}`];
+        ? step
+          ? ['!', COLOURS.terracotta, `you played ${played}${mark}, not ${figurineMove(check.planned[0], check.ply + 1)}`]
+          : ['·', COLOURS.leafSoft, `new move ${played}`]
+        : step
+          ? ['?', COLOURS.terracotta, `${played}, no answer yet`]
+          : ['·', COLOURS.leafSoft, `new line ${played}`];
   return (
     <li className="flex flex-col py-2" style={{ borderTop: `1px solid ${COLOURS.sand}` }}>
       <span className="flex items-baseline gap-2 text-[15px]">
@@ -281,7 +276,6 @@ function GameLine({ checked, step, table, worked, lived }: { checked: CheckedGam
           <span className="font-bold">{name}</span> <span style={{ color: COLOURS.leafSoft }}>· {game.side === 'w' ? 'White' : 'Black'} · {game.score === 1 ? 'won' : game.score === 0 ? 'lost' : 'draw'}</span>
           <span className="block text-[14px]">
             {text}
-            {check.kind !== 'followed' && !step && <span style={{ color: COLOURS.leafSoft }}> · nothing to do</span>}
           </span>
           {line && <WorkedTag line={line} adherence={adherence(lived, line)} />}
         </span>

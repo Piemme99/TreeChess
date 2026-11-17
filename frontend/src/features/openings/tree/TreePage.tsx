@@ -1,8 +1,8 @@
-import { MotionConfig, motion } from 'framer-motion';
-import { Link, useNavigate, useSearchParams } from 'react-router';
+import { MotionConfig } from 'framer-motion';
+import { useSearchParams } from 'react-router';
 import { replayLine } from '../position/replay';
 import { positionKey } from '../domain/repertoire';
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BuildSession } from '../checks/BuildSession';
 import { originAt, originOf, type BuildOrigin } from '../checks/useBuilder';
 import type { AddedMove, Addition } from '../domain/addition';
@@ -10,18 +10,17 @@ import { buildOpeningTree, isPlayerMove, type OpeningTree } from '../domain/open
 import { figurineLine, figurineMove } from '../domain/notation';
 import { gamesOfLastMonths } from '../domain/period';
 import type { PlayedGame, Side } from '../domain/playedGame';
-import { findPriorities, type Priority } from '../domain/priorities';
-import { ReplayBar } from '../replay/ReplayBar';
+import { findPriorities } from '../domain/priorities';
 import { REPLAY_START } from '../replay/replaySetup';
 import type { SessionStep } from '../session/steps';
 import { useReplayedSession } from '../session/useReplayedSession';
 import { PageHeader } from '../workshop/PageHeader';
+import { TaskBar, TaskDone } from '../workshop/Task';
 import { SideSwitch } from '../workshop/SideSwitch';
-import { COLOURS, FONT_FAMILY, raised, SPRING, tile } from '../workshop/theme';
+import { COLOURS, FONT_FAMILY } from '../workshop/theme';
 import { Toast } from '../workshop/Toast';
 import { useToast } from '../workshop/useToast';
 import { useWide } from '../workshop/useWide';
-import { useV2Path } from '../workshop/routes';
 import { useWorkedLines } from '../replay/useWorkedLines';
 import { storedSide, storeSide } from '../workshop/storedSide';
 import { useWorkshopFont } from '../workshop/useWorkshopFont';
@@ -42,19 +41,18 @@ interface Session {
   queue: readonly string[];
   /** Par étape traitée : réglée, ou remise à plus tard. */
   done: ReadonlyMap<string, 'settled' | 'skipped'>;
-  /** Arrêtée avant la fin : on montre quand même le bilan. */
-  ended?: boolean;
   /** Parties revenues à trancher parce que le joueur y a choisi un autre coup. */
   returned?: number;
 }
 
-/** POC (README, « the tree as the landing screen ») : le répertoire comme carte, à côté de l'aiguillage pour comparer. */
+/**
+ * Le répertoire, et les deux tâches qui s'y font (docs/flow/target.html) : `?task=check` tranche les positions
+ * une à une, `?task=weak&side=…&line=…` travaille une ouverture faible. Sans tâche, on parcourt et on étend.
+ */
 export function TreePage() {
   useWorkshopFont();
   const { replay, known, repertoires, steps, adoptions, judging, add, remove, ignore, unignore, forgetIgnored, forgetAdditions } = useReplayedSession();
   const { work } = useWorkedLines();
-  const pathOf = useV2Path();
-  const navigate = useNavigate();
   // Openings envoie une ligne à travailler par l'adresse : /dev/tree?side=b&line=d4 Nf6.
   const [params] = useSearchParams();
   const asked = useMemo(
@@ -68,9 +66,9 @@ export function TreePage() {
     asked.line.length ? { key: asked.line.join(' '), stamp: Date.now(), centre: true } : null,
   );
   const [session, setSession] = useState<Session | null>(null);
-  // Ouvert depuis Today : on y revient, et « Check them » y démarre la séance d'office.
-  const fromToday = params.get('from') === 'today';
-  const askedSession = fromToday && params.get('session') === '1';
+  const task = params.get('task') === 'check' ? 'check' : params.get('task') === 'weak' ? 'weak' : null;
+  // Le bilan d'une ouverture faible préparée, avant de passer à la suivante.
+  const [prepared, setPrepared] = useState<number | null>(null);
   const wide = useWide();
   const [building, setBuilding] = useState<{ origin: BuildOrigin; stepKey?: string; worked?: { side: Side; path: readonly string[] } } | null>(null);
   // Ce que « coup suivant » rejoue au téléphone : la ligne d'où l'on vient de reculer, comme sur Lichess.
@@ -110,8 +108,6 @@ export function TreePage() {
     const found = findNode(maps[target], key);
     if (!found) return;
     setLead('settle');
-    // Le bilan d'une séance finie s'efface dès qu'on va ailleurs.
-    setSession((active) => (active && (active.ended || !active.queue.some((k) => !active.done.has(k) && live.has(k))) ? null : active));
     setSide(target);
     setPaths((current) => ({ ...current, [target]: found.path }));
     setTrails((current) => ({ ...current, [target]: startsWith(current[target], found.path) ? current[target] : found.path }));
@@ -145,7 +141,7 @@ export function TreePage() {
 
   // La séance : les positions à trancher, la plus fréquente d'abord, une par une.
   const live = useMemo(() => new Map(steps.map((step) => [step.key, step])), [steps]);
-  const currentKey = session?.ended ? undefined : session?.queue.find((key) => !session.done.has(key) && live.has(key));
+  const currentKey = session?.queue.find((key) => !session.done.has(key) && live.has(key));
   const current = currentKey ? live.get(currentKey) : undefined;
   useEffect(() => {
     if (!current) return;
@@ -206,6 +202,7 @@ export function TreePage() {
     if (!building) return;
     const addition: Addition = { side: building.origin.side, addedAt: replay.day, moves };
     if (building.worked) work({ ...building.worked, since: replay.day });
+    if (building.worked && task === 'weak') setPrepared(moves.length);
     setPinned((current) => [...current, ...lines.map((line) => line.join(' '))]);
     const text = `${moves.length} ${moves.length === 1 ? 'move' : 'moves'} added to your repertoire`;
     const step = building.stepKey ? live.get(building.stepKey) : undefined;
@@ -219,7 +216,15 @@ export function TreePage() {
     const line0 = lines[0];
     const landing = line0 && findByPosition(maps[building.origin.side], positionKey(replayLine(line0).fens[line0.length]));
     const transposed = landing && landing.key !== line0.join(' ') ? landing : undefined;
-    show({ text: transposed ? `${text} · same position as ${figurineLine(transposed.path)}: shown there, linked from here` : text, undo: () => remove(addition) });
+    // Dans la tâche, le bilan remplace la carte : annuler y revient.
+    const inTask = building.worked !== undefined && task === 'weak';
+    show({
+      text: transposed && !inTask ? `${text} · same position as ${figurineLine(transposed.path)}: shown there, linked from here` : text,
+      undo: () => {
+        remove(addition);
+        if (inTask) setPrepared(null);
+      },
+    });
     // La ligne ajoutée se voit tout de suite, même trop fine pour l'arrivée.
     const line = transposed ? transposed.path : lines[0];
     if (line) {
@@ -303,7 +308,6 @@ export function TreePage() {
     replay.reset!();
     forgetIgnored();
     forgetAdditions();
-    setSession(null);
     build(null);
   });
   const before = useRef<ReadonlySet<string> | null>(null);
@@ -355,35 +359,19 @@ export function TreePage() {
     () => gamesOfLastMonths(known, RECENT_MONTHS, new Date(replay.day)).filter((game) => game.side === building?.origin.side),
     [known, replay.day, building?.origin.side],
   );
-  const first = steps.find((step) => step.side === side) ?? steps[0];
   const perSide = { w: steps.filter((step) => step.side === 'w').length, b: steps.filter((step) => step.side === 'b').length };
 
-  // Au téléphone, la séance finie se dit dans un toast : l'échiquier ne doit jamais disparaître.
-  const finished = Boolean(session && !current);
   const autoStarted = useRef(false);
   useEffect(() => {
     // Les écarts n'apparaissent qu'une fois jugés : la séance attend le moteur.
-    if (!askedSession || autoStarted.current || judging || !steps.length) return;
+    if (task !== 'check' || autoStarted.current || judging || !steps.length) return;
     autoStarted.current = true;
     startSession();
     // Une seule fois, dès que les étapes sont là.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [askedSession, judging, steps.length]);
-  useEffect(() => {
-    if (finished && fromToday) navigate(`${pathOf('today')}?done=${settled}`);
-    // Seule la fin de la séance compte.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [finished]);
-  useEffect(() => {
-    if (!finished || wide || fromToday) return;
-    setSession(null);
-    show({ text: `Session done · ${settled} settled${steps.length ? ` · ${steps.length} still to settle` : ''}` });
-    // Seule la fin de la séance compte.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [finished]);
-  const pane$ = session && !current && wide ? (
-    <Done settled={settled} skipped={skipped} returned={session.returned ?? 0} left={steps.length} onClose={() => setSession(null)} />
-  ) : building ? (
+  }, [task, judging, steps.length]);
+  const checkOver = task === 'check' && !judging && (session ? !current : !steps.length);
+  const pane$ = building ? (
     <BuildSession
         key={`${building.origin.start.join(' ')} ${building.stepKey ?? ''} ${building.origin.keep}`}
         origin={building.origin}
@@ -411,7 +399,7 @@ export function TreePage() {
     },
     onSkip: session && current && stepsHere.includes(current) ? () => skip(current) : undefined,
     priorityCount: priorities.length,
-    onNextPriority: pins.length > 1 && node.priority !== undefined ? () => goToPriority(node.priority! + 1) : undefined,
+    onNextPriority: task === 'weak' && pins.length > 1 && node.priority !== undefined ? () => goToPriority((node.priority! % pins.length) + 1) : undefined,
     onExtend: () => build({ origin: originAt(side, node.path, path) }),
     onPrepareFollows: priority
       ? (line: readonly string[]) => {
@@ -425,36 +413,48 @@ export function TreePage() {
     onJump: walk,
     onBack: path.length ? back : undefined,
   };
-  const nextPriority = pins.length ? () => goToPriority(node.priority !== undefined ? (node.priority % pins.length) + 1 : shownRank) : undefined;
-  const endSession = () => setSession((active) => active && { ...active, ended: true });
+  const header =
+    task === 'check' ? (
+      <TaskBar title="Check" progress={session && current ? `${position} of ${session.queue.length} · as ${current.side === 'w' ? 'White' : 'Black'}` : undefined} />
+    ) : task === 'weak' ? (
+      <TaskBar title="Weak opening" progress={priorities.length ? `${shownRank} of ${priorities.length}` : undefined} />
+    ) : (
+      <PageHeader replay={{ ...replay, reset, next: replay.next && nextDay }} />
+    );
+  const done = checkOver ? (
+    <TaskDone title={session ? (settled ? `${settled} settled` : 'Nothing settled') : 'Nothing to settle'}>
+      {skipped > 0 && <p>{skipped} skipped for later</p>}
+      {(session?.returned ?? 0) > 0 && <p>{session!.returned} {session!.returned === 1 ? 'game' : 'games'} left the repertoire again further on</p>}
+      <p>{steps.length ? `${steps.length} still to settle, marked in your repertoire.` : 'Come back after your next games.'}</p>
+    </TaskDone>
+  ) : prepared !== null ? (
+    <TaskDone
+      title={`${prepared} ${prepared === 1 ? 'move' : 'moves'} added`}
+      next={pins.length > 1 ? { label: 'Next weak opening', onClick: () => {
+        setPrepared(null);
+        goToPriority((shownRank % pins.length) + 1);
+      } } : undefined}
+    >
+      <p>Your next games through this line will tell if the work pays.</p>
+    </TaskDone>
+  ) : null;
 
   return (
     <MotionConfig reducedMotion="user">
       <div className={`min-h-screen pb-24`} style={{ fontFamily: FONT_FAMILY, background: COLOURS.cream, color: COLOURS.leaf }}>
-        <PageHeader>
-          <ReplayBar replay={{ ...replay, reset, next: replay.next && nextDay }} />
-        </PageHeader>
-        {wide ? (
+        {header}
+        {done ? (
+          <main className="px-4">{done}</main>
+        ) : wide ? (
           <main className="mx-auto flex max-w-[84rem] flex-col gap-4 px-8 pt-5">
-            {fromToday && <BackToToday href={pathOf('today')} />}
-            <div className="flex flex-wrap items-center gap-3">
-              <SideSwitch side={side} onChange={(next) => !building && setSide(next)} counts={perSide} />
-              <span className="ml-auto flex gap-2">
-                {session && current ? (
-                  <SessionBar index={position} total={session.queue.length} settled={position} side={current.side} onEnd={endSession} />
-                ) : (
-                  <Door onClick={steps.length ? startSession : undefined} title={steps.length ? `${steps.length} to settle` : 'Nothing to settle'} tone={steps.length ? 'terracotta' : 'plain'}>
-                    {first ? `${perSide.w} as White · ${perSide.b} as Black` : replay.next ? '“Next game day” brings games in' : 'All games replayed'}
-                  </Door>
-                )}
-                <Door onClick={nextPriority} title={priorities.length ? `Priority ${shownRank} of ${priorities.length}` : 'No priority'}>
-                  {priorities[shownRank - 1] ? <PriorityLabel priority={priorities[shownRank - 1]} /> : 'Nothing below your average'}
-                </Door>
-              </span>
-            </div>
+            {!task && (
+              <div className="flex flex-wrap items-center gap-3">
+                <SideSwitch side={side} onChange={(next) => !building && setSide(next)} counts={perSide} />
+              </div>
+            )}
             {/* Une seule géométrie : la carte garde sa largeur, le volet aussi, construction comprise. */}
             <div className="grid grid-cols-[minmax(0,1fr)_27rem] gap-5">
-              <div className="sticky top-4 h-[calc(100vh-11rem)]">
+              <div className="sticky top-20 h-[calc(100vh-9rem)]">
                 <RepertoireMap
                   root={root}
                   side={side}
@@ -471,26 +471,9 @@ export function TreePage() {
           </main>
         ) : (
           <main className="flex flex-col gap-3 px-4 pt-3">
-            {fromToday && !building && <BackToToday href={pathOf('today')} />}
-            {!building && (
-              <div className="flex items-center gap-2">
+            {!task && !building && (
+              <div className="flex">
                 <SideTabs side={side} onChange={setSide} />
-                {session && current ? (
-                  <PhoneSession index={position} total={session.queue.length} onEnd={endSession} />
-                ) : (
-                  <span className="ml-auto flex gap-1.5">
-                    {steps.length > 0 && (
-                      <Pill onClick={startSession} tone="terracotta">
-                        {steps.length} to settle
-                      </Pill>
-                    )}
-                    {pins.length > 0 && (
-                      <Pill onClick={nextPriority!} active={node.priority !== undefined}>
-                        Priorities
-                      </Pill>
-                    )}
-                  </span>
-                )}
               </div>
             )}
             <div ref={pane} className="flex min-w-0 scroll-mt-3 flex-col gap-3">
@@ -498,18 +481,10 @@ export function TreePage() {
             </div>
           </main>
         )}
-        {!wide && !building && <BottomBar onStart={path.length ? () => walk([]) : undefined} onBack={path.length ? back : undefined} onForward={forward} onEnd={toEnd} />}
+        {!wide && !building && !done && <BottomBar onStart={path.length ? () => walk([]) : undefined} onBack={path.length ? back : undefined} onForward={forward} onEnd={toEnd} />}
         <Toast toast={toast} onClose={close} />
       </div>
     </MotionConfig>
-  );
-}
-
-function BackToToday({ href }: { href: string }) {
-  return (
-    <Link to={href} className="self-start text-[14px] font-semibold underline-offset-4 hover:underline focus-visible:outline-2" style={{ color: COLOURS.leafSoft }}>
-      ← Today
-    </Link>
   );
 }
 
@@ -532,38 +507,6 @@ function SideTabs({ side, onChange }: { side: Side; onChange: (side: Side) => vo
           {tab === 'w' ? 'White' : 'Black'}
         </button>
       ))}
-    </div>
-  );
-}
-
-function Pill({ onClick, tone = 'plain', active = false, children }: { onClick: () => void; tone?: 'plain' | 'terracotta'; active?: boolean; children: ReactNode }) {
-  return (
-    <motion.button
-      type="button"
-      onClick={onClick}
-      whileTap={{ scale: 0.96 }}
-      transition={SPRING}
-      className="whitespace-nowrap rounded-full px-3 py-1.5 text-[14px] font-bold focus-visible:outline-2"
-      aria-pressed={tone === 'plain' ? active : undefined}
-      style={tone === 'terracotta' ? { background: COLOURS.terracotta, color: 'white' } : active ? { background: COLOURS.leaf, color: COLOURS.cream } : { ...tile(COLOURS.paper), color: COLOURS.leaf }}
-    >
-      {children}
-    </motion.button>
-  );
-}
-
-function PhoneSession({ index, total, onEnd }: { index: number; total: number; onEnd: () => void }) {
-  return (
-    <div aria-label="Progress" className="ml-auto flex min-w-0 flex-1 items-center gap-2 text-[13px] font-bold">
-      <span className="h-1.5 min-w-6 flex-1 overflow-hidden rounded-full" style={{ background: COLOURS.sand }}>
-        <motion.span className="block h-full rounded-full" style={{ background: COLOURS.terracotta }} animate={{ width: `${(index / total) * 100}%` }} transition={SPRING} />
-      </span>
-      <span className="whitespace-nowrap tabular-nums">
-        {index}/{total}
-      </span>
-      <button type="button" onClick={onEnd} className="whitespace-nowrap rounded-full px-2.5 py-1.5 focus-visible:outline-2" style={{ ...tile(COLOURS.paper), color: COLOURS.leaf }}>
-        End
-      </button>
     </div>
   );
 }
@@ -594,73 +537,6 @@ function BottomBar({ onStart, onBack, onForward, onEnd }: { onStart?: () => void
         </button>
       ))}
     </nav>
-  );
-}
-
-function PriorityLabel({ priority }: { priority: Priority }) {
-  return <>{`${priority.side === 'w' ? 'White' : 'Black'} · ${figurineLine(priority.path)}`}</>;
-}
-
-function SessionBar({ index, total, settled, side, onEnd }: { index: number; total: number; settled: number; side: Side; onEnd: () => void }) {
-  return (
-    <div aria-label="Progress" className="flex w-full min-w-0 items-center gap-3 rounded-2xl px-4 py-3 text-[14px] font-semibold sm:w-auto sm:min-w-[24rem]" style={raised(false)}>
-      <span className="whitespace-nowrap">
-        Session · {index} of {total} ·{' '}
-        <motion.span key={side} initial={{ backgroundColor: COLOURS.apricot }} animate={{ backgroundColor: 'oklch(0 0 0 / 0)' }} transition={{ duration: 1.2 }} className="rounded px-1">
-          as {side === 'w' ? 'White' : 'Black'}
-        </motion.span>
-      </span>
-      <span className="h-2.5 min-w-8 flex-1 overflow-hidden rounded-full" style={{ background: COLOURS.sand }}>
-        <motion.span className="block h-full rounded-full" style={{ background: COLOURS.leaf }} animate={{ width: `${(settled / total) * 100}%` }} transition={SPRING} />
-      </span>
-      <button type="button" onClick={onEnd} className="ml-auto whitespace-nowrap rounded-lg px-2 py-1 underline-offset-4 hover:underline focus-visible:outline-2" style={{ color: COLOURS.leafSoft }}>
-        End session
-      </button>
-    </div>
-  );
-}
-
-function Done({ settled, skipped, returned, left, onClose }: { settled: number; skipped: number; returned: number; left: number; onClose: () => void }) {
-  return (
-    <aside aria-label="Done" className="flex w-full flex-col items-start gap-3 rounded-3xl p-5" style={raised(false)}>
-      <span className="text-[24px] font-extrabold tracking-[-0.02em]">Session done</span>
-      <span className="text-[15px]">
-        <strong>{settled}</strong> settled · <strong>{skipped}</strong> skipped for later
-        {returned > 0 && (
-          <>
-            {' '}
-            · <strong>{returned}</strong> {returned === 1 ? 'game' : 'games'} left the repertoire again further on
-          </>
-        )}
-      </span>
-      <span className="text-[14px]" style={{ color: COLOURS.leafSoft }}>
-        {left ? `${left} still to settle: they stay marked in the tree.` : 'Nothing left to settle. Come back after your next games.'}
-      </span>
-      <motion.button type="button" onClick={onClose} whileTap={{ scale: 0.97 }} transition={SPRING} className="rounded-full px-4 py-2 font-bold focus-visible:outline-2" style={raised(true)}>
-        Close
-      </motion.button>
-    </aside>
-  );
-}
-
-function Door({ onClick, title, tone = 'plain', className = 'flex', children }: { onClick?: () => void; title: string; tone?: 'plain' | 'terracotta'; className?: string; children: ReactNode }) {
-  const accent = tone === 'terracotta';
-  return (
-    <motion.button
-      type="button"
-      onClick={onClick}
-      disabled={!onClick}
-      whileHover={onClick ? { y: -2 } : undefined}
-      whileTap={onClick ? { scale: 0.97 } : undefined}
-      transition={SPRING}
-      className={`${className} min-w-0 flex-1 flex-col items-start rounded-2xl px-4 py-2 text-left focus-visible:outline-2 focus-visible:outline-offset-2 sm:w-[17rem] sm:flex-none`}
-      style={{ ...raised(false), ...(accent ? { background: 'oklch(0.52 0.15 35)', color: 'white' } : {}), opacity: onClick ? 1 : 0.7 }}
-    >
-      <span className="text-[15px] font-extrabold tracking-[-0.01em]">{title}</span>
-      <span className="hidden w-full truncate text-[13px] font-semibold sm:block" style={{ color: accent ? 'white' : COLOURS.leafSoft }}>
-        {children}
-      </span>
-    </motion.button>
   );
 }
 

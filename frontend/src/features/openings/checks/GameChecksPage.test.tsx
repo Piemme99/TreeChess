@@ -20,13 +20,17 @@ const page = () =>
       <GameChecksPage />
     </MemoryRouter>,
   );
-const replayBar = () => screen.getByRole('region', { name: 'Replay' });
+// Le rejeu vit dans le menu ⋯ de l'en-tête.
+const replayBar = () => {
+  if (!screen.queryByRole('region', { name: 'Demo replay' })) fireEvent.click(screen.getByRole('button', { name: 'Menu' }));
+  return screen.getByRole('region', { name: 'Demo replay' });
+};
 const square = (name: string) => document.querySelector(`[data-square="${name}"]`)!;
 const playOnBoard = (from: string, to: string) => {
   fireEvent.click(square(from));
   fireEvent.click(square(to));
 };
-const nextDay = () => fireEvent.click(within(replayBar()).getByRole('button', { name: /Next game day/ }));
+const nextDay = () => fireEvent.click(within(replayBar()).getByRole('button', { name: /Next day/ }));
 const toDecide = () => within(screen.getByRole('region', { name: /^To settle/ })).queryAllByRole('listitem');
 const rest = () => {
   const region = screen.queryByRole('region', { name: 'Rest of the day' });
@@ -58,7 +62,7 @@ describe('GameChecksPage', () => {
   it('starts on the day the repertoire is created, with no game yet', () => {
     page();
 
-    expect(replayBar()).toHaveTextContent(/Wed, 31 Dec 2025.*Replay · repertoire created/);
+    expect(replayBar()).toHaveTextContent(/Repertoire created · Wed, 31 Dec 2025/);
     expect(dayGames()).toHaveLength(0);
   });
 
@@ -66,7 +70,7 @@ describe('GameChecksPage', () => {
     page();
     nextDay();
 
-    expect(replayBar()).toHaveTextContent(/Sun, 4 Jan 2026.*Replay · day 1 of 49 · 11 games/);
+    expect(replayBar()).toHaveTextContent(/Day 1 of 49 · Sun, 4 Jan 2026 · 11 games/);
     expect(dayGames()).toHaveLength(11);
     expect(screen.getAllByText(/You played/).map((verdict) => verdict.textContent)).toEqual([
       'You played 3.c4, your repertoire has 3.♘f3',

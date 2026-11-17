@@ -21,25 +21,19 @@ const TrainingPage = lazy(() => import('./features/training').then(m => ({ defau
 const ExplorePage = lazy(() => import('./features/explore').then(m => ({ default: m.ExplorePage })));
 // Conditionné à la déclaration : un lazy() hors condition ferait émettre le chunk
 // (et ses données figées) dans le build de prod, même sans route pour l'atteindre.
-// La v2 se publie en prod sous /v2 avec VITE_V2=1 au build (deploy.yml) ; l'aiguillage et la séance restent en dev.
+// La v2 se publie en prod sous /v2 avec VITE_V2=1 au build (deploy.yml) ; Games ne reste qu'en dev.
 const V2_PAGES = import.meta.env.DEV || import.meta.env.VITE_V2 === '1';
 const FlameGraphPage = V2_PAGES
   ? lazy(() => import('./features/openings').then(m => ({ default: m.DesignPrototypeRoute })))
   : null;
-const GameChecksPage = V2_PAGES
+const GameChecksPage = import.meta.env.DEV
   ? lazy(() => import('./features/openings').then(m => ({ default: m.GameChecksPage })))
-  : null;
-const HomePage = import.meta.env.DEV
-  ? lazy(() => import('./features/openings').then(m => ({ default: m.HomePage })))
-  : null;
-const SessionPage = import.meta.env.DEV
-  ? lazy(() => import('./features/openings').then(m => ({ default: m.SessionPage })))
   : null;
 const TreePage = V2_PAGES
   ? lazy(() => import('./features/openings').then(m => ({ default: m.TreePage })))
   : null;
-const TodayPage = V2_PAGES
-  ? lazy(() => import('./features/openings').then(m => ({ default: m.TodayPage })))
+const HomePage = V2_PAGES
+  ? lazy(() => import('./features/openings').then(m => ({ default: m.HomePage })))
   : null;
 const ReviewPage = V2_PAGES
   ? lazy(() => import('./features/openings').then(m => ({ default: m.ReviewPage })))
@@ -91,17 +85,8 @@ function App() {
         {FlameGraphPage ? (
           <Route path="/v2/openings" element={<Suspense fallback={<PageSkeleton />}><FlameGraphPage /></Suspense>} />
         ) : null}
-        {GameChecksPage && import.meta.env.DEV ? (
-          <Route path="/dev/games" element={<Suspense fallback={<PageSkeleton />}><GameChecksPage /></Suspense>} />
-        ) : null}
         {GameChecksPage ? (
-          <Route path="/v2/games" element={<Suspense fallback={<PageSkeleton />}><GameChecksPage /></Suspense>} />
-        ) : null}
-        {HomePage ? (
-          <Route path="/dev/home" element={<Suspense fallback={<Loading size="lg" />}><HomePage /></Suspense>} />
-        ) : null}
-        {SessionPage ? (
-          <Route path="/dev/session" element={<Suspense fallback={<Loading size="lg" />}><SessionPage /></Suspense>} />
+          <Route path="/dev/games" element={<Suspense fallback={<PageSkeleton />}><GameChecksPage /></Suspense>} />
         ) : null}
         {TreePage && import.meta.env.DEV ? (
           <Route path="/dev/tree" element={<Suspense fallback={<PageSkeleton />}><TreePage /></Suspense>} />
@@ -109,11 +94,11 @@ function App() {
         {TreePage ? (
           <Route path="/v2/tree" element={<Suspense fallback={<PageSkeleton />}><TreePage /></Suspense>} />
         ) : null}
-        {TodayPage && import.meta.env.DEV ? (
-          <Route path="/dev/today" element={<Suspense fallback={<PageSkeleton />}><TodayPage /></Suspense>} />
+        {HomePage && import.meta.env.DEV ? (
+          <Route path="/dev/home" element={<Suspense fallback={<PageSkeleton />}><HomePage /></Suspense>} />
         ) : null}
-        {TodayPage ? (
-          <Route path="/v2/today" element={<Suspense fallback={<PageSkeleton />}><TodayPage /></Suspense>} />
+        {HomePage ? (
+          <Route path="/v2/home" element={<Suspense fallback={<PageSkeleton />}><HomePage /></Suspense>} />
         ) : null}
         {ReviewPage && import.meta.env.DEV ? (
           <Route path="/dev/review" element={<Suspense fallback={<PageSkeleton />}><ReviewPage /></Suspense>} />
@@ -121,7 +106,11 @@ function App() {
         {ReviewPage ? (
           <Route path="/v2/review" element={<Suspense fallback={<PageSkeleton />}><ReviewPage /></Suspense>} />
         ) : null}
-        {TodayPage ? <Route path="/v2" element={<Navigate to="/v2/today" replace />} /> : null}
+        {HomePage ? <Route path="/v2" element={<Navigate to="/v2/home" replace />} /> : null}
+        {/* Anciennes adresses : Today est devenu Home, Games a quitté la v2 publiée. */}
+        {HomePage ? <Route path="/v2/today" element={<Navigate to="/v2/home" replace />} /> : null}
+        {HomePage ? <Route path="/v2/games" element={<Navigate to="/v2/home" replace />} /> : null}
+        {HomePage && import.meta.env.DEV ? <Route path="/dev/today" element={<Navigate to="/dev/home" replace />} /> : null}
         <Route path="*" element={<Suspense fallback={<Loading size="lg" />}><NotFoundPage /></Suspense>} />
       </Routes>
       <ToastContainer />

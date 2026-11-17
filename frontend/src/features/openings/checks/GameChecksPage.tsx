@@ -12,7 +12,6 @@ import { useEvaluations } from '../line/engine';
 import { playedGamesFixture } from '../fixtures/playedGames';
 import { ArrowBoard, type BoardArrow } from '../line/ArrowBoard';
 import { replayLine } from '../position/replay';
-import { ReplayBar } from '../replay/ReplayBar';
 import { REPLAY_FIRST_DAY } from '../replay/replaySetup';
 import { useRepertoires } from '../replay/useRepertoires';
 import { useReplayDay } from '../replay/useReplayDay';
@@ -157,9 +156,7 @@ export function GameChecksPage() {
   return (
     <MotionConfig reducedMotion="user">
       <div className="min-h-screen pb-28" style={{ fontFamily: FONT_FAMILY, background: COLOURS.cream, color: COLOURS.leaf }}>
-        <PageHeader>
-          <ReplayBar replay={{ ...replay, next, reset }} />
-        </PageHeader>
+        <PageHeader replay={{ ...replay, next, reset }} />
         {adding && adding.check.kind !== 'followed' ? (
           <BuildSession
             key={adding.id}

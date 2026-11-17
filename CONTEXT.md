@@ -97,6 +97,8 @@ heaviest is kept.
 Only lines that survive sampling noise are shown: a priority list has no room
 for "maybe".
 
+The player sees priorities as **weak openings** ("Weak opening 2 of 5"), the only name on screen.
+
 ### Points to gain
 
 What a priority costs now, in game points (a win is 1, a draw ½): roughly how

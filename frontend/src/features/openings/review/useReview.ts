@@ -8,6 +8,8 @@ import { answered, dueCount, seededState, withLapses, type ReviewCard, type Revi
 import { REPLAY_START } from '../replay/replaySetup';
 
 const STORAGE = 'kumquat.v2.review';
+/** Lignes par séance de révision : le chiffre que Home annonce. */
+export const REVIEW_LINES = 5;
 const HABIT_MONTHS = 12;
 // Une position manquée en partie passe devant ; un ajout récent devant le reste.
 const LAPSE_WEIGHT = 10;

@@ -1,52 +1,46 @@
-import { useEffect, useState, type ReactNode } from 'react';
-import { NavLink, useLocation } from 'react-router';
+import { useEffect, useState } from 'react';
+import { Link, NavLink } from 'react-router';
 import { useAuthStore } from '../../../stores/authStore';
 import { lichessSignInUrl } from '../line/explorer';
+import { ReplayPanel } from '../replay/ReplayPanel';
+import type { ReplayDay } from '../replay/useReplayDay';
 import { Kumquat } from './Kumquat';
 import { useNoIndex, useV2Path, type V2Page } from './routes';
-import { COLOURS, tile } from './theme';
+import { COLOURS } from './theme';
 
-// Deux lieux (README, « Path by use ») : ce qui attend le joueur, et son répertoire. Games et Openings restent
-// joignables par leur adresse et depuis Today.
+// Deux lieux (docs/flow/target.html) : ce qui attend le joueur, et son répertoire. Les tâches partent de Home.
 const PAGES: { page: V2Page; label: string }[] = [
-  { page: 'today', label: 'Today' },
+  { page: 'home', label: 'Home' },
   { page: 'tree', label: 'Repertoire' },
 ];
-// Le titre du menu au téléphone dit aussi les pages hors du menu.
-const TITLES: Record<V2Page, string> = { today: 'Today', review: 'Review', tree: 'Repertoire', openings: 'Openings', games: 'Games' };
 
-export function PageHeader({ children }: { children?: ReactNode }) {
+export function PageHeader({ replay }: { replay?: ReplayDay }) {
   const pathOf = useV2Path();
   useNoIndex();
   return (
-    <header className="mx-auto flex max-w-[84rem] items-center gap-x-2 gap-y-3 px-3 pt-3 sm:flex-wrap sm:gap-x-4 sm:px-8 sm:pt-7">
+    <header className="mx-auto flex max-w-[84rem] items-center gap-2 px-3 pt-3 sm:gap-4 sm:px-8 sm:pt-6">
       <Kumquat />
       <span className="hidden text-[26px] font-bold tracking-[-0.03em] sm:inline">kumquat</span>
-      <nav aria-label="Pages" className="hidden gap-1.5 text-[15px] font-semibold sm:ml-6 sm:flex">
+      <nav aria-label="Pages" className="ml-auto flex gap-1 text-[15px] font-semibold sm:ml-6">
         {PAGES.map((page) => (
           <NavLink
             key={page.page}
             to={pathOf(page.page)}
-            className="rounded-full px-3.5 py-2 focus-visible:outline-2 focus-visible:outline-offset-2"
-            style={({ isActive }) => (isActive ? { background: COLOURS.leaf, color: COLOURS.cream } : { ...tile(COLOURS.sand), color: COLOURS.leaf })}
+            className="rounded-full px-3 py-1.5 focus-visible:outline-2 focus-visible:outline-offset-2 sm:px-3.5 sm:py-2"
+            style={({ isActive }) => (isActive ? { background: COLOURS.leaf, color: COLOURS.cream } : { color: COLOURS.leaf })}
           >
             {page.label}
           </NavLink>
         ))}
       </nav>
-      <span className="hidden text-[13px] font-semibold sm:inline">
-        <Account />
-      </span>
-      <PageMenu />
-      {children && <div className="ml-auto min-w-0 sm:w-auto">{children}</div>}
+      <Menu replay={replay} />
     </header>
   );
 }
 
-/** Au téléphone, les pages tiennent dans un menu : la place va à l'échiquier. */
-function PageMenu() {
+/** Ce qui ne sert pas tous les jours : le compte Lichess, la vue des ouvertures à l'ordinateur, le rejeu. */
+function Menu({ replay }: { replay?: ReplayDay }) {
   const pathOf = useV2Path();
-  const { pathname } = useLocation();
   const [open, setOpen] = useState(false);
   useEffect(() => {
     if (!open) return;
@@ -54,40 +48,32 @@ function PageMenu() {
     window.addEventListener('keydown', press);
     return () => window.removeEventListener('keydown', press);
   }, [open]);
-  const current = TITLES[(Object.keys(TITLES) as V2Page[]).find((page) => pathOf(page) === pathname) ?? 'today'];
   return (
-    <div className="relative sm:hidden">
+    <div className="relative sm:ml-auto">
       <button
         type="button"
+        aria-label="Menu"
         aria-expanded={open}
         aria-haspopup="true"
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-1 rounded-full py-1.5 pl-0.5 pr-1 text-[17px] font-extrabold tracking-[-0.02em] focus-visible:outline-2"
+        className="grid size-10 place-items-center rounded-full text-[20px] font-extrabold leading-none focus-visible:outline-2"
+        style={open ? { background: COLOURS.sand } : undefined}
       >
-        {current}
-        <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <path d="M6 9l6 6 6-6" />
-        </svg>
+        ⋯
       </button>
       {open && (
         <>
           <button type="button" aria-label="Close the menu" className="fixed inset-0 z-40 cursor-default" onClick={() => setOpen(false)} />
-          <nav aria-label="Pages" className="absolute left-0 top-full z-50 mt-1 flex w-44 flex-col overflow-hidden rounded-2xl py-1 text-[16px] font-semibold" style={{ background: COLOURS.paper, boxShadow: '0 14px 28px -10px oklch(0.3 0.06 150 / 0.45)' }}>
-            {PAGES.map((page) => (
-              <NavLink
-                key={page.page}
-                to={pathOf(page.page)}
-                onClick={() => setOpen(false)}
-                className="px-4 py-3 focus-visible:outline-2"
-                style={({ isActive }) => (isActive ? { background: COLOURS.sand, color: COLOURS.leaf } : { color: COLOURS.leaf })}
-              >
-                {page.label}
-              </NavLink>
-            ))}
-            <span className="mt-1 border-t px-4 pb-2 pt-3 text-[14px]" style={{ borderColor: COLOURS.sand }}>
-              <Account />
-            </span>
-          </nav>
+          <div className="absolute right-0 top-full z-50 mt-1 flex w-72 flex-col divide-y divide-[oklch(0.915_0.035_80)] overflow-hidden rounded-2xl py-1 text-[15px]" style={{ background: COLOURS.paper, color: COLOURS.leaf, boxShadow: '0 14px 28px -10px oklch(0.3 0.06 150 / 0.45)' }}>
+            <Account />
+            {/* Le tableau des ouvertures ne tient pas dans un téléphone. */}
+            <Link to={pathOf('openings')} onClick={() => setOpen(false)} className="hidden px-4 py-3 font-semibold focus-visible:outline-2 lg:block">
+              All your openings by result →
+            </Link>
+            {replay && (
+              <ReplayPanel replay={replay} />
+            )}
+          </div>
         </>
       )}
     </div>
@@ -102,13 +88,13 @@ function Account() {
   if (loading) return null;
   if (!user) {
     return (
-      <a href={lichessSignInUrl()} className="underline underline-offset-2 focus-visible:outline-2" style={{ color: COLOURS.leaf }}>
+      <a href={lichessSignInUrl()} className="px-4 py-3 font-semibold underline underline-offset-2 focus-visible:outline-2" style={{ color: COLOURS.leaf }}>
         Sign in with Lichess
       </a>
     );
   }
   return (
-    <span className="flex flex-wrap items-center gap-x-2" style={{ color: COLOURS.leafSoft }}>
+    <span className="flex flex-wrap items-center gap-x-2 px-4 py-3 font-semibold" style={{ color: COLOURS.leafSoft }}>
       {user.lichessUsername ?? user.username}
       <button type="button" onClick={logout} className="underline underline-offset-2 focus-visible:outline-2" style={{ color: COLOURS.leaf }}>
         Sign out

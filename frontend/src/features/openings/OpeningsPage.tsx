@@ -10,7 +10,6 @@ import { FlameTiles } from './flame/FlameTiles';
 import { playedGamesFixture } from './fixtures/playedGames';
 import { BoardPanel } from './position/BoardPanel';
 import { PriorityTickets } from './priorities/PriorityTickets';
-import { ReplayBar } from './replay/ReplayBar';
 import { REPLAY_FIRST_DAY } from './replay/replaySetup';
 import { useRepertoires } from './replay/useRepertoires';
 import { useReplayDay } from './replay/useReplayDay';
@@ -96,9 +95,7 @@ export function OpeningsPage() {
   return (
     <MotionConfig reducedMotion="user">
       <div className="min-h-screen pb-28" style={{ fontFamily: FONT_FAMILY, background: COLOURS.cream, color: COLOURS.leaf }}>
-        <PageHeader>
-          <ReplayBar replay={{ ...replay, reset: undefined }} />
-        </PageHeader>
+        <PageHeader replay={{ ...replay, reset: undefined }} />
 
         <div className="mx-auto max-w-[84rem] px-4 pt-5 sm:px-8">
           <SideSwitch side={side} onChange={showSide} />

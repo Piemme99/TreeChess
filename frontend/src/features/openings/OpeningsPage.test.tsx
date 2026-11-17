@@ -51,7 +51,8 @@ describe('OpeningsPage', () => {
     localStorage.setItem('kumquat.v2.replay-day', '2026-01-04');
     render(<OpeningsPage />);
 
-    expect(screen.getByRole('region', { name: 'Replay' })).toHaveTextContent('Sun, 4 Jan 2026');
+    fireEvent.click(screen.getByRole('button', { name: 'Menu' }));
+    expect(screen.getByRole('region', { name: 'Demo replay' })).toHaveTextContent('Sun, 4 Jan 2026');
     await waitFor(() => expect(period('All time')).toHaveTextContent('2562games'));
   });
 

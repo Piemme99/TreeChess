@@ -39,12 +39,10 @@ Vocabulary (opening tree, deficit, priority, points to gain): `CONTEXT.md`.
   token ("Sign in with Lichess" in the header) and serves cached positions to everyone. In dev
   without a backend, a personal token in `VITE_LICHESS_TOKEN` (`frontend/.env.local`) queries
   Lichess directly.
-- `session/` — the router (`HomePage`, `/dev/home`: "I just played",
-  "I want to work") and the session after games (`SessionPage`, `/dev/session`): the positions
-  the games left, grouped by position and move (`steps.ts`), one at a time, phone first.
-  Keep / Stay on / Prepare an answer / Skip; Keep and Prepare build on `checks/BuildSession`.
-- `home/` — Today (`/dev/today`, README "Path by use"): the simulated import on the first visit, then one hero
-  card (weak openings on the first day, the day's games, the review due, else priority 1) and one-line rows.
+- `session/` — the positions the games left, grouped by position and move (`steps.ts`), judged by the engine
+  (`verdict.ts`); `useReplayedSession` feeds Home and the tree.
+- `home/` — Home (`/dev/home`, "Path by use"): the simulated import on the first visit, then one hero card and
+  one-line rows.
 - `review/` — the review drill (`/dev/review`): `domain/review.ts` (Leitner boxes seeded from habits, the line to
   play, the opponent's reply), `useReview.ts` (stored state, lapses from game checks, weights).
 - `position/` — the board panel; positions are replayed on demand (`replay.ts`).
@@ -255,48 +253,47 @@ Challenged once by a fresh reviewer before the POC: Today was four doors (the ro
 competed with Today on the first day, the review quizzed moves played 2 000 times, the games card counted
 games while the session counts positions. Fixed below.
 
-**Navigation: Today · Repertoire.** Today is the landing screen and says what waits; Repertoire is the tree.
-Games and Openings leave the menu (routes kept, Openings stays the computer view of the results). No big
-board on Today.
+**Navigation: two places, three tasks** (target path, `docs/flow/target.html`, PMG 2026-11-17). Two tabs on
+every screen: **Home** says what waits, **Repertoire** is the tree, to browse and extend. Three tasks start from
+Home and take the whole screen: **Check**, **Weak opening**, **Review**. A task shows a dark bar (✕ back to Home,
+its name, "2 of 5") and always ends on a summary with "Back to Home". Repertoire starts no task: a position with
+something to settle shows its card in place. The demo replay lives in the header's ⋯ menu. Games is dev-only;
+Openings stays the computer view of the results, from ⋯. One figure, "to settle", counts positions after the
+engine's verdict, the same on Home, in Check and on the tree; one name, "Weak openings", for priorities.
 
-Today is to be renamed **Home** (PMG, 2026-11-17): on the first day it shows a report of the whole history,
-and after days away a week of games, so "Today" misleads. The POC still says Today.
+Home was called Today until 2026-11-17: on the first day it shows a report of the whole history, and after
+days away a week of games, so "Today" misled.
 
 ### Screen 1 — Import (first visit only)
 
 "Build your repertoire from your games", a Lichess username (the signed-in account by default), "Import",
-a progress line. Leads to Today in its first-day state. The real import is the "Import" brick of "Later";
+a progress line. Leads to Home in its first-day state. The real import is the "Import" brick of "Later";
 the POC replays PMG's fixture as if it came in.
 
-### Screen 2 — Today
+### Screen 2 — Home
 
-**One hero card, the most urgent non-empty one; everything else is a one-line row with a figure.**
+**One hero card, the most urgent non-empty one, its button on top; every other task is a one-line row.**
 
-- **First day** (just imported, no game since): hero = **"Where you lose points"**, above it one line of
-  facts ("2 557 games · repertoire: 194 positions as White, 166 as Black"). The three heaviest priorities,
-  one row each (opening, line, games, points lost, impact bar), each with **"Work on it"** → the tree at
-  that line, priority card open.
-- **New games** (games since the last check): hero = one line per new game — "✓ Petrov · prep followed to
-  move 7", "✗ Caro-Kann · you played 3.♘c3?!, not 3.d4", "? Hungarian · new line 2.b3" — and the figure
-  "3 new · 17 waiting". A game through a worked line says it: "Worked line · prep followed 5 of 6 since
-  4 Jan". Action: **"Check them"** → the tree's session, newest first, back to Today at the end.
-- **Review due**: hero = "12 positions to review" → **"Review"**.
-- **Else**: hero = priority 1 → "Work on it".
+- **First day** (just imported, no game since): hero = **"Weak openings"**, one line of facts ("2 557 games ·
+  repertoire: 194 positions as White, 166 as Black"), the three heaviest, each with **"Work on it"**.
+- **New games**: hero = "11 new games", "6 to settle", **"Check them"**, then one line per game: ! a mistake to
+  settle (the engine finds the move worse), ? an opponent move with no answer yet, · a move off the repertoire
+  that waits for nothing, ✓ prep followed. A game through a worked line says it.
+- **Review due**: hero = "Review", "5 lines" → **"Start"**.
+- **Else**: hero = weak opening 1 → "Work on it".
 
-Rows under the hero (only the non-empty ones, never the hero again): "Review · 12 due", "Weak openings ·
-P1 Queen's Pawn Game −10 pts" (expands inline to the list), "To check · 17 waiting".
+Rows under the hero: "To settle · 6", "Review · 5 lines", "Weak openings · Queen's Pawn Game −10 pts" (expands).
 
-### Screen 3 — Check the games (use 2)
+### Screen 3 — Check (use 2)
 
-The tree's session as it exists (one position at a time, verdict in one line, Add · Prepare an answer ·
-Stay on / Not worth preparing, Skip, Undo). Opened from Today it shows "← Today" and returns to Today when
-done. Games that followed the preparation make no step.
+The tree with `?task=check`: the positions to settle one at a time (Add · Keep · Prepare a reply · Not worth
+it, Skip for now, Undo), then "3 settled · 2 skipped for later". Games that followed the preparation make no step.
 
-### Screen 4 — Work on a weak opening (use 1)
+### Screen 4 — Weak opening (use 1)
 
-The tree at the priority, card open (verdict, "Prepare what follows", Lichess link), "← Today". Accepting
-an addition from "Prepare what follows" marks the line **worked** from that day: from then on, new games
-through it report adherence (prep followed N of M), the score comparison stays on the priority card.
+The tree with `?task=weak&side=…&line=…`: the card (verdict, "Prepare my moves after…", "Next weak opening").
+Accepting the preparation ends on "2 moves added · Next weak opening / Back to Home" and marks the line
+**worked** from that day: new games through it report adherence (prep followed N of M).
 
 ### Screen 5 — Review (use 3)
 
@@ -311,17 +308,16 @@ through it report adherence (prep followed N of M), the score comparison stays o
   several repertoire moves is right.
 - **Wrong** → the repertoire move(s) in green on the board, the player plays it to go on, the position goes
   back to box 1. A position passed on the way that was not due is not rescheduled unless missed.
-- **5 lines a session**, then "4 of 5 lines clean · 2 positions to see again tomorrow" → Today.
+- **5 lines a session**, started at once from Home, then "4 of 5 lines clean · 2 positions to see again tomorrow".
 
 ### Not in the POC
 
-The real import, practice, the score comparison of worked lines, the tree losing its two doors on the phone
-(they stay until Today is validated).
+The real import, practice, the score comparison of worked lines.
 
-### POC (`home/`, `review/`)
+### POC (`home/`, `review/`, `tree/`)
 
-Dev routes, PMG's fixture as the imported history, the replay clock as time: `/dev/today` (import on the first
-visit, then Today), `/dev/review`; "Check them" and "Work on it" open `/dev/tree?from=today`.
+Dev routes, PMG's fixture as the imported history, the replay clock as time: `/dev/home` (import on the first
+visit, then Home), `/dev/review`, `/dev/tree` (Repertoire, or a task with `?task=`). Published under `/v2/`.
 
 ## Later
 

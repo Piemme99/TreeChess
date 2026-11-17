@@ -340,7 +340,7 @@ function Legend() {
         <span className="rounded px-1 text-[10px] font-extrabold" style={{ background: COLOURS.leaf, color: COLOURS.cream }}>
           P1
         </span>
-        priority, by rank
+        weak opening, by rank
       </li>
       <li className="flex items-center gap-1.5">
         <span className="grid h-[18px] min-w-[22px] place-items-center rounded-full px-1 text-[11px] font-extrabold text-white" style={{ background: COLOURS.terracotta }}>

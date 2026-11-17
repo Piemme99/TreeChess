@@ -138,7 +138,7 @@ export function SettleCard({ steps, facts, actions, onSkip, rank }: { steps: rea
       ))}
       {prioritised && (
         <p className="border-t pt-2.5 text-[13px]" style={{ borderColor: COLOURS.sand, color: COLOURS.leafSoft }}>
-          <strong style={{ color: COLOURS.leaf }}>Also priority {rank}:</strong> you score {here ? Math.round(scoreRate(here) * 100) : '—'}% here, {Math.round(average * 100)}% on average.
+          <strong style={{ color: COLOURS.leaf }}>Also weak opening {rank}:</strong> you score {here ? Math.round(scoreRate(here) * 100) : '—'}% here, {Math.round(average * 100)}% on average.
         </p>
       )}
     </section>
@@ -159,15 +159,15 @@ export function PriorityCard({ side, priority, rank, total, facts, waiting, onLe
 }) {
   const { here, average, leak } = facts;
   return (
-    <section aria-label="Priority" className="flex flex-col gap-2.5 rounded-2xl px-4 py-3.5 text-[14px]" style={{ background: COLOURS.leaf, color: COLOURS.cream }}>
+    <section aria-label="Weak opening" className="flex flex-col gap-2.5 rounded-2xl px-4 py-3.5 text-[14px]" style={{ background: COLOURS.leaf, color: COLOURS.cream }}>
       <span className="flex items-center justify-between gap-3">
         <span className="text-[12px] font-bold uppercase tracking-[0.06em]" style={{ color: COLOURS.apricot }}>
-          Priority {rank}
+          Weak opening {rank}
           {total ? ` of ${total}` : ''}
         </span>
         {onNextPriority && (
           <button type="button" onClick={onNextPriority} className="-my-1 rounded-lg px-1 py-1 text-[13px] font-semibold underline-offset-4 hover:underline focus-visible:outline-2">
-            Next priority →
+            Next weak opening →
           </button>
         )}
       </span>

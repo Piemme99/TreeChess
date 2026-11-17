@@ -1,6 +1,5 @@
 import { MotionConfig, motion } from 'framer-motion';
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router';
 import { useOpeningName } from '../../../shared/hooks/useOpeningName';
 import { PlayableBoard } from '../board/PlayableBoard';
 import { figurineLine, figurineMove } from '../domain/notation';
@@ -13,13 +12,11 @@ import { liveGames } from '../checks/decisions';
 import { REPLAY_FIRST_DAY } from '../replay/replaySetup';
 import { useRepertoires } from '../replay/useRepertoires';
 import { useReplayDay } from '../replay/useReplayDay';
-import { PageHeader } from '../workshop/PageHeader';
-import { useV2Path } from '../workshop/routes';
+import { TaskBar, TaskDone } from '../workshop/Task';
 import { COLOURS, FONT_FAMILY, raised, REPERTOIRE, SPRING, tile } from '../workshop/theme';
 import { useWorkshopFont } from '../workshop/useWorkshopFont';
-import { useReview } from './useReview';
+import { REVIEW_LINES as LINES, useReview } from './useReview';
 
-const LINES = 5;
 // Le temps de voir le coup adverse arriver avant de devoir répondre.
 const REPLY_DELAY = 450;
 
@@ -36,7 +33,6 @@ interface Line {
 /** Réviser le répertoire (README, « Path by use », écran 5) : des lignes entières, jouées contre l'application. */
 export function ReviewPage() {
   useWorkshopFont();
-  const pathOf = useV2Path();
   // Pas de séance ici : les verdicts du moteur sur les écarts n'y servent pas.
   const replay = useReplayDay(playedGamesFixture, REPLAY_FIRST_DAY);
   const { repertoires } = useRepertoires(playedGamesFixture);
@@ -63,6 +59,14 @@ export function ReviewPage() {
   };
 
   const fen = useMemo(() => (line ? replayLine(line.path).fens.at(-1)! : ''), [line]);
+  // La tâche commence tout de suite : « Review » sur Home vaut « Start ».
+  const [opened, setOpened] = useState(false);
+  useEffect(() => {
+    if (due) start();
+    setOpened(true);
+    // Une seule fois, à l'ouverture.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // L'adversaire suit le chemin vers la position visée, puis la réponse qui mène au plus de révisions dues.
   useEffect(() => {
@@ -116,15 +120,15 @@ export function ReviewPage() {
   return (
     <MotionConfig reducedMotion="user">
       <div className="min-h-screen pb-16" style={{ fontFamily: FONT_FAMILY, background: COLOURS.cream, color: COLOURS.leaf }}>
-        <PageHeader />
+        <TaskBar title="Review" progress={line && !sessionOver ? `line ${Math.min(results.lines + 1, LINES)} of ${LINES} · as ${line.side === 'w' ? 'White' : 'Black'}` : undefined} />
         <main className="mx-auto flex max-w-[30rem] flex-col gap-3 px-4 pt-4">
-          <Link to={pathOf('today')} className="self-start text-[14px] font-semibold underline-offset-4 hover:underline focus-visible:outline-2" style={{ color: COLOURS.leafSoft }}>
-            ← Today
-          </Link>
-          {!line && !sessionOver && <Intro due={due} onStart={start} />}
+          {opened && !line && !sessionOver && (
+            <TaskDone title="Nothing to review today">
+              <p>Come back tomorrow, or after your next games.</p>
+            </TaskDone>
+          )}
           {line && !(sessionOver && line.status === 'done') && (
             <>
-              <Progress done={results.lines} side={line.side} />
               <LineName path={line.path} />
               <div className="-mx-2">
                 <PlayableBoard path={line.path} flipped={line.side === 'b'} arrows={arrows} onMove={play} />
@@ -132,35 +136,14 @@ export function ReviewPage() {
               <Prompt line={line} onNext={results.lines < LINES ? start : undefined} />
             </>
           )}
-          {sessionOver && line?.status === 'done' && <Summary clean={results.clean} lines={results.lines} missed={results.missed.size} due={due} todayHref={pathOf('today')} />}
+          {sessionOver && line?.status === 'done' && (
+            <TaskDone title={`${results.clean} of ${results.lines} lines clean`}>
+              <p>{results.missed.size ? `${results.missed.size} ${results.missed.size === 1 ? 'position' : 'positions'} to see again tomorrow` : 'Nothing missed'}</p>
+            </TaskDone>
+          )}
         </main>
       </div>
     </MotionConfig>
-  );
-}
-
-function Intro({ due, onStart }: { due: number; onStart: () => void }) {
-  return (
-    <section className="flex flex-col items-start gap-3 rounded-3xl p-5" style={raised(false)}>
-      <h1 className="text-[26px] font-extrabold leading-tight tracking-[-0.02em]">{due ? `${due} positions to review` : 'Nothing to review today'}</h1>
-      <p className="text-[15px]" style={{ color: COLOURS.leafSoft }}>
-        {due ? `${LINES} lines, played from your repertoire. The app plays their moves; you play yours.` : 'Come back tomorrow, or after your next games.'}
-      </p>
-      {due > 0 && <Primary onClick={onStart}>Start</Primary>}
-    </section>
-  );
-}
-
-function Progress({ done, side }: { done: number; side: Side }) {
-  return (
-    <div aria-label="Progress" className="flex items-center gap-3 text-[14px] font-bold">
-      <span className="whitespace-nowrap">
-        Line {Math.min(done + 1, LINES)} of {LINES} · as {side === 'w' ? 'White' : 'Black'}
-      </span>
-      <span className="h-1.5 flex-1 overflow-hidden rounded-full" style={{ background: COLOURS.sand }}>
-        <motion.span className="block h-full rounded-full" style={{ background: COLOURS.leaf }} animate={{ width: `${(done / LINES) * 100}%` }} transition={SPRING} />
-      </span>
-    </div>
   );
 }
 
@@ -200,23 +183,6 @@ function Prompt({ line, onNext }: { line: Line; onNext?: () => void }) {
     <p role="status" className="rounded-2xl px-4 py-3 text-[16px] font-bold" style={tile(COLOURS.paper)}>
       {line.status === 'player' ? 'Your move' : 'Their move…'}
     </p>
-  );
-}
-
-function Summary({ clean, lines, missed, due, todayHref }: { clean: number; lines: number; missed: number; due: number; todayHref: string }) {
-  return (
-    <section className="flex flex-col items-start gap-3 rounded-3xl p-5" style={raised(false)}>
-      <h1 className="text-[26px] font-extrabold leading-tight tracking-[-0.02em]">
-        {clean} of {lines} lines clean
-      </h1>
-      <p className="text-[15px]" style={{ color: COLOURS.leafSoft }}>
-        {missed ? `${missed} ${missed === 1 ? 'position' : 'positions'} to see again tomorrow` : 'Nothing missed'}
-        {due ? ` · ${due} still due` : ''}
-      </p>
-      <Link to={todayHref} className="rounded-full px-5 py-2.5 text-[15px] font-bold focus-visible:outline-2" style={raised(true)}>
-        Back to Today
-      </Link>
-    </section>
   );
 }
 

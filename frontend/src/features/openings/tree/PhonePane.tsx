@@ -178,8 +178,8 @@ function MoveTable({ side, node, onSelect, onExtend }: { side: Side; node: MapNo
 /** Une priorité sur ce coup ou plus loin : une cible, comme la carte « Priority » qui l'explique. */
 function Target() {
   return (
-    <svg viewBox="0 0 20 20" className="size-[18px]" aria-label="Priority on this move or further down" role="img">
-      <title>Priority on this move or further down</title>
+    <svg viewBox="0 0 20 20" className="size-[18px]" aria-label="Weak opening on this move or further down" role="img">
+      <title>Weak opening on this move or further down</title>
       <circle cx="10" cy="10" r="8" fill="none" stroke={COLOURS.leaf} strokeWidth="2" />
       <circle cx="10" cy="10" r="4" fill="none" stroke={COLOURS.leaf} strokeWidth="2" />
       <circle cx="10" cy="10" r="1.3" fill={COLOURS.leaf} />
