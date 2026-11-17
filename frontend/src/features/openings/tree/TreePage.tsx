@@ -27,7 +27,7 @@ import { useWorkshopFont } from '../workshop/useWorkshopFont';
 import { PositionPane, type StepActions } from './PositionPane';
 import { PhonePane } from './PhonePane';
 import { RepertoireMap } from './RepertoireMap';
-import { buildRepertoireMap, forEachNode, markedNodes, type MapNode } from './repertoireMap';
+import { buildRepertoireMap, forEachNode, type MapNode } from './repertoireMap';
 
 const MAX_PLIES = 24;
 const RECENT_MONTHS = 12;
@@ -52,7 +52,7 @@ interface Session {
 export function TreePage() {
   useWorkshopFont();
   const { replay, known, repertoires, steps, adoptions, judging, add, remove, ignore, unignore, forgetIgnored, forgetAdditions } = useReplayedSession();
-  const { work } = useWorkedLines();
+  const { work, unwork } = useWorkedLines();
   // Openings envoie une ligne à travailler par l'adresse : /dev/tree?side=b&line=d4 Nf6.
   const [params] = useSearchParams();
   const asked = useMemo(
@@ -68,7 +68,9 @@ export function TreePage() {
   const [session, setSession] = useState<Session | null>(null);
   const task = params.get('task') === 'check' ? 'check' : params.get('task') === 'weak' ? 'weak' : null;
   // Le bilan d'une ouverture faible préparée, avant de passer à la suivante.
-  const [prepared, setPrepared] = useState<number | null>(null);
+  const [prepared, setPrepared] = useState<{ moves: number; line: readonly string[] } | null>(null);
+  // Le rang de la tâche est figé à son ouverture : la position regardée ensuite ne le change pas.
+  const [nextRank, setNextRank] = useState<number | null>(null);
   const wide = useWide();
   const [building, setBuilding] = useState<{ origin: BuildOrigin; stepKey?: string; worked?: { side: Side; path: readonly string[] } } | null>(null);
   // Ce que « coup suivant » rejoue au téléphone : la ligne d'où l'on vient de reculer, comme sur Lichess.
@@ -102,7 +104,16 @@ export function TreePage() {
   const path = paths[side];
   const node = useMemo(() => nodeAlong(root, path), [root, path]);
   const stepsHere = useMemo(() => steps.filter((step) => step.side === side && step.games[0].check.position === node.position), [steps, side, node]);
-  const priority = node.priority !== undefined ? priorities[node.priority - 1] : undefined;
+  const askedRank = useMemo(
+    () => priorities.findIndex((candidate) => candidate.side === asked.side && candidate.path.join(' ') === asked.line.join(' ')) + 1 || 1,
+    [priorities, asked],
+  );
+  const taskRank = nextRank ?? askedRank;
+  const taskPriority = task === 'weak' ? priorities[taskRank - 1] : undefined;
+  // Dans la tâche, la faiblesse se montre sur sa ligne même hors du répertoire : on y joue un coup qu'il n'a pas.
+  const onTaskLine = taskPriority !== undefined && taskPriority.side === side && taskPriority.path.join(' ') === path.join(' ');
+  const priority = onTaskLine ? taskPriority : node.priority !== undefined ? priorities[node.priority - 1] : undefined;
+  const priorityRank = onTaskLine ? taskRank : node.priority;
 
   const goTo = (target: Side, key: string, centre: boolean) => {
     const found = findNode(maps[target], key);
@@ -201,8 +212,9 @@ export function TreePage() {
   const accept = (moves: AddedMove[], lines: (readonly string[])[]) => {
     if (!building) return;
     const addition: Addition = { side: building.origin.side, addedAt: replay.day, moves };
-    if (building.worked) work({ ...building.worked, since: replay.day });
-    if (building.worked && task === 'weak') setPrepared(moves.length);
+    const worked = building.worked && { ...building.worked, since: replay.day };
+    if (worked) work(worked);
+    if (worked && task === 'weak') setPrepared({ moves: moves.length, line: lines[0] ?? [] });
     setPinned((current) => [...current, ...lines.map((line) => line.join(' '))]);
     const text = `${moves.length} ${moves.length === 1 ? 'move' : 'moves'} added to your repertoire`;
     const step = building.stepKey ? live.get(building.stepKey) : undefined;
@@ -222,6 +234,7 @@ export function TreePage() {
       text: transposed && !inTask ? `${text} · same position as ${figurineLine(transposed.path)}: shown there, linked from here` : text,
       undo: () => {
         remove(addition);
+        if (worked) unwork(worked);
         if (inTask) setPrepared(null);
       },
     });
@@ -265,16 +278,22 @@ export function TreePage() {
     show({ text: 'Skipped for this session', undo: () => mark(step.key, null) });
   };
 
-  // La priorité montrée suit le camp regardé ; sur un nœud épinglé, c'est la sienne.
-  const shownRank = node.priority ?? (priorities.findIndex((candidate) => candidate.side === side) + 1 || 1);
   // Une ligne jouée hors du répertoire se voit aussi sur la carte, en fantôme, là où elle quitte le répertoire.
   const shownPreview = useMemo(() => (building ? preview : path.length > node.path.length ? [path] : []), [building, preview, path, node.path.length]);
-  const pins = useMemo(() => [...markedNodes(maps.w).priorities.map((n) => ({ side: 'w' as Side, node: n })), ...markedNodes(maps.b).priorities.map((n) => ({ side: 'b' as Side, node: n }))].sort((a, b) => a.node.priority! - b.node.priority!), [maps]);
-  const goToPriority = (rank: number) => {
-    const pin = pins.find((candidate) => candidate.node.priority === rank) ?? pins[0];
-    if (pin) goTo(pin.side, pin.node.key, true);
+  // Toutes les faiblesses à la suite, celles hors du répertoire comprises : on va à leur ligne, pas à leur épingle.
+  const goToWeak = (rank: number) => {
+    const target = priorities[rank - 1];
+    if (!target) return;
+    setNextRank(rank);
+    setPrepared(null);
+    setSide(target.side);
+    setPaths((current) => ({ ...current, [target.side]: target.path }));
+    setTrails((current) => ({ ...current, [target.side]: target.path }));
+    setFocus({ key: target.path.join(' '), stamp: Date.now(), centre: true });
     setLead('priority');
+    toTop();
   };
+  const nextWeak = task === 'weak' && priorities.length > 1 ? () => goToWeak((taskRank % priorities.length) + 1) : undefined;
   const position = session ? session.queue.indexOf(currentKey ?? '') + 1 : 0;
   const counts = session ? [...session.done.values()] : [];
   const settled = counts.filter((how) => how === 'settled').length;
@@ -398,8 +417,10 @@ export function TreePage() {
       toTop();
     },
     onSkip: session && current && stepsHere.includes(current) ? () => skip(current) : undefined,
-    priorityCount: priorities.length,
-    onNextPriority: task === 'weak' && pins.length > 1 && node.priority !== undefined ? () => goToPriority((node.priority! % pins.length) + 1) : undefined,
+    priorityRank,
+    // Dans la tâche, la barre dit déjà « 2 of 5 ».
+    priorityCount: task === 'weak' ? undefined : priorities.length,
+    onNextPriority: onTaskLine ? nextWeak : undefined,
     onExtend: () => build({ origin: originAt(side, node.path, path) }),
     onPrepareFollows: priority
       ? (line: readonly string[]) => {
@@ -415,9 +436,9 @@ export function TreePage() {
   };
   const header =
     task === 'check' ? (
-      <TaskBar title="Check" progress={session && current ? `${position} of ${session.queue.length} · as ${current.side === 'w' ? 'White' : 'Black'}` : undefined} />
+      <TaskBar title="Check" progress={checkOver ? 'done' : session && current ? `${position} of ${session.queue.length} · as ${current.side === 'w' ? 'White' : 'Black'}` : undefined} />
     ) : task === 'weak' ? (
-      <TaskBar title="Weak opening" progress={priorities.length ? `${shownRank} of ${priorities.length}` : undefined} />
+      <TaskBar title="Weak opening" progress={prepared ? 'done' : priorities.length ? `${taskRank} of ${priorities.length}` : undefined} />
     ) : (
       <PageHeader replay={{ ...replay, reset, next: replay.next && nextDay }} />
     );
@@ -428,13 +449,8 @@ export function TreePage() {
       <p>{steps.length ? `${steps.length} still to settle, marked in your repertoire.` : 'Come back after your next games.'}</p>
     </TaskDone>
   ) : prepared !== null ? (
-    <TaskDone
-      title={`${prepared} ${prepared === 1 ? 'move' : 'moves'} added`}
-      next={pins.length > 1 ? { label: 'Next weak opening', onClick: () => {
-        setPrepared(null);
-        goToPriority((shownRank % pins.length) + 1);
-      } } : undefined}
-    >
+    <TaskDone title={`${prepared.moves} ${prepared.moves === 1 ? 'move' : 'moves'} added`} next={nextWeak && { label: 'Next weak opening', onClick: nextWeak }}>
+      {prepared.line.length > 0 && <p style={{ color: COLOURS.leaf }}>{figurineLine(prepared.line)}</p>}
       <p>Your next games through this line will tell if the work pays.</p>
     </TaskDone>
   ) : null;
@@ -473,7 +489,7 @@ export function TreePage() {
           <main className="flex flex-col gap-3 px-4 pt-3">
             {!task && !building && (
               <div className="flex">
-                <SideTabs side={side} onChange={setSide} />
+                <SideTabs side={side} onChange={setSide} counts={perSide} />
               </div>
             )}
             <div ref={pane} className="flex min-w-0 scroll-mt-3 flex-col gap-3">
@@ -491,7 +507,7 @@ export function TreePage() {
 const startsWith = (line: readonly string[], prefix: readonly string[]) => prefix.length <= line.length && prefix.every((san, index) => line[index] === san);
 
 /** Le camp, en onglets serrés. */
-function SideTabs({ side, onChange }: { side: Side; onChange: (side: Side) => void }) {
+function SideTabs({ side, onChange, counts }: { side: Side; onChange: (side: Side) => void; counts: Record<Side, number> }) {
   return (
     <div role="tablist" aria-label="Repertoire" className="flex shrink-0 rounded-full p-0.5 text-[14px] font-bold" style={{ background: COLOURS.sand }}>
       {(['w', 'b'] as const).map((tab) => (
@@ -505,6 +521,11 @@ function SideTabs({ side, onChange }: { side: Side; onChange: (side: Side) => vo
           style={side === tab ? { background: COLOURS.leaf, color: COLOURS.cream } : { color: COLOURS.leaf }}
         >
           {tab === 'w' ? 'White' : 'Black'}
+          {counts[tab] > 0 && (
+            <span className="rounded-full px-1.5 text-[11px] font-extrabold text-white" style={{ background: COLOURS.terracotta }} title={`${counts[tab]} to settle`}>
+              {counts[tab]}
+            </span>
+          )}
         </button>
       ))}
     </div>

@@ -26,7 +26,8 @@ export interface PositionFacts {
 export function usePositionFacts({ side, path, node, recent, steps, priority, lead }: Pick<PositionPaneProps, 'side' | 'path' | 'node' | 'recent' | 'steps' | 'priority' | 'lead'>): PositionFacts {
   const inRepertoire = path.length === node.path.length;
   const here = useMemo(() => nodeAt(recent, path), [recent, path]);
-  const prioritised = inRepertoire && priority !== undefined;
+  // Hors du répertoire, seule la faiblesse dont c'est la ligne exacte garde sa carte (tâche Weak opening).
+  const prioritised = priority !== undefined && (inRepertoire || priority.path.join(' ') === path.join(' '));
   const settling = inRepertoire && steps.length > 0 && !(prioritised && lead === 'priority');
   const leak = priority ? leakOf(here) : undefined;
   const arrows = useMemo(() => {

@@ -33,6 +33,8 @@ export interface PositionPaneProps {
   /** Les étapes de la séance qui tombent sur cette position. */
   steps: readonly SessionStep[];
   priority?: Priority;
+  /** Le rang de la priorité montrée : celui de la carte, ou celui de la tâche hors du répertoire. */
+  priorityRank?: number;
   /** Combien de priorités en tout, les deux camps ensemble. */
   priorityCount?: number;
   actions: StepActions;
@@ -103,7 +105,7 @@ export function PositionPane(props: PositionPaneProps) {
       )}
       {prioritised && !settling && (
         <div className="order-3">
-          <PriorityCard side={side} priority={priority!} rank={node.priority!} total={props.priorityCount} facts={facts} waiting={steps.length} onLead={onLead} onNextPriority={onNextPriority} onPrepareFollows={onPrepareFollows} />
+          <PriorityCard side={side} priority={priority!} rank={props.priorityRank ?? node.priority!} total={props.priorityCount} facts={facts} waiting={steps.length} onLead={onLead} onNextPriority={onNextPriority} onPrepareFollows={onPrepareFollows} />
         </div>
       )}
       <Repertoire side={side} node={node} inRepertoire={inRepertoire} ply={ply} onMove={onMove} />

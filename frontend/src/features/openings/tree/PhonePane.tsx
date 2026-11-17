@@ -32,7 +32,7 @@ export function PhonePane(props: PhonePaneProps) {
       <div className="empty:hidden">
         {settling && <SettleCard steps={steps} facts={facts} actions={actions} onSkip={onSkip} rank={node.priority} />}
         {prioritised && !settling && (
-          <PriorityCard side={side} priority={priority!} rank={node.priority!} total={props.priorityCount} facts={facts} waiting={steps.length} onLead={onLead} onNextPriority={onNextPriority} onPrepareFollows={onPrepareFollows} />
+          <PriorityCard side={side} priority={priority!} rank={props.priorityRank ?? node.priority!} total={props.priorityCount} facts={facts} waiting={steps.length} onLead={onLead} onNextPriority={onNextPriority} onPrepareFollows={onPrepareFollows} />
         )}
       </div>
       {inRepertoire ? (

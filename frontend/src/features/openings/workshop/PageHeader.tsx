@@ -70,8 +70,9 @@ function Menu({ replay }: { replay?: ReplayDay }) {
             <Link to={pathOf('openings')} onClick={() => setOpen(false)} className="hidden px-4 py-3 font-semibold focus-visible:outline-2 lg:block">
               All your openings by result →
             </Link>
+            {/* Le jour suivant se voit sur la page : le menu se referme pour la laisser voir. */}
             {replay && (
-              <ReplayPanel replay={replay} />
+              <ReplayPanel replay={{ ...replay, next: replay.next && (() => (replay.next!(), setOpen(false))), reset: replay.reset && (() => (replay.reset!(), setOpen(false))) }} />
             )}
           </div>
         </>

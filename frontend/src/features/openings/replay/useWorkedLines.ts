@@ -20,6 +20,9 @@ export function useWorkedLines() {
     // Une ligne déjà travaillée garde sa première date : l'adhérence se compte depuis le premier travail.
     work: (line: WorkedLine) =>
       setWorked((current) => (current.some((known) => known.side === line.side && known.path.join(' ') === line.path.join(' ')) ? current : [...current, line])),
+    // Annuler un ajout ne défait que le travail daté du même jour : un travail plus ancien garde sa date.
+    unwork: (line: WorkedLine) =>
+      setWorked((current) => current.filter((known) => !(known.side === line.side && known.path.join(' ') === line.path.join(' ') && known.since === line.since))),
     clear: () => setWorked([]),
   };
 }

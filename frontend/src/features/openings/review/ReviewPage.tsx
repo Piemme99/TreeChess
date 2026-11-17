@@ -40,6 +40,7 @@ export function ReviewPage() {
   const lived = useMemo(() => liveGames(playedGamesFixture, repertoires, REPLAY_FIRST_DAY, today), [repertoires, today]);
   const review = useReview(playedGamesFixture, repertoires, lived, today);
   const [line, setLine] = useState<Line | null>(null);
+  const [exhausted, setExhausted] = useState(false);
   const [results, setResults] = useState<{ clean: number; lines: number; missed: Set<string> }>({ clean: 0, lines: 0, missed: new Set() });
   const due = review.due.w + review.due.b;
 
@@ -51,7 +52,9 @@ export function ReviewPage() {
     plans.sort((a, b) => b.weight - a.weight || review.due[b.side] - review.due[a.side]);
     const chosen = plans[0];
     if (!chosen) {
-      setLine(null);
+      // Plus rien de dû avant la cinquième ligne : la séance s'arrête là, avec son bilan.
+      if (results.lines) setExhausted(true);
+      else setLine(null);
       return;
     }
     const fen = replayLine(chosen.autoplayed).fens.at(-1)!;
@@ -114,13 +117,13 @@ export function ReviewPage() {
     setLine({ ...line, path: [...line.path, san], status: 'opponent', expected: [] });
   };
 
-  const sessionOver = results.lines >= LINES;
+  const sessionOver = results.lines >= LINES || exhausted;
   const arrows = line?.status === 'wrong' ? line.expected.map((san) => ({ san, share: 1, kind: 'repertoire' as const })) : [];
 
   return (
     <MotionConfig reducedMotion="user">
       <div className="min-h-screen pb-16" style={{ fontFamily: FONT_FAMILY, background: COLOURS.cream, color: COLOURS.leaf }}>
-        <TaskBar title="Review" progress={line && !sessionOver ? `line ${Math.min(results.lines + 1, LINES)} of ${LINES} · as ${line.side === 'w' ? 'White' : 'Black'}` : undefined} />
+        <TaskBar title="Review" progress={sessionOver ? 'done' : line ? `line ${Math.min(results.lines + 1, LINES)} of ${LINES} · as ${line.side === 'w' ? 'White' : 'Black'}` : undefined} />
         <main className="mx-auto flex max-w-[30rem] flex-col gap-3 px-4 pt-4">
           {opened && !line && !sessionOver && (
             <TaskDone title="Nothing to review today">
