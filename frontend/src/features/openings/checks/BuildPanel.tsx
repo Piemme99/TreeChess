@@ -51,7 +51,7 @@ export function BuildPanel({ builder, candidates, fresh, onPoint, onAccept, onCa
     <>
       {origin.reply && chosen && chosen !== origin.reply && (
         <p className="rounded-xl px-3 py-2 text-[13px]" style={{ background: COLOURS.cream }}>
-          You chose {figurineMove(chosen, origin.start.length + 1)}: the game where you played {figurineMove(origin.reply, origin.start.length + 1)} will come back to settle.
+          You chose {figurineMove(chosen, origin.start.length + 1)}. Your {figurineMove(origin.reply, origin.start.length + 1)} comes back to settle only if the engine finds it worse.
         </p>
       )}
 

@@ -19,7 +19,7 @@ export interface BuildOrigin {
   played?: string;
   /** Le joueur garde `played` : l'ajout part de là. */
   keep: boolean;
-  /** Ce que le joueur a répondu dans la partie au coup adverse imprévu : s'il en choisit un autre, la partie reviendra à trancher. */
+  /** Ce que le joueur a répondu dans la partie au coup adverse imprévu : s'il en choisit un autre, la partie ne revient à trancher que si le moteur reproche ce coup. */
   reply?: string;
   /** Le titre de la construction quand elle a un but précis (une priorité à travailler). */
   heading?: string;
