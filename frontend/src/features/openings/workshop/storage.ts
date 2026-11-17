@@ -10,10 +10,14 @@ const SAVE_DELAY = 300;
 // Chaque source de parties a ses décisions : la démo garde les clés d'avant, un compte importé a les siennes.
 let scope = '';
 let server: Map<string, string> | null = null;
-const pending = new Map<string, number>();
+const pending = new Map<string, { timer: number; value: string }>();
 
 export function setStorageScope(sourceId: string, saved?: Map<string, string>) {
-  scope = sourceId === 'demo' ? '' : `${sourceId}.`;
+  const next = sourceId === 'demo' ? '' : `${sourceId}.`;
+  // Les parties d'un compte se relisent (double chargement, nouvelles parties) avec ce que le serveur avait :
+  // ce qui n'y est pas encore parti doit survivre au remplacement.
+  if (saved && saved !== server && next === scope) for (const [key, { value }] of pending) saved.set(key, value);
+  scope = next;
   server = saved ?? null;
 }
 
@@ -34,25 +38,21 @@ export function writeStored(key: string, value: string) {
   const known = server!.get(key);
   if (known === value || (known !== undefined && sameJson(known, value))) return;
   server!.set(key, value);
-  window.clearTimeout(pending.get(key));
-  pending.set(key, window.setTimeout(() => save(key), SAVE_DELAY));
+  window.clearTimeout(pending.get(key)?.timer);
+  pending.set(key, { value, timer: window.setTimeout(() => save(key, value), SAVE_DELAY) });
 }
 
-function save(key: string, attempt = 0) {
+function save(key: string, value: string, attempt = 0) {
   pending.delete(key);
-  const value = server?.get(key);
-  if (value === undefined) return;
   api.put(`/v2/state/${key}`, value, { headers: { 'Content-Type': 'application/json' } }).catch(() => {
-    if (attempt < 3) pending.set(key, window.setTimeout(() => save(key, attempt + 1), 2000 * (attempt + 1)));
+    if (attempt < 3 && !pending.has(key)) pending.set(key, { value, timer: window.setTimeout(() => save(key, value, attempt + 1), 2000 * (attempt + 1)) });
   });
 }
 
 /** Une décision prise juste avant de fermer la page part quand même. */
 export function flushStored() {
-  for (const [key, timer] of pending) {
+  for (const [key, { timer, value }] of pending) {
     window.clearTimeout(timer);
-    const value = server?.get(key);
-    if (value === undefined) continue;
     void fetch(`${API_BASE}/v2/state/${key}`, {
       method: 'PUT',
       keepalive: true,
