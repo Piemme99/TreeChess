@@ -104,7 +104,7 @@ The player sees priorities as **weak openings** ("Weak opening 2 of 5"), the onl
 What a priority costs now, in game points (a win is 1, a draw ½): roughly how
 many points the player lost on the line over the last 12 months compared to
 their average, whatever proved the line a problem. Shown as a relative impact
-bar.
+bar only; the figure the player reads is the line's score against their average.
 
 ### Worked line
 

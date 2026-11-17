@@ -44,7 +44,7 @@ const find = (root: MapNode, path: string) => {
 };
 
 describe('buildRepertoireMap', () => {
-  const marks = { toSettle: new Map([[after('d4 d5 c4'), 7]]), priorities: [{ side: 'w' as const, path: ['d4', 'd5', 'c4', 'e6', 'Nc3'], games: 10, pointsToGain: 3 }] };
+  const marks = { toSettle: new Map([[after('d4 d5 c4'), 7]]), priorities: [{ side: 'w' as const, path: ['d4', 'd5', 'c4', 'e6', 'Nc3'], games: 10, score: 0.3, average: 0.5, pointsToGain: 3 }] };
   const root = buildRepertoireMap(repertoire, recent, marks);
 
   it('draws a position once and leaves a stub at its other arrival', () => {

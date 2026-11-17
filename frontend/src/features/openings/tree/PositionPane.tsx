@@ -254,16 +254,11 @@ function Repertoire({ side, node, inRepertoire, ply, onMove }: { side: Side; nod
 }
 
 function PriorityVerdict({ priority, here, average, leak }: { priority: Priority; here: OpeningNode | undefined; average: number; leak: OpeningNode | undefined }) {
-  const lost = Math.round(priority.pointsToGain);
   const ply = priority.path.length + 1;
   return (
     <>
       <span className="text-[15px] leading-snug">
-        You score <strong>{here ? Math.round(scoreRate(here) * 100) : '—'}%</strong> here, <strong>{Math.round(average * 100)}%</strong> on average: about{' '}
-        <strong>
-          {lost} {lost === 1 ? 'point' : 'points'}
-        </strong>{' '}
-        lost in {priority.games} games this year.
+        You score <strong>{here ? Math.round(scoreRate(here) * 100) : '—'}%</strong> here, <strong>{Math.round(average * 100)}%</strong> on average, over {priority.games} games this year.
       </span>
       {leak && (
         <span className="text-[14px] leading-snug">
