@@ -1,5 +1,5 @@
 import { Chess, type Square } from 'chess.js';
-import { memo, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { Chessboard, type PieceRenderObject } from 'react-chessboard';
 import { PIECE_SVG } from '../../../shared/components/Board/pieceSvg';
 import { ArrowLayer, type BoardArrow } from '../line/ArrowBoard';
@@ -38,6 +38,9 @@ export function PlayableBoard({ path, flipped, arrows = [], suggestions = [], on
   }, [path]);
   const [from, setFrom] = useState<Square | null>(null);
   const [shownFor, setShownFor] = useState(path);
+  const [board, setBoard] = useState(0);
+  const dragEnd = useRef<AbortController | null>(null);
+  useEffect(() => () => dragEnd.current?.abort(), []);
   if (shownFor !== path) {
     setShownFor(path);
     setFrom(null);
@@ -75,6 +78,24 @@ export function PlayableBoard({ path, flipped, arrows = [], suggestions = [], on
     setFrom(piece && piece.color === chess.turn() && square !== from ? square : null);
   };
 
+  // Un doigt qui glisse de quelques pixels puis se lève avant le rendu suivant : dnd-kit clôt le glisser sans
+  // prévenir react-chessboard, la pièce reste soulevée et l'échiquier ignore tout toucher jusqu'au prochain
+  // glisser. Relâché sans dépôt, l'échiquier est remonté à neuf.
+  const watchDragEnd = () => {
+    dragEnd.current?.abort();
+    const controller = new AbortController();
+    dragEnd.current = controller;
+    const settle = (event: PointerEvent) => {
+      if (!event.isPrimary) return;
+      window.setTimeout(() => {
+        if (controller.signal.aborted) return;
+        controller.abort();
+        setBoard((count) => count + 1);
+      });
+    };
+    for (const type of ['pointerup', 'pointercancel'] as const) window.addEventListener(type, settle, { signal: controller.signal });
+  };
+
   const renderSquare = ({ square, children }: { square: string; children?: ReactNode }) => {
     const target = targets.some((candidate) => candidate.to === square);
     const landing = !from && suggested.some((candidate) => candidate.to === square);
@@ -110,6 +131,7 @@ export function PlayableBoard({ path, flipped, arrows = [], suggestions = [], on
       </span>
       <div className="relative overflow-hidden rounded-[6px]">
         <Chessboard
+          key={board}
           options={{
             id: 'workshop-playable',
             position: chess.fen(),
@@ -125,8 +147,12 @@ export function PlayableBoard({ path, flipped, arrows = [], suggestions = [], on
             allowDrawingArrows: false,
             dragActivationDistance: 3,
             canDragPiece: ({ piece }) => piece.pieceType[0] === chess.turn(),
-            onPieceDrag: ({ square }) => setFrom(square as Square),
+            onPieceDrag: ({ square }) => {
+              setFrom(square as Square);
+              watchDragEnd();
+            },
             onPieceDrop: ({ sourceSquare, targetSquare }) => {
+              dragEnd.current?.abort();
               if (targetSquare && play(sourceSquare as Square, targetSquare as Square)) return true;
               setFrom(null);
               return false;
