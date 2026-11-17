@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kumquat v2 — le parcours tel qu'il est (17/11/2026)</title>
+<style>
+  :root {
+    --cream: #f8f0dc; --paper: #fdf8ec; --leaf: #1f3d2b; --soft: #4d6655; --sand: #eadfc4;
+    --green: #2f7d4f; --terracotta: #c4512d; --grey: #8b8f88;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--cream); color: var(--leaf); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 1180px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { font-size: 26px; margin: 0 0 4px; letter-spacing: -0.02em; }
+  h2 { font-size: 20px; margin: 40px 0 6px; letter-spacing: -0.01em; }
+  .sub { color: var(--soft); margin: 0 0 8px; }
+  .card { background: var(--paper); border-radius: 18px; padding: 16px; box-shadow: 0 1px 0 var(--sand); }
+  .map { overflow-x: auto; }
+  .map svg { min-width: 900px; width: 100%; height: auto; display: block; }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; color: var(--soft); margin-top: 10px; }
+  .legend i { display: inline-block; width: 22px; height: 12px; border-radius: 4px; vertical-align: -1px; margin-right: 6px; }
+  .lane { display: flex; align-items: flex-start; gap: 0; overflow-x: auto; padding: 8px 2px 14px; scroll-snap-type: x mandatory; }
+  .shot { flex: none; width: 210px; scroll-snap-align: start; }
+  .shot img { width: 210px; border-radius: 16px; border: 1px solid var(--sand); display: block; background: white; }
+  .shot b { display: block; font-size: 13px; margin: 6px 2px 0; }
+  .shot span { display: block; font-size: 12px; color: var(--soft); margin: 2px 2px 0; }
+  .num { display: inline-grid; place-items: center; min-width: 22px; height: 22px; border-radius: 11px; background: var(--leaf); color: var(--cream); font-size: 12px; font-weight: 700; margin-right: 6px; padding: 0 6px; }
+  .arrow { flex: none; width: 112px; align-self: center; text-align: center; font-size: 12px; color: var(--soft); padding: 0 6px; margin-top: -60px; }
+  .arrow::after { content: ""; display: block; height: 2px; background: var(--leaf); margin: 6px 4px 0; position: relative; }
+  .arrow em { font-style: normal; font-weight: 700; color: var(--leaf); background: var(--sand); border-radius: 8px; padding: 2px 6px; display: inline-block; }
+  .arrow small { display: block; margin-top: 3px; }
+  .arrow .head { display: block; text-align: right; margin: -9px 0 0; color: var(--leaf); font-size: 14px; line-height: 1; }
+  ol.issues { padding-left: 0; list-style: none; counter-reset: i; display: grid; gap: 10px; }
+  ol.issues li { counter-increment: i; background: var(--paper); border-radius: 14px; padding: 12px 14px 12px 50px; position: relative; }
+  ol.issues li::before { content: counter(i); position: absolute; left: 14px; top: 12px; width: 24px; height: 24px; border-radius: 12px; background: var(--terracotta); color: white; font-weight: 700; font-size: 13px; display: grid; place-items: center; }
+  ol.issues b { display: block; }
+  .ref { color: var(--soft); font-size: 13px; }
+  .note { font-size: 13px; color: var(--soft); }
+  .swipe { display: none; font-size: 12px; color: var(--soft); margin: 0 0 6px; }
+  @media (max-width: 700px) { .swipe { display: block; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Kumquat v2 — le parcours tel qu'il est</h1>
+  <p class="sub">Toutes les pages au téléphone (390 px) et leurs liens, relevés dans le code et dans l'app le 17/11/2026 (main = 910cfa5, rejeu des parties de Piemme78). C'est un état des lieux, pas une proposition.</p>
+
+  <h2>Vue d'ensemble</h2>
+  <p class="sub">Une case = un écran. Les flèches portent le libellé du bouton qui y mène. Les cases vertes sont les deux entrées du menu.</p>
+  <p class="swipe">Faire défiler la carte et les captures vers la droite →</p>
+  <div class="card map">
+    <svg viewBox="0 0 1100 600" role="img" aria-label="Carte des pages et de leurs liens">
+      <defs>
+        <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#1f3d2b"/></marker>
+        <marker id="g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#8b8f88"/></marker>
+        <style>
+          .n rect { fill: #fdf8ec; stroke: #1f3d2b; stroke-width: 1.5; }
+          .m rect { fill: #1f3d2b; }
+          .m text { fill: #f8f0dc; }
+          .o rect { fill: #f8f0dc; stroke: #8b8f88; stroke-dasharray: 5 4; }
+          .o text { fill: #6b7068; }
+          .s rect { fill: #fdf8ec; stroke: #c4512d; stroke-width: 1.5; }
+          text { font: 600 14px system-ui, sans-serif; fill: #1f3d2b; }
+          .t { font: 400 12px system-ui, sans-serif; fill: #4d6655; }
+          .e { fill: none; stroke: #1f3d2b; stroke-width: 1.5; marker-end: url(#a); }
+          .eg { fill: none; stroke: #8b8f88; stroke-width: 1.5; stroke-dasharray: 5 4; marker-end: url(#g); }
+          .l { font: 600 11.5px system-ui, sans-serif; fill: #1f3d2b; }
+          .lg { font: 600 11.5px system-ui, sans-serif; fill: #6b7068; }
+          .frame { fill: none; stroke: #1f3d2b; stroke-width: 1.2; stroke-dasharray: 2 4; }
+        </style>
+      </defs>
+
+      <!-- Rejeu -->
+      <g class="o"><rect x="20" y="20" width="250" height="60" rx="12"/></g>
+      <text x="36" y="44" style="fill:#4d6655">Rejeu : Next day · Reset…</text>
+      <text x="36" y="64" class="t">dans l'en-tête de chaque page</text>
+
+      <g class="n"><rect x="20" y="262" width="140" height="60" rx="14"/></g>
+      <text x="36" y="287">(1) Import</text>
+      <text x="36" y="307" class="t">1re visite seulement</text>
+
+      <g class="m"><rect x="240" y="236" width="190" height="112" rx="16"/></g>
+      <text x="256" y="262" style="fill:#f8f0dc">(2)(6) Today</text>
+      <text x="256" y="284" class="t" style="fill:#d8e6d6">une carte en avant :</text>
+      <text x="256" y="300" class="t" style="fill:#d8e6d6">1er jour · parties · révision</text>
+      <text x="256" y="316" class="t" style="fill:#d8e6d6">· priorité 1 ; puis des lignes</text>
+      <text x="256" y="332" class="t" style="fill:#d8e6d6">Review · Weak openings</text>
+
+      <g class="n"><rect x="560" y="30" width="300" height="64" rx="14"/></g>
+      <text x="576" y="56">(9)(10)(11) Review</text>
+      <text x="576" y="76" class="t">Start → 5 lignes → résumé</text>
+
+      <rect x="560" y="150" width="300" height="330" rx="20" class="frame"/>
+      <g class="m"><rect x="580" y="164" width="260" height="40" rx="12"/></g>
+      <text x="596" y="190" style="fill:#f8f0dc">(12) Repertoire, l'arbre</text>
+      <g class="n"><rect x="580" y="220" width="260" height="56" rx="12"/></g>
+      <text x="596" y="244">(3)(13) Carte « Priority n of 5 »</text>
+      <text x="596" y="264" class="t">Next priority · Prepare my moves after…</text>
+      <g class="s"><rect x="580" y="292" width="260" height="56" rx="12"/></g>
+      <text x="596" y="316">(7) Séance « To settle »</text>
+      <text x="596" y="336" class="t">une position à la fois · Skip for now</text>
+      <g class="n"><rect x="580" y="364" width="260" height="56" rx="12"/></g>
+      <text x="596" y="388">Parcours libre</text>
+      <text x="596" y="408" class="t">échiquier + table des coups · ◀ ▶</text>
+      <text x="580" y="458" class="t">même page : la carte change selon l'entrée</text>
+
+      <g class="n"><rect x="930" y="292" width="150" height="76" rx="14"/></g>
+      <text x="946" y="318">(4) Construction</text>
+      <text x="946" y="338" class="t">dans l'arbre</text>
+      <text x="946" y="354" class="t">Cancel · Undo · Add</text>
+
+      <g class="o"><rect x="240" y="470" width="190" height="56" rx="14"/></g>
+      <text x="256" y="494">(15) Openings</text>
+      <text x="256" y="514" class="t">hors menu</text>
+      <g class="o"><rect x="930" y="470" width="150" height="56" rx="14"/></g>
+      <text x="946" y="494">(14) Games</text>
+      <text x="946" y="514" class="t">hors menu</text>
+
+      <path class="e" d="M160 292 H236"/>
+      <text x="170" y="284" class="l">Import</text>
+
+      <path class="e" d="M340 236 C 340 130, 440 52, 556 52"/>
+      <text x="300" y="150" class="l">Review</text>
+      <path class="e" d="M560 84 C 480 104, 430 160, 410 232"/>
+      <text x="474" y="150" class="l">← Today, ou fin des 5 lignes</text>
+
+      <path class="e" d="M420 240 C 470 200, 520 184, 576 184"/>
+      <text x="486" y="180" class="l">menu</text>
+      <path class="e" d="M430 262 C 500 262, 520 248, 576 248"/>
+      <text x="444" y="254" class="l">Work on it</text>
+      <path class="e" d="M430 300 C 500 300, 520 320, 576 320"/>
+      <text x="444" y="296" class="l">Check them · To settle</text>
+      <path class="e" d="M580 340 C 520 380, 470 364, 434 338"/>
+      <text x="450" y="390" class="l">fin de séance, seule</text>
+
+      <path class="e" d="M840 248 C 890 248, 900 296, 926 304"/>
+      <text x="846" y="238" class="l">Prepare my moves…</text>
+      <path class="e" d="M840 320 H926"/>
+      <text x="846" y="338" class="l">Prepare a reply</text>
+      <path class="e" d="M840 392 C 890 392, 900 370, 926 360"/>
+      <text x="846" y="412" class="l">+ Prepare another…</text>
+      <path class="e" d="M1005 368 C 1005 430, 960 446, 864 446"/>
+      <text x="1012" y="412" class="l">Add · Cancel</text>
+
+      <path class="eg" d="M335 352 V466"/>
+      <text x="344" y="404" class="lg">All your openings →</text>
+      <text x="344" y="420" class="lg">(ordinateur seulement)</text>
+      <path class="eg" d="M930 498 C 900 498, 884 480, 864 470"/>
+      <text x="852" y="540" class="lg">Open in the tree</text>
+    </svg>
+    <div class="legend">
+      <span><i style="background:#1f3d2b"></i>entrée du menu (Today · Repertoire)</span>
+      <span><i style="background:#fdf8ec;border:1.5px solid #1f3d2b"></i>écran ou état</span>
+      <span><i style="background:#fdf8ec;border:1.5px solid #c4512d"></i>décision à prendre</span>
+      <span><i style="background:#f8f0dc;border:1.5px dashed #8b8f88"></i>hors menu, joignable par l'adresse</span>
+      <span>Les numéros renvoient aux captures ci-dessous.</span>
+    </div>
+  </div>
+
+  <h2>A · Premier jour : voir où je perds des points</h2>
+  <p class="sub">L'import mène à Today ; chaque priorité ouvre l'arbre sur sa ligne.</p>
+  <div class="lane">
+    <div class="shot"><img src="img/01-import.png" alt=""><b><span class="num">1</span>Import</b><span>pseudo Lichess, un bouton</span></div>
+    <div class="arrow"><em>Import</em><span class="head">▶</span></div>
+    <div class="shot"><img src="img/02-today-first.png" alt=""><b><span class="num">2</span>Today, 1er jour</b><span>« Where you lose points », 3 priorités</span></div>
+    <div class="arrow"><em>Work on it</em><span class="head">▶</span></div>
+    <div class="shot"><img src="img/03-tree-priority.png" alt=""><b><span class="num">3</span>Repertoire sur la priorité</b><span>carte « Priority 1 of 5 », « ← Today » en haut</span></div>
+    <div class="arrow"><em>Prepare my moves after 1…d6</em><span class="head">▶</span></div>
+    <div class="shot"><img src="img/04b-builder-scrolled.png" alt=""><b><span class="num">4</span>Construction</b><span>coups des 2200+, moteur, les miens ; Add ou Cancel ramène à (3)</span></div>
+  </div>
+
+  <h2>B · Après des parties : vérifier et trancher</h2>
+  <p class="sub">« Next day » simule une journée de parties. Today les liste ; « Check them » lance la séance dans l'arbre.</p>
+  <div class="lane">
+    <div class="shot"><img src="img/06-today-games.png" alt="" style="height:455px;object-fit:cover;object-position:top"><b><span class="num">6</span>Today, nouvelles parties</b><span>11 lignes ✓ ? ✗, puis « Check them » (sous la ligne de flottaison)</span></div>
+    <div class="arrow"><em>Check them</em><span class="head">▶</span></div>
+    <div class="shot"><img src="img/07-session-1.png" alt=""><b><span class="num">7</span>Séance dans l'arbre</b><span>« They played 4…g6: no answer yet. » · Prepare a reply · Not worth it · Skip</span></div>
+    <div class="arrow"><em>Prepare a reply</em><small>→ construction (4)</small><small>dernière carte → retour seul à Today</small><span class="head">▶</span></div>
+    <div class="shot"><div class="card" style="height:120px;display:grid;place-content:center;text-align:center"><b><span class="num">6</span>retour à Today</b><span>toast « Check done · n settled »</span></div></div>
+  </div>
+
+  <h2>C · Réviser</h2>
+  <p class="sub">Depuis la ligne « Review » de Today : 5 lignes jouées depuis le répertoire, l'app joue l'adversaire.</p>
+  <div class="lane">
+    <div class="shot"><img src="img/09-review-intro.png" alt=""><b><span class="num">9</span>Review</b><span>« 118 positions to review » · Start</span></div>
+    <div class="arrow"><em>Start</em><span class="head">▶</span></div>
+    <div class="shot"><img src="img/10-review-drill.png" alt=""><b><span class="num">10</span>Ligne 1 sur 5</b><span>« Your move »</span></div>
+    <div class="arrow"><em>mauvais coup</em><span class="head">▶</span></div>
+    <div class="shot"><img src="img/11-review-wrong.png" alt=""><b><span class="num">11</span>Correction</b><span>« Not your move here · play 1.e4 or 1.d4 » ; après 5 lignes, résumé → Today</span></div>
+  </div>
+
+  <h2>D · Naviguer librement</h2>
+  <p class="sub">Le menu du téléphone n'a que deux pages. Repertoire ouvert par le menu porte aussi la séance et les priorités.</p>
+  <div class="lane">
+    <div class="shot"><img src="img/05-menu.png" alt=""><b><span class="num">5</span>Menu</b><span>Today · Repertoire · Sign in with Lichess</span></div>
+    <div class="arrow"><em>Repertoire</em><span class="head">▶</span></div>
+    <div class="shot"><img src="img/12-repertoire.png" alt=""><b><span class="num">12</span>Repertoire</b><span>White/Black · « 6 to settle » · « Priorities » · table des coups</span></div>
+    <div class="arrow"><em>Priorities</em><span class="head">▶</span></div>
+    <div class="shot"><img src="img/13-priorities.png" alt=""><b><span class="num">13</span>Une priorité</b><span>même carte qu'en (3), sans « ← Today »</span></div>
+  </div>
+
+  <h2>E · Hors menu, encore en ligne</h2>
+  <p class="sub">Joignables par l'adresse (/v2/games, /v2/openings) ; Openings par un lien de Today à l'ordinateur seulement.</p>
+  <div class="lane">
+    <div class="shot"><img src="img/14-games.png" alt=""><b><span class="num">14</span>Games</b><span>« 8 games on 8 positions » · Not covered yet · Left the repertoire</span></div>
+    <div class="arrow" style="visibility:hidden"></div>
+    <div class="shot"><img src="img/15-openings.png" alt=""><b><span class="num">15</span>Openings</b><span>statistiques, « Priorities » P1 P2…</span></div>
+  </div>
+
+  <h2>Ce qui rend le parcours fouillis</h2>
+  <p class="sub">Constats relevés en parcourant les captures, du plus structurant au plus local.</p>
+  <ol class="issues">
+    <li><b>Repertoire fait cinq métiers sur un écran.</b> Parcourir, trancher (porte « 6 to settle »), travailler une priorité (bouton « Priorities » et sa carte), construire (en place), rejouer (« Next day »). La même page montre une carte différente selon la porte d'entrée, et rien ne dit dans quel mode on est. <span class="ref">(3) (7) (12) (13)</span></li>
+    <li><b>Le même travail a trois compteurs et quatre vocabulaires.</b> Today dit « 6 to settle » avec ✓ ? ✗, Repertoire « 6 to settle », Games « 8 games on 8 positions » avec « Not covered yet » / « Left the repertoire ». Games n'applique pas le tri du moteur, d'où 8 contre 6. <span class="ref">(6) (12) (14)</span></li>
+    <li><b>Today marque ✗ un coup que le moteur ne reproche pas.</b> « ✗ you played 1…♘f6, not 1…d5 · nothing to do » : une croix pour « rien à faire ». <span class="ref">(6)</span></li>
+    <li><b>La faiblesse change de nom à chaque écran.</b> « Where you lose points », « Weak openings », « Priorities », « Priority 1 of 5 », « −10 pts ». <span class="ref">(2) (3) (6) (12) (15)</span></li>
+    <li><b>Le bouton d'action de Today passe sous l'écran.</b> Avec 11 parties, « Check them » arrive après 11 lignes, hors de l'écran du téléphone. <span class="ref">(6)</span></li>
+    <li><b>Les retours ne sont pas les mêmes partout.</b> « ← Today » n'existe que si l'on vient de Today ; la séance renvoie seule à Today à la dernière carte ; après « Add » dans la construction, on reste dans l'arbre sans signal de fin. <span class="ref">(3) (7) (13) (4)</span></li>
+    <li><b>Le rejeu occupe l'en-tête de chaque page.</b> Date, « Day 1/49 », « Reset… », « Next day » : un outil de démonstration à la place du titre, au téléphone. <span class="ref">toutes</span></li>
+    <li><b>La révision annonce un chiffre sans rapport avec la séance.</b> « 118 positions to review » dès le premier jour, pour une séance de 5 lignes. <span class="ref">(9)</span></li>
+    <li><b>Deux pages encore en ligne ne sont plus atteignables au téléphone.</b> Games et Openings, sorties du menu, restent sur /v2. <span class="ref">(14) (15)</span></li>
+  </ol>
+  <p class="note">Captures faites dans Chromium à 390 × 844, sur le serveur de développement. Les parties sont celles du rejeu (Piemme78), à partir d'un stockage vide.</p>
+</main>
+</body>
+</html>
