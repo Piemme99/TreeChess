@@ -106,6 +106,7 @@ jobs:
       contents: read
       packages: write
     strategy:
+      fail-fast: false
       matrix:
         service: [backend, frontend]
     env:
