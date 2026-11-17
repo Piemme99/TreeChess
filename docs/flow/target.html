@@ -1,0 +1,440 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kumquat v2 — le parcours cible (proposition, 17/11/2026)</title>
+<style>
+  :root {
+    --cream: #f8f0dc; --paper: #fdf8ec; --leaf: #1f3d2b; --soft: #4d6655; --sand: #eadfc4;
+    --green: #2f7d4f; --terracotta: #c4512d; --grey: #8b8f88;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--cream); color: var(--leaf); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 1180px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { font-size: 26px; margin: 0 0 4px; letter-spacing: -0.02em; }
+  h2 { font-size: 20px; margin: 40px 0 6px; letter-spacing: -0.01em; }
+  .sub { color: var(--soft); margin: 0 0 8px; }
+  a { color: var(--green); }
+  .card { background: var(--paper); border-radius: 18px; padding: 16px; box-shadow: 0 1px 0 var(--sand); }
+  .map { overflow-x: auto; }
+  .map svg { min-width: 900px; width: 100%; height: auto; display: block; }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; color: var(--soft); margin-top: 10px; }
+  .legend i { display: inline-block; width: 22px; height: 12px; border-radius: 4px; vertical-align: -1px; margin-right: 6px; }
+  .rules { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); margin: 12px 0 0; padding: 0; list-style: none; }
+  .rules li { background: var(--paper); border-radius: 14px; padding: 12px 14px; }
+  .rules b { display: block; }
+  .lane { display: flex; align-items: flex-start; overflow-x: auto; padding: 8px 2px 14px; scroll-snap-type: x mandatory; }
+  .shot { flex: none; width: 210px; scroll-snap-align: start; }
+  .shot > b { display: block; font-size: 13px; margin: 8px 2px 0; }
+  .shot > span { display: block; font-size: 12px; color: var(--soft); margin: 2px 2px 0; }
+  .num { display: inline-grid; place-items: center; min-width: 22px; height: 22px; border-radius: 11px; background: var(--leaf); color: var(--cream); font-size: 12px; font-weight: 700; margin-right: 6px; padding: 0 6px; }
+  .arrow { flex: none; width: 104px; align-self: center; text-align: center; font-size: 12px; color: var(--soft); padding: 0 6px; margin-top: -60px; }
+  .arrow::after { content: ""; display: block; height: 2px; background: var(--leaf); margin: 6px 4px 0; }
+  .arrow em { font-style: normal; font-weight: 700; color: var(--leaf); background: var(--sand); border-radius: 8px; padding: 2px 6px; display: inline-block; }
+  .arrow small { display: block; margin-top: 3px; }
+  .arrow .head { display: block; text-align: right; margin: -9px 0 0; color: var(--leaf); font-size: 14px; line-height: 1; }
+  .swipe { display: none; font-size: 12px; color: var(--soft); margin: 0 0 6px; }
+  @media (max-width: 700px) { .swipe { display: block; } }
+
+  /* maquettes de téléphone */
+  .ph { width: 210px; height: 430px; border: 6px solid var(--leaf); border-radius: 30px; background: var(--paper); overflow: hidden; font-size: 10.5px; line-height: 1.35; display: flex; flex-direction: column; }
+  .hd { display: flex; align-items: center; gap: 8px; padding: 9px 10px 7px; font-weight: 700; border-bottom: 1px solid var(--sand); }
+  .hd .tabs { display: flex; gap: 8px; margin-left: auto; font-weight: 600; color: var(--soft); }
+  .hd .tabs .on { color: var(--leaf); border-bottom: 2px solid var(--green); }
+  .hd .more { color: var(--soft); }
+  .tk { display: flex; align-items: center; gap: 8px; padding: 9px 10px; background: var(--leaf); color: var(--cream); font-weight: 700; }
+  .tk .x { font-size: 13px; }
+  .tk .p { margin-left: auto; font-weight: 500; opacity: .8; }
+  .bd { aspect-ratio: 1; background: repeating-conic-gradient(#9fbf8f 0 25%, #eef0d8 0 50%) 0 0 / 25% 25%; flex: none; position: relative; }
+  .bd.sm { width: 62%; margin: 6px auto 0; }
+  .bd i { position: absolute; left: 30%; top: 55%; width: 40%; height: 4px; background: var(--terracotta); transform: rotate(-35deg); border-radius: 2px; opacity: .85; }
+  .bd i.g { background: var(--green); left: 38%; top: 46%; transform: rotate(-60deg); }
+  .bx { margin: 7px 8px 0; background: white; border: 1px solid var(--sand); border-radius: 12px; padding: 8px; }
+  .bx.hero { border: 1.5px solid var(--leaf); }
+  .bx h4 { margin: 0 0 2px; font-size: 12px; }
+  .bx p { margin: 0 0 5px; color: var(--soft); }
+  .bx .big { font-size: 12.5px; color: var(--leaf); font-weight: 600; margin: 2px 0 6px; }
+  .bt { display: block; text-align: center; border-radius: 9px; padding: 5px 6px; margin-top: 5px; font-weight: 700; border: 1.5px solid var(--leaf); color: var(--leaf); }
+  .bt.pr { background: var(--green); border-color: var(--green); color: white; }
+  .bt.sm { display: inline-block; padding: 2px 7px; margin: 0; font-size: 9.5px; }
+  .lk { color: var(--soft); text-align: center; display: block; margin-top: 5px; text-decoration: underline; }
+  .rw { display: flex; align-items: center; gap: 6px; padding: 5px 0; border-top: 1px solid var(--sand); }
+  .rw:first-of-type { border-top: 0; }
+  .rw .ic { width: 14px; text-align: center; font-weight: 800; flex: none; }
+  .rw .ic.ok { color: var(--green); } .rw .ic.dec { color: var(--terracotta); } .rw .ic.add { color: var(--green); }
+  .rw .r { margin-left: auto; color: var(--soft); white-space: nowrap; }
+  .bar { height: 5px; border-radius: 3px; background: var(--terracotta); opacity: .75; }
+  .ln { margin: 7px 8px 0; display: flex; justify-content: space-between; padding: 7px 8px; background: white; border: 1px solid var(--sand); border-radius: 10px; }
+  .ln b { font-weight: 600; } .ln span { color: var(--soft); }
+  .tb { width: 100%; border-collapse: collapse; }
+  .tb td { padding: 3px 2px; border-top: 1px solid var(--sand); }
+  .tb tr:first-child td { border-top: 0; }
+  .tb td:not(:first-child) { text-align: right; color: var(--soft); }
+  .tb .dot { display: inline-block; width: 7px; height: 7px; border-radius: 4px; background: var(--terracotta); margin-left: 3px; }
+  .tb .mine { color: var(--green); font-weight: 700; }
+  .ft { margin-top: auto; display: flex; justify-content: space-around; padding: 7px 0 9px; border-top: 1px solid var(--sand); color: var(--soft); font-weight: 700; }
+  .toast { margin: auto 8px 8px; background: var(--leaf); color: var(--cream); border-radius: 10px; padding: 7px 9px; display: flex; justify-content: space-between; }
+  .done { text-align: center; padding: 18px 12px 0; }
+  .done .ok { font-size: 30px; color: var(--green); }
+  .done h4 { font-size: 13px; margin: 4px 0 6px; }
+  .done p { color: var(--soft); margin: 0 0 4px; }
+
+  table.fx { width: 100%; border-collapse: collapse; font-size: 14px; }
+  table.fx th, table.fx td { text-align: left; vertical-align: top; padding: 9px 10px; border-top: 1px solid var(--sand); }
+  table.fx th { font-size: 12px; color: var(--soft); font-weight: 600; border-top: 0; }
+  table.fx td:first-child { width: 34px; }
+  .n { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 12px; background: var(--terracotta); color: white; font-weight: 700; font-size: 13px; }
+  .fxwrap { overflow-x: auto; }
+  @media (max-width: 700px) {
+    table.fx tr:first-child { display: none; }
+    table.fx tr { display: grid; grid-template-columns: 34px 1fr; border-top: 1px solid var(--sand); padding: 8px 0; }
+    table.fx td { border: 0; padding: 2px 6px; }
+    table.fx td:nth-child(2) { font-weight: 700; }
+    table.fx td:nth-child(3) { grid-column: 2; }
+    table.fx td:nth-child(4) { grid-column: 2; font-size: 12px; color: var(--soft); }
+    table.fx td:nth-child(4)::before { content: "écrans "; }
+  }
+  ol.bricks { padding-left: 20px; } ol.bricks li { margin: 6px 0; }
+  .note { font-size: 13px; color: var(--soft); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Kumquat v2 — le parcours cible</h1>
+  <p class="sub">Proposition, à valider avant tout code. Elle répond aux neuf constats de <a href="index.html">la carte actuelle</a>. Les écrans sont des maquettes, pas des captures : les textes de l'app y sont en anglais, comme dans l'app.</p>
+
+  <h2>Trois règles</h2>
+  <ul class="rules">
+    <li><b>Deux lieux, trois tâches.</b> Today dit ce qui attend, Repertoire sert à parcourir et à étendre. Trois tâches en plein écran partent de Today : Check, Weak openings, Review.</li>
+    <li><b>Une tâche se voit et se termine.</b> Une barre sombre porte ✕, le nom de la tâche et « 1 of 3 ». Un résumé clôt toujours la tâche, puis on revient à Today. Repertoire ne lance plus de tâche.</li>
+    <li><b>Un nom et un chiffre par chose.</b> « to settle » compte des positions, les mêmes partout, triées par le moteur. « Weak openings » nomme les priorités, partout.</li>
+  </ul>
+
+  <h2>Vue d'ensemble</h2>
+  <p class="sub">Une case = un écran. Les flèches portent le libellé du bouton qui y mène.</p>
+  <p class="swipe">Faire défiler la carte et les maquettes vers la droite →</p>
+  <div class="card map">
+    <svg viewBox="0 0 1100 560" role="img" aria-label="Carte cible des pages et de leurs liens">
+      <defs>
+        <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#1f3d2b"/></marker>
+        <marker id="g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#8b8f88"/></marker>
+        <style>
+          .bn { fill: #fdf8ec; stroke: #1f3d2b; stroke-width: 1.5; }
+          .bm { fill: #1f3d2b; }
+          .bt2 { fill: #fdf8ec; stroke: #c4512d; stroke-width: 1.5; }
+          .bo { fill: #f8f0dc; stroke: #8b8f88; stroke-dasharray: 5 4; }
+          text { font: 600 14px system-ui, sans-serif; fill: #1f3d2b; }
+          .t { font: 400 12px system-ui, sans-serif; fill: #4d6655; }
+          .w { fill: #f8f0dc; } .tw { font: 400 12px system-ui, sans-serif; fill: #d8e6d6; }
+          .e { fill: none; stroke: #1f3d2b; stroke-width: 1.5; marker-end: url(#a); }
+          .eb { fill: none; stroke: #1f3d2b; stroke-width: 1.5; marker-end: url(#a); marker-start: url(#a); }
+          .eg { fill: none; stroke: #8b8f88; stroke-width: 1.5; stroke-dasharray: 5 4; marker-end: url(#g); }
+          .l { font: 600 11.5px system-ui, sans-serif; fill: #1f3d2b; }
+          .lg { font: 600 11.5px system-ui, sans-serif; fill: #6b7068; }
+          .frame { fill: none; stroke: #c4512d; stroke-width: 1.2; stroke-dasharray: 2 4; }
+        </style>
+      </defs>
+
+      <rect x="20" y="200" width="140" height="60" rx="14" class="bn"/>
+      <text x="36" y="225">Import</text>
+      <text x="36" y="245" class="t">1re visite seulement</text>
+
+      <rect x="240" y="168" width="200" height="124" rx="16" class="bm"/>
+      <text x="256" y="194" class="w">Today</text>
+      <text x="256" y="216" class="tw">une carte en avant,</text>
+      <text x="256" y="232" class="tw">son bouton en haut ;</text>
+      <text x="256" y="248" class="tw">dessous, une ligne par</text>
+      <text x="256" y="264" class="tw">autre tâche, avec son chiffre</text>
+
+      <rect x="540" y="24" width="330" height="372" rx="20" class="frame"/>
+      <text x="556" y="48" style="fill:#c4512d">Tâches · plein écran · ✕ · résumé de fin</text>
+      <rect x="560" y="64" width="290" height="88" rx="14" class="bt2"/>
+      <text x="576" y="90">Check · 1 of 2</text>
+      <text x="576" y="110" class="t">une position à trancher à la fois</text>
+      <text x="576" y="128" class="t">Add · Keep · Prepare a reply · Skip</text>
+      <rect x="560" y="166" width="290" height="88" rx="14" class="bt2"/>
+      <text x="576" y="192">Weak opening · 1 of 3</text>
+      <text x="576" y="212" class="t">verdict, Lichess, « Prepare my moves »</text>
+      <text x="576" y="230" class="t">Next weak opening</text>
+      <rect x="560" y="268" width="290" height="88" rx="14" class="bt2"/>
+      <text x="576" y="294">Review · line 1 of 5</text>
+      <text x="576" y="314" class="t">l'app joue l'adversaire,</text>
+      <text x="576" y="332" class="t">vous jouez vos coups</text>
+
+      <rect x="930" y="150" width="150" height="104" rx="14" class="bn"/>
+      <text x="946" y="176">Construction</text>
+      <text x="946" y="196" class="t">dans la tâche ou</text>
+      <text x="946" y="212" class="t">dans Repertoire</text>
+      <text x="946" y="236" class="t">Add → d'où l'on vient</text>
+
+      <rect x="240" y="420" width="200" height="96" rx="16" class="bm"/>
+      <text x="256" y="446" class="w">Repertoire</text>
+      <text x="256" y="468" class="tw">parcourir l'arbre ;</text>
+      <text x="256" y="484" class="tw">● = quelque chose à trancher</text>
+      <text x="256" y="500" class="tw">Extend from here</text>
+
+      <rect x="560" y="440" width="290" height="76" rx="14" class="bo"/>
+      <text x="576" y="466" style="fill:#6b7068">Games · Openings</text>
+      <text x="576" y="486" class="t">retirés de /v2, restent en /dev</text>
+      <text x="576" y="502" class="t">Rejeu : menu ⋯, plus dans l'en-tête</text>
+
+      <path class="e" d="M160 230 H236"/>
+      <text x="170" y="222" class="l">Import</text>
+
+      <path class="e" d="M440 186 C 490 160, 510 108, 556 108"/>
+      <text x="456" y="134" class="l">Check them</text>
+      <path class="e" d="M440 222 C 490 214, 520 210, 556 210"/>
+      <text x="458" y="206" class="l">Work on it</text>
+      <path class="e" d="M440 262 C 490 300, 520 312, 556 312"/>
+      <text x="456" y="300" class="l">Review</text>
+
+      <path class="e" d="M600 396 C 560 410, 470 340, 410 296"/>
+      <text x="470" y="432" class="l">✕ ou fin → Today</text>
+
+      <path class="eb" d="M340 296 V416"/>
+      <text x="350" y="360" class="l">onglets</text>
+      <text x="350" y="376" class="lg">(toujours visibles</text>
+      <text x="350" y="392" class="lg">hors tâche)</text>
+
+      <path class="e" d="M850 210 C 890 210, 900 200, 926 200"/>
+      <text x="856" y="196" class="l">Prepare…</text>
+      <path class="e" d="M850 108 C 900 108, 920 130, 960 146"/>
+      <path class="e" d="M440 470 C 700 420, 980 380, 1005 258"/>
+      <text x="880" y="372" class="l">Extend from here</text>
+    </svg>
+    <div class="legend">
+      <span><i style="background:#1f3d2b"></i>lieu, onglet du haut (Today · Repertoire)</span>
+      <span><i style="background:#fdf8ec;border:1.5px solid #c4512d"></i>tâche plein écran</span>
+      <span><i style="background:#fdf8ec;border:1.5px solid #1f3d2b"></i>écran</span>
+      <span><i style="background:#f8f0dc;border:1.5px dashed #8b8f88"></i>retiré du parcours</span>
+    </div>
+  </div>
+
+  <h2>A · Premier jour : mes ouvertures faibles</h2>
+  <p class="sub">Change : la carte de Today ne s'appelle plus « Where you lose points ». La priorité devient une tâche avec sa barre, et l'ajout se termine sur un résumé.</p>
+  <div class="lane">
+    <div class="shot">
+      <div class="ph">
+        <div class="hd">Kumquat<span class="tabs"><span class="on">Today</span><span>Repertoire</span></span><span class="more">⋯</span></div>
+        <div class="bx hero">
+          <h4>Weak openings</h4>
+          <p>3 lines cost you 24 pts this year</p>
+          <div class="rw"><span class="ic">1</span><span>Queen's Pawn · 1…d6</span><span class="r">−10 pts</span></div>
+          <div class="bar" style="width:100%"></div>
+          <div class="rw"><span class="ic">2</span><span>Caro-Kann · 3.e5</span><span class="r">−8 pts</span></div>
+          <div class="bar" style="width:80%"></div>
+          <div class="rw"><span class="ic">3</span><span>Sicilian · 2.c3</span><span class="r">−6 pts</span></div>
+          <div class="bar" style="width:60%"></div>
+          <span class="bt pr">Work on it</span>
+        </div>
+        <div class="ln"><b>Review</b><span>5 lines ›</span></div>
+        <p style="margin:8px 10px;color:var(--soft)">2 557 games · White 194 positions · Black 166</p>
+      </div>
+      <b><span class="num">1</span>Today, 1er jour</b><span>un seul bouton, le 1er de la liste ; la ligne Review dessous</span>
+    </div>
+    <div class="arrow"><em>Work on it</em><span class="head">▶</span></div>
+    <div class="shot">
+      <div class="ph">
+        <div class="tk"><span class="x">✕</span>Weak opening<span class="p">1 of 3</span></div>
+        <div class="bd"><i></i></div>
+        <div class="bx">
+          <h4>Queen's Pawn · 1.d4 d6</h4>
+          <p>You score 41 % here, 52 % overall · −10 pts</p>
+          <span class="bt pr">Prepare my moves after 1…d6</span>
+          <span class="lk">Next weak opening · Lichess ↗</span>
+        </div>
+      </div>
+      <b><span class="num">2</span>Tâche « Weak opening »</b><span>barre sombre : on sait où l'on est, ✕ ramène à Today</span>
+    </div>
+    <div class="arrow"><em>Prepare my moves</em><span class="head">▶</span></div>
+    <div class="shot">
+      <div class="ph">
+        <div class="tk"><span class="x">✕</span>Weak opening<span class="p">1 of 3</span></div>
+        <div class="bd sm"><i class="g"></i></div>
+        <div class="bx">
+          <h4>Your move after 1.d4 d6</h4>
+          <table class="tb">
+            <tr><td class="mine">2.e4</td><td>48 %</td><td>54 %</td><td>+0.4</td></tr>
+            <tr><td>2.c4</td><td>27 %</td><td>53 %</td><td>+0.3</td></tr>
+            <tr><td>2.♘f3</td><td>21 %</td><td>51 %</td><td>+0.2</td></tr>
+          </table>
+        </div>
+        <div style="margin:auto 8px 9px;display:flex;gap:6px"><span class="bt" style="flex:1">Undo</span><span class="bt pr" style="flex:2">Add 2 moves</span></div>
+      </div>
+      <b><span class="num">3</span>Construction dans la tâche</b><span>même table qu'aujourd'hui, même barre au-dessus</span>
+    </div>
+    <div class="arrow"><em>Add</em><span class="head">▶</span></div>
+    <div class="shot">
+      <div class="ph">
+        <div class="tk"><span class="x">✕</span>Weak opening<span class="p">1 of 3</span></div>
+        <div class="done">
+          <div class="ok">✓</div>
+          <h4>1.d4 d6 2.e4 ♘f6 added</h4>
+          <p>Your next games through this line will tell if the work pays.</p>
+        </div>
+        <div style="margin:auto 8px 9px"><span class="bt pr">Next weak opening</span><span class="bt">Back to Today</span></div>
+      </div>
+      <b><span class="num">4</span>Résumé de fin</b><span>la ligne devient « travaillée » ; aujourd'hui, on restait dans l'arbre sans signal</span>
+    </div>
+  </div>
+
+  <h2>B · Après des parties : vérifier et trancher</h2>
+  <p class="sub">Change : le bouton passe au-dessus de la liste, et plus de ✗ sur un coup sain. Les 2 positions à trancher sont les mêmes 2 dans Today, la tâche et Repertoire.</p>
+  <div class="lane">
+    <div class="shot">
+      <div class="ph">
+        <div class="hd">Kumquat<span class="tabs"><span class="on">Today</span><span>Repertoire</span></span><span class="more">⋯</span></div>
+        <div class="bx hero">
+          <h4>4 new games</h4>
+          <p class="big">2 to settle</p>
+          <span class="bt pr">Check them</span>
+          <div style="height:6px"></div>
+          <div class="rw"><span class="ic dec">!</span><span>Caro-Kann · 3.♘c3?!, not 3.d4</span></div>
+          <div class="rw"><span class="ic dec">?</span><span>Hungarian · 2.b3, no answer yet</span></div>
+          <div class="rw"><span class="ic add">+</span><span>Scandinavian · 2…♘f6 now yours</span></div>
+          <div class="rw"><span class="ic ok">✓</span><span>Petrov · prep followed to 7</span></div>
+        </div>
+        <div class="ln"><b>Review</b><span>5 lines ›</span></div>
+        <div class="ln"><b>Weak openings</b><span>1 Queen's Pawn −10 ›</span></div>
+      </div>
+      <b><span class="num">5</span>Today, nouvelles parties</b><span>! et ? à trancher en tête ; + entré seul au répertoire ; ✓ suivi</span>
+    </div>
+    <div class="arrow"><em>Check them</em><span class="head">▶</span></div>
+    <div class="shot">
+      <div class="ph">
+        <div class="tk"><span class="x">✕</span>Check<span class="p">1 of 2</span></div>
+        <div class="bd"><i></i></div>
+        <div class="bx">
+          <h4>You played 3.♘c3?!, not 3.d4.</h4>
+          <p>Caro-Kann · 2 games · engine −0.6</p>
+          <div style="display:flex;gap:6px"><span class="bt pr" style="flex:1">Keep 3.d4</span><span class="bt" style="flex:1">Add 3.♘c3</span></div>
+          <span class="lk">Skip</span>
+        </div>
+      </div>
+      <b><span class="num">6</span>Tâche « Check »</b><span>la carte actuelle, dans la barre de tâche</span>
+    </div>
+    <div class="arrow"><em>Keep</em><small>2 of 2 → Prepare a reply → construction (3)</small><span class="head">▶</span></div>
+    <div class="shot">
+      <div class="ph">
+        <div class="tk"><span class="x">✕</span>Check<span class="p">done</span></div>
+        <div class="done">
+          <div class="ok">✓</div>
+          <h4>2 settled</h4>
+          <p>3.d4 kept · it comes back in your next review</p>
+          <p>Answer to 2.b3 added</p>
+        </div>
+        <div style="margin:auto 8px 9px"><span class="bt pr">Back to Today</span></div>
+      </div>
+      <b><span class="num">7</span>Résumé de fin</b><span>remplace le retour silencieux d'aujourd'hui</span>
+    </div>
+  </div>
+
+  <h2>C · Réviser</h2>
+  <p class="sub">Change : le chiffre annoncé est celui de la séance, plus « 118 positions ». Même barre de tâche et même fin.</p>
+  <div class="lane">
+    <div class="shot">
+      <div class="ph">
+        <div class="tk"><span class="x">✕</span>Review<span class="p">line 1 of 5</span></div>
+        <div class="bd"><i class="g"></i></div>
+        <div class="bx">
+          <h4>Your move</h4>
+          <p>Caro-Kann · 1.e4 c6 2.d4 d5</p>
+        </div>
+      </div>
+      <b><span class="num">8</span>Review, directement</b><span>« Review · 5 lines » sur Today lance la 1re ligne, sans écran d'intro</span>
+    </div>
+    <div class="arrow"><em>5 lignes</em><span class="head">▶</span></div>
+    <div class="shot">
+      <div class="ph">
+        <div class="tk"><span class="x">✕</span>Review<span class="p">done</span></div>
+        <div class="done">
+          <div class="ok">✓</div>
+          <h4>4 of 5 lines clean</h4>
+          <p>2 positions to see again tomorrow</p>
+        </div>
+        <div style="margin:auto 8px 9px"><span class="bt pr">Back to Today</span></div>
+      </div>
+      <b><span class="num">9</span>Résumé de fin</b><span>comme aujourd'hui</span>
+    </div>
+  </div>
+
+  <h2>D · Parcourir et étendre</h2>
+  <p class="sub">Change : Repertoire perd « 6 to settle », « Priorities » et le rejeu. Un point marque ce qui attend. Toucher la position ouvre sa carte en place.</p>
+  <div class="lane">
+    <div class="shot">
+      <div class="ph">
+        <div class="hd">Kumquat<span class="tabs"><span>Today</span><span class="on">Repertoire</span></span><span class="more">⋯</span></div>
+        <div style="display:flex;gap:6px;padding:6px 8px 0;font-weight:700"><span style="color:var(--leaf);border-bottom:2px solid var(--green)">White</span><span style="color:var(--soft)">Black</span><span style="margin-left:auto;color:var(--soft);font-weight:500">1.e4 c6 2.d4 d5</span></div>
+        <div class="bd" style="margin-top:6px"><i class="g"></i></div>
+        <div class="bx" style="padding:4px 8px">
+          <table class="tb">
+            <tr><td class="mine">3.e5</td><td>62 %</td><td>49 %</td></tr>
+            <tr><td>3.♘c3<span class="dot"></span></td><td>2 games</td><td></td></tr>
+            <tr><td>3.exd5</td><td>4 %</td><td>58 %</td></tr>
+          </table>
+          <span class="lk">Extend from here</span>
+        </div>
+        <div class="ft"><span>|◀</span><span>◀</span><span>▶</span><span>▶|</span></div>
+      </div>
+      <b><span class="num">10</span>Repertoire</b><span>l'arbre et ses coups ; ● = à trancher, toucher ouvre la carte de (6)</span>
+    </div>
+    <div class="arrow"><em>Extend from here</em><small>→ construction (3), sans barre de tâche</small><span class="head">▶</span></div>
+    <div class="shot">
+      <div class="ph">
+        <div class="hd">Kumquat<span class="tabs"><span>Today</span><span class="on">Repertoire</span></span><span class="more">⋯</span></div>
+        <div class="bd" style="margin-top:6px"><i class="g"></i></div>
+        <div class="bx" style="padding:4px 8px">
+          <table class="tb">
+            <tr><td class="mine">4.♘f3</td><td>new</td><td></td></tr>
+          </table>
+        </div>
+        <div class="toast"><span>4.♘f3 added</span><b>Undo</b></div>
+        <div class="ft" style="margin-top:0"><span>|◀</span><span>◀</span><span>▶</span><span>▶|</span></div>
+      </div>
+      <b><span class="num">11</span>Retour sur la position ajoutée</b><span>comme aujourd'hui, avec Undo</span>
+    </div>
+    <div class="arrow"><em>⋯</em><span class="head">▶</span></div>
+    <div class="shot">
+      <div class="ph">
+        <div class="hd">Kumquat<span class="tabs"><span>Today</span><span class="on">Repertoire</span></span><span class="more">✕</span></div>
+        <div class="bx">
+          <div class="rw"><span>Sign in with Lichess</span></div>
+          <div class="rw"><span>All your openings</span><span class="r">computer</span></div>
+        </div>
+        <div class="bx">
+          <h4>Demo replay</h4>
+          <p>Day 12 of 49 · 3 Feb 2026</p>
+          <div style="display:flex;gap:6px"><span class="bt" style="flex:1">Reset</span><span class="bt pr" style="flex:2">Next day</span></div>
+        </div>
+      </div>
+      <b><span class="num">12</span>Menu ⋯</b><span>le rejeu y range sa date et ses boutons ; l'en-tête garde le titre</span>
+    </div>
+  </div>
+
+  <h2>Chaque constat et sa réponse</h2>
+  <div class="card fxwrap">
+    <table class="fx">
+      <tr><th></th><th>Constat (carte actuelle)</th><th>Réponse</th><th>Écrans</th></tr>
+      <tr><td><span class="n">1</span></td><td>Repertoire fait cinq métiers</td><td>Il garde parcourir et étendre. Trancher et travailler une faiblesse deviennent des tâches lancées par Today, et le rejeu passe dans ⋯.</td><td>2 6 10 12</td></tr>
+      <tr><td><span class="n">2</span></td><td>Trois compteurs, quatre vocabulaires</td><td>Un chiffre, « to settle », en positions, après le tri du moteur, identique dans Today, la tâche et le point ● de Repertoire. Games sort de /v2.</td><td>5 6 10</td></tr>
+      <tr><td><span class="n">3</span></td><td>✗ sur un coup sain</td><td>Quatre signes : ! erreur à trancher, ? réponse adverse sans préparation, + coup sain entré seul au répertoire, ✓ préparation suivie.</td><td>5</td></tr>
+      <tr><td><span class="n">4</span></td><td>La faiblesse a cinq noms</td><td>« Weak openings » partout, « Weak opening 1 of 3 » dans la tâche, « −10 pts » comme seul chiffre.</td><td>1 2 5</td></tr>
+      <tr><td><span class="n">5</span></td><td>« Check them » sous l'écran</td><td>Le bouton suit le chiffre, en haut de la carte ; la liste des parties vient dessous.</td><td>5</td></tr>
+      <tr><td><span class="n">6</span></td><td>Retours incohérents</td><td>Toute tâche : ✕ en haut à gauche, résumé à la fin, puis Today. Hors tâche, on reste où l'on est, avec un toast et Undo.</td><td>4 7 9 11</td></tr>
+      <tr><td><span class="n">7</span></td><td>Rejeu dans chaque en-tête</td><td>Rangé dans le menu ⋯ ; l'en-tête montre les deux onglets.</td><td>12</td></tr>
+      <tr><td><span class="n">8</span></td><td>« 118 positions to review »</td><td>Today annonce « Review · 5 lines », et la séance démarre sans écran d'intro.</td><td>1 8</td></tr>
+      <tr><td><span class="n">9</span></td><td>Games et Openings orphelines</td><td>Retirées de /v2. Openings reste joignable à l'ordinateur par ⋯ « All your openings ».</td><td>12</td></tr>
+    </table>
+  </div>
+
+  <h2>Ordre proposé, une brique à la fois</h2>
+  <ol class="bricks">
+    <li><b>Les tâches</b> : barre sombre, ✕ et résumé de fin pour Check et Weak opening ; Repertoire perd ses deux portes. Répond à 1, 6.</li>
+    <li><b>Un chiffre, un nom</b> : Today compte comme la tâche (tri du moteur), les quatre signes, « Weak openings » partout, bouton en haut. Répond à 2, 3, 4, 5.</li>
+    <li><b>Le ménage</b> : rejeu dans ⋯, Games et Openings hors de /v2, Review sans intro. Répond à 7, 8, 9.</li>
+  </ol>
+  <p class="note">Ne change pas : l'import, la table de construction, la carte de séance, le drill de révision, l'arbre à l'ordinateur. À l'ordinateur, une tâche occupe le panneau de droite à la place du plein écran.</p>
+</main>
+</body>
+</html>
