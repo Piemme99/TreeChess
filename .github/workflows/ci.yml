@@ -20,9 +20,9 @@ jobs:
         working-directory: frontend
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: 20
           cache: npm
@@ -48,9 +48,9 @@ jobs:
         working-directory: backend
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@v7
         with:
           go-version: "1.25"
           cache-dependency-path: backend/go.sum
@@ -82,9 +82,9 @@ jobs:
         working-directory: backend
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@v7
         with:
           go-version: "1.25"
           cache-dependency-path: backend/go.sum
@@ -100,7 +100,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Build backend image
         run: docker build --target prod -t kumquat-backend:ci ./backend
