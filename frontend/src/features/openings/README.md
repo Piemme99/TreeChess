@@ -279,8 +279,15 @@ the POC replays PMG's fixture as if it came in.
   that waits for nothing, ✓ prep followed. A game through a worked line says it.
 - **Review due**: hero = "Review", "5 lines" → **"Start"**.
 - **Else**: hero = weak opening 1 → "Work on it".
+- **Nothing left**: hero = "Nothing to do now" → "Browse your repertoire".
 
-Rows under the hero: "To settle · 6", "Review · 5 lines", "Weak openings · Queen's Pawn Game 41%" (expands).
+A weak opening already **worked** is not something to do (`splitWorked`): the 12-month score would take months to
+show the work, so it never takes the hero card, not even on the first day. It sits in its own row, "Worked openings"
+(adherence, "Open"), and comes back to do only once the games played since the work prove it weak again (same bar
+as a priority: 20 games, below average beyond noise).
+
+Rows under the hero: "To settle · 6", "Review · 5 lines", "Weak openings · Queen's Pawn Game 41%" (expands),
+"Worked openings · Caro-Kann Defense" (expands).
 
 ### Screen 3 — Check (use 2)
 

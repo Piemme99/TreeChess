@@ -112,7 +112,8 @@ A priority the player has acted on: accepting an addition from it dates the
 line. From that date the priority reports [adherence](#adherence) first, then
 the score against the score before, and leaves the list once the score is
 proven back. Proven adherence with no gain says the problem lies after the
-opening.
+opening. A worked line is no longer something to do: it comes back to
+do only when the games played since the work prove it weak again.
 
 ### Adherence
 
