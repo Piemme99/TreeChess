@@ -25,6 +25,7 @@ import { COLOURS, FONT_FAMILY, raised, REPERTOIRE, SPRING, tile, ZOOM } from '..
 import { Toast } from '../workshop/Toast';
 import { useToast } from '../workshop/useToast';
 import { useWorkshopFont } from '../workshop/useWorkshopFont';
+import { homeHero } from './hero';
 import { ImportScreen } from './ImportScreen';
 import { useImported } from './useImported';
 
@@ -75,7 +76,7 @@ function Home({ onForget }: { onForget: () => void }) {
   const lines = `${REVIEW_LINES} lines`;
   const workedOf = (priority: { side: Side; path: readonly string[] }) => worked.find((line) => line.side === priority.side && line.path.join(' ') === priority.path.join(' '));
 
-  const hero: 'first' | 'games' | 'review' | 'work' = !replay.index ? 'first' : openToday ? 'games' : due ? 'review' : 'work';
+  const hero = homeHero({ firstDay: !replay.index, gamesToSettle: openToday, linesDue: due });
 
   return (
     <>

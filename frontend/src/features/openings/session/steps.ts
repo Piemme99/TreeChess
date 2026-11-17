@@ -46,3 +46,11 @@ export function sessionSteps(toDecide: readonly CheckedGame[]): SessionStep[] {
     (a, b) => b.games.length - a.games.length || b.games[0].game.playedAt.localeCompare(a.games[0].game.playedAt),
   );
 }
+
+/** La file de Check : le camp regardé d'abord, puis l'autre ; les coups joués sur une même position l'un après l'autre. */
+export function checkQueue(steps: readonly SessionStep[], side: Side): SessionStep[] {
+  // Changer de camp à chaque étape ferait tout redessiner ; changer de position, rejouer l'échiquier.
+  const bySide = [...steps.filter((step) => step.side === side), ...steps.filter((step) => step.side !== side)];
+  const at = (step: SessionStep) => `${step.side} ${step.games[0].check.position}`;
+  return bySide.filter((step, index) => bySide.findIndex((other) => at(other) === at(step)) === index).flatMap((first) => bySide.filter((step) => at(step) === at(first)));
+}

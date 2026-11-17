@@ -185,7 +185,7 @@ Moves the product drafts for a line, from the player's own habits rather than
 from theory: at each position where they are to move, the moves they play
 regularly — each replaced only where the engine judges it bad; opponent moves
 from their games and the Lichess explorer at their rating, going on where their
-games stop. Today it is the plan of the line view; the player builds an
+games stop. It was the plan of the line view (deleted); the player builds an
 [addition](#addition) instead of accepting one.
 
 _Avoid_: proposed preparation.
