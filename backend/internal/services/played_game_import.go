@@ -236,6 +236,9 @@ func (l *LichessGameExport) StreamGames(ctx context.Context, username, token str
 	query.Set("clocks", "false")
 	query.Set("evals", "false")
 	query.Set("opening", "false")
+	// Du plus ancien au plus récent : un import coupé en route ne laisse pas de trou avant la partie la plus récente
+	// enregistrée, d'où l'import suivant repart.
+	query.Set("sort", "dateAsc")
 	if since > 0 {
 		query.Set("since", strconv.FormatInt(since, 10))
 	}

@@ -182,6 +182,7 @@ func TestLichessGameExport_StreamGames_ReadsTheNDJSONExportWithTheToken(t *testi
 		assert.Equal(t, "/games/user/Piemme78", r.URL.Path)
 		assert.Equal(t, "Bearer secret", r.Header.Get("Authorization"))
 		assert.Equal(t, "blitz,rapid,classical", r.URL.Query().Get("perfType"))
+		assert.Equal(t, "dateAsc", r.URL.Query().Get("sort"), "an interrupted import must leave no gap before its newest game")
 		_, _ = w.Write([]byte(`{"id":"a","variant":"standard","speed":"blitz","moves":"e4 e5"}` + "\n\n" + `{"id":"b","variant":"standard","speed":"rapid","moves":"d4"}` + "\n"))
 	}))
 	defer server.Close()

@@ -38,7 +38,8 @@ export function useGameSource() {
   const load = useCallback(async () => {
     if (!user || !linked) return;
     const { data } = await api.get<ImportState>('/v2/games/import');
-    if (data.status !== 'done') {
+    // Une synchro en cours ou ratée ne cache pas les parties d'un import déjà réussi.
+    if (data.status !== 'done' && !data.firstDoneAt) {
       setState({ kind: 'to-import', username: user.lichessUsername!, state: data });
       return;
     }
