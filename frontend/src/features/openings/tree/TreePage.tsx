@@ -54,7 +54,7 @@ export function TreePage() {
   const { replay, known, repertoires, steps, adoptions, judging, add, remove, ignore, unignore, forgetIgnored, forgetAdditions } = useReplayedSession();
   const { work, unwork } = useWorkedLines();
   // Openings envoie une ligne à travailler par l'adresse : /dev/tree?side=b&line=d4 Nf6.
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
   const asked = useMemo(
     () => ({ side: params.get('side') === 'b' ? 'b' : params.get('side') === 'w' ? 'w' : storedSide(), line: params.get('line')?.split(' ').filter(Boolean) ?? [] }) as { side: Side; line: string[] },
     [params],
@@ -69,8 +69,6 @@ export function TreePage() {
   const task = params.get('task') === 'check' ? 'check' : params.get('task') === 'weak' ? 'weak' : null;
   // Le bilan d'une ouverture faible préparée, avant de passer à la suivante.
   const [prepared, setPrepared] = useState<{ moves: number; line: readonly string[] } | null>(null);
-  // Le rang de la tâche est figé à son ouverture : la position regardée ensuite ne le change pas.
-  const [nextRank, setNextRank] = useState<number | null>(null);
   const wide = useWide();
   const [building, setBuilding] = useState<{ origin: BuildOrigin; stepKey?: string; worked?: { side: Side; path: readonly string[] } } | null>(null);
   // Ce que « coup suivant » rejoue au téléphone : la ligne d'où l'on vient de reculer, comme sur Lichess.
@@ -104,11 +102,12 @@ export function TreePage() {
   const path = paths[side];
   const node = useMemo(() => nodeAlong(root, path), [root, path]);
   const stepsHere = useMemo(() => steps.filter((step) => step.side === side && step.games[0].check.position === node.position), [steps, side, node]);
-  const askedRank = useMemo(
-    () => priorities.findIndex((candidate) => candidate.side === asked.side && candidate.path.join(' ') === asked.line.join(' ')) + 1 || 1,
+  // Le rang de la tâche vient de l'adresse, pas de la position regardée : on peut s'écarter de la ligne sans le perdre.
+  const askedIndex = useMemo(
+    () => priorities.findIndex((candidate) => candidate.side === asked.side && candidate.path.join(' ') === asked.line.join(' ')),
     [priorities, asked],
   );
-  const taskRank = nextRank ?? askedRank;
+  const taskRank = askedIndex + 1 || 1;
   const taskPriority = task === 'weak' ? priorities[taskRank - 1] : undefined;
   // Dans la tâche, la faiblesse se montre sur sa ligne même hors du répertoire : on y joue un coup qu'il n'a pas.
   const onTaskLine = taskPriority !== undefined && taskPriority.side === side && taskPriority.path.join(' ') === path.join(' ');
@@ -238,7 +237,8 @@ export function TreePage() {
       undo: () => {
         remove(addition);
         if (worked) unwork(worked);
-        if (inTask) setPrepared(null);
+        // Retour à la carte de la faiblesse : la ligne retirée n'a plus rien à montrer.
+        if (inTask) goToWeak(taskRank);
       },
     });
     // La ligne ajoutée se voit tout de suite, même trop fine pour l'arrivée.
@@ -287,7 +287,8 @@ export function TreePage() {
   const goToWeak = (rank: number) => {
     const target = priorities[rank - 1];
     if (!target) return;
-    setNextRank(rank);
+    // L'adresse suit la faiblesse montrée : recharger la page y ramène.
+    setParams({ task: 'weak', side: target.side, line: target.path.join(' ') }, { replace: true });
     setPrepared(null);
     setSide(target.side);
     setPaths((current) => ({ ...current, [target.side]: target.path }));
@@ -296,6 +297,12 @@ export function TreePage() {
     setLead('priority');
     toTop();
   };
+  // Une adresse dont la ligne n'est plus une faiblesse (autre jour du rejeu, lien ancien) mène à la première.
+  useEffect(() => {
+    if (task === 'weak' && priorities.length && askedIndex < 0) goToWeak(1);
+    // Seule une adresse périmée compte.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [task, priorities, askedIndex]);
   const nextWeak = task === 'weak' && priorities.length > 1 ? () => goToWeak((taskRank % priorities.length) + 1) : undefined;
   const position = session ? session.queue.indexOf(currentKey ?? '') + 1 : 0;
   const counts = session ? [...session.done.values()] : [];
