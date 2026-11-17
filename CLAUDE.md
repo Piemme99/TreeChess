@@ -102,6 +102,8 @@ GitHub Issues on `Piemme99/TreeChess`, via `gh`. Triage labels: `needs-triage`, 
 
 - **Run `make test` before committing.** Don't commit on red.
 - Work on a branch, never commit directly on `main`; integration happens through squashed PRs.
+- **Every push to `main` deploys to production** once its CI is green (`ci.yml` → `deploy.yml`). Roll back by running
+  the Deploy workflow by hand with an earlier commit.
 - On `agent/*` branches (AFK sessions): commit before emitting the completion signal.
 
 ## Autonomy & reporting

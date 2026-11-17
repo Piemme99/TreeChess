@@ -1,103 +1,107 @@
 name: Deploy
 
+# Appelé par la CI à chaque push vert sur main. À la main : redéployer, ou revenir à un commit
+# précédent dont la CI a publié les images.
 on:
+  workflow_call:
+    inputs:
+      commit:
+        type: string
+        required: true
   workflow_dispatch:
     inputs:
-      environment:
-        description: "Deployment environment"
-        required: true
-        default: production
-        type: choice
-        options:
-          - production
+      commit:
+        description: "Commit to deploy (empty = head of main). To roll back, an earlier commit of main."
+        type: string
+        required: false
 
-# Only one deployment at a time
-concurrency:
-  group: deploy-${{ github.event.inputs.environment }}
-  cancel-in-progress: false
+permissions:
+  contents: read
+  packages: write
 
 env:
-  REGISTRY: ghcr.io
-  OWNER: ${{ github.repository_owner }}
+  PUBLIC_URL: https://kumquatchess.com
 
 jobs:
-  # Run the CI checks first to make sure everything is green
-  ci:
-    name: CI Checks
-    uses: ./.github/workflows/ci.yml
-
-  build-and-push:
-    name: Build & Push Images
+  deploy:
+    name: Deploy to production
     runs-on: ubuntu-latest
-    needs: ci
-    permissions:
-      contents: read
-      packages: write
-    outputs:
-      image_tag: ${{ steps.meta.outputs.tag }}
+    environment: production
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
 
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          filter: blob:none
 
-      - name: Set image tag and registry
-        id: meta
+      # Deux push rapprochés : la CI du premier peut finir après celle du second. Un déploiement
+      # automatique qui n'est plus la tête de main s'efface, sinon il remettrait du code plus ancien.
+      - name: Resolve commit and images
+        id: target
+        env:
+          INPUT_COMMIT: ${{ inputs.commit }}
         run: |
-          TAG="sha-$(git rev-parse --short HEAD)"
-          OWNER_LC="${{ env.OWNER }}"
-          OWNER_LC="${OWNER_LC,,}"
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-          echo "backend_image=ghcr.io/${OWNER_LC}/kumquat-backend" >> "$GITHUB_OUTPUT"
-          echo "frontend_image=ghcr.io/${OWNER_LC}/kumquat-frontend" >> "$GITHUB_OUTPUT"
-          echo "Image tag: $TAG (owner: $OWNER_LC)"
+          commit="$(git rev-parse --verify --quiet "${INPUT_COMMIT:-$GITHUB_SHA}^{commit}")" || {
+            echo "::error::Unknown commit: ${INPUT_COMMIT}"
+            exit 1
+          }
+          if [ "$GITHUB_EVENT_NAME" != workflow_dispatch ]; then
+            head="$(git ls-remote origin refs/heads/main | cut -f1)"
+            if [ "$commit" != "$head" ]; then
+              echo "::notice::main has moved to ${head::7}: skipping ${commit::7}, the newer run deploys"
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          fi
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          {
+            echo "commit=$commit"
+            echo "tag=sha-${commit::7}"
+            echo "backend_image=ghcr.io/${owner}/kumquat-backend"
+            echo "frontend_image=ghcr.io/${owner}/kumquat-frontend"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v4
+        if: steps.target.outputs.skip != 'true'
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
-          registry: ${{ env.REGISTRY }}
+          registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+      - name: Check that the images exist
+        if: steps.target.outputs.skip != 'true'
+        env:
+          TAG: ${{ steps.target.outputs.tag }}
+          BACKEND_IMAGE: ${{ steps.target.outputs.backend_image }}
+          FRONTEND_IMAGE: ${{ steps.target.outputs.frontend_image }}
+        run: |
+          for image in "$BACKEND_IMAGE:$TAG" "$FRONTEND_IMAGE:$TAG"; do
+            docker buildx imagetools inspect "$image" > /dev/null || {
+              echo "::error::$image not found: the CI on main publishes the images of each commit"
+              exit 1
+            }
+          done
 
-      - name: Build and push backend
-        uses: docker/build-push-action@v7
-        with:
-          context: ./backend
-          target: prod
-          push: true
-          tags: |
-            ${{ steps.meta.outputs.backend_image }}:${{ steps.meta.outputs.tag }}
-            ${{ steps.meta.outputs.backend_image }}:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Build and push frontend
-        uses: docker/build-push-action@v7
-        with:
-          context: ./frontend
-          target: prod
-          push: true
-          tags: |
-            ${{ steps.meta.outputs.frontend_image }}:${{ steps.meta.outputs.tag }}
-            ${{ steps.meta.outputs.frontend_image }}:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-  deploy:
-    name: Deploy to Production
-    runs-on: ubuntu-latest
-    needs: build-and-push
-    environment: production
-
-    steps:
       - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1
+        if: steps.target.outputs.skip != 'true'
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
+        env:
+          COMMIT: ${{ steps.target.outputs.commit }}
+          IMAGE_TAG: ${{ steps.target.outputs.tag }}
+          BACKEND_IMAGE: ${{ steps.target.outputs.backend_image }}
+          FRONTEND_IMAGE: ${{ steps.target.outputs.frontend_image }}
+          REGISTRY_USER: ${{ github.actor }}
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           port: ${{ secrets.DEPLOY_PORT || 22 }}
+          envs: COMMIT,IMAGE_TAG,BACKEND_IMAGE,FRONTEND_IMAGE,REGISTRY_USER,REGISTRY_TOKEN
           script: |
             set -e
 
@@ -134,37 +138,42 @@ jobs:
             fi
             echo "Pre-flight config validation passed."
 
-            # Pull latest code (for docker-compose, nginx configs, migrations, etc.)
-            git pull origin main
+            # Les images d'abord : si le tirage échoue, la config du serveur n'a pas encore bougé.
+            echo "$REGISTRY_TOKEN" | docker login ghcr.io -u "$REGISTRY_USER" --password-stdin
+            docker pull --quiet "$BACKEND_IMAGE:$IMAGE_TAG"
+            docker pull --quiet "$FRONTEND_IMAGE:$IMAGE_TAG"
+            docker logout ghcr.io
 
-            # Une seule fois : un export complet de la base, gardé hors rotation, avant que le nouveau backend
-            # ne supprime au démarrage les tables de la v1. Sans export lisible, le déploiement s'arrête.
-            if [ ! -s backups/v1-final.sql.gz ]; then
-              mkdir -p backups
-              pg_user="$(get_env POSTGRES_USER)"
-              set -o pipefail
-              if ! docker compose --env-file .env.production -f docker-compose.prod.ghcr.yml exec -T postgres \
-                  pg_dump -U "${pg_user:-treechess}" -d treechess | gzip > backups/v1-final.sql.gz \
-                  || ! gzip -t backups/v1-final.sql.gz || [ "$(gzip -dc backups/v1-final.sql.gz | head -c 64 | wc -c)" -lt 64 ]; then
-                rm -f backups/v1-final.sql.gz
-                echo "::error::v1 export failed: deploy aborted before the v1 tables are dropped"
-                exit 1
-              fi
-              set +o pipefail
-              echo "v1 export: $(du -h backups/v1-final.sql.gz | cut -f1) in backups/v1-final.sql.gz"
-            fi
+            # Le commit exact des images, pas la tête de main : la config nginx et le compose
+            # doivent aller avec elles, y compris pour un retour arrière.
+            git fetch --quiet origin
+            git checkout --quiet --detach "$COMMIT"
 
-            # Log in to GHCR and pull new images
-            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-
-            # Export the image tag for docker compose
-            export IMAGE_TAG="${{ needs.build-and-push.outputs.image_tag }}"
-
-            # Pull new images and restart with the GHCR compose file
-            docker compose --env-file .env.production -f docker-compose.prod.ghcr.yml pull backend frontend
+            export IMAGE_TAG
             docker compose --env-file .env.production -f docker-compose.prod.ghcr.yml up -d
 
-            # Clean up old images
-            docker image prune -f
+            # Les images taguées sha-… ne sont jamais « dangling » : sans ce tri, elles s'empilent.
+            docker images --format '{{.Repository}}:{{.Tag}}' \
+              | grep -E "^($BACKEND_IMAGE|$FRONTEND_IMAGE):" \
+              | grep -v ":$IMAGE_TAG\$" \
+              | xargs -r docker rmi > /dev/null 2>&1 || true
+            docker image prune -f > /dev/null
 
-            echo "Deployed successfully with tag: $IMAGE_TAG"
+            echo "Deployed $IMAGE_TAG ($COMMIT)"
+
+      - name: Check the live site
+        if: steps.target.outputs.skip != 'true'
+        run: |
+          curl -fsS --retry 12 --retry-delay 5 --retry-all-errors --max-time 10 "$PUBLIC_URL/api/health"
+          echo
+          curl -fsS --max-time 10 -o /dev/null "$PUBLIC_URL/v2/home"
+
+      - name: Move the latest tag
+        if: steps.target.outputs.skip != 'true'
+        env:
+          TAG: ${{ steps.target.outputs.tag }}
+          BACKEND_IMAGE: ${{ steps.target.outputs.backend_image }}
+          FRONTEND_IMAGE: ${{ steps.target.outputs.frontend_image }}
+        run: |
+          docker buildx imagetools create --tag "$BACKEND_IMAGE:latest" "$BACKEND_IMAGE:$TAG"
+          docker buildx imagetools create --tag "$FRONTEND_IMAGE:latest" "$FRONTEND_IMAGE:$TAG"

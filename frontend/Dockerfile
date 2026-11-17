@@ -1,5 +1,5 @@
 # === Development stage (default) ===
-FROM node:20-slim AS dev
+FROM node:22-slim AS dev
 
 WORKDIR /app
 
@@ -17,7 +17,7 @@ EXPOSE 5173
 CMD ["npm", "run", "dev", "--", "--host"]
 
 # === Production stage ===
-FROM node:20-slim AS builder
+FROM node:22-slim AS builder
 
 WORKDIR /app
 

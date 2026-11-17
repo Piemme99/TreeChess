@@ -1,0 +1,48 @@
+name: Security
+
+# Hebdomadaire plutôt qu'à chaque PR : une faille publiée un lundi ne doit pas bloquer un
+# déploiement sans rapport ; un run rouge envoie une notification.
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  govulncheck:
+    name: Go vulnerabilities
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version: "1.25"
+          cache-dependency-path: backend/go.sum
+
+      - name: govulncheck
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...
+
+  npm-audit:
+    name: npm vulnerabilities
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      # Seules les dépendances livrées au navigateur comptent ; l'outillage de build reste hors du lot.
+      - name: npm audit
+        run: npm audit --omit=dev --audit-level=high

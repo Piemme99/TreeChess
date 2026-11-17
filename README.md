@@ -38,7 +38,7 @@ make dev
 Or without Make:
 
 ```bash
-docker-compose up --build
+docker compose up --build
 ```
 
 - Frontend: http://localhost:5173
@@ -109,11 +109,13 @@ npm run dev
 | `make prod-deploy-stop` | Stop GHCR production containers |
 | `make prod-deploy-logs` | Follow GHCR production logs |
 
+**Continuous deployment:** every push to `main` whose CI is green publishes `ghcr.io/piemme99/kumquat-{backend,frontend}:sha-<commit>` and deploys that commit (images + the server checkout at the same commit), then checks `/api/health` on the live site. To roll back, run the *Deploy* workflow by hand with an earlier commit of `main`. The weekly *Security* workflow runs govulncheck and `npm audit`.
+
 ## Project Structure
 
 ```
 kumquat/
-├── .github/                  # CI/CD workflows (ci.yml, deploy.yml) + Dependabot
+├── .github/                  # CI/CD workflows (ci.yml, deploy.yml, security.yml) + Dependabot
 ├── backend/                  # Go API server
 │   ├── main.go
 │   ├── config/               # Environment config + application limits
