@@ -258,7 +258,7 @@ every screen: **Home** says what waits, **Repertoire** is the tree, to browse an
 Home and take the whole screen: **Check**, **Weak opening**, **Review**. A task shows a dark bar (✕ back to Home,
 its name, "2 of 5") and always ends on a summary with "Back to Home". Repertoire starts no task: a position with
 something to settle shows its card in place. The demo replay lives in the header's ⋯ menu. Games is dev-only;
-Openings stays the computer view of the results, from ⋯. One figure, "to settle", counts positions after the
+Openings stays the computer view of the results, from ⋯. One figure, "to settle", counts decisions (a move to settle, one per screen in Check) after the
 engine's verdict, the same on Home, in Check and on the tree; one name, "Weak openings", for priorities.
 
 Home was called Today until 2026-11-17: on the first day it shows a report of the whole history, and after

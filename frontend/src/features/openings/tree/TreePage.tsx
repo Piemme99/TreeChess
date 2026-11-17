@@ -177,7 +177,10 @@ export function TreePage() {
   };
   const startSession = () => {
     // Une couleur après l'autre, en commençant par celle qu'on regarde : changer de camp à chaque étape fait tout redessiner.
-    const ordered = [...steps.filter((step) => step.side === side), ...steps.filter((step) => step.side !== side)];
+    const bySide = [...steps.filter((step) => step.side === side), ...steps.filter((step) => step.side !== side)];
+    // Les coups joués sur une même position passent l'un après l'autre, sur le même échiquier.
+    const at = (step: SessionStep) => `${step.side} ${step.games[0].check.position}`;
+    const ordered = bySide.filter((step, index) => bySide.findIndex((other) => at(other) === at(step)) === index).flatMap((first) => bySide.filter((step) => at(step) === at(first)));
     setSession({ queue: ordered.map((step) => step.key), done: new Map() });
     build(null);
     toTop();
@@ -408,7 +411,8 @@ export function TreePage() {
     path,
     node,
     recent: recent[side],
-    steps: stepsHere,
+    // En séance, une décision par écran : l'autre coup joué ici vient à l'écran suivant, sur le même échiquier.
+    steps: current && stepsHere.includes(current) ? [current] : stepsHere,
     priority,
     actions,
     lead: session ? ('settle' as const) : lead,
