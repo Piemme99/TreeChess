@@ -69,8 +69,7 @@ export function weakLines(tree: OpeningTree): Priority[] {
   const candidates: Priority[] = [];
 
   forEachLine(tree, (node, path) => {
-    if (!isPlayerMove(tree.side, path.length) || node.games < MIN_GAMES) return;
-    if (!isSignificantlyBelow(node, average)) return;
+    if (!isPlayerMove(tree.side, path.length) || !isProvenWeak(node, average)) return;
     candidates.push({
       side: tree.side,
       path,
@@ -84,9 +83,11 @@ export function weakLines(tree: OpeningTree): Priority[] {
   return keepHeaviestPerBranch(candidates.sort((a, b) => b.pointsToGain - a.pointsToGain));
 }
 
-function isSignificantlyBelow(node: OpeningNode, average: number): boolean {
+/** Assez de parties, et un score sous la moyenne de plus que le hasard ne l'explique. */
+export function isProvenWeak(node: Pick<OpeningNode, 'games' | 'score'>, average: number): boolean {
+  if (node.games < MIN_GAMES) return false;
   const standardError = Math.sqrt((average * (1 - average)) / node.games);
-  return average - scoreRate(node) > standardError;
+  return average - node.score / node.games > standardError;
 }
 
 // Une ligne et sa sous-ligne racontent la même histoire : on garde la plus lourde.

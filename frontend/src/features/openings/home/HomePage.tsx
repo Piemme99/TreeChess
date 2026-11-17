@@ -12,7 +12,7 @@ import { gamesOfLastMonths } from '../domain/period';
 import type { PlayedGame, Side } from '../domain/playedGame';
 import { findPriorities, type Priority } from '../domain/priorities';
 import { playerPositions } from '../domain/review';
-import { adherence, isThrough, type Adherence } from '../domain/worked';
+import { adherence, isThrough, splitWorked, type Adherence } from '../domain/worked';
 import { replayLine } from '../position/replay';
 import { formatShortDay } from '../replay/formatDay';
 import { useWorkedLines, type WorkedLine } from '../replay/useWorkedLines';
@@ -63,6 +63,7 @@ function Home({ onForget, syncing }: { onForget: () => void; syncing: boolean })
   const { worked, clear: forgetWorked } = useWorkedLines();
   const table = useOpeningTable();
   const priorities = usePriorities(known, replay.day);
+  const { toWork, treated } = useMemo(() => splitWorked(priorities, worked, known), [priorities, worked, known]);
   const { toast, close } = useToast();
 
   const reset = replay.reset && (() => {
@@ -85,7 +86,7 @@ function Home({ onForget, syncing }: { onForget: () => void; syncing: boolean })
   const lines = `${REVIEW_LINES} lines`;
   const workedOf = (priority: { side: Side; path: readonly string[] }) => worked.find((line) => line.side === priority.side && line.path.join(' ') === priority.path.join(' '));
 
-  const hero = homeHero({ firstDay: !replay.index, gamesToSettle: openToday, linesDue: due });
+  const hero = homeHero({ firstDay: !replay.index, gamesToSettle: openToday, linesDue: due, weakToWork: toWork.length });
 
   return (
     <>
@@ -98,7 +99,7 @@ function Home({ onForget, syncing }: { onForget: () => void; syncing: boolean })
         )}
         {hero === 'first' && (
           <Hero title="Weak openings" facts={<Facts games={known.length} repertoires={repertoires} />}>
-            <PriorityList priorities={priorities.slice(0, SHOWN_PRIORITIES)} table={table} href={workOn} workedOf={workedOf} lived={lived} />
+            <PriorityList priorities={toWork.slice(0, SHOWN_PRIORITIES)} table={table} href={workOn} workedOf={workedOf} lived={lived} />
           </Hero>
         )}
         {hero === 'games' && (
@@ -117,9 +118,14 @@ function Home({ onForget, syncing }: { onForget: () => void; syncing: boolean })
             <Action to={pathOf('review')}>Start</Action>
           </Hero>
         )}
-        {hero === 'work' && priorities[0] && (
+        {hero === 'work' && (
           <Hero title="Weak openings" facts="Nothing to check, nothing due">
-            <PriorityList priorities={priorities.slice(0, 1)} table={table} href={workOn} workedOf={workedOf} lived={lived} />
+            <PriorityList priorities={toWork.slice(0, 1)} table={table} href={workOn} workedOf={workedOf} lived={lived} />
+          </Hero>
+        )}
+        {hero === 'done' && (
+          <Hero title="Nothing to do now" facts="No game to check, no review due, your weak openings are worked. Play: your next games will show here.">
+            <Action to={tree}>Browse your repertoire</Action>
           </Hero>
         )}
 
@@ -127,8 +133,11 @@ function Home({ onForget, syncing }: { onForget: () => void; syncing: boolean })
           {hero !== 'games' && dayGames.length > 0 && <Row label="New games" figure={`${dayGames.length} checked ✓`} />}
           {hero !== 'games' && waiting > 0 && <Row label="To settle" figure={`${waiting}`} to={checkHref} />}
           {hero !== 'review' && due > 0 && <Row label="Review" figure={lines} to={pathOf('review')} />}
-          {hero !== 'first' && hero !== 'work' && priorities.length > 0 && (
-            <WeakOpenings priorities={priorities} table={table} href={workOn} workedOf={workedOf} lived={lived} />
+          {hero !== 'first' && hero !== 'work' && toWork.length > 0 && (
+            <WeakOpenings label="Weak openings" summary={`${openingName(table, toWork[0].path)} ${formatPercent(toWork[0].score)}`} priorities={toWork} table={table} href={workOn} workedOf={workedOf} lived={lived} />
+          )}
+          {treated.length > 0 && (
+            <WeakOpenings label="Worked openings" summary={`${openingName(table, treated[0].path)}${treated.length > 1 ? ` +${treated.length - 1}` : ''}`} priorities={treated} table={table} href={workOn} workedOf={workedOf} lived={lived} action="Open" />
           )}
         </ul>
       </main>
@@ -193,12 +202,13 @@ function Row({ label, figure, to }: { label: string; figure: string; to?: string
 
 const openingName = (table: OpeningTable | null, path: readonly string[]) => (table ? resolveOpening(replayLine(path).fens, table)?.name : undefined) ?? 'Unnamed line';
 
-function PriorityList({ priorities, table, href, workedOf, lived }: {
+function PriorityList({ priorities, table, href, workedOf, lived, action = 'Work on it' }: {
   priorities: readonly Priority[];
   table: OpeningTable | null;
   href: (line: Priority) => string;
   workedOf: (line: Priority) => WorkedLine | undefined;
   lived: readonly CheckedGame[];
+  action?: string;
 }) {
   const heaviest = Math.max(...priorities.map((priority) => priority.pointsToGain), 1);
   return (
@@ -222,7 +232,7 @@ function PriorityList({ priorities, table, href, workedOf, lived }: {
             <span className="flex items-center gap-3">
               {line && <WorkedTag line={line} adherence={adherence(lived, line)} />}
               <Link to={href(priority)} className="ml-auto rounded-full px-4 py-2 text-[14px] font-bold focus-visible:outline-2" style={tile(COLOURS.sand)}>
-                Work on it
+                {action}
               </Link>
             </span>
           </li>
@@ -241,15 +251,14 @@ function WorkedTag({ line, adherence: { followed, games } }: { line: WorkedLine;
   );
 }
 
-function WeakOpenings(props: Parameters<typeof PriorityList>[0]) {
+function WeakOpenings({ label, summary, ...props }: Parameters<typeof PriorityList>[0] & { label: string; summary: string }) {
   const [open, setOpen] = useState(false);
-  const first = props.priorities[0];
   return (
     <li className="flex flex-col rounded-2xl" style={tile(COLOURS.paper)}>
       <button type="button" aria-expanded={open} onClick={() => setOpen(!open)} className="flex min-h-12 items-center gap-3 px-4 text-left text-[15px] focus-visible:outline-2">
-        <span className="shrink-0 font-bold">Weak openings</span>
+        <span className="shrink-0 font-bold">{label}</span>
         <span className="ml-auto min-w-0 truncate" style={{ color: COLOURS.leafSoft }}>
-          {open ? `${props.priorities.length}` : `${openingName(props.table, first.path)} ${formatPercent(first.score)}`}
+          {open ? `${props.priorities.length}` : summary}
         </span>
         <span aria-hidden="true">{open ? '▴' : '▾'}</span>
       </button>
