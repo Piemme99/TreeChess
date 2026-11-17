@@ -7,7 +7,6 @@ export interface Priority {
   side: Side;
   path: readonly string[];
   games: number;
-  /** Score rate on the line and the player's average, over the games that weigh it. */
   score: number;
   average: number;
   pointsToGain: number;
