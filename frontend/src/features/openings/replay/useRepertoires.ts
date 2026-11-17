@@ -2,16 +2,16 @@ import { useEffect, useMemo, useState } from 'react';
 import { withAdditions, type Addition } from '../domain/addition';
 import type { PlayedGame } from '../domain/playedGame';
 import { repertoiresOf } from './replaySetup';
-import { storageKey } from '../workshop/storage';
+import { readStored, writeStored } from '../workshop/storage';
 
 /**
  * Le répertoire du rejeu : celui créé au départ, plus les ajouts acceptés depuis. On garde les ajouts
  * plutôt que le répertoire : une règle de création qui change n'oblige pas à tout refaire.
  */
 export function useRepertoires(games: readonly PlayedGame[], start: string) {
-  const [additions, setAdditions] = useState<readonly Addition[]>(() => JSON.parse(localStorage.getItem(storageKey('additions')) ?? '[]') as Addition[]);
+  const [additions, setAdditions] = useState<readonly Addition[]>(() => JSON.parse(readStored('additions') ?? '[]') as Addition[]);
 
-  useEffect(() => localStorage.setItem(storageKey('additions'), JSON.stringify(additions)), [additions]);
+  useEffect(() => writeStored('additions', JSON.stringify(additions)), [additions]);
 
   const created = useMemo(() => repertoiresOf(games, start), [games, start]);
   const repertoires = useMemo(

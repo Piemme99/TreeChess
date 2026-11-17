@@ -360,8 +360,10 @@ hero card. No replay for a signed-in player: "Next day" and "Reset" stay in the 
    are those of the last day played since the import (`lastDayPlayed`), like a replay day in the demo; the import
    day stays the day of the first import (`first_done_at`), and games keep their rank (`seq`) so decisions on them
    hold.
-3. **Decisions on the server** (additions, settled and ignored games, review boxes, worked lines), then v1
-   removal (`CLAUDE.md`).
+3. **Decisions on the server** (done): `player_state`, one JSON value per key (`additions`, `ignored-checks`,
+   `review`, `worked`), `GET /api/v2/state` and `PUT /api/v2/state/:key`. For an imported account the hooks read and
+   write through `workshop/storage.ts`, saved 300 ms after a change and on `pagehide`; what the browser kept before
+   goes up once. The demo stays in the browser. Next, per `CLAUDE.md`: `/` points to v2, then v1 is removed.
 4. **Explorer ranges from the player's rating** (rule above in "Later").
 
 ## Later

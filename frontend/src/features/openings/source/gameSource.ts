@@ -12,6 +12,8 @@ export interface GameSource {
   /** La veille de `start` : le rejeu part de là, un import s'y arrête. */
   firstDay: string;
   replay: boolean;
+  /** Les décisions gardées par le serveur, en JSON par clé ; absentes pour la démo, qui les laisse dans le navigateur. */
+  saved?: Map<string, string>;
 }
 
 export const DEMO_SOURCE: GameSource = { id: 'demo', games: playedGamesFixture, start: REPLAY_START, firstDay: REPLAY_FIRST_DAY, replay: true };

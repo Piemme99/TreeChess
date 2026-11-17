@@ -53,6 +53,7 @@ type appServices struct {
 	importHandler           *handlers.ImportHandler
 	dashboardHandler        *handlers.DashboardHandler
 	playedGames             *handlers.PlayedGames
+	playerState             *repository.PostgresPlayerStateRepo
 }
 
 // buildServices constructs the full dependency graph (repositories, services and
@@ -154,6 +155,7 @@ func buildServices(cfg config.Config, db *repository.DB) *appServices {
 			),
 			userRepo,
 		),
+		playerState: repository.NewPostgresPlayerStateRepo(db.Pool),
 		categorySvc: categorySvc,
 	}
 }
@@ -297,9 +299,14 @@ func registerRoutes(e *echo.Echo, db *repository.DB, svc *appServices) {
 	protected.GET("/api/imports/legal-moves", svc.importHandler.GetLegalMovesHandler)
 
 	// v2 : les parties Lichess du joueur, importées une fois puis lues par toutes les pages.
-	heavyOps.POST("/api/v2/games/import", svc.playedGames.StartImport)
+	// Sa propre limite : Home relance l'import à chaque chargement, il ne doit pas épuiser celle des opérations lourdes.
+	gameImports := e.Group("", appMiddleware.JWTAuth(svc.authSvc))
+	gameImports.Use(rateLimiter(6.0/60.0, 3, "too many imports, please wait"))
+	gameImports.POST("/api/v2/games/import", svc.playedGames.StartImport)
 	protected.GET("/api/v2/games/import", svc.playedGames.ImportStatus)
 	protected.GET("/api/v2/games", svc.playedGames.List)
+	protected.GET("/api/v2/state", handlers.GetPlayerStateHandler(svc.playerState))
+	protected.PUT("/api/v2/state/:key", handlers.PutPlayerStateHandler(svc.playerState))
 
 	// Study Import API
 	protected.GET("/api/studies/preview", svc.studyImportHandler.PreviewStudyHandler)

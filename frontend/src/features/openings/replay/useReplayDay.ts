@@ -26,7 +26,10 @@ export function useReplayDay(games: readonly PlayedGame[], start: string, replay
     return stored && days.includes(stored) ? stored : start;
   });
 
-  useEffect(() => localStorage.setItem(storageKey('replay-day'), day), [day]);
+  // Le rejeu n'existe que dans la démo : rien à garder pour des parties importées.
+  useEffect(() => {
+    if (replayed) localStorage.setItem(storageKey('replay-day'), day);
+  }, [day, replayed]);
 
   if (!replayed) {
     const last = lastDayPlayed(games, start);

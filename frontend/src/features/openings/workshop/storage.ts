@@ -1,9 +1,106 @@
-// Les décisions du joueur restent dans le navigateur jusqu'à la brique 3 de l'import : chaque source de parties a
-// les siennes, pour que la démo et un compte importé ne se mélangent pas. La démo garde les clés d'avant.
-let scope = '';
+import { api, getAccessToken } from '../../../services/api';
 
-export function setStorageScope(sourceId: string) {
+/** Les décisions que le serveur garde pour un compte importé ; la démo les laisse dans le navigateur. */
+export const SAVED_KEYS = ['additions', 'ignored-checks', 'review', 'worked'] as const;
+
+const API_BASE = import.meta.env.VITE_API_URL || '/api';
+// Assez court pour qu'une décision soit sauvée avant qu'on ferme la page, assez long pour grouper un Undo.
+const SAVE_DELAY = 300;
+
+// Chaque source de parties a ses décisions : la démo garde les clés d'avant, un compte importé a les siennes.
+let scope = '';
+let server: Map<string, string> | null = null;
+const pending = new Map<string, number>();
+
+export function setStorageScope(sourceId: string, saved?: Map<string, string>) {
   scope = sourceId === 'demo' ? '' : `${sourceId}.`;
+  server = saved ?? null;
 }
 
 export const storageKey = (key: string) => `kumquat.v2.${scope}${key}`;
+
+const onServer = (key: string) => server !== null && (SAVED_KEYS as readonly string[]).includes(key);
+
+export function readStored(key: string): string | null {
+  return onServer(key) ? (server!.get(key) ?? null) : localStorage.getItem(storageKey(key));
+}
+
+export function writeStored(key: string, value: string) {
+  if (!onServer(key)) {
+    localStorage.setItem(storageKey(key), value);
+    return;
+  }
+  // Le serveur rend ses objets dans son ordre de clés : comparer les valeurs, pas le texte.
+  const known = server!.get(key);
+  if (known === value || (known !== undefined && sameJson(known, value))) return;
+  server!.set(key, value);
+  window.clearTimeout(pending.get(key));
+  pending.set(key, window.setTimeout(() => save(key), SAVE_DELAY));
+}
+
+function save(key: string, attempt = 0) {
+  pending.delete(key);
+  const value = server?.get(key);
+  if (value === undefined) return;
+  api.put(`/v2/state/${key}`, value, { headers: { 'Content-Type': 'application/json' } }).catch(() => {
+    if (attempt < 3) pending.set(key, window.setTimeout(() => save(key, attempt + 1), 2000 * (attempt + 1)));
+  });
+}
+
+/** Une décision prise juste avant de fermer la page part quand même. */
+export function flushStored() {
+  for (const [key, timer] of pending) {
+    window.clearTimeout(timer);
+    const value = server?.get(key);
+    if (value === undefined) continue;
+    void fetch(`${API_BASE}/v2/state/${key}`, {
+      method: 'PUT',
+      keepalive: true,
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAccessToken() ?? ''}` },
+      body: value,
+    });
+  }
+  pending.clear();
+}
+
+if (typeof window !== 'undefined') window.addEventListener('pagehide', flushStored);
+
+/**
+ * Au premier chargement d'un compte, ce que le navigateur gardait déjà (avant que le serveur ne le fasse) monte
+ * au serveur ; ensuite, le serveur fait foi.
+ */
+export function mergeSaved(fromServer: Record<string, unknown>, local: (key: string) => string | null) {
+  const values = new Map<string, string>();
+  const upload: string[] = [];
+  for (const key of SAVED_KEYS) {
+    if (key in fromServer) values.set(key, JSON.stringify(fromServer[key]));
+    else {
+      const kept = local(key);
+      if (kept !== null) {
+        values.set(key, kept);
+        upload.push(key);
+      }
+    }
+  }
+  return { values, upload };
+}
+
+export function uploadStored(keys: readonly string[], values: Map<string, string>) {
+  for (const key of keys) {
+    const value = values.get(key);
+    if (value !== undefined) void api.put(`/v2/state/${key}`, value, { headers: { 'Content-Type': 'application/json' } }).catch(() => undefined);
+  }
+}
+
+function sameJson(a: string, b: string): boolean {
+  const equal = (x: unknown, y: unknown): boolean => {
+    if (x === y) return true;
+    if (typeof x !== 'object' || typeof y !== 'object' || x === null || y === null) return false;
+    if (Array.isArray(x) !== Array.isArray(y)) return false;
+    const xs = Object.keys(x);
+    const ys = Object.keys(y);
+    return xs.length === ys.length && xs.every((key) => equal((x as Record<string, unknown>)[key], (y as Record<string, unknown>)[key]));
+  };
+  return equal(JSON.parse(a), JSON.parse(b));
+}
