@@ -393,6 +393,52 @@ hero card. No replay for a signed-in player: "Next day" and "Reset" stay in the 
    goes up once. The demo stays in the browser. Next, per `CLAUDE.md`: `/` points to v2, then v1 is removed.
 4. **Explorer ranges from the player's rating** (rule above in "Later").
 
+## Practice (use 4, path to validate, 2026-11-18)
+
+Why: the repertoire grows only from real games, one reply at a time. Practice meets in a few minutes the replies
+players of the player's level actually play, so they decide an answer before meeting it for real, and replays their
+own moves against them.
+
+Facts (simulation on PMG's 558 Lichess games, 100 practice games per side, the player following their repertoire,
+the opponent drawn by frequency among the Lichess replies of ≥ 5 % at 1600–2200 blitz & rapid): as White, 87 games
+of 100 meet a reply the repertoire does not hold, median ply 8 (move 4), e.g. 1.e4 e5 2.Nf3 Nc6 3.Bb5 Bc5 4.Nxe5
+Bxf2+ (6 of 100); the 13 others reach a position where the repertoire has no move of the player's (Caro-Kann Advance
+4…Bf5 5.h4 h5). As Black, 75 not covered, 25 at the end of the preparation (1.e4 c5 2.d4 cxd4 3.c3 dxc3 4.Nxc3, the
+Morra, 7 of 100), median ply 7. Practice finds a gap almost every game, within five moves.
+
+### Screen 1 — Entry
+
+A row "Practice" on Home (never the hero card: it is a choice, not something waiting), and "Practise from here" on
+any position of the Repertoire tab. It is a task: the dark bar (✕, "Practice", "Game 2"). From Home the player picks
+White or Black; from a position the side is the tree's and the game starts there.
+
+### Screen 2 — The game
+
+The board only. The player plays; the app answers at once with a reply drawn by frequency among those played at the
+player's level (≥ 5 % of the games there). No hint, no mark when the player leaves the repertoire: like a real game.
+The game goes on past the repertoire and stops when the position has fewer than 100 games at that level, or at move
+15; "End" stops it at any time.
+
+### Screen 3 — Review
+
+The game move by move, each move marked like Home's game rows: ✓ in the repertoire, ! a move of the player's off the
+repertoire that the engine finds worse, · one that waits for nothing, ? an opponent reply with no answer yet. Then
+the first place it left the repertoire is a step to settle, as in Check: **Add** (the moves played after it are
+given, to trim or extend in the candidate table), **Keep**, **Prepare a reply**, **Not worth it**. Then "1 settled ·
+Practise again / Back to Home".
+
+### Effects
+
+Additions join the repertoire like any other. A repertoire move missed in practice is a lapse for Review (box 1).
+Practice games are not games: they stay out of the opening tree, weak openings, worked lines and Home's new games.
+
+### Bricks
+
+1. **The level from the player's rating** (the rule in "Later", for the whole app: the candidate tables too).
+2. **Play and review**: screens 1–3 from Home, review read-only.
+3. **Settle from the review**, lapses for Review.
+4. **"Practise from here"** on the tree.
+
 ## Later
 
 - **Line view, next steps**: glossary entries for key position and decisive mistake.
