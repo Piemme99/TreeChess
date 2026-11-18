@@ -12,7 +12,7 @@ export interface Priority {
   pointsToGain: number;
 }
 
-const MIN_GAMES = 20;
+const MIN_GAMES = 10;
 
 /**
  * Two kinds of problems, each visible on one time scale only: an old one still
