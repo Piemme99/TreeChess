@@ -108,7 +108,8 @@ export function dueCount(repertoire: Repertoire, state: ReviewState, today: stri
 
 /**
  * La ligne à réviser : la position due qui pèse le plus, et ce que l'application joue seule avant d'y arriver. Une ligne
- * qui reprend le début d'une ligne déjà jouée dans la séance (`played`) part de là où elle s'en sépare.
+ * qui reprend le début d'une ligne déjà jouée dans la séance (`played`) part de là où elle s'en sépare ; là où le
+ * répertoire a plusieurs coups, l'application joue celui qui mène à la position visée.
  */
 export function planLine(
   repertoire: Repertoire,
@@ -127,15 +128,18 @@ export function planLine(
   const chess = new Chess();
   const turns: number[] = [];
   const due: number[] = [];
+  let choice = 0;
   for (const [index, san] of best.path.entries()) {
     if (chess.turn() === repertoire.side) {
       turns.push(index);
       if (isDue(state, positionKey(chess.fen()), today)) due.push(index);
+      // Entre plusieurs coups du répertoire, le joueur ne peut pas deviner celui qui mène à la position visée.
+      else if (repertoireMovesAt(repertoire, chess.fen()).length > 1) choice = index + 1;
     }
     chess.move(san);
   }
   const lead = turns.length >= LEAD_IN ? turns[turns.length - LEAD_IN] : 0;
-  const fork = Math.max(0, ...played.map((line) => sharedPlies(line, best.path)));
+  const fork = Math.max(choice, ...played.map((line) => sharedPlies(line, best.path)));
   // Le début d'une ligne jouée, l'application l'a souvent joué seule : une position due y reste à jouer.
   const from = Math.max(lead, Math.min(fork, ...due.filter((ply) => ply >= lead)));
   return { target: best.key, path: best.path, autoplayed: best.path.slice(0, from), weight: best.weight };
