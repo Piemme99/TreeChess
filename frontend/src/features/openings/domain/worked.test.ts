@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { GameCheck } from './gameCheck';
 import type { GameScore, PlayedGame } from './playedGame';
-import { adherence, splitWorked } from './worked';
+import { adherence, splitWorked, worksOn } from './worked';
 
 const game = (moves: string, playedAt: string, check: GameCheck) => ({ game: { side: 'b', moves: moves.split(' '), score: 1, playedAt } satisfies PlayedGame, check });
 const left: GameCheck = { kind: 'left', ply: 3, played: 'Nf6', planned: ['d5'], position: '' };
@@ -51,5 +51,19 @@ describe('splitWorked', () => {
   it('leaves the weak openings nobody worked on to do', () => {
     const other = { side: 'b' as const, path: ['e4', 'c5', 'd4', 'cxd4'], average: 0.48, score: 0.4 };
     expect(splitWorked([other], worked, [])).toEqual({ toWork: [other], treated: [] });
+  });
+});
+
+describe('worksOn', () => {
+  const caroKann = { side: 'w' as const, path: ['e4', 'c6', 'd4'] };
+
+  it('counts moves added further down a weak opening as working it, even from a position deep in its line', () => {
+    expect(worksOn(caroKann, 'w', [['e4', 'c6', 'd4', 'd5', 'Nc3', 'dxe4', 'Nxe4']])).toBe(true);
+  });
+
+  it('leaves a weak opening to do when the moves added stop before it, branch off it, or are for the other side', () => {
+    expect(worksOn(caroKann, 'w', [['e4', 'c6']])).toBe(false);
+    expect(worksOn(caroKann, 'w', [['e4', 'c6', 'Nc3', 'd5']])).toBe(false);
+    expect(worksOn(caroKann, 'b', [['e4', 'c6', 'd4', 'd5']])).toBe(false);
   });
 });

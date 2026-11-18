@@ -52,3 +52,7 @@ function isWeakSince(line: WorkedOn, games: readonly PlayedGame[], average: numb
   const since = games.filter((game) => game.side === line.side && game.playedAt > line.since && isThrough(game, line.path));
   return isProvenWeak({ games: since.length, score: since.reduce((sum, game) => sum + game.score, 0) }, average);
 }
+
+/** Un ajout travaille une ouverture faible dès qu'une de ses lignes la prolonge, quel que soit le bouton qui l'a lancé. */
+export const worksOn = (weak: { side: Side; path: readonly string[] }, side: Side, lines: readonly (readonly string[])[]) =>
+  weak.side === side && lines.some((line) => line.length > weak.path.length && weak.path.every((san, index) => line[index] === san));

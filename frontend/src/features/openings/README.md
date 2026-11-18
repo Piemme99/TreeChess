@@ -303,6 +303,9 @@ When one opponent reply loses clearly more than the line (`leakOf`), the task op
 that reply as a terracotta arrow; the weak opening is named after that position, on Home too (`shownLine`).
 Accepting the preparation ends on "2 moves added · Next weak opening / Back to Home" and marks the line
 **worked** from that day: new games through it report adherence (prep followed N of M).
+Any addition made during the task that extends the weak line counts the same, whatever button started it ("+ Add a
+move" deep in the line too, `worksOn`). Away from the weak line, a strip under the bar offers "← Back to weak
+opening N" and "Next weak opening →": the card only shows on the line itself.
 
 ### Screen 5 — Review (use 3)
 

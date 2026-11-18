@@ -11,7 +11,7 @@ import { figurineLine, figurineMove } from '../domain/notation';
 import { gamesOfLastMonths } from '../domain/period';
 import type { PlayedGame, Side } from '../domain/playedGame';
 import { findPriorities, shownLine, type Priority } from '../domain/priorities';
-import { splitWorked } from '../domain/worked';
+import { splitWorked, worksOn } from '../domain/worked';
 import { checkQueue, type SessionStep } from '../session/steps';
 import { useReplayedSession } from '../session/useReplayedSession';
 import { PageHeader } from '../workshop/PageHeader';
@@ -210,7 +210,8 @@ export function TreePage() {
   const accept = (moves: AddedMove[], lines: (readonly string[])[]) => {
     if (!building) return;
     const addition: Addition = { side: building.origin.side, addedAt: replay.day, moves };
-    const worked = building.worked && { ...building.worked, since: replay.day };
+    const target = building.worked ?? (task === 'weak' && taskPriority && worksOn(taskPriority, building.origin.side, lines) ? { side: taskPriority.side, path: taskPriority.path } : undefined);
+    const worked = target && { ...target, since: replay.day };
     if (worked) work(worked);
     if (worked && task === 'weak') setPrepared({ moves: moves.length, line: lines[0] ?? [] });
     setPinned((current) => [...current, ...lines.map((line) => line.join(' '))]);
@@ -227,7 +228,7 @@ export function TreePage() {
     const landing = line0 && findByPosition(maps[building.origin.side], positionKey(replayLine(line0).fens[line0.length]));
     const transposed = landing && landing.key !== line0.join(' ') ? landing : undefined;
     // Dans la tâche, le bilan remplace la carte : annuler y revient.
-    const inTask = building.worked !== undefined && task === 'weak';
+    const inTask = worked !== undefined && task === 'weak';
     show({
       text: transposed && !inTask ? `${text} · same position as ${figurineLine(transposed.path)}: shown there, linked from here` : text,
       undo: () => {
@@ -470,6 +471,9 @@ export function TreePage() {
     <MotionConfig reducedMotion="user">
       <div className={`min-h-screen pb-24`} style={{ fontFamily: FONT_FAMILY, background: COLOURS.cream, color: COLOURS.leaf }}>
         {header}
+        {task === 'weak' && taskPriority && !onTaskLine && !building && !done && (
+          <WeakWayBack rank={taskRank} onBack={() => goToWeak(taskRank)} onNext={nextWeak} />
+        )}
         {done ? (
           <main className="px-4">{done}</main>
         ) : wide ? (
@@ -516,6 +520,22 @@ export function TreePage() {
 }
 
 const startsWith = (line: readonly string[], prefix: readonly string[]) => prefix.length <= line.length && prefix.every((san, index) => line[index] === san);
+
+/** Dans la tâche, loin de la ligne faible : y revenir ou passer à la suivante sans fermer. */
+function WeakWayBack({ rank, onBack, onNext }: { rank: number; onBack: () => void; onNext?: () => void }) {
+  return (
+    <nav aria-label="Weak opening" className="sticky top-14 z-20 flex items-center justify-between gap-3 px-1 text-[14px] font-bold sm:px-6" style={{ background: COLOURS.sand, color: COLOURS.leaf }}>
+      <button type="button" onClick={onBack} className="min-h-11 rounded-lg px-3 focus-visible:outline-2">
+        ← Back to weak opening {rank}
+      </button>
+      {onNext && (
+        <button type="button" onClick={onNext} className="min-h-11 rounded-lg px-3 focus-visible:outline-2">
+          Next weak opening →
+        </button>
+      )}
+    </nav>
+  );
+}
 
 /** Le camp, en onglets serrés. */
 function SideTabs({ side, onChange, counts }: { side: Side; onChange: (side: Side) => void; counts: Record<Side, number> }) {
