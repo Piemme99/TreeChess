@@ -20,7 +20,7 @@ describe('weakLines', () => {
   });
 
   it('ignores lines played too rarely to conclude', () => {
-    const played = [...games(200, 'w', 'd4', 1), ...games(15, 'w', 'e4', 0)];
+    const played = [...games(200, 'w', 'd4', 1), ...games(8, 'w', 'e4', 0)];
 
     expect(weakLines(tree(played))).toEqual([]);
   });
@@ -135,6 +135,6 @@ describe('findPriorities', () => {
 
     expect(first).toMatchObject({ side: 'w', path: ['e4', 'c5', 'd4', 'cxd4', 'c3'] });
     expect(second).toMatchObject({ side: 'w', path: ['e4', 'e5', 'Nf3', 'd6', 'd4'] });
-    expect(third).toMatchObject({ side: 'b', path: ['d4', 'Nf6'], games: 28 });
+    expect(third).toMatchObject({ side: 'b', path: ['e4', 'c5', 'Nc3', 'Nc6'], games: 14 });
   });
 });

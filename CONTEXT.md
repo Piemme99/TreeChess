@@ -81,7 +81,7 @@ graph: it shows where points leak, not what the engine thinks.
 
 A line the player should work on first, drawn from both sides at once and
 ranked by **points to gain**: a line ending on one of the player's moves where
-they score significantly below their average (at least 20 games, gap beyond one
+they score significantly below their average (at least 10 games, gap beyond one
 standard error), computed from results only (no engine). It says the player
 plays the line badly — not that they should change openings: the choice of an
 opening is theirs.
