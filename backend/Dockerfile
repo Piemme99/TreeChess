@@ -1,5 +1,5 @@
 # === Development stage (default) ===
-FROM golang:1.26-bookworm AS dev
+FROM golang:1.27-bookworm AS dev
 
 WORKDIR /app
 
@@ -19,7 +19,7 @@ EXPOSE 8080
 CMD ["air"]
 
 # === Production stage ===
-FROM golang:1.26-bookworm AS builder
+FROM golang:1.27-bookworm AS builder
 
 WORKDIR /build
 
