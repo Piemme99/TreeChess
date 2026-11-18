@@ -285,7 +285,8 @@ A weak opening already **worked** is not something to do (`splitWorked`): the 12
 show the work, so it never takes the hero card, not even on the first day. It sits in its own row, "Worked openings"
 (adherence, "Open"), and comes back to do only once the games played since the work prove it weak again (same bar
 as a priority: 20 games, below average beyond noise). Meanwhile it leaves its place among the five to do to the next
-weak opening, and the tree task lists the five to do first, then the worked ones.
+weak opening, and the tree task lists the five to do first, then the worked ones. The cost picks the five; each list
+shows the worst score first.
 
 Rows under the hero: "To settle · 6", "Review · 5 lines", "Weak openings · Queen's Pawn Game 41%" (expands),
 "Worked openings · Caro-Kann Defense" (expands).
