@@ -106,4 +106,12 @@ describe('review', () => {
     expect(planLine(sicilian, state, TODAY)).toMatchObject({ target: key('e4 c5 c3'), autoplayed: [] });
     expect(planLine(sicilian, state, TODAY, undefined, [['e4', 'c5', 'Nf3', 'Nc6']])).toMatchObject({ autoplayed: ['e4', 'c5'] });
   });
+
+  it('never plays alone a position due that the player has not played in the session', () => {
+    const sicilian = repertoireOf('b', { '': ['e4'], e4: ['c5'], 'e4 c5': ['Nf3', 'c3'], 'e4 c5 Nf3': ['Nc6'], 'e4 c5 c3': ['Nf6'] });
+    const state = answered(new Map(), key('e4 c5 Nf3'), true, TODAY);
+    const heaviest = (k: string) => (k === key('e4 c5 c3') ? 5 : 1);
+
+    expect(planLine(sicilian, state, TODAY, heaviest, [['e4', 'c5', 'Nf3', 'Nc6']])).toMatchObject({ target: key('e4 c5 c3'), autoplayed: ['e4'] });
+  });
 });

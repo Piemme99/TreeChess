@@ -126,12 +126,18 @@ export function planLine(
   if (!best) return undefined;
   const chess = new Chess();
   const turns: number[] = [];
+  const due: number[] = [];
   for (const [index, san] of best.path.entries()) {
-    if (chess.turn() === repertoire.side) turns.push(index);
+    if (chess.turn() === repertoire.side) {
+      turns.push(index);
+      if (isDue(state, positionKey(chess.fen()), today)) due.push(index);
+    }
     chess.move(san);
   }
   const lead = turns.length >= LEAD_IN ? turns[turns.length - LEAD_IN] : 0;
-  const from = Math.max(lead, ...played.map((line) => sharedPlies(line, best.path)));
+  const fork = Math.max(0, ...played.map((line) => sharedPlies(line, best.path)));
+  // Le début d'une ligne jouée, l'application l'a souvent joué seule : une position due y reste à jouer.
+  const from = Math.max(lead, Math.min(fork, ...due.filter((ply) => ply >= lead)));
   return { target: best.key, path: best.path, autoplayed: best.path.slice(0, from), weight: best.weight };
 }
 
