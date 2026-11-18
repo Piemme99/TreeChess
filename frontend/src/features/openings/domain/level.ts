@@ -27,8 +27,9 @@ export function playerRating(games: readonly PlayedGame[]): number {
   return sorted[Math.floor(sorted.length / 2)];
 }
 
+// Borne haute exclue : 1700 + 300 tombe pile sur 2000, une tranche entière ne s'ajoute pas pour un point.
 const bucketsBetween = (low: number, high: number) =>
-  BUCKETS.filter((bucket, index) => bucket <= high && (BUCKETS[index + 1] ?? Infinity) > low);
+  BUCKETS.filter((bucket, index) => bucket < high && (BUCKETS[index + 1] ?? Infinity) > low);
 
 export function explorerLevel(rating: number): ExplorerLevel {
   return {

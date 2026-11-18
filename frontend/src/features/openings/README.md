@@ -435,7 +435,7 @@ Practice games are not games: they stay out of the opening tree, weak openings, 
 ### Bricks
 
 1. **The level from the player's rating** (done, `domain/level.ts`, the whole app: the candidate tables too). The
-   rating is the median of the player's last 20 imported games (blitz and rapid mixed, as the explorer is read:
+   rating is the median of the player's last 20 imported games (blitz, rapid and classical mixed, as imported:
    the speed is not stored), 1800 without rated games (the demo: unchanged). Opponents from rating −100 to +300,
    the player's own moves from +400 and never below 2000, both rounded out to the explorer's buckets. PMG (blitz
    1515): replies of 1400–2000 players, own moves among 2000+, instead of 1600–2200 and 2200+.
