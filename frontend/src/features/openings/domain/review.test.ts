@@ -98,4 +98,12 @@ describe('review', () => {
     expect(planLine(deep, state, TODAY)).toMatchObject({ target: key('e4 e5 Nf3 Nc6 Bb5 a6'), autoplayed: ['e4', 'e5'] });
     expect(planLine(white, new Map(), TODAY, (k) => (k === key('e4 c5') ? 5 : 1))).toMatchObject({ target: key('e4 c5'), autoplayed: [] });
   });
+
+  it('starts a line that begins like one already played in the session where it leaves it', () => {
+    const sicilian = repertoireOf('b', { '': ['e4'], e4: ['c5'], 'e4 c5': ['Nf3', 'c3'], 'e4 c5 Nf3': ['Nc6'], 'e4 c5 c3': ['Nf6'] });
+    const state = [key('e4'), key('e4 c5 Nf3')].reduce<ReviewState>((known, k) => answered(known, k, true, TODAY), new Map());
+
+    expect(planLine(sicilian, state, TODAY)).toMatchObject({ target: key('e4 c5 c3'), autoplayed: [] });
+    expect(planLine(sicilian, state, TODAY, undefined, [['e4', 'c5', 'Nf3', 'Nc6']])).toMatchObject({ autoplayed: ['e4', 'c5'] });
+  });
 });
