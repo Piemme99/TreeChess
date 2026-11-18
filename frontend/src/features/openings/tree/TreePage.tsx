@@ -104,7 +104,8 @@ export function TreePage() {
   const stepsHere = useMemo(() => steps.filter((step) => step.side === side && step.games[0].check.position === node.position), [steps, side, node]);
   // Le rang de la tâche vient de l'adresse, pas de la position regardée : on peut s'écarter de la ligne sans le perdre.
   const askedIndex = useMemo(
-    () => priorities.findIndex((candidate) => candidate.side === asked.side && showsOn(candidate, asked.line)),
+    // La réponse qui coûte change avec les parties : l'adresse retrouve la faiblesse par son coup, suivi ou non d'une réponse.
+    () => priorities.findIndex((candidate) => candidate.side === asked.side && startsWith(asked.line, candidate.path) && asked.line.length - candidate.path.length <= 1),
     [priorities, asked],
   );
   const taskRank = askedIndex + 1 || 1;
@@ -293,12 +294,15 @@ export function TreePage() {
     setLead('priority');
     toTop();
   };
-  // Une adresse dont la ligne n'est plus une faiblesse (autre jour du rejeu, lien ancien) mène à la première.
+  // Une adresse dont la ligne n'est plus une faiblesse (autre jour du rejeu, lien ancien) mène à la première ;
+  // celle d'une faiblesse qui se montre ailleurs aujourd'hui mène là où elle se montre.
   useEffect(() => {
-    if (task === 'weak' && priorities.length && askedIndex < 0) goToWeak(1);
+    if (task !== 'weak' || !priorities.length) return;
+    if (askedIndex < 0) goToWeak(1);
+    else if (shownLine(priorities[askedIndex]).join(' ') !== asked.line.join(' ')) goToWeak(askedIndex + 1);
     // Seule une adresse périmée compte.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [task, priorities, askedIndex]);
+  }, [task, priorities, askedIndex, asked]);
   const nextWeak = task === 'weak' && priorities.length > 1 ? () => goToWeak((taskRank % priorities.length) + 1) : undefined;
   const position = session ? session.queue.indexOf(currentKey ?? '') + 1 : 0;
   const counts = session ? [...session.done.values()] : [];

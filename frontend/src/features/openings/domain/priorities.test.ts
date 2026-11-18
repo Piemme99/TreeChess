@@ -136,6 +136,13 @@ describe('findPriorities', () => {
     expect(shownLine(findPriorities(trees, trees, 10)[0])).toEqual(['e4', 'c5']);
   });
 
+  it('judges the reply that costs on the recent games, not the old ones', () => {
+    const history = sides([...games(200, 'w', 'd4', 1), ...games(30, 'w', 'e4 c5', 0), ...games(30, 'w', 'e4 e5', 1)]);
+    const recent = sides([...games(50, 'w', 'd4', 1), ...games(10, 'w', 'e4 e5', 0), ...games(5, 'w', 'e4 c5', 1), ...games(5, 'w', 'e4 c5', 0)]);
+
+    expect(shownLine(findPriorities(history, recent, 10)[0])).toEqual(['e4', 'e5']);
+  });
+
   it('opens a weak opening on the player\'s move when no reply stands out', () => {
     const trees = sides([...games(200, 'w', 'd4', 1), ...games(20, 'w', 'e4 e5', 0), ...games(20, 'w', 'e4 c5', 0)]);
 

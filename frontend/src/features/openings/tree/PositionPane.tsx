@@ -100,7 +100,7 @@ export function PositionPane(props: PositionPaneProps) {
       </div>
       {settling && (
         <div className="order-3">
-          <SettleCard steps={steps} facts={facts} actions={actions} onSkip={onSkip} rank={node.priority} />
+          <SettleCard steps={steps} facts={facts} actions={actions} onSkip={onSkip} rank={props.priorityRank ?? node.priority} />
         </div>
       )}
       {prioritised && !settling && (

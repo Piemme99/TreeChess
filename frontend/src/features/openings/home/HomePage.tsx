@@ -227,7 +227,7 @@ function PriorityList({ priorities, table, href, workedOf, lived, action = 'Work
               </span>
             </span>
             <span className="text-[13px]" style={{ color: COLOURS.leafSoft }}>
-              {priority.side === 'w' ? 'White' : 'Black'} · {figurineLine(priority.path)} · {priority.games} games · avg {formatPercent(priority.average)}
+              {priority.side === 'w' ? 'White' : 'Black'} · {figurineLine(shownLine(priority))} · {priority.games} games · avg {formatPercent(priority.average)}
             </span>
             <span className="h-1.5 overflow-hidden rounded-full" style={{ background: COLOURS.sand }}>
               <motion.span className="block h-full rounded-full" style={{ background: COLOURS.terracotta }} initial={{ width: 0 }} animate={{ width: `${(priority.pointsToGain / heaviest) * 100}%` }} transition={ZOOM} />

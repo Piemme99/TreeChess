@@ -30,7 +30,7 @@ export function PhonePane(props: PhonePaneProps) {
       </div>
       <LineStrip path={path} trail={trail} known={node.path.length} onJump={onJump} />
       <div className="empty:hidden">
-        {settling && <SettleCard steps={steps} facts={facts} actions={actions} onSkip={onSkip} rank={node.priority} />}
+        {settling && <SettleCard steps={steps} facts={facts} actions={actions} onSkip={onSkip} rank={props.priorityRank ?? node.priority} />}
         {prioritised && !settling && (
           <PriorityCard side={side} priority={priority!} rank={props.priorityRank ?? node.priority!} total={props.priorityCount} facts={facts} waiting={steps.length} onLead={onLead} onNextPriority={onNextPriority} onPrepareFollows={onPrepareFollows} />
         )}
