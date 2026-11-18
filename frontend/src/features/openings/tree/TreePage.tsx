@@ -10,7 +10,7 @@ import { buildOpeningTree, isPlayerMove, type OpeningTree } from '../domain/open
 import { figurineLine, figurineMove } from '../domain/notation';
 import { gamesOfLastMonths } from '../domain/period';
 import type { PlayedGame, Side } from '../domain/playedGame';
-import { findPriorities } from '../domain/priorities';
+import { findPriorities, shownLine, type Priority } from '../domain/priorities';
 import { splitWorked } from '../domain/worked';
 import { checkQueue, type SessionStep } from '../session/steps';
 import { useReplayedSession } from '../session/useReplayedSession';
@@ -104,13 +104,13 @@ export function TreePage() {
   const stepsHere = useMemo(() => steps.filter((step) => step.side === side && step.games[0].check.position === node.position), [steps, side, node]);
   // Le rang de la tâche vient de l'adresse, pas de la position regardée : on peut s'écarter de la ligne sans le perdre.
   const askedIndex = useMemo(
-    () => priorities.findIndex((candidate) => candidate.side === asked.side && candidate.path.join(' ') === asked.line.join(' ')),
+    () => priorities.findIndex((candidate) => candidate.side === asked.side && showsOn(candidate, asked.line)),
     [priorities, asked],
   );
   const taskRank = askedIndex + 1 || 1;
   const taskPriority = task === 'weak' ? priorities[taskRank - 1] : undefined;
   // Dans la tâche, la faiblesse se montre sur sa ligne même hors du répertoire : on y joue un coup qu'il n'a pas.
-  const onTaskLine = taskPriority !== undefined && taskPriority.side === side && taskPriority.path.join(' ') === path.join(' ');
+  const onTaskLine = taskPriority !== undefined && taskPriority.side === side && showsOn(taskPriority, path);
   const priority = onTaskLine ? taskPriority : node.priority !== undefined ? priorities[node.priority - 1] : undefined;
   const priorityRank = onTaskLine ? taskRank : node.priority;
 
@@ -282,13 +282,14 @@ export function TreePage() {
   const goToWeak = (rank: number) => {
     const target = priorities[rank - 1];
     if (!target) return;
+    const line = shownLine(target);
     // L'adresse suit la faiblesse montrée : recharger la page y ramène.
-    setParams({ task: 'weak', side: target.side, line: target.path.join(' ') }, { replace: true });
+    setParams({ task: 'weak', side: target.side, line: line.join(' ') }, { replace: true });
     setPrepared(null);
     setSide(target.side);
-    setPaths((current) => ({ ...current, [target.side]: target.path }));
-    setTrails((current) => ({ ...current, [target.side]: target.path }));
-    setFocus({ key: target.path.join(' '), stamp: Date.now(), centre: true });
+    setPaths((current) => ({ ...current, [target.side]: line }));
+    setTrails((current) => ({ ...current, [target.side]: line }));
+    setFocus({ key: line.join(' '), stamp: Date.now(), centre: true });
     setLead('priority');
     toTop();
   };
@@ -594,6 +595,9 @@ function useMaps(
     return { maps, recent, priorities };
   }, [known, day, repertoires, steps, createdAt, worked]);
 }
+
+// Une ouverture faible se montre après la réponse qui coûte, mais reste la sienne sur son propre coup.
+const showsOn = (priority: Priority, line: readonly string[]) => [priority.path, shownLine(priority)].some((shown) => shown.join(' ') === line.join(' '));
 
 /** Le nœud le plus profond de la carte sur la ligne, en passant par le propriétaire d'une transposition. */
 function nodeAlong(root: MapNode, path: readonly string[]): MapNode {

@@ -10,7 +10,7 @@ import { figurineLine, figurineMove } from '../domain/notation';
 import { buildOpeningTree, type OpeningTree } from '../domain/openingTree';
 import { gamesOfLastMonths } from '../domain/period';
 import type { PlayedGame, Side } from '../domain/playedGame';
-import { findPriorities, type Priority } from '../domain/priorities';
+import { findPriorities, shownLine, type Priority } from '../domain/priorities';
 import { playerPositions } from '../domain/review';
 import { adherence, isThrough, splitWorked, type Adherence } from '../domain/worked';
 import { replayLine } from '../position/replay';
@@ -76,7 +76,7 @@ function Home({ onForget, syncing }: { onForget: () => void; syncing: boolean })
   });
 
   const tree = pathOf('tree');
-  const workOn = (line: { side: Side; path: readonly string[] }) => `${tree}?task=weak&side=${line.side}&line=${encodeURIComponent(line.path.join(' '))}`;
+  const workOn = (priority: Priority) => `${tree}?task=weak&side=${priority.side}&line=${encodeURIComponent(shownLine(priority).join(' '))}`;
   const checkHref = `${tree}?task=check`;
   const dayGames = replay.index ? lived.filter(({ game }) => game.playedAt === replay.day) : [];
   const stepOf = (checked: CheckedGame) => steps.find((step) => step.games.some((game) => game.id === checked.id));
@@ -137,10 +137,10 @@ function Home({ onForget, syncing }: { onForget: () => void; syncing: boolean })
           {hero !== 'games' && waiting > 0 && <Row label="To settle" figure={`${waiting}`} to={checkHref} />}
           {hero !== 'review' && due > 0 && <Row label="Review" figure={`${lines} · ${formatPercent(review.known)} known`} to={pathOf('review')} />}
           {moreToWork.length > 0 && (
-            <WeakOpenings label={inHero ? 'More weak openings' : 'Weak openings'} summary={`${openingName(table, moreToWork[0].path)} ${formatPercent(moreToWork[0].score)}`} priorities={moreToWork} table={table} href={workOn} workedOf={workedOf} lived={lived} />
+            <WeakOpenings label={inHero ? 'More weak openings' : 'Weak openings'} summary={`${openingName(table, shownLine(moreToWork[0]))} ${formatPercent(moreToWork[0].score)}`} priorities={moreToWork} table={table} href={workOn} workedOf={workedOf} lived={lived} />
           )}
           {treated.length > 0 && (
-            <WeakOpenings label="Worked openings" summary={`${openingName(table, treated[0].path)}${treated.length > 1 ? ` +${treated.length - 1}` : ''}`} priorities={treated} table={table} href={workOn} workedOf={workedOf} lived={lived} action="Open" />
+            <WeakOpenings label="Worked openings" summary={`${openingName(table, shownLine(treated[0]))}${treated.length > 1 ? ` +${treated.length - 1}` : ''}`} priorities={treated} table={table} href={workOn} workedOf={workedOf} lived={lived} action="Open" />
           )}
         </ul>
       </main>
@@ -221,7 +221,7 @@ function PriorityList({ priorities, table, href, workedOf, lived, action = 'Work
         return (
           <li key={`${priority.side} ${priority.path.join(' ')}`} className="flex flex-col gap-1.5 py-3" style={{ borderTop: index ? `1px solid ${COLOURS.sand}` : undefined }}>
             <span className="flex items-baseline gap-2">
-              <span className="text-[16px] font-bold leading-tight">{openingName(table, priority.path)}</span>
+              <span className="text-[16px] font-bold leading-tight">{openingName(table, shownLine(priority))}</span>
               <span className="ml-auto whitespace-nowrap text-[13px] font-semibold" style={{ color: COLOURS.terracotta }}>
                 {formatPercent(priority.score)}
               </span>

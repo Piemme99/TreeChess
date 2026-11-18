@@ -1,5 +1,5 @@
 import { forEachLine, isPlayerMove, nodeAt, type OpeningNode, type OpeningTree } from './openingTree';
-import { deficit, playerAverage, scoreRate } from './performance';
+import { deficit, leakOf, playerAverage, scoreRate } from './performance';
 import type { Side } from './playedGame';
 
 /** A line ending on one of the player's moves, where they score significantly below their average. */
@@ -10,7 +10,13 @@ export interface Priority {
   score: number;
   average: number;
   pointsToGain: number;
+  /** La réponse adverse où la ligne perd nettement plus qu'ailleurs, sur les parties récentes. */
+  leak?: string;
 }
+
+/** Là où une ouverture faible se montre : après la réponse qui coûte, trait au joueur, quand elle se détache. */
+export const shownLine = (priority: Pick<Priority, 'path' | 'leak'>): readonly string[] =>
+  priority.leak ? [...priority.path, priority.leak] : priority.path;
 
 const MIN_GAMES = 10;
 
@@ -60,6 +66,7 @@ function recentCost(line: Priority, recent: OpeningTree): Priority {
     score: scoreRate(recentLine),
     average,
     pointsToGain: deficit(recentLine, average) * recentLine.games,
+    leak: leakOf(recentLine)?.san ?? undefined,
   };
 }
 
