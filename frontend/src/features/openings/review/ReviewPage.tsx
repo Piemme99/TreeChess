@@ -6,6 +6,7 @@ import { figurineLine, figurineMove } from '../domain/notation';
 import type { Side } from '../domain/playedGame';
 import { positionKey } from '../domain/repertoire';
 import { acceptedMoves, hasDueAhead, nextReply, planLine } from '../domain/review';
+import { formatPercent } from '../flame/format';
 import { replayLine } from '../position/replay';
 import { liveGames } from '../checks/decisions';
 import { useSource } from '../source/useSource';
@@ -18,6 +19,8 @@ import { REVIEW_LINES as LINES, useReview } from './useReview';
 
 // Le temps de voir le coup adverse arriver avant de devoir répondre.
 const REPLY_DELAY = 450;
+// Une séance touche une dizaine de positions sur des centaines : arrondi à l'unité, le chiffre ne bougerait souvent pas.
+const precisePercent = (rate: number) => `${(rate * 100).toFixed(1)}%`;
 
 interface Line {
   side: Side;
@@ -44,6 +47,7 @@ export function ReviewPage() {
   const [results, setResults] = useState<{ clean: number; lines: number; missed: Set<string> }>({ clean: 0, lines: 0, missed: new Set() });
   const [played, setPlayed] = useState<Record<Side, (readonly string[])[]>>({ w: [], b: [] });
   const due = review.due.w + review.due.b;
+  const [knownBefore] = useState(review.known);
 
   const start = () => {
     const plans = (['w', 'b'] as const).flatMap((side) => {
@@ -132,6 +136,7 @@ export function ReviewPage() {
           {opened && !line && !sessionOver && (
             <TaskDone title="Nothing to review today">
               <p>Come back tomorrow, or after your next games.</p>
+              <p>Repertoire known: {formatPercent(review.known)}</p>
             </TaskDone>
           )}
           {line && !(sessionOver && line.status === 'done') && (
@@ -146,6 +151,9 @@ export function ReviewPage() {
           {sessionOver && line?.status === 'done' && (
             <TaskDone title={`${results.clean} of ${results.lines} lines clean`}>
               <p>{results.missed.size ? `${results.missed.size} ${results.missed.size === 1 ? 'position' : 'positions'} to see again tomorrow` : 'Nothing missed'}</p>
+              <p>
+                Repertoire known: {precisePercent(knownBefore)} → <strong>{precisePercent(review.known)}</strong>
+              </p>
             </TaskDone>
           )}
         </main>

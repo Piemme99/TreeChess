@@ -3,7 +3,7 @@ import { Chess } from 'chess.js';
 import { positionKey, type Repertoire, type RepertoireMove } from './repertoire';
 import { buildOpeningTree } from './openingTree';
 import type { PlayedGame } from './playedGame';
-import { acceptedMoves, answered, dueCount, hasDueAhead, isDue, nextReply, planLine, playerPositions, seededState, withLapses, type ReviewState } from './review';
+import { acceptedMoves, answered, dueCount, hasDueAhead, isDue, mastery, nextReply, planLine, playerPositions, seededState, withLapses, type ReviewState } from './review';
 
 const TODAY = '2026-03-01';
 
@@ -37,7 +37,7 @@ describe('review', () => {
     state = answered(state, key(''), true, '2026-03-02');
     expect(state.get(key(''))).toEqual({ box: 2, due: '2026-03-09', reviewedAt: '2026-03-02' });
     state = answered(state, key(''), false, '2026-03-09');
-    expect(state.get(key(''))).toEqual({ box: 1, due: '2026-03-10', reviewedAt: '2026-03-09' });
+    expect(state.get(key(''))).toEqual({ box: 1, due: '2026-03-10', reviewedAt: '2026-03-09', missed: true });
     expect(isDue(state, key(''), '2026-03-09')).toBe(false);
   });
 
@@ -97,6 +97,33 @@ describe('review', () => {
 
     expect(planLine(deep, state, TODAY)).toMatchObject({ target: key('e4 e5 Nf3 Nc6 Bb5 a6'), autoplayed: ['e4', 'e5'] });
     expect(planLine(white, new Map(), TODAY, (k) => (k === key('e4 c5') ? 5 : 1))).toMatchObject({ target: key('e4 c5'), autoplayed: [] });
+  });
+
+  it('knows the repertoire fully once every position was answered right three times, at its intervals', () => {
+    let state: ReviewState = new Map();
+    for (const day of [TODAY, '2026-03-02', '2026-03-09']) for (const { key } of playerPositions(white)) state = answered(state, key, true, day);
+
+    expect(mastery(white, state, '2026-03-09')).toEqual({ known: 3, positions: 3 });
+  });
+
+  it('counts a position never reviewed or last missed as unknown, and one answered right once as a third known', () => {
+    const missed = answered(new Map(), key(''), false, TODAY);
+    expect(mastery(white, missed, TODAY).known).toBe(0);
+    expect(mastery(white, answered(new Map(), key(''), true, TODAY), TODAY).known).toBeCloseTo(1 / 3);
+  });
+
+  it('counts a position missed in a game after its last review as unknown', () => {
+    const state: ReviewState = new Map([[key(''), { box: 3, due: '2026-04-01', reviewedAt: TODAY }]]);
+
+    expect(mastery(white, withLapses(state, new Map([[key(''), '2026-03-05']])), '2026-03-05').known).toBe(0);
+  });
+
+  it('takes a level off a position while its review is overdue, until it is answered right again', () => {
+    const state: ReviewState = new Map([[key(''), { box: 3, due: '2026-04-01', reviewedAt: TODAY }]]);
+
+    expect(mastery(white, state, '2026-04-01').known).toBe(1);
+    expect(mastery(white, state, '2026-04-02').known).toBeCloseTo(2 / 3);
+    expect(mastery(white, answered(state, key(''), true, '2026-04-02'), '2026-04-02').known).toBe(1);
   });
 
   it('starts a line that begins like one already played in the session where it leaves it', () => {

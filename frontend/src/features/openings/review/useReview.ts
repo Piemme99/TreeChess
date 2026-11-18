@@ -5,7 +5,7 @@ import { gamesOfLastMonths } from '../domain/period';
 import { gamesUntil } from '../domain/replay';
 import type { PlayedGame, Side } from '../domain/playedGame';
 import type { Repertoire } from '../domain/repertoire';
-import { answered, dueCount, seededState, withLapses, type ReviewCard, type ReviewState } from '../domain/review';
+import { answered, dueCount, mastery, seededState, withLapses, type ReviewCard, type ReviewState } from '../domain/review';
 import { encountersOf, lapsesOf, reviewWeight } from './weights';
 import { readStored, writeStored } from '../workshop/storage';
 
@@ -30,6 +30,11 @@ export function useReview(games: readonly PlayedGame[], repertoires: Record<Side
   const lapses = useMemo(() => lapsesOf(lived), [lived]);
   const state = useMemo(() => ({ w: withLapses(stored.w, lapses.w), b: withLapses(stored.b, lapses.b) }), [stored, lapses]);
   const due = useMemo(() => ({ w: dueCount(repertoires.w, state.w, today), b: dueCount(repertoires.b, state.b, today) }), [repertoires, state, today]);
+  const known = useMemo(() => {
+    const sides = [mastery(repertoires.w, state.w, today), mastery(repertoires.b, state.b, today)];
+    const positions = sides[0].positions + sides[1].positions;
+    return positions ? (sides[0].known + sides[1].known) / positions : 0;
+  }, [repertoires, state, today]);
   const encounters = useMemo(() => {
     const recent = gamesUntil(gamesOfLastMonths(games, HABIT_MONTHS, new Date(today)), today);
     return { w: encountersOf(recent, 'w'), b: encountersOf(recent, 'b') };
@@ -42,6 +47,8 @@ export function useReview(games: readonly PlayedGame[], repertoires: Record<Side
   return {
     state,
     due,
+    /** La part du répertoire sue, des deux côtés ensemble. */
+    known,
     weight,
     answer: (side: Side, key: string, right: boolean) =>
       // Répondre à une position rattrapée par un oubli en partie part de l'état qui en tient compte.

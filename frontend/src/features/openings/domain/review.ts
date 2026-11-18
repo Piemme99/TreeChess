@@ -7,6 +7,8 @@ export interface ReviewCard {
   box: number;
   due: string;
   reviewedAt: string;
+  /** Dernière réponse fausse, en révision ou en partie : la position ne compte plus comme sue. */
+  missed?: true;
 }
 
 export type ReviewState = ReadonlyMap<string, ReviewCard>;
@@ -41,7 +43,7 @@ export function answered(state: ReviewState, key: string, right: boolean, today:
   if (right && !isDue(state, key, today)) return state;
   const box = right ? Math.min((state.get(key)?.box ?? 0) + 1, INTERVALS.length) : 1;
   const next = new Map(state);
-  next.set(key, { box, due: addDays(today, INTERVALS[box - 1]), reviewedAt: today });
+  next.set(key, { box, due: addDays(today, INTERVALS[box - 1]), reviewedAt: today, ...(right ? {} : { missed: true as const }) });
   return next;
 }
 
@@ -76,7 +78,7 @@ export function withLapses(state: ReviewState, lapses: ReadonlyMap<string, strin
   const next = new Map(state);
   for (const [key, day] of lapses) {
     const card = state.get(key);
-    if (card && card.reviewedAt < day) next.set(key, { box: 1, due: day, reviewedAt: card.reviewedAt });
+    if (card && card.reviewedAt < day) next.set(key, { box: 1, due: day, reviewedAt: card.reviewedAt, missed: true });
   }
   return next;
 }
@@ -104,6 +106,21 @@ export function playerPositions(repertoire: Repertoire): { key: string; path: st
 
 export function dueCount(repertoire: Repertoire, state: ReviewState, today: string): number {
   return playerPositions(repertoire).filter(({ key }) => isDue(state, key, today)).length;
+}
+
+/**
+ * Ce que le joueur sait de son répertoire : chaque position compte sa boîte sur trois, une boîte de moins tant que sa
+ * révision est en retard ; jamais révisée ou manquée, zéro, sans quoi rater une position neuve ferait monter le chiffre.
+ * `known` / `positions` donne la part sue.
+ */
+export function mastery(repertoire: Repertoire, state: ReviewState, today: string): { known: number; positions: number } {
+  const positions = playerPositions(repertoire);
+  let known = 0;
+  for (const { key } of positions) {
+    const card = state.get(key);
+    if (card && !card.missed) known += Math.max(card.box - (card.due < today ? 1 : 0), 0) / INTERVALS.length;
+  }
+  return { known, positions: positions.length };
 }
 
 /**
