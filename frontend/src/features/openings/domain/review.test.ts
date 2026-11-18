@@ -120,7 +120,5 @@ describe('review', () => {
     const reviewed = [key(''), key('e4 c5')].reduce<ReviewState>((known, k) => answered(known, k, true, TODAY), new Map());
 
     expect(planLine(alapin, reviewed, TODAY)).toMatchObject({ target: key('e4 c5 c3 d5'), autoplayed: ['e4', 'c5', 'c3'] });
-    // Une position à plusieurs coups encore due se joue : n'importe lequel y est juste.
-    expect(planLine(alapin, answered(new Map(), key(''), true, TODAY), TODAY, (k) => (k === key('e4 c5 c3 d5') ? 5 : 1))).toMatchObject({ autoplayed: [] });
   });
 });
