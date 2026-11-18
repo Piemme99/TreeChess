@@ -205,3 +205,14 @@ long work ranked by points to gain.
 Replaying positions of the repertoire at growing intervals, so that it holds
 on the days the player has no game to check. Positions the player recently got
 wrong in a [game check](#game-check) come back first.
+
+### Mastery
+
+How much of the [repertoire](#repertoire) the player knows, shown as "N% known".
+Each position where they are to move counts its [spaced repetition](#spaced-repetition)
+box out of three: never reviewed or last missed (in review or in a game) counts
+nothing, three right answers in a row at growing intervals make it fully known. A position whose review is overdue counts one box less until it
+is answered again, so the figure drops when the player stops reviewing. Every
+position weighs the same.
+
+_Avoid_: progress, score (the score is the points scored in games).

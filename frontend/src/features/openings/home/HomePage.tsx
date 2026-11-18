@@ -84,6 +84,7 @@ function Home({ onForget, syncing }: { onForget: () => void; syncing: boolean })
   const waiting = steps.length;
   const due = review.due.w + review.due.b;
   const lines = `${REVIEW_LINES} lines`;
+  const repertoireKnown = `${formatPercent(review.known)} of your repertoire known`;
   const workedOf = (priority: { side: Side; path: readonly string[] }) => worked.find((line) => line.side === priority.side && line.path.join(' ') === priority.path.join(' '));
 
   const hero = homeHero({ firstDay: !replay.index, gamesToSettle: openToday, linesDue: due, weakToWork: toWork.length });
@@ -114,7 +115,7 @@ function Home({ onForget, syncing }: { onForget: () => void; syncing: boolean })
           </Hero>
         )}
         {hero === 'review' && (
-          <Hero title="Review" facts={`${lines}, played from your repertoire. The app plays their moves; you play yours.`}>
+          <Hero title="Review" facts={`${lines}, played from your repertoire. The app plays their moves; you play yours. ${repertoireKnown}.`}>
             <Action to={pathOf('review')}>Start</Action>
           </Hero>
         )}
@@ -132,7 +133,7 @@ function Home({ onForget, syncing }: { onForget: () => void; syncing: boolean })
         <ul className="flex flex-col gap-2">
           {hero !== 'games' && dayGames.length > 0 && <Row label="New games" figure={`${dayGames.length} checked ✓`} />}
           {hero !== 'games' && waiting > 0 && <Row label="To settle" figure={`${waiting}`} to={checkHref} />}
-          {hero !== 'review' && due > 0 && <Row label="Review" figure={lines} to={pathOf('review')} />}
+          {hero !== 'review' && due > 0 && <Row label="Review" figure={`${lines} · ${formatPercent(review.known)} known`} to={pathOf('review')} />}
           {hero !== 'first' && hero !== 'work' && toWork.length > 0 && (
             <WeakOpenings label="Weak openings" summary={`${openingName(table, toWork[0].path)} ${formatPercent(toWork[0].score)}`} priorities={toWork} table={table} href={workOn} workedOf={workedOf} lived={lived} />
           )}

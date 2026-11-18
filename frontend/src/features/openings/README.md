@@ -315,6 +315,13 @@ Accepting the preparation ends on "2 moves added · Next weak opening / Back to 
 - **Wrong** → the repertoire move(s) in green on the board, the player plays it to go on, the position goes
   back to box 1. A position passed on the way that was not due is not rescheduled unless missed.
 - **5 lines a session**, started at once from Home, then "4 of 5 lines clean · 2 positions to see again tomorrow".
+- **Repertoire known** (PMG, 2026-11-18): each position counts its box out of three (box 1 a third, box 3 all of
+  it), one box less while its review is overdue; never reviewed or last missed (in review or in a game) counts 0,
+  so missing a new position never raises the figure; every position weighs the same, so a rare sideline moves the
+  figure as much as 1.e4. The positions seeded in the 30-day box count as known: the games prove them. Shown on
+  Home's Review hero and row, and at the end of a session to one decimal ("47.6% → 48.1%": a session moves a few
+  positions out of hundreds). On PMG's games at the import: 46% as White, 52% as Black (weighted by games it would
+  read 84% and 83%, which hides the sidelines).
 
 ### Not in the POC
 
