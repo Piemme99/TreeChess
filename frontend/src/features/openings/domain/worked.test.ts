@@ -35,6 +35,12 @@ describe('splitWorked', () => {
     expect(splitWorked([caroKann], worked, played(20, '2026-12-01', 0))).toEqual({ toWork: [caroKann], treated: [] });
   });
 
+  it('gives the place of a worked weak opening among the ones to do to the next one', () => {
+    const sicilian = { side: 'w' as const, path: ['e4', 'c5', 'd4'], average: 0.58 };
+    const philidor = { side: 'w' as const, path: ['e4', 'e5', 'Nf3', 'd6', 'd4'], average: 0.58 };
+    expect(splitWorked([caroKann, sicilian, philidor], worked, [], 2)).toEqual({ toWork: [sicilian, philidor], treated: [caroKann] });
+  });
+
   it('leaves the weak openings nobody worked on to do', () => {
     const other = { side: 'b' as const, path: ['e4', 'c5', 'd4', 'cxd4'], average: 0.48 };
     expect(splitWorked([other], worked, [])).toEqual({ toWork: [other], treated: [] });

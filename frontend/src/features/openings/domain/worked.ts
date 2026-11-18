@@ -26,12 +26,14 @@ export function adherence(checked: readonly { game: PlayedGame; check: GameCheck
 
 /**
  * Une ouverture faible déjà travaillée n'est plus à faire : le score sur 12 mois mettrait des mois à le
- * dire. Elle ne revient que si les parties jouées depuis le travail la prouvent encore faible.
+ * dire. Elle ne revient que si les parties jouées depuis le travail la prouvent encore faible, et cède
+ * d'ici là sa place parmi les `limit` à faire à la suivante.
  */
 export function splitWorked<P extends { side: Side; path: readonly string[]; average: number }>(
   priorities: readonly P[],
   worked: readonly WorkedOn[],
   games: readonly PlayedGame[],
+  limit = Infinity,
 ): { toWork: P[]; treated: P[] } {
   const toWork: P[] = [];
   const treated: P[] = [];
@@ -40,7 +42,7 @@ export function splitWorked<P extends { side: Side; path: readonly string[]; ave
     if (line && !isWeakSince(line, games, priority.average)) treated.push(priority);
     else toWork.push(priority);
   }
-  return { toWork, treated };
+  return { toWork: toWork.slice(0, limit), treated };
 }
 
 function isWeakSince(line: WorkedOn, games: readonly PlayedGame[], average: number): boolean {

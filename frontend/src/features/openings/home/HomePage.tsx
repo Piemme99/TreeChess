@@ -63,7 +63,7 @@ function Home({ onForget, syncing }: { onForget: () => void; syncing: boolean })
   const { worked, clear: forgetWorked } = useWorkedLines();
   const table = useOpeningTable();
   const priorities = usePriorities(known, replay.day);
-  const { toWork, treated } = useMemo(() => splitWorked(priorities, worked, known), [priorities, worked, known]);
+  const { toWork, treated } = useMemo(() => splitWorked(priorities, worked, known, MAX_PRIORITIES), [priorities, worked, known]);
   const { toast, close } = useToast();
 
   const reset = replay.reset && (() => {
@@ -88,6 +88,8 @@ function Home({ onForget, syncing }: { onForget: () => void; syncing: boolean })
   const workedOf = (priority: { side: Side; path: readonly string[] }) => worked.find((line) => line.side === priority.side && line.path.join(' ') === priority.path.join(' '));
 
   const hero = homeHero({ firstDay: !replay.index, gamesToSettle: openToday, linesDue: due, weakToWork: toWork.length });
+  const inHero = hero === 'first' ? SHOWN_PRIORITIES : hero === 'work' ? 1 : 0;
+  const moreToWork = toWork.slice(inHero);
 
   return (
     <>
@@ -100,7 +102,7 @@ function Home({ onForget, syncing }: { onForget: () => void; syncing: boolean })
         )}
         {hero === 'first' && (
           <Hero title="Weak openings" facts={<Facts games={known.length} repertoires={repertoires} />}>
-            <PriorityList priorities={toWork.slice(0, SHOWN_PRIORITIES)} table={table} href={workOn} workedOf={workedOf} lived={lived} />
+            <PriorityList priorities={toWork.slice(0, inHero)} table={table} href={workOn} workedOf={workedOf} lived={lived} />
           </Hero>
         )}
         {hero === 'games' && (
@@ -121,7 +123,7 @@ function Home({ onForget, syncing }: { onForget: () => void; syncing: boolean })
         )}
         {hero === 'work' && (
           <Hero title="Weak openings" facts="Nothing to check, nothing due">
-            <PriorityList priorities={toWork.slice(0, 1)} table={table} href={workOn} workedOf={workedOf} lived={lived} />
+            <PriorityList priorities={toWork.slice(0, inHero)} table={table} href={workOn} workedOf={workedOf} lived={lived} />
           </Hero>
         )}
         {hero === 'done' && (
@@ -134,8 +136,8 @@ function Home({ onForget, syncing }: { onForget: () => void; syncing: boolean })
           {hero !== 'games' && dayGames.length > 0 && <Row label="New games" figure={`${dayGames.length} checked ✓`} />}
           {hero !== 'games' && waiting > 0 && <Row label="To settle" figure={`${waiting}`} to={checkHref} />}
           {hero !== 'review' && due > 0 && <Row label="Review" figure={`${lines} · ${formatPercent(review.known)} known`} to={pathOf('review')} />}
-          {hero !== 'first' && hero !== 'work' && toWork.length > 0 && (
-            <WeakOpenings label="Weak openings" summary={`${openingName(table, toWork[0].path)} ${formatPercent(toWork[0].score)}`} priorities={toWork} table={table} href={workOn} workedOf={workedOf} lived={lived} />
+          {moreToWork.length > 0 && (
+            <WeakOpenings label={inHero ? 'More weak openings' : 'Weak openings'} summary={`${openingName(table, moreToWork[0].path)} ${formatPercent(moreToWork[0].score)}`} priorities={moreToWork} table={table} href={workOn} workedOf={workedOf} lived={lived} />
           )}
           {treated.length > 0 && (
             <WeakOpenings label="Worked openings" summary={`${openingName(table, treated[0].path)}${treated.length > 1 ? ` +${treated.length - 1}` : ''}`} priorities={treated} table={table} href={workOn} workedOf={workedOf} lived={lived} action="Open" />
@@ -150,7 +152,7 @@ function Home({ onForget, syncing }: { onForget: () => void; syncing: boolean })
 function usePriorities(known: readonly PlayedGame[], day: string): Priority[] {
   return useMemo(() => {
     const trees = (games: readonly PlayedGame[]): Record<Side, OpeningTree> => ({ w: buildOpeningTree(games, 'w', MAX_PLIES), b: buildOpeningTree(games, 'b', MAX_PLIES) });
-    return findPriorities(trees(known), trees(gamesOfLastMonths(known, RECENT_MONTHS, new Date(day))), MAX_PRIORITIES);
+    return findPriorities(trees(known), trees(gamesOfLastMonths(known, RECENT_MONTHS, new Date(day))), Infinity);
   }, [known, day]);
 }
 
