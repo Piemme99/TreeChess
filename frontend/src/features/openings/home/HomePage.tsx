@@ -133,7 +133,6 @@ function Home({ onForget, syncing }: { onForget: () => void; syncing: boolean })
         )}
 
         <ul className="flex flex-col gap-2">
-          {hero !== 'games' && dayGames.length > 0 && <Row label="New games" figure={`${dayGames.length} checked ✓`} />}
           {hero !== 'games' && waiting > 0 && <Row label="To settle" figure={`${waiting}`} to={checkHref} />}
           {hero !== 'review' && due > 0 && <Row label="Review" figure={`${lines} · ${formatPercent(review.known)} known`} to={pathOf('review')} />}
           {moreToWork.length > 0 && (
@@ -189,18 +188,18 @@ function Action({ to, children }: { to: string; children: string }) {
   );
 }
 
-function Row({ label, figure, to }: { label: string; figure: string; to?: string }) {
-  const body = (
-    <>
-      <span className="shrink-0 font-bold">{label}</span>
-      <span className="ml-auto tabular-nums" style={{ color: COLOURS.leafSoft }}>
-        {figure}
-      </span>
-      {to && <span aria-hidden="true">→</span>}
-    </>
+function Row({ label, figure, to }: { label: string; figure: string; to: string }) {
+  return (
+    <li>
+      <Link to={to} className="flex min-h-12 items-center gap-3 rounded-2xl px-4 text-[15px] focus-visible:outline-2" style={tile(COLOURS.paper)}>
+        <span className="shrink-0 font-bold">{label}</span>
+        <span className="ml-auto tabular-nums" style={{ color: COLOURS.leafSoft }}>
+          {figure}
+        </span>
+        <span aria-hidden="true">→</span>
+      </Link>
+    </li>
   );
-  const className = 'flex min-h-12 items-center gap-3 rounded-2xl px-4 text-[15px] focus-visible:outline-2';
-  return <li>{to ? <Link to={to} className={className} style={tile(COLOURS.paper)}>{body}</Link> : <span className={className}>{body}</span>}</li>;
 }
 
 const openingName = (table: OpeningTable | null, path: readonly string[]) => (table ? resolveOpening(replayLine(path).fens, table)?.name : undefined) ?? 'Unnamed line';
