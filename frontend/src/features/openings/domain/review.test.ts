@@ -98,6 +98,7 @@ describe('review', () => {
     expect(planLine(deep, state, TODAY)).toMatchObject({ target: key('e4 e5 Nf3 Nc6 Bb5 a6'), autoplayed: ['e4', 'e5'] });
     expect(planLine(white, new Map(), TODAY, (k) => (k === key('e4 c5') ? 5 : 1))).toMatchObject({ target: key('e4 c5'), autoplayed: [] });
   });
+
   it('knows the repertoire fully once every position was answered right three times, at its intervals', () => {
     let state: ReviewState = new Map();
     for (const day of [TODAY, '2026-03-02', '2026-03-09']) for (const { key } of playerPositions(white)) state = answered(state, key, true, day);
@@ -123,5 +124,28 @@ describe('review', () => {
     expect(mastery(white, state, '2026-04-01').known).toBe(1);
     expect(mastery(white, state, '2026-04-02').known).toBeCloseTo(2 / 3);
     expect(mastery(white, answered(state, key(''), true, '2026-04-02'), '2026-04-02').known).toBe(1);
+  });
+
+  it('starts a line that begins like one already played in the session where it leaves it', () => {
+    const sicilian = repertoireOf('b', { '': ['e4'], e4: ['c5'], 'e4 c5': ['Nf3', 'c3'], 'e4 c5 Nf3': ['Nc6'], 'e4 c5 c3': ['Nf6'] });
+    const state = [key('e4'), key('e4 c5 Nf3')].reduce<ReviewState>((known, k) => answered(known, k, true, TODAY), new Map());
+
+    expect(planLine(sicilian, state, TODAY)).toMatchObject({ target: key('e4 c5 c3'), autoplayed: [] });
+    expect(planLine(sicilian, state, TODAY, undefined, [['e4', 'c5', 'Nf3', 'Nc6']])).toMatchObject({ autoplayed: ['e4', 'c5'] });
+  });
+
+  it('never plays alone a position due that the player has not played in the session', () => {
+    const sicilian = repertoireOf('b', { '': ['e4'], e4: ['c5'], 'e4 c5': ['Nf3', 'c3'], 'e4 c5 Nf3': ['Nc6'], 'e4 c5 c3': ['Nf6'] });
+    const state = answered(new Map(), key('e4 c5 Nf3'), true, TODAY);
+    const heaviest = (k: string) => (k === key('e4 c5 c3') ? 5 : 1);
+
+    expect(planLine(sicilian, state, TODAY, heaviest, [['e4', 'c5', 'Nf3', 'Nc6']])).toMatchObject({ target: key('e4 c5 c3'), autoplayed: ['e4'] });
+  });
+
+  it('plays alone the move that leads to the position due where the repertoire has several', () => {
+    const alapin = repertoireOf('w', { '': ['e4'], e4: ['c5'], 'e4 c5': ['Nf3', 'c3'], 'e4 c5 c3': ['d5'], 'e4 c5 c3 d5': ['exd5'] });
+    const reviewed = [key(''), key('e4 c5')].reduce<ReviewState>((known, k) => answered(known, k, true, TODAY), new Map());
+
+    expect(planLine(alapin, reviewed, TODAY)).toMatchObject({ target: key('e4 c5 c3 d5'), autoplayed: ['e4', 'c5', 'c3'] });
   });
 });

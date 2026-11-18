@@ -45,12 +45,13 @@ export function ReviewPage() {
   const [line, setLine] = useState<Line | null>(null);
   const [exhausted, setExhausted] = useState(false);
   const [results, setResults] = useState<{ clean: number; lines: number; missed: Set<string> }>({ clean: 0, lines: 0, missed: new Set() });
+  const [played, setPlayed] = useState<Record<Side, (readonly string[])[]>>({ w: [], b: [] });
   const due = review.due.w + review.due.b;
   const [knownBefore] = useState(review.known);
 
   const start = () => {
     const plans = (['w', 'b'] as const).flatMap((side) => {
-      const plan = planLine(repertoires[side], review.state[side], today, review.weight(side));
+      const plan = planLine(repertoires[side], review.state[side], today, review.weight(side), played[side]);
       return plan ? [{ side, ...plan }] : [];
     });
     plans.sort((a, b) => b.weight - a.weight || review.due[b.side] - review.due[a.side]);
@@ -86,16 +87,19 @@ export function ReviewPage() {
       const path = [...line.path, reply];
       const reached = replayLine(path).fens.at(-1)!;
       const goesOn = acceptedMoves(repertoire, reached).length > 0 && hasDueAhead(repertoire, reached, review.state[line.side], today);
-      setLine(goesOn ? { ...line, path, status: 'player' } : { ...line, path, status: 'done' });
-      if (!goesOn) count(line);
+      const next: Line = { ...line, path, status: goesOn ? 'player' : 'done' };
+      setLine(next);
+      if (!goesOn) count(next);
     }, REPLY_DELAY);
     return () => window.clearTimeout(timer);
     // Seul un nouveau tour de l'adversaire relance la réponse.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [line]);
 
-  const count = (ended: Line) =>
+  const count = (ended: Line) => {
     setResults((current) => ({ ...current, lines: current.lines + 1, clean: current.clean + (ended.missed ? 0 : 1) }));
+    setPlayed((current) => ({ ...current, [ended.side]: [...current[ended.side], ended.path] }));
+  };
   const finish = (ended: Line) => {
     setLine({ ...ended, status: 'done' });
     count(ended);

@@ -40,7 +40,7 @@ cd frontend && npx vitest run -t "test name"
 ## Stack
 
 **Frontend** React 19 · TypeScript 6 · Vite 8 · Tailwind 4 · Zustand · chess.js · D3 · Framer Motion · Vitest 4
-**Backend** Go 1.25 module, built and run on Go 1.26 (CI, images) · Echo **v5** · pgx v5 · notnil/chess · golang-jwt v5 · testify · testcontainers
+**Backend** Go 1.26 module, built and run on Go 1.27 (CI, images) · Echo **v5** · pgx v5 · notnil/chess · golang-jwt v5 · testify · testcontainers
 **Data** PostgreSQL 17 (schema created by the backend at boot, `internal/repository/db.go`)
 **Engine** Stockfish 18 NNUE lite WASM, vendored in `frontend/public/stockfish-18-lite.{js,wasm}`
 

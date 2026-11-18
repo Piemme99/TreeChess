@@ -123,8 +123,18 @@ export function mastery(repertoire: Repertoire, state: ReviewState, today: strin
   return { known, positions: positions.length };
 }
 
-/** La ligne à réviser : la position due qui pèse le plus, et ce que l'application joue seule avant d'y arriver. */
-export function planLine(repertoire: Repertoire, state: ReviewState, today: string, weight: (key: string) => number = () => 1) {
+/**
+ * La ligne à réviser : la position due qui pèse le plus, et ce que l'application joue seule avant d'y arriver. Une ligne
+ * qui reprend le début d'une ligne déjà jouée dans la séance (`played`) part de là où elle s'en sépare ; là où le
+ * répertoire a plusieurs coups, l'application joue celui qui mène à la position visée.
+ */
+export function planLine(
+  repertoire: Repertoire,
+  state: ReviewState,
+  today: string,
+  weight: (key: string) => number = () => 1,
+  played: readonly (readonly string[])[] = [],
+) {
   let best: { key: string; path: string[]; weight: number } | undefined;
   for (const position of playerPositions(repertoire)) {
     if (!isDue(state, position.key, today)) continue;
@@ -134,12 +144,28 @@ export function planLine(repertoire: Repertoire, state: ReviewState, today: stri
   if (!best) return undefined;
   const chess = new Chess();
   const turns: number[] = [];
+  const due: number[] = [];
+  let choice = 0;
   for (const [index, san] of best.path.entries()) {
-    if (chess.turn() === repertoire.side) turns.push(index);
+    if (chess.turn() === repertoire.side) {
+      turns.push(index);
+      if (isDue(state, positionKey(chess.fen()), today)) due.push(index);
+      // Entre plusieurs coups du répertoire, le joueur ne peut pas deviner celui qui mène à la position visée.
+      else if (repertoireMovesAt(repertoire, chess.fen()).length > 1) choice = index + 1;
+    }
     chess.move(san);
   }
-  const from = turns.length >= LEAD_IN ? turns[turns.length - LEAD_IN] : 0;
+  const lead = turns.length >= LEAD_IN ? turns[turns.length - LEAD_IN] : 0;
+  const fork = Math.max(choice, ...played.map((line) => sharedPlies(line, best.path)));
+  // Le début d'une ligne jouée, l'application l'a souvent joué seule : une position due y reste à jouer.
+  const from = Math.max(lead, Math.min(fork, ...due.filter((ply) => ply >= lead)));
   return { target: best.key, path: best.path, autoplayed: best.path.slice(0, from), weight: best.weight };
+}
+
+function sharedPlies(a: readonly string[], b: readonly string[]): number {
+  let plies = 0;
+  while (plies < a.length && plies < b.length && a[plies] === b[plies]) plies++;
+  return plies;
 }
 
 /** Ce que la suite a encore à réviser, pondéré ; une transposition n'est comptée qu'une fois. */
