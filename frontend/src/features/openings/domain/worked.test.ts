@@ -22,7 +22,7 @@ describe('adherence', () => {
 });
 
 describe('splitWorked', () => {
-  const caroKann = { side: 'w' as const, path: ['e4', 'c6', 'd4'], average: 0.58 };
+  const caroKann = { side: 'w' as const, path: ['e4', 'c6', 'd4'], average: 0.58, score: 0.4 };
   const worked = [{ side: 'w' as const, path: ['e4', 'c6', 'd4'], since: '2026-11-17' }];
   const played = (count: number, playedAt: string, score: GameScore): PlayedGame[] =>
     Array.from({ length: count }, () => ({ side: 'w', moves: ['e4', 'c6', 'd4', 'd5'], score, playedAt }));
@@ -36,13 +36,20 @@ describe('splitWorked', () => {
   });
 
   it('gives the place of a worked weak opening among the ones to do to the next one', () => {
-    const sicilian = { side: 'w' as const, path: ['e4', 'c5', 'd4'], average: 0.58 };
-    const philidor = { side: 'w' as const, path: ['e4', 'e5', 'Nf3', 'd6', 'd4'], average: 0.58 };
+    const sicilian = { side: 'w' as const, path: ['e4', 'c5', 'd4'], average: 0.58, score: 0.4 };
+    const philidor = { side: 'w' as const, path: ['e4', 'e5', 'Nf3', 'd6', 'd4'], average: 0.58, score: 0.45 };
     expect(splitWorked([caroKann, sicilian, philidor], worked, [], 2)).toEqual({ toWork: [sicilian, philidor], treated: [caroKann] });
   });
 
+  it('lists the weak openings to do worst score first, once the costliest are picked', () => {
+    const sicilian = { side: 'w' as const, path: ['e4', 'c5', 'd4'], average: 0.58, score: 0.45 };
+    const philidor = { side: 'w' as const, path: ['e4', 'e5', 'Nf3', 'd6', 'd4'], average: 0.58, score: 0.3 };
+    const english = { side: 'b' as const, path: ['c4', 'e5'], average: 0.5, score: 0.2 };
+    expect(splitWorked([sicilian, philidor, english], [], [], 2).toWork).toEqual([philidor, sicilian]);
+  });
+
   it('leaves the weak openings nobody worked on to do', () => {
-    const other = { side: 'b' as const, path: ['e4', 'c5', 'd4', 'cxd4'], average: 0.48 };
+    const other = { side: 'b' as const, path: ['e4', 'c5', 'd4', 'cxd4'], average: 0.48, score: 0.4 };
     expect(splitWorked([other], worked, [])).toEqual({ toWork: [other], treated: [] });
   });
 });
