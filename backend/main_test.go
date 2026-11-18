@@ -98,6 +98,12 @@ func TestNewServer_RegistersRoutes(t *testing.T) {
 	e.ServeHTTP(protected, httptest.NewRequest(http.MethodGet, "/api/v2/games", nil))
 	assert.Equal(t, http.StatusUnauthorized, protected.Code,
 		"protected route should be registered and require auth")
+
+	// Depuis echo v5.3, un groupe à middlewares enregistre par défaut un 404 attrape-tout qui passe par ses
+	// middlewares : une route inconnue répondrait 401 et mangerait le quota d'import du joueur.
+	unknown := httptest.NewRecorder()
+	e.ServeHTTP(unknown, httptest.NewRequest(http.MethodGet, "/api/unknown", nil))
+	assert.Equal(t, http.StatusNotFound, unknown.Code, "an unknown route should not run group middlewares")
 }
 
 // TestProxyAwareIPExtractor_IgnoresSpoofedXFF guards the rate-limiter identity

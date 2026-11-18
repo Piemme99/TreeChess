@@ -162,7 +162,9 @@ func registerRoutes(e *echo.Echo, db *repository.DB, svc *appServices) {
 // newServer builds a fully-configured Echo instance: middleware stack plus all
 // routes. It is split out from main() so the wiring can be exercised in tests.
 func newServer(cfg config.Config, db *repository.DB, svc *appServices) *echo.Echo {
-	e := echo.New()
+	// Les groupes de préfixe "" n'enregistrent pas de 404 attrape-tout : il passerait par leurs middlewares
+	// (JWT, quota d'import) pour toute route inconnue.
+	e := echo.NewWithConfig(echo.Config{NoGroupAutoRegister404Routes: true})
 
 	// Derive the client IP from X-Forwarded-For trusting only the reverse-proxy
 	// hop, so the rate limiter and request logger cannot be fooled by a

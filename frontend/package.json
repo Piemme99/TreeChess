@@ -15,7 +15,7 @@
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.0",
-    "axios": "^1.16.1",
+    "axios": "^1.21.1",
     "chess.js": "^1.0.0-beta.0",
     "class-variance-authority": "^0.7.1",
     "d3-hierarchy": "^3.1.2",
@@ -23,9 +23,9 @@
     "react": "^19.2.4",
     "react-chessboard": "^5.10.0",
     "react-dom": "^19.2.6",
-    "react-router": "^7.16.0",
+    "react-router": "^7.18.5",
     "tailwindcss": "^4.1.18",
-    "zod": "^4.4.3",
+    "zod": "^4.6.7",
     "zustand": "^5.0.11"
   },
   "devDependencies": {
