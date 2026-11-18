@@ -27,7 +27,7 @@ This project started as a vibe coding experiment that I decided to see through a
 ### Prerequisites
 
 - Docker and Docker Compose
-- OR: Go 1.25+, Node.js 18+, PostgreSQL 17+
+- OR: Go 1.25+, Node.js 22+, PostgreSQL 17+
 
 ### Running with Docker (Recommended)
 
@@ -38,7 +38,7 @@ make dev
 Or without Make:
 
 ```bash
-docker-compose up --build
+docker compose up --build
 ```
 
 - Frontend: http://localhost:5173
@@ -109,11 +109,13 @@ npm run dev
 | `make prod-deploy-stop` | Stop GHCR production containers |
 | `make prod-deploy-logs` | Follow GHCR production logs |
 
+**Continuous deployment:** every push to `main` whose CI is green publishes `ghcr.io/piemme99/kumquat-{backend,frontend}:sha-<commit>` and deploys that commit (images + the server checkout at the same commit), then checks `/api/health` on the live site. To roll back, run the *Deploy* workflow by hand with an earlier commit of `main`. The weekly *Security* workflow runs govulncheck and `npm audit`.
+
 ## Project Structure
 
 ```
 kumquat/
-├── .github/                  # CI/CD workflows (ci.yml, deploy.yml) + Dependabot
+├── .github/                  # CI/CD workflows (ci.yml, deploy.yml, security.yml) + Dependabot
 ├── backend/                  # Go API server
 │   ├── main.go
 │   ├── config/               # Environment config + application limits
@@ -146,7 +148,7 @@ kumquat/
 ## Tech Stack
 
 - **Frontend:** React 19, TypeScript 5, Vite 5, Tailwind CSS 4, chess.js, Zustand, Axios, D3, Framer Motion
-- **Backend:** Go 1.25, Echo v4, pgx v5, notnil/chess, golang-jwt/jwt v5, testify
+- **Backend:** Go 1.26 (module minimum 1.25), Echo v5, pgx v5, notnil/chess, golang-jwt/jwt v5, testify
 - **Database:** PostgreSQL 17
 - **Monitoring:** Prometheus + Grafana dashboards
 - **Testing:** Vitest + Testing Library (frontend), Go testing + testify + testcontainers (backend)
