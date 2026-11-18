@@ -309,7 +309,9 @@ Accepting the preparation ends on "2 moves added · Next weak opening / Back to 
   its last review is due again, and weighs more.
 - **A line.** The app picks the due position that weighs most (missed in a game, then a recent addition, then
   the rest; within each, the one met in the most games over 12 months), plays the line to it by itself up to the
-  player's two moves before it, then the player plays; opponent moves are played by the app, choosing the
+  player's two moves before it (further when the line begins like one already played in the session: up to
+  where it leaves it, or to the first due position on the way, so the player replays no move of the session
+  and skips nothing due), then the player plays; opponent moves are played by the app, choosing the
   reply that leads to the most due positions; the line goes on while something is due ahead. Any of
   several repertoire moves is right.
 - **Wrong** → the repertoire move(s) in green on the board, the player plays it to go on, the position goes
