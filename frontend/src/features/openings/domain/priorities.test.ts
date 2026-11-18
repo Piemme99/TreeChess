@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildOpeningTree } from './openingTree';
 import type { GameScore, PlayedGame, Side } from './playedGame';
-import { findPriorities, weakLines } from './priorities';
+import { findPriorities, shownLine, weakLines } from './priorities';
 import { playedGamesFixture } from '../fixtures/playedGames';
 import { gamesOfLastMonths } from './period';
 
@@ -124,6 +124,29 @@ describe('findPriorities', () => {
     const points = all.map((p) => p.pointsToGain);
     expect(points).toEqual([...points].sort((x, y) => y - x));
     expect(findPriorities(trees, trees, 1)).toEqual([all[0]]);
+  });
+
+  it('opens a weak opening after the reply it loses the most to, the player to move', () => {
+    const trees = sides([
+      ...games(200, 'w', 'd4', 1),
+      ...games(15, 'w', 'e4 e5', 1), ...games(15, 'w', 'e4 e5', 0),
+      ...games(10, 'w', 'e4 c5', 0),
+    ]);
+
+    expect(shownLine(findPriorities(trees, trees, 10)[0])).toEqual(['e4', 'c5']);
+  });
+
+  it('judges the reply that costs on the recent games, not the old ones', () => {
+    const history = sides([...games(200, 'w', 'd4', 1), ...games(30, 'w', 'e4 c5', 0), ...games(30, 'w', 'e4 e5', 1)]);
+    const recent = sides([...games(50, 'w', 'd4', 1), ...games(10, 'w', 'e4 e5', 0), ...games(5, 'w', 'e4 c5', 1), ...games(5, 'w', 'e4 c5', 0)]);
+
+    expect(shownLine(findPriorities(history, recent, 10)[0])).toEqual(['e4', 'e5']);
+  });
+
+  it('opens a weak opening on the player\'s move when no reply stands out', () => {
+    const trees = sides([...games(200, 'w', 'd4', 1), ...games(20, 'w', 'e4 e5', 0), ...games(20, 'w', 'e4 c5', 0)]);
+
+    expect(shownLine(findPriorities(trees, trees, 10)[0])).toEqual(['e4']);
   });
 
   it('puts the Morra and the Philidor first on the real games, a year back from October 2026', () => {

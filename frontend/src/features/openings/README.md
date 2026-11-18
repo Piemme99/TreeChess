@@ -299,6 +299,8 @@ it, Skip for now, Undo), then "3 settled · 2 skipped for later". Games that fol
 ### Screen 4 — Weak opening (use 1)
 
 The tree with `?task=weak&side=…&line=…`: the card (verdict, "Prepare my moves after…", "Next weak opening").
+When one opponent reply loses clearly more than the line (`leakOf`), the task opens after it, the player to move, with
+that reply as a terracotta arrow; the weak opening is named after that position, on Home too (`shownLine`).
 Accepting the preparation ends on "2 moves added · Next weak opening / Back to Home" and marks the line
 **worked** from that day: new games through it report adherence (prep followed N of M).
 

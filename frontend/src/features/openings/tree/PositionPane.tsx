@@ -100,7 +100,7 @@ export function PositionPane(props: PositionPaneProps) {
       </div>
       {settling && (
         <div className="order-3">
-          <SettleCard steps={steps} facts={facts} actions={actions} onSkip={onSkip} rank={node.priority} />
+          <SettleCard steps={steps} facts={facts} actions={actions} onSkip={onSkip} rank={props.priorityRank ?? node.priority} />
         </div>
       )}
       {prioritised && !settling && (
@@ -159,7 +159,7 @@ export function PriorityCard({ side, priority, rank, total, facts, waiting, onLe
   onNextPriority?: () => void;
   onPrepareFollows?: (line: readonly string[]) => void;
 }) {
-  const { here, average, leak } = facts;
+  const { average, leak } = facts;
   return (
     <section aria-label="Weak opening" className="flex flex-col gap-2.5 rounded-2xl px-4 py-3.5 text-[14px]" style={{ background: COLOURS.leaf, color: COLOURS.cream }}>
       <span className="flex items-center justify-between gap-3">
@@ -173,7 +173,7 @@ export function PriorityCard({ side, priority, rank, total, facts, waiting, onLe
           </button>
         )}
       </span>
-      <PriorityVerdict priority={priority} here={here} average={average} leak={leak} />
+      <PriorityVerdict priority={priority} average={average} leak={leak} />
       {onPrepareFollows && (
         <Action onClick={() => onPrepareFollows(leak ? [...priority.path, leak.san!] : priority.path)} tone="light">
           {leak
@@ -253,16 +253,16 @@ function Repertoire({ side, node, inRepertoire, ply, onMove }: { side: Side; nod
   );
 }
 
-function PriorityVerdict({ priority, here, average, leak }: { priority: Priority; here: OpeningNode | undefined; average: number; leak: OpeningNode | undefined }) {
+function PriorityVerdict({ priority, average, leak }: { priority: Priority; average: number; leak: OpeningNode | undefined }) {
   const ply = priority.path.length + 1;
   return (
     <>
       <span className="text-[15px] leading-snug">
-        You score <strong>{here ? Math.round(scoreRate(here) * 100) : '—'}%</strong> here, <strong>{Math.round(average * 100)}%</strong> on average, over {priority.games} games this year.
+        You score <strong>{Math.round(priority.score * 100)}%</strong> after {figurineMove(priority.path[ply - 2], ply - 1)}, <strong>{Math.round(average * 100)}%</strong> on average, over {priority.games} games this year.
       </span>
       {leak && (
         <span className="text-[14px] leading-snug">
-          Worst after <strong>{figurineMove(leak.san!, ply)}</strong>: {Math.round(scoreRate(leak) * 100)}% in {leak.games} games.
+          Worst reply: <strong>{figurineMove(leak.san!, ply)}</strong>, {Math.round(scoreRate(leak) * 100)}% in {leak.games} games.
         </span>
       )}
     </>

@@ -5,7 +5,7 @@ import { ARROW, type ArrowKind } from '../workshop/theme';
 import { arrowSquares, INK } from './tone';
 
 /** Une flèche porte un sens (répertoire, moteur…) ou, pour les coups comptés, le ton de leur score. */
-export type BoardArrow = { san: string; /** Part des parties, pour l'épaisseur. */ share: number; emphasis?: boolean } & (
+export type BoardArrow = { san: string; /** Part des parties, pour l'épaisseur. */ share: number; emphasis?: boolean; /** Le coup qui vient d'être joué, pas un coup à jouer. */ played?: boolean } & (
   | { kind: ArrowKind }
   | { tone: Tone }
 );
@@ -25,7 +25,7 @@ export function ArrowBoard({ path, flipped, arrows = [] }: { path: readonly stri
 
 /** Les flèches seules, à poser sur un échiquier de la même taille. */
 export function ArrowLayer({ path, flipped, arrows, className }: { path: readonly string[]; flipped: boolean; arrows: BoardArrow[]; className?: string }) {
-  const squares = useMemo(() => arrowSquares(path, arrows.map((arrow) => arrow.san)), [path, arrows]);
+  const squares = useMemo(() => arrows.map((arrow) => arrowSquares(arrow.played ? path.slice(0, -1) : path, [arrow.san])[0]), [path, arrows]);
   const centre = (square: string) => {
     const file = square.charCodeAt(0) - 97;
     const rank = Number(square[1]) - 1;
@@ -55,7 +55,7 @@ export function ArrowLayer({ path, flipped, arrows, className }: { path: readonl
           // Transparence portée par le groupe, comme sur Lichess : le trait et la pointe se fondent
           // en une seule forme et la pièce reste visible à travers.
           return (
-            <g key={arrow.san} opacity={emphasised(arrow) ? 0.8 : 0.62}>
+            <g key={`${arrow.played ? 'played' : 'next'} ${arrow.san}`} opacity={emphasised(arrow) ? 0.8 : 0.62}>
               <line x1={a.x} y1={a.y} x2={baseX + ux * 0.02} y2={baseY + uy * 0.02} stroke={ink} strokeWidth={width} strokeLinecap="round" />
               <polygon points={points} fill={ink} />
             </g>
