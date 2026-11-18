@@ -148,7 +148,7 @@ kumquat/
 ## Tech Stack
 
 - **Frontend:** React 19, TypeScript 5, Vite 5, Tailwind CSS 4, chess.js, Zustand, Axios, D3, Framer Motion
-- **Backend:** Go 1.26, Echo v5, pgx v5, notnil/chess, golang-jwt/jwt v5, testify
+- **Backend:** Go 1.27 (module minimum 1.26), Echo v5, pgx v5, notnil/chess, golang-jwt/jwt v5, testify
 - **Database:** PostgreSQL 17
 - **Monitoring:** Prometheus + Grafana dashboards
 - **Testing:** Vitest + Testing Library (frontend), Go testing + testify + testcontainers (backend)
