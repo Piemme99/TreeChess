@@ -11,6 +11,7 @@ import { figurineLine, figurineMove } from '../domain/notation';
 import { gamesOfLastMonths } from '../domain/period';
 import type { PlayedGame, Side } from '../domain/playedGame';
 import { findPriorities } from '../domain/priorities';
+import { splitWorked } from '../domain/worked';
 import { checkQueue, type SessionStep } from '../session/steps';
 import { useReplayedSession } from '../session/useReplayedSession';
 import { PageHeader } from '../workshop/PageHeader';
@@ -20,7 +21,7 @@ import { COLOURS, FONT_FAMILY } from '../workshop/theme';
 import { Toast } from '../workshop/Toast';
 import { useToast } from '../workshop/useToast';
 import { useWide } from '../workshop/useWide';
-import { useWorkedLines } from '../replay/useWorkedLines';
+import { useWorkedLines, type WorkedLine } from '../replay/useWorkedLines';
 import { storedSide, storeSide } from '../workshop/storedSide';
 import { useWorkshopFont } from '../workshop/useWorkshopFont';
 import { PositionPane, type StepActions } from './PositionPane';
@@ -51,7 +52,7 @@ interface Session {
 export function TreePage() {
   useWorkshopFont();
   const { source, replay, known, repertoires, steps, adoptions, judging, add, remove, ignore, unignore, forgetIgnored, forgetAdditions } = useReplayedSession();
-  const { work, unwork } = useWorkedLines();
+  const { worked, work, unwork } = useWorkedLines();
   // Openings envoie une ligne à travailler par l'adresse : /dev/tree?side=b&line=d4 Nf6.
   const [params, setParams] = useSearchParams();
   const asked = useMemo(
@@ -96,7 +97,7 @@ export function TreePage() {
   };
   const { toast, show, close } = useToast();
 
-  const { maps, recent, priorities } = useMaps(known, replay.day, repertoires, steps, source.start);
+  const { maps, recent, priorities } = useMaps(known, replay.day, repertoires, steps, source.start, worked);
   const root = maps[side];
   const path = paths[side];
   const node = useMemo(() => nodeAlong(root, path), [root, path]);
@@ -566,11 +567,20 @@ function BottomBar({ onStart, onBack, onForward, onEnd }: { onStart?: () => void
   );
 }
 
-function useMaps(known: readonly PlayedGame[], day: string, repertoires: ReturnType<typeof useReplayedSession>['repertoires'], steps: readonly SessionStep[], createdAt: string) {
+function useMaps(
+  known: readonly PlayedGame[],
+  day: string,
+  repertoires: ReturnType<typeof useReplayedSession>['repertoires'],
+  steps: readonly SessionStep[],
+  createdAt: string,
+  worked: readonly WorkedLine[],
+) {
   return useMemo(() => {
     const trees = (games: readonly PlayedGame[]): Record<Side, OpeningTree> => ({ w: buildOpeningTree(games, 'w', MAX_PLIES), b: buildOpeningTree(games, 'b', MAX_PLIES) });
     const recent = trees(gamesOfLastMonths(known, RECENT_MONTHS, new Date(day)));
-    const priorities = findPriorities(trees(known), recent, MAX_PRIORITIES);
+    // Les mêmes rangs que sur Home : les cinq à faire d'abord, puis les travaillées, qu'« Open » y amène encore.
+    const { toWork, treated } = splitWorked(findPriorities(trees(known), recent, Infinity), worked, known, MAX_PRIORITIES);
+    const priorities = [...toWork, ...treated];
     const toSettle: Record<Side, Map<string, number>> = { w: new Map(), b: new Map() };
     for (const step of steps) {
       const position = step.games[0].check.position;
@@ -582,7 +592,7 @@ function useMaps(known: readonly PlayedGame[], day: string, repertoires: ReturnT
       b: buildRepertoireMap(repertoires.b, recent.b, { toSettle: toSettle.b, priorities, createdAt, freshSince: daysBefore(day, FRESH_DAYS) }),
     };
     return { maps, recent, priorities };
-  }, [known, day, repertoires, steps, createdAt]);
+  }, [known, day, repertoires, steps, createdAt, worked]);
 }
 
 /** Le nœud le plus profond de la carte sur la ligne, en passant par le propriétaire d'une transposition. */

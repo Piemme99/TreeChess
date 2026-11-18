@@ -113,7 +113,8 @@ line. From that date the priority reports [adherence](#adherence) first, then
 the score against the score before, and leaves the list once the score is
 proven back. Proven adherence with no gain says the problem lies after the
 opening. A worked line is no longer something to do: it comes back to
-do only when the games played since the work prove it weak again.
+do only when the games played since the work prove it weak again, and meanwhile
+leaves its place among the weak openings to do to the next one.
 
 ### Adherence
 
