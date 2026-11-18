@@ -22,15 +22,8 @@ export type Database = 'lichess' | 'strong' | 'masters';
 
 const TOKEN = import.meta.env.VITE_LICHESS_TOKEN as string | undefined;
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) || '/api';
-// Les adversaires contre qui se préparer, un peu au-dessus du joueur (près de 1800, PMG le 16/11/2026) : il voulait
-// 1700–2100, l'explorateur ne connaît que des tranches de 200 points (1600 = 1600–1799).
-const RATINGS = '1600,1800,2000';
 const SPEEDS = 'blitz,rapid';
-// Des joueurs forts, mais assez nombreux pour couvrir les lignes d'amateur où la base des maîtres n'a que quelques parties.
-const STRONG_RATINGS = '2200,2500';
 const STRONG_SPEEDS = 'blitz,rapid,classical';
-/** La tranche interrogée, telle qu'on la nomme à l'écran. */
-export const LEVEL_LABEL = '1600–2200 · blitz & rapid · Lichess';
 const STORAGE = 'kumquat-explorer:';
 // Lichess demande d'attendre une minute pleine après un 429.
 const RATE_LIMIT_PAUSE = 60_000;
@@ -40,13 +33,13 @@ export const hasExplorer = () => true;
 
 let chain: Promise<unknown> = Promise.resolve();
 
-function urlOf(database: Database, fen: string) {
+function urlOf(database: Database, fen: string, ratings: readonly number[]) {
   const query = new URLSearchParams({ variant: 'standard', fen, moves: '8' });
   if (database === 'masters') {
     query.set('topGames', '4');
   } else {
     query.set('speeds', database === 'strong' ? STRONG_SPEEDS : SPEEDS);
-    query.set('ratings', database === 'strong' ? STRONG_RATINGS : RATINGS);
+    query.set('ratings', ratings.join(','));
     query.set('topGames', '0');
     query.set('recentGames', '0');
   }
@@ -95,8 +88,8 @@ function send(url: string): Promise<Reply | null> {
 const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // Une requête à la fois, comme Lichess le demande ; le cache local évite de refaire l'arbre à chaque rechargement.
-export function explore(database: Database, fen: string): Promise<ExplorerResult | null> {
-  const url = urlOf(database, fen);
+export function explore(database: Database, fen: string, ratings: readonly number[]): Promise<ExplorerResult | null> {
+  const url = urlOf(database, fen, ratings);
   const stored = localStorage.getItem(STORAGE + url);
   if (stored) return Promise.resolve(JSON.parse(stored) as ExplorerResult);
 

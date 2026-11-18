@@ -391,7 +391,7 @@ hero card. No replay for a signed-in player: "Next day" and "Reset" stay in the 
    `review`, `worked`), `GET /api/v2/state` and `PUT /api/v2/state/:key`. For an imported account the hooks read and
    write through `workshop/storage.ts`, saved 300 ms after a change and on `pagehide`; what the browser kept before
    goes up once. The demo stays in the browser. Next, per `CLAUDE.md`: `/` points to v2, then v1 is removed.
-4. **Explorer ranges from the player's rating** (rule above in "Later").
+4. **Explorer ranges from the player's rating**: done as brick 1 of Practice.
 
 ## Practice (use 4, path to validate, 2026-11-18)
 
@@ -434,7 +434,11 @@ Practice games are not games: they stay out of the opening tree, weak openings, 
 
 ### Bricks
 
-1. **The level from the player's rating** (the rule in "Later", for the whole app: the candidate tables too).
+1. **The level from the player's rating** (done, `domain/level.ts`, the whole app: the candidate tables too). The
+   rating is the median of the player's last 20 imported games (blitz and rapid mixed, as the explorer is read:
+   the speed is not stored), 1800 without rated games (the demo: unchanged). Opponents from rating −100 to +300,
+   the player's own moves from +400 and never below 2000, both rounded out to the explorer's buckets. PMG (blitz
+   1515): replies of 1400–2000 players, own moves among 2000+, instead of 1600–2200 and 2200+.
 2. **Play and review**: screens 1–3 from Home, review read-only.
 3. **Settle from the review**, lapses for Review.
 4. **"Practise from here"** on the tree.
@@ -442,12 +446,6 @@ Practice games are not games: they stay out of the opening tree, weak openings, 
 ## Later
 
 - **Line view, next steps**: glossary entries for key position and decisive mistake.
-- **Import** producing `PlayedGame` (Lichess OAuth is the decided auth; validate SAN
-  there), then persistence. Same brick: the explorer ranges follow the player's Lichess rating
-  (blitz or rapid, whichever has more games; 1800 when signed out) instead of the constants
-  in `line/explorer.ts`: opponents from rating −100 to +300 rounded to the explorer's 200-point
-  buckets, the player's own moves from rating +400 and never below 2000; the column label
-  follows. Not before: until the import, the games shown are PMG's for everyone.
 - **Engine signal on the whole tree** (priorities sorted into "a move to change" and
   "a position to work on" from the Openings screen): the line view does it per line only.
 - **Design prototype** (`design-prototype/`, `/dev/flame-graph?variant=F…J`): the
