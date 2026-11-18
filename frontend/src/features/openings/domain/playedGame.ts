@@ -10,4 +10,6 @@ export interface PlayedGame {
   score: GameScore;
   /** Date ISO (AAAA-MM-JJ) à laquelle la partie s'est terminée. */
   playedAt: string;
+  /** Classement du joueur pendant la partie, quand la plateforme le donne. */
+  rating?: number;
 }

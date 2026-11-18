@@ -7,7 +7,9 @@ import { isPlayerMove } from '../domain/openingTree';
 import { formatPercent } from '../flame/format';
 import { JUDGEMENT_MARK, judgeMove, type Judgement } from '../domain/judgement';
 import { useEngineFailed, useEvaluations } from '../line/engine';
+import { levelLabel } from '../domain/level';
 import { lichessSignInUrl } from '../line/explorer';
+import { useExplorerLevel } from '../source/useExplorerLevel';
 import { repertoireMovesAt, type Repertoire } from '../domain/repertoire';
 import type { Side } from '../domain/playedGame';
 import { replayLine } from '../position/replay';
@@ -30,6 +32,7 @@ interface BuildPanelProps {
 
 export function BuildPanel({ builder, candidates, fresh, onPoint, onAccept, onCancel, compact = false, repertoire }: BuildPanelProps) {
   const { origin, draft } = builder;
+  const poolLabel = usePoolLabel(candidates.pool);
   const played = origin.played && figurineMove(origin.played, origin.start.length + 1);
   const lastGiven = origin.given.at(-1);
   // Une ligne hors répertoire finissant sur un coup du joueur se garde comme un coup de partie gardé.
@@ -185,8 +188,8 @@ export function BuildPanel({ builder, candidates, fresh, onPoint, onAccept, onCa
       {compact && notes}
 
       <Help compact={compact}>
-        <strong>{compact ? POOL[candidates.pool].short : `${origin.side === 'w' ? 'White' : 'Black'} %`}</strong>: how players of your colour score after the move on Lichess,{' '}
-        {candidates.pool === 'strong' ? 'rated 2200+ (for your moves)' : 'rated 1600–2200 (for their replies: what you will meet, and a bit stronger)'} ·{' '}
+        <strong>{compact ? poolLabel : `${origin.side === 'w' ? 'White' : 'Black'} %`}</strong>: how players of your colour score after the move on Lichess,{' '}
+        {candidates.pool === 'strong' ? `rated ${poolLabel} (for your moves)` : `rated ${poolLabel} (for their replies: what you will meet, and a bit stronger)`} ·{' '}
         <strong>Engine</strong>: + is good for you · <strong>You</strong>: how often you played it in 12 months, and your score once you have 3 games (
         <span style={{ color: COLOURS.terracotta }}>red</span>: where you score worst).
       </Help>
@@ -225,6 +228,7 @@ function useLastJudgement(builder: Builder): Judgement | null {
 
 function CandidateTable({ builder, candidates, onPoint, compact, planned }: { builder: Builder; candidates: Candidates; onPoint: (san: string | null) => void; compact: boolean; planned: ReadonlySet<string> }) {
   const { rows, costly, here, explorer, pool } = candidates;
+  const poolLabel = usePoolLabel(pool);
   const engineFailed = useEngineFailed();
   // La barre dit ce que vaut la position avec le meilleur coup du tableau : le même chiffre que sa ligne.
   const engineRow = rows.filter((row) => row.engine && row.cp !== undefined)[0];
@@ -273,7 +277,7 @@ function CandidateTable({ builder, candidates, onPoint, compact, planned }: { bu
               <tr>
                 <th />
                 <th colSpan={2} className={`whitespace-nowrap px-2 pb-0.5 text-center font-semibold ${compact ? 'hidden sm:table-cell' : ''}`} style={{ borderBottom: `1px solid ${COLOURS.sand}` }}>
-                  {POOL[pool].long}
+                  Lichess {poolLabel}
                 </th>
 
                 <th />
@@ -284,8 +288,8 @@ function CandidateTable({ builder, candidates, onPoint, compact, planned }: { bu
               <th className="pb-1 pr-2 font-semibold">Move</th>
               {stats && <th className={`pb-1 px-2 font-semibold ${compact ? 'hidden sm:table-cell' : ''}`}>played</th>}
               {stats && (
-                <th className="pb-1 px-2 text-right font-semibold" title={`How ${side} scores after this move: ${POOL[pool].long}`}>
-                  {compact ? POOL[pool].short : `${side} %`}
+                <th className="pb-1 px-2 text-right font-semibold" title={`How ${side} scores after this move: Lichess ${poolLabel}`}>
+                  {compact ? poolLabel : `${side} %`}
                 </th>
               )}
               <th className="pb-1 px-2 text-right font-semibold" title="Engine evaluation after the move, from your side: + is good for you">
@@ -475,10 +479,10 @@ function Move({ children }: { children: ReactNode }) {
   return <span className="whitespace-nowrap">{children}</span>;
 }
 
-const POOL = {
-  strong: { short: '2200+', long: 'Lichess 2200+' },
-  level: { short: '1600–2200', long: 'Lichess 1600–2200' },
-} as const;
+function usePoolLabel(pool: Candidates['pool']): string {
+  const level = useExplorerLevel();
+  return levelLabel(pool === 'strong' ? level.strong : level.opponents);
+}
 
 /** L'aide du tableau : dépliée sur l'ordinateur, repliée au téléphone, où elle repoussait tout. */
 function Help({ compact, children }: { compact: boolean; children: ReactNode }) {

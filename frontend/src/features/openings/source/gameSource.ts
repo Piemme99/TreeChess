@@ -24,6 +24,7 @@ export interface ImportedGame {
   moves: string;
   score: number;
   playedAt: string;
+  rating?: number;
 }
 
 /** Le répertoire naît le jour de l'import, de toutes les parties jouées jusque-là, ce jour compris. */
@@ -35,6 +36,7 @@ export function importedSource(username: string, games: readonly ImportedGame[],
       moves: game.moves.split(' ').filter(Boolean),
       score: game.score === 1 ? 1 : game.score === 0 ? 0 : 0.5,
       playedAt: game.playedAt,
+      rating: game.rating,
     })),
     start: dayAfter(importedOn),
     firstDay: importedOn,
