@@ -5,11 +5,15 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
-  workflow_call:
 
+permissions:
+  contents: read
+
+# Sur main, une annulation pourrait couper un déploiement en plein SSH : les runs s'enchaînent, et
+# deploy.yml ne déploie que la tête de main.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   frontend:
@@ -24,7 +28,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
@@ -52,7 +56,7 @@ jobs:
 
       - uses: actions/setup-go@v7
         with:
-          go-version: "1.25"
+          go-version: "1.26"
           cache-dependency-path: backend/go.sum
 
       - name: Install dependencies
@@ -61,15 +65,15 @@ jobs:
       - name: Vet
         run: go vet ./...
 
-      # Pinned, not @latest: golangci-lint v2.13+ requires Go 1.26, and this job
-      # runs Go 1.25 with GOTOOLCHAIN=local, so @latest silently breaks the repo
-      # the day upstream bumps its own go directive. v2.12.0 is the last release
-      # that builds under Go 1.25 — raise both together.
-      - name: Install golangci-lint
-        run: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.0
+      - name: Read golangci-lint version
+        id: golangci
+        run: echo "version=$(cat .golangci-lint-version)" >> "$GITHUB_OUTPUT"
 
       - name: Lint
-        run: golangci-lint run ./...
+        uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
+        with:
+          version: ${{ steps.golangci.outputs.version }}
+          working-directory: backend
 
       - name: Unit tests
         run: go test ./...
@@ -86,7 +90,7 @@ jobs:
 
       - uses: actions/setup-go@v7
         with:
-          go-version: "1.25"
+          go-version: "1.26"
           cache-dependency-path: backend/go.sum
 
       - name: Install dependencies
@@ -95,15 +99,57 @@ jobs:
       - name: Integration tests
         run: go test -tags=integration -v -timeout 300s ./tests/integration/...
 
-  docker-build:
-    name: Docker Build
+  images:
+    name: Docker image (${{ matrix.service }})
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [backend, frontend]
+    env:
+      PUSH: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
 
     steps:
       - uses: actions/checkout@v7
 
-      - name: Build backend image
-        run: docker build --target prod -t kumquat-backend:ci ./backend
+      - name: Set image name
+        id: meta
+        run: |
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          echo "image=ghcr.io/${owner}/kumquat-${{ matrix.service }}:sha-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
 
-      - name: Build frontend image
-        run: docker build --target prod -t kumquat-frontend:ci ./frontend
+      - name: Log in to GitHub Container Registry
+        if: env.PUSH == 'true'
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      # Sans scope distinct, les deux images écrasent le même cache gha et chacune repart de zéro.
+      - name: Build (and push on main)
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: ./${{ matrix.service }}
+          target: prod
+          push: ${{ env.PUSH == 'true' }}
+          tags: ${{ steps.meta.outputs.image }}
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+
+  deploy:
+    name: Deploy
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [frontend, backend, integration, images]
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/deploy.yml
+    with:
+      commit: ${{ github.sha }}
+    secrets: inherit

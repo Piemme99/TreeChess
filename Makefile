@@ -1,23 +1,23 @@
 .PHONY: dev build stop delete logs restart test lint test-frontend test-backend test-integration lint-frontend lint-backend install-hooks prod prod-stop prod-logs prod-restart prod-deploy prod-deploy-logs prod-deploy-stop prod-init-ssl prod-renew-ssl prod-backup prod-install-backup-cron
 
 dev:
-	docker-compose up --build -d
+	docker compose up --build -d
 
 build:
-	docker-compose build
+	docker compose build
 
 stop:
-	docker-compose down
+	docker compose down
 
 delete:
-	docker-compose down -v
+	docker compose down -v
 
 logs:
-	docker-compose logs -f
+	docker compose logs -f
 
 restart:
-	docker-compose down
-	docker-compose up --build -d
+	docker compose down
+	docker compose up --build -d
 
 # === Test & Lint ===
 

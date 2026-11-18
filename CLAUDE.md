@@ -40,7 +40,7 @@ cd frontend && npx vitest run -t "test name"
 ## Stack
 
 **Frontend** React 19 · TypeScript 6 · Vite 8 · Tailwind 4 · Zustand · chess.js · D3 · Framer Motion · Vitest 4
-**Backend** Go 1.25 · Echo **v5** · pgx v5 · notnil/chess · golang-jwt v5 · testify · testcontainers
+**Backend** Go 1.25 module, built and run on Go 1.26 (CI, images) · Echo **v5** · pgx v5 · notnil/chess · golang-jwt v5 · testify · testcontainers
 **Data** PostgreSQL 17 (schema created by the backend at boot, `internal/repository/db.go`)
 **Engine** Stockfish 18 NNUE lite WASM, vendored in `frontend/public/stockfish-18-lite.{js,wasm}`
 
@@ -102,6 +102,8 @@ GitHub Issues on `Piemme99/TreeChess`, via `gh`. Triage labels: `needs-triage`, 
 
 - **Run `make test` before committing.** Don't commit on red.
 - Work on a branch, never commit directly on `main`; integration happens through squashed PRs.
+- **Every push to `main` deploys to production** once its CI is green (`ci.yml` → `deploy.yml`). Roll back by running
+  the Deploy workflow by hand with an earlier commit.
 - On `agent/*` branches (AFK sessions): commit before emitting the completion signal.
 
 ## Autonomy & reporting
