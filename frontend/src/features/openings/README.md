@@ -466,7 +466,11 @@ Practice games are not games: they stay out of the opening tree, weak openings, 
    (box 1, due the same day, like a lapse in a game), recorded when the review opens, whatever is decided. The game's check is frozen
    when the review opens: an addition does not move the departure. Not done: the moves played after the departure
    are not given to the builder (given moves cannot be undone there).
-4. **"Practise from here"** on the tree.
+4. **"Practise from here"** on the tree (done): a link under the position's moves, phone and wide, hidden in the
+   Check and weak-opening tasks. The line travels in the address (`?side=w&line=e4 e5 Nf3`), replayed through
+   chess.js, cut at its first illegal move and at move 15. The moves already on the board are the tree's, not the
+   player's: the engine does not judge them and a departure among them is no lapse (it is still offered to
+   settle). "Practise again" starts from the same position.
 
 ## Later
 

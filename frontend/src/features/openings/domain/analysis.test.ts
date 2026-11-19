@@ -27,6 +27,10 @@ describe('judgeGame', () => {
     expect([...judgeGame(path, fens, 'b', evaluate({})).keys()]).toEqual([1, 3, 5, 7, 9, 11, 13, 15]);
   });
 
+  it('practising from a position of the tree, the moves already on the board are not judged: the player did not play them', () => {
+    expect([...judgeGame(path, fens, 'w', evaluate({}), 8).keys()]).toEqual([8, 10, 12, 14, 16]);
+  });
+
   it("as Black, a move that hands White the advantage is Black's mistake", () => {
     // Avant 7…a6 : +0.3 avec 7…Be6 ; après : +1.5 pour les Blancs.
     const verdicts = judgeGame(path, fens, 'b', evaluate({ 13: { cp: 30, best: 'c8e6' }, 14: { cp: 150 } }));

@@ -6,7 +6,7 @@ import { isPlayerMove } from '../domain/openingTree';
 import type { Side } from '../domain/playedGame';
 import { replayLine } from '../position/replay';
 import { COLOURS, REPERTOIRE } from '../workshop/theme';
-import { OffRepertoire, PriorityCard, RemoveMove, SettleCard, StoppedCard, type PositionPaneProps } from './PositionPane';
+import { OffRepertoire, PractiseLink, PriorityCard, RemoveMove, SettleCard, StoppedCard, type PositionPaneProps } from './PositionPane';
 import { usePositionFacts } from './positionFacts';
 import type { MapNode } from './repertoireMap';
 
@@ -41,6 +41,7 @@ export function PhonePane(props: PhonePaneProps) {
       ) : (
         <OffRepertoire path={path} node={node} facts={facts} onExtend={onExtend} onJump={onJump} />
       )}
+      {props.practise && <PractiseLink href={props.practise} />}
       {onRemove && <RemoveMove path={path} onRemove={onRemove} />}
     </div>
   );

@@ -1,3 +1,4 @@
+import { Link } from 'react-router';
 import { motion } from 'framer-motion';
 import { useMemo, useState, type ReactNode } from 'react';
 import { useOpeningName } from '../../../shared/hooks/useOpeningName';
@@ -58,6 +59,8 @@ export interface PositionPaneProps {
   onExtend: () => void;
   /** Retirer du répertoire le coup du joueur qui a mené ici, et sa suite. */
   onRemove?: () => void;
+  /** L'adresse d'une partie d'entraînement qui part de cette position. */
+  practise?: string;
   /** Les coups de cette position que le joueur ne joue plus, proposés au retrait. */
   stopped?: StoppedActions;
   /** Construire depuis une ligne de la priorité : la sienne, ou celle où elle perd ses points. */
@@ -138,6 +141,11 @@ export function PositionPane(props: PositionPaneProps) {
             <Action onClick={onExtend}>Extend from here</Action>
           </div>
         )
+      )}
+      {props.practise && (
+        <div className="order-6">
+          <PractiseLink href={props.practise} />
+        </div>
       )}
       {onRemove && (
         <div className="order-6">
@@ -295,6 +303,15 @@ export function StoppedCard({ stopped, ply }: { stopped: StoppedActions; ply: nu
 }
 
 /** Discret : on retire rarement, et l'annulation suit dans le toast. */
+/** S'entraîner depuis la position : une partie contre les coups de son niveau, comme depuis Home. */
+export function PractiseLink({ href }: { href: string }) {
+  return (
+    <Link to={href} className="grid min-h-11 place-items-center rounded-xl px-3 text-[15px] font-bold focus-visible:outline-2 focus-visible:outline-offset-2" style={{ ...tile(COLOURS.sand), color: COLOURS.leaf }}>
+      Practise from here
+    </Link>
+  );
+}
+
 export function RemoveMove({ path, onRemove }: { path: readonly string[]; onRemove: () => void }) {
   return (
     <button type="button" onClick={onRemove} className="self-start rounded px-1 py-1 text-[13px] font-semibold underline-offset-4 hover:underline focus-visible:outline-2" style={{ color: COLOURS.leafSoft }}>
