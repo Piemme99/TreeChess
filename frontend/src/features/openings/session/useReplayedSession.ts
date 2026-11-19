@@ -17,7 +17,7 @@ export function useReplayedSession() {
   const { ignored, ignore, unignore, clear: forgetIgnored } = useIgnoredChecks();
   const { repertoires, repertoireOn, add, remove, removeMove, restoreMove, clear: forgetRepertoire } = useRepertoires(source.games, source.start);
   const known = useMemo(() => gamesUntil(source.games, replay.day), [source.games, replay.day]);
-  const { stopped, reviewed, keep, unkeep, clear: forgetKept } = useStoppedMoves(repertoires, known);
+  const { stopped, reviewed, keep, unkeep, clear: forgetKept } = useStoppedMoves(repertoires, known, source.start);
   const lived = useMemo(() => liveGames(source.games, repertoireOn, source.firstDay, replay.day), [source, repertoireOn, replay.day]);
   const open = useMemo(() => sessionSteps(gamesToDecide(lived, ignored, replay.day)), [lived, ignored, replay.day]);
   const { steps, adopted, judging } = useJudgedSteps(open);

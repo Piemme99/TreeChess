@@ -43,7 +43,7 @@ export function ReviewPage() {
   const { repertoires: whole, repertoireOn } = useRepertoires(source.games, source.start);
   const known = useMemo(() => gamesUntil(source.games, replay.day), [source.games, replay.day]);
   // Un coup que le joueur ne joue plus attend sa décision hors de la révision.
-  const { reviewed: repertoires } = useStoppedMoves(whole, known);
+  const { reviewed: repertoires } = useStoppedMoves(whole, known, source.start);
   const today = replay.today;
   const lived = useMemo(() => liveGames(source.games, repertoireOn, source.firstDay, replay.day), [source, repertoireOn, replay.day]);
   const review = useReview(source.games, repertoires, lived, today, source.start);

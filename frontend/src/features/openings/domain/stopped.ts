@@ -61,10 +61,11 @@ function trieOf(games: readonly PlayedGame[]) {
 
 /**
  * Les coups du joueur qu'il n'a plus joués les `STOPPED_ARRIVALS` dernières fois qu'il est arrivé à leur position en
- * suivant son répertoire. Un coup gardé ne revient qu'une fois rejoué puis délaissé à nouveau : le joueur qui alterne
- * deux ouvertures par séries ne se le voit pas reproposer à chaque série.
+ * suivant son répertoire. Un coup ajouté après la création (`createdAt`) ne compte que les parties d'après son ajout.
+ * Un coup gardé ne revient qu'une fois rejoué puis délaissé à nouveau : le joueur qui alterne deux ouvertures par
+ * séries ne se le voit pas reproposer à chaque série.
  */
-export function stoppedMoves(repertoire: Repertoire, games: readonly PlayedGame[], kept: readonly KeptMove[] = []): StoppedMove[] {
+export function stoppedMoves(repertoire: Repertoire, games: readonly PlayedGame[], createdAt: string, kept: readonly KeptMove[] = []): StoppedMove[] {
   const { ordered, roots } = trieOf(games);
   const arrivals = new Map<string, Arrival[]>();
   const walk = (node: Trie, chess: Chess, path: string[]) => {
@@ -91,9 +92,10 @@ export function stoppedMoves(repertoire: Repertoire, games: readonly PlayedGame[
   const stopped: StoppedMove[] = [];
   for (const [position, found] of arrivals) {
     const all = found.sort((a, b) => a.rank - b.rank);
-    for (const { san } of repertoire.moves.get(position) ?? []) {
+    for (const { san, addedAt } of repertoire.moves.get(position) ?? []) {
       const keptAt = kept.find((move) => move.side === repertoire.side && move.position === position && move.san === san)?.keptAt;
-      const counted = keptAt ? all.filter((arrival) => ordered[arrival.rank].playedAt > keptAt) : all;
+      const since = [keptAt ?? '', addedAt > createdAt ? addedAt : ''].sort().at(-1)!;
+      const counted = since ? all.filter((arrival) => ordered[arrival.rank].playedAt > since) : all;
       if (keptAt && !counted.some((arrival) => arrival.played === san)) continue;
       const last = counted.slice(-STOPPED_ARRIVALS);
       if (last.length < STOPPED_ARRIVALS || last.some((arrival) => arrival.played === san)) continue;

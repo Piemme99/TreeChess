@@ -6,13 +6,13 @@ import { stoppedMoves, type KeptMove, type StoppedMove } from '../domain/stopped
 import { readStored, writeStored } from '../workshop/storage';
 
 /** Les coups que le joueur ne joue plus, proposés au retrait ; en attendant sa réponse, ils sortent de la révision. */
-export function useStoppedMoves(repertoires: Record<Side, Repertoire>, known: readonly PlayedGame[]) {
+export function useStoppedMoves(repertoires: Record<Side, Repertoire>, known: readonly PlayedGame[], createdAt: string) {
   const [kept, setKept] = useState<readonly KeptMove[]>(() => JSON.parse(readStored('kept-moves') ?? '[]') as KeptMove[]);
   useEffect(() => writeStored('kept-moves', JSON.stringify(kept)), [kept]);
 
   const stopped = useMemo(
-    () => [...stoppedMoves(repertoires.w, known, kept), ...stoppedMoves(repertoires.b, known, kept)],
-    [repertoires, known, kept],
+    () => [...stoppedMoves(repertoires.w, known, createdAt, kept), ...stoppedMoves(repertoires.b, known, createdAt, kept)],
+    [repertoires, known, createdAt, kept],
   );
   const reviewed = useMemo(() => {
     const out = (side: Side) => stopped.filter((move) => move.side === side).map((move) => ({ ...move, removedAt: '' }));
