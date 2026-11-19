@@ -13,7 +13,7 @@ import (
 const maxPlayerStateValue = 1 << 20
 
 // Les clés que la v2 enregistre ; toute autre est refusée.
-var playerStateKeys = map[string]bool{"additions": true, "ignored-checks": true, "removals": true, "review": true, "worked": true}
+var playerStateKeys = map[string]bool{"additions": true, "ignored-checks": true, "kept-moves": true, "removals": true, "review": true, "worked": true}
 
 type PlayerStateStore interface {
 	Get(ctx context.Context, userID string) (json.RawMessage, error)

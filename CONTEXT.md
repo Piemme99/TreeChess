@@ -140,8 +140,10 @@ leaves it only with the player's consent: they can remove one of their moves
 the games played with it before stay settled), and one they have stopped
 playing (something else the last 5 times they reached the position) is offered
 for removal, and is left out of spaced repetition meanwhile. Counted in games,
-not in months: a player who stops playing loses nothing. Adding a removed move
-again puts it back. Not to be confused with the
+not in months: a player who stops playing loses nothing. A move the player
+keeps instead comes back to review and is offered again only once they play it
+again and then leave it the 5 following times (alternating two openings in
+streaks is a repertoire). Adding a removed move again puts it back. Not to be confused with the
 [opening tree](#opening-tree), which says what the player *does*.
 
 _Avoid_: preparation (as a separate object), several repertoires per side.

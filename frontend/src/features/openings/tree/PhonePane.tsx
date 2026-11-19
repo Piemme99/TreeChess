@@ -6,7 +6,7 @@ import { isPlayerMove } from '../domain/openingTree';
 import type { Side } from '../domain/playedGame';
 import { replayLine } from '../position/replay';
 import { COLOURS, REPERTOIRE } from '../workshop/theme';
-import { OffRepertoire, PriorityCard, RemoveMove, SettleCard, type PositionPaneProps } from './PositionPane';
+import { OffRepertoire, PriorityCard, RemoveMove, SettleCard, StoppedCard, type PositionPaneProps } from './PositionPane';
 import { usePositionFacts } from './positionFacts';
 import type { MapNode } from './repertoireMap';
 
@@ -29,11 +29,12 @@ export function PhonePane(props: PhonePaneProps) {
         <PlayableBoard path={path} flipped={side === 'b'} arrows={arrows} suggestions={suggestions} onMove={onMove} />
       </div>
       <LineStrip path={path} trail={trail} known={node.path.length} onJump={onJump} />
-      <div className="empty:hidden">
+      <div className="flex flex-col gap-3 empty:hidden">
         {settling && <SettleCard steps={steps} facts={facts} actions={actions} onSkip={onSkip} rank={props.priorityRank ?? node.priority} />}
         {prioritised && !settling && (
           <PriorityCard side={side} priority={priority!} rank={props.priorityRank ?? node.priority!} total={props.priorityCount} facts={facts} waiting={steps.length} onLead={onLead} onNextPriority={onNextPriority} onPrepareFollows={onPrepareFollows} />
         )}
+        {props.stopped && props.stopped.moves.length > 0 && <StoppedCard stopped={props.stopped} ply={node.path.length + 1} />}
       </div>
       {inRepertoire ? (
         <MoveTable side={side} node={node} onSelect={onSelect} onExtend={onExtend} />

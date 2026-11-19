@@ -11,6 +11,8 @@ import { replayLine } from '../position/replay';
 import { liveGames } from '../checks/decisions';
 import { useSource } from '../source/useSource';
 import { useRepertoires } from '../replay/useRepertoires';
+import { useStoppedMoves } from '../replay/useStoppedMoves';
+import { gamesUntil } from '../domain/replay';
 import { useReplayDay } from '../replay/useReplayDay';
 import { TaskBar, TaskDone } from '../workshop/Task';
 import { COLOURS, FONT_FAMILY, raised, REPERTOIRE, SPRING, tile } from '../workshop/theme';
@@ -38,7 +40,10 @@ export function ReviewPage() {
   // Pas de séance ici : les verdicts du moteur sur les écarts n'y servent pas.
   const source = useSource();
   const replay = useReplayDay(source.games, source.firstDay, source.replay);
-  const { repertoires, repertoireOn } = useRepertoires(source.games, source.start);
+  const { repertoires: whole, repertoireOn } = useRepertoires(source.games, source.start);
+  const known = useMemo(() => gamesUntil(source.games, replay.day), [source.games, replay.day]);
+  // Un coup que le joueur ne joue plus attend sa décision hors de la révision.
+  const { reviewed: repertoires } = useStoppedMoves(whole, known);
   const today = replay.today;
   const lived = useMemo(() => liveGames(source.games, repertoireOn, source.firstDay, replay.day), [source, repertoireOn, replay.day]);
   const review = useReview(source.games, repertoires, lived, today, source.start);
