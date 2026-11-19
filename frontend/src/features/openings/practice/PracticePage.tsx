@@ -42,7 +42,7 @@ import { BottomBar } from '../workshop/BottomBar';
 import { COLOURS, ENGINE, FONT_FAMILY, raised, REPERTOIRE, SPRING, tile } from '../workshop/theme';
 import { useWorkshopFont } from '../workshop/useWorkshopFont';
 import { Badge } from './Badge';
-import { BADGE_ORDER, BADGES, type BadgeKind } from './grades';
+import { BADGES, type BadgeKind } from './grades';
 
 // Le temps de voir son coup posé avant que l'adversaire réponde.
 const REPLY_DELAY = 450;
@@ -326,7 +326,6 @@ function PracticeReview({ side, path, from, end, repertoire, habits, day, onAdd,
         <MoveStrip path={path} shown={shown} badgesOf={badgesOf} onShow={setShown} />
         {shown > 0 && <ShownMove side={side} path={path} ply={shown - 1} badges={badgesOf(shown - 1)} evaluation={evaluations.get(fens[shown])} arrow={arrow} blind={blind} />}
       </div>
-      <Legend path={path} badgesOf={badgesOf} />
       <div className="mt-2 flex flex-col gap-2">
         <motion.button type="button" onClick={onAgain} whileTap={{ scale: 0.97 }} transition={SPRING} className="min-h-12 rounded-full px-5 text-[15px] font-bold focus-visible:outline-2" style={raised(true)}>
           Practise again
@@ -554,30 +553,6 @@ function MoveStrip({ path, shown, badgesOf, onShow }: { path: readonly string[];
         </li>
       ))}
     </ol>
-  );
-}
-
-/** Ce que veulent dire les pastilles de la partie, avec leur nombre. */
-function Legend({ path, badgesOf }: { path: readonly string[]; badgesOf: (ply: number) => BadgeKind[] }) {
-  const counts = new Map<BadgeKind, number>();
-  for (let ply = 0; ply < path.length; ply++) for (const kind of badgesOf(ply)) counts.set(kind, (counts.get(kind) ?? 0) + 1);
-  if (!counts.size) return null;
-  return (
-    <ul aria-label="Legend" className="flex flex-wrap gap-x-3 gap-y-1.5 rounded-2xl px-3 py-2.5 text-[13px]" style={{ ...tile(COLOURS.paper), color: COLOURS.leafSoft }}>
-      {BADGE_ORDER.filter((kind) => counts.has(kind)).map((kind) => (
-        <li key={kind} className="flex items-center gap-1">
-          <Badge kind={kind} labelled />
-          {BADGES[kind].label}
-          <span className="font-bold tabular-nums" style={{ color: COLOURS.leaf }}>
-            {counts.get(kind)}
-          </span>
-        </li>
-      ))}
-      <li className="flex items-center gap-1">
-        <span aria-hidden="true" className="inline-block h-[3px] w-4 rounded-full" style={{ background: ENGINE }} />
-        engine's move
-      </li>
-    </ul>
   );
 }
 
