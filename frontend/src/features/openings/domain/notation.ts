@@ -28,3 +28,12 @@ export function formatCp(cp: number): string {
   if (pawns === '0.0') return '0.0';
   return cp < 0 ? `−${pawns}` : `+${pawns}`;
 }
+
+/** Ce que dit l'évaluation en mots, pour qui ne lit pas les centipions ; `cp` du point de vue du joueur. */
+export function evaluationWords(cp: number): string {
+  // Sur la valeur affichée, arrondie au dixième : « +0.5 » doit toujours dire la même chose.
+  const shown = Math.round(cp / 10) * 10;
+  if (Math.abs(shown) < 30) return 'equal';
+  if (Math.abs(shown) < 100) return shown > 0 ? 'slightly better' : 'slightly worse';
+  return cp > 0 ? 'better for you' : 'worse for you';
+}

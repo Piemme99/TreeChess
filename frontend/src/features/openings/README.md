@@ -24,7 +24,7 @@ Vocabulary (opening tree, deficit, priority, points to gain): `CONTEXT.md`.
   - `diagnosis.ts` — an engine evaluation, its winning chances (Lichess formula), UCI to SAN.
   - `preparation.ts` — the Lichess explorer stats and the source of a repertoire move.
   - `level.ts` — the explorer level from the player's rating; `practice.ts` — the practice opponent's reply and
-    when a practice game stops.
+    when a practice game stops; `analysis.ts` — the engine's judgement of each move of the player's in a game.
   - `period.ts`, `notation.ts`.
 - `OpeningsPage.tsx` — the screen: priority tickets, flame graph as tiles, board panel.
 - `flame/` — layout (pure), camera (`useFlameCamera`: zooming moves a window over fixed
@@ -432,7 +432,12 @@ The game goes on past the repertoire and stops when the position has fewer than 
 ### Screen 3 — Review
 
 The game move by move, each move marked like Home's game rows: ✓ in the repertoire, ! a move of the player's off the
-repertoire that the engine finds worse, · one that waits for nothing, ? an opponent reply with no answer yet. Then
+repertoire that the engine finds worse, · one that waits for nothing, ? an opponent reply with no answer yet. Every
+move of the player's is judged by the engine as on Lichess (?! ? ?? from what it loses against the engine's move),
+in the repertoire and out of it: the card counts them ("Your 9 moves: 1 mistake"), each one a chip that opens it,
+with the final evaluation; under the board, the evaluation after the move shown and, for a faulted move, the
+engine's move ("8.f3? −1.2 · 8.Qd2 was better"). PMG (2026-11-19): without it, the review did not say whether he
+had played well once out of his preparation. Then
 the first place it left the repertoire is a step to settle, as in Check: **Add** (the moves played after it are
 given, to trim or extend in the candidate table), **Keep**, **Prepare a reply**, **Not worth it**. Then "1 settled ·
 Practise again / Back to Home".
@@ -451,7 +456,8 @@ Practice games are not games: they stay out of the opening tree, weak openings, 
    1515): replies of 1400–2000 players, own moves among 2000+, instead of 1600–2200 and 2200+.
 2. **Play and review** (done, `practice/`): screens 1–3 from Home, review read-only. The review opens on the
    first move off the repertoire; a sound move of the player's names the repertoire move it replaced. Nothing is
-   stored: a practice game is gone once the page is left.
+   stored: a practice game is gone once the page is left. Then every move of the player's judged by the engine
+   (`domain/analysis.ts`).
 3. **Settle from the review**, lapses for Review.
 4. **"Practise from here"** on the tree.
 

@@ -5,10 +5,12 @@ import { Link, useSearchParams } from 'react-router';
 import { PlayableBoard } from '../board/PlayableBoard';
 import { WorkshopBoard } from '../board/WorkshopBoard';
 import { ENGINE_DEPTH } from '../checks/useCandidates';
+import { judgeGame, type MoveVerdict } from '../domain/analysis';
+import type { Evaluation } from '../domain/diagnosis';
 import { checkGame, type GameCheck } from '../domain/gameCheck';
-import { JUDGEMENT_MARK } from '../domain/judgement';
+import { JUDGEMENT_MARK, type Judgement } from '../domain/judgement';
 import { levelLabel } from '../domain/level';
-import { figurine, figurineMove } from '../domain/notation';
+import { evaluationWords, figurine, figurineMove, formatCp } from '../domain/notation';
 import type { Side } from '../domain/playedGame';
 import { departureMark, opponentTurn, pastLastMove, reviewStart, type DepartureVerdict, type PracticeEnd } from '../domain/practice';
 import type { Repertoire } from '../domain/repertoire';
@@ -131,7 +133,7 @@ export function PracticePage() {
   );
 }
 
-type Mark = { icon: string; colour: string } | null;
+type Mark = { icon: string; colour: string };
 
 const IN_REPERTOIRE: Mark = { icon: '✓', colour: REPERTOIRE };
 const TO_SETTLE = COLOURS.terracotta;
@@ -150,6 +152,10 @@ function PracticeReview({ side, path, end, repertoire, onAgain }: { side: Side; 
   const verdict = useDepartureVerdict(side, path, check);
   const departure = check.kind === 'followed' ? -1 : check.ply;
   const [shown, setShown] = useState(() => reviewStart(check, path.length));
+  const fens = useMemo(() => replayLine(path).fens, [path]);
+  const evaluations = useEvaluations(fens, ENGINE_DEPTH);
+  const blind = useEngineBlind();
+  const verdicts = useMemo(() => judgeGame(path, fens, side, evaluations), [path, fens, side, evaluations]);
 
   useEffect(() => {
     const step = (event: KeyboardEvent) => {
@@ -161,11 +167,13 @@ function PracticeReview({ side, path, end, repertoire, onAgain }: { side: Side; 
   }, [path.length]);
 
   const icon = check.kind === 'followed' ? null : departureMark(check.kind, verdict);
-  const mark: Mark = icon && { icon, colour: icon === '?' || icon === '!' ? TO_SETTLE : COLOURS.leafSoft };
-  const markOf = (ply: number): Mark => {
-    if (ply === departure) return mark;
+  const mark: Mark | null = icon && { icon, colour: icon === '?' || icon === '!' ? TO_SETTLE : COLOURS.leafSoft };
+  const markOf = (ply: number): Mark[] => {
+    // L'écart porte déjà sa marque à trancher : « !? » s'y lirait comme un coup intéressant.
+    if (ply === departure) return mark ? [mark] : [];
     const inRepertoire = check.kind === 'followed' ? ply < check.plies : ply < check.ply;
-    return inRepertoire ? IN_REPERTOIRE : null;
+    const judgement = verdicts.get(ply)?.judgement;
+    return [inRepertoire && IN_REPERTOIRE, judgement && judgementMark(judgement)].filter((each): each is Mark => !!each);
   };
 
   const summary = (() => {
@@ -190,11 +198,13 @@ function PracticeReview({ side, path, end, repertoire, onAgain }: { side: Side; 
         <span className="text-[14px]" style={{ color: COLOURS.leafSoft }}>
           {ENDS[end]}
         </span>
+        <Analysis side={side} path={path} fens={fens} evaluations={evaluations} verdicts={verdicts} blind={blind} onShow={setShown} />
       </motion.section>
       <LineName path={path.slice(0, shown)} />
       <div className="-mx-2">
         <WorkshopBoard path={path.slice(0, shown)} flipped={side === 'b'} />
       </div>
+      {shown > 0 && <ShownMove side={side} path={path} ply={shown - 1} evaluation={evaluations.get(fens[shown])} verdict={verdicts.get(shown - 1)} blind={blind} />}
       <MoveList path={path} shown={shown} markOf={markOf} onShow={setShown} />
       <div className="mt-2 flex flex-col gap-2">
         <motion.button type="button" onClick={onAgain} whileTap={{ scale: 0.97 }} transition={SPRING} className="min-h-12 rounded-full px-5 text-[15px] font-bold focus-visible:outline-2" style={raised(true)}>
@@ -205,6 +215,70 @@ function PracticeReview({ side, path, end, repertoire, onAgain }: { side: Side; 
         </Link>
       </div>
     </>
+  );
+}
+
+const judgementMark = (judgement: Judgement): Mark => ({ icon: JUDGEMENT_MARK[judgement], colour: TO_SETTLE });
+
+const JUDGEMENT_WORDS: Record<Judgement, [string, string]> = {
+  inaccuracy: ['inaccuracy', 'inaccuracies'],
+  mistake: ['mistake', 'mistakes'],
+  blunder: ['blunder', 'blunders'],
+};
+
+/** Ce que le moteur pense des coups du joueur, tous, dans le répertoire comme en dehors. */
+function Analysis({ side, path, fens, evaluations, verdicts, blind, onShow }: { side: Side; path: readonly string[]; fens: readonly string[]; evaluations: ReadonlyMap<string, Evaluation>; verdicts: ReadonlyMap<number, MoveVerdict>; blind: boolean; onShow: (plies: number) => void }) {
+  const own = side === 'w' ? Math.ceil(path.length / 2) : Math.floor(path.length / 2);
+  if (!own) return null;
+  const faulted = [...verdicts].filter(([, verdict]) => verdict.judgement).sort(([a], [b]) => a - b);
+  const counts = (['blunder', 'mistake', 'inaccuracy'] as const)
+    .map((judgement) => [judgement, faulted.filter(([, verdict]) => verdict.judgement === judgement).length] as const)
+    .filter(([, count]) => count)
+    .map(([judgement, count]) => `${count} ${JUDGEMENT_WORDS[judgement][count > 1 ? 1 : 0]}`);
+  const final = evaluations.get(fens[path.length]);
+  const forPlayer = (cp: number) => (side === 'w' ? cp : -cp);
+  const headline = (() => {
+    if (verdicts.size < own) return blind ? `The engine could judge ${verdicts.size} of your ${own} moves` : `The engine is checking your moves… ${verdicts.size} of ${own}`;
+    return counts.length ? `Your ${own} moves: ${counts.join(', ')}` : `Your ${own} moves: no mistake`;
+  })();
+  return (
+    <div className="mt-2 flex flex-col gap-1.5 border-t pt-3" style={{ borderColor: COLOURS.sand }}>
+      <span role="status" className="text-[16px] font-bold">
+        {headline}
+      </span>
+      {faulted.length > 0 && (
+        <span className="flex flex-wrap gap-1.5">
+          {faulted.map(([ply, verdict]) => (
+            <motion.button key={ply} type="button" onClick={() => onShow(ply + 1)} whileTap={{ scale: 0.97 }} transition={SPRING} className="rounded-full px-3 py-1 text-[14px] font-bold focus-visible:outline-2" style={tile(COLOURS.sand)}>
+              {figurineMove(path[ply], ply + 1)}
+              <span style={{ color: TO_SETTLE }}>{JUDGEMENT_MARK[verdict.judgement!]}</span>
+            </motion.button>
+          ))}
+        </span>
+      )}
+      {final && (
+        <span className="text-[14px]" style={{ color: COLOURS.leafSoft }}>
+          Final position: {formatCp(forPlayer(final.cp))} ({evaluationWords(forPlayer(final.cp))})
+        </span>
+      )}
+    </div>
+  );
+}
+
+/** Sous l'échiquier : où en est la partie après le coup montré, et pour un coup fautif du joueur, celui du moteur. */
+function ShownMove({ side, path, ply, evaluation, verdict, blind }: { side: Side; path: readonly string[]; ply: number; evaluation: Evaluation | undefined; verdict: MoveVerdict | undefined; blind: boolean }) {
+  const cp = evaluation && (side === 'w' ? evaluation.cp : -evaluation.cp);
+  return (
+    <p className="flex flex-wrap items-baseline gap-x-2 px-1 text-[15px]">
+      <span className="font-bold">
+        {figurineMove(path[ply], ply + 1)}
+        {verdict?.judgement && <span style={{ color: TO_SETTLE }}>{JUDGEMENT_MARK[verdict.judgement]}</span>}
+      </span>
+      <span className="tabular-nums" style={{ color: COLOURS.leafSoft }}>
+        {cp === undefined ? (blind ? 'no evaluation' : '…') : `${formatCp(cp)} (${evaluationWords(cp)})`}
+      </span>
+      {verdict?.better && <span>· {figurineMove(verdict.better, ply + 1)} was better</span>}
+    </p>
   );
 }
 
@@ -226,11 +300,11 @@ function useDepartureVerdict(side: Side, path: readonly string[], check: GameChe
   return verdict.judgement;
 }
 
-function MoveList({ path, shown, markOf, onShow }: { path: readonly string[]; shown: number; markOf: (ply: number) => Mark; onShow: (plies: number) => void }) {
+function MoveList({ path, shown, markOf, onShow }: { path: readonly string[]; shown: number; markOf: (ply: number) => Mark[]; onShow: (plies: number) => void }) {
   const rows = Array.from({ length: Math.ceil(path.length / 2) }, (_, index) => index);
   const cell = (ply: number) => {
     if (ply >= path.length) return <span />;
-    const mark = markOf(ply);
+    const marks = markOf(ply);
     return (
       <button
         type="button"
@@ -240,11 +314,11 @@ function MoveList({ path, shown, markOf, onShow }: { path: readonly string[]; sh
         style={shown === ply + 1 ? { background: COLOURS.sand, fontWeight: 700 } : undefined}
       >
         <span>{figurine(path[ply])}</span>
-        {mark && (
-          <span aria-label={mark.icon === '✓' ? 'in your repertoire' : undefined} className="font-extrabold" style={{ color: mark.colour }}>
+        {marks.map((mark) => (
+          <span key={mark.icon} aria-label={mark.icon === '✓' ? 'in your repertoire' : undefined} className="font-extrabold" style={{ color: mark.colour }}>
             {mark.icon}
           </span>
-        )}
+        ))}
       </button>
     );
   };

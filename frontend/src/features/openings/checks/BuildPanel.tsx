@@ -2,7 +2,7 @@ import { motion } from 'framer-motion';
 import { useMemo, type ReactNode } from 'react';
 import { draftLines, type DraftMove } from '../domain/addition';
 import { winChance } from '../domain/diagnosis';
-import { figurineLine, figurineMove, formatCp } from '../domain/notation';
+import { evaluationWords, figurineLine, figurineMove, formatCp } from '../domain/notation';
 import { isPlayerMove } from '../domain/openingTree';
 import { formatPercent } from '../flame/format';
 import { JUDGEMENT_MARK, judgeMove, type Judgement } from '../domain/judgement';
@@ -460,18 +460,9 @@ function EvalBar({ cp: whiteCp, side, failed }: { cp: number | undefined; side: 
           transition={SPRING}
         />
       </span>
-      <span className="whitespace-nowrap tabular-nums">{cp === undefined ? (failed ? '—' : '…') : `${formatCp(cp)} ${verdictOf(cp)}`}</span>
+      <span className="whitespace-nowrap tabular-nums">{cp === undefined ? (failed ? '—' : '…') : `${formatCp(cp)} (${evaluationWords(cp)})`}</span>
     </span>
   );
-}
-
-/** Ce que dit l'évaluation en mots, pour qui ne lit pas les centipions. */
-function verdictOf(cp: number): string {
-  // Sur la valeur affichée, arrondie au dixième : « +0.5 » doit toujours dire la même chose.
-  const shown = Math.round(cp / 10) * 10;
-  if (Math.abs(shown) < 30) return '(equal)';
-  if (Math.abs(shown) < 100) return shown > 0 ? '(slightly better)' : '(slightly worse)';
-  return cp > 0 ? '(better for you)' : '(worse for you)';
 }
 
 
