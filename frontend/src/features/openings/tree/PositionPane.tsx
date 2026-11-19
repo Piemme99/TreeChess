@@ -270,13 +270,13 @@ export function StoppedCard({ stopped, ply }: { stopped: StoppedActions; ply: nu
               <span className="text-[13px]" style={{ color: COLOURS.leafSoft }}>
                 Your last {move.playedInstead.length} games here
               </span>
-              <span className="flex flex-wrap gap-1.5">
+              <ul aria-label={`Your last ${move.playedInstead.length} games here`} className="flex flex-wrap gap-1.5">
                 {move.playedInstead.map((san, index) => (
-                  <span key={index} className="rounded-full px-2.5 py-0.5 text-[15px] font-bold" style={{ background: COLOURS.sand }}>
+                  <li key={index} className="rounded-full px-2.5 py-0.5 text-[15px] font-bold" style={{ background: COLOURS.sand }}>
                     {figurine(san)}
-                  </span>
+                  </li>
                 ))}
-              </span>
+              </ul>
             </div>
             <p className="text-[13px]" style={{ color: COLOURS.leafSoft }}>
               Out of your review until you decide.
