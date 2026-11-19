@@ -1,16 +1,23 @@
 import { BADGES, type BadgeKind } from './grades';
 
-export function Badge({ kind }: { kind: BadgeKind }) {
-  const { label, glyph, colour } = BADGES[kind];
+/** `labelled` : le nom est écrit à côté, la pastille n'a pas à le redire au lecteur d'écran. */
+export function Badge({ kind, labelled = false }: { kind: BadgeKind; labelled?: boolean }) {
+  const { label, glyph, colour, ink, outline } = BADGES[kind];
+  const a11y = labelled ? { 'aria-hidden': true } : { role: 'img', 'aria-label': label };
   if (kind === 'new') {
     return (
-      <span title={label} className="inline-flex h-[18px] items-center rounded-full border px-1.5 text-[11px] font-bold leading-none" style={{ borderColor: colour, color: colour }}>
+      <span {...a11y} title={label} className="inline-flex h-[18px] items-center rounded-full border px-1.5 text-[11px] font-bold leading-none" style={{ borderColor: colour, color: colour }}>
         {glyph}
       </span>
     );
   }
   return (
-    <span role="img" aria-label={label} title={label} className="inline-grid size-[18px] shrink-0 place-items-center rounded-full text-[10px] font-extrabold leading-none text-white" style={{ background: colour }}>
+    <span
+      {...a11y}
+      title={label}
+      className="inline-grid size-[18px] shrink-0 place-items-center rounded-full text-[10px] font-extrabold leading-none"
+      style={outline ? { border: `1.5px solid ${colour}`, color: colour } : { background: colour, color: ink ?? 'white' }}
+    >
       {kind === 'repertoire' ? <Book /> : glyph}
     </span>
   );

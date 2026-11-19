@@ -1,5 +1,5 @@
-import { uciToSan, winChance, type Evaluation } from './diagnosis';
-import { judgeMove, type Judgement } from './judgement';
+import { uciToSan, type Evaluation } from './diagnosis';
+import { judgeMove, lostChances, type Judgement } from './judgement';
 import type { Side } from './playedGame';
 
 /** La note d'un coup, du meilleur à la gaffe : celle du moteur, ou une imprécision et pire (`Judgement`). */
@@ -42,8 +42,7 @@ export function judgeGame(
       continue;
     }
     const judgement = judgeMove(before.cp, after.cp, side);
-    const lost = side === 'w' ? winChance(before.cp) - winChance(after.cp) : winChance(after.cp) - winChance(before.cp);
-    const grade = judgement ?? (lost < GOOD_LOSS ? 'good' : 'correct');
+    const grade = judgement ?? (lostChances(before.cp, after.cp, side) < GOOD_LOSS ? 'good' : 'correct');
     verdicts.set(ply, { grade, judgement, better: judgement ? best : null });
   }
   return verdicts;

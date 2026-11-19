@@ -17,7 +17,7 @@ import { levelLabel } from '../domain/level';
 import { evaluationWords, figurine, figurineMove, formatCp } from '../domain/notation';
 import { gamesOfLastMonths } from '../domain/period';
 import type { PlayedGame, Side } from '../domain/playedGame';
-import { departureMark, lapseOf, opponentTurn, pastLastMove, practiceStep, reviewStart, startingLine, type DepartureVerdict, type PracticeEnd, type PracticeStep } from '../domain/practice';
+import { lapseOf, opponentTurn, pastLastMove, practiceStep, reviewStart, startingLine, type DepartureVerdict, type PracticeEnd, type PracticeStep } from '../domain/practice';
 import { gamesUntil } from '../domain/replay';
 import type { Repertoire } from '../domain/repertoire';
 import { useEvaluations } from '../line/engine';
@@ -168,10 +168,6 @@ export function PracticePage() {
   );
 }
 
-type Mark = { icon: string; colour: string };
-
-const TO_SETTLE = COLOURS.terracotta;
-
 const ENDS: Record<PracticeEnd, string> = {
   rare: 'Ended where fewer than 100 games at your level go on',
   'move-15': 'Ended at move 15',
@@ -230,8 +226,8 @@ function PracticeReview({ side, path, from, end, repertoire, habits, day, onAdd,
     return () => window.removeEventListener('keydown', step);
   }, [path.length, building]);
 
-  const icon = step ? departureMark(step.kind === 'uncovered' ? 'uncovered' : 'left', step.kind === 'left' ? verdict : null) : null;
-  const mark: Mark | null = icon && { icon, colour: icon === '?' || icon === '!' ? TO_SETTLE : COLOURS.leafSoft };
+  // Le titre porte la pastille de l'écart, la même que dans la liste.
+  const headBadge: BadgeKind | undefined = step ? (step.kind === 'uncovered' ? 'new' : verdicts.get(step.ply)?.grade) : undefined;
   const badgesOf = (ply: number): BadgeKind[] => {
     if (ply === departure && step?.kind === 'uncovered') return ['new'];
     const verdict = verdicts.get(ply);
@@ -296,9 +292,9 @@ function PracticeReview({ side, path, from, end, repertoire, habits, day, onAdd,
     <>
       <motion.section initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={SPRING} className="flex flex-col gap-1 rounded-3xl px-5 py-4" style={raised(false)}>
         <h1 className="flex items-baseline gap-2 text-[20px] font-extrabold leading-tight tracking-[-0.01em]">
-          {mark && (
-            <span aria-hidden="true" style={{ color: mark.colour }}>
-              {mark.icon}
+          {headBadge && (
+            <span className="self-center">
+              <Badge kind={headBadge} />
             </span>
           )}
           <span>{summary}</span>
@@ -461,8 +457,8 @@ function ShownMove({ side, path, ply, badges, evaluation, verdict, blind }: { si
     <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 px-1 text-[15px]">
       <span className="font-bold">{figurineMove(path[ply], ply + 1)}</span>
       {badges.map((kind) => (
-        <span key={kind} className="flex items-center gap-1 text-[14px] font-semibold" style={{ color: kind === 'correct' ? COLOURS.leafSoft : BADGES[kind].colour }}>
-          <Badge kind={kind} />
+        <span key={kind} className="flex items-center gap-1 text-[14px] font-semibold" style={{ color: COLOURS.leafSoft }}>
+          <Badge kind={kind} labelled />
           {BADGES[kind].label}
         </span>
       ))}
@@ -531,7 +527,7 @@ function MoveList({ path, shown, badgesOf, onShow }: { path: readonly string[]; 
         <ul aria-label="Legend" className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1.5 border-t px-1 pt-2.5 pb-1 text-[13px]" style={{ borderColor: COLOURS.sand, color: COLOURS.leafSoft }}>
           {BADGE_ORDER.filter((kind) => counts.has(kind)).map((kind) => (
             <li key={kind} className="flex items-center gap-1">
-              <Badge kind={kind} />
+              <Badge kind={kind} labelled />
               {BADGES[kind].label}
               <span className="font-bold tabular-nums" style={{ color: COLOURS.leaf }}>
                 {counts.get(kind)}

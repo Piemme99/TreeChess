@@ -12,8 +12,12 @@ const THRESHOLDS: [Judgement, number][] = [
   ['inaccuracy', 0.05],
 ];
 
+/** Les chances de gain, sur 0–1, que perd celui qui joue entre l'évaluation avant et après (centipions des Blancs). */
+export const lostChances = (before: number, after: number, mover: Side) =>
+  mover === 'w' ? winChance(before) - winChance(after) : winChance(after) - winChance(before);
+
 /** Ce que vaut un coup pour celui qui le joue, d'après l'évaluation avant et après (centipions des Blancs). */
 export function judgeMove(before: number, after: number, mover: Side): Judgement | null {
-  const lost = mover === 'w' ? winChance(before) - winChance(after) : winChance(after) - winChance(before);
+  const lost = lostChances(before, after, mover);
   return THRESHOLDS.find(([, threshold]) => lost >= threshold)?.[0] ?? null;
 }
