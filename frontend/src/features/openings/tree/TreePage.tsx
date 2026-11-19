@@ -277,7 +277,8 @@ export function TreePage() {
   const removeLast = () => {
     const last = path[path.length - 1];
     const before = path.slice(0, -1);
-    const removal: Removal = { side, position: positionKey(replayLine(path).fens[before.length]), san: last, removedAt: replay.day };
+    // Le vrai jour, pas celui de la dernière partie importée : les parties jouées depuis l'ont été avec le coup.
+    const removal: Removal = { side, position: positionKey(replayLine(path).fens[before.length]), san: last, removedAt: replay.today };
     removeMove(removal);
     walk(before);
     toTop();
