@@ -180,8 +180,9 @@ function PracticeReview({ side, path, end, repertoire, onAgain }: { side: Side; 
     if (check.kind === 'followed') return check.plies >= path.length ? 'Prep followed all game' : check.plies ? `Prep followed to move ${Math.ceil(check.plies / 2)}, then nothing prepared` : 'No prep here';
     const played = figurineMove(check.played, check.ply + 1);
     if (check.kind === 'uncovered') return `${played}, no answer yet`;
-    const mark = verdict && verdict !== 'judging' && verdict !== 'blind' ? JUDGEMENT_MARK[verdict] : '';
-    return verdict === 'judging' ? `You played ${played}: the engine is judging it…` : verdict ? `You played ${played}${mark}, not ${figurineMove(check.planned[0], check.ply + 1)}` : `New move ${played}, instead of ${figurineMove(check.planned[0], check.ply + 1)}`;
+    // La qualité du coup, c'est l'analyse plus bas qui la dit, face au coup du moteur : une seconde marque, jugée
+    // face au répertoire, la contredirait.
+    return verdict === 'judging' ? `You played ${played}: the engine is judging it…` : verdict ? `You played ${played}, not ${figurineMove(check.planned[0], check.ply + 1)}` : `New move ${played}, instead of ${figurineMove(check.planned[0], check.ply + 1)}`;
   })();
 
   return (
@@ -230,7 +231,7 @@ const JUDGEMENT_WORDS: Record<Judgement, [string, string]> = {
 function Analysis({ side, path, fens, evaluations, verdicts, blind, onShow }: { side: Side; path: readonly string[]; fens: readonly string[]; evaluations: ReadonlyMap<string, Evaluation>; verdicts: ReadonlyMap<number, MoveVerdict>; blind: boolean; onShow: (plies: number) => void }) {
   const own = side === 'w' ? Math.ceil(path.length / 2) : Math.floor(path.length / 2);
   if (!own) return null;
-  const faulted = [...verdicts].filter(([, verdict]) => verdict.judgement).sort(([a], [b]) => a - b);
+  const faulted = [...verdicts].filter((entry): entry is [number, MoveVerdict & { judgement: Judgement }] => entry[1].judgement !== null);
   const counts = (['blunder', 'mistake', 'inaccuracy'] as const)
     .map((judgement) => [judgement, faulted.filter(([, verdict]) => verdict.judgement === judgement).length] as const)
     .filter(([, count]) => count)
@@ -239,7 +240,8 @@ function Analysis({ side, path, fens, evaluations, verdicts, blind, onShow }: { 
   const forPlayer = (cp: number) => (side === 'w' ? cp : -cp);
   const headline = (() => {
     if (verdicts.size < own) return blind ? `The engine could judge ${verdicts.size} of your ${own} moves` : `The engine is checking your moves… ${verdicts.size} of ${own}`;
-    return counts.length ? `Your ${own} moves: ${counts.join(', ')}` : `Your ${own} moves: no mistake`;
+    const yours = own > 1 ? `Your ${own} moves` : 'Your move';
+    return `${yours}: ${counts.length ? counts.join(', ') : 'no mistake'}`;
   })();
   return (
     <div className="mt-2 flex flex-col gap-1.5 border-t pt-3" style={{ borderColor: COLOURS.sand }}>
@@ -251,7 +253,7 @@ function Analysis({ side, path, fens, evaluations, verdicts, blind, onShow }: { 
           {faulted.map(([ply, verdict]) => (
             <motion.button key={ply} type="button" onClick={() => onShow(ply + 1)} whileTap={{ scale: 0.97 }} transition={SPRING} className="rounded-full px-3 py-1 text-[14px] font-bold focus-visible:outline-2" style={tile(COLOURS.sand)}>
               {figurineMove(path[ply], ply + 1)}
-              <span style={{ color: TO_SETTLE }}>{JUDGEMENT_MARK[verdict.judgement!]}</span>
+              <span style={{ color: TO_SETTLE }}>{JUDGEMENT_MARK[verdict.judgement]}</span>
             </motion.button>
           ))}
         </span>
