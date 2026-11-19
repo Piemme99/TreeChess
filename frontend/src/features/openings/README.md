@@ -23,6 +23,8 @@ Vocabulary (opening tree, deficit, priority, points to gain): `CONTEXT.md`.
   - `judgement.ts` — a move graded like on Lichess (?!, ?, ??) from two evaluations.
   - `diagnosis.ts` — an engine evaluation, its winning chances (Lichess formula), UCI to SAN.
   - `preparation.ts` — the Lichess explorer stats and the source of a repertoire move.
+  - `level.ts` — the explorer level from the player's rating; `practice.ts` — the practice opponent's reply and
+    when a practice game stops.
   - `period.ts`, `notation.ts`.
 - `OpeningsPage.tsx` — the screen: priority tickets, flame graph as tiles, board panel.
 - `flame/` — layout (pure), camera (`useFlameCamera`: zooming moves a window over fixed
@@ -41,6 +43,7 @@ Vocabulary (opening tree, deficit, priority, points to gain): `CONTEXT.md`.
   one-line rows.
 - `review/` — the review drill (`/dev/review`): `domain/review.ts` (Leitner boxes seeded from habits, the line to
   play, the opponent's reply), `useReview.ts` (stored state, lapses from game checks, weights).
+- `practice/` — Practice (`/dev/practice?side=w|b`): the game against the explorer, then its review.
 - `position/` — the board panel; positions are replayed on demand (`replay.ts`).
 - `board/` — the board whose pieces slide from one position to the next (`pieces.ts`
   gives each piece a stable identity along a line).
@@ -400,7 +403,7 @@ hero card. No replay for a signed-in player: "Next day" and "Reset" stay in the 
    goes up once. The demo stays in the browser. Next, per `CLAUDE.md`: `/` points to v2, then v1 is removed.
 4. **Explorer ranges from the player's rating**: done as brick 1 of Practice.
 
-## Practice (use 4, path to validate, 2026-11-18)
+## Practice (use 4, path validated by PMG, 2026-11-18)
 
 Why: the repertoire grows only from real games, one reply at a time. Practice meets in a few minutes the replies
 players of the player's level actually play, so they decide an answer before meeting it for real, and replays their
@@ -446,7 +449,9 @@ Practice games are not games: they stay out of the opening tree, weak openings, 
    the speed is not stored), 1800 without rated games (the demo: unchanged). Opponents from rating −100 to +300,
    the player's own moves from +400 and never below 2000, both rounded out to the explorer's buckets. PMG (blitz
    1515): replies of 1400–2000 players, own moves among 2000+, instead of 1600–2200 and 2200+.
-2. **Play and review**: screens 1–3 from Home, review read-only.
+2. **Play and review** (done, `practice/`): screens 1–3 from Home, review read-only. The review opens on the
+   first move off the repertoire; a sound move of the player's names the repertoire move it replaced. Nothing is
+   stored: a practice game is gone once the page is left.
 3. **Settle from the review**, lapses for Review.
 4. **"Practise from here"** on the tree.
 

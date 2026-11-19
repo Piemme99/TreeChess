@@ -144,6 +144,7 @@ function Home({ onForget, syncing }: { onForget: () => void; syncing: boolean })
           {treated.length > 0 && (
             <WeakOpenings label="Worked openings" summary={`${openingName(table, shownLine(treated[0]))}${treated.length > 1 ? ` +${treated.length - 1}` : ''}`} priorities={treated} table={table} href={workOn} workedOf={workedOf} lived={lived} action="Open" />
           )}
+          <PracticeRow href={(side) => `${pathOf('practice')}?side=${side}`} />
         </ul>
       </main>
       <Toast toast={toast} onClose={close} />
@@ -201,6 +202,27 @@ function Row({ label, figure, to }: { label: string; figure: string; to: string 
         </span>
         <span aria-hidden="true">→</span>
       </Link>
+    </li>
+  );
+}
+
+/** Un choix, jamais la carte en avant : rien n'attend le joueur ici. */
+function PracticeRow({ href }: { href: (side: Side) => string }) {
+  return (
+    <li className="flex min-h-12 items-center gap-3 rounded-2xl py-2 pl-4 pr-2 text-[15px]" style={tile(COLOURS.paper)}>
+      <span className="flex min-w-0 flex-col">
+        <span className="font-bold">Practice</span>
+        <span className="text-[13px]" style={{ color: COLOURS.leafSoft }}>
+          against the moves of your level
+        </span>
+      </span>
+      <span className="ml-auto flex shrink-0 gap-1.5">
+        {(['w', 'b'] as const).map((side) => (
+          <Link key={side} to={href(side)} aria-label={`Practise as ${side === 'w' ? 'White' : 'Black'}`} className="rounded-full px-3.5 py-2 text-[14px] font-bold focus-visible:outline-2" style={tile(COLOURS.sand)}>
+            {side === 'w' ? 'White' : 'Black'}
+          </Link>
+        ))}
+      </span>
     </li>
   );
 }

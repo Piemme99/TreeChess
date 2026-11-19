@@ -1,3 +1,4 @@
+import { PracticePage as Practice } from '../practice/PracticePage';
 import { ReviewPage as Review } from '../review/ReviewPage';
 import { TreePage as Tree } from '../tree/TreePage';
 import { SourceGate } from './SourceContext';
@@ -15,6 +16,14 @@ export function ReviewPage() {
   return (
     <SourceGate>
       <Review />
+    </SourceGate>
+  );
+}
+
+export function PracticePage() {
+  return (
+    <SourceGate>
+      <Practice />
     </SourceGate>
   );
 }
