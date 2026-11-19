@@ -38,9 +38,9 @@ export function ReviewPage() {
   // Pas de séance ici : les verdicts du moteur sur les écarts n'y servent pas.
   const source = useSource();
   const replay = useReplayDay(source.games, source.firstDay, source.replay);
-  const { repertoires } = useRepertoires(source.games, source.start);
+  const { repertoires, repertoireOn } = useRepertoires(source.games, source.start);
   const today = replay.today;
-  const lived = useMemo(() => liveGames(source.games, repertoires, source.firstDay, replay.day), [source, repertoires, replay.day]);
+  const lived = useMemo(() => liveGames(source.games, repertoireOn, source.firstDay, replay.day), [source, repertoireOn, replay.day]);
   const review = useReview(source.games, repertoires, lived, today, source.start);
   const [line, setLine] = useState<Line | null>(null);
   const [exhausted, setExhausted] = useState(false);

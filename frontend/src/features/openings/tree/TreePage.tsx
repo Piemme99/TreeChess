@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BuildSession } from '../checks/BuildSession';
 import { originAt, originOf, type BuildOrigin } from '../checks/useBuilder';
 import type { AddedMove, Addition } from '../domain/addition';
+import type { Removal } from '../domain/removal';
 import { buildOpeningTree, isPlayerMove, type OpeningTree } from '../domain/openingTree';
 import { figurineLine, figurineMove } from '../domain/notation';
 import { gamesOfLastMonths } from '../domain/period';
@@ -51,7 +52,7 @@ interface Session {
  */
 export function TreePage() {
   useWorkshopFont();
-  const { source, replay, known, repertoires, steps, adoptions, judging, add, remove, ignore, unignore, forgetIgnored, forgetAdditions } = useReplayedSession();
+  const { source, replay, known, repertoires, steps, adoptions, judging, add, remove, removeMove, restoreMove, ignore, unignore, forgetIgnored, forgetAdditions } = useReplayedSession();
   const { worked, work, unwork } = useWorkedLines();
   // Openings envoie une ligne à travailler par l'adresse : /dev/tree?side=b&line=d4 Nf6.
   const [params, setParams] = useSearchParams();
@@ -273,6 +274,22 @@ export function TreePage() {
       });
     },
   };
+  const removeLast = () => {
+    const last = path[path.length - 1];
+    const before = path.slice(0, -1);
+    // Le vrai jour, pas celui de la dernière partie importée : les parties jouées depuis l'ont été avec le coup.
+    const removal: Removal = { side, position: positionKey(replayLine(path).fens[before.length]), san: last, removedAt: replay.today };
+    removeMove(removal);
+    walk(before);
+    toTop();
+    show({
+      text: `${figurineMove(last, path.length)} and what follows removed from your repertoire`,
+      undo: () => {
+        restoreMove(removal);
+        walk(path);
+      },
+    });
+  };
   const skip = (step: SessionStep) => {
     mark(step.key, 'skipped');
     show({ text: 'Skipped for this session', undo: () => mark(step.key, null) });
@@ -434,6 +451,8 @@ export function TreePage() {
     priorityCount: task === 'weak' ? undefined : priorities.length,
     onNextPriority: onTaskLine ? nextWeak : undefined,
     onExtend: () => build({ origin: originAt(side, node.path, path) }),
+    // Seuls les coups du joueur se retirent : ceux de l'adversaire, il les subit.
+    onRemove: path.length && path.length === node.path.length && isPlayerMove(side, path.length) ? removeLast : undefined,
     onPrepareFollows: priority
       ? (line: readonly string[]) => {
           const reached = nodeAlong(root, line);

@@ -176,7 +176,10 @@ Games and the line view leave the path; bricks 5–7 wait for the position scree
 
 5. **Review**: minimal debrief (red arrow played, green arrows repertoire, replay it).
 6. **Worked lines**: adherence, then score against before, on the priority tickets.
-7. **Engine correction at creation, and removals** (six months without the move).
+7. **Engine correction at creation, and removals**. Removal by hand — *done*: "I no longer play …: remove it" under a
+   player's move on the Tree (`domain/removal.ts`, stored as a log like the additions, key `removals`); a game is checked
+   against the repertoire of its day, so removing a move does not reopen the games played with it. Next: offering a
+   move for removal once the player played something else the last 5 times they reached its position.
 
 ## POC: the tree as the landing screen (grilled with PMG, 2026-10-19)
 
@@ -208,7 +211,7 @@ compared.
    door only picks the starting node and what "Next" steps through; after the last badge, "Done for
    today" and back to the root. 1.d4 d5 as Black is both a priority and 25 checks: it shows both.
 7. **"Extend from here" on every position**, opening `BuildSession` from it (same board, same
-   candidate table as Keep and Prepare). No deletion: removal stays a proposed decision (brick 7).
+   candidate table as Keep and Prepare). Removal: by hand under a player's move (brick 7).
 
 Bricks: (1) the tree alone on `/dev/tree` — *done* (`tree/`: `repertoireMap.ts` builds the map
 from the repertoire, the recent opening tree and the marks; `fold.ts` what is visible; `mapLayout.ts`

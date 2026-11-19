@@ -3,10 +3,10 @@ import type { PlayedGame, Side } from '../domain/playedGame';
 import type { Repertoire } from '../domain/repertoire';
 import type { CheckedGame } from './checkedGame';
 
-/** Les parties rejouées jusqu'à `day` inclus, dans l'ordre où elles ont été jouées, chacune contrôlée. */
+/** Les parties rejouées jusqu'à `day` inclus, dans l'ordre où elles ont été jouées, chacune contrôlée contre le répertoire de son jour. */
 export function liveGames(
   games: readonly PlayedGame[],
-  repertoires: Record<Side, Repertoire>,
+  repertoireOn: (side: Side, day: string) => Repertoire,
   firstDay: string,
   day: string,
 ): CheckedGame[] {
@@ -14,7 +14,7 @@ export function liveGames(
     .map((game, id) => ({ id, game }))
     .filter(({ game }) => game.playedAt > firstDay && game.playedAt <= day)
     .sort((a, b) => a.game.playedAt.localeCompare(b.game.playedAt))
-    .map(({ id, game }) => ({ id, game, check: checkGame(repertoires[game.side], game) }));
+    .map(({ id, game }) => ({ id, game, check: checkGame(repertoireOn(game.side, game.playedAt), game) }));
   const asks = asksDecision(lived);
   return lived.map((checked, index) => ({ ...checked, asks: asks[index] }));
 }

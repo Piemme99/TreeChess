@@ -46,6 +46,8 @@ export interface PositionPaneProps {
   onNextPriority?: () => void;
   /** Construire depuis la position de l'échiquier, dans ou hors du répertoire. */
   onExtend: () => void;
+  /** Retirer du répertoire le coup du joueur qui a mené ici, et sa suite. */
+  onRemove?: () => void;
   /** Construire depuis une ligne de la priorité : la sienne, ou celle où elle perd ses points. */
   onPrepareFollows?: (line: readonly string[]) => void;
   onMove: (san: string) => void;
@@ -60,7 +62,7 @@ const SHOWN_MOVES = 4;
 
 /** Le volet : on y joue comme sur l'explorateur Lichess, et on y tranche ce que la position porte. */
 export function PositionPane(props: PositionPaneProps) {
-  const { side, path, node, steps, priority, actions, onLead, onSkip, onNextPriority, onExtend, onPrepareFollows, onMove, onJump, onBack } = props;
+  const { side, path, node, steps, priority, actions, onLead, onSkip, onNextPriority, onExtend, onRemove, onPrepareFollows, onMove, onJump, onBack } = props;
   const fens = useMemo(() => replayLine(path).fens, [path]);
   const opening = useOpeningName(fens);
   const facts = usePositionFacts(props);
@@ -120,7 +122,12 @@ export function PositionPane(props: PositionPaneProps) {
           </div>
         )
       )}
-      <p className="order-6 hidden px-1 text-[12px] lg:block" style={{ color: COLOURS.leafSoft }}>
+      {onRemove && (
+        <div className="order-6">
+          <RemoveMove path={path} onRemove={onRemove} />
+        </div>
+      )}
+      <p className="order-7 hidden px-1 text-[12px] lg:block" style={{ color: COLOURS.leafSoft }}>
         Play on the board or click the map. Keys: ← back · → main move · ↑ ↓ other moves · Home start · + − fold.
       </p>
     </aside>
@@ -218,6 +225,15 @@ export function OffRepertoire({ path, node, facts, onExtend, onJump }: { path: r
         </Action>
       )}
     </section>
+  );
+}
+
+/** Discret : on retire rarement, et l'annulation suit dans le toast. */
+export function RemoveMove({ path, onRemove }: { path: readonly string[]; onRemove: () => void }) {
+  return (
+    <button type="button" onClick={onRemove} className="self-start rounded px-1 py-1 text-[13px] font-semibold underline-offset-4 hover:underline focus-visible:outline-2" style={{ color: COLOURS.leafSoft }}>
+      I no longer play {figurineMove(path[path.length - 1], path.length)}: remove it
+    </button>
   );
 }
 

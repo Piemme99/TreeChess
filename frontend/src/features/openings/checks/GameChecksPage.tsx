@@ -33,8 +33,8 @@ export function GameChecksPage() {
   const { toast, show, close } = useToast();
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [addingId, setAddingId] = useState<number | null>(null);
-  const { repertoires, add, remove, clear: forgetAdditions } = useRepertoires(playedGamesFixture, REPLAY_START);
-  const lived = useMemo(() => liveGames(playedGamesFixture, repertoires, REPLAY_FIRST_DAY, replay.day), [repertoires, replay.day]);
+  const { repertoires, repertoireOn, add, remove, clear: forgetAdditions } = useRepertoires(playedGamesFixture, REPLAY_START);
+  const lived = useMemo(() => liveGames(playedGamesFixture, repertoireOn, REPLAY_FIRST_DAY, replay.day), [repertoireOn, replay.day]);
   const today = lived.filter(({ game }) => game.playedAt === replay.day);
   const toDecide = gamesToDecide(lived, ignored, replay.day);
   const settled = today.filter((checked) => !isOpen(checked, ignored));
