@@ -17,7 +17,7 @@ import { levelLabel } from '../domain/level';
 import { evaluationWords, figurine, figurineMove, formatCp } from '../domain/notation';
 import { gamesOfLastMonths } from '../domain/period';
 import type { PlayedGame, Side } from '../domain/playedGame';
-import { departureMark, lapseOf, opponentTurn, pastLastMove, practiceStep, reviewStart, type DepartureVerdict, type PracticeEnd, type PracticeStep } from '../domain/practice';
+import { departureMark, lapseOf, opponentTurn, pastLastMove, practiceStep, reviewStart, startingLine, type DepartureVerdict, type PracticeEnd, type PracticeStep } from '../domain/practice';
 import { gamesUntil } from '../domain/replay';
 import type { Repertoire } from '../domain/repertoire';
 import { useEvaluations } from '../line/engine';
@@ -51,7 +51,6 @@ interface Game {
   stuck: boolean;
 }
 
-const START: Game = { path: [], end: null, stuck: false };
 const sideName = (side: Side) => (side === 'w' ? 'White' : 'Black');
 const turnOf = (path: readonly string[]): Side => (path.length % 2 ? 'b' : 'w');
 const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -75,7 +74,10 @@ export function PracticePage() {
   const side: Side = params.get('side') === 'b' ? 'b' : 'w';
   const level = useExplorerLevel();
   const signIn = useExplorerSignIn();
-  const [game, setGame] = useState<Game>(START);
+  // « Practise from here » sur l'arbre : la partie part de la position regardée.
+  const line = params.get('line');
+  const start = useMemo(() => after(startingLine(line), null), [line]);
+  const [game, setGame] = useState<Game>(start);
   const [round, setRound] = useState(1);
   const theirTurn = !game.end && !game.stuck && turnOf(game.path) !== side;
 
@@ -101,7 +103,7 @@ export function PracticePage() {
   };
 
   const again = () => {
-    setGame(START);
+    setGame(start);
     setRound(round + 1);
   };
 
@@ -115,6 +117,7 @@ export function PracticePage() {
               key={round}
               side={side}
               path={game.path}
+              from={start.path.length}
               end={game.end}
               repertoire={repertoires[side]}
               habits={habits}
@@ -179,6 +182,8 @@ const ENDS: Record<PracticeEnd, string> = {
 interface ReviewProps {
   side: Side;
   path: readonly string[];
+  /** Le premier demi-coup joué : ceux d'avant viennent de l'arbre. */
+  from: number;
   end: PracticeEnd;
   repertoire: Repertoire;
   /** Les parties du joueur des douze derniers mois : ses habitudes, pour préparer une réponse. */
@@ -190,7 +195,7 @@ interface ReviewProps {
   onAgain: () => void;
 }
 
-function PracticeReview({ side, path, end, repertoire, habits, day, onAdd, onUndo, onLapse, onAgain }: ReviewProps) {
+function PracticeReview({ side, path, from, end, repertoire, habits, day, onAdd, onUndo, onLapse, onAgain }: ReviewProps) {
   const pathOf = useV2Path();
   // Le répertoire de la partie, pas celui d'après : un ajout depuis la relecture ne doit pas déplacer l'écart.
   const [check] = useState(() => checkGame(repertoire, { side, moves: [...path], score: 0.5, playedAt: '' }));
@@ -202,16 +207,16 @@ function PracticeReview({ side, path, end, repertoire, habits, day, onAdd, onUnd
   const { toast, show, close } = useToast();
   const lapsed = useRef(false);
   useEffect(() => {
-    const lapse = lapseOf(step);
+    const lapse = lapseOf(step, from);
     if (!lapse || lapsed.current) return;
     lapsed.current = true;
     onLapse(lapse);
-  }, [step, onLapse]);
+  }, [step, from, onLapse]);
   const [shown, setShown] = useState(() => reviewStart(check, path.length));
   const fens = useMemo(() => replayLine(path).fens, [path]);
   const evaluations = useEvaluations(fens, ENGINE_DEPTH);
   const blind = useEngineBlind();
-  const verdicts = useMemo(() => judgeGame(path, fens, side, evaluations), [path, fens, side, evaluations]);
+  const verdicts = useMemo(() => judgeGame(path, fens, side, evaluations, from), [path, fens, side, evaluations, from]);
 
   useEffect(() => {
     // Le constructeur a ses propres flèches : la relecture cachée dessous ne doit pas bouger avec elles.
@@ -261,7 +266,8 @@ function PracticeReview({ side, path, end, repertoire, habits, day, onAdd, onUnd
   const addition = (moves: AddedMove[]): Addition => ({ side, addedAt: day, moves });
   const actions: SettleActions | null = step && {
     add: () => settle(`${figurineMove(step.played, step.ply + 1)} added to your repertoire`, addition([{ position: step.position, san: step.played, source: 'habit' }])),
-    keep: () => settle(`Kept ${step.planned.map((san) => figurineMove(san, step.ply + 1)).join(' · ')} · back in your review`),
+    // Un écart posé par l'arbre n'est pas un oubli : il ne revient pas en révision.
+    keep: () => settle(`Kept ${step.planned.map((san) => figurineMove(san, step.ply + 1)).join(' · ')}${lapseOf(step, from) ? ' · back in your review' : ''}`),
     leave: () => settle(step.kind === 'uncovered' ? `${figurineMove(step.played, step.ply + 1)} left unprepared` : 'Repertoire unchanged'),
     build: () => {
       setBuilding(originFor(step, path, side));
@@ -300,7 +306,7 @@ function PracticeReview({ side, path, end, repertoire, habits, day, onAdd, onUnd
           {ENDS[end]}
         </span>
         {step && actions && <Settle step={step} verdict={verdict} settled={settled} actions={actions} />}
-        <Analysis side={side} path={path} fens={fens} evaluations={evaluations} verdicts={verdicts} blind={blind} onShow={setShown} />
+        <Analysis side={side} path={path} from={from} fens={fens} evaluations={evaluations} verdicts={verdicts} blind={blind} onShow={setShown} />
       </motion.section>
       <LineName path={path.slice(0, shown)} />
       <div className="-mx-2">
@@ -408,8 +414,8 @@ const JUDGEMENT_WORDS: Record<Judgement, [string, string]> = {
 };
 
 /** Ce que le moteur pense des coups du joueur, tous, dans le répertoire comme en dehors. */
-function Analysis({ side, path, fens, evaluations, verdicts, blind, onShow }: { side: Side; path: readonly string[]; fens: readonly string[]; evaluations: ReadonlyMap<string, Evaluation>; verdicts: ReadonlyMap<number, MoveVerdict>; blind: boolean; onShow: (plies: number) => void }) {
-  const own = side === 'w' ? Math.ceil(path.length / 2) : Math.floor(path.length / 2);
+function Analysis({ side, path, from, fens, evaluations, verdicts, blind, onShow }: { side: Side; path: readonly string[]; from: number; fens: readonly string[]; evaluations: ReadonlyMap<string, Evaluation>; verdicts: ReadonlyMap<number, MoveVerdict>; blind: boolean; onShow: (plies: number) => void }) {
+  const own = Array.from({ length: Math.max(path.length - from, 0) }, (_, index) => from + index).filter((ply) => (ply % 2 === 0) === (side === 'w')).length;
   if (!own) return null;
   const faulted = [...verdicts].filter((entry): entry is [number, MoveVerdict & { judgement: Judgement }] => entry[1].judgement !== null);
   const counts = (['blunder', 'mistake', 'inaccuracy'] as const)

@@ -12,11 +12,13 @@ import { buildOpeningTree, isPlayerMove, type OpeningTree } from '../domain/open
 import { figurineLine, figurineMove } from '../domain/notation';
 import { gamesOfLastMonths } from '../domain/period';
 import type { PlayedGame, Side } from '../domain/playedGame';
+import { canPractiseFrom } from '../domain/practice';
 import { findPriorities, shownLine, type Priority } from '../domain/priorities';
 import { splitWorked, worksOn } from '../domain/worked';
 import { checkQueue, type SessionStep } from '../session/steps';
 import { useReplayedSession } from '../session/useReplayedSession';
 import { PageHeader } from '../workshop/PageHeader';
+import { useV2Path } from '../workshop/routes';
 import { TaskBar, TaskDone } from '../workshop/Task';
 import { SideSwitch } from '../workshop/SideSwitch';
 import { COLOURS, FONT_FAMILY } from '../workshop/theme';
@@ -55,6 +57,7 @@ export function TreePage() {
   useWorkshopFont();
   const { source, replay, known, repertoires, steps, adoptions, judging, stopped, keep, unkeep, add, remove, removeMove, restoreMove, ignore, unignore, forgetIgnored, forgetAdditions } = useReplayedSession();
   const { worked, work, unwork } = useWorkedLines();
+  const pathOf = useV2Path();
   // Openings envoie une ligne à travailler par l'adresse : /dev/tree?side=b&line=d4 Nf6.
   const [params, setParams] = useSearchParams();
   const asked = useMemo(
@@ -483,6 +486,8 @@ export function TreePage() {
     // Seuls les coups du joueur se retirent : ceux de l'adversaire, il les subit.
     stopped: stoppedActions,
     onRemove: path.length && path.length === node.path.length && isPlayerMove(side, path.length) ? removeLast : undefined,
+    // Une tâche a son but : on n'en sort pas par l'entraînement.
+    practise: task || !canPractiseFrom(side, path.length) ? undefined : `${pathOf('practice')}?${new URLSearchParams({ side, line: path.join(' ') })}`,
     onPrepareFollows: priority
       ? (line: readonly string[]) => {
           const reached = nodeAlong(root, line);

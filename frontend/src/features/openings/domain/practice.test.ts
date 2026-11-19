@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { departureMark, lapseOf, opponentTurn, practiceStep, reviewStart } from './practice';
+import { canPractiseFrom, departureMark, lapseOf, opponentTurn, practiceStep, reviewStart, startingLine } from './practice';
 import type { GameCheck } from './gameCheck';
 import type { ExplorerStats } from './preparation';
 
@@ -85,5 +85,32 @@ describe('practiceStep', () => {
     const left: GameCheck = { kind: 'left', ply: 2, played: 'Bc4', planned: ['Nf3'], position: 'after 1.e4 e5' };
     expect(lapseOf(practiceStep(left, philidor, 'w'))).toBe('after 1.e4 e5');
     expect(lapseOf(practiceStep({ kind: 'uncovered', ply: 3, played: 'f5', planned: ['Nc6'], position: 'after 2.Nf3' }, philidor, 'w'))).toBeNull();
+  });
+
+  it('practising from an off-repertoire position of the tree, the move already on the board is not a lapse', () => {
+    const left: GameCheck = { kind: 'left', ply: 2, played: 'Bc4', planned: ['Nf3'], position: 'after 1.e4 e5' };
+    expect(lapseOf(practiceStep(left, philidor, 'w'), 3)).toBeNull();
+  });
+});
+
+describe('canPractiseFrom', () => {
+  it('a position of the tree can be practised only if the player still has a move before move 15 ends the game', () => {
+    // Après 15.… des Blancs (29 demi-coups), les Noirs jouent encore 15…, les Blancs plus rien.
+    expect(canPractiseFrom('b', 29)).toBe(true);
+    expect(canPractiseFrom('w', 29)).toBe(false);
+    expect(canPractiseFrom('w', 28)).toBe(true);
+  });
+});
+
+describe('startingLine', () => {
+  it('a line from the address is cut at its first illegal move', () => {
+    // 2…Ke6 : le roi ne fait qu'un pas.
+    expect(startingLine('e4 e5 Nf3 Ke6 Nc3')).toEqual(['e4', 'e5', 'Nf3']);
+    expect(startingLine(null)).toEqual([]);
+  });
+
+  it('a line from the address never starts the game past move 15', () => {
+    const shuffle = Array.from({ length: 10 }, () => 'Nf3 Nf6 Ng1 Ng8').join(' ');
+    expect(startingLine(shuffle)).toHaveLength(30);
   });
 });

@@ -79,5 +79,29 @@ export function practiceStep(check: GameCheck, path: readonly string[], side: Si
   return { kind, ply: check.plies, played: path[check.plies], planned: [], position: positionKey(chess.fen()) };
 }
 
-/** Un coup du répertoire manqué à l'entraînement revient en révision, comme un oubli en partie. */
-export const lapseOf = (step: PracticeStep | null): string | null => (step?.kind === 'left' ? step.position : null);
+/**
+ * Un coup du répertoire manqué à l'entraînement revient en révision, comme un oubli en partie. `from` : le premier
+ * demi-coup joué ; les coups d'avant étaient posés par l'arbre, le joueur ne les a pas manqués.
+ */
+export const lapseOf = (step: PracticeStep | null, from = 0): string | null => (step?.kind === 'left' && step.ply >= from ? step.position : null);
+
+/** Une partie d'entraînement depuis cette position laisse au joueur au moins un coup avant la fin, au coup 15. */
+export function canPractiseFrom(side: Side, plies: number): boolean {
+  const firstMove = isPlayerMove(side, plies + 1) ? plies : plies + 1;
+  return firstMove < LAST_PLY;
+}
+
+/** La ligne d'où part l'entraînement, lue dans l'adresse : coupée au premier coup illégal, et jamais au-delà du coup 15. */
+export function startingLine(line: string | null): string[] {
+  const chess = new Chess();
+  const moves: string[] = [];
+  for (const san of line?.split(' ').filter(Boolean) ?? []) {
+    if (pastLastMove(moves.length)) break;
+    try {
+      moves.push(chess.move(san).san);
+    } catch {
+      break;
+    }
+  }
+  return moves;
+}

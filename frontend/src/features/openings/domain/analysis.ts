@@ -12,16 +12,19 @@ export interface MoveVerdict {
 /**
  * Les coups du joueur jugés comme sur Lichess : ce qu'ils perdent face au meilleur coup, d'après l'évaluation avant et
  * après. `fens` : la position de départ puis celle qu'atteint chaque coup. Un coup absent de la carte est un coup de
- * l'adversaire, ou un coup que le moteur n'a pas encore jugé.
+ * l'adversaire, ou un coup que le moteur n'a pas encore jugé. `from` : le premier demi-coup que le joueur a joué
+ * lui-même ; les coups d'avant ne sont pas les siens.
  */
 export function judgeGame(
   path: readonly string[],
   fens: readonly string[],
   side: Side,
   evaluations: ReadonlyMap<string, Evaluation>,
+  from = 0,
 ): Map<number, MoveVerdict> {
   const verdicts = new Map<number, MoveVerdict>();
   for (let ply = side === 'w' ? 0 : 1; ply < path.length; ply += 2) {
+    if (ply < from) continue;
     const before = evaluations.get(fens[ply]);
     const after = evaluations.get(fens[ply + 1]);
     if (!before || !after) continue;
