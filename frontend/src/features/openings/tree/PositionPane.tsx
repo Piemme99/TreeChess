@@ -302,7 +302,6 @@ export function StoppedCard({ stopped, ply }: { stopped: StoppedActions; ply: nu
   );
 }
 
-/** Discret : on retire rarement, et l'annulation suit dans le toast. */
 /** S'entraîner depuis la position : une partie contre les coups de son niveau, comme depuis Home. */
 export function PractiseLink({ href }: { href: string }) {
   return (
@@ -312,6 +311,7 @@ export function PractiseLink({ href }: { href: string }) {
   );
 }
 
+/** Discret : on retire rarement, et l'annulation suit dans le toast. */
 export function RemoveMove({ path, onRemove }: { path: readonly string[]; onRemove: () => void }) {
   return (
     <button type="button" onClick={onRemove} className="self-start rounded px-1 py-1 text-[13px] font-semibold underline-offset-4 hover:underline focus-visible:outline-2" style={{ color: COLOURS.leafSoft }}>

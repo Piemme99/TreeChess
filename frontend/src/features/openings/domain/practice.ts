@@ -85,6 +85,12 @@ export function practiceStep(check: GameCheck, path: readonly string[], side: Si
  */
 export const lapseOf = (step: PracticeStep | null, from = 0): string | null => (step?.kind === 'left' && step.ply >= from ? step.position : null);
 
+/** Une partie d'entraînement depuis cette position laisse au joueur au moins un coup avant la fin, au coup 15. */
+export function canPractiseFrom(side: Side, plies: number): boolean {
+  const firstMove = isPlayerMove(side, plies + 1) ? plies : plies + 1;
+  return firstMove < LAST_PLY;
+}
+
 /** La ligne d'où part l'entraînement, lue dans l'adresse : coupée au premier coup illégal, et jamais au-delà du coup 15. */
 export function startingLine(line: string | null): string[] {
   const chess = new Chess();

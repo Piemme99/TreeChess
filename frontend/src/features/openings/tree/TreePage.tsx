@@ -12,6 +12,7 @@ import { buildOpeningTree, isPlayerMove, type OpeningTree } from '../domain/open
 import { figurineLine, figurineMove } from '../domain/notation';
 import { gamesOfLastMonths } from '../domain/period';
 import type { PlayedGame, Side } from '../domain/playedGame';
+import { canPractiseFrom } from '../domain/practice';
 import { findPriorities, shownLine, type Priority } from '../domain/priorities';
 import { splitWorked, worksOn } from '../domain/worked';
 import { checkQueue, type SessionStep } from '../session/steps';
@@ -486,7 +487,7 @@ export function TreePage() {
     stopped: stoppedActions,
     onRemove: path.length && path.length === node.path.length && isPlayerMove(side, path.length) ? removeLast : undefined,
     // Une tâche a son but : on n'en sort pas par l'entraînement.
-    practise: task ? undefined : `${pathOf('practice')}?${new URLSearchParams({ side, line: path.join(' ') })}`,
+    practise: task || !canPractiseFrom(side, path.length) ? undefined : `${pathOf('practice')}?${new URLSearchParams({ side, line: path.join(' ') })}`,
     onPrepareFollows: priority
       ? (line: readonly string[]) => {
           const reached = nodeAlong(root, line);

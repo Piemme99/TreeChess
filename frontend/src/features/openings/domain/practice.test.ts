@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { departureMark, lapseOf, opponentTurn, practiceStep, reviewStart, startingLine } from './practice';
+import { canPractiseFrom, departureMark, lapseOf, opponentTurn, practiceStep, reviewStart, startingLine } from './practice';
 import type { GameCheck } from './gameCheck';
 import type { ExplorerStats } from './preparation';
 
@@ -90,6 +90,15 @@ describe('practiceStep', () => {
   it('practising from an off-repertoire position of the tree, the move already on the board is not a lapse', () => {
     const left: GameCheck = { kind: 'left', ply: 2, played: 'Bc4', planned: ['Nf3'], position: 'after 1.e4 e5' };
     expect(lapseOf(practiceStep(left, philidor, 'w'), 3)).toBeNull();
+  });
+});
+
+describe('canPractiseFrom', () => {
+  it('a position of the tree can be practised only if the player still has a move before move 15 ends the game', () => {
+    // Après 15.… des Blancs (29 demi-coups), les Noirs jouent encore 15…, les Blancs plus rien.
+    expect(canPractiseFrom('b', 29)).toBe(true);
+    expect(canPractiseFrom('w', 29)).toBe(false);
+    expect(canPractiseFrom('w', 28)).toBe(true);
   });
 });
 

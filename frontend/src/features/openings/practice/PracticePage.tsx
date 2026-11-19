@@ -76,7 +76,7 @@ export function PracticePage() {
   const signIn = useExplorerSignIn();
   // « Practise from here » sur l'arbre : la partie part de la position regardée.
   const line = params.get('line');
-  const start = useMemo((): Game => ({ path: startingLine(line), end: null, stuck: false }), [line]);
+  const start = useMemo(() => after(startingLine(line), null), [line]);
   const [game, setGame] = useState<Game>(start);
   const [round, setRound] = useState(1);
   const theirTurn = !game.end && !game.stuck && turnOf(game.path) !== side;
@@ -266,7 +266,8 @@ function PracticeReview({ side, path, from, end, repertoire, habits, day, onAdd,
   const addition = (moves: AddedMove[]): Addition => ({ side, addedAt: day, moves });
   const actions: SettleActions | null = step && {
     add: () => settle(`${figurineMove(step.played, step.ply + 1)} added to your repertoire`, addition([{ position: step.position, san: step.played, source: 'habit' }])),
-    keep: () => settle(`Kept ${step.planned.map((san) => figurineMove(san, step.ply + 1)).join(' · ')} · back in your review`),
+    // Un écart posé par l'arbre n'est pas un oubli : il ne revient pas en révision.
+    keep: () => settle(`Kept ${step.planned.map((san) => figurineMove(san, step.ply + 1)).join(' · ')}${lapseOf(step, from) ? ' · back in your review' : ''}`),
     leave: () => settle(step.kind === 'uncovered' ? `${figurineMove(step.played, step.ply + 1)} left unprepared` : 'Repertoire unchanged'),
     build: () => {
       setBuilding(originFor(step, path, side));
