@@ -27,7 +27,8 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-FROM nginxinc/nginx-unprivileged:1.31-alpine AS prod
+# nginx publie sous nginx/ : nginxinc/ est figé depuis 1.31.7 et n'a reçu aucun correctif ensuite.
+FROM nginx/nginx-unprivileged:1.31-alpine AS prod
 
 RUN rm /etc/nginx/conf.d/default.conf
 COPY nginx.conf /etc/nginx/conf.d/default.conf
