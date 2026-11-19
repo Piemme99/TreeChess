@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { replayLine } from '../position/replay';
-import { judgeGame } from './analysis';
+import { engineArrow, judgeGame } from './analysis';
 import type { Evaluation } from './diagnosis';
 
 // La partie d'entraînement de PMG, Philidor : 1.e4 e5 2.Nf3 d6 3.d4 exd4 4.Nxd4 Nf6 5.Nc3 Be7 6.Bf4 O-O 7.Be2 a6 8.f3 b5 9.Qd3
@@ -11,15 +11,15 @@ const { fens } = replayLine(path);
 const evaluate = (byPly: Record<number, Evaluation>) => new Map(fens.map((fen, ply) => [fen, byPly[ply] ?? { cp: 30 }]));
 
 describe('judgeGame', () => {
-  it("a move of the player's that throws away a tenth of their winning chances is a mistake, and the engine's move is named", () => {
+  it("a move of the player's that throws away a tenth of their winning chances is a mistake", () => {
     // Avant 8.f3 : +0.4 avec 8.Qd2 ; après : −1.2.
     const verdicts = judgeGame(path, fens, 'w', evaluate({ 14: { cp: 40, best: 'd1d2' }, 15: { cp: -120 } }));
-    expect(verdicts.get(14)).toEqual({ grade: 'mistake', judgement: 'mistake', better: 'Qd2' });
+    expect(verdicts.get(14)).toEqual({ grade: 'mistake', judgement: 'mistake' });
   });
 
   it("the engine's own move is never faulted, even when the next position evaluates lower", () => {
     const verdicts = judgeGame(path, fens, 'w', evaluate({ 8: { cp: 50, best: 'b1c3' }, 9: { cp: -30 } }));
-    expect(verdicts.get(8)).toEqual({ grade: 'best', judgement: null, better: null });
+    expect(verdicts.get(8)).toEqual({ grade: 'best', judgement: null });
   });
 
   it("only the player's moves are judged: the opponent's are what players of their level play", () => {
@@ -34,7 +34,7 @@ describe('judgeGame', () => {
   it("as Black, a move that hands White the advantage is Black's mistake", () => {
     // Avant 7…a6 : +0.3 avec 7…Be6 ; après : +1.5 pour les Blancs.
     const verdicts = judgeGame(path, fens, 'b', evaluate({ 13: { cp: 30, best: 'c8e6' }, 14: { cp: 150 } }));
-    expect(verdicts.get(13)).toEqual({ grade: 'mistake', judgement: 'mistake', better: 'Be6' });
+    expect(verdicts.get(13)).toEqual({ grade: 'mistake', judgement: 'mistake' });
   });
 
   it("a move other than the engine's is good when it gives away under 2 points of winning chances, correct under 5", () => {
@@ -48,5 +48,29 @@ describe('judgeGame', () => {
     const known = evaluate({});
     known.delete(fens[15]);
     expect(judgeGame(path, fens, 'w', known).has(14)).toBe(false);
+  });
+});
+
+describe('engineArrow', () => {
+  it("after a move of the player's that is not the engine's, the arrow shows the move the engine would have played", () => {
+    // 8.f3 joué, 8.Qd2 attendu : la flèche part de la position d'avant 8.f3.
+    expect(engineArrow(path, fens, 'w', evaluate({ 14: { cp: 40, best: 'd1d2' } }), 15)).toEqual({ san: 'Qd2', instead: true });
+  });
+
+  it("after the engine's own move, no arrow: there was nothing better", () => {
+    expect(engineArrow(path, fens, 'w', evaluate({ 8: { cp: 50, best: 'b1c3' } }), 9)).toBeNull();
+  });
+
+  it("after the opponent's move, the arrow shows the engine's move for the player, now to play", () => {
+    // Après 7…a6 : 8.Qd2 pour les Blancs.
+    expect(engineArrow(path, fens, 'w', evaluate({ 14: { cp: 40, best: 'd1d2' } }), 14)).toEqual({ san: 'Qd2', instead: false });
+  });
+
+  it('as Black, at the start, no arrow: White is to move, not the player', () => {
+    expect(engineArrow(path, fens, 'b', evaluate({ 0: { cp: 30, best: 'e2e4' } }), 0)).toBeNull();
+  });
+
+  it('practising from a position of the tree, a move already on the board gets no arrow: the player did not play it', () => {
+    expect(engineArrow(path, fens, 'w', evaluate({ 14: { cp: 40, best: 'd1d2' } }), 15, 16)).toBeNull();
   });
 });

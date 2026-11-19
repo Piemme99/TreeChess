@@ -12,8 +12,6 @@ const GOOD_LOSS = 0.02;
 export interface MoveVerdict {
   grade: Grade;
   judgement: Judgement | null;
-  /** Le coup du moteur, quand celui du joueur est fautif. */
-  better: string | null;
 }
 
 /**
@@ -38,12 +36,38 @@ export function judgeGame(
     const best = uciToSan(fens[ply], before.best);
     // Deux évaluations de profondeurs différentes divergent : le coup du moteur ne se reproche pas à lui-même.
     if (best === path[ply]) {
-      verdicts.set(ply, { grade: 'best', judgement: null, better: null });
+      verdicts.set(ply, { grade: 'best', judgement: null });
       continue;
     }
     const judgement = judgeMove(before.cp, after.cp, side);
     const grade = judgement ?? (lostChances(before.cp, after.cp, side) < GOOD_LOSS ? 'good' : 'correct');
-    verdicts.set(ply, { grade, judgement, better: judgement ? best : null });
+    verdicts.set(ply, { grade, judgement });
   }
   return verdicts;
+}
+
+/**
+ * La flèche du moteur sur la position montrée après `shown` demi-coups : après un coup du joueur qui n'est pas le sien,
+ * le coup qu'il fallait jouer (`instead`, tiré de la position d'avant) ; au trait du joueur, le coup à jouer ici.
+ * `from` : comme pour `judgeGame`, les coups d'avant viennent de l'arbre, on ne les reprend pas.
+ */
+export function engineArrow(
+  path: readonly string[],
+  fens: readonly string[],
+  side: Side,
+  evaluations: ReadonlyMap<string, Evaluation>,
+  shown: number,
+  from = 0,
+): { san: string; instead: boolean } | null {
+  const players = (ply: number) => (ply % 2 === 0) === (side === 'w');
+  const last = shown - 1;
+  if (last >= 0 && players(last)) {
+    if (last < from) return null;
+    const best = uciToSan(fens[last], evaluations.get(fens[last])?.best);
+    return best && best !== path[last] ? { san: best, instead: true } : null;
+  }
+  // Au début d'une partie avec les Noirs, ce sont les Blancs qui jouent : rien à montrer au joueur.
+  if (!players(shown)) return null;
+  const best = uciToSan(fens[shown], evaluations.get(fens[shown])?.best);
+  return best ? { san: best, instead: false } : null;
 }
