@@ -12,12 +12,12 @@ import type { AddedMove, Addition } from '../domain/addition';
 import { judgeGame, type MoveVerdict } from '../domain/analysis';
 import type { Evaluation } from '../domain/diagnosis';
 import { checkGame, type GameCheck } from '../domain/gameCheck';
-import { JUDGEMENT_MARK, type Judgement } from '../domain/judgement';
+import type { Judgement } from '../domain/judgement';
 import { levelLabel } from '../domain/level';
 import { evaluationWords, figurine, figurineMove, formatCp } from '../domain/notation';
 import { gamesOfLastMonths } from '../domain/period';
 import type { PlayedGame, Side } from '../domain/playedGame';
-import { departureMark, lapseOf, opponentTurn, pastLastMove, practiceStep, reviewStart, startingLine, type DepartureVerdict, type PracticeEnd, type PracticeStep } from '../domain/practice';
+import { lapseOf, opponentTurn, pastLastMove, practiceStep, reviewStart, startingLine, type DepartureVerdict, type PracticeEnd, type PracticeStep } from '../domain/practice';
 import { gamesUntil } from '../domain/replay';
 import type { Repertoire } from '../domain/repertoire';
 import { useEvaluations } from '../line/engine';
@@ -39,6 +39,8 @@ import { Toast } from '../workshop/Toast';
 import { useToast } from '../workshop/useToast';
 import { COLOURS, FONT_FAMILY, raised, REPERTOIRE, SPRING, tile } from '../workshop/theme';
 import { useWorkshopFont } from '../workshop/useWorkshopFont';
+import { Badge } from './Badge';
+import { BADGE_ORDER, BADGES, type BadgeKind } from './grades';
 
 // Le temps de voir son coup posé avant que l'adversaire réponde.
 const REPLY_DELAY = 450;
@@ -166,11 +168,6 @@ export function PracticePage() {
   );
 }
 
-type Mark = { icon: string; colour: string };
-
-const IN_REPERTOIRE: Mark = { icon: '✓', colour: REPERTOIRE };
-const TO_SETTLE = COLOURS.terracotta;
-
 const ENDS: Record<PracticeEnd, string> = {
   rare: 'Ended where fewer than 100 games at your level go on',
   'move-15': 'Ended at move 15',
@@ -229,14 +226,14 @@ function PracticeReview({ side, path, from, end, repertoire, habits, day, onAdd,
     return () => window.removeEventListener('keydown', step);
   }, [path.length, building]);
 
-  const icon = step ? departureMark(step.kind === 'uncovered' ? 'uncovered' : 'left', step.kind === 'left' ? verdict : null) : null;
-  const mark: Mark | null = icon && { icon, colour: icon === '?' || icon === '!' ? TO_SETTLE : COLOURS.leafSoft };
-  const markOf = (ply: number): Mark[] => {
-    // L'écart porte déjà sa marque à trancher : « !? » s'y lirait comme un coup intéressant.
-    if (ply === departure) return mark ? [mark] : [];
-    const inRepertoire = ply < (step?.ply ?? path.length);
-    const judgement = verdicts.get(ply)?.judgement;
-    return [inRepertoire && IN_REPERTOIRE, judgement && judgementMark(judgement)].filter((each): each is Mark => !!each);
+  // Le titre porte la pastille de l'écart, la même que dans la liste.
+  const headBadge: BadgeKind | undefined = step ? (step.kind === 'uncovered' ? 'new' : verdicts.get(step.ply)?.grade) : undefined;
+  const badgesOf = (ply: number): BadgeKind[] => {
+    if (ply === departure && step?.kind === 'uncovered') return ['new'];
+    const verdict = verdicts.get(ply);
+    if (ply >= (step?.ply ?? path.length)) return verdict ? [verdict.grade] : [];
+    // Dans le répertoire, seule une faute mérite une seconde pastille : « meilleur » n'y apprendrait rien.
+    return verdict?.judgement ? ['repertoire', verdict.judgement] : ['repertoire'];
   };
 
   const summary = (() => {
@@ -295,9 +292,9 @@ function PracticeReview({ side, path, from, end, repertoire, habits, day, onAdd,
     <>
       <motion.section initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={SPRING} className="flex flex-col gap-1 rounded-3xl px-5 py-4" style={raised(false)}>
         <h1 className="flex items-baseline gap-2 text-[20px] font-extrabold leading-tight tracking-[-0.01em]">
-          {mark && (
-            <span aria-hidden="true" style={{ color: mark.colour }}>
-              {mark.icon}
+          {headBadge && (
+            <span className="self-center">
+              <Badge kind={headBadge} />
             </span>
           )}
           <span>{summary}</span>
@@ -312,8 +309,8 @@ function PracticeReview({ side, path, from, end, repertoire, habits, day, onAdd,
       <div className="-mx-2">
         <WorkshopBoard path={path.slice(0, shown)} flipped={side === 'b'} />
       </div>
-      {shown > 0 && <ShownMove side={side} path={path} ply={shown - 1} evaluation={evaluations.get(fens[shown])} verdict={verdicts.get(shown - 1)} blind={blind} />}
-      <MoveList path={path} shown={shown} markOf={markOf} onShow={setShown} />
+      {shown > 0 && <ShownMove side={side} path={path} ply={shown - 1} badges={badgesOf(shown - 1)} evaluation={evaluations.get(fens[shown])} verdict={verdicts.get(shown - 1)} blind={blind} />}
+      <MoveList path={path} shown={shown} badgesOf={badgesOf} onShow={setShown} />
       <div className="mt-2 flex flex-col gap-2">
         <motion.button type="button" onClick={onAgain} whileTap={{ scale: 0.97 }} transition={SPRING} className="min-h-12 rounded-full px-5 text-[15px] font-bold focus-visible:outline-2" style={raised(true)}>
           Practise again
@@ -405,8 +402,6 @@ function Action({ onClick, primary = false, children }: { onClick: () => void; p
   );
 }
 
-const judgementMark = (judgement: Judgement): Mark => ({ icon: JUDGEMENT_MARK[judgement], colour: TO_SETTLE });
-
 const JUDGEMENT_WORDS: Record<Judgement, [string, string]> = {
   inaccuracy: ['inaccuracy', 'inaccuracies'],
   mistake: ['mistake', 'mistakes'],
@@ -438,8 +433,10 @@ function Analysis({ side, path, from, fens, evaluations, verdicts, blind, onShow
         <span className="flex flex-wrap gap-1.5">
           {faulted.map(([ply, verdict]) => (
             <motion.button key={ply} type="button" onClick={() => onShow(ply + 1)} whileTap={{ scale: 0.97 }} transition={SPRING} className="rounded-full px-3 py-1 text-[14px] font-bold focus-visible:outline-2" style={tile(COLOURS.sand)}>
-              {figurineMove(path[ply], ply + 1)}
-              <span style={{ color: TO_SETTLE }}>{JUDGEMENT_MARK[verdict.judgement]}</span>
+              <span className="flex items-center gap-1.5">
+                {figurineMove(path[ply], ply + 1)}
+                <Badge kind={verdict.judgement} />
+              </span>
             </motion.button>
           ))}
         </span>
@@ -454,14 +451,17 @@ function Analysis({ side, path, from, fens, evaluations, verdicts, blind, onShow
 }
 
 /** Sous l'échiquier : où en est la partie après le coup montré, et pour un coup fautif du joueur, celui du moteur. */
-function ShownMove({ side, path, ply, evaluation, verdict, blind }: { side: Side; path: readonly string[]; ply: number; evaluation: Evaluation | undefined; verdict: MoveVerdict | undefined; blind: boolean }) {
+function ShownMove({ side, path, ply, badges, evaluation, verdict, blind }: { side: Side; path: readonly string[]; ply: number; badges: readonly BadgeKind[]; evaluation: Evaluation | undefined; verdict: MoveVerdict | undefined; blind: boolean }) {
   const cp = evaluation && (side === 'w' ? evaluation.cp : -evaluation.cp);
   return (
-    <p className="flex flex-wrap items-baseline gap-x-2 px-1 text-[15px]">
-      <span className="font-bold">
-        {figurineMove(path[ply], ply + 1)}
-        {verdict?.judgement && <span style={{ color: TO_SETTLE }}>{JUDGEMENT_MARK[verdict.judgement]}</span>}
-      </span>
+    <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 px-1 text-[15px]">
+      <span className="font-bold">{figurineMove(path[ply], ply + 1)}</span>
+      {badges.map((kind) => (
+        <span key={kind} className="flex items-center gap-1 text-[14px] font-semibold" style={{ color: COLOURS.leafSoft }}>
+          <Badge kind={kind} labelled />
+          {BADGES[kind].label}
+        </span>
+      ))}
       <span className="tabular-nums" style={{ color: COLOURS.leafSoft }}>
         {cp === undefined ? (blind ? 'no evaluation' : '…') : `${formatCp(cp)} (${evaluationWords(cp)})`}
       </span>
@@ -488,11 +488,11 @@ function useDepartureVerdict(side: Side, path: readonly string[], check: GameChe
   return verdict.judgement;
 }
 
-function MoveList({ path, shown, markOf, onShow }: { path: readonly string[]; shown: number; markOf: (ply: number) => Mark[]; onShow: (plies: number) => void }) {
+function MoveList({ path, shown, badgesOf, onShow }: { path: readonly string[]; shown: number; badgesOf: (ply: number) => BadgeKind[]; onShow: (plies: number) => void }) {
   const rows = Array.from({ length: Math.ceil(path.length / 2) }, (_, index) => index);
   const cell = (ply: number) => {
     if (ply >= path.length) return <span />;
-    const marks = markOf(ply);
+    const badges = badgesOf(ply);
     return (
       <button
         type="button"
@@ -502,26 +502,41 @@ function MoveList({ path, shown, markOf, onShow }: { path: readonly string[]; sh
         style={shown === ply + 1 ? { background: COLOURS.sand, fontWeight: 700 } : undefined}
       >
         <span>{figurine(path[ply])}</span>
-        {marks.map((mark) => (
-          <span key={mark.icon} aria-label={mark.icon === '✓' ? 'in your repertoire' : undefined} className="font-extrabold" style={{ color: mark.colour }}>
-            {mark.icon}
-          </span>
+        {badges.map((kind) => (
+          <Badge key={kind} kind={kind} />
         ))}
       </button>
     );
   };
+  const counts = new Map<BadgeKind, number>();
+  for (let ply = 0; ply < path.length; ply++) for (const kind of badgesOf(ply)) counts.set(kind, (counts.get(kind) ?? 0) + 1);
   return (
-    <ol className="grid grid-cols-[2.25rem_1fr_1fr] items-center rounded-2xl px-2 py-1.5" style={tile(COLOURS.paper)}>
-      {rows.map((row) => (
-        <li key={row} className="contents">
-          <span className="pl-1 text-[14px] tabular-nums" style={{ color: COLOURS.leafSoft }}>
-            {row + 1}.
-          </span>
-          {cell(row * 2)}
-          {cell(row * 2 + 1)}
-        </li>
-      ))}
-    </ol>
+    <div className="flex flex-col rounded-2xl px-2 py-1.5" style={tile(COLOURS.paper)}>
+      <ol className="grid grid-cols-[2.25rem_1fr_1fr] items-center">
+        {rows.map((row) => (
+          <li key={row} className="contents">
+            <span className="pl-1 text-[14px] tabular-nums" style={{ color: COLOURS.leafSoft }}>
+              {row + 1}.
+            </span>
+            {cell(row * 2)}
+            {cell(row * 2 + 1)}
+          </li>
+        ))}
+      </ol>
+      {counts.size > 0 && (
+        <ul aria-label="Legend" className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1.5 border-t px-1 pt-2.5 pb-1 text-[13px]" style={{ borderColor: COLOURS.sand, color: COLOURS.leafSoft }}>
+          {BADGE_ORDER.filter((kind) => counts.has(kind)).map((kind) => (
+            <li key={kind} className="flex items-center gap-1">
+              <Badge kind={kind} labelled />
+              {BADGES[kind].label}
+              <span className="font-bold tabular-nums" style={{ color: COLOURS.leaf }}>
+                {counts.get(kind)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 

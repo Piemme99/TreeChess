@@ -431,13 +431,15 @@ The game goes on past the repertoire and stops when the position has fewer than 
 
 ### Screen 3 — Review
 
-The game move by move, each move marked like Home's game rows: ✓ in the repertoire, ! a move of the player's off the
-repertoire that the engine finds worse, · one that waits for nothing, ? an opponent reply with no answer yet. Every
-move of the player's is judged by the engine as on Lichess (?! ? ?? from what it loses against the engine's move),
-in the repertoire and out of it: the card counts them ("Your 9 moves: 1 mistake"), each one a chip that opens it,
-with the final evaluation; under the board, the evaluation after the move shown and, for a faulted move, the
-engine's move ("8.f3? −1.2 · 8.Qd2 was better"). PMG (2026-11-19): without it, the review did not say whether he
-had played well once out of his preparation. Then
+The game move by move, each move with a badge (PMG, 2026-11-19: "see at a glance repertoire, correct, good, best,
+mistake, blunder"), and a legend with counts under the list: a book for a move of the repertoire (either side); for
+the player's moves out of it, the engine's grade (`domain/analysis.ts`): ★ best (the engine's own move), ✓ good
+(under 2 points of winning chances given away), grey ✓ correct (under 5), then ?! ? ?? as on Lichess; "new" for an
+opponent reply with no answer yet. A repertoire move gets a second badge only for a fault. The card counts the
+faults ("Your 9 moves: 1 mistake"), each one a chip that opens it, with the final evaluation; under the board, the
+move shown with its badges, the evaluation after it and, for a faulted move, the engine's move ("8.f3 ? Mistake
+−1.2 · 8.Qd2 was better"). PMG (2026-11-19): without it, the review did not say whether he had played well once
+out of his preparation. Then
 the first place it left the repertoire is a step to settle, as in Check: **Add** (the moves played after it are
 given, to trim or extend in the candidate table), **Keep**, **Prepare a reply**, **Not worth it**. Then "1 settled ·
 Practise again / Back to Home".

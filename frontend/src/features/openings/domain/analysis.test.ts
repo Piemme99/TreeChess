@@ -14,12 +14,12 @@ describe('judgeGame', () => {
   it("a move of the player's that throws away a tenth of their winning chances is a mistake, and the engine's move is named", () => {
     // Avant 8.f3 : +0.4 avec 8.Qd2 ; après : −1.2.
     const verdicts = judgeGame(path, fens, 'w', evaluate({ 14: { cp: 40, best: 'd1d2' }, 15: { cp: -120 } }));
-    expect(verdicts.get(14)).toEqual({ judgement: 'mistake', better: 'Qd2' });
+    expect(verdicts.get(14)).toEqual({ grade: 'mistake', judgement: 'mistake', better: 'Qd2' });
   });
 
   it("the engine's own move is never faulted, even when the next position evaluates lower", () => {
     const verdicts = judgeGame(path, fens, 'w', evaluate({ 8: { cp: 50, best: 'b1c3' }, 9: { cp: -30 } }));
-    expect(verdicts.get(8)).toEqual({ judgement: null, better: null });
+    expect(verdicts.get(8)).toEqual({ grade: 'best', judgement: null, better: null });
   });
 
   it("only the player's moves are judged: the opponent's are what players of their level play", () => {
@@ -34,7 +34,14 @@ describe('judgeGame', () => {
   it("as Black, a move that hands White the advantage is Black's mistake", () => {
     // Avant 7…a6 : +0.3 avec 7…Be6 ; après : +1.5 pour les Blancs.
     const verdicts = judgeGame(path, fens, 'b', evaluate({ 13: { cp: 30, best: 'c8e6' }, 14: { cp: 150 } }));
-    expect(verdicts.get(13)).toEqual({ judgement: 'mistake', better: 'Be6' });
+    expect(verdicts.get(13)).toEqual({ grade: 'mistake', judgement: 'mistake', better: 'Be6' });
+  });
+
+  it("a move other than the engine's is good when it gives away under 2 points of winning chances, correct under 5", () => {
+    // Avant 8.f3 : +0.4 avec 8.Qd2. Après : +0.3 (1 point de perdu), puis +0.1 (3 points).
+    const grade = (after: number) => judgeGame(path, fens, 'w', evaluate({ 14: { cp: 40, best: 'd1d2' }, 15: { cp: after } })).get(14)?.grade;
+    expect(grade(30)).toBe('good');
+    expect(grade(10)).toBe('correct');
   });
 
   it('a move the engine has not judged yet is left out, not passed as sound', () => {

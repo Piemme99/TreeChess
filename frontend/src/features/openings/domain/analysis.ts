@@ -1,9 +1,16 @@
 import { uciToSan, type Evaluation } from './diagnosis';
-import { judgeMove, type Judgement } from './judgement';
+import { judgeMove, lostChances, type Judgement } from './judgement';
 import type { Side } from './playedGame';
+
+/** La note d'un coup, du meilleur à la gaffe : celle du moteur, ou une imprécision et pire (`Judgement`). */
+export type Grade = 'best' | 'good' | 'correct' | Judgement;
+
+// En chances de gain perdues, sur 0–1 : sous 2 points le coup est bon, sous 5 (le seuil d'imprécision) correct.
+const GOOD_LOSS = 0.02;
 
 /** Ce que le moteur dit d'un coup du joueur. */
 export interface MoveVerdict {
+  grade: Grade;
   judgement: Judgement | null;
   /** Le coup du moteur, quand celui du joueur est fautif. */
   better: string | null;
@@ -30,8 +37,13 @@ export function judgeGame(
     if (!before || !after) continue;
     const best = uciToSan(fens[ply], before.best);
     // Deux évaluations de profondeurs différentes divergent : le coup du moteur ne se reproche pas à lui-même.
-    const judgement = best === path[ply] ? null : judgeMove(before.cp, after.cp, side);
-    verdicts.set(ply, { judgement, better: judgement ? best : null });
+    if (best === path[ply]) {
+      verdicts.set(ply, { grade: 'best', judgement: null, better: null });
+      continue;
+    }
+    const judgement = judgeMove(before.cp, after.cp, side);
+    const grade = judgement ?? (lostChances(before.cp, after.cp, side) < GOOD_LOSS ? 'good' : 'correct');
+    verdicts.set(ply, { grade, judgement, better: judgement ? best : null });
   }
   return verdicts;
 }

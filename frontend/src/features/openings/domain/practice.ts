@@ -45,18 +45,6 @@ export function reviewStart(check: GameCheck, plies: number): number {
 export type DepartureVerdict = Judgement | null | 'judging' | 'blind';
 
 /**
- * La marque du premier écart, comme sur Home : ? une réponse adverse sans parade, ! un coup du joueur que le moteur
- * trouve moins bon, · un coup sain, … tant que le moteur calcule.
- */
-export function departureMark(kind: 'left' | 'uncovered', verdict: DepartureVerdict): '?' | '!' | '·' | '…' {
-  // À l'entraînement, la réponse adverse est là pour qu'on la prépare : pas besoin de la croiser deux fois.
-  if (kind === 'uncovered') return '?';
-  if (verdict === 'judging') return '…';
-  // Sans moteur on ne saura pas : mieux vaut signaler l'écart que le taire, comme dans Check.
-  return verdict ? '!' : '·';
-}
-
-/**
  * Ce que la partie laisse à trancher : `left` un coup du joueur à la place de celui du répertoire, `uncovered` une
  * réponse adverse sans parade, `past` un coup du joueur là où le répertoire n'a plus rien.
  */

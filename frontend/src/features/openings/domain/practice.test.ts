@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canPractiseFrom, departureMark, lapseOf, opponentTurn, practiceStep, reviewStart, startingLine } from './practice';
+import { canPractiseFrom, lapseOf, opponentTurn, practiceStep, reviewStart, startingLine } from './practice';
 import type { GameCheck } from './gameCheck';
 import type { ExplorerStats } from './preparation';
 
@@ -45,21 +45,6 @@ describe('reviewStart', () => {
   it('a game that outlived the preparation opens on its first move past it, not on its last position', () => {
     expect(reviewStart({ kind: 'followed', plies: 4 }, 30)).toBe(5);
     expect(reviewStart({ kind: 'followed', plies: 12 }, 12)).toBe(12);
-  });
-});
-
-describe('departureMark', () => {
-  it('an opponent reply off the repertoire asks for an answer the first time it is met in practice', () => {
-    expect(departureMark('uncovered', null)).toBe('?');
-  });
-
-  it("a move of the player's off the repertoire is a mistake only when the engine finds it worse", () => {
-    expect(departureMark('left', 'mistake')).toBe('!');
-    expect(departureMark('left', null)).toBe('·');
-  });
-
-  it('without an engine, a move off the repertoire is flagged rather than passed over', () => {
-    expect(departureMark('left', 'blind')).toBe('!');
   });
 });
 
