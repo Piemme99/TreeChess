@@ -27,8 +27,8 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-# Docker Hub n’a pas encore 1.31.9 (NGINX2Root, CVE-2026-123007) ; ghcr porte la même image publiée par nginx.
-FROM ghcr.io/nginx/nginx-unprivileged:1.31.9-alpine AS prod
+# nginx publie sous nginx/ : nginxinc/ est figé depuis 1.31.7 et n'a reçu aucun correctif ensuite.
+FROM nginx/nginx-unprivileged:1.31-alpine AS prod
 
 RUN rm /etc/nginx/conf.d/default.conf
 COPY nginx.conf /etc/nginx/conf.d/default.conf

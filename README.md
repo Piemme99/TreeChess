@@ -168,7 +168,7 @@ kumquat/
 
 ### Infrastructure
 
-- **Nginx runs as non-root** in production (`nginxinc/nginx-unprivileged`), limiting the blast radius of container escapes
+- **Nginx runs as non-root** in production (`nginx/nginx-unprivileged`), limiting the blast radius of container escapes
 - **Database connection uses `sslmode=prefer`** in production for defense-in-depth encryption between backend and PostgreSQL
 - **PostgreSQL port bound to `127.0.0.1`** in development, preventing exposure to the local network
 - Docker networks isolate services: `backend-net` (backend + DB), `frontend-net` (frontend + backend), `monitor-net` (metrics)
