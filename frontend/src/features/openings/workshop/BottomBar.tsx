@@ -9,7 +9,7 @@ export function BottomBar({ onStart, onBack, onForward, onEnd }: { onStart?: () 
     { label: 'End of the line', onClick: onEnd, icon: 'M17 6v12M6 6l8 6-8 6z' },
   ];
   return (
-    <nav aria-label="Moves" className="fixed inset-x-0 bottom-0 z-30 flex pb-[env(safe-area-inset-bottom)]" style={{ background: COLOURS.leaf }}>
+    <nav aria-label="Move navigation" className="fixed inset-x-0 bottom-0 z-30 flex pb-[env(safe-area-inset-bottom)]" style={{ background: COLOURS.leaf }}>
       {buttons.map((button) => (
         <button
           key={button.label}

@@ -216,11 +216,12 @@ function PracticeReview({ side, path, from, end, repertoire, habits, day, onAdd,
   const evaluations = useEvaluations(fens, ENGINE_DEPTH);
   const blind = useEngineBlind();
   const verdicts = useMemo(() => judgeGame(path, fens, side, evaluations, from), [path, fens, side, evaluations, from]);
-  const arrow = useMemo(() => engineArrow(path, fens, side, evaluations, shown), [path, fens, side, evaluations, shown]);
+  const arrow = useMemo(() => engineArrow(path, fens, side, evaluations, shown, from), [path, fens, side, evaluations, shown, from]);
   // Un coup sain mais pas celui du moteur garde sa flèche, estompée : la faute seule la met en avant.
   const boardArrows = useMemo((): BoardArrow[] => (arrow ? [{ san: arrow.san, kind: 'engine', share: 0.5, played: arrow.instead, emphasis: !arrow.instead || verdicts.get(shown - 1)?.judgement != null }] : []), [arrow, verdicts, shown]);
   const boardRef = useRef<HTMLDivElement>(null);
   const wide = useWide();
+  // Une puce de la carte ou la barre du bas : l'échiquier vient à l'écran, sous la barre de tâche.
   const jump = (plies: number) => {
     setShown(plies);
     boardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -336,10 +337,10 @@ function PracticeReview({ side, path, from, end, repertoire, habits, day, onAdd,
       </div>
       {!wide && (
         <BottomBar
-          onStart={shown > 0 ? () => setShown(0) : undefined}
-          onBack={shown > 0 ? () => setShown(shown - 1) : undefined}
-          onForward={shown < path.length ? () => setShown(shown + 1) : undefined}
-          onEnd={shown < path.length ? () => setShown(path.length) : undefined}
+          onStart={shown > 0 ? () => jump(0) : undefined}
+          onBack={shown > 0 ? () => jump(shown - 1) : undefined}
+          onForward={shown < path.length ? () => jump(shown + 1) : undefined}
+          onEnd={shown < path.length ? () => jump(path.length) : undefined}
         />
       )}
       <Toast toast={toast} onClose={close} />
@@ -528,7 +529,7 @@ function MoveStrip({ path, shown, badgesOf, onShow }: { path: readonly string[];
     <ol
       aria-label="Moves"
       ref={strip}
-      className="relative -mx-1 flex gap-0.5 overflow-x-auto whitespace-nowrap px-1 text-[15px] [scrollbar-width:none]"
+      className="relative -mx-1 flex gap-0.5 overflow-x-auto whitespace-nowrap px-4 text-[15px] [scrollbar-width:none]"
       style={{ maskImage: 'linear-gradient(to right, transparent, black 1rem, black calc(100% - 1rem), transparent)' }}
     >
       {path.map((san, ply) => (
