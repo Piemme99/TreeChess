@@ -432,8 +432,9 @@ The game goes on past the repertoire and stops when the position has fewer than 
 ### Screen 3 — Review
 
 The game move by move, each move with a badge (PMG, 2026-11-19: "see at a glance repertoire, correct, good, best,
-mistake, blunder"), and a legend with counts under the list: a book for a move of the repertoire (either side); for
-the player's moves out of it, the engine's grade (`domain/analysis.ts`): ★ best (the engine's own move), ✓ good
+mistake, blunder"), and no legend (PMG, same day: most need none; the move under the board names its badges): a
+book for a move of the repertoire (either side); for the player's moves out of it, the engine's grade
+(`domain/analysis.ts`): ★ best (the engine's own move), ✓ good
 (under 2 points of winning chances given away), grey ✓ correct (under 5), then ?! ? ?? as on Lichess; "new" for an
 opponent reply with no answer yet. A repertoire move gets a second badge only for a fault. The card counts the
 faults ("Your 9 moves: 1 mistake"), each one a chip that opens it, with the final evaluation; under the board, the

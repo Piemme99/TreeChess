@@ -16,5 +16,3 @@ export const BADGES: Record<BadgeKind, { label: string; glyph: string; colour: s
   blunder: { label: 'Blunder', glyph: '??', colour: 'oklch(0.52 0.20 27)' },
   new: { label: 'Not prepared', glyph: 'new', colour: COLOURS.terracotta, outline: true },
 };
-
-export const BADGE_ORDER: BadgeKind[] = ['repertoire', 'best', 'good', 'correct', 'inaccuracy', 'mistake', 'blunder', 'new'];
