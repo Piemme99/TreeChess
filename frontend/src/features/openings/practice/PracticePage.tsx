@@ -121,7 +121,7 @@ export function PracticePage() {
               day={replay.day}
               onAdd={add}
               onUndo={remove}
-              onLapse={(position) => review.answer(side, position, false)}
+              onLapse={(position) => review.missedInPractice(side, position)}
               onAgain={again}
             />
           ) : (
@@ -214,13 +214,15 @@ function PracticeReview({ side, path, end, repertoire, habits, day, onAdd, onUnd
   const verdicts = useMemo(() => judgeGame(path, fens, side, evaluations), [path, fens, side, evaluations]);
 
   useEffect(() => {
+    // Le constructeur a ses propres flèches : la relecture cachée dessous ne doit pas bouger avec elles.
+    if (building) return;
     const step = (event: KeyboardEvent) => {
       if (event.key === 'ArrowLeft') setShown((ply) => Math.max(0, ply - 1));
       if (event.key === 'ArrowRight') setShown((ply) => Math.min(path.length, ply + 1));
     };
     window.addEventListener('keydown', step);
     return () => window.removeEventListener('keydown', step);
-  }, [path.length]);
+  }, [path.length, building]);
 
   const icon = step ? departureMark(step.kind === 'uncovered' ? 'uncovered' : 'left', step.kind === 'left' ? verdict : null) : null;
   const mark: Mark | null = icon && { icon, colour: icon === '?' || icon === '!' ? TO_SETTLE : COLOURS.leafSoft };
@@ -242,9 +244,11 @@ function PracticeReview({ side, path, end, repertoire, habits, day, onAdd, onUnd
     return verdict === 'judging' ? `You played ${played}: the engine is judging it…` : verdict ? `You played ${played}, not ${figurineMove(step.planned[0], step.ply + 1)}` : `New move ${played}, instead of ${figurineMove(step.planned[0], step.ply + 1)}`;
   })();
 
+  const toTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
   const settle = (text: string, addition?: Addition) => {
     if (addition) onAdd(addition);
     setSettled(text);
+    if (building) toTop();
     setBuilding(null);
     show({
       text,
@@ -256,12 +260,12 @@ function PracticeReview({ side, path, end, repertoire, habits, day, onAdd, onUnd
   };
   const addition = (moves: AddedMove[]): Addition => ({ side, addedAt: day, moves });
   const actions: SettleActions | null = step && {
-    add: () => settle(`${figurineMove(step.played, step.ply + 1)} added to your repertoire`, addition([{ position: step.position, san: step.played, source: 'level' }])),
+    add: () => settle(`${figurineMove(step.played, step.ply + 1)} added to your repertoire`, addition([{ position: step.position, san: step.played, source: 'habit' }])),
     keep: () => settle(`Kept ${step.planned.map((san) => figurineMove(san, step.ply + 1)).join(' · ')} · back in your review`),
     leave: () => settle(step.kind === 'uncovered' ? `${figurineMove(step.played, step.ply + 1)} left unprepared` : 'Repertoire unchanged'),
     build: () => {
       setBuilding(originFor(step, path, side));
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      toTop();
     },
   };
 
@@ -272,7 +276,10 @@ function PracticeReview({ side, path, end, repertoire, habits, day, onAdd, onUnd
         games={habits.filter((game) => game.side === side)}
         repertoire={repertoire}
         onAccept={(moves) => settle(`${moves.length} ${moves.length === 1 ? 'move' : 'moves'} added to your repertoire`, addition(moves))}
-        onCancel={() => setBuilding(null)}
+        onCancel={() => {
+          setBuilding(null);
+          toTop();
+        }}
         stacked
       />
     );

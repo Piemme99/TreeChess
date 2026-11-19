@@ -83,6 +83,13 @@ export function withLapses(state: ReviewState, lapses: ReadonlyMap<string, strin
   return next;
 }
 
+/** Un coup du répertoire manqué à l'entraînement : comme un oubli en partie, la position revient le jour même, en boîte 1. */
+export function missedInPractice(state: ReviewState, key: string, today: string): ReviewState {
+  const next = new Map(state);
+  next.set(key, { box: 1, due: today, reviewedAt: state.get(key)?.reviewedAt ?? today, missed: true });
+  return next;
+}
+
 /** Les positions où le joueur a un coup prévu, atteignables depuis le début, chacune avec le premier chemin qui y mène. */
 export function playerPositions(repertoire: Repertoire): { key: string; path: string[] }[] {
   const seen = new Set<string>();

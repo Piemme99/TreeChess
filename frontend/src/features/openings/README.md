@@ -463,7 +463,7 @@ Practice games are not games: they stay out of the opening tree, weak openings, 
    with Undo), the builder opening in place. A game that outlived the preparation settles its first move past it
    (PMG's Philidor: the prep stops at 4.Nxd4, 4…Nf6 asks for a reply; a move of the player's there is "past your
    prep": Add or Not worth it, never a lapse). A repertoire move missed counts as a wrong answer in Review
-   (box 1, back the next day), recorded when the review opens, whatever is decided. The game's check is frozen
+   (box 1, due the same day, like a lapse in a game), recorded when the review opens, whatever is decided. The game's check is frozen
    when the review opens: an addition does not move the departure. Not done: the moves played after the departure
    are not given to the builder (given moves cannot be undone there).
 4. **"Practise from here"** on the tree.
