@@ -10,6 +10,7 @@ const GameChecksPage = import.meta.env.DEV
 const TreePage = lazy(() => import('./features/openings').then(m => ({ default: m.TreePage })));
 const HomePage = lazy(() => import('./features/openings').then(m => ({ default: m.HomePage })));
 const ReviewPage = lazy(() => import('./features/openings').then(m => ({ default: m.ReviewPage })));
+const PracticePage = lazy(() => import('./features/openings').then(m => ({ default: m.PracticePage })));
 
 // La v2 est l'application : publiée sous /v2, et sous /dev pendant le développement (workshop/routes.ts).
 const HOME = import.meta.env.DEV ? '/dev/home' : '/v2/home';
@@ -47,12 +48,14 @@ function App() {
         <Route path="/v2/home" element={page(HomePage)} />
         <Route path="/v2/tree" element={page(TreePage)} />
         <Route path="/v2/review" element={page(ReviewPage)} />
+        <Route path="/v2/practice" element={page(PracticePage)} />
         <Route path="/v2/openings" element={page(DesignPrototypeRoute)} />
         {import.meta.env.DEV && (
           <>
             <Route path="/dev/home" element={page(HomePage)} />
             <Route path="/dev/tree" element={page(TreePage)} />
             <Route path="/dev/review" element={page(ReviewPage)} />
+            <Route path="/dev/practice" element={page(PracticePage)} />
             <Route path="/dev/flame-graph" element={page(DesignPrototypeRoute)} />
             {GameChecksPage && <Route path="/dev/games" element={page(GameChecksPage)} />}
           </>

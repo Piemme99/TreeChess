@@ -1,8 +1,7 @@
 import { MotionConfig, motion } from 'framer-motion';
 import { useEffect, useMemo, useState } from 'react';
-import { useOpeningName } from '../../../shared/hooks/useOpeningName';
 import { PlayableBoard } from '../board/PlayableBoard';
-import { figurineLine, figurineMove } from '../domain/notation';
+import { figurineMove } from '../domain/notation';
 import type { Side } from '../domain/playedGame';
 import { positionKey } from '../domain/repertoire';
 import { acceptedMoves, hasDueAhead, nextReply, planLine } from '../domain/review';
@@ -12,6 +11,7 @@ import { liveGames } from '../checks/decisions';
 import { useSource } from '../source/useSource';
 import { useRepertoires } from '../replay/useRepertoires';
 import { useReplayDay } from '../replay/useReplayDay';
+import { LineName } from '../workshop/LineName';
 import { TaskBar, TaskDone } from '../workshop/Task';
 import { COLOURS, FONT_FAMILY, raised, REPERTOIRE, SPRING, tile } from '../workshop/theme';
 import { useWorkshopFont } from '../workshop/useWorkshopFont';
@@ -159,19 +159,6 @@ export function ReviewPage() {
         </main>
       </div>
     </MotionConfig>
-  );
-}
-
-function LineName({ path }: { path: readonly string[] }) {
-  const fens = useMemo(() => replayLine(path).fens, [path]);
-  const opening = useOpeningName(fens);
-  return (
-    <div className="flex min-w-0 flex-col px-1">
-      <span className="text-[16px] font-bold leading-tight">{opening?.name ?? (path.length ? 'Unnamed line' : 'Starting position')}</span>
-      <span className="truncate text-[14px]" style={{ color: COLOURS.leafSoft }}>
-        {path.length ? figurineLine(path) : '—'}
-      </span>
-    </div>
   );
 }
 
