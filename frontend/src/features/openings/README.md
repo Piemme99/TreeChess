@@ -432,21 +432,20 @@ The game goes on past the repertoire and stops when the position has fewer than 
 ### Screen 3 — Review
 
 The game move by move, each move with a badge (PMG, 2026-11-19: "see at a glance repertoire, correct, good, best,
-mistake, blunder"), and no legend (PMG, same day: most need none; the move under the board names its badges): a
-book for a move of the repertoire (either side); for the player's moves out of it, the engine's grade
-(`domain/analysis.ts`): ★ best (the engine's own move), ✓ good
-(under 2 points of winning chances given away), grey ✓ correct (under 5), then ?! ? ?? as on Lichess; "new" for an
-opponent reply with no answer yet. A repertoire move gets a second badge only for a fault. The card counts the
-faults ("Your 9 moves: 1 mistake"), each one a chip that opens it, with the final evaluation; under the board, the
-move shown with its badges, the evaluation after it and the engine's move ("8.f3 ? Mistake −1.2 · 8.Qd2 was
-best"). On the board, an orange arrow (`engineArrow`): after a move of the player's other than the engine's, the
-move the engine would have played (faded when the move was still good or correct); with the player to move, the
-engine's move now. On the phone (PMG, 2026-11-19: "hard to see the moves and the board at the same time") the moves
-are a strip under the board, the shown one centred, and the tree's bottom bar (start, back, forward, end) steps
-through them; a fault chip in the card brings the board into view. PMG (2026-11-19): without it, the review did not say whether he had played well once
-out of his preparation. Then
-the first place it left the repertoire is a step to settle, as in Check: **Add** (the moves played after it are
-given, to trim or extend in the candidate table), **Keep**, **Prepare a reply**, **Not worth it**. Then "1 settled ·
+mistake, blunder"): a book for a move of the repertoire (either side); for the player's moves out of it, the
+engine's grade (`domain/analysis.ts`): ★ best (the engine's own move), ✓ good (under 2 points of winning chances
+given away), grey ✓ correct (under 5), then ?! ? ?? as on Lichess; "new" for an opponent reply with no answer yet. A
+repertoire move gets a second badge only for a fault. No legend (PMG, same day: most badges need none; the move
+under the board names its own). The card counts the faults ("Your 9 moves: 1 mistake"), each one a chip that opens
+it, with the final evaluation; under the board, the move shown with its badges, the evaluation after it and the
+engine's move ("8.f3 ? Mistake −1.2 · 8.Qd2 was best"). On the board, an orange arrow (`engineArrow`): after a move
+of the player's other than the engine's, the move the engine would have played (faded when the move was still good
+or correct); with the player to move, the engine's move now. On the phone (PMG, 2026-11-19: "hard to see the moves
+and the board at the same time") the moves are a strip under the board, the shown one centred, and the tree's bottom
+bar (start, back, forward, end) steps through them; a fault chip in the card brings the board into view. PMG
+(2026-11-19): without it, the review did not say whether he had played well once out of his preparation. Then the
+first place it left the repertoire is a step to settle, as in Check: **Add** (the moves played after it are given,
+to trim or extend in the candidate table), **Keep**, **Prepare a reply**, **Not worth it**. Then "1 settled ·
 Practise again / Back to Home".
 
 ### Effects
