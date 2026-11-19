@@ -135,9 +135,13 @@ positions. Creation keeps to the player's habits,
 even those the engine judges bad (their replacement becomes a
 [pending decision](#pending-decision)); going past their games is left to
 strengthening and to additions. A move
-leaves it only with the player's consent: one they have stopped playing (six
-months without it while still reaching the position) is offered for removal, and
-is left out of [spaced repetition](#spaced-repetition) meanwhile. Not to be confused with the
+leaves it only with the player's consent: they can remove one of their moves
+(the line it opened leaves [spaced repetition](#spaced-repetition) with it, and
+the games played with it before stay settled), and one they have stopped
+playing (something else the last 5 times they reached the position) is offered
+for removal, and is left out of spaced repetition meanwhile. Counted in games,
+not in months: a player who stops playing loses nothing. Adding a removed move
+again puts it back. Not to be confused with the
 [opening tree](#opening-tree), which says what the player *does*.
 
 _Avoid_: preparation (as a separate object), several repertoires per side.

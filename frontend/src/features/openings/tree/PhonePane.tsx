@@ -6,7 +6,7 @@ import { isPlayerMove } from '../domain/openingTree';
 import type { Side } from '../domain/playedGame';
 import { replayLine } from '../position/replay';
 import { COLOURS, REPERTOIRE } from '../workshop/theme';
-import { OffRepertoire, PriorityCard, SettleCard, type PositionPaneProps } from './PositionPane';
+import { OffRepertoire, PriorityCard, RemoveMove, SettleCard, type PositionPaneProps } from './PositionPane';
 import { usePositionFacts } from './positionFacts';
 import type { MapNode } from './repertoireMap';
 
@@ -19,7 +19,7 @@ interface PhonePaneProps extends PositionPaneProps {
 
 /** Le téléphone, comme l'analyse de Lichess : l'échiquier d'abord, la ligne dessous, puis ce qu'on peut jouer ici. */
 export function PhonePane(props: PhonePaneProps) {
-  const { side, path, trail, node, steps, priority, actions, onLead, onSkip, onNextPriority, onExtend, onPrepareFollows, onMove, onJump, onSelect } = props;
+  const { side, path, trail, node, steps, priority, actions, onLead, onSkip, onNextPriority, onExtend, onRemove, onPrepareFollows, onMove, onJump, onSelect } = props;
   const facts = usePositionFacts(props);
   const { inRepertoire, arrows, suggestions, prioritised, settling } = facts;
 
@@ -40,6 +40,7 @@ export function PhonePane(props: PhonePaneProps) {
       ) : (
         <OffRepertoire path={path} node={node} facts={facts} onExtend={onExtend} onJump={onJump} />
       )}
+      {onRemove && <RemoveMove path={path} onRemove={onRemove} />}
     </div>
   );
 }

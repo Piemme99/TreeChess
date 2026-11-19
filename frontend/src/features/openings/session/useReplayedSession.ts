@@ -14,9 +14,9 @@ export function useReplayedSession() {
   const source = useSource();
   const replay = useReplayDay(source.games, source.firstDay, source.replay);
   const { ignored, ignore, unignore, clear: forgetIgnored } = useIgnoredChecks();
-  const { repertoires, add, remove, clear: forgetAdditions } = useRepertoires(source.games, source.start);
+  const { repertoires, repertoireOn, add, remove, removeMove, restoreMove, clear: forgetAdditions } = useRepertoires(source.games, source.start);
   const known = useMemo(() => gamesUntil(source.games, replay.day), [source.games, replay.day]);
-  const lived = useMemo(() => liveGames(source.games, repertoires, source.firstDay, replay.day), [source, repertoires, replay.day]);
+  const lived = useMemo(() => liveGames(source.games, repertoireOn, source.firstDay, replay.day), [source, repertoireOn, replay.day]);
   const open = useMemo(() => sessionSteps(gamesToDecide(lived, ignored, replay.day)), [lived, ignored, replay.day]);
   const { steps, adopted, judging } = useJudgedSteps(open);
   const adoptions = useMemo(
@@ -40,5 +40,5 @@ export function useReplayedSession() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [adoptions]);
 
-  return { source, replay, known, lived, repertoires, steps, adoptions, judging, add, remove, ignore, unignore, forgetIgnored, forgetAdditions };
+  return { source, replay, known, lived, repertoires, steps, adoptions, judging, add, remove, removeMove, restoreMove, ignore, unignore, forgetIgnored, forgetAdditions };
 }
