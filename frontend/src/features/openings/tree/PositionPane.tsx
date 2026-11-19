@@ -10,6 +10,7 @@ import type { Side } from '../domain/playedGame';
 import type { Priority } from '../domain/priorities';
 import { replayLine } from '../position/replay';
 import type { SessionStep } from '../session/steps';
+import type { StoppedMove } from '../domain/stopped';
 import { COLOURS, raised, REPERTOIRE, SPRING, tile } from '../workshop/theme';
 import { usePositionFacts, type PositionFacts } from './positionFacts';
 import type { MapNode } from './repertoireMap';
@@ -22,6 +23,15 @@ export interface StepActions {
   /** Le répertoire ne change pas ; ces parties ne reviennent plus. */
   onStay: (step: SessionStep) => void;
   onPrepare: (step: SessionStep) => void;
+}
+
+export interface StoppedActions {
+  moves: readonly StoppedMove[];
+  onRemove: (move: StoppedMove) => void;
+  onKeep: (move: StoppedMove) => void;
+  /** Combien d'autres attendent ailleurs, et y aller. */
+  others: number;
+  onNext?: () => void;
 }
 
 export interface PositionPaneProps {
@@ -48,6 +58,8 @@ export interface PositionPaneProps {
   onExtend: () => void;
   /** Retirer du répertoire le coup du joueur qui a mené ici, et sa suite. */
   onRemove?: () => void;
+  /** Les coups de cette position que le joueur ne joue plus, proposés au retrait. */
+  stopped?: StoppedActions;
   /** Construire depuis une ligne de la priorité : la sienne, ou celle où elle perd ses points. */
   onPrepareFollows?: (line: readonly string[]) => void;
   onMove: (san: string) => void;
@@ -108,6 +120,11 @@ export function PositionPane(props: PositionPaneProps) {
       {prioritised && !settling && (
         <div className="order-3">
           <PriorityCard side={side} priority={priority!} rank={props.priorityRank ?? node.priority!} total={props.priorityCount} facts={facts} waiting={steps.length} onLead={onLead} onNextPriority={onNextPriority} onPrepareFollows={onPrepareFollows} />
+        </div>
+      )}
+      {props.stopped && props.stopped.moves.length > 0 && (
+        <div className="order-3">
+          <StoppedCard stopped={props.stopped} ply={node.path.length + 1} />
         </div>
       )}
       <Repertoire side={side} node={node} inRepertoire={inRepertoire} ply={ply} onMove={onMove} />
@@ -227,6 +244,50 @@ export function OffRepertoire({ path, node, facts, onExtend, onJump }: { path: r
     </section>
   );
 }
+
+/** Un coup que le joueur ne joue plus : le retirer, ou le garder (il revient à la révision). */
+export function StoppedCard({ stopped, ply }: { stopped: StoppedActions; ply: number }) {
+  return (
+    <section aria-label="No longer played" className="flex flex-col gap-3 rounded-2xl px-4 py-3.5 text-[14px]" style={{ background: COLOURS.paper, boxShadow: `inset 0 0 0 1.5px ${COLOURS.terracotta}` }}>
+      <span className="flex items-center justify-between gap-3">
+        <span className="text-[12px] font-bold uppercase tracking-[0.06em]" style={{ color: COLOURS.terracotta }}>
+          No longer played
+        </span>
+        {stopped.onNext && (
+          <button type="button" onClick={stopped.onNext} className="-my-1 rounded-lg px-1 py-1 text-[13px] font-semibold underline-offset-4 hover:underline focus-visible:outline-2">
+            {stopped.others} more →
+          </button>
+        )}
+      </span>
+      {stopped.moves.map((move) => {
+        const mine = figurineMove(move.san, ply);
+        return (
+          <div key={move.san} className="flex flex-col gap-2.5">
+            <p className="leading-snug">
+              The last {move.playedInstead.length} times here you played {insteadOf(move.playedInstead, ply)}, never <strong>{mine}</strong>.{' '}
+              <span style={{ color: COLOURS.leafSoft }}>Out of your review until you decide.</span>
+            </p>
+            <span className="flex gap-2">
+              <Action onClick={() => stopped.onRemove(move)} tone="primary">
+                Remove {mine}
+              </Action>
+              <Action onClick={() => stopped.onKeep(move)}>Keep it</Action>
+            </span>
+          </div>
+        );
+      })}
+    </section>
+  );
+}
+
+const insteadOf = (played: readonly string[], ply: number) => {
+  const counts = new Map<string, number>();
+  for (const san of played) counts.set(san, (counts.get(san) ?? 0) + 1);
+  return [...counts]
+    .sort((a, b) => b[1] - a[1])
+    .map(([san, times]) => (counts.size > 1 ? `${figurineMove(san, ply)} ×${times}` : figurineMove(san, ply)))
+    .join(', ');
+};
 
 /** Discret : on retire rarement, et l'annulation suit dans le toast. */
 export function RemoveMove({ path, onRemove }: { path: readonly string[]; onRemove: () => void }) {

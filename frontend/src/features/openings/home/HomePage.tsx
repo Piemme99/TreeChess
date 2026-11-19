@@ -58,8 +58,8 @@ export function HomePage() {
 
 function Home({ onForget, syncing }: { onForget: () => void; syncing: boolean }) {
   const pathOf = useV2Path();
-  const { source, replay, known, lived, repertoires, steps, judging, forgetIgnored, forgetAdditions } = useReplayedSession();
-  const review = useReview(source.games, repertoires, lived, replay.today, source.start);
+  const { source, replay, known, lived, repertoires, reviewed, stopped, steps, judging, forgetIgnored, forgetAdditions } = useReplayedSession();
+  const review = useReview(source.games, reviewed, lived, replay.today, source.start);
   const { worked, clear: forgetWorked } = useWorkedLines();
   const table = useOpeningTable();
   const priorities = usePriorities(known, replay.day);
@@ -134,6 +134,9 @@ function Home({ onForget, syncing }: { onForget: () => void; syncing: boolean })
 
         <ul className="flex flex-col gap-2">
           {hero !== 'games' && waiting > 0 && <Row label="To settle" figure={`${waiting}`} to={checkHref} />}
+          {stopped.length > 0 && (
+            <Row label="No longer played" figure={`${stopped.length} ${stopped.length === 1 ? 'move' : 'moves'}`} to={`${tree}?side=${stopped[0].side}&line=${encodeURIComponent(stopped[0].path.join(' '))}`} />
+          )}
           {hero !== 'review' && due > 0 && <Row label="Review" figure={`${lines} · ${formatPercent(review.known)} known`} to={pathOf('review')} />}
           {moreToWork.length > 0 && (
             <WeakOpenings label={inHero ? 'More weak openings' : 'Weak openings'} summary={`${openingName(table, shownLine(moreToWork[0]))} ${formatPercent(moreToWork[0].score)}`} priorities={moreToWork} table={table} href={workOn} workedOf={workedOf} lived={lived} />

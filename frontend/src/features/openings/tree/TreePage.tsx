@@ -7,6 +7,7 @@ import { BuildSession } from '../checks/BuildSession';
 import { originAt, originOf, type BuildOrigin } from '../checks/useBuilder';
 import type { AddedMove, Addition } from '../domain/addition';
 import type { Removal } from '../domain/removal';
+import type { StoppedMove } from '../domain/stopped';
 import { buildOpeningTree, isPlayerMove, type OpeningTree } from '../domain/openingTree';
 import { figurineLine, figurineMove } from '../domain/notation';
 import { gamesOfLastMonths } from '../domain/period';
@@ -25,7 +26,7 @@ import { useWide } from '../workshop/useWide';
 import { useWorkedLines, type WorkedLine } from '../replay/useWorkedLines';
 import { storedSide, storeSide } from '../workshop/storedSide';
 import { useWorkshopFont } from '../workshop/useWorkshopFont';
-import { PositionPane, type StepActions } from './PositionPane';
+import { PositionPane, type StepActions, type StoppedActions } from './PositionPane';
 import { PhonePane } from './PhonePane';
 import { RepertoireMap } from './RepertoireMap';
 import { buildRepertoireMap, forEachNode, type MapNode } from './repertoireMap';
@@ -52,7 +53,7 @@ interface Session {
  */
 export function TreePage() {
   useWorkshopFont();
-  const { source, replay, known, repertoires, steps, adoptions, judging, add, remove, removeMove, restoreMove, ignore, unignore, forgetIgnored, forgetAdditions } = useReplayedSession();
+  const { source, replay, known, repertoires, steps, adoptions, judging, stopped, keep, unkeep, add, remove, removeMove, restoreMove, ignore, unignore, forgetIgnored, forgetAdditions } = useReplayedSession();
   const { worked, work, unwork } = useWorkedLines();
   // Openings envoie une ligne à travailler par l'adresse : /dev/tree?side=b&line=d4 Nf6.
   const [params, setParams] = useSearchParams();
@@ -290,6 +291,34 @@ export function TreePage() {
       },
     });
   };
+  const inRepertoire = path.length === node.path.length;
+  const stoppedHere = inRepertoire ? stopped.filter((move) => move.side === side && move.position === node.position) : [];
+  const stoppedElsewhere = stopped.filter((move) => !stoppedHere.includes(move));
+  // Après un retrait, les coups délaissés plus loin sur la même ligne partent avec lui.
+  const toNextStopped = (removed?: readonly string[]) => {
+    const next = stoppedElsewhere.find((move) => !removed || !startsWith(move.path, removed));
+    const target = next && findByPosition(maps[next.side], next.position);
+    if (target) goTo(next.side, target.key, true);
+  };
+  // Comme une séance : une décision prise, on passe au coup suivant que le joueur ne joue plus.
+  const stoppedActions: StoppedActions = {
+    moves: stoppedHere,
+    others: stoppedElsewhere.length,
+    onRemove: (move: StoppedMove) => {
+      const removal: Removal = { side: move.side, position: move.position, san: move.san, removedAt: replay.today };
+      removeMove(removal);
+      toNextStopped([...move.path, move.san]);
+      toTop();
+      show({ text: `${figurineMove(move.san, node.path.length + 1)} and what follows removed from your repertoire`, undo: () => restoreMove(removal) });
+    },
+    onKeep: (move: StoppedMove) => {
+      const kept = keep(move, replay.today);
+      toNextStopped();
+      toTop();
+      show({ text: `${figurineMove(move.san, node.path.length + 1)} kept · back in your review`, undo: () => unkeep(kept) });
+    },
+    onNext: stoppedElsewhere.length ? () => toNextStopped() : undefined,
+  };
   const skip = (step: SessionStep) => {
     mark(step.key, 'skipped');
     show({ text: 'Skipped for this session', undo: () => mark(step.key, null) });
@@ -452,6 +481,7 @@ export function TreePage() {
     onNextPriority: onTaskLine ? nextWeak : undefined,
     onExtend: () => build({ origin: originAt(side, node.path, path) }),
     // Seuls les coups du joueur se retirent : ceux de l'adversaire, il les subit.
+    stopped: stoppedActions,
     onRemove: path.length && path.length === node.path.length && isPlayerMove(side, path.length) ? removeLast : undefined,
     onPrepareFollows: priority
       ? (line: readonly string[]) => {

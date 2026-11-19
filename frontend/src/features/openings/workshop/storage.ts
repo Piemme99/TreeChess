@@ -1,7 +1,7 @@
 import { api, getAccessToken } from '../../../services/api';
 
 /** Les décisions que le serveur garde pour un compte importé ; la démo les laisse dans le navigateur. */
-export const SAVED_KEYS = ['additions', 'ignored-checks', 'removals', 'review', 'worked'] as const;
+export const SAVED_KEYS = ['additions', 'ignored-checks', 'kept-moves', 'removals', 'review', 'worked'] as const;
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
 // Assez court pour qu'une décision soit sauvée avant qu'on ferme la page, assez long pour grouper un Undo.

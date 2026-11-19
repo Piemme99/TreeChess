@@ -4,6 +4,7 @@ import { useIgnoredChecks } from '../checks/useIgnoredChecks';
 import type { Addition } from '../domain/addition';
 import { gamesUntil } from '../domain/replay';
 import { useRepertoires } from '../replay/useRepertoires';
+import { useStoppedMoves } from '../replay/useStoppedMoves';
 import { useReplayDay } from '../replay/useReplayDay';
 import { sessionSteps } from './steps';
 import { useJudgedSteps } from './useJudgedSteps';
@@ -14,8 +15,9 @@ export function useReplayedSession() {
   const source = useSource();
   const replay = useReplayDay(source.games, source.firstDay, source.replay);
   const { ignored, ignore, unignore, clear: forgetIgnored } = useIgnoredChecks();
-  const { repertoires, repertoireOn, add, remove, removeMove, restoreMove, clear: forgetAdditions } = useRepertoires(source.games, source.start);
+  const { repertoires, repertoireOn, add, remove, removeMove, restoreMove, clear: forgetRepertoire } = useRepertoires(source.games, source.start);
   const known = useMemo(() => gamesUntil(source.games, replay.day), [source.games, replay.day]);
+  const { stopped, reviewed, keep, unkeep, clear: forgetKept } = useStoppedMoves(repertoires, known, source.start);
   const lived = useMemo(() => liveGames(source.games, repertoireOn, source.firstDay, replay.day), [source, repertoireOn, replay.day]);
   const open = useMemo(() => sessionSteps(gamesToDecide(lived, ignored, replay.day)), [lived, ignored, replay.day]);
   const { steps, adopted, judging } = useJudgedSteps(open);
@@ -40,5 +42,32 @@ export function useReplayedSession() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [adoptions]);
 
-  return { source, replay, known, lived, repertoires, steps, adoptions, judging, add, remove, removeMove, restoreMove, ignore, unignore, forgetIgnored, forgetAdditions };
+  const forgetAdditions = () => {
+    forgetRepertoire();
+    forgetKept();
+  };
+
+  return {
+    source,
+    replay,
+    known,
+    lived,
+    repertoires,
+    /** Le répertoire que la révision parcourt : sans les coups que le joueur ne joue plus. */
+    reviewed,
+    stopped,
+    keep,
+    unkeep,
+    steps,
+    adoptions,
+    judging,
+    add,
+    remove,
+    removeMove,
+    restoreMove,
+    ignore,
+    unignore,
+    forgetIgnored,
+    forgetAdditions,
+  };
 }

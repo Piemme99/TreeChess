@@ -178,8 +178,12 @@ Games and the line view leave the path; bricks 5–7 wait for the position scree
 6. **Worked lines**: adherence, then score against before, on the priority tickets.
 7. **Engine correction at creation, and removals**. Removal by hand — *done*: "I no longer play …: remove it" under a
    player's move on the Tree (`domain/removal.ts`, stored as a log like the additions, key `removals`); a game is checked
-   against the repertoire of its day, so removing a move does not reopen the games played with it. Next: offering a
-   move for removal once the player played something else the last 5 times they reached its position.
+   against the repertoire of its day, so removing a move does not reopen the games played with it. Proposed removal —
+   *done*: `domain/stopped.ts` finds the player's moves left the last 5 times they reached the position along their
+   repertoire (games merged into a trie once, ~40 ms a side on 5,600 games); they leave the review (`reviewed` in
+   `useReplayedSession`) and wait on a "No longer played" card in the Tree (Remove / Keep it), reached from a Home row.
+   "Keep it" is stored (`kept-moves`) and asks again only after the move is played again then left 5 times. On
+   Piemme78's games at creation (2026-01-01): 5 moves a side, e.g. 1.d4 (switched to 1.e4 in May 2025).
 
 ## POC: the tree as the landing screen (grilled with PMG, 2026-10-19)
 
