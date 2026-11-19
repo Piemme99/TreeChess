@@ -3,7 +3,7 @@ import { useMemo, useState, type ReactNode } from 'react';
 import { useOpeningName } from '../../../shared/hooks/useOpeningName';
 import { PlayableBoard } from '../board/PlayableBoard';
 import { JUDGEMENT_MARK } from '../domain/judgement';
-import { figurineLine, figurineMove, formatCp } from '../domain/notation';
+import { figurine, figurineLine, figurineMove, formatCp } from '../domain/notation';
 import { isPlayerMove, type OpeningNode, type OpeningTree } from '../domain/openingTree';
 import { scoreRate } from '../domain/performance';
 import type { Side } from '../domain/playedGame';
@@ -263,9 +263,23 @@ export function StoppedCard({ stopped, ply }: { stopped: StoppedActions; ply: nu
         const mine = figurineMove(move.san, ply);
         return (
           <div key={move.san} className="flex flex-col gap-2.5">
-            <p className="leading-snug">
-              The last {move.playedInstead.length} times here you played {insteadOf(move.playedInstead, ply)}, never <strong>{mine}</strong>.{' '}
-              <span style={{ color: COLOURS.leafSoft }}>Out of your review until you decide.</span>
+            <p className="text-[16px] leading-snug">
+              You no longer play <strong>{mine}</strong>
+            </p>
+            <div className="flex flex-col gap-1.5">
+              <span className="text-[13px]" style={{ color: COLOURS.leafSoft }}>
+                Your last {move.playedInstead.length} games here
+              </span>
+              <span className="flex flex-wrap gap-1.5">
+                {move.playedInstead.map((san, index) => (
+                  <span key={index} className="rounded-full px-2.5 py-0.5 text-[15px] font-bold" style={{ background: COLOURS.sand }}>
+                    {figurine(san)}
+                  </span>
+                ))}
+              </span>
+            </div>
+            <p className="text-[13px]" style={{ color: COLOURS.leafSoft }}>
+              Out of your review until you decide.
             </p>
             <span className="flex gap-2">
               <Action onClick={() => stopped.onRemove(move)} tone="primary">
@@ -279,15 +293,6 @@ export function StoppedCard({ stopped, ply }: { stopped: StoppedActions; ply: nu
     </section>
   );
 }
-
-const insteadOf = (played: readonly string[], ply: number) => {
-  const counts = new Map<string, number>();
-  for (const san of played) counts.set(san, (counts.get(san) ?? 0) + 1);
-  return [...counts]
-    .sort((a, b) => b[1] - a[1])
-    .map(([san, times]) => (counts.size > 1 ? `${figurineMove(san, ply)} ×${times}` : figurineMove(san, ply)))
-    .join(', ');
-};
 
 /** Discret : on retire rarement, et l'annulation suit dans le toast. */
 export function RemoveMove({ path, onRemove }: { path: readonly string[]; onRemove: () => void }) {
