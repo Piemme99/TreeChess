@@ -1,4 +1,8 @@
+import { Chess } from 'chess.js';
 import type { GameCheck } from './gameCheck';
+import { isPlayerMove } from './openingTree';
+import type { Side } from './playedGame';
+import { positionKey } from './repertoire';
 import type { Judgement } from './judgement';
 import type { ExplorerStats } from './preparation';
 
@@ -51,3 +55,29 @@ export function departureMark(kind: 'left' | 'uncovered', verdict: DepartureVerd
   // Sans moteur on ne saura pas : mieux vaut signaler l'écart que le taire, comme dans Check.
   return verdict ? '!' : '·';
 }
+
+/**
+ * Ce que la partie laisse à trancher : `left` un coup du joueur à la place de celui du répertoire, `uncovered` une
+ * réponse adverse sans parade, `past` un coup du joueur là où le répertoire n'a plus rien.
+ */
+export interface PracticeStep {
+  kind: 'left' | 'uncovered' | 'past';
+  ply: number;
+  played: string;
+  planned: readonly string[];
+  position: string;
+}
+
+/** Le premier écart de la partie, ou son premier coup après la fin de la préparation ; `null` si elle n'a rien quitté. */
+export function practiceStep(check: GameCheck, path: readonly string[], side: Side): PracticeStep | null {
+  if (check.kind !== 'followed') return check;
+  if (check.plies >= path.length) return null;
+  const chess = new Chess();
+  for (const san of path.slice(0, check.plies)) chess.move(san);
+  // Au bout de la préparation, la réponse adverse attend sa parade comme celle qui en sort.
+  const kind = isPlayerMove(side, check.plies + 1) ? 'past' : 'uncovered';
+  return { kind, ply: check.plies, played: path[check.plies], planned: [], position: positionKey(chess.fen()) };
+}
+
+/** Un coup du répertoire manqué à l'entraînement revient en révision, comme un oubli en partie. */
+export const lapseOf = (step: PracticeStep | null): string | null => (step?.kind === 'left' ? step.position : null);

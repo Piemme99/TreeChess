@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { departureMark, opponentTurn, reviewStart } from './practice';
+import { departureMark, lapseOf, opponentTurn, practiceStep, reviewStart } from './practice';
+import type { GameCheck } from './gameCheck';
 import type { ExplorerStats } from './preparation';
 
 const move = (san: string, games: number) => ({ san, white: games, draws: 0, black: 0 });
@@ -59,5 +60,30 @@ describe('departureMark', () => {
 
   it('without an engine, a move off the repertoire is flagged rather than passed over', () => {
     expect(departureMark('left', 'blind')).toBe('!');
+  });
+});
+
+describe('practiceStep', () => {
+  // La partie de PMG : sa préparation s'arrête après 4.Nxd4 ; 4…Nf6 arrive au-delà.
+  const philidor = ['e4', 'e5', 'Nf3', 'd6', 'd4', 'exd4', 'Nxd4', 'Nf6', 'Nc3', 'Be7'];
+
+  it('an opponent reply past the end of the preparation asks for an answer, like one off it', () => {
+    expect(practiceStep({ kind: 'followed', plies: 7 }, philidor, 'w')).toMatchObject({ kind: 'uncovered', ply: 7, played: 'Nf6' });
+  });
+
+  it("a move of the player's past the end of the preparation is a new move, not a missed one", () => {
+    const step = practiceStep({ kind: 'followed', plies: 8 }, philidor, 'w');
+    expect(step).toMatchObject({ kind: 'past', ply: 8, played: 'Nc3' });
+    expect(lapseOf(step)).toBeNull();
+  });
+
+  it('a game that followed the preparation to its last move leaves nothing to settle', () => {
+    expect(practiceStep({ kind: 'followed', plies: 10 }, philidor, 'w')).toBeNull();
+  });
+
+  it('a repertoire move missed in practice comes back in Review; an opponent reply off the repertoire does not', () => {
+    const left: GameCheck = { kind: 'left', ply: 2, played: 'Bc4', planned: ['Nf3'], position: 'after 1.e4 e5' };
+    expect(lapseOf(practiceStep(left, philidor, 'w'))).toBe('after 1.e4 e5');
+    expect(lapseOf(practiceStep({ kind: 'uncovered', ply: 3, played: 'f5', planned: ['Nc6'], position: 'after 2.Nf3' }, philidor, 'w'))).toBeNull();
   });
 });

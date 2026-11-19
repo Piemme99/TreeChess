@@ -3,7 +3,7 @@ import { Chess } from 'chess.js';
 import { positionKey, type Repertoire, type RepertoireMove } from './repertoire';
 import { buildOpeningTree } from './openingTree';
 import type { PlayedGame } from './playedGame';
-import { acceptedMoves, answered, dueCount, hasDueAhead, isDue, mastery, nextReply, planLine, playerPositions, seededState, withLapses, type ReviewState } from './review';
+import { acceptedMoves, answered, dueCount, hasDueAhead, isDue, mastery, missedInPractice, nextReply, planLine, playerPositions, seededState, withLapses, type ReviewState } from './review';
 
 const TODAY = '2026-03-01';
 
@@ -89,6 +89,14 @@ describe('review', () => {
 
     expect(isDue(withLapses(state, new Map([[key('e4 e5'), '2026-03-01']])), key('e4 e5'), TODAY)).toBe(false);
     expect(isDue(withLapses(state, new Map([[key('e4 e5'), '2026-03-02']])), key('e4 e5'), '2026-03-02')).toBe(true);
+  });
+
+  it("a repertoire move missed in practice is back in that day's review, from box 1, even when it was a month away", () => {
+    const known: ReviewState = new Map([[key('e4 e5'), { box: 3, due: '2026-03-31', reviewedAt: TODAY }]]);
+    const missed = missedInPractice(known, key('e4 e5'), '2026-03-02');
+    expect(isDue(missed, key('e4 e5'), '2026-03-02')).toBe(true);
+    expect(missed.get(key('e4 e5'))?.box).toBe(1);
+    expect(mastery(white, missed, '2026-03-02').known).toBe(0);
   });
 
   it('plays the line alone up to the two last moves of the player before the position due', () => {

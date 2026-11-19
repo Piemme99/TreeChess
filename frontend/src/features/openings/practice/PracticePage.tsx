@@ -1,23 +1,32 @@
 import { MotionConfig, motion } from 'framer-motion';
 import { Chess } from 'chess.js';
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { PlayableBoard } from '../board/PlayableBoard';
 import { WorkshopBoard } from '../board/WorkshopBoard';
+import { BuildSession } from '../checks/BuildSession';
+import { liveGames } from '../checks/decisions';
 import { ENGINE_DEPTH } from '../checks/useCandidates';
+import type { BuildOrigin } from '../checks/useBuilder';
+import type { AddedMove, Addition } from '../domain/addition';
 import { judgeGame, type MoveVerdict } from '../domain/analysis';
 import type { Evaluation } from '../domain/diagnosis';
 import { checkGame, type GameCheck } from '../domain/gameCheck';
 import { JUDGEMENT_MARK, type Judgement } from '../domain/judgement';
 import { levelLabel } from '../domain/level';
 import { evaluationWords, figurine, figurineMove, formatCp } from '../domain/notation';
-import type { Side } from '../domain/playedGame';
-import { departureMark, opponentTurn, pastLastMove, reviewStart, type DepartureVerdict, type PracticeEnd } from '../domain/practice';
+import { gamesOfLastMonths } from '../domain/period';
+import type { PlayedGame, Side } from '../domain/playedGame';
+import { departureMark, lapseOf, opponentTurn, pastLastMove, practiceStep, reviewStart, type DepartureVerdict, type PracticeEnd, type PracticeStep } from '../domain/practice';
+import { gamesUntil } from '../domain/replay';
 import type { Repertoire } from '../domain/repertoire';
 import { useEvaluations } from '../line/engine';
 import { explore, lichessSignInUrl, useExplorerSignIn } from '../line/explorer';
 import { replayLine } from '../position/replay';
 import { useRepertoires } from '../replay/useRepertoires';
+import { useReplayDay } from '../replay/useReplayDay';
+import { useStoppedMoves } from '../replay/useStoppedMoves';
+import { useReview } from '../review/useReview';
 import { useEngineBlind } from '../session/useJudgedSteps';
 import type { SessionStep } from '../session/steps';
 import { judgeStep, verdictFens } from '../session/verdict';
@@ -26,11 +35,14 @@ import { useSource } from '../source/useSource';
 import { LineName } from '../workshop/LineName';
 import { useV2Path } from '../workshop/routes';
 import { TaskBar } from '../workshop/Task';
+import { Toast } from '../workshop/Toast';
+import { useToast } from '../workshop/useToast';
 import { COLOURS, FONT_FAMILY, raised, REPERTOIRE, SPRING, tile } from '../workshop/theme';
 import { useWorkshopFont } from '../workshop/useWorkshopFont';
 
 // Le temps de voir son coup posé avant que l'adversaire réponde.
 const REPLY_DELAY = 450;
+const HABIT_MONTHS = 12;
 
 interface Game {
   path: readonly string[];
@@ -52,7 +64,13 @@ const after = (path: readonly string[], end: PracticeEnd | null): Game => ({ pat
 export function PracticePage() {
   useWorkshopFont();
   const source = useSource();
-  const { repertoires } = useRepertoires(source.games, source.start);
+  const replay = useReplayDay(source.games, source.firstDay, source.replay);
+  const { repertoires, repertoireOn, add, remove } = useRepertoires(source.games, source.start);
+  const known = useMemo(() => gamesUntil(source.games, replay.day), [source.games, replay.day]);
+  const { reviewed } = useStoppedMoves(repertoires, known, source.start);
+  const lived = useMemo(() => liveGames(source.games, repertoireOn, source.firstDay, replay.day), [source, repertoireOn, replay.day]);
+  const review = useReview(source.games, reviewed, lived, replay.today, source.start);
+  const habits = useMemo(() => gamesOfLastMonths(known, HABIT_MONTHS, new Date(replay.day)), [known, replay.day]);
   const [params] = useSearchParams();
   const side: Side = params.get('side') === 'b' ? 'b' : 'w';
   const level = useExplorerLevel();
@@ -93,7 +111,19 @@ export function PracticePage() {
         <TaskBar title="Practice" progress={`game ${round} · as ${sideName(side)}`} />
         <main className="mx-auto flex max-w-[30rem] flex-col gap-3 px-4 pt-4">
           {game.end ? (
-            <PracticeReview key={round} side={side} path={game.path} end={game.end} repertoire={repertoires[side]} onAgain={again} />
+            <PracticeReview
+              key={round}
+              side={side}
+              path={game.path}
+              end={game.end}
+              repertoire={repertoires[side]}
+              habits={habits}
+              day={replay.day}
+              onAdd={add}
+              onUndo={remove}
+              onLapse={(position) => review.missedInPractice(side, position)}
+              onAgain={again}
+            />
           ) : (
             <>
               <LineName path={game.path} />
@@ -146,11 +176,37 @@ const ENDS: Record<PracticeEnd, string> = {
 };
 
 /** La partie relue coup par coup, marquée comme les parties de Home ; le premier écart dit ce qui attend. */
-function PracticeReview({ side, path, end, repertoire, onAgain }: { side: Side; path: readonly string[]; end: PracticeEnd; repertoire: Repertoire; onAgain: () => void }) {
+interface ReviewProps {
+  side: Side;
+  path: readonly string[];
+  end: PracticeEnd;
+  repertoire: Repertoire;
+  /** Les parties du joueur des douze derniers mois : ses habitudes, pour préparer une réponse. */
+  habits: readonly PlayedGame[];
+  day: string;
+  onAdd: (addition: Addition) => void;
+  onUndo: (addition: Addition) => void;
+  onLapse: (position: string) => void;
+  onAgain: () => void;
+}
+
+function PracticeReview({ side, path, end, repertoire, habits, day, onAdd, onUndo, onLapse, onAgain }: ReviewProps) {
   const pathOf = useV2Path();
-  const check = useMemo(() => checkGame(repertoire, { side, moves: [...path], score: 0.5, playedAt: '' }), [repertoire, side, path]);
+  // Le répertoire de la partie, pas celui d'après : un ajout depuis la relecture ne doit pas déplacer l'écart.
+  const [check] = useState(() => checkGame(repertoire, { side, moves: [...path], score: 0.5, playedAt: '' }));
+  const step = useMemo(() => practiceStep(check, path, side), [check, path, side]);
   const verdict = useDepartureVerdict(side, path, check);
-  const departure = check.kind === 'followed' ? -1 : check.ply;
+  const departure = step?.ply ?? -1;
+  const [settled, setSettled] = useState<string | null>(null);
+  const [building, setBuilding] = useState<BuildOrigin | null>(null);
+  const { toast, show, close } = useToast();
+  const lapsed = useRef(false);
+  useEffect(() => {
+    const lapse = lapseOf(step);
+    if (!lapse || lapsed.current) return;
+    lapsed.current = true;
+    onLapse(lapse);
+  }, [step, onLapse]);
   const [shown, setShown] = useState(() => reviewStart(check, path.length));
   const fens = useMemo(() => replayLine(path).fens, [path]);
   const evaluations = useEvaluations(fens, ENGINE_DEPTH);
@@ -158,32 +214,76 @@ function PracticeReview({ side, path, end, repertoire, onAgain }: { side: Side; 
   const verdicts = useMemo(() => judgeGame(path, fens, side, evaluations), [path, fens, side, evaluations]);
 
   useEffect(() => {
+    // Le constructeur a ses propres flèches : la relecture cachée dessous ne doit pas bouger avec elles.
+    if (building) return;
     const step = (event: KeyboardEvent) => {
       if (event.key === 'ArrowLeft') setShown((ply) => Math.max(0, ply - 1));
       if (event.key === 'ArrowRight') setShown((ply) => Math.min(path.length, ply + 1));
     };
     window.addEventListener('keydown', step);
     return () => window.removeEventListener('keydown', step);
-  }, [path.length]);
+  }, [path.length, building]);
 
-  const icon = check.kind === 'followed' ? null : departureMark(check.kind, verdict);
+  const icon = step ? departureMark(step.kind === 'uncovered' ? 'uncovered' : 'left', step.kind === 'left' ? verdict : null) : null;
   const mark: Mark | null = icon && { icon, colour: icon === '?' || icon === '!' ? TO_SETTLE : COLOURS.leafSoft };
   const markOf = (ply: number): Mark[] => {
     // L'écart porte déjà sa marque à trancher : « !? » s'y lirait comme un coup intéressant.
     if (ply === departure) return mark ? [mark] : [];
-    const inRepertoire = check.kind === 'followed' ? ply < check.plies : ply < check.ply;
+    const inRepertoire = ply < (step?.ply ?? path.length);
     const judgement = verdicts.get(ply)?.judgement;
     return [inRepertoire && IN_REPERTOIRE, judgement && judgementMark(judgement)].filter((each): each is Mark => !!each);
   };
 
   const summary = (() => {
-    if (check.kind === 'followed') return check.plies >= path.length ? 'Prep followed all game' : check.plies ? `Prep followed to move ${Math.ceil(check.plies / 2)}, then nothing prepared` : 'No prep here';
-    const played = figurineMove(check.played, check.ply + 1);
-    if (check.kind === 'uncovered') return `${played}, no answer yet`;
+    if (!step) return 'Prep followed all game';
+    const played = figurineMove(step.played, step.ply + 1);
+    if (step.kind === 'uncovered') return `${played}, no answer yet`;
+    if (step.kind === 'past') return `${played}, past your prep`;
     // La qualité du coup, c'est l'analyse plus bas qui la dit, face au coup du moteur : une seconde marque, jugée
     // face au répertoire, la contredirait.
-    return verdict === 'judging' ? `You played ${played}: the engine is judging it…` : verdict ? `You played ${played}, not ${figurineMove(check.planned[0], check.ply + 1)}` : `New move ${played}, instead of ${figurineMove(check.planned[0], check.ply + 1)}`;
+    return verdict === 'judging' ? `You played ${played}: the engine is judging it…` : verdict ? `You played ${played}, not ${figurineMove(step.planned[0], step.ply + 1)}` : `New move ${played}, instead of ${figurineMove(step.planned[0], step.ply + 1)}`;
   })();
+
+  const toTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
+  const settle = (text: string, addition?: Addition) => {
+    if (addition) onAdd(addition);
+    setSettled(text);
+    if (building) toTop();
+    setBuilding(null);
+    show({
+      text,
+      undo: () => {
+        if (addition) onUndo(addition);
+        setSettled(null);
+      },
+    });
+  };
+  const addition = (moves: AddedMove[]): Addition => ({ side, addedAt: day, moves });
+  const actions: SettleActions | null = step && {
+    add: () => settle(`${figurineMove(step.played, step.ply + 1)} added to your repertoire`, addition([{ position: step.position, san: step.played, source: 'habit' }])),
+    keep: () => settle(`Kept ${step.planned.map((san) => figurineMove(san, step.ply + 1)).join(' · ')} · back in your review`),
+    leave: () => settle(step.kind === 'uncovered' ? `${figurineMove(step.played, step.ply + 1)} left unprepared` : 'Repertoire unchanged'),
+    build: () => {
+      setBuilding(originFor(step, path, side));
+      toTop();
+    },
+  };
+
+  if (building) {
+    return (
+      <BuildSession
+        origin={building}
+        games={habits.filter((game) => game.side === side)}
+        repertoire={repertoire}
+        onAccept={(moves) => settle(`${moves.length} ${moves.length === 1 ? 'move' : 'moves'} added to your repertoire`, addition(moves))}
+        onCancel={() => {
+          setBuilding(null);
+          toTop();
+        }}
+        stacked
+      />
+    );
+  }
 
   return (
     <>
@@ -199,6 +299,7 @@ function PracticeReview({ side, path, end, repertoire, onAgain }: { side: Side; 
         <span className="text-[14px]" style={{ color: COLOURS.leafSoft }}>
           {ENDS[end]}
         </span>
+        {step && actions && <Settle step={step} verdict={verdict} settled={settled} actions={actions} />}
         <Analysis side={side} path={path} fens={fens} evaluations={evaluations} verdicts={verdicts} blind={blind} onShow={setShown} />
       </motion.section>
       <LineName path={path.slice(0, shown)} />
@@ -215,7 +316,86 @@ function PracticeReview({ side, path, end, repertoire, onAgain }: { side: Side; 
           Back to Home
         </Link>
       </div>
+      <Toast toast={toast} onClose={close} />
     </>
+  );
+}
+
+interface SettleActions {
+  add: () => void;
+  keep: () => void;
+  leave: () => void;
+  build: () => void;
+}
+
+/** D'où part la construction : comme dans Check, la réponse adverse est donnée, le coup du joueur gardé. */
+function originFor(step: PracticeStep, path: readonly string[], side: Side): BuildOrigin {
+  if (step.kind === 'uncovered') {
+    const start = path.slice(0, step.ply + 1);
+    return { side, start, given: [start], keep: false, reply: path[step.ply + 1] };
+  }
+  return { side, start: path.slice(0, step.ply), given: [], played: step.played, keep: true };
+}
+
+/** Trancher l'écart comme dans l'arbre : l'ajouter, garder le répertoire, préparer une réponse, ou laisser. */
+function Settle({ step, verdict, settled, actions }: { step: PracticeStep; verdict: DepartureVerdict; settled: string | null; actions: SettleActions }) {
+  if (settled) {
+    return (
+      <p className="mt-1 flex items-baseline gap-2 text-[15px] font-bold" role="status">
+        <span aria-hidden="true" style={{ color: REPERTOIRE }}>
+          ✓
+        </span>
+        {settled}
+      </p>
+    );
+  }
+  const played = figurineMove(step.played, step.ply + 1);
+  // Le moteur préfère le répertoire : le garder est mis en avant ; sinon, ajouter le coup joué.
+  const worse = verdict !== null && verdict !== 'judging' && verdict !== 'blind';
+  return (
+    <div className="mt-2 flex flex-col gap-1.5">
+      {step.kind === 'uncovered' ? (
+        <span className="grid grid-cols-2 gap-1.5">
+          <Action onClick={actions.build} primary>
+            Prepare a reply
+          </Action>
+          <Action onClick={actions.leave}>Not worth it</Action>
+        </span>
+      ) : (
+        <>
+          <span className="grid grid-cols-2 gap-1.5">
+            <Action onClick={actions.add} primary={!worse}>
+              Add {played}
+            </Action>
+            {step.kind === 'left' ? (
+              <Action onClick={actions.keep} primary={worse}>
+                Keep {step.planned.length === 1 ? figurineMove(step.planned[0], step.ply + 1) : 'mine'}
+              </Action>
+            ) : (
+              <Action onClick={actions.leave}>Not worth it</Action>
+            )}
+          </span>
+          <button type="button" onClick={actions.build} className="self-start rounded-lg py-1.5 text-[13px] font-semibold underline-offset-4 hover:underline focus-visible:outline-2" style={{ color: COLOURS.leafSoft }}>
+            Add it and prepare what follows →
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
+function Action({ onClick, primary = false, children }: { onClick: () => void; primary?: boolean; children: ReactNode }) {
+  return (
+    <motion.button
+      type="button"
+      onClick={onClick}
+      whileTap={{ scale: 0.98 }}
+      transition={SPRING}
+      className="w-full rounded-xl px-3 py-2.5 text-[15px] font-bold leading-tight focus-visible:outline-2 focus-visible:outline-offset-2"
+      style={primary ? raised(true) : { ...tile(COLOURS.sand), color: COLOURS.leaf }}
+    >
+      {children}
+    </motion.button>
   );
 }
 

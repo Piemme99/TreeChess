@@ -5,7 +5,7 @@ import { gamesOfLastMonths } from '../domain/period';
 import { gamesUntil } from '../domain/replay';
 import type { PlayedGame, Side } from '../domain/playedGame';
 import type { Repertoire } from '../domain/repertoire';
-import { answered, dueCount, mastery, seededState, withLapses, type ReviewCard, type ReviewState } from '../domain/review';
+import { answered, dueCount, mastery, missedInPractice, seededState, withLapses, type ReviewCard, type ReviewState } from '../domain/review';
 import { encountersOf, lapsesOf, reviewWeight } from './weights';
 import { readStored, writeStored } from '../workshop/storage';
 
@@ -53,6 +53,7 @@ export function useReview(games: readonly PlayedGame[], repertoires: Record<Side
     answer: (side: Side, key: string, right: boolean) =>
       // Répondre à une position rattrapée par un oubli en partie part de l'état qui en tient compte.
       setStored((current) => ({ ...current, [side]: answered(withLapses(current[side], lapses[side]), key, right, today) })),
+    missedInPractice: (side: Side, key: string) => setStored((current) => ({ ...current, [side]: missedInPractice(current[side], key, today) })),
     forget: () => setStored(seed(games, repertoires, start)),
   };
 }

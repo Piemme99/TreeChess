@@ -24,7 +24,7 @@ Vocabulary (opening tree, deficit, priority, points to gain): `CONTEXT.md`.
   - `diagnosis.ts` — an engine evaluation, its winning chances (Lichess formula), UCI to SAN.
   - `preparation.ts` — the Lichess explorer stats and the source of a repertoire move.
   - `level.ts` — the explorer level from the player's rating; `practice.ts` — the practice opponent's reply and
-    when a practice game stops; `analysis.ts` — the engine's judgement of each move of the player's in a game.
+    when a practice game stops, what it leaves to settle; `analysis.ts` — the engine's judgement of each move of the player's in a game.
   - `period.ts`, `notation.ts`.
 - `OpeningsPage.tsx` — the screen: priority tickets, flame graph as tiles, board panel.
 - `flame/` — layout (pure), camera (`useFlameCamera`: zooming moves a window over fixed
@@ -458,7 +458,14 @@ Practice games are not games: they stay out of the opening tree, weak openings, 
    first move off the repertoire; a sound move of the player's names the repertoire move it replaced. Nothing is
    stored: a practice game is gone once the page is left. Then every move of the player's judged by the engine
    (`domain/analysis.ts`).
-3. **Settle from the review**, lapses for Review.
+3. **Settle from the review** (done): the card under the review's title settles the first move off the
+   repertoire as in the tree (Add / Keep / "Add it and prepare what follows", or Prepare a reply / Not worth it,
+   with Undo), the builder opening in place. A game that outlived the preparation settles its first move past it
+   (PMG's Philidor: the prep stops at 4.Nxd4, 4…Nf6 asks for a reply; a move of the player's there is "past your
+   prep": Add or Not worth it, never a lapse). A repertoire move missed counts as a wrong answer in Review
+   (box 1, due the same day, like a lapse in a game), recorded when the review opens, whatever is decided. The game's check is frozen
+   when the review opens: an addition does not move the departure. Not done: the moves played after the departure
+   are not given to the builder (given moves cannot be undone there).
 4. **"Practise from here"** on the tree.
 
 ## Later
