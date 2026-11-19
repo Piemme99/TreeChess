@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { replayLine } from '../position/replay';
-import { judgeGame } from './analysis';
+import { engineArrow, judgeGame } from './analysis';
 import type { Evaluation } from './diagnosis';
 
 // La partie d'entraînement de PMG, Philidor : 1.e4 e5 2.Nf3 d6 3.d4 exd4 4.Nxd4 Nf6 5.Nc3 Be7 6.Bf4 O-O 7.Be2 a6 8.f3 b5 9.Qd3
@@ -48,5 +48,21 @@ describe('judgeGame', () => {
     const known = evaluate({});
     known.delete(fens[15]);
     expect(judgeGame(path, fens, 'w', known).has(14)).toBe(false);
+  });
+});
+
+describe('engineArrow', () => {
+  it("after a move of the player's that is not the engine's, the arrow shows the move the engine would have played", () => {
+    // 8.f3 joué, 8.Qd2 attendu : la flèche part de la position d'avant 8.f3.
+    expect(engineArrow(path, fens, 'w', evaluate({ 14: { cp: 40, best: 'd1d2' } }), 15)).toEqual({ san: 'Qd2', instead: true });
+  });
+
+  it("after the engine's own move, no arrow: there was nothing better", () => {
+    expect(engineArrow(path, fens, 'w', evaluate({ 8: { cp: 50, best: 'b1c3' } }), 9)).toBeNull();
+  });
+
+  it("after the opponent's move, the arrow shows the engine's move for the player, now to play", () => {
+    // Après 7…a6 : 8.Qd2 pour les Blancs.
+    expect(engineArrow(path, fens, 'w', evaluate({ 14: { cp: 40, best: 'd1d2' } }), 14)).toEqual({ san: 'Qd2', instead: false });
   });
 });

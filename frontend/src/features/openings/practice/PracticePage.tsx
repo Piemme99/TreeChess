@@ -3,13 +3,12 @@ import { Chess } from 'chess.js';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { PlayableBoard } from '../board/PlayableBoard';
-import { WorkshopBoard } from '../board/WorkshopBoard';
 import { BuildSession } from '../checks/BuildSession';
 import { liveGames } from '../checks/decisions';
 import { ENGINE_DEPTH } from '../checks/useCandidates';
 import type { BuildOrigin } from '../checks/useBuilder';
 import type { AddedMove, Addition } from '../domain/addition';
-import { judgeGame, type MoveVerdict } from '../domain/analysis';
+import { engineArrow, judgeGame, type MoveVerdict } from '../domain/analysis';
 import type { Evaluation } from '../domain/diagnosis';
 import { checkGame, type GameCheck } from '../domain/gameCheck';
 import type { Judgement } from '../domain/judgement';
@@ -20,6 +19,7 @@ import type { PlayedGame, Side } from '../domain/playedGame';
 import { lapseOf, opponentTurn, pastLastMove, practiceStep, reviewStart, startingLine, type DepartureVerdict, type PracticeEnd, type PracticeStep } from '../domain/practice';
 import { gamesUntil } from '../domain/replay';
 import type { Repertoire } from '../domain/repertoire';
+import { ArrowBoard, type BoardArrow } from '../line/ArrowBoard';
 import { useEvaluations } from '../line/engine';
 import { explore, lichessSignInUrl, useExplorerSignIn } from '../line/explorer';
 import { replayLine } from '../position/replay';
@@ -37,7 +37,9 @@ import { useV2Path } from '../workshop/routes';
 import { TaskBar } from '../workshop/Task';
 import { Toast } from '../workshop/Toast';
 import { useToast } from '../workshop/useToast';
-import { COLOURS, FONT_FAMILY, raised, REPERTOIRE, SPRING, tile } from '../workshop/theme';
+import { useWide } from '../workshop/useWide';
+import { BottomBar } from '../workshop/BottomBar';
+import { COLOURS, ENGINE, FONT_FAMILY, raised, REPERTOIRE, SPRING, tile } from '../workshop/theme';
 import { useWorkshopFont } from '../workshop/useWorkshopFont';
 import { Badge } from './Badge';
 import { BADGE_ORDER, BADGES, type BadgeKind } from './grades';
@@ -111,7 +113,7 @@ export function PracticePage() {
 
   return (
     <MotionConfig reducedMotion="user">
-      <div className="min-h-screen pb-16" style={{ fontFamily: FONT_FAMILY, background: COLOURS.cream, color: COLOURS.leaf }}>
+      <div className="min-h-screen pb-24" style={{ fontFamily: FONT_FAMILY, background: COLOURS.cream, color: COLOURS.leaf }}>
         <TaskBar title="Practice" progress={`game ${round} · as ${sideName(side)}`} />
         <main className="mx-auto flex max-w-[30rem] flex-col gap-3 px-4 pt-4">
           {game.end ? (
@@ -214,6 +216,15 @@ function PracticeReview({ side, path, from, end, repertoire, habits, day, onAdd,
   const evaluations = useEvaluations(fens, ENGINE_DEPTH);
   const blind = useEngineBlind();
   const verdicts = useMemo(() => judgeGame(path, fens, side, evaluations, from), [path, fens, side, evaluations, from]);
+  const arrow = useMemo(() => engineArrow(path, fens, side, evaluations, shown), [path, fens, side, evaluations, shown]);
+  // Un coup sain mais pas celui du moteur garde sa flèche, estompée : la faute seule la met en avant.
+  const boardArrows = useMemo((): BoardArrow[] => (arrow ? [{ san: arrow.san, kind: 'engine', share: 0.5, played: arrow.instead, emphasis: !arrow.instead || verdicts.get(shown - 1)?.judgement != null }] : []), [arrow, verdicts, shown]);
+  const boardRef = useRef<HTMLDivElement>(null);
+  const wide = useWide();
+  const jump = (plies: number) => {
+    setShown(plies);
+    boardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
   useEffect(() => {
     // Le constructeur a ses propres flèches : la relecture cachée dessous ne doit pas bouger avec elles.
@@ -303,14 +314,18 @@ function PracticeReview({ side, path, from, end, repertoire, habits, day, onAdd,
           {ENDS[end]}
         </span>
         {step && actions && <Settle step={step} verdict={verdict} settled={settled} actions={actions} />}
-        <Analysis side={side} path={path} from={from} fens={fens} evaluations={evaluations} verdicts={verdicts} blind={blind} onShow={setShown} />
+        <Analysis side={side} path={path} from={from} fens={fens} evaluations={evaluations} verdicts={verdicts} blind={blind} onShow={jump} />
       </motion.section>
-      <LineName path={path.slice(0, shown)} />
-      <div className="-mx-2">
-        <WorkshopBoard path={path.slice(0, shown)} flipped={side === 'b'} />
+      {/* Au téléphone, l'échiquier, les coups et la barre du bas tiennent ensemble à l'écran : on relit sans défiler. */}
+      <div ref={boardRef} className="flex scroll-mt-16 flex-col gap-2">
+        <LineName path={path.slice(0, shown)} />
+        <div className="-mx-2">
+          <ArrowBoard path={path.slice(0, shown)} flipped={side === 'b'} arrows={boardArrows} />
+        </div>
+        <MoveStrip path={path} shown={shown} badgesOf={badgesOf} onShow={setShown} />
+        {shown > 0 && <ShownMove side={side} path={path} ply={shown - 1} badges={badgesOf(shown - 1)} evaluation={evaluations.get(fens[shown])} arrow={arrow} blind={blind} />}
       </div>
-      {shown > 0 && <ShownMove side={side} path={path} ply={shown - 1} badges={badgesOf(shown - 1)} evaluation={evaluations.get(fens[shown])} verdict={verdicts.get(shown - 1)} blind={blind} />}
-      <MoveList path={path} shown={shown} badgesOf={badgesOf} onShow={setShown} />
+      <Legend path={path} badgesOf={badgesOf} />
       <div className="mt-2 flex flex-col gap-2">
         <motion.button type="button" onClick={onAgain} whileTap={{ scale: 0.97 }} transition={SPRING} className="min-h-12 rounded-full px-5 text-[15px] font-bold focus-visible:outline-2" style={raised(true)}>
           Practise again
@@ -319,6 +334,14 @@ function PracticeReview({ side, path, from, end, repertoire, habits, day, onAdd,
           Back to Home
         </Link>
       </div>
+      {!wide && (
+        <BottomBar
+          onStart={shown > 0 ? () => setShown(0) : undefined}
+          onBack={shown > 0 ? () => setShown(shown - 1) : undefined}
+          onForward={shown < path.length ? () => setShown(shown + 1) : undefined}
+          onEnd={shown < path.length ? () => setShown(path.length) : undefined}
+        />
+      )}
       <Toast toast={toast} onClose={close} />
     </>
   );
@@ -451,7 +474,7 @@ function Analysis({ side, path, from, fens, evaluations, verdicts, blind, onShow
 }
 
 /** Sous l'échiquier : où en est la partie après le coup montré, et pour un coup fautif du joueur, celui du moteur. */
-function ShownMove({ side, path, ply, badges, evaluation, verdict, blind }: { side: Side; path: readonly string[]; ply: number; badges: readonly BadgeKind[]; evaluation: Evaluation | undefined; verdict: MoveVerdict | undefined; blind: boolean }) {
+function ShownMove({ side, path, ply, badges, evaluation, arrow, blind }: { side: Side; path: readonly string[]; ply: number; badges: readonly BadgeKind[]; evaluation: Evaluation | undefined; arrow: { san: string; instead: boolean } | null; blind: boolean }) {
   const cp = evaluation && (side === 'w' ? evaluation.cp : -evaluation.cp);
   return (
     <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 px-1 text-[15px]">
@@ -465,7 +488,11 @@ function ShownMove({ side, path, ply, badges, evaluation, verdict, blind }: { si
       <span className="tabular-nums" style={{ color: COLOURS.leafSoft }}>
         {cp === undefined ? (blind ? 'no evaluation' : '…') : `${formatCp(cp)} (${evaluationWords(cp)})`}
       </span>
-      {verdict?.better && <span>· {figurineMove(verdict.better, ply + 1)} was better</span>}
+      {arrow && (
+        <span className="font-semibold" style={{ color: ENGINE }}>
+          {arrow.instead ? `${figurineMove(arrow.san, ply + 1)} was best` : `best now: ${figurineMove(arrow.san, ply + 2)}`}
+        </span>
+      )}
     </p>
   );
 }
@@ -488,55 +515,68 @@ function useDepartureVerdict(side: Side, path: readonly string[], check: GameChe
   return verdict.judgement;
 }
 
-function MoveList({ path, shown, badgesOf, onShow }: { path: readonly string[]; shown: number; badgesOf: (ply: number) => BadgeKind[]; onShow: (plies: number) => void }) {
-  const rows = Array.from({ length: Math.ceil(path.length / 2) }, (_, index) => index);
-  const cell = (ply: number) => {
-    if (ply >= path.length) return <span />;
-    const badges = badgesOf(ply);
-    return (
-      <button
-        type="button"
-        aria-current={shown === ply + 1 ? 'step' : undefined}
-        onClick={() => onShow(ply + 1)}
-        className="flex min-h-10 items-center gap-1.5 rounded-xl px-2.5 text-left text-[15px] focus-visible:outline-2"
-        style={shown === ply + 1 ? { background: COLOURS.sand, fontWeight: 700 } : undefined}
-      >
-        <span>{figurine(path[ply])}</span>
-        {badges.map((kind) => (
-          <Badge key={kind} kind={kind} />
-        ))}
-      </button>
-    );
-  };
+/** La partie en une ligne qui défile sous l'échiquier, comme sur Lichess : le coup montré reste au centre. */
+function MoveStrip({ path, shown, badgesOf, onShow }: { path: readonly string[]; shown: number; badgesOf: (ply: number) => BadgeKind[]; onShow: (plies: number) => void }) {
+  const strip = useRef<HTMLOListElement>(null);
+  useEffect(() => {
+    const list = strip.current;
+    const current = list?.querySelector<HTMLElement>('[aria-current]');
+    // Pas de scrollIntoView : il ferait aussi défiler la page.
+    if (list) list.scrollTo({ left: current ? current.offsetLeft - list.clientWidth / 2 + current.clientWidth / 2 : 0, behavior: 'smooth' });
+  }, [shown]);
+  return (
+    <ol
+      aria-label="Moves"
+      ref={strip}
+      className="relative -mx-1 flex gap-0.5 overflow-x-auto whitespace-nowrap px-1 text-[15px] [scrollbar-width:none]"
+      style={{ maskImage: 'linear-gradient(to right, transparent, black 1rem, black calc(100% - 1rem), transparent)' }}
+    >
+      {path.map((san, ply) => (
+        <li key={ply} className="flex items-center">
+          {ply % 2 === 0 && (
+            <span className="pl-1.5 text-[12px] tabular-nums" style={{ color: COLOURS.leafSoft }}>
+              {ply / 2 + 1}.
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={() => onShow(ply + 1)}
+            aria-current={shown === ply + 1 ? 'step' : undefined}
+            className="flex min-h-10 items-center gap-1 rounded-lg px-1.5 font-semibold focus-visible:outline-2"
+            style={shown === ply + 1 ? { background: COLOURS.leaf, color: COLOURS.cream } : undefined}
+          >
+            {figurine(san)}
+            {badgesOf(ply).map((kind) => (
+              <Badge key={kind} kind={kind} />
+            ))}
+          </button>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+/** Ce que veulent dire les pastilles de la partie, avec leur nombre. */
+function Legend({ path, badgesOf }: { path: readonly string[]; badgesOf: (ply: number) => BadgeKind[] }) {
   const counts = new Map<BadgeKind, number>();
   for (let ply = 0; ply < path.length; ply++) for (const kind of badgesOf(ply)) counts.set(kind, (counts.get(kind) ?? 0) + 1);
+  if (!counts.size) return null;
   return (
-    <div className="flex flex-col rounded-2xl px-2 py-1.5" style={tile(COLOURS.paper)}>
-      <ol className="grid grid-cols-[2.25rem_1fr_1fr] items-center">
-        {rows.map((row) => (
-          <li key={row} className="contents">
-            <span className="pl-1 text-[14px] tabular-nums" style={{ color: COLOURS.leafSoft }}>
-              {row + 1}.
-            </span>
-            {cell(row * 2)}
-            {cell(row * 2 + 1)}
-          </li>
-        ))}
-      </ol>
-      {counts.size > 0 && (
-        <ul aria-label="Legend" className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1.5 border-t px-1 pt-2.5 pb-1 text-[13px]" style={{ borderColor: COLOURS.sand, color: COLOURS.leafSoft }}>
-          {BADGE_ORDER.filter((kind) => counts.has(kind)).map((kind) => (
-            <li key={kind} className="flex items-center gap-1">
-              <Badge kind={kind} labelled />
-              {BADGES[kind].label}
-              <span className="font-bold tabular-nums" style={{ color: COLOURS.leaf }}>
-                {counts.get(kind)}
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
+    <ul aria-label="Legend" className="flex flex-wrap gap-x-3 gap-y-1.5 rounded-2xl px-3 py-2.5 text-[13px]" style={{ ...tile(COLOURS.paper), color: COLOURS.leafSoft }}>
+      {BADGE_ORDER.filter((kind) => counts.has(kind)).map((kind) => (
+        <li key={kind} className="flex items-center gap-1">
+          <Badge kind={kind} labelled />
+          {BADGES[kind].label}
+          <span className="font-bold tabular-nums" style={{ color: COLOURS.leaf }}>
+            {counts.get(kind)}
+          </span>
+        </li>
+      ))}
+      <li className="flex items-center gap-1">
+        <span aria-hidden="true" className="inline-block h-[3px] w-4 rounded-full" style={{ background: ENGINE }} />
+        engine's move
+      </li>
+    </ul>
   );
 }
 

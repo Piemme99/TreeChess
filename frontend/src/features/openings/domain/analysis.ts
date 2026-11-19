@@ -47,3 +47,23 @@ export function judgeGame(
   }
   return verdicts;
 }
+
+/**
+ * La flèche du moteur sur la position montrée après `shown` demi-coups : après un coup du joueur qui n'est pas le sien,
+ * le coup qu'il fallait jouer (`instead`, tiré de la position d'avant) ; au trait du joueur, le coup à jouer ici.
+ */
+export function engineArrow(
+  path: readonly string[],
+  fens: readonly string[],
+  side: Side,
+  evaluations: ReadonlyMap<string, Evaluation>,
+  shown: number,
+): { san: string; instead: boolean } | null {
+  const last = shown - 1;
+  if (last >= 0 && (last % 2 === 0) === (side === 'w')) {
+    const best = uciToSan(fens[last], evaluations.get(fens[last])?.best);
+    return best && best !== path[last] ? { san: best, instead: true } : null;
+  }
+  const best = uciToSan(fens[shown], evaluations.get(fens[shown])?.best);
+  return best ? { san: best, instead: false } : null;
+}
