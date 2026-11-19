@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { opponentTurn } from './practice';
+import { departureMark, opponentTurn, reviewStart } from './practice';
 import type { ExplorerStats } from './preparation';
 
 const move = (san: string, games: number) => ({ san, white: games, draws: 0, black: 0 });
@@ -32,5 +32,32 @@ describe('opponentTurn', () => {
   it('the game stops once move 15 is played', () => {
     expect(opponentTurn(afterNf3, 29, 0)).toEqual({ reply: 'Nc6', end: 'move-15' });
     expect(opponentTurn(afterNf3, 30, 0)).toEqual({ reply: null, end: 'move-15' });
+  });
+});
+
+describe('reviewStart', () => {
+  it('the review opens on the first move the repertoire did not plan, whether the player or the opponent played it', () => {
+    expect(reviewStart({ kind: 'left', ply: 2, played: 'Nf3', planned: ['d4'], position: '' }, 20)).toBe(3);
+    expect(reviewStart({ kind: 'uncovered', ply: 5, played: 'Bc5', planned: ['Nf6'], position: '' }, 20)).toBe(6);
+  });
+
+  it('a game that outlived the preparation opens on its first move past it, not on its last position', () => {
+    expect(reviewStart({ kind: 'followed', plies: 4 }, 30)).toBe(5);
+    expect(reviewStart({ kind: 'followed', plies: 12 }, 12)).toBe(12);
+  });
+});
+
+describe('departureMark', () => {
+  it('an opponent reply off the repertoire asks for an answer the first time it is met in practice', () => {
+    expect(departureMark('uncovered', null)).toBe('?');
+  });
+
+  it("a move of the player's off the repertoire is a mistake only when the engine finds it worse", () => {
+    expect(departureMark('left', 'mistake')).toBe('!');
+    expect(departureMark('left', null)).toBe('·');
+  });
+
+  it('without an engine, a move off the repertoire is flagged rather than passed over', () => {
+    expect(departureMark('left', 'blind')).toBe('!');
   });
 });
