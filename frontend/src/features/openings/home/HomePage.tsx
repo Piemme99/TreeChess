@@ -94,9 +94,9 @@ function Home({ onForget, syncing }: { onForget: () => void; syncing: boolean })
   return (
     <>
       <PageHeader replay={{ ...replay, reset }} />
-      <main className="mx-auto flex max-w-[34rem] flex-col gap-4 px-4 pt-5">
+      <main className="mx-auto flex max-w-[34rem] flex-col gap-4 px-4 pt-5 lg:grid lg:max-w-[84rem] lg:grid-cols-[minmax(0,1fr)_25rem] lg:items-start lg:gap-6 lg:px-8">
         {syncing && (
-          <p role="status" className="-mb-2 px-1 text-[13px] font-semibold" style={{ color: COLOURS.leafSoft }}>
+          <p role="status" className="-mb-2 px-1 text-[13px] font-semibold lg:col-span-2" style={{ color: COLOURS.leafSoft }}>
             Looking for new games on Lichess…
           </p>
         )}
@@ -132,7 +132,7 @@ function Home({ onForget, syncing }: { onForget: () => void; syncing: boolean })
           </Hero>
         )}
 
-        <ul className="flex flex-col gap-2">
+        <ul className="flex flex-col gap-2 lg:col-start-2">
           {hero !== 'games' && waiting > 0 && <Row label="To settle" figure={`${waiting}`} to={checkHref} />}
           {stopped.length > 0 && (
             <Row label="No longer played" figure={`${stopped.length} ${stopped.length === 1 ? 'move' : 'moves'}`} to={`${tree}?side=${stopped[0].side}&line=${encodeURIComponent(stopped[0].path.join(' '))}`} />
