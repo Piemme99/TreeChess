@@ -82,8 +82,6 @@ export function PositionPane(props: PositionPaneProps) {
   const opening = useOpeningName(fens);
   const facts = usePositionFacts(props);
   const { inRepertoire, ply, arrows, suggestions, prioritised, settling } = facts;
-  // Une seule carte par position : la décision passe d'abord, la priorité n'y est qu'une ligne.
-  const card = settling || prioritised;
 
   return (
     <aside aria-label="Position" className="flex flex-col gap-4">
@@ -112,8 +110,9 @@ export function PositionPane(props: PositionPaneProps) {
           )}
         </div>
       </div>
-      {/* Borné par la hauteur : la carte à trancher reste visible sous l'échiquier sans défiler. */}
-      <div className={`order-2 mx-auto w-full ${card || props.stopped?.moves.length ? 'max-w-[max(16rem,min(100%,calc(100dvh_-_36rem)))]' : 'max-w-[max(16rem,min(100%,calc(100dvh_-_28rem)))]'}`}>
+      {/* Borné par la hauteur, pour qu'une carte à trancher tienne dessous ; la même borne partout, sinon l'échiquier
+          change de taille d'une position à l'autre. */}
+      <div className="order-2 mx-auto w-full max-w-[max(16rem,calc(100dvh_-_36rem))]">
         <PlayableBoard path={path} flipped={side === 'b'} arrows={arrows} suggestions={suggestions} onMove={onMove} />
       </div>
       {settling && (
