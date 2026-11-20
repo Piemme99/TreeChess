@@ -39,6 +39,7 @@ import { Toast } from '../workshop/Toast';
 import { useToast } from '../workshop/useToast';
 import { useWide } from '../workshop/useWide';
 import { BottomBar } from '../workshop/BottomBar';
+import { BOARD_BESIDE, BOARD_BESIDE_WITH_MOVES, BOARD_CELL, SIDE_BELOW, SIDE_TOP, TASK_MAIN } from '../workshop/taskLayout';
 import { COLOURS, ENGINE, FONT_FAMILY, raised, REPERTOIRE, SPRING, tile } from '../workshop/theme';
 import { useWorkshopFont } from '../workshop/useWorkshopFont';
 import { Badge } from './Badge';
@@ -115,7 +116,7 @@ export function PracticePage() {
     <MotionConfig reducedMotion="user">
       <div className="min-h-screen pb-24" style={{ fontFamily: FONT_FAMILY, background: COLOURS.cream, color: COLOURS.leaf }}>
         <TaskBar title="Practice" progress={`game ${round} · as ${sideName(side)}`} />
-        <main className="mx-auto flex max-w-[30rem] flex-col gap-3 px-4 pt-4">
+        <main className={TASK_MAIN}>
           {game.end ? (
             <PracticeReview
               key={round}
@@ -132,37 +133,41 @@ export function PracticePage() {
               onAgain={again}
             />
           ) : (
-            <>
-              <LineName path={game.path} />
-              <div className="-mx-2">
+            <div className={BOARD_BESIDE}>
+              <div className={SIDE_TOP}>
+                <LineName path={game.path} />
+              </div>
+              <div className={`-mx-2 lg:mx-0 ${BOARD_CELL}`}>
                 <PlayableBoard path={game.path} flipped={side === 'b'} onMove={play} />
               </div>
-              {game.stuck ? (
-                <Notice>
-                  {signIn ? (
-                    <>
-                      The replies of your level come from Lichess:{' '}
-                      <a href={lichessSignInUrl()} className="underline underline-offset-2">
-                        sign in with Lichess
-                      </a>
-                    </>
-                  ) : (
-                    'The Lichess explorer does not answer'
-                  )}
-                  <span className="ml-auto flex gap-2">
-                    {!signIn && <Secondary onClick={() => setGame({ ...game, stuck: false })}>Retry</Secondary>}
-                    <Secondary onClick={() => setGame({ ...game, end: 'stopped' })}>End</Secondary>
-                  </span>
-                </Notice>
-              ) : (
-                <Notice>
-                  <span role="status">{theirTurn ? `Their move… · ${levelLabel(level.opponents)} players` : 'Your move'}</span>
-                  <span className="ml-auto">
-                    <Secondary onClick={() => setGame({ ...game, end: 'stopped' })}>End</Secondary>
-                  </span>
-                </Notice>
-              )}
-            </>
+              <div className={SIDE_BELOW}>
+                {game.stuck ? (
+                  <Notice>
+                    {signIn ? (
+                      <>
+                        The replies of your level come from Lichess:{' '}
+                        <a href={lichessSignInUrl()} className="underline underline-offset-2">
+                          sign in with Lichess
+                        </a>
+                      </>
+                    ) : (
+                      'The Lichess explorer does not answer'
+                    )}
+                    <span className="ml-auto flex gap-2">
+                      {!signIn && <Secondary onClick={() => setGame({ ...game, stuck: false })}>Retry</Secondary>}
+                      <Secondary onClick={() => setGame({ ...game, end: 'stopped' })}>End</Secondary>
+                    </span>
+                  </Notice>
+                ) : (
+                  <Notice>
+                    <span role="status">{theirTurn ? `Their move… · ${levelLabel(level.opponents)} players` : 'Your move'}</span>
+                    <span className="ml-auto">
+                      <Secondary onClick={() => setGame({ ...game, end: 'stopped' })}>End</Secondary>
+                    </span>
+                  </Notice>
+                )}
+              </div>
+            </div>
           )}
         </main>
       </div>
@@ -295,14 +300,15 @@ function PracticeReview({ side, path, from, end, repertoire, habits, day, onAdd,
           setBuilding(null);
           toTop();
         }}
-        stacked
+        stacked={!wide}
+        nested
       />
     );
   }
 
   return (
-    <>
-      <motion.section initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={SPRING} className="flex flex-col gap-1 rounded-3xl px-5 py-4" style={raised(false)}>
+    <div className={BOARD_BESIDE_WITH_MOVES}>
+      <motion.section initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={SPRING} className={`flex flex-col gap-1 rounded-3xl px-5 py-4 ${SIDE_TOP}`} style={raised(false)}>
         <h1 className="flex items-baseline gap-2 text-[20px] font-extrabold leading-tight tracking-[-0.01em]">
           {headBadge && (
             <span className="self-center">
@@ -318,15 +324,15 @@ function PracticeReview({ side, path, from, end, repertoire, habits, day, onAdd,
         <Analysis side={side} path={path} from={from} fens={fens} evaluations={evaluations} verdicts={verdicts} blind={blind} onShow={jump} />
       </motion.section>
       {/* Au téléphone, l'échiquier, les coups et la barre du bas tiennent ensemble à l'écran : on relit sans défiler. */}
-      <div ref={boardRef} className="flex scroll-mt-16 flex-col gap-2">
+      <div ref={boardRef} className={`flex scroll-mt-16 flex-col gap-2 ${BOARD_CELL}`}>
         <LineName path={path.slice(0, shown)} />
-        <div className="-mx-2">
+        <div className="-mx-2 lg:mx-0">
           <ArrowBoard path={path.slice(0, shown)} flipped={side === 'b'} arrows={boardArrows} />
         </div>
         <MoveStrip path={path} shown={shown} badgesOf={badgesOf} onShow={setShown} />
         {shown > 0 && <ShownMove side={side} path={path} ply={shown - 1} badges={badgesOf(shown - 1)} evaluation={evaluations.get(fens[shown])} arrow={arrow} blind={blind} />}
       </div>
-      <div className="mt-2 flex flex-col gap-2">
+      <div className={`mt-2 flex flex-col gap-2 lg:mt-0 ${SIDE_BELOW}`}>
         <motion.button type="button" onClick={onAgain} whileTap={{ scale: 0.97 }} transition={SPRING} className="min-h-12 rounded-full px-5 text-[15px] font-bold focus-visible:outline-2" style={raised(true)}>
           Practise again
         </motion.button>
@@ -343,7 +349,7 @@ function PracticeReview({ side, path, from, end, repertoire, habits, day, onAdd,
         />
       )}
       <Toast toast={toast} onClose={close} />
-    </>
+    </div>
   );
 }
 
