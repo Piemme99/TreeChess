@@ -45,6 +45,8 @@ interface BuildSessionProps {
   children?: ReactNode;
   /** Dans un volet : l'échiquier au-dessus du panneau, quelle que soit la largeur. */
   stacked?: boolean;
+  /** Dans une page qui a déjà son <main> et ses marges. */
+  nested?: boolean;
   /** Les lignes du brouillon à chaque coup joué, pour les montrer ailleurs (la carte). */
   onLines?: (lines: (readonly string[])[]) => void;
   /** La position sur l'échiquier, pour la nommer ailleurs. */
@@ -55,7 +57,7 @@ interface BuildSessionProps {
 const MAX_ARROWS = 3;
 
 /** Le joueur construit son ajout en jouant : l'échiquier devient jouable, le panneau le guide. */
-export function BuildSession({ origin, games, repertoire, onAccept, onCancel, children, stacked = false, onLines, onPath }: BuildSessionProps) {
+export function BuildSession({ origin, games, repertoire, onAccept, onCancel, children, stacked = false, nested = false, onLines, onPath }: BuildSessionProps) {
   const builder = useBuilder(origin, games);
   useEffect(() => onLines?.(draftLines(builder.draft)), [builder.draft, onLines]);
   useEffect(() => onPath?.(builder.path), [builder.path, onPath]);
@@ -88,19 +90,18 @@ export function BuildSession({ origin, games, repertoire, onAccept, onCancel, ch
     return builder.draft.filter((_, index) => !repertoire.moves.get(added[index].position)?.some((move) => move.san === added[index].san));
   }, [builder.draft, repertoire]);
 
-  // Dans un volet, la page a déjà son <main>.
-  const Wrapper = stacked ? 'div' : 'main';
+  const Wrapper = stacked || nested ? 'div' : 'main';
   return (
     <Wrapper
       className={
         stacked
           ? 'flex flex-col gap-4'
-          : 'mx-auto flex max-w-[84rem] flex-col gap-6 px-4 pt-6 lg:grid lg:grid-cols-[minmax(0,30rem)_1fr] lg:gap-10 lg:px-8 lg:pt-8'
+          : `mx-auto flex max-w-[84rem] flex-col gap-6 lg:grid lg:grid-cols-[minmax(0,30rem)_1fr] lg:gap-10 ${nested ? 'w-full' : 'px-4 pt-6 lg:px-8 lg:pt-8'}`
       }
     >
       <aside
         aria-label="Position"
-        className={`flex flex-col gap-3 self-start ${stacked ? '-mx-2 lg:mx-auto lg:w-full lg:max-w-[16rem]' : 'lg:sticky lg:top-6'}`}
+        className={`flex flex-col gap-3 self-start ${stacked ? '-mx-2 lg:mx-auto lg:w-full lg:max-w-[16rem]' : `lg:sticky ${nested ? 'lg:top-20' : 'lg:top-6'}`}`}
       >
         <PlayableBoard path={builder.path} flipped={origin.side === 'b'} arrows={arrows} suggestions={suggestions} onMove={builder.play} />
         <p className={`flex-wrap justify-center gap-x-3 gap-y-0.5 px-1 text-[11px] font-semibold ${stacked ? 'hidden lg:flex' : 'flex'}`} style={{ color: ARROW.neutral.colour }}>

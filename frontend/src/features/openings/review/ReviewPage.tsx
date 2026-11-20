@@ -15,6 +15,7 @@ import { gamesUntil } from '../domain/replay';
 import { useReplayDay } from '../replay/useReplayDay';
 import { LineName } from '../workshop/LineName';
 import { TaskBar, TaskDone } from '../workshop/Task';
+import { BOARD_BESIDE, BOARD_CELL, SIDE_BELOW, SIDE_TOP, TASK_MAIN } from '../workshop/taskLayout';
 import { COLOURS, FONT_FAMILY, raised, REPERTOIRE, SPRING, tile } from '../workshop/theme';
 import { useWorkshopFont } from '../workshop/useWorkshopFont';
 import { REVIEW_LINES as LINES, useReview } from './useReview';
@@ -137,7 +138,7 @@ export function ReviewPage() {
     <MotionConfig reducedMotion="user">
       <div className="min-h-screen pb-16" style={{ fontFamily: FONT_FAMILY, background: COLOURS.cream, color: COLOURS.leaf }}>
         <TaskBar title="Review" progress={sessionOver ? 'done' : line ? `line ${Math.min(results.lines + 1, LINES)} of ${LINES} · as ${line.side === 'w' ? 'White' : 'Black'}` : undefined} />
-        <main className="mx-auto flex max-w-[30rem] flex-col gap-3 px-4 pt-4">
+        <main className={TASK_MAIN}>
           {opened && !line && !sessionOver && (
             <TaskDone title="Nothing to review today">
               <p>Come back tomorrow, or after your next games.</p>
@@ -145,13 +146,17 @@ export function ReviewPage() {
             </TaskDone>
           )}
           {line && !(sessionOver && line.status === 'done') && (
-            <>
-              <LineName path={line.path} />
-              <div className="-mx-2">
+            <div className={BOARD_BESIDE}>
+              <div className={SIDE_TOP}>
+                <LineName path={line.path} wrap />
+              </div>
+              <div className={`-mx-2 lg:mx-0 ${BOARD_CELL}`}>
                 <PlayableBoard path={line.path} flipped={line.side === 'b'} arrows={arrows} onMove={play} />
               </div>
-              <Prompt line={line} onNext={results.lines < LINES ? start : undefined} />
-            </>
+              <div className={SIDE_BELOW}>
+                <Prompt line={line} onNext={results.lines < LINES ? start : undefined} />
+              </div>
+            </div>
           )}
           {sessionOver && line?.status === 'done' && (
             <TaskDone title={`${results.clean} of ${results.lines} lines clean`}>
