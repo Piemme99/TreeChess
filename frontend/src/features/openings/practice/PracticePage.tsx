@@ -135,7 +135,7 @@ export function PracticePage() {
           ) : (
             <div className={BOARD_BESIDE}>
               <div className={SIDE_TOP}>
-                <LineName path={game.path} />
+                <LineName path={game.path} wrap />
               </div>
               <div className={`-mx-2 lg:mx-0 ${BOARD_CELL}`}>
                 <PlayableBoard path={game.path} flipped={side === 'b'} onMove={play} />

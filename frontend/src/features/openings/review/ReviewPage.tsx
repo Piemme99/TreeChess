@@ -148,7 +148,7 @@ export function ReviewPage() {
           {line && !(sessionOver && line.status === 'done') && (
             <div className={BOARD_BESIDE}>
               <div className={SIDE_TOP}>
-                <LineName path={line.path} />
+                <LineName path={line.path} wrap />
               </div>
               <div className={`-mx-2 lg:mx-0 ${BOARD_CELL}`}>
                 <PlayableBoard path={line.path} flipped={line.side === 'b'} arrows={arrows} onMove={play} />
