@@ -112,7 +112,8 @@ export function PositionPane(props: PositionPaneProps) {
           )}
         </div>
       </div>
-      <div className={`order-2 mx-auto w-full lg:max-w-[16rem] ${card ? 'max-w-[15rem]' : 'max-w-[24rem]'}`}>
+      {/* Borné par la hauteur : la carte à trancher reste visible sous l'échiquier sans défiler. */}
+      <div className={`order-2 mx-auto w-full ${card || props.stopped?.moves.length ? 'max-w-[max(16rem,min(100%,calc(100dvh_-_36rem)))]' : 'max-w-[max(16rem,min(100%,calc(100dvh_-_28rem)))]'}`}>
         <PlayableBoard path={path} flipped={side === 'b'} arrows={arrows} suggestions={suggestions} onMove={onMove} />
       </div>
       {settling && (

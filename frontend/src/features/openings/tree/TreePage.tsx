@@ -539,7 +539,7 @@ export function TreePage() {
               </div>
             )}
             {/* Une seule géométrie : la carte garde sa largeur, le volet aussi, construction comprise. */}
-            <div className="grid grid-cols-[minmax(0,1fr)_27rem] gap-5">
+            <div className="grid grid-cols-[minmax(0,1fr)_27rem] gap-5 xl:grid-cols-[minmax(0,1fr)_30rem]">
               <div className="sticky top-20 h-[calc(100vh-9rem)]">
                 <RepertoireMap
                   root={root}
