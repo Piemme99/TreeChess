@@ -4,7 +4,7 @@ import { PlayableBoard } from '../board/PlayableBoard';
 import { figurineMove } from '../domain/notation';
 import type { Side } from '../domain/playedGame';
 import { positionKey } from '../domain/repertoire';
-import { acceptedMoves, hasDueAhead, isDue, nextReply, planLine, sessionDone, sessionPositions } from '../domain/review';
+import { acceptedMoves, hasDueAhead, isDue, nextReply, planLine, playerPositions, sessionDone, sessionPositions } from '../domain/review';
 import { formatPercent } from '../flame/format';
 import { replayLine } from '../position/replay';
 import { liveGames } from '../checks/decisions';
@@ -50,10 +50,13 @@ export function ReviewPage() {
   const review = useReview(source.games, repertoires, lived, today, source.start);
   const [line, setLine] = useState<Line | null>(null);
   const [exhausted, setExhausted] = useState(false);
-  const [results, setResults] = useState<{ lines: number; answered: number; wrong: number; missed: Set<string> }>({ lines: 0, answered: 0, wrong: 0, missed: new Set() });
+  // `due` : les positions dues au départ déjà répondues, ce qui fait avancer la séance ; `seen` : toutes celles répondues.
+  const [results, setResults] = useState<{ lines: number; due: Set<string>; seen: Set<string>; missed: Set<string> }>({ lines: 0, due: new Set(), seen: new Set(), missed: new Set() });
   const [played, setPlayed] = useState<Record<Side, (readonly string[])[]>>({ w: [], b: [] });
   const due = review.due.w + review.due.b;
-  const [planned] = useState(() => sessionPositions(due));
+  // Les positions que Home a comptées : une ligne prolongée au-delà n'en fait pas avancer la séance.
+  const [dueAtStart] = useState(() => new Set((['w', 'b'] as const).flatMap((side) => playerPositions(repertoires[side]).filter(({ key }) => isDue(review.state[side], key, today)).map(({ key }) => key))));
+  const planned = sessionPositions(dueAtStart.size);
   const [knownBefore] = useState(review.known);
 
   const start = () => {
@@ -64,7 +67,7 @@ export function ReviewPage() {
     plans.sort((a, b) => b.weight - a.weight || review.due[b.side] - review.due[a.side]);
     const chosen = plans[0];
     if (!chosen) {
-      // Plus rien de dû avant la cinquième ligne : la séance s'arrête là, avec son bilan.
+      // Plus rien de dû avant la fin prévue : la séance s'arrête là, avec son bilan.
       if (results.lines) setExhausted(true);
       else setLine(null);
       return;
@@ -118,8 +121,8 @@ export function ReviewPage() {
     const accepted = acceptedMoves(repertoire, fen);
     const key = positionKey(fen);
     const right = accepted.includes(san);
-    if (line.status === 'player' && isDue(review.state[line.side], key, today)) {
-      setResults((current) => ({ ...current, answered: current.answered + 1, wrong: current.wrong + (right ? 0 : 1) }));
+    if (line.status === 'player') {
+      setResults((current) => ({ ...current, seen: new Set(current.seen).add(key), due: dueAtStart.has(key) ? new Set(current.due).add(key) : current.due }));
     }
     if (!right) {
       // L'échiquier a déjà joué le coup : un nouveau chemin, identique, le ramène à la position.
@@ -136,13 +139,13 @@ export function ReviewPage() {
     setLine({ ...line, path: [...line.path, san], status: 'opponent', expected: [] });
   };
 
-  const sessionOver = exhausted || sessionDone(results.answered, planned, line?.status === 'done');
+  const sessionOver = exhausted || sessionDone(results.due.size, planned, line?.status === 'done');
   const arrows = line?.status === 'wrong' ? line.expected.map((san) => ({ san, share: 1, kind: 'repertoire' as const })) : [];
 
   return (
     <MotionConfig reducedMotion="user">
       <div className="min-h-screen pb-16" style={{ fontFamily: FONT_FAMILY, background: COLOURS.cream, color: COLOURS.leaf }}>
-        <TaskBar title="Review" progress={sessionOver ? 'done' : line ? `${Math.min(results.answered, planned)} of ${planned} positions · as ${line.side === 'w' ? 'White' : 'Black'}` : undefined} />
+        <TaskBar title="Review" progress={sessionOver ? 'done' : line ? `${Math.min(results.due.size, planned)} of ${planned} positions · as ${line.side === 'w' ? 'White' : 'Black'}` : undefined} />
         <main className={TASK_MAIN}>
           {opened && !line && !sessionOver && (
             <TaskDone title="Nothing to review today">
@@ -164,7 +167,7 @@ export function ReviewPage() {
             </div>
           )}
           {sessionOver && line?.status === 'done' && (
-            <TaskDone title={`${results.answered - results.wrong} of ${results.answered} positions right`}>
+            <TaskDone title={`${results.seen.size - results.missed.size} of ${results.seen.size} positions right`}>
               <p>{results.missed.size ? `${results.missed.size} ${results.missed.size === 1 ? 'position' : 'positions'} to see again tomorrow` : 'Nothing missed'}</p>
               <p>
                 Repertoire known: {precisePercent(knownBefore)} → <strong>{precisePercent(review.known)}</strong>
