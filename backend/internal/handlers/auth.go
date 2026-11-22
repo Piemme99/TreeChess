@@ -6,7 +6,6 @@ import (
 
 	"github.com/labstack/echo/v5"
 
-	"github.com/kumquat/backend/internal/models"
 	"github.com/kumquat/backend/internal/repository"
 	"github.com/kumquat/backend/internal/services"
 )
@@ -41,13 +40,17 @@ func (h *AuthHandler) setRefreshTokenCookie(c *echo.Context, rawToken string) {
 
 // clearRefreshTokenCookie removes the refresh token cookie
 func (h *AuthHandler) clearRefreshTokenCookie(c *echo.Context) {
+	clearRefreshTokenCookie(c, h.secureCookies)
+}
+
+func clearRefreshTokenCookie(c *echo.Context, secure bool) {
 	c.SetCookie(&http.Cookie{
 		Name:     refreshTokenCookieName,
 		Value:    "",
 		Path:     refreshTokenCookiePath,
 		MaxAge:   -1,
 		HttpOnly: true,
-		Secure:   h.secureCookies,
+		Secure:   secure,
 		SameSite: http.SameSiteStrictMode,
 	})
 }
@@ -67,31 +70,6 @@ func (h *AuthHandler) MeHandler(c *echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, user)
-}
-
-func (h *AuthHandler) DeleteAccountHandler(c *echo.Context) error {
-	userID, ok := mustUserID(c)
-	if !ok {
-		return nil
-	}
-
-	var req models.DeleteAccountRequest
-	if err := c.Bind(&req); err != nil {
-		return BadRequestResponse(c, "invalid request body")
-	}
-
-	err := h.authService.DeleteAccount(c.Request().Context(), userID, req.Username)
-	if err != nil {
-		if errors.Is(err, services.ErrUsernameMismatch) {
-			return BadRequestResponse(c, "incorrect username confirmation")
-		}
-		if errors.Is(err, repository.ErrUserNotFound) {
-			return ErrorResponse(c, http.StatusUnauthorized, "user not found")
-		}
-		return InternalErrorResponse(c, "failed to delete account")
-	}
-
-	return c.NoContent(http.StatusNoContent)
 }
 
 // RefreshHandler exchanges a valid refresh token for a new access token + refresh token pair.

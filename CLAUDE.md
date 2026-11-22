@@ -7,7 +7,7 @@ Kumquat — chess repertoire builder & trainer. Live: https://kumquatchess.com
 The app lives in `frontend/src/features/openings/` (published under `/v2/`, `/` redirects to `/v2/home`; see its
 `README.md`). The v1 (JSONB repertoires, PGN import, sync, training, dashboard, explore) was removed on
 2026-11-17; the first production deploy after it exported the whole database to `backups/v1-final.sql.gz` on the
-server before the backend dropped the v1 tables. Backend: auth (Lichess OAuth only; email/password removed on 2026-11-22, `DELETE /api/auth/account` kept), the explorer relay
+server before the backend dropped the v1 tables. Backend: auth (Lichess OAuth only; email/password removed on 2026-11-22, account deletion confirmed by a Lichess round-trip, `POST /api/auth/account/deletion`), the explorer relay
 `/api/explorer/*` and its Postgres cache, and the v2 routes `/api/v2/games*` (Lichess import) and `/api/v2/state*`
 (the player's decisions).
 

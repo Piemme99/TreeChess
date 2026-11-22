@@ -189,21 +189,30 @@ func TestAuth_Logout_NoCookie(t *testing.T) {
 // Delete account
 // ========================================================================
 
-func TestAuth_DeleteAccount_WithUsername(t *testing.T) {
+// deletionRequest is what the frontend sends: the access token, the typed username and, as every
+// request to /api/auth does, the refresh cookie when there is one.
+func deletionRequest(username string, session testhelpers.Session, withCookie bool) *http.Request {
+	req := testhelpers.AuthRequest(http.MethodPost, "/api/auth/account/deletion", deleteAccountJSON(username), session.Token)
+	if withCookie {
+		req.AddCookie(session.RefreshCookie)
+	}
+	return req
+}
+
+func TestAuth_DeleteAccount_LichessAccountIsOnlySentToLichess(t *testing.T) {
 	testDB.TruncateAll(t)
 	repos := testDB.Repos()
 	ts := testhelpers.SetupTestServer(t, repos)
 	user := testhelpers.SeedUser(t, repos, "mike")
 	session := ts.SignIn(t, user.ID)
 
-	rec := ts.DoRequest(testhelpers.AuthRequest(http.MethodDelete, "/api/auth/account", deleteAccountJSON("mike"), session.Token))
-	require.Equal(t, http.StatusNoContent, rec.Code)
+	rec := ts.DoRequest(deletionRequest("mike", session, true))
+	require.Equal(t, http.StatusOK, rec.Code)
 
-	// The access token and the refresh cookie no longer open anything.
-	recMe := ts.DoRequest(testhelpers.AuthRequest(http.MethodGet, "/api/auth/me", nil, session.Token))
-	assert.Equal(t, http.StatusUnauthorized, recMe.Code)
-	recRefresh := ts.DoRequest(requestWithCookie(http.MethodPost, "/api/auth/refresh", nil, session.RefreshCookie))
-	assert.Equal(t, http.StatusUnauthorized, recRefresh.Code)
+	var body map[string]string
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+	assert.Contains(t, body["redirect"], "https://lichess.org/oauth?")
+	assert.Equal(t, 1, countRows(t, "users"))
 }
 
 func TestAuth_DeleteAccount_WrongUsername(t *testing.T) {
@@ -213,21 +222,39 @@ func TestAuth_DeleteAccount_WrongUsername(t *testing.T) {
 	user := testhelpers.SeedUser(t, repos, "nancy")
 	session := ts.SignIn(t, user.ID)
 
-	rec := ts.DoRequest(testhelpers.AuthRequest(http.MethodDelete, "/api/auth/account", deleteAccountJSON("someoneelse"), session.Token))
+	rec := ts.DoRequest(deletionRequest("someoneelse", session, true))
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 	assert.Equal(t, 1, countRows(t, "users"))
 }
 
-func TestAuth_DeleteAccount_LegacyPasswordAccountConfirmsWithUsername(t *testing.T) {
+func TestAuth_DeleteAccount_LegacyAccountConfirmsWithItsRefreshCookie(t *testing.T) {
 	testDB.TruncateAll(t)
 	repos := testDB.Repos()
 	ts := testhelpers.SetupTestServer(t, repos)
 	userID := seedLegacyPasswordUser(t, "legacy")
 	session := ts.SignIn(t, userID)
 
-	rec := ts.DoRequest(testhelpers.AuthRequest(http.MethodDelete, "/api/auth/account", deleteAccountJSON("legacy"), session.Token))
+	rec := ts.DoRequest(deletionRequest("legacy", session, true))
 	require.Equal(t, http.StatusNoContent, rec.Code)
 	assert.Zero(t, countRows(t, "users"))
+
+	// The access token and the refresh cookie no longer open anything.
+	recMe := ts.DoRequest(testhelpers.AuthRequest(http.MethodGet, "/api/auth/me", nil, session.Token))
+	assert.Equal(t, http.StatusUnauthorized, recMe.Code)
+	recRefresh := ts.DoRequest(requestWithCookie(http.MethodPost, "/api/auth/refresh", nil, session.RefreshCookie))
+	assert.Equal(t, http.StatusUnauthorized, recRefresh.Code)
+}
+
+func TestAuth_DeleteAccount_AccessTokenAloneDeletesNothing(t *testing.T) {
+	testDB.TruncateAll(t)
+	repos := testDB.Repos()
+	ts := testhelpers.SetupTestServer(t, repos)
+	userID := seedLegacyPasswordUser(t, "legacy")
+	session := ts.SignIn(t, userID)
+
+	rec := ts.DoRequest(deletionRequest("legacy", session, false))
+	assert.Equal(t, http.StatusForbidden, rec.Code)
+	assert.Equal(t, 1, countRows(t, "users"))
 }
 
 func TestAuth_DeleteAccount_CascadesData(t *testing.T) {
@@ -251,8 +278,8 @@ func TestAuth_DeleteAccount_CascadesData(t *testing.T) {
 		`INSERT INTO password_reset_tokens (user_id, token_hash, expires_at) VALUES ($1, 'legacy-reset', NOW())`, user.ID)
 	require.NoError(t, err)
 
-	recDel := ts.DoRequest(testhelpers.AuthRequest(http.MethodDelete, "/api/auth/account", deleteAccountJSON("oscar"), session.Token))
-	require.Equal(t, http.StatusNoContent, recDel.Code)
+	// Ce que fait le retour de Lichess quand il authentifie le compte lié (SeedUser : "lichess-" + nom).
+	require.NoError(t, ts.AuthSvc.DeleteAccountConfirmedByLichess(ctx, user.ID, "lichess-oscar"))
 
 	for _, table := range []string{"users", "refresh_tokens", "password_reset_tokens", "player_state", "played_games", "played_game_imports"} {
 		assert.Zero(t, countRows(t, table), table)
@@ -264,6 +291,6 @@ func TestAuth_DeleteAccount_Unauthenticated(t *testing.T) {
 	repos := testDB.Repos()
 	ts := testhelpers.SetupTestServer(t, repos)
 
-	rec := ts.DoRequest(testhelpers.AuthRequest(http.MethodDelete, "/api/auth/account", deleteAccountJSON("anyone"), ""))
+	rec := ts.DoRequest(testhelpers.AuthRequest(http.MethodPost, "/api/auth/account/deletion", deleteAccountJSON("anyone"), ""))
 	assert.Equal(t, http.StatusUnauthorized, rec.Code)
 }

@@ -409,6 +409,11 @@ hero card. No replay for a signed-in player: "Next day" and "Reset" stay in the 
    goes up once. The demo stays in the browser. Next, per `CLAUDE.md`: `/` points to v2, then v1 is removed.
 4. **Explorer ranges from the player's rating**: done as brick 1 of Practice.
 
+**Deleting the account** (2026-11-22, #241): ⋯ → "Delete account", type the username, "Delete with Lichess". The
+server deletes only when Lichess, on the way back, authenticates the Lichess account linked to it: a stolen access
+token alone deletes nothing. Back on Home: "Your account and its data are deleted", or the menu reopens with
+"nothing was deleted". An old email account (no Lichess) deletes with its refresh cookie instead.
+
 ## Practice (use 4, path validated by PMG, 2026-11-18)
 
 Why: the repertoire grows only from real games, one reply at a time. Practice meets in a few minutes the replies

@@ -675,8 +675,8 @@ backend/
 │   └── limits.go                    # Application limits and constants
 ├── internal/
 │   ├── handlers/
-│   │   ├── auth.go                  # Me, refresh, logout, delete account
-│   │   ├── oauth.go                 # Lichess OAuth (redirect + callback)
+│   │   ├── auth.go                  # Me, refresh, logout
+│   │   ├── oauth.go                 # Lichess OAuth (redirect + callback), account deletion
 │   │   ├── health.go                # Health check endpoint
 │   │   ├── helpers.go               # Shared response helpers, validators
 │   │   ├── repertoire.go            # CRUD repertoires, nodes, templates
@@ -735,7 +735,10 @@ POST   /api/auth/logout                      # Revoke the refresh cookie
 
 # Protected - User
 GET    /api/auth/me                          # Get current user profile
-DELETE /api/auth/account                     # Delete the account (body: {"username": "<typed username>"})
+POST   /api/auth/account/deletion            # Delete the account (body: {"username": "<typed username>"}).
+                                             # A Lichess account answers {"redirect": "<Lichess URL>"}: it is deleted
+                                             # when the callback authenticates its own Lichess account (/v2/home?deleted=1,
+                                             # else ?deletion=failed). An account without Lichess needs its refresh cookie (204).
 
 # Protected - Categories
 GET    /api/categories                       # List user's categories

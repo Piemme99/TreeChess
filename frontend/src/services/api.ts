@@ -142,6 +142,12 @@ export const authApi = {
     }
   },
 
+  /** Un compte Lichess reçoit l'adresse de Lichess, qui confirme la suppression ; sinon le compte est déjà supprimé. */
+  startAccountDeletion: async (username: string): Promise<{ redirect?: string }> => {
+    const response = await api.post<{ redirect?: string } | ''>('/auth/account/deletion', { username });
+    return response.data || {};
+  },
+
   refresh: async (): Promise<AuthResponse> => {
     // Shares the single in-flight refresh so callers can never trigger a
     // second, racing token rotation.

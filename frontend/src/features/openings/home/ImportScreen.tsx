@@ -13,6 +13,11 @@ export function SignInScreen({ onDemo }: { onDemo: () => void }) {
   return (
     <Card title="Build your repertoire from your games">
       <p>Sign in with Lichess: we import your blitz, rapid and classical games, and keep your repertoire on your account.</p>
+      {params.get('deleted') && (
+        <p role="status" className="font-semibold" style={{ color: COLOURS.leaf }}>
+          Your account and its data are deleted.
+        </p>
+      )}
       {params.get('error') && (
         <p role="alert" className="font-semibold" style={{ color: COLOURS.terracotta }}>
           The Lichess sign-in did not go through. Try again.
