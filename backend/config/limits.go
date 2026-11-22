@@ -12,3 +12,10 @@ const (
 	// DefaultDBTimeout query.
 	UserDeleteDBTimeout = 10 * time.Second
 )
+
+// SMTP timeouts: the password-reset email is sent inside the request, so a
+// wedged relay must not hold the handler goroutine.
+const (
+	SMTPDialTimeout = 10 * time.Second
+	SMTPSendTimeout = 30 * time.Second
+)

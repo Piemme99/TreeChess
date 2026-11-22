@@ -33,7 +33,7 @@ type CapturedEmail struct {
 	Token   string
 }
 
-func (m *CapturingEmailService) SendPasswordResetEmail(toEmail, token string) error {
+func (m *CapturingEmailService) SendPasswordResetEmail(_ context.Context, toEmail, token string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.Emails = append(m.Emails, CapturedEmail{ToEmail: toEmail, Token: token})
