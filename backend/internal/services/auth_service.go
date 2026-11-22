@@ -279,7 +279,9 @@ func (s *AuthService) RequestPasswordReset(ctx context.Context, email string) er
 
 	// Send email with the raw token
 	if user.Email != nil {
-		_ = s.emailService.SendPasswordResetEmail(*user.Email, rawToken)
+		if err := s.emailService.SendPasswordResetEmail(ctx, *user.Email, rawToken); err != nil {
+			slog.Error("failed to send password reset email", "user_id", user.ID, "error", err)
+		}
 	}
 
 	return nil
