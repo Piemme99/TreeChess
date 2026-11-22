@@ -218,6 +218,12 @@ func main() {
 	}
 	defer db.Close()
 
+	// Un échec ne bloque pas le lancement : la lecture ne renvoie jamais un jeton
+	// indéchiffrable, au pire le compte Lichess est à relier.
+	if err := repository.NewPostgresUserRepo(db.Pool, cfg.JWTSecret).EncryptLegacyLichessTokens(context.Background()); err != nil {
+		slog.Error("failed to migrate stored Lichess tokens", "error", err)
+	}
+
 	// Build the dependency graph and the HTTP server.
 	svc := buildServices(cfg, db)
 	e := newServer(cfg, db, svc)
