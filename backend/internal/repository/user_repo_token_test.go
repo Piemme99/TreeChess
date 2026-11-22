@@ -19,44 +19,81 @@ func newTokenTestRepo(t *testing.T) *PostgresUserRepo {
 	return &PostgresUserRepo{encryptKey: key}
 }
 
-// TestLichessToken_EncryptDecryptRoundTrip mirrors the store→scan path: a token
-// encrypted with the repo key decrypts back to the original plaintext.
-func TestLichessToken_EncryptDecryptRoundTrip(t *testing.T) {
+func encryptUnderOtherKey(t *testing.T, token string) string {
+	t.Helper()
+	otherKey, err := crypto.DeriveKey("a-completely-different-secret", lichessTokenKeyInfo)
+	require.NoError(t, err)
+	stored, err := crypto.Encrypt(otherKey, []byte(token))
+	require.NoError(t, err)
+	return stored
+}
+
+func TestLichessToken_DecryptToken_RoundTrip(t *testing.T) {
 	r := newTokenTestRepo(t)
 
-	const token = "fake-lichess-access-token"
+	const token = "lio_fakeLichessAccessToken"
 	stored, err := crypto.Encrypt(r.encryptKey, []byte(token))
 	require.NoError(t, err)
 	assert.NotEqual(t, token, stored, "stored value must be ciphertext, not plaintext")
 
-	assert.Equal(t, token, r.decryptToken(stored))
-}
-
-// TestLichessToken_PlaintextFallback ensures pre-existing plaintext tokens (from
-// before encryption was introduced) are returned as-is rather than erroring.
-func TestLichessToken_PlaintextFallback(t *testing.T) {
-	r := newTokenTestRepo(t)
-
-	const legacy = "fake-legacy-plaintext-token"
-	assert.Equal(t, legacy, r.decryptToken(legacy))
-}
-
-// TestLichessToken_EmptyStays empty values round-trip to empty.
-func TestLichessToken_EmptyStays(t *testing.T) {
-	r := newTokenTestRepo(t)
-	assert.Equal(t, "", r.decryptToken(""))
-}
-
-// TestLichessToken_WrongKeyFallsBack a token encrypted under a different key
-// cannot be decrypted; the stored value is returned verbatim (treated as legacy
-// plaintext) rather than producing an error.
-func TestLichessToken_WrongKeyFallsBack(t *testing.T) {
-	r := newTokenTestRepo(t)
-
-	otherKey, err := crypto.DeriveKey("a-completely-different-secret", lichessTokenKeyInfo)
+	got, err := r.decryptToken(stored)
 	require.NoError(t, err)
-	stored, err := crypto.Encrypt(otherKey, []byte("fake-token"))
+	assert.Equal(t, token, got)
+}
+
+func TestLichessToken_DecryptToken_PlaintextIsNeverReturned(t *testing.T) {
+	r := newTokenTestRepo(t)
+
+	got, err := r.decryptToken("lio_fakeLegacyPlaintextToken")
+
+	assert.Error(t, err)
+	assert.Empty(t, got)
+}
+
+func TestLichessToken_DecryptToken_OtherKeyIsNeverReturned(t *testing.T) {
+	r := newTokenTestRepo(t)
+
+	got, err := r.decryptToken(encryptUnderOtherKey(t, "lio_fakeToken"))
+
+	assert.Error(t, err)
+	assert.Empty(t, got)
+}
+
+func TestLichessToken_MigrateStoredToken_EncryptedTokenIsKept(t *testing.T) {
+	r := newTokenTestRepo(t)
+	stored, err := crypto.Encrypt(r.encryptKey, []byte("lio_fakeToken"))
 	require.NoError(t, err)
 
-	assert.Equal(t, stored, r.decryptToken(stored))
+	_, changed, err := r.migrateStoredToken(stored)
+
+	require.NoError(t, err)
+	assert.False(t, changed)
+}
+
+func TestLichessToken_MigrateStoredToken_PlaintextLichessTokenIsEncrypted(t *testing.T) {
+	r := newTokenTestRepo(t)
+	const legacy = "lio_fakeLegacyPlaintextToken"
+
+	replacement, changed, err := r.migrateStoredToken(legacy)
+
+	require.NoError(t, err)
+	require.True(t, changed)
+	require.NotNil(t, replacement)
+	got, err := r.decryptToken(*replacement)
+	require.NoError(t, err)
+	assert.Equal(t, legacy, got)
+
+	_, changedAgain, err := r.migrateStoredToken(*replacement)
+	require.NoError(t, err)
+	assert.False(t, changedAgain, "a second run leaves the encrypted token alone")
+}
+
+func TestLichessToken_MigrateStoredToken_CiphertextUnderOtherKeyIsCleared(t *testing.T) {
+	r := newTokenTestRepo(t)
+
+	replacement, changed, err := r.migrateStoredToken(encryptUnderOtherKey(t, "lio_fakeToken"))
+
+	require.NoError(t, err)
+	assert.True(t, changed)
+	assert.Nil(t, replacement)
 }

@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -59,6 +61,18 @@ const (
 		UPDATE users SET lichess_access_token = $2
 		WHERE id = $1
 	`
+	selectStoredLichessTokensSQL = `
+		SELECT id, lichess_access_token FROM users
+		WHERE lichess_access_token IS NOT NULL AND lichess_access_token <> ''
+	`
+	replaceLichessTokenSQL = `
+		UPDATE users SET lichess_access_token = $3
+		WHERE id = $1 AND lichess_access_token = $2
+	`
+
+	// lichessOAuthTokenPrefix starts every access token Lichess issues through
+	// OAuth: it tells a legacy plaintext token from an unreadable ciphertext.
+	lichessOAuthTokenPrefix = "lio_"
 
 	updatePasswordSQL = `
 		UPDATE users SET password_hash = $2, password_changed_at = NOW()
@@ -88,7 +102,7 @@ func NewPostgresUserRepo(pool *pgxpool.Pool, jwtSecret string) *PostgresUserRepo
 	return &PostgresUserRepo{pool: pool, encryptKey: key}
 }
 
-func (r *PostgresUserRepo) scanUser(scan func(dest ...any) error) (*models.User, error) {
+func (r *PostgresUserRepo) scanUser(ctx context.Context, scan func(dest ...any) error) (*models.User, error) {
 	var user models.User
 	var passwordHash *string
 	err := scan(
@@ -104,26 +118,105 @@ func (r *PostgresUserRepo) scanUser(scan func(dest ...any) error) (*models.User,
 		user.PasswordHash = *passwordHash
 	}
 	if user.LichessAccessToken != nil {
-		decrypted := r.decryptToken(*user.LichessAccessToken)
-		user.LichessAccessToken = &decrypted
+		stored := *user.LichessAccessToken
+		token, err := r.decryptToken(stored)
+		if err != nil {
+			slog.Error("stored Lichess token does not decrypt, unlinking it", "user_id", user.ID, "error", err)
+			r.clearLichessToken(ctx, user.ID, stored)
+			user.LichessAccessToken = nil
+		} else {
+			user.LichessAccessToken = &token
+		}
 	}
 	return &user, nil
 }
 
-// decryptToken returns the plaintext Lichess access token from its stored form.
-// Tokens are stored AES-256-GCM encrypted (base64), but pre-existing rows may
-// still hold a plaintext token from before encryption was introduced. If the
-// stored value is not valid ciphertext, it is returned as-is; such rows get
-// re-encrypted on the next UpdateLichessToken.
-func (r *PostgresUserRepo) decryptToken(stored string) string {
+// decryptToken returns the plaintext Lichess access token from its stored form
+// (AES-256-GCM, base64). A value that does not decrypt is an error, never
+// returned as-is: it is either a legacy plaintext token or a ciphertext under
+// another key.
+func (r *PostgresUserRepo) decryptToken(stored string) (string, error) {
 	if stored == "" {
-		return ""
+		return "", nil
 	}
 	plaintext, err := crypto.Decrypt(r.encryptKey, stored)
 	if err != nil {
-		return stored
+		return "", err
 	}
-	return string(plaintext)
+	return string(plaintext), nil
+}
+
+// clearLichessToken unlinks a token that no longer decrypts. It only clears the
+// value that was read, so a token re-linked in the meantime survives.
+func (r *PostgresUserRepo) clearLichessToken(ctx context.Context, userID, stored string) {
+	if _, err := r.pool.Exec(ctx, replaceLichessTokenSQL, userID, stored, nil); err != nil {
+		slog.Error("failed to clear undecryptable Lichess token", "user_id", userID, "error", err)
+	}
+}
+
+// migrateStoredToken decides what a stored token becomes at startup. A value
+// that decrypts is kept (changed is false). A plaintext Lichess OAuth token
+// (prefix lio_) is encrypted. Anything else is cleared (replacement nil): it is
+// most likely a ciphertext under a previous key, which nothing can recover.
+func (r *PostgresUserRepo) migrateStoredToken(stored string) (replacement *string, changed bool, err error) {
+	if _, err := r.decryptToken(stored); err == nil {
+		return nil, false, nil
+	}
+	if !strings.HasPrefix(stored, lichessOAuthTokenPrefix) {
+		return nil, true, nil
+	}
+	encrypted, err := crypto.Encrypt(r.encryptKey, []byte(stored))
+	if err != nil {
+		return nil, false, fmt.Errorf("failed to encrypt Lichess token: %w", err)
+	}
+	return &encrypted, true, nil
+}
+
+// EncryptLegacyLichessTokens encrypts the Lichess tokens still stored in
+// plaintext and clears those that cannot be decrypted. It runs at startup and
+// is idempotent: rows already encrypted under the current key are left alone,
+// so an interrupted run is finished by the next one.
+func (r *PostgresUserRepo) EncryptLegacyLichessTokens(ctx context.Context) error {
+	ctx, cancel := context.WithTimeout(ctx, config.MigrationDBTimeout)
+	defer cancel()
+
+	rows, err := r.pool.Query(ctx, selectStoredLichessTokensSQL)
+	if err != nil {
+		return fmt.Errorf("failed to list stored Lichess tokens: %w", err)
+	}
+	type storedToken struct{ userID, value string }
+	tokens, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (storedToken, error) {
+		var t storedToken
+		err := row.Scan(&t.userID, &t.value)
+		return t, err
+	})
+	if err != nil {
+		return fmt.Errorf("failed to read stored Lichess tokens: %w", err)
+	}
+
+	encrypted, cleared := 0, 0
+	for _, t := range tokens {
+		replacement, changed, err := r.migrateStoredToken(t.value)
+		if err != nil {
+			return err
+		}
+		if !changed {
+			continue
+		}
+		if _, err := r.pool.Exec(ctx, replaceLichessTokenSQL, t.userID, t.value, replacement); err != nil {
+			return fmt.Errorf("failed to rewrite stored Lichess token: %w", err)
+		}
+		if replacement == nil {
+			cleared++
+			slog.Error("cleared a stored Lichess token that does not decrypt", "user_id", t.userID)
+		} else {
+			encrypted++
+		}
+	}
+	if encrypted > 0 || cleared > 0 {
+		slog.Info("stored Lichess tokens migrated", "encrypted", encrypted, "cleared", cleared)
+	}
+	return nil
 }
 
 func (r *PostgresUserRepo) Create(ctx context.Context, email, username, passwordHash string) (*models.User, error) {
@@ -131,7 +224,7 @@ func (r *PostgresUserRepo) Create(ctx context.Context, email, username, password
 	defer cancel()
 
 	id := uuid.New().String()
-	user, err := r.scanUser(r.pool.QueryRow(ctx, createUserSQL, id, username, email, passwordHash).Scan)
+	user, err := r.scanUser(ctx, r.pool.QueryRow(ctx, createUserSQL, id, username, email, passwordHash).Scan)
 	if err != nil {
 		if isDuplicateKeyError(err) {
 			if isDuplicateEmailError(err) {
@@ -148,7 +241,7 @@ func (r *PostgresUserRepo) GetByUsername(ctx context.Context, username string) (
 	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
-	user, err := r.scanUser(r.pool.QueryRow(ctx, getUserByUsernameSQL, username).Scan)
+	user, err := r.scanUser(ctx, r.pool.QueryRow(ctx, getUserByUsernameSQL, username).Scan)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrUserNotFound
@@ -162,7 +255,7 @@ func (r *PostgresUserRepo) GetByEmail(ctx context.Context, email string) (*model
 	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
-	user, err := r.scanUser(r.pool.QueryRow(ctx, getUserByEmailSQL, email).Scan)
+	user, err := r.scanUser(ctx, r.pool.QueryRow(ctx, getUserByEmailSQL, email).Scan)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrUserNotFound
@@ -176,7 +269,7 @@ func (r *PostgresUserRepo) GetByID(ctx context.Context, id string) (*models.User
 	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
-	user, err := r.scanUser(r.pool.QueryRow(ctx, getUserByIDSQL, id).Scan)
+	user, err := r.scanUser(ctx, r.pool.QueryRow(ctx, getUserByIDSQL, id).Scan)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrUserNotFound
@@ -190,7 +283,7 @@ func (r *PostgresUserRepo) FindByOAuth(ctx context.Context, provider, oauthID st
 	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
-	user, err := r.scanUser(r.pool.QueryRow(ctx, findByOAuthSQL, provider, oauthID).Scan)
+	user, err := r.scanUser(ctx, r.pool.QueryRow(ctx, findByOAuthSQL, provider, oauthID).Scan)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrUserNotFound
@@ -211,7 +304,7 @@ func (r *PostgresUserRepo) CreateOAuth(ctx context.Context, provider, oauthID, u
 	}
 
 	id := uuid.New().String()
-	user, err := r.scanUser(r.pool.QueryRow(ctx, createOAuthUserSQL, id, username, provider, oauthID, lichessUsername).Scan)
+	user, err := r.scanUser(ctx, r.pool.QueryRow(ctx, createOAuthUserSQL, id, username, provider, oauthID, lichessUsername).Scan)
 	if err != nil {
 		if isDuplicateKeyError(err) {
 			if isDuplicateOAuthError(err) {
@@ -231,7 +324,7 @@ func (r *PostgresUserRepo) UpdateProfile(ctx context.Context, userID string, lic
 	ctx, cancel := dbContext(ctx)
 	defer cancel()
 
-	user, err := r.scanUser(r.pool.QueryRow(ctx, updateProfileSQL, userID, lichess, chesscom, timeFormatPrefs).Scan)
+	user, err := r.scanUser(ctx, r.pool.QueryRow(ctx, updateProfileSQL, userID, lichess, chesscom, timeFormatPrefs).Scan)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update profile: %w", err)
 	}
