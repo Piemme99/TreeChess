@@ -203,8 +203,12 @@ func (r *PostgresUserRepo) EncryptLegacyLichessTokens(ctx context.Context) error
 		if !changed {
 			continue
 		}
-		if _, err := r.pool.Exec(ctx, replaceLichessTokenSQL, t.userID, t.value, replacement); err != nil {
+		tag, err := r.pool.Exec(ctx, replaceLichessTokenSQL, t.userID, t.value, replacement)
+		if err != nil {
 			return fmt.Errorf("failed to rewrite stored Lichess token: %w", err)
+		}
+		if tag.RowsAffected() == 0 {
+			continue
 		}
 		if replacement == nil {
 			cleared++
