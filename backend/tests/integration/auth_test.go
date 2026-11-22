@@ -189,8 +189,7 @@ func TestAuth_Logout_NoCookie(t *testing.T) {
 // Delete account
 // ========================================================================
 
-// deletionRequest is what the frontend sends: the access token, the typed username and, as every
-// request to /api/auth does, the refresh cookie when there is one.
+// deletionRequest : ce qu'envoie le frontend, avec le cookie de rafraîchissement que le navigateur joint à /api/auth.
 func deletionRequest(username string, session testhelpers.Session, withCookie bool) *http.Request {
 	req := testhelpers.AuthRequest(http.MethodPost, "/api/auth/account/deletion", deleteAccountJSON(username), session.Token)
 	if withCookie {
@@ -238,7 +237,6 @@ func TestAuth_DeleteAccount_LegacyAccountConfirmsWithItsRefreshCookie(t *testing
 	require.Equal(t, http.StatusNoContent, rec.Code)
 	assert.Zero(t, countRows(t, "users"))
 
-	// The access token and the refresh cookie no longer open anything.
 	recMe := ts.DoRequest(testhelpers.AuthRequest(http.MethodGet, "/api/auth/me", nil, session.Token))
 	assert.Equal(t, http.StatusUnauthorized, recMe.Code)
 	recRefresh := ts.DoRequest(requestWithCookie(http.MethodPost, "/api/auth/refresh", nil, session.RefreshCookie))

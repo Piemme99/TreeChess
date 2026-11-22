@@ -184,3 +184,18 @@ func TestOAuthHandler_FinishAccountDeletion_SignsOutOnlyWhenTheLinkedLichessAcco
 		})
 	}
 }
+
+func TestOAuthHandler_Callback_DeletionRefusedOnLichessSaysNothingWasDeleted(t *testing.T) {
+	handler := newTestOAuthHandler()
+	encrypted, err := handler.encryptCookie(oauthCookieData{State: "s1", CodeVerifier: "v1", DeleteUserID: "user-123"})
+	require.NoError(t, err)
+	e := echo.New()
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/auth/lichess/callback?error=access_denied&state=s1", nil)
+	req.AddCookie(&http.Cookie{Name: oauthCookieName, Value: encrypted})
+	c := e.NewContext(req, rec)
+
+	require.NoError(t, handler.Callback(c))
+
+	assert.Equal(t, "http://localhost:5173/v2/home?deletion=failed", rec.Header().Get("Location"))
+}

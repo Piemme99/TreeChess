@@ -50,6 +50,8 @@ function Menu({ replay }: { replay?: ReplayDay }) {
   const deletionFailed = params.get('deletion') === 'failed';
   const [open, setOpen] = useState(deletionFailed);
   const [deleting, setDeleting] = useState(deletionFailed);
+  const user = useAuthStore((state) => state.user);
+  const shown = open && (!deleting || user !== null);
   useEffect(() => {
     if (!open) return;
     const press = (event: KeyboardEvent) => event.key === 'Escape' && close();
@@ -66,15 +68,15 @@ function Menu({ replay }: { replay?: ReplayDay }) {
       <button
         type="button"
         aria-label="Menu"
-        aria-expanded={open}
+        aria-expanded={shown}
         aria-haspopup="true"
         onClick={() => (open ? close() : setOpen(true))}
         className="grid size-10 place-items-center rounded-full text-[20px] font-extrabold leading-none focus-visible:outline-2"
-        style={open ? { background: COLOURS.sand } : undefined}
+        style={shown ? { background: COLOURS.sand } : undefined}
       >
         ⋯
       </button>
-      {open && (
+      {shown && (
         <>
           <button type="button" aria-label="Close the menu" className="fixed inset-0 z-40 cursor-default" onClick={close} />
           <div className="absolute right-0 top-full z-50 mt-1 flex w-72 flex-col divide-y divide-[oklch(0.915_0.035_80)] overflow-hidden rounded-2xl py-1 text-[15px]" style={{ background: COLOURS.paper, color: COLOURS.leaf, boxShadow: '0 14px 28px -10px oklch(0.3 0.06 150 / 0.45)' }}>

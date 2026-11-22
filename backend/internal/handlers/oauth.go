@@ -159,10 +159,6 @@ func (h *OAuthHandler) Callback(c *echo.Context) error {
 	code := c.QueryParam("code")
 	state := c.QueryParam("state")
 
-	if code == "" || state == "" {
-		return h.redirectWithError(c, "missing OAuth parameters")
-	}
-
 	cookie, err := c.Cookie(oauthCookieName)
 	if err != nil {
 		return h.redirectWithError(c, "OAuth session expired")
@@ -173,8 +169,18 @@ func (h *OAuthHandler) Callback(c *echo.Context) error {
 		return h.redirectWithError(c, "invalid OAuth session")
 	}
 
+	// Une suppression refusée sur Lichess, ou qui échoue, revient au menu qui dit que rien n'a été supprimé.
+	fail := h.redirectWithError
+	if cookieData.DeleteUserID != "" {
+		fail = func(c *echo.Context, _ string) error { return h.redirectDeletionFailed(c) }
+	}
+
+	if code == "" || state == "" {
+		return fail(c, "missing OAuth parameters")
+	}
+
 	if state != cookieData.State {
-		return h.redirectWithError(c, "OAuth state mismatch")
+		return fail(c, "OAuth state mismatch")
 	}
 
 	// Clear the cookie
@@ -189,7 +195,7 @@ func (h *OAuthHandler) Callback(c *echo.Context) error {
 
 	username, lichessID, accessToken, err := h.oauthService.HandleCallback(c.Request().Context(), code, cookieData.CodeVerifier)
 	if err != nil {
-		return h.redirectWithError(c, "failed to authenticate with Lichess")
+		return fail(c, "failed to authenticate with Lichess")
 	}
 
 	if cookieData.DeleteUserID != "" {
@@ -241,10 +247,14 @@ func (h *OAuthHandler) finishAccountDeletion(c *echo.Context, userID, lichessID 
 		if !errors.Is(err, services.ErrDeletionNotConfirmed) {
 			slog.Error("failed to delete account", "user_id", userID, "error", err)
 		}
-		return c.Redirect(http.StatusTemporaryRedirect, h.frontendURL+"/v2/home?deletion=failed")
+		return h.redirectDeletionFailed(c)
 	}
 	clearRefreshTokenCookie(c, h.secureCookies)
 	return c.Redirect(http.StatusTemporaryRedirect, h.frontendURL+"/v2/home?deleted=1")
+}
+
+func (h *OAuthHandler) redirectDeletionFailed(c *echo.Context) error {
+	return c.Redirect(http.StatusTemporaryRedirect, h.frontendURL+"/v2/home?deletion=failed")
 }
 
 func (h *OAuthHandler) redirectWithError(c *echo.Context, msg string) error {
