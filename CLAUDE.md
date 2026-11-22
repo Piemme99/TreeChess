@@ -84,7 +84,7 @@ A test exists to catch a bug in code the agent did not read, not to restate the 
 
 - Sign-in is Lichess OAuth only. Access JWT 15 min, held in memory only. Refresh token in an httpOnly cookie, 30 days, single-use rotation; replaying a used one revokes all the user's refresh tokens.
 - Lichess OAuth uses PKCE; cookie encryption via HKDF.
-- Rate limits per IP, in-memory: global 100/min (burst 20), auth endpoints (Lichess OAuth, refresh, logout) 20/min (burst 10), starting a game import 6/min (burst 3). Identity comes from `RealIP()` — see the deployment note in `.env.example` before putting a proxy in front.
+- Rate limits per IP, in-memory: global 100/min (burst 20), auth endpoints (Lichess OAuth, refresh, logout) 20/min (burst 10), starting a game import 6/min (burst 3). In production nginx (`frontend/nginx.prod.conf`) is stricter on all of `/api/auth/`: 5/min (burst 5), `/me` and `/refresh` included. Identity comes from `RealIP()` — see the deployment note in `.env.example` before putting a proxy in front.
 - Body limit 10MB. CORS origins from `CORS_ALLOWED_ORIGINS` (a `*` panics at boot: credentials are enabled).
 - Prometheus metrics on a separate port (9090 in-container), middleware prefix `kumquat`.
 

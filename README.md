@@ -160,7 +160,7 @@ kumquat/
 - **Short-lived JWTs** (15 min) stored in memory (not localStorage) to limit XSS exposure
 - **Refresh token rotation** via httpOnly cookies (30-day lifetime, single-use) with automatic 401 retry and request queuing on the frontend
 - **Sign-in with Lichess only** (OAuth, PKCE flow); cookie encryption key derived via HKDF. No email/password accounts
-- Auth routes (Lichess OAuth, refresh, logout) share a strict rate limit (20 req/min, burst 10)
+- Auth routes (Lichess OAuth, refresh, logout) share a strict rate limit (20 req/min, burst 10 in the backend; 5 req/min, burst 5 in the production nginx)
 - Replaying an already-used refresh token revokes all of the user's refresh tokens
 - Error responses are sanitized -- internal error details are never sent to clients
 - Security headers: `Permissions-Policy`, `X-Content-Type-Options`, `X-Frame-Options`, `X-XSS-Protection`, `Referrer-Policy`, `HSTS`, `CSP`
