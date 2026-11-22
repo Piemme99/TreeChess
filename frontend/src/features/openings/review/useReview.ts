@@ -9,8 +9,6 @@ import { answered, dueCount, mastery, missedInPractice, seededState, withLapses,
 import { encountersOf, lapsesOf, reviewWeight } from './weights';
 import { readStored, writeStored } from '../workshop/storage';
 
-/** Lignes par séance de révision : le chiffre que Home annonce. */
-export const REVIEW_LINES = 5;
 const HABIT_MONTHS = 12;
 
 type Stored = Record<Side, [string, ReviewCard][]>;

@@ -287,7 +287,7 @@ the POC replays PMG's fixture as if it came in.
 - **New games**: hero = "11 new games", "6 to settle", **"Check them"**, then one line per game: ! a mistake to
   settle (the engine finds the move worse), ? an opponent move with no answer yet, · a move off the repertoire
   that waits for nothing, ✓ prep followed. A game through a worked line says it.
-- **Review due**: hero = "Review", "5 lines" → **"Start"**.
+- **Review due**: hero = "Review", "15 positions" → **"Start"**.
 - **Else**: hero = weak opening 1 → "Work on it"; the others to work sit in the row "More weak openings".
 - **Nothing left**: hero = "Nothing to do now" → "Browse your repertoire".
 
@@ -298,7 +298,7 @@ as a priority: 10 games, below average beyond noise). Meanwhile it leaves its pl
 weak opening, and the tree task lists the five to do first, then the worked ones. The cost picks the five; each list
 shows the worst score first.
 
-Rows under the hero: "To settle · 6", "Review · 5 lines", "Weak openings · Queen's Pawn Game 41%" (expands),
+Rows under the hero: "To settle · 6", "Review · 15 positions", "Weak openings · Queen's Pawn Game 41%" (expands),
 "Worked openings · Caro-Kann Defense" (expands).
 
 ### Screen 3 — Check (use 2)
@@ -334,7 +334,12 @@ opening N" and "Next weak opening →": the card only shows on the line itself.
   several repertoire moves is right.
 - **Wrong** → the repertoire move(s) in green on the board, the player plays it to go on, the position goes
   back to box 1. A position passed on the way that was not due is not rescheduled unless missed.
-- **5 lines a session**, started at once from Home, then "4 of 5 lines clean · 2 positions to see again tomorrow".
+- **15 due positions a session** (all of them when fewer are due), started at once from Home; the session ends with the
+  line where the 15th is answered, never in the middle of a line, then "13 of 15 positions right · 2 positions to see
+  again tomorrow". Counted in positions, not lines (#261, 2026-11-22): a line reviews ~1.5 due positions whatever its
+  length, the due positions being scattered over the tree, so longer lines only replay moves already known. On PMG's
+  games 5 lines a day saw 67% of what was due at the start after a month, 15 positions all of it (~27 moves a day
+  until the backlog is cleared, then fewer).
 - **Repertoire known** (PMG, 2026-11-18): each position counts its box out of three (box 1 a third, box 3 all of
   it), one box less while its review is overdue; never reviewed or last missed (in review or in a game) counts 0,
   so missing a new position never raises the figure; every position weighs the same, so a rare sideline moves the

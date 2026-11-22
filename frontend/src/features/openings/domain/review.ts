@@ -20,6 +20,8 @@ const KNOWN_SHARE = 0.9;
 const KNOWN_GAMES = 10;
 // Les deux derniers coups du joueur avant la position révisée, pour la retrouver dans son contexte.
 const LEAD_IN = 2;
+// Une séance se compte en positions dues, pas en lignes : une ligne en révise ~1,5 quelle que soit sa longueur (#261).
+export const SESSION_POSITIONS = 15;
 export const REVIEW_START = new Chess().fen();
 
 export const addDays = (day: string, days: number) => new Date(Date.parse(`${day}T00:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
@@ -31,6 +33,12 @@ const after = (fen: string, san: string) => {
   chess.move(san);
   return chess.fen();
 };
+
+/** Ce que révise une séance : 15 positions dues, ou toutes s'il y en a moins. */
+export const sessionPositions = (due: number) => Math.min(due, SESSION_POSITIONS);
+
+/** La séance s'arrête au bout de la ligne où le compte est atteint, jamais au milieu d'une ligne. */
+export const sessionDone = (answered: number, planned: number, lineDone: boolean) => lineDone && answered >= planned;
 
 /** Une position jamais révisée est due. */
 export function isDue(state: ReviewState, key: string, today: string): boolean {
