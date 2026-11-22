@@ -674,6 +674,43 @@ func TestAuthService_ResetPassword_Success(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestAuthService_ResetPassword_UnlocksALockedAccount(t *testing.T) {
+	rawToken := "testtoken123456789012345678901234567890123456789012345678901234"
+	tokenHash := hashToken(rawToken)
+	hash, _ := bcrypt.GenerateFromPassword([]byte("oldpassword"), bcrypt.MinCost)
+	user := &models.User{ID: "user-123", Username: "testuser", PasswordHash: string(hash)}
+	mockUserRepo := &mocks.MockUserRepo{
+		GetByEmailFunc: func(_ context.Context, email string) (*models.User, error) {
+			return user, nil
+		},
+		UpdatePasswordFunc: func(_ context.Context, userID, passwordHash string) error {
+			user.PasswordHash = passwordHash
+			return nil
+		},
+	}
+	mockResetRepo := &mocks.MockPasswordResetRepo{
+		GetByTokenHashFunc: func(_ context.Context, hash string) (*models.PasswordResetToken, error) {
+			if hash == tokenHash {
+				return &models.PasswordResetToken{ID: "reset-123", UserID: "user-123", TokenHash: hash, ExpiresAt: time.Now().Add(time.Hour)}, nil
+			}
+			return nil, repository.ErrResetTokenNotFound
+		},
+		MarkUsedFunc:       func(_ context.Context, id string) error { return nil },
+		DeleteByUserIDFunc: func(_ context.Context, userID string) error { return nil },
+	}
+	svc := newTestAuthService(mockUserRepo)
+	svc.WithPasswordReset(mockResetRepo, &smocks.MockEmailService{}, 1)
+	svc.loginThrottle = newTestThrottle(&fakeClock{t: time.Unix(0, 0)})
+	for range 3 {
+		_, _ = svc.Login(context.Background(), "test@example.com", "wrongpassword")
+	}
+
+	require.NoError(t, svc.ResetPassword(context.Background(), rawToken, "newpassword123"))
+
+	_, err := svc.Login(context.Background(), "test@example.com", "newpassword123")
+	assert.NoError(t, err, "the new password works at once, the lock is lifted")
+}
+
 func TestAuthService_ResetPassword_Expired(t *testing.T) {
 	rawToken := "testtoken123456789012345678901234567890123456789012345678901234"
 	tokenHash := hashToken(rawToken)

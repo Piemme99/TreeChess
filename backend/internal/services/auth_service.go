@@ -338,6 +338,8 @@ func (s *AuthService) ResetPassword(ctx context.Context, rawToken, newPassword s
 	if err := s.userRepo.UpdatePassword(ctx, resetToken.UserID, string(hash)); err != nil {
 		return fmt.Errorf("failed to update password: %w", err)
 	}
+	// La réinitialisation prouve l'accès à l'e-mail : c'est la seule issue d'un compte verrouillé.
+	s.loginThrottle.succeeded(resetToken.UserID)
 
 	// Mark token as used
 	if err := s.resetRepo.MarkUsed(ctx, resetToken.ID); err != nil {
