@@ -7,7 +7,7 @@ Kumquat — chess repertoire builder & trainer. Live: https://kumquatchess.com
 The app lives in `frontend/src/features/openings/` (published under `/v2/`, `/` redirects to `/v2/home`; see its
 `README.md`). The v1 (JSONB repertoires, PGN import, sync, training, dashboard, explore) was removed on
 2026-11-17; the first production deploy after it exported the whole database to `backups/v1-final.sql.gz` on the
-server before the backend dropped the v1 tables. Backend: auth (email + Lichess OAuth), the explorer relay
+server before the backend dropped the v1 tables. Backend: auth (Lichess OAuth only; email/password removed on 2026-11-22, `DELETE /api/auth/account` kept), the explorer relay
 `/api/explorer/*` and its Postgres cache, and the v2 routes `/api/v2/games*` (Lichess import) and `/api/v2/state*`
 (the player's decisions).
 
@@ -27,7 +27,7 @@ make install-hooks      # installs scripts/pre-push (runs the lint suite before 
 `make prod*` targets handle production (compose, SSL, backups) — `grep '^[a-z-]*:' Makefile` for the list.
 Prod reads `.env.production`, not `.env`.
 
-Dev services: frontend 5173, backend 8080, Postgres 5432, Mailhog SMTP 1025 / UI 8025, Prometheus 9091, Grafana 3000.
+Dev services: frontend 5173, backend 8080, Postgres 5432, Prometheus 9091, Grafana 3000.
 
 Narrower loops:
 
@@ -82,9 +82,9 @@ A test exists to catch a bug in code the agent did not read, not to restate the 
 
 ## Auth & middleware
 
-- Access JWT 15 min, held in memory only. Refresh token in an httpOnly cookie, 30 days, single-use rotation. All refresh tokens are revoked on password change/reset.
+- Sign-in is Lichess OAuth only. Access JWT 15 min, held in memory only. Refresh token in an httpOnly cookie, 30 days, single-use rotation; replaying a used one revokes all the user's refresh tokens.
 - Lichess OAuth uses PKCE; cookie encryption via HKDF.
-- Rate limits per IP, in-memory: global 100/min (burst 20), auth endpoints 20/min (burst 10), starting a game import 6/min (burst 3). Identity comes from `RealIP()` — see the deployment note in `.env.example` before putting a proxy in front.
+- Rate limits per IP, in-memory: global 100/min (burst 20), auth endpoints (Lichess OAuth, refresh, logout) 20/min (burst 10), starting a game import 6/min (burst 3). In production nginx (`frontend/nginx.prod.conf`) is stricter on all of `/api/auth/`: 5/min (burst 5), `/me` and `/refresh` included. Identity comes from `RealIP()` — see the deployment note in `.env.example` before putting a proxy in front.
 - Body limit 10MB. CORS origins from `CORS_ALLOWED_ORIGINS` (a `*` panics at boot: credentials are enabled).
 - Prometheus metrics on a separate port (9090 in-container), middleware prefix `kumquat`.
 

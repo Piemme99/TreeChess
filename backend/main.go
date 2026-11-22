@@ -43,16 +43,13 @@ type appServices struct {
 // handlers) from config and an open database pool.
 func buildServices(cfg config.Config, db *repository.DB) *appServices {
 	userRepo := repository.NewPostgresUserRepo(db.Pool, cfg.JWTSecret)
-	passwordResetRepo := repository.NewPostgresPasswordResetRepo(db.Pool)
 	refreshTokenRepo := repository.NewPostgresRefreshTokenRepo(db.Pool)
 	openingCacheRepo := repository.NewPostgresOpeningExplorerCacheRepo(db.Pool)
 
-	cleanupSvc := services.NewCleanupService(refreshTokenRepo, passwordResetRepo, openingCacheRepo, cfg.CleanupInterval)
+	cleanupSvc := services.NewCleanupService(refreshTokenRepo, openingCacheRepo, cfg.CleanupInterval)
 
 	authSvc := services.NewAuthService(userRepo, cfg.JWTSecret, cfg.JWTExpiry)
 	authSvc.WithRefreshTokens(refreshTokenRepo)
-	emailSvc := services.NewEmailService(cfg)
-	authSvc.WithPasswordReset(passwordResetRepo, emailSvc, cfg.PasswordResetExpiryHours)
 	oauthSvc := services.NewOAuthService(userRepo, authSvc, cfg.LichessClientID, cfg.OAuthCallbackURL)
 	explorerSvc := services.NewLichessExplorerService(cfg.LichessExplorerBaseURL, &http.Client{Timeout: 15 * time.Second})
 
@@ -125,10 +122,6 @@ func registerRoutes(e *echo.Echo, db *repository.DB, svc *appServices) {
 	// Stricter rate limit for auth endpoints: 20 requests/minute per IP.
 	authGroup := e.Group("")
 	authGroup.Use(rateLimiter(20.0/60.0, 10, "too many authentication attempts"))
-	authGroup.POST("/api/auth/register", svc.authHandler.RegisterHandler)
-	authGroup.POST("/api/auth/login", svc.authHandler.LoginHandler)
-	authGroup.POST("/api/auth/forgot-password", svc.authHandler.ForgotPasswordHandler)
-	authGroup.POST("/api/auth/reset-password", svc.authHandler.ResetPasswordHandler)
 	authGroup.GET("/api/auth/lichess/login", svc.oauthHandler.LoginRedirect)
 	authGroup.GET("/api/auth/lichess/callback", svc.oauthHandler.Callback)
 
@@ -143,9 +136,6 @@ func registerRoutes(e *echo.Echo, db *repository.DB, svc *appServices) {
 	}))
 
 	protected.GET("/api/auth/me", svc.authHandler.MeHandler)
-	protected.PUT("/api/auth/profile", svc.authHandler.UpdateProfileHandler)
-	protected.POST("/api/auth/change-password", svc.authHandler.ChangePasswordHandler)
-	protected.GET("/api/auth/has-password", svc.authHandler.HasPasswordHandler)
 	protected.DELETE("/api/auth/account", svc.authHandler.DeleteAccountHandler)
 
 	// v2 : les parties Lichess du joueur, importées une fois puis lues par toutes les pages.

@@ -6,7 +6,6 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -18,30 +17,6 @@ import (
 
 // ---------- helpers ----------
 
-// registerJSON returns the JSON body for registering a user.
-func registerJSON(email, username, password string) []byte {
-	b, _ := json.Marshal(models.RegisterRequest{
-		Email: email, Username: username, Password: password,
-	})
-	return b
-}
-
-// loginJSON returns the JSON body for logging in.
-func loginJSON(email, password string) []byte {
-	b, _ := json.Marshal(models.LoginRequest{Email: email, Password: password})
-	return b
-}
-
-// extractRefreshCookie returns the refresh_token cookie from a response, or nil.
-func extractRefreshCookie(rec *httptest.ResponseRecorder) *http.Cookie {
-	for _, c := range rec.Result().Cookies() {
-		if c.Name == "refresh_token" {
-			return c
-		}
-	}
-	return nil
-}
-
 // requestWithCookie creates an HTTP request and attaches the given cookie.
 func requestWithCookie(method, path string, body []byte, cookie *http.Cookie) *http.Request {
 	req := testhelpers.AuthRequest(method, path, body, "")
@@ -49,6 +24,69 @@ func requestWithCookie(method, path string, body []byte, cookie *http.Cookie) *h
 		req.AddCookie(cookie)
 	}
 	return req
+}
+
+func deleteAccountJSON(username string) []byte {
+	b, _ := json.Marshal(models.DeleteAccountRequest{Username: username})
+	return b
+}
+
+// seedLegacyPasswordUser inserts an account created by the removed email/password
+// sign-up, as some still exist in production.
+func seedLegacyPasswordUser(t *testing.T, username string) string {
+	t.Helper()
+	var id string
+	err := testDB.Pool.QueryRow(context.Background(),
+		`INSERT INTO users (username, email, password_hash) VALUES ($1, $2, $3) RETURNING id`,
+		username, username+"@test.com", "$2a$04$legacyhashlegacyhashlegacyhashlegacyhashlegacyhashleg").Scan(&id)
+	require.NoError(t, err)
+	return id
+}
+
+// ========================================================================
+// Me
+// ========================================================================
+
+func TestAuth_Me_ReturnsTheSignedInUser(t *testing.T) {
+	testDB.TruncateAll(t)
+	repos := testDB.Repos()
+	ts := testhelpers.SetupTestServer(t, repos)
+	user := testhelpers.SeedUser(t, repos, "alice")
+	session := ts.SignIn(t, user.ID)
+
+	rec := ts.DoRequest(testhelpers.AuthRequest(http.MethodGet, "/api/auth/me", nil, session.Token))
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	var me models.User
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &me))
+	assert.Equal(t, user.ID, me.ID)
+	assert.Equal(t, "alice", me.Username)
+}
+
+func TestAuth_UnauthenticatedAccess(t *testing.T) {
+	testDB.TruncateAll(t)
+	repos := testDB.Repos()
+	ts := testhelpers.SetupTestServer(t, repos)
+
+	// No token → 401 on protected endpoints
+	endpoints := []struct {
+		method string
+		path   string
+	}{
+		{http.MethodGet, "/api/v2/state"},
+		{http.MethodGet, "/api/auth/me"},
+	}
+
+	for _, ep := range endpoints {
+		req := testhelpers.AuthRequest(ep.method, ep.path, nil, "")
+		rec := ts.DoRequest(req)
+		assert.Equal(t, http.StatusUnauthorized, rec.Code, "expected 401 for %s %s", ep.method, ep.path)
+	}
+
+	// Invalid token → 401
+	req := testhelpers.AuthRequest(http.MethodGet, "/api/v2/state", nil, "invalid.jwt.token")
+	rec := ts.DoRequest(req)
+	assert.Equal(t, http.StatusUnauthorized, rec.Code)
 }
 
 // ========================================================================
@@ -59,29 +97,20 @@ func TestAuth_RefreshToken_Success(t *testing.T) {
 	testDB.TruncateAll(t)
 	repos := testDB.Repos()
 	ts := testhelpers.SetupTestServer(t, repos)
-
-	// Register a user — the response should set a refresh_token cookie.
-	rec := ts.DoRequest(testhelpers.AuthRequest(
-		http.MethodPost, "/api/auth/register",
-		registerJSON("alice@test.com", "alice", "password123"), ""))
-	require.Equal(t, http.StatusCreated, rec.Code)
-
-	cookie := extractRefreshCookie(rec)
-	require.NotNil(t, cookie, "register should set refresh_token cookie")
-	require.NotEmpty(t, cookie.Value)
+	user := testhelpers.SeedUser(t, repos, "alice")
+	cookie := ts.SignIn(t, user.ID).RefreshCookie
 
 	// Use the refresh token to get a new access token.
-	refreshReq := requestWithCookie(http.MethodPost, "/api/auth/refresh", nil, cookie)
-	rec2 := ts.DoRequest(refreshReq)
-	require.Equal(t, http.StatusOK, rec2.Code)
+	rec := ts.DoRequest(requestWithCookie(http.MethodPost, "/api/auth/refresh", nil, cookie))
+	require.Equal(t, http.StatusOK, rec.Code)
 
 	var resp models.AuthResponse
-	require.NoError(t, json.Unmarshal(rec2.Body.Bytes(), &resp))
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
 	assert.NotEmpty(t, resp.Token, "should return new access token")
 	assert.Equal(t, "alice", resp.User.Username)
 
 	// A new refresh cookie should be set (rotation).
-	newCookie := extractRefreshCookie(rec2)
+	newCookie := testhelpers.RefreshCookie(rec)
 	require.NotNil(t, newCookie, "refresh should set new refresh_token cookie")
 	assert.NotEqual(t, cookie.Value, newCookie.Value, "refresh token should rotate")
 }
@@ -90,14 +119,8 @@ func TestAuth_RefreshToken_Rotation_OldTokenInvalid(t *testing.T) {
 	testDB.TruncateAll(t)
 	repos := testDB.Repos()
 	ts := testhelpers.SetupTestServer(t, repos)
-
-	// Register
-	rec := ts.DoRequest(testhelpers.AuthRequest(
-		http.MethodPost, "/api/auth/register",
-		registerJSON("bob@test.com", "bob", "password123"), ""))
-	require.Equal(t, http.StatusCreated, rec.Code)
-	oldCookie := extractRefreshCookie(rec)
-	require.NotNil(t, oldCookie)
+	user := testhelpers.SeedUser(t, repos, "bob")
+	oldCookie := ts.SignIn(t, user.ID).RefreshCookie
 
 	// Refresh once — consumes the old token.
 	rec2 := ts.DoRequest(requestWithCookie(http.MethodPost, "/api/auth/refresh", nil, oldCookie))
@@ -135,21 +158,15 @@ func TestAuth_Logout_Success(t *testing.T) {
 	testDB.TruncateAll(t)
 	repos := testDB.Repos()
 	ts := testhelpers.SetupTestServer(t, repos)
-
-	// Register
-	rec := ts.DoRequest(testhelpers.AuthRequest(
-		http.MethodPost, "/api/auth/register",
-		registerJSON("carol@test.com", "carol", "password123"), ""))
-	require.Equal(t, http.StatusCreated, rec.Code)
-	cookie := extractRefreshCookie(rec)
-	require.NotNil(t, cookie)
+	user := testhelpers.SeedUser(t, repos, "carol")
+	cookie := ts.SignIn(t, user.ID).RefreshCookie
 
 	// Logout — should revoke the token and clear the cookie.
 	rec2 := ts.DoRequest(requestWithCookie(http.MethodPost, "/api/auth/logout", nil, cookie))
 	require.Equal(t, http.StatusOK, rec2.Code)
 
 	// The cookie should be cleared (MaxAge=-1).
-	clearedCookie := extractRefreshCookie(rec2)
+	clearedCookie := testhelpers.RefreshCookie(rec2)
 	require.NotNil(t, clearedCookie)
 	assert.Equal(t, -1, clearedCookie.MaxAge, "cookie should be cleared on logout")
 
@@ -169,316 +186,75 @@ func TestAuth_Logout_NoCookie(t *testing.T) {
 }
 
 // ========================================================================
-// Password reset flow
-// ========================================================================
-
-func TestAuth_ForgotPassword_AlwaysReturns200(t *testing.T) {
-	testDB.TruncateAll(t)
-	repos := testDB.Repos()
-	ts := testhelpers.SetupTestServer(t, repos)
-
-	// Register a real user.
-	_ = ts.AuthToken(t, "diana", "password123")
-
-	cases := []struct {
-		name  string
-		email string
-	}{
-		{"valid email", "diana@test.com"},
-		{"non-existent email", "nobody@test.com"},
-		{"malformed email", "not-an-email"},
-	}
-
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			body, _ := json.Marshal(models.ForgotPasswordRequest{Email: tc.email})
-			rec := ts.DoRequest(testhelpers.AuthRequest(http.MethodPost, "/api/auth/forgot-password", body, ""))
-			assert.Equal(t, http.StatusOK, rec.Code, "forgot-password should always return 200 (anti-enumeration)")
-		})
-	}
-}
-
-func TestAuth_ResetPassword_FullCycle(t *testing.T) {
-	testDB.TruncateAll(t)
-	repos := testDB.Repos()
-	ts := testhelpers.SetupTestServer(t, repos)
-
-	// Register user.
-	_ = ts.AuthToken(t, "eve", "oldpassword1")
-
-	// Request password reset.
-	body, _ := json.Marshal(models.ForgotPasswordRequest{Email: "eve@test.com"})
-	rec := ts.DoRequest(testhelpers.AuthRequest(http.MethodPost, "/api/auth/forgot-password", body, ""))
-	require.Equal(t, http.StatusOK, rec.Code)
-
-	// Get the raw token from the email capture.
-	rawToken := ts.EmailCapture.LastToken()
-	require.NotEmpty(t, rawToken, "email service should have captured a reset token")
-
-	// Reset the password.
-	resetBody, _ := json.Marshal(models.ResetPasswordRequest{Token: rawToken, NewPassword: "newpassword1"})
-	rec2 := ts.DoRequest(testhelpers.AuthRequest(http.MethodPost, "/api/auth/reset-password", resetBody, ""))
-	require.Equal(t, http.StatusOK, rec2.Code)
-
-	// Login with the new password should succeed.
-	rec3 := ts.DoRequest(testhelpers.AuthRequest(
-		http.MethodPost, "/api/auth/login",
-		loginJSON("eve@test.com", "newpassword1"), ""))
-	assert.Equal(t, http.StatusOK, rec3.Code)
-
-	// Login with the old password should fail.
-	rec4 := ts.DoRequest(testhelpers.AuthRequest(
-		http.MethodPost, "/api/auth/login",
-		loginJSON("eve@test.com", "oldpassword1"), ""))
-	assert.Equal(t, http.StatusUnauthorized, rec4.Code)
-}
-
-func TestAuth_ResetPassword_InvalidToken(t *testing.T) {
-	testDB.TruncateAll(t)
-	repos := testDB.Repos()
-	ts := testhelpers.SetupTestServer(t, repos)
-
-	body, _ := json.Marshal(models.ResetPasswordRequest{Token: "invalid-token-here", NewPassword: "newpassword1"})
-	rec := ts.DoRequest(testhelpers.AuthRequest(http.MethodPost, "/api/auth/reset-password", body, ""))
-	assert.Equal(t, http.StatusBadRequest, rec.Code)
-}
-
-func TestAuth_ResetPassword_UsedToken(t *testing.T) {
-	testDB.TruncateAll(t)
-	repos := testDB.Repos()
-	ts := testhelpers.SetupTestServer(t, repos)
-
-	_ = ts.AuthToken(t, "frank", "password123")
-
-	// Request reset.
-	body, _ := json.Marshal(models.ForgotPasswordRequest{Email: "frank@test.com"})
-	ts.DoRequest(testhelpers.AuthRequest(http.MethodPost, "/api/auth/forgot-password", body, ""))
-	rawToken := ts.EmailCapture.LastToken()
-	require.NotEmpty(t, rawToken)
-
-	// Use the token once.
-	resetBody, _ := json.Marshal(models.ResetPasswordRequest{Token: rawToken, NewPassword: "newpassword1"})
-	rec := ts.DoRequest(testhelpers.AuthRequest(http.MethodPost, "/api/auth/reset-password", resetBody, ""))
-	require.Equal(t, http.StatusOK, rec.Code)
-
-	// Use the same token again — should fail.
-	// Note: after a successful reset, all tokens for the user are deleted,
-	// so the second attempt returns "invalid" (not "used").
-	rec2 := ts.DoRequest(testhelpers.AuthRequest(http.MethodPost, "/api/auth/reset-password", resetBody, ""))
-	assert.Equal(t, http.StatusBadRequest, rec2.Code)
-}
-
-func TestAuth_ResetPassword_ShortPassword(t *testing.T) {
-	testDB.TruncateAll(t)
-	repos := testDB.Repos()
-	ts := testhelpers.SetupTestServer(t, repos)
-
-	_ = ts.AuthToken(t, "gina", "password123")
-
-	body, _ := json.Marshal(models.ForgotPasswordRequest{Email: "gina@test.com"})
-	ts.DoRequest(testhelpers.AuthRequest(http.MethodPost, "/api/auth/forgot-password", body, ""))
-	rawToken := ts.EmailCapture.LastToken()
-	require.NotEmpty(t, rawToken)
-
-	// Try resetting with a password that is too short.
-	resetBody, _ := json.Marshal(models.ResetPasswordRequest{Token: rawToken, NewPassword: "short"})
-	rec := ts.DoRequest(testhelpers.AuthRequest(http.MethodPost, "/api/auth/reset-password", resetBody, ""))
-	assert.Equal(t, http.StatusBadRequest, rec.Code)
-}
-
-func TestAuth_ResetPassword_RevokesRefreshTokens(t *testing.T) {
-	testDB.TruncateAll(t)
-	repos := testDB.Repos()
-	ts := testhelpers.SetupTestServer(t, repos)
-
-	// Register and save the refresh token cookie.
-	rec := ts.DoRequest(testhelpers.AuthRequest(
-		http.MethodPost, "/api/auth/register",
-		registerJSON("holly@test.com", "holly", "password123"), ""))
-	require.Equal(t, http.StatusCreated, rec.Code)
-	refreshCookie := extractRefreshCookie(rec)
-	require.NotNil(t, refreshCookie)
-
-	// Request and complete password reset.
-	body, _ := json.Marshal(models.ForgotPasswordRequest{Email: "holly@test.com"})
-	ts.DoRequest(testhelpers.AuthRequest(http.MethodPost, "/api/auth/forgot-password", body, ""))
-	rawToken := ts.EmailCapture.LastToken()
-	require.NotEmpty(t, rawToken)
-
-	resetBody, _ := json.Marshal(models.ResetPasswordRequest{Token: rawToken, NewPassword: "newpassword1"})
-	rec2 := ts.DoRequest(testhelpers.AuthRequest(http.MethodPost, "/api/auth/reset-password", resetBody, ""))
-	require.Equal(t, http.StatusOK, rec2.Code)
-
-	// The old refresh token should now be invalid.
-	rec3 := ts.DoRequest(requestWithCookie(http.MethodPost, "/api/auth/refresh", nil, refreshCookie))
-	assert.Equal(t, http.StatusUnauthorized, rec3.Code)
-}
-
-// ========================================================================
-// Change password
-// ========================================================================
-
-func TestAuth_ChangePassword_Success(t *testing.T) {
-	testDB.TruncateAll(t)
-	repos := testDB.Repos()
-	ts := testhelpers.SetupTestServer(t, repos)
-
-	token := ts.AuthToken(t, "ivan", "oldpassword1")
-
-	body, _ := json.Marshal(models.ChangePasswordRequest{
-		CurrentPassword: "oldpassword1",
-		NewPassword:     "newpassword1",
-	})
-	rec := ts.DoRequest(testhelpers.AuthRequest(http.MethodPost, "/api/auth/change-password", body, token))
-	require.Equal(t, http.StatusOK, rec.Code)
-
-	// Login with new password should succeed.
-	rec2 := ts.DoRequest(testhelpers.AuthRequest(
-		http.MethodPost, "/api/auth/login",
-		loginJSON("ivan@test.com", "newpassword1"), ""))
-	assert.Equal(t, http.StatusOK, rec2.Code)
-
-	// Login with old password should fail.
-	rec3 := ts.DoRequest(testhelpers.AuthRequest(
-		http.MethodPost, "/api/auth/login",
-		loginJSON("ivan@test.com", "oldpassword1"), ""))
-	assert.Equal(t, http.StatusUnauthorized, rec3.Code)
-}
-
-func TestAuth_ChangePassword_WrongCurrent(t *testing.T) {
-	testDB.TruncateAll(t)
-	repos := testDB.Repos()
-	ts := testhelpers.SetupTestServer(t, repos)
-
-	token := ts.AuthToken(t, "jack", "password123")
-
-	body, _ := json.Marshal(models.ChangePasswordRequest{
-		CurrentPassword: "wrongpassword",
-		NewPassword:     "newpassword1",
-	})
-	rec := ts.DoRequest(testhelpers.AuthRequest(http.MethodPost, "/api/auth/change-password", body, token))
-	assert.Equal(t, http.StatusBadRequest, rec.Code)
-}
-
-func TestAuth_ChangePassword_TooShort(t *testing.T) {
-	testDB.TruncateAll(t)
-	repos := testDB.Repos()
-	ts := testhelpers.SetupTestServer(t, repos)
-
-	token := ts.AuthToken(t, "kate", "password123")
-
-	body, _ := json.Marshal(models.ChangePasswordRequest{
-		CurrentPassword: "password123",
-		NewPassword:     "short",
-	})
-	rec := ts.DoRequest(testhelpers.AuthRequest(http.MethodPost, "/api/auth/change-password", body, token))
-	assert.Equal(t, http.StatusBadRequest, rec.Code)
-}
-
-func TestAuth_ChangePassword_Unauthenticated(t *testing.T) {
-	testDB.TruncateAll(t)
-	repos := testDB.Repos()
-	ts := testhelpers.SetupTestServer(t, repos)
-
-	body, _ := json.Marshal(models.ChangePasswordRequest{
-		CurrentPassword: "oldpassword1",
-		NewPassword:     "newpassword1",
-	})
-	rec := ts.DoRequest(testhelpers.AuthRequest(http.MethodPost, "/api/auth/change-password", body, ""))
-	assert.Equal(t, http.StatusUnauthorized, rec.Code)
-}
-
-func TestAuth_ChangePassword_RevokesRefreshTokens(t *testing.T) {
-	testDB.TruncateAll(t)
-	repos := testDB.Repos()
-	ts := testhelpers.SetupTestServer(t, repos)
-
-	// Register and get both access token and refresh cookie.
-	rec := ts.DoRequest(testhelpers.AuthRequest(
-		http.MethodPost, "/api/auth/register",
-		registerJSON("leo@test.com", "leo", "password123"), ""))
-	require.Equal(t, http.StatusCreated, rec.Code)
-
-	var authResp models.AuthResponse
-	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &authResp))
-	accessToken := authResp.Token
-	refreshCookie := extractRefreshCookie(rec)
-	require.NotNil(t, refreshCookie)
-
-	// Change password.
-	body, _ := json.Marshal(models.ChangePasswordRequest{
-		CurrentPassword: "password123",
-		NewPassword:     "newpassword1",
-	})
-	rec2 := ts.DoRequest(testhelpers.AuthRequest(http.MethodPost, "/api/auth/change-password", body, accessToken))
-	require.Equal(t, http.StatusOK, rec2.Code)
-
-	// Old refresh token should be revoked.
-	rec3 := ts.DoRequest(requestWithCookie(http.MethodPost, "/api/auth/refresh", nil, refreshCookie))
-	assert.Equal(t, http.StatusUnauthorized, rec3.Code)
-}
-
-// ========================================================================
 // Delete account
 // ========================================================================
 
-func TestAuth_DeleteAccount_WithPassword(t *testing.T) {
+func TestAuth_DeleteAccount_WithUsername(t *testing.T) {
 	testDB.TruncateAll(t)
 	repos := testDB.Repos()
 	ts := testhelpers.SetupTestServer(t, repos)
+	user := testhelpers.SeedUser(t, repos, "mike")
+	session := ts.SignIn(t, user.ID)
 
-	token := ts.AuthToken(t, "mike", "password123")
-
-	body, _ := json.Marshal(models.DeleteAccountRequest{Password: "password123"})
-	rec := ts.DoRequest(testhelpers.AuthRequest(http.MethodDelete, "/api/auth/account", body, token))
+	rec := ts.DoRequest(testhelpers.AuthRequest(http.MethodDelete, "/api/auth/account", deleteAccountJSON("mike"), session.Token))
 	require.Equal(t, http.StatusNoContent, rec.Code)
 
-	// Login should now fail — account is deleted.
-	rec2 := ts.DoRequest(testhelpers.AuthRequest(
-		http.MethodPost, "/api/auth/login",
-		loginJSON("mike@test.com", "password123"), ""))
-	assert.Equal(t, http.StatusUnauthorized, rec2.Code)
+	// The access token and the refresh cookie no longer open anything.
+	recMe := ts.DoRequest(testhelpers.AuthRequest(http.MethodGet, "/api/auth/me", nil, session.Token))
+	assert.Equal(t, http.StatusUnauthorized, recMe.Code)
+	recRefresh := ts.DoRequest(requestWithCookie(http.MethodPost, "/api/auth/refresh", nil, session.RefreshCookie))
+	assert.Equal(t, http.StatusUnauthorized, recRefresh.Code)
 }
 
-func TestAuth_DeleteAccount_WrongPassword(t *testing.T) {
+func TestAuth_DeleteAccount_WrongUsername(t *testing.T) {
 	testDB.TruncateAll(t)
 	repos := testDB.Repos()
 	ts := testhelpers.SetupTestServer(t, repos)
+	user := testhelpers.SeedUser(t, repos, "nancy")
+	session := ts.SignIn(t, user.ID)
 
-	token := ts.AuthToken(t, "nancy", "password123")
-
-	body, _ := json.Marshal(models.DeleteAccountRequest{Password: "wrongpassword"})
-	rec := ts.DoRequest(testhelpers.AuthRequest(http.MethodDelete, "/api/auth/account", body, token))
+	rec := ts.DoRequest(testhelpers.AuthRequest(http.MethodDelete, "/api/auth/account", deleteAccountJSON("someoneelse"), session.Token))
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
+	assert.Equal(t, 1, countRows(t, "users"))
+}
+
+func TestAuth_DeleteAccount_LegacyPasswordAccountConfirmsWithUsername(t *testing.T) {
+	testDB.TruncateAll(t)
+	repos := testDB.Repos()
+	ts := testhelpers.SetupTestServer(t, repos)
+	userID := seedLegacyPasswordUser(t, "legacy")
+	session := ts.SignIn(t, userID)
+
+	rec := ts.DoRequest(testhelpers.AuthRequest(http.MethodDelete, "/api/auth/account", deleteAccountJSON("legacy"), session.Token))
+	require.Equal(t, http.StatusNoContent, rec.Code)
+	assert.Zero(t, countRows(t, "users"))
 }
 
 func TestAuth_DeleteAccount_CascadesData(t *testing.T) {
 	testDB.TruncateAll(t)
 	repos := testDB.Repos()
 	ts := testhelpers.SetupTestServer(t, repos)
+	ctx := context.Background()
+	user := testhelpers.SeedUser(t, repos, "oscar")
+	session := ts.SignIn(t, user.ID)
 
-	rec := ts.DoRequest(testhelpers.AuthRequest(
-		http.MethodPost, "/api/auth/register",
-		registerJSON("oscar@test.com", "oscar", "password123"), ""))
-	require.Equal(t, http.StatusCreated, rec.Code)
-	var authResp models.AuthResponse
-	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &authResp))
-	userID := authResp.User.ID
-
-	recState := ts.DoRequest(testhelpers.AuthRequest(http.MethodPut, "/api/v2/state/additions", []byte(`["e4"]`), authResp.Token))
+	recState := ts.DoRequest(testhelpers.AuthRequest(http.MethodPut, "/api/v2/state/additions", []byte(`["e4"]`), session.Token))
 	require.Equal(t, http.StatusNoContent, recState.Code)
-	_, err := repos.PlayedGame.SaveGames(context.Background(), userID, []models.PlayedGame{{
+	_, err := repos.PlayedGame.SaveGames(ctx, user.ID, []models.PlayedGame{{
 		Source: "lichess", SourceID: "abcd1234", Color: "white", Moves: "e4 e5", Score: 1, PlayedAt: "2026-11-01",
 	}})
 	require.NoError(t, err)
-	_, err = repos.PlayedGame.StartImport(context.Background(), userID)
+	_, err = repos.PlayedGame.StartImport(ctx, user.ID)
+	require.NoError(t, err)
+	// Plus rien n'écrit dans cette table, mais la production en garde des lignes.
+	_, err = testDB.Pool.Exec(ctx,
+		`INSERT INTO password_reset_tokens (user_id, token_hash, expires_at) VALUES ($1, 'legacy-reset', NOW())`, user.ID)
 	require.NoError(t, err)
 
-	delBody, _ := json.Marshal(models.DeleteAccountRequest{Password: "password123"})
-	recDel := ts.DoRequest(testhelpers.AuthRequest(http.MethodDelete, "/api/auth/account", delBody, authResp.Token))
+	recDel := ts.DoRequest(testhelpers.AuthRequest(http.MethodDelete, "/api/auth/account", deleteAccountJSON("oscar"), session.Token))
 	require.Equal(t, http.StatusNoContent, recDel.Code)
 
-	for _, table := range []string{"users", "refresh_tokens", "player_state", "played_games", "played_game_imports"} {
+	for _, table := range []string{"users", "refresh_tokens", "password_reset_tokens", "player_state", "played_games", "played_game_imports"} {
 		assert.Zero(t, countRows(t, table), table)
 	}
 }
@@ -488,87 +264,6 @@ func TestAuth_DeleteAccount_Unauthenticated(t *testing.T) {
 	repos := testDB.Repos()
 	ts := testhelpers.SetupTestServer(t, repos)
 
-	body, _ := json.Marshal(models.DeleteAccountRequest{Password: "password123"})
-	rec := ts.DoRequest(testhelpers.AuthRequest(http.MethodDelete, "/api/auth/account", body, ""))
-	assert.Equal(t, http.StatusUnauthorized, rec.Code)
-}
-
-// ========================================================================
-// Has password
-// ========================================================================
-
-func TestAuth_HasPassword_True(t *testing.T) {
-	testDB.TruncateAll(t)
-	repos := testDB.Repos()
-	ts := testhelpers.SetupTestServer(t, repos)
-
-	token := ts.AuthToken(t, "pete", "password123")
-
-	rec := ts.DoRequest(testhelpers.AuthRequest(http.MethodGet, "/api/auth/has-password", nil, token))
-	require.Equal(t, http.StatusOK, rec.Code)
-
-	var resp models.HasPasswordResponse
-	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
-	assert.True(t, resp.HasPassword)
-}
-
-func TestAuth_HasPassword_Unauthenticated(t *testing.T) {
-	testDB.TruncateAll(t)
-	repos := testDB.Repos()
-	ts := testhelpers.SetupTestServer(t, repos)
-
-	rec := ts.DoRequest(testhelpers.AuthRequest(http.MethodGet, "/api/auth/has-password", nil, ""))
-	assert.Equal(t, http.StatusUnauthorized, rec.Code)
-}
-
-// ========================================================================
-// Update profile
-// ========================================================================
-
-func TestAuth_UpdateProfile_Success(t *testing.T) {
-	testDB.TruncateAll(t)
-	repos := testDB.Repos()
-	ts := testhelpers.SetupTestServer(t, repos)
-
-	token := ts.AuthToken(t, "quinn", "password123")
-
-	lichess := "quinn_lichess"
-	chesscom := "quinn_chesscom"
-	body, _ := json.Marshal(models.UpdateProfileRequest{
-		LichessUsername:  &lichess,
-		ChesscomUsername: &chesscom,
-		TimeFormatPrefs:  []string{"bullet", "blitz"},
-	})
-	rec := ts.DoRequest(testhelpers.AuthRequest(http.MethodPut, "/api/auth/profile", body, token))
-	require.Equal(t, http.StatusOK, rec.Code)
-
-	var user models.User
-	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &user))
-	assert.Equal(t, "quinn_lichess", *user.LichessUsername)
-	assert.Equal(t, "quinn_chesscom", *user.ChesscomUsername)
-	assert.Equal(t, []string{"bullet", "blitz"}, user.TimeFormatPrefs)
-}
-
-func TestAuth_UpdateProfile_InvalidTimeFormat(t *testing.T) {
-	testDB.TruncateAll(t)
-	repos := testDB.Repos()
-	ts := testhelpers.SetupTestServer(t, repos)
-
-	token := ts.AuthToken(t, "rachel", "password123")
-
-	body, _ := json.Marshal(models.UpdateProfileRequest{
-		TimeFormatPrefs: []string{"bullet", "invalid_format"},
-	})
-	rec := ts.DoRequest(testhelpers.AuthRequest(http.MethodPut, "/api/auth/profile", body, token))
-	assert.Equal(t, http.StatusBadRequest, rec.Code)
-}
-
-func TestAuth_UpdateProfile_Unauthenticated(t *testing.T) {
-	testDB.TruncateAll(t)
-	repos := testDB.Repos()
-	ts := testhelpers.SetupTestServer(t, repos)
-
-	body, _ := json.Marshal(models.UpdateProfileRequest{})
-	rec := ts.DoRequest(testhelpers.AuthRequest(http.MethodPut, "/api/auth/profile", body, ""))
+	rec := ts.DoRequest(testhelpers.AuthRequest(http.MethodDelete, "/api/auth/account", deleteAccountJSON("anyone"), ""))
 	assert.Equal(t, http.StatusUnauthorized, rec.Code)
 }

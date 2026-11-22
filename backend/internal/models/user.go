@@ -9,7 +9,6 @@ type User struct {
 	ID                 string     `json:"id"`
 	Username           string     `json:"username"`
 	Email              *string    `json:"email,omitempty"`
-	PasswordHash       string     `json:"-"`
 	OAuthProvider      *string    `json:"oauthProvider,omitempty"`
 	OAuthID            *string    `json:"-"`
 	LichessUsername    *string    `json:"lichessUsername,omitempty"`
@@ -18,7 +17,6 @@ type User struct {
 	LastLichessSyncAt  *time.Time `json:"lastLichessSyncAt,omitempty"`
 	LastChesscomSyncAt *time.Time `json:"lastChesscomSyncAt,omitempty"`
 	TimeFormatPrefs    []string   `json:"timeFormatPrefs,omitempty"`
-	PasswordChangedAt  *time.Time `json:"-"`
 	CreatedAt          time.Time  `json:"createdAt"`
 }
 
@@ -36,21 +34,8 @@ func (u User) MarshalJSON() ([]byte, error) {
 	})
 }
 
-type UpdateProfileRequest struct {
-	LichessUsername  *string  `json:"lichessUsername"`
-	ChesscomUsername *string  `json:"chesscomUsername"`
-	TimeFormatPrefs  []string `json:"timeFormatPrefs,omitempty"`
-}
-
-type RegisterRequest struct {
-	Email    string `json:"email"`
+type DeleteAccountRequest struct {
 	Username string `json:"username"`
-	Password string `json:"password"`
-}
-
-type LoginRequest struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
 }
 
 type AuthResponse struct {

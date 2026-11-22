@@ -15,7 +15,7 @@ import (
 )
 
 // testConfig returns a minimal Config sufficient to construct the dependency
-// graph without touching any external system (no DB connection, no SMTP).
+// graph without touching any external system (no DB connection).
 func testConfig() config.Config {
 	return config.Config{
 		Environment:             "development",
@@ -104,6 +104,22 @@ func TestNewServer_RegistersRoutes(t *testing.T) {
 	unknown := httptest.NewRecorder()
 	e.ServeHTTP(unknown, httptest.NewRequest(http.MethodGet, "/api/unknown", nil))
 	assert.Equal(t, http.StatusNotFound, unknown.Code, "an unknown route should not run group middlewares")
+
+	// On ne se connecte que par Lichess : l'inscription par e-mail permettait de savoir si une adresse
+	// avait un compte (#240). Un seul serveur par test : echoprometheus enregistre ses métriques globalement.
+	for _, route := range []struct{ method, path string }{
+		{http.MethodPost, "/api/auth/register"},
+		{http.MethodPost, "/api/auth/login"},
+		{http.MethodPost, "/api/auth/forgot-password"},
+		{http.MethodPost, "/api/auth/reset-password"},
+		{http.MethodPut, "/api/auth/profile"},
+		{http.MethodPost, "/api/auth/change-password"},
+		{http.MethodGet, "/api/auth/has-password"},
+	} {
+		rec := httptest.NewRecorder()
+		e.ServeHTTP(rec, httptest.NewRequest(route.method, route.path, nil))
+		assert.Equal(t, http.StatusNotFound, rec.Code, "%s %s", route.method, route.path)
+	}
 }
 
 // TestProxyAwareIPExtractor_IgnoresSpoofedXFF guards the rate-limiter identity

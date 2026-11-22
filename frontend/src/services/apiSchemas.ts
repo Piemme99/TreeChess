@@ -14,7 +14,7 @@ import { z } from 'zod';
 // pass through untouched, so additive backend changes never break the client —
 // only missing or wrong-typed *known* fields are rejected.
 
-// --- Auth boundary (login / register / refresh) ---
+// --- Auth boundary (refresh) ---
 
 const timeFormatSchema = z.enum(['bullet', 'blitz', 'rapid']);
 

@@ -35,7 +35,7 @@ func tableExists(t *testing.T, table string) bool {
 func TestMigrations_DropV1TablesAndKeepV2Data(t *testing.T) {
 	testDB.TruncateAll(t)
 	repos := testDB.Repos()
-	user := testhelpers.SeedUser(t, repos, "survivor", "password123")
+	user := testhelpers.SeedUser(t, repos, "survivor")
 	ctx := context.Background()
 
 	_, err := testDB.Pool.Exec(ctx, `CREATE TABLE repertoires (id UUID PRIMARY KEY, user_id UUID REFERENCES users(id))`)

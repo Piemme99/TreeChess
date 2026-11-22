@@ -123,7 +123,9 @@ func (db *DB) runMigrations() error {
 		`ALTER TABLE users ADD COLUMN IF NOT EXISTS time_format_prefs TEXT[] DEFAULT '{}'`,
 		`ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(255)`,
 		`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email) WHERE email IS NOT NULL`,
-		// Track when password was last changed for JWT invalidation
+		// email, password_hash, password_changed_at et password_reset_tokens servaient la connexion par e-mail,
+		// retirée : plus rien ne les écrit, on les garde pour ne rien détruire en production. Les jetons de
+		// réinitialisation partent toujours en cascade avec le compte.
 		`ALTER TABLE users ADD COLUMN IF NOT EXISTS password_changed_at TIMESTAMP WITH TIME ZONE`,
 		`CREATE TABLE IF NOT EXISTS password_reset_tokens (
 			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

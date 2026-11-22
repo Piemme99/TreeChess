@@ -9,17 +9,11 @@ import (
 
 // UserRepository defines the interface for user data operations
 type UserRepository interface {
-	Create(ctx context.Context, email, username, passwordHash string) (*models.User, error)
-	GetByUsername(ctx context.Context, username string) (*models.User, error)
-	GetByEmail(ctx context.Context, email string) (*models.User, error)
 	GetByID(ctx context.Context, id string) (*models.User, error)
 	Exists(ctx context.Context, username string) (bool, error)
-	EmailExists(ctx context.Context, email string) (bool, error)
 	FindByOAuth(ctx context.Context, provider, oauthID string) (*models.User, error)
 	CreateOAuth(ctx context.Context, provider, oauthID, username string) (*models.User, error)
-	UpdateProfile(ctx context.Context, userID string, lichess, chesscom *string, timeFormatPrefs []string) (*models.User, error)
 	UpdateLichessToken(ctx context.Context, userID, token string) error
-	UpdatePassword(ctx context.Context, userID, passwordHash string) error
 	Delete(ctx context.Context, id string) error
 }
 
@@ -41,14 +35,4 @@ type RefreshTokenRepository interface {
 	DeleteByUserID(ctx context.Context, userID string) error
 	DeleteExpired(ctx context.Context) error
 	CountByUserID(ctx context.Context, userID string) (int, error)
-}
-
-// PasswordResetRepository defines the interface for password reset token operations
-type PasswordResetRepository interface {
-	Create(ctx context.Context, userID, tokenHash string, expiresAt time.Time) (*models.PasswordResetToken, error)
-	GetByTokenHash(ctx context.Context, tokenHash string) (*models.PasswordResetToken, error)
-	MarkUsed(ctx context.Context, id string) error
-	DeleteByUserID(ctx context.Context, userID string) error
-	DeleteExpired(ctx context.Context) error
-	CountRecentByUserID(ctx context.Context, userID string, since time.Time) (int, error)
 }

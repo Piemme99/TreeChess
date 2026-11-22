@@ -21,7 +21,6 @@ import (
 type Repos struct {
 	User                 *repository.PostgresUserRepo
 	RefreshToken         *repository.PostgresRefreshTokenRepo
-	PasswordReset        *repository.PostgresPasswordResetRepo
 	OpeningExplorerCache *repository.PostgresOpeningExplorerCacheRepo
 	PlayedGame           *repository.PostgresPlayedGameRepo
 	PlayerState          *repository.PostgresPlayerStateRepo
@@ -129,7 +128,6 @@ func (tdb *TestDB) Repos() *Repos {
 		tdb.repos = &Repos{
 			User:                 repository.NewPostgresUserRepo(tdb.Pool, testJWTSecret),
 			RefreshToken:         repository.NewPostgresRefreshTokenRepo(tdb.Pool),
-			PasswordReset:        repository.NewPostgresPasswordResetRepo(tdb.Pool),
 			OpeningExplorerCache: repository.NewPostgresOpeningExplorerCacheRepo(tdb.Pool),
 			PlayedGame:           repository.NewPostgresPlayedGameRepo(tdb.Pool),
 			PlayerState:          repository.NewPostgresPlayerStateRepo(tdb.Pool),
