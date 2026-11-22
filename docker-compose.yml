@@ -36,9 +36,6 @@ services:
       PORT: "8080"
       METRICS_PORT: "9090"
       JWT_SECRET: ${JWT_SECRET}
-      SMTP_HOST: mailhog
-      SMTP_PORT: "1025"
-      SMTP_FROM_ADDRESS: noreply@treechess.local
       LICHESS_EXPLORER_BASE_URL: ${LICHESS_EXPLORER_BASE_URL:-https://explorer.lichess.org}
       LICHESS_EXPLORER_CACHE_TTL_HOURS: ${LICHESS_EXPLORER_CACHE_TTL_HOURS:-168}
     depends_on:
@@ -59,13 +56,6 @@ services:
       VITE_API_URL: http://localhost:8080/api
     depends_on:
       - backend
-    restart: unless-stopped
-
-  mailhog:
-    image: mailhog/mailhog
-    ports:
-      - "1025:1025"   # SMTP server
-      - "8025:8025"   # Web UI
     restart: unless-stopped
 
   prometheus:

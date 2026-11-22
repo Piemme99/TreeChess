@@ -18,30 +18,14 @@ import (
 )
 
 const (
-	userColumns = `id, username, email, password_hash, oauth_provider, oauth_id, lichess_username, chesscom_username, lichess_access_token, last_lichess_sync_at, last_chesscom_sync_at, time_format_prefs, password_changed_at, created_at`
+	userColumns = `id, username, email, oauth_provider, oauth_id, lichess_username, chesscom_username, lichess_access_token, last_lichess_sync_at, last_chesscom_sync_at, time_format_prefs, created_at`
 
-	createUserSQL = `
-		INSERT INTO users (id, username, email, password_hash)
-		VALUES ($1, $2, LOWER($3), $4)
-		RETURNING ` + userColumns + `
-	`
-	getUserByUsernameSQL = `
-		SELECT ` + userColumns + `
-		FROM users WHERE username = $1
-	`
-	getUserByEmailSQL = `
-		SELECT ` + userColumns + `
-		FROM users WHERE LOWER(email) = LOWER($1)
-	`
 	getUserByIDSQL = `
 		SELECT ` + userColumns + `
 		FROM users WHERE id = $1
 	`
 	checkUserExistsSQL = `
 		SELECT EXISTS(SELECT 1 FROM users WHERE username = $1)
-	`
-	checkEmailExistsSQL = `
-		SELECT EXISTS(SELECT 1 FROM users WHERE LOWER(email) = LOWER($1))
 	`
 	findByOAuthSQL = `
 		SELECT ` + userColumns + `
@@ -50,11 +34,6 @@ const (
 	createOAuthUserSQL = `
 		INSERT INTO users (id, username, oauth_provider, oauth_id, lichess_username)
 		VALUES ($1, $2, $3, $4, $5)
-		RETURNING ` + userColumns + `
-	`
-	updateProfileSQL = `
-		UPDATE users SET lichess_username = $2, chesscom_username = $3, time_format_prefs = $4
-		WHERE id = $1
 		RETURNING ` + userColumns + `
 	`
 	updateLichessTokenSQL = `
@@ -73,11 +52,6 @@ const (
 	// lichessOAuthTokenPrefix starts every access token Lichess issues through
 	// OAuth: it tells a legacy plaintext token from an unreadable ciphertext.
 	lichessOAuthTokenPrefix = "lio_"
-
-	updatePasswordSQL = `
-		UPDATE users SET password_hash = $2, password_changed_at = NOW()
-		WHERE id = $1
-	`
 
 	// lichessTokenKeyInfo is the HKDF info label used to derive the AES key that
 	// encrypts the Lichess access token at rest. It is intentionally distinct from
@@ -104,18 +78,14 @@ func NewPostgresUserRepo(pool *pgxpool.Pool, jwtSecret string) *PostgresUserRepo
 
 func (r *PostgresUserRepo) scanUser(ctx context.Context, scan func(dest ...any) error) (*models.User, error) {
 	var user models.User
-	var passwordHash *string
 	err := scan(
-		&user.ID, &user.Username, &user.Email, &passwordHash, &user.OAuthProvider, &user.OAuthID,
+		&user.ID, &user.Username, &user.Email, &user.OAuthProvider, &user.OAuthID,
 		&user.LichessUsername, &user.ChesscomUsername, &user.LichessAccessToken,
 		&user.LastLichessSyncAt, &user.LastChesscomSyncAt, &user.TimeFormatPrefs,
-		&user.PasswordChangedAt, &user.CreatedAt,
+		&user.CreatedAt,
 	)
 	if err != nil {
 		return nil, err
-	}
-	if passwordHash != nil {
-		user.PasswordHash = *passwordHash
 	}
 	if user.LichessAccessToken != nil {
 		stored := *user.LichessAccessToken
@@ -223,52 +193,6 @@ func (r *PostgresUserRepo) EncryptLegacyLichessTokens(ctx context.Context) error
 	return nil
 }
 
-func (r *PostgresUserRepo) Create(ctx context.Context, email, username, passwordHash string) (*models.User, error) {
-	ctx, cancel := dbContext(ctx)
-	defer cancel()
-
-	id := uuid.New().String()
-	user, err := r.scanUser(ctx, r.pool.QueryRow(ctx, createUserSQL, id, username, email, passwordHash).Scan)
-	if err != nil {
-		if isDuplicateKeyError(err) {
-			if isDuplicateEmailError(err) {
-				return nil, ErrEmailExists
-			}
-			return nil, ErrUsernameExists
-		}
-		return nil, fmt.Errorf("failed to create user: %w", err)
-	}
-	return user, nil
-}
-
-func (r *PostgresUserRepo) GetByUsername(ctx context.Context, username string) (*models.User, error) {
-	ctx, cancel := dbContext(ctx)
-	defer cancel()
-
-	user, err := r.scanUser(ctx, r.pool.QueryRow(ctx, getUserByUsernameSQL, username).Scan)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, ErrUserNotFound
-		}
-		return nil, fmt.Errorf("failed to get user by username: %w", err)
-	}
-	return user, nil
-}
-
-func (r *PostgresUserRepo) GetByEmail(ctx context.Context, email string) (*models.User, error) {
-	ctx, cancel := dbContext(ctx)
-	defer cancel()
-
-	user, err := r.scanUser(ctx, r.pool.QueryRow(ctx, getUserByEmailSQL, email).Scan)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, ErrUserNotFound
-		}
-		return nil, fmt.Errorf("failed to get user by email: %w", err)
-	}
-	return user, nil
-}
-
 func (r *PostgresUserRepo) GetByID(ctx context.Context, id string) (*models.User, error) {
 	ctx, cancel := dbContext(ctx)
 	defer cancel()
@@ -324,17 +248,6 @@ func (r *PostgresUserRepo) CreateOAuth(ctx context.Context, provider, oauthID, u
 	return user, nil
 }
 
-func (r *PostgresUserRepo) UpdateProfile(ctx context.Context, userID string, lichess, chesscom *string, timeFormatPrefs []string) (*models.User, error) {
-	ctx, cancel := dbContext(ctx)
-	defer cancel()
-
-	user, err := r.scanUser(ctx, r.pool.QueryRow(ctx, updateProfileSQL, userID, lichess, chesscom, timeFormatPrefs).Scan)
-	if err != nil {
-		return nil, fmt.Errorf("failed to update profile: %w", err)
-	}
-	return user, nil
-}
-
 func (r *PostgresUserRepo) UpdateLichessToken(ctx context.Context, userID, token string) error {
 	ctx, cancel := dbContext(ctx)
 	defer cancel()
@@ -369,29 +282,6 @@ func (r *PostgresUserRepo) Exists(ctx context.Context, username string) (bool, e
 	return exists, nil
 }
 
-func (r *PostgresUserRepo) EmailExists(ctx context.Context, email string) (bool, error) {
-	ctx, cancel := dbContext(ctx)
-	defer cancel()
-
-	var exists bool
-	err := r.pool.QueryRow(ctx, checkEmailExistsSQL, email).Scan(&exists)
-	if err != nil {
-		return false, fmt.Errorf("failed to check email existence: %w", err)
-	}
-	return exists, nil
-}
-
-func (r *PostgresUserRepo) UpdatePassword(ctx context.Context, userID, passwordHash string) error {
-	ctx, cancel := dbContext(ctx)
-	defer cancel()
-
-	_, err := r.pool.Exec(ctx, updatePasswordSQL, userID, passwordHash)
-	if err != nil {
-		return fmt.Errorf("failed to update password: %w", err)
-	}
-	return nil
-}
-
 func (r *PostgresUserRepo) Delete(ctx context.Context, id string) error {
 	ctx, cancel := context.WithTimeout(ctx, config.UserDeleteDBTimeout)
 	defer cancel()
@@ -417,16 +307,6 @@ func isDuplicateKeyError(err error) bool {
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) {
 		return pgErr.Code == pgUniqueViolation
-	}
-	return false
-}
-
-// isDuplicateEmailError checks if the duplicate key error is specifically for the
-// email field by inspecting the violated constraint name (idx_users_email).
-func isDuplicateEmailError(err error) bool {
-	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) {
-		return pgErr.ConstraintName == "idx_users_email"
 	}
 	return false
 }

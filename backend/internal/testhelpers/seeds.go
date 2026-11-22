@@ -6,20 +6,14 @@ import (
 	"context"
 	"testing"
 
-	"golang.org/x/crypto/bcrypt"
-
 	"github.com/kumquat/backend/internal/models"
 )
 
-// SeedUser creates a user with the given credentials using bcrypt.MinCost for speed.
-func SeedUser(t *testing.T, repos *Repos, username, password string) *models.User {
+// SeedUser creates a user straight in the repository, as the Lichess OAuth
+// callback does on a first sign-in.
+func SeedUser(t *testing.T, repos *Repos, username string) *models.User {
 	t.Helper()
-	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.MinCost)
-	if err != nil {
-		t.Fatalf("SeedUser: bcrypt: %v", err)
-	}
-	email := username + "@test.com"
-	user, err := repos.User.Create(context.Background(), email, username, string(hash))
+	user, err := repos.User.CreateOAuth(context.Background(), "lichess", "lichess-"+username, username)
 	if err != nil {
 		t.Fatalf("SeedUser: %v", err)
 	}

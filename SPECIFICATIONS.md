@@ -394,7 +394,7 @@ ALWAYS display simultaneously:
 
 #### REQ-080: Automatic Game Sync
 
-Users can link their Lichess and/or Chess.com usernames via their profile (`PUT /api/auth/profile`). The sync endpoint (`POST /api/sync`) fetches recent games from both platforms and imports them automatically.
+Users could link their Lichess and/or Chess.com usernames via their profile (`PUT /api/auth/profile`, removed on 2026-11-22 with email/password sign-in). The sync endpoint (`POST /api/sync`) fetches recent games from both platforms and imports them automatically.
 
 #### REQ-081: Sync Behavior
 
@@ -675,7 +675,7 @@ backend/
 │   └── limits.go                    # Application limits and constants
 ├── internal/
 │   ├── handlers/
-│   │   ├── auth.go                  # Register, Login, Me, UpdateProfile
+│   │   ├── auth.go                  # Me, refresh, logout, delete account
 │   │   ├── oauth.go                 # Lichess OAuth (redirect + callback)
 │   │   ├── health.go                # Health check endpoint
 │   │   ├── helpers.go               # Shared response helpers, validators
@@ -726,15 +726,16 @@ All routes except health and auth are protected by JWT authentication. Auth endp
 # Public
 GET    /api/health                           # Health check
 
-# Authentication (stricter rate limit)
-POST   /api/auth/register                    # Register new user
-POST   /api/auth/login                       # Login with credentials
+# Authentication (stricter rate limit). Sign-in is Lichess OAuth only: register, login,
+# forgot/reset/change password, has-password and profile were removed on 2026-11-22.
 GET    /api/auth/lichess/login               # Lichess OAuth redirect
 GET    /api/auth/lichess/callback            # Lichess OAuth callback
+POST   /api/auth/refresh                     # Rotate the refresh cookie, new access token
+POST   /api/auth/logout                      # Revoke the refresh cookie
 
 # Protected - User
 GET    /api/auth/me                          # Get current user profile
-PUT    /api/auth/profile                     # Update profile (Lichess/Chess.com usernames)
+DELETE /api/auth/account                     # Delete the account (body: {"username": "<typed username>"})
 
 # Protected - Categories
 GET    /api/categories                       # List user's categories
@@ -1866,7 +1867,7 @@ This section lists security items that **must be addressed before production dep
 | Item | Description | Files |
 |------|-------------|-------|
 | Rate limiting (global) | 100 req/min per IP, burst 20 | `main.go` |
-| Rate limiting (auth) | 10 req/min per IP on login/register | `main.go` |
+| Rate limiting (auth) | 20 req/min per IP (burst 10) on Lichess OAuth, refresh, logout | `main.go` |
 | Security headers | X-Content-Type-Options, X-Frame-Options, Referrer-Policy, X-XSS-Protection | `main.go` |
 | Body size limit | Global 10MB limit on request bodies | `main.go` |
 | Username validation | Regex validation on Lichess/Chess.com usernames | `internal/handlers/import.go` |

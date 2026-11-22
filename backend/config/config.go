@@ -18,26 +18,20 @@ const minJWTSecretBytes = 32
 
 // Config holds application configuration
 type Config struct {
-	Environment              string
-	DatabaseURL              string
-	Port                     int
-	AllowedOrigins           []string
-	JWTSecret                string
-	JWTExpiry                time.Duration
-	LichessClientID          string
-	FrontendURL              string
-	OAuthCallbackURL         string
-	SecureCookies            bool
-	SMTPHost                 string
-	SMTPPort                 int
-	SMTPUser                 string
-	SMTPPassword             string
-	SMTPFromAddress          string
-	PasswordResetExpiryHours int
-	MetricsPort              int
-	LichessExplorerBaseURL   string
-	LichessExplorerCacheTTL  time.Duration
-	CleanupInterval          time.Duration
+	Environment             string
+	DatabaseURL             string
+	Port                    int
+	AllowedOrigins          []string
+	JWTSecret               string
+	JWTExpiry               time.Duration
+	LichessClientID         string
+	FrontendURL             string
+	OAuthCallbackURL        string
+	SecureCookies           bool
+	MetricsPort             int
+	LichessExplorerBaseURL  string
+	LichessExplorerCacheTTL time.Duration
+	CleanupInterval         time.Duration
 }
 
 // MustLoad loads configuration from environment variables
@@ -145,20 +139,6 @@ func MustLoad() Config {
 		slog.Warn("SECURE_COOKIES is not enabled; cookies will be sent over plain HTTP (acceptable for local development only)")
 	}
 
-	// SMTP config (optional - if not set, email sending is disabled)
-	smtpHost := os.Getenv("SMTP_HOST")
-	smtpPort := 587
-	if smtpPortStr := os.Getenv("SMTP_PORT"); smtpPortStr != "" {
-		p, err := strconv.Atoi(smtpPortStr)
-		if err != nil {
-			panic(fmt.Sprintf("Invalid SMTP_PORT value: %s", smtpPortStr))
-		}
-		smtpPort = p
-	}
-	smtpUser := os.Getenv("SMTP_USER")
-	smtpPassword := os.Getenv("SMTP_PASSWORD")
-	smtpFromAddress := os.Getenv("SMTP_FROM_ADDRESS")
-
 	metricsPort := 9090
 	if metricsPortStr := os.Getenv("METRICS_PORT"); metricsPortStr != "" {
 		p, err := strconv.Atoi(metricsPortStr)
@@ -166,18 +146,6 @@ func MustLoad() Config {
 			panic(fmt.Sprintf("Invalid METRICS_PORT value: %s", metricsPortStr))
 		}
 		metricsPort = p
-	}
-
-	passwordResetExpiryHours := 1
-	if expiryStr := os.Getenv("PASSWORD_RESET_EXPIRY_HOURS"); expiryStr != "" {
-		hours, err := strconv.Atoi(expiryStr)
-		if err != nil {
-			panic(fmt.Sprintf("Invalid PASSWORD_RESET_EXPIRY_HOURS value: %s", expiryStr))
-		}
-		if hours <= 0 {
-			panic(fmt.Sprintf("PASSWORD_RESET_EXPIRY_HOURS must be positive, got: %d", hours))
-		}
-		passwordResetExpiryHours = hours
 	}
 
 	explorerBaseURL := os.Getenv("LICHESS_EXPLORER_BASE_URL")
@@ -193,8 +161,8 @@ func MustLoad() Config {
 		explorerCacheTTL = time.Duration(hours) * time.Hour
 	}
 
-	// Interval at which the background worker purges expired refresh/reset
-	// tokens and stale opening-explorer cache rows.
+	// Interval at which the background worker purges expired refresh tokens and
+	// stale opening-explorer cache rows.
 	cleanupInterval := time.Hour
 	if intervalStr := os.Getenv("CLEANUP_INTERVAL_MINUTES"); intervalStr != "" {
 		mins, err := strconv.Atoi(intervalStr)
@@ -208,25 +176,19 @@ func MustLoad() Config {
 	}
 
 	return Config{
-		Environment:              env,
-		DatabaseURL:              dbURL,
-		Port:                     port,
-		AllowedOrigins:           allowedOrigins,
-		JWTSecret:                jwtSecret,
-		JWTExpiry:                jwtExpiry,
-		LichessClientID:          lichessClientID,
-		FrontendURL:              frontendURL,
-		OAuthCallbackURL:         oauthCallbackURL,
-		SecureCookies:            secureCookies,
-		SMTPHost:                 smtpHost,
-		SMTPPort:                 smtpPort,
-		SMTPUser:                 smtpUser,
-		SMTPPassword:             smtpPassword,
-		SMTPFromAddress:          smtpFromAddress,
-		PasswordResetExpiryHours: passwordResetExpiryHours,
-		MetricsPort:              metricsPort,
-		LichessExplorerBaseURL:   explorerBaseURL,
-		LichessExplorerCacheTTL:  explorerCacheTTL,
-		CleanupInterval:          cleanupInterval,
+		Environment:             env,
+		DatabaseURL:             dbURL,
+		Port:                    port,
+		AllowedOrigins:          allowedOrigins,
+		JWTSecret:               jwtSecret,
+		JWTExpiry:               jwtExpiry,
+		LichessClientID:         lichessClientID,
+		FrontendURL:             frontendURL,
+		OAuthCallbackURL:        oauthCallbackURL,
+		SecureCookies:           secureCookies,
+		MetricsPort:             metricsPort,
+		LichessExplorerBaseURL:  explorerBaseURL,
+		LichessExplorerCacheTTL: explorerCacheTTL,
+		CleanupInterval:         cleanupInterval,
 	}
 }

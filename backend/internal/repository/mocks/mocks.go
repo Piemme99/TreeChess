@@ -12,39 +12,12 @@ import (
 
 // MockUserRepo is a mock implementation of UserRepository for testing
 type MockUserRepo struct {
-	CreateFunc             func(ctx context.Context, email, username, passwordHash string) (*models.User, error)
-	GetByUsernameFunc      func(ctx context.Context, username string) (*models.User, error)
-	GetByEmailFunc         func(ctx context.Context, email string) (*models.User, error)
 	GetByIDFunc            func(ctx context.Context, id string) (*models.User, error)
 	ExistsFunc             func(ctx context.Context, username string) (bool, error)
-	EmailExistsFunc        func(ctx context.Context, email string) (bool, error)
 	FindByOAuthFunc        func(ctx context.Context, provider, oauthID string) (*models.User, error)
 	CreateOAuthFunc        func(ctx context.Context, provider, oauthID, username string) (*models.User, error)
-	UpdateProfileFunc      func(ctx context.Context, userID string, lichess, chesscom *string, timeFormatPrefs []string) (*models.User, error)
 	UpdateLichessTokenFunc func(ctx context.Context, userID, token string) error
-	UpdatePasswordFunc     func(ctx context.Context, userID, passwordHash string) error
 	DeleteFunc             func(ctx context.Context, id string) error
-}
-
-func (m *MockUserRepo) Create(ctx context.Context, email, username, passwordHash string) (*models.User, error) {
-	if m.CreateFunc != nil {
-		return m.CreateFunc(ctx, email, username, passwordHash)
-	}
-	return nil, nil
-}
-
-func (m *MockUserRepo) GetByUsername(ctx context.Context, username string) (*models.User, error) {
-	if m.GetByUsernameFunc != nil {
-		return m.GetByUsernameFunc(ctx, username)
-	}
-	return nil, nil
-}
-
-func (m *MockUserRepo) GetByEmail(ctx context.Context, email string) (*models.User, error) {
-	if m.GetByEmailFunc != nil {
-		return m.GetByEmailFunc(ctx, email)
-	}
-	return nil, nil
 }
 
 func (m *MockUserRepo) GetByID(ctx context.Context, id string) (*models.User, error) {
@@ -57,13 +30,6 @@ func (m *MockUserRepo) GetByID(ctx context.Context, id string) (*models.User, er
 func (m *MockUserRepo) Exists(ctx context.Context, username string) (bool, error) {
 	if m.ExistsFunc != nil {
 		return m.ExistsFunc(ctx, username)
-	}
-	return false, nil
-}
-
-func (m *MockUserRepo) EmailExists(ctx context.Context, email string) (bool, error) {
-	if m.EmailExistsFunc != nil {
-		return m.EmailExistsFunc(ctx, email)
 	}
 	return false, nil
 }
@@ -82,23 +48,9 @@ func (m *MockUserRepo) CreateOAuth(ctx context.Context, provider, oauthID, usern
 	return nil, nil
 }
 
-func (m *MockUserRepo) UpdateProfile(ctx context.Context, userID string, lichess, chesscom *string, timeFormatPrefs []string) (*models.User, error) {
-	if m.UpdateProfileFunc != nil {
-		return m.UpdateProfileFunc(ctx, userID, lichess, chesscom, timeFormatPrefs)
-	}
-	return nil, nil
-}
-
 func (m *MockUserRepo) UpdateLichessToken(ctx context.Context, userID, token string) error {
 	if m.UpdateLichessTokenFunc != nil {
 		return m.UpdateLichessTokenFunc(ctx, userID, token)
-	}
-	return nil
-}
-
-func (m *MockUserRepo) UpdatePassword(ctx context.Context, userID, passwordHash string) error {
-	if m.UpdatePasswordFunc != nil {
-		return m.UpdatePasswordFunc(ctx, userID, passwordHash)
 	}
 	return nil
 }
@@ -108,63 +60,6 @@ func (m *MockUserRepo) Delete(ctx context.Context, id string) error {
 		return m.DeleteFunc(ctx, id)
 	}
 	return nil
-}
-
-// MockPasswordResetRepo is a mock implementation of PasswordResetRepository for testing
-type MockPasswordResetRepo struct {
-	CreateFunc              func(ctx context.Context, userID, tokenHash string, expiresAt time.Time) (*models.PasswordResetToken, error)
-	GetByTokenHashFunc      func(ctx context.Context, tokenHash string) (*models.PasswordResetToken, error)
-	MarkUsedFunc            func(ctx context.Context, id string) error
-	DeleteByUserIDFunc      func(ctx context.Context, userID string) error
-	DeleteExpiredFunc       func(ctx context.Context) error
-	CountRecentByUserIDFunc func(ctx context.Context, userID string, since time.Time) (int, error)
-}
-
-func (m *MockPasswordResetRepo) Create(ctx context.Context, userID, tokenHash string, expiresAt time.Time) (*models.PasswordResetToken, error) {
-	if m.CreateFunc != nil {
-		return m.CreateFunc(ctx, userID, tokenHash, expiresAt)
-	}
-	return &models.PasswordResetToken{
-		ID:        "reset-123",
-		UserID:    userID,
-		TokenHash: tokenHash,
-		ExpiresAt: expiresAt,
-	}, nil
-}
-
-func (m *MockPasswordResetRepo) GetByTokenHash(ctx context.Context, tokenHash string) (*models.PasswordResetToken, error) {
-	if m.GetByTokenHashFunc != nil {
-		return m.GetByTokenHashFunc(ctx, tokenHash)
-	}
-	return nil, repository.ErrResetTokenNotFound
-}
-
-func (m *MockPasswordResetRepo) MarkUsed(ctx context.Context, id string) error {
-	if m.MarkUsedFunc != nil {
-		return m.MarkUsedFunc(ctx, id)
-	}
-	return nil
-}
-
-func (m *MockPasswordResetRepo) DeleteByUserID(ctx context.Context, userID string) error {
-	if m.DeleteByUserIDFunc != nil {
-		return m.DeleteByUserIDFunc(ctx, userID)
-	}
-	return nil
-}
-
-func (m *MockPasswordResetRepo) DeleteExpired(ctx context.Context) error {
-	if m.DeleteExpiredFunc != nil {
-		return m.DeleteExpiredFunc(ctx)
-	}
-	return nil
-}
-
-func (m *MockPasswordResetRepo) CountRecentByUserID(ctx context.Context, userID string, since time.Time) (int, error) {
-	if m.CountRecentByUserIDFunc != nil {
-		return m.CountRecentByUserIDFunc(ctx, userID, since)
-	}
-	return 0, nil
 }
 
 // MockRefreshTokenRepo is a mock implementation of RefreshTokenRepository for testing

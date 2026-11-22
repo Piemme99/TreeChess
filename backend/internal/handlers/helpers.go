@@ -65,21 +65,6 @@ func InternalErrorResponse(c *echo.Context, message string) error {
 	return ErrorResponse(c, http.StatusInternalServerError, message)
 }
 
-// ConflictResponse sends a 409 Conflict error response
-func ConflictResponse(c *echo.Context, message string) error {
-	return ErrorResponse(c, http.StatusConflict, message)
-}
-
-// RequireField checks if a required field is non-empty
-// Returns true if valid, or sends an error response and returns false
-func RequireField(c *echo.Context, fieldName, value string) bool {
-	if value == "" {
-		_ = BadRequestResponse(c, fieldName+" is required")
-		return false
-	}
-	return true
-}
-
 // UnauthorizedResponse sends a 401 Unauthorized error response
 func UnauthorizedResponse(c *echo.Context, message string) error {
 	return ErrorResponse(c, http.StatusUnauthorized, message)

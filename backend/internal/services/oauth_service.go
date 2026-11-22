@@ -20,7 +20,6 @@ import (
 
 var (
 	ErrOAuthStateMismatch = fmt.Errorf("OAuth state mismatch")
-	ErrOAuthAccountExists = fmt.Errorf("this account uses Lichess login")
 )
 
 type OAuthService struct {

@@ -13,50 +13,42 @@ import (
 	"github.com/kumquat/backend/internal/repository/mocks"
 )
 
-func TestCleanup_PurgesAllThreeTables(t *testing.T) {
-	var refreshCalled, resetCalled, cacheCalled int
+func TestCleanup_PurgesBothTables(t *testing.T) {
+	var refreshCalled, cacheCalled int
 
 	refreshRepo := &mocks.MockRefreshTokenRepo{
 		DeleteExpiredFunc: func(_ context.Context) error { refreshCalled++; return nil },
 	}
-	resetRepo := &mocks.MockPasswordResetRepo{
-		DeleteExpiredFunc: func(_ context.Context) error { resetCalled++; return nil },
-	}
 	cacheRepo := &mocks.MockOpeningExplorerCacheRepo{
 		DeleteExpiredFunc: func(_ context.Context) error { cacheCalled++; return nil },
 	}
 
-	svc := NewCleanupService(refreshRepo, resetRepo, cacheRepo, time.Hour)
+	svc := NewCleanupService(refreshRepo, cacheRepo, time.Hour)
 	svc.cleanup(context.Background())
 
 	assert.Equal(t, 1, refreshCalled, "refresh tokens should be purged once")
-	assert.Equal(t, 1, resetCalled, "password reset tokens should be purged once")
 	assert.Equal(t, 1, cacheCalled, "explorer cache should be purged once")
 }
 
 func TestCleanup_FailureOnOneTableDoesNotBlockOthers(t *testing.T) {
-	var resetCalled, cacheCalled int
+	var cacheCalled int
 
 	refreshRepo := &mocks.MockRefreshTokenRepo{
 		DeleteExpiredFunc: func(_ context.Context) error { return errors.New("refresh boom") },
-	}
-	resetRepo := &mocks.MockPasswordResetRepo{
-		DeleteExpiredFunc: func(_ context.Context) error { resetCalled++; return nil },
 	}
 	cacheRepo := &mocks.MockOpeningExplorerCacheRepo{
 		DeleteExpiredFunc: func(_ context.Context) error { cacheCalled++; return nil },
 	}
 
-	svc := NewCleanupService(refreshRepo, resetRepo, cacheRepo, time.Hour)
+	svc := NewCleanupService(refreshRepo, cacheRepo, time.Hour)
 	// Must not panic and must still reach the other cleaners.
 	require.NotPanics(t, func() { svc.cleanup(context.Background()) })
 
-	assert.Equal(t, 1, resetCalled, "reset cleanup runs even though refresh failed")
 	assert.Equal(t, 1, cacheCalled, "cache cleanup runs even though refresh failed")
 }
 
 func TestCleanup_NilDependenciesAreSkipped(t *testing.T) {
-	svc := NewCleanupService(nil, nil, nil, time.Hour)
+	svc := NewCleanupService(nil, nil, time.Hour)
 	require.NotPanics(t, func() { svc.cleanup(context.Background()) })
 }
 
@@ -75,7 +67,7 @@ func TestRunWorker_RunsImmediatePassThenStopsOnCancel(t *testing.T) {
 
 	// Long interval ensures the only pass within the test window is the
 	// immediate startup pass.
-	svc := NewCleanupService(refreshRepo, nil, nil, time.Hour)
+	svc := NewCleanupService(refreshRepo, nil, time.Hour)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
@@ -113,7 +105,7 @@ func TestRunWorker_TicksRepeatedly(t *testing.T) {
 	}
 
 	// Short interval so we observe at least one tick beyond the startup pass.
-	svc := NewCleanupService(refreshRepo, nil, nil, 10*time.Millisecond)
+	svc := NewCleanupService(refreshRepo, nil, 10*time.Millisecond)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

@@ -22,14 +22,14 @@ func countRows(t *testing.T, table string) int {
 	return n
 }
 
-// TestCleanupService_PurgesExpiredRowsAcrossAllThreeTables exercises the real
-// DeleteExpired SQL on refresh_tokens, password_reset_tokens and
-// opening_explorer_cache: only expired rows must be removed, valid rows kept.
-func TestCleanupService_PurgesExpiredRowsAcrossAllThreeTables(t *testing.T) {
+// TestCleanupService_PurgesExpiredRowsAcrossBothTables exercises the real
+// DeleteExpired SQL on refresh_tokens and opening_explorer_cache: only expired
+// rows must be removed, valid rows kept.
+func TestCleanupService_PurgesExpiredRowsAcrossBothTables(t *testing.T) {
 	testDB.TruncateAll(t)
 	repos := testDB.Repos()
 
-	user := testhelpers.SeedUser(t, repos, "cleanup-user", "password1")
+	user := testhelpers.SeedUser(t, repos, "cleanup-user")
 
 	past := time.Now().Add(-1 * time.Hour)
 	future := time.Now().Add(1 * time.Hour)
@@ -40,12 +40,6 @@ func TestCleanupService_PurgesExpiredRowsAcrossAllThreeTables(t *testing.T) {
 	_, err = repos.RefreshToken.Create(context.Background(), user.ID, "refresh-valid", future)
 	require.NoError(t, err)
 
-	// Password reset tokens: one expired, one valid.
-	_, err = repos.PasswordReset.Create(context.Background(), user.ID, "reset-expired", past)
-	require.NoError(t, err)
-	_, err = repos.PasswordReset.Create(context.Background(), user.ID, "reset-valid", future)
-	require.NoError(t, err)
-
 	// Explorer cache: one expired, one valid.
 	ctx := context.Background()
 	payload := []byte(`{"white":0,"draws":0,"black":0,"moves":[]}`)
@@ -53,12 +47,10 @@ func TestCleanupService_PurgesExpiredRowsAcrossAllThreeTables(t *testing.T) {
 	require.NoError(t, repos.OpeningExplorerCache.Put(ctx, "cache-valid", payload, future))
 
 	require.Equal(t, 2, countRows(t, "refresh_tokens"))
-	require.Equal(t, 2, countRows(t, "password_reset_tokens"))
 	require.Equal(t, 2, countRows(t, "opening_explorer_cache"))
 
 	svc := services.NewCleanupService(
 		repos.RefreshToken,
-		repos.PasswordReset,
 		repos.OpeningExplorerCache,
 		time.Hour,
 	)
@@ -74,7 +66,6 @@ func TestCleanupService_PurgesExpiredRowsAcrossAllThreeTables(t *testing.T) {
 
 	require.Eventually(t, func() bool {
 		return countRows(t, "refresh_tokens") == 1 &&
-			countRows(t, "password_reset_tokens") == 1 &&
 			countRows(t, "opening_explorer_cache") == 1
 	}, 5*time.Second, 20*time.Millisecond, "expired rows should be purged by the cleanup pass")
 

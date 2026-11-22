@@ -31,23 +31,3 @@ func TestIsDuplicateKeyError(t *testing.T) {
 		})
 	}
 }
-
-func TestIsDuplicateEmailError(t *testing.T) {
-	tests := []struct {
-		name string
-		err  error
-		want bool
-	}{
-		{"nil error", nil, false},
-		{"email constraint", &pgconn.PgError{Code: pgUniqueViolation, ConstraintName: "idx_users_email"}, true},
-		{"wrapped email constraint", fmt.Errorf("create user: %w", &pgconn.PgError{Code: pgUniqueViolation, ConstraintName: "idx_users_email"}), true},
-		{"username constraint", &pgconn.PgError{Code: pgUniqueViolation, ConstraintName: "users_username_key"}, false},
-		{"non-pg error", fmt.Errorf("idx_users_email mentioned in text"), false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, isDuplicateEmailError(tt.err))
-		})
-	}
-}

@@ -11,39 +11,31 @@ type refreshTokenCleaner interface {
 	DeleteExpired(ctx context.Context) error
 }
 
-// passwordResetCleaner purges expired password reset tokens.
-type passwordResetCleaner interface {
-	DeleteExpired(ctx context.Context) error
-}
-
 // explorerCacheCleaner purges stale opening-explorer cache rows.
 type explorerCacheCleaner interface {
 	DeleteExpired(ctx context.Context) error
 }
 
-// CleanupService periodically purges expired rows from the refresh-token,
-// password-reset and opening-explorer-cache tables. None of these tables are
+// CleanupService periodically purges expired rows from the refresh-token and
+// opening-explorer-cache tables. None of these tables are
 // otherwise garbage-collected, so without this worker they grow without bound.
 type CleanupService struct {
-	refreshTokens  refreshTokenCleaner
-	passwordResets passwordResetCleaner
-	explorerCache  explorerCacheCleaner
-	interval       time.Duration
+	refreshTokens refreshTokenCleaner
+	explorerCache explorerCacheCleaner
+	interval      time.Duration
 }
 
 // NewCleanupService builds a CleanupService. Any of the cleaner dependencies may
 // be nil; the corresponding table is simply skipped during a cleanup pass.
 func NewCleanupService(
 	refreshTokens refreshTokenCleaner,
-	passwordResets passwordResetCleaner,
 	explorerCache explorerCacheCleaner,
 	interval time.Duration,
 ) *CleanupService {
 	return &CleanupService{
-		refreshTokens:  refreshTokens,
-		passwordResets: passwordResets,
-		explorerCache:  explorerCache,
-		interval:       interval,
+		refreshTokens: refreshTokens,
+		explorerCache: explorerCache,
+		interval:      interval,
 	}
 }
 
@@ -83,12 +75,6 @@ func (s *CleanupService) cleanup(ctx context.Context) {
 	if s.refreshTokens != nil {
 		if err := s.refreshTokens.DeleteExpired(ctx); err != nil {
 			slog.Error("failed to purge expired refresh tokens", "component", "cleanup", "error", err)
-		}
-	}
-
-	if s.passwordResets != nil {
-		if err := s.passwordResets.DeleteExpired(ctx); err != nil {
-			slog.Error("failed to purge expired password reset tokens", "component", "cleanup", "error", err)
 		}
 	}
 
