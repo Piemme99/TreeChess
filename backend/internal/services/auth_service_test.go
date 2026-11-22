@@ -815,7 +815,7 @@ func TestAuthService_RequestPasswordReset_Success(t *testing.T) {
 		},
 	}
 	mockEmailSvc := &smocks.MockEmailService{
-		SendPasswordResetEmailFunc: func(toEmail, token string) error {
+		SendPasswordResetEmailFunc: func(_ context.Context, toEmail, token string) error {
 			emailSent = true
 			assert.Equal(t, email, toEmail)
 			assert.NotEmpty(t, token)

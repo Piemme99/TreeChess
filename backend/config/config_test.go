@@ -111,10 +111,10 @@ func TestMustLoad_CustomAllowedOrigins(t *testing.T) {
 // passes when the test is exercising some other production guard.
 const strongSecret = "this-is-a-32-byte-or-longer-secret-value"
 
-// TestMustLoad_ProductionSecurityGuards exercises the fail-fast production
-// guards added for issue #125: insecure cookies, weak JWT secret, and wildcard
-// CORS origin combined with credentials. Non-production cases confirm the
-// guards stay advisory (warn-only) so local/dev configs keep working.
+// TestMustLoad_ProductionSecurityGuards exercises the production guards added
+// for issue #125: cookies always Secure, weak JWT secret, and wildcard CORS
+// origin combined with credentials. Non-production cases confirm the guards
+// stay advisory (warn-only) so local/dev configs keep working.
 func TestMustLoad_ProductionSecurityGuards(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -123,14 +123,23 @@ func TestMustLoad_ProductionSecurityGuards(t *testing.T) {
 		secure      string
 		origins     string
 		wantPanic   bool
+		wantSecure  bool
 	}{
 		{
-			name:        "prod with insecure cookies panics",
+			name:        "prod forces secure cookies when SECURE_COOKIES is false",
 			environment: "production",
 			secret:      strongSecret,
 			secure:      "false",
 			origins:     "https://example.com",
-			wantPanic:   true,
+			wantSecure:  true,
+		},
+		{
+			name:        "prod forces secure cookies when SECURE_COOKIES is unset",
+			environment: "production",
+			secret:      strongSecret,
+			secure:      "",
+			origins:     "https://example.com",
+			wantSecure:  true,
 		},
 		{
 			name:        "prod with short secret panics",
@@ -195,8 +204,9 @@ func TestMustLoad_ProductionSecurityGuards(t *testing.T) {
 
 			cfg := MustLoad()
 			if !tt.wantPanic {
-				if tt.secure == "true" && !cfg.SecureCookies {
-					t.Errorf("expected SecureCookies true, got false")
+				wantSecure := tt.wantSecure || tt.secure == "true"
+				if cfg.SecureCookies != wantSecure {
+					t.Errorf("expected SecureCookies %v, got %v", wantSecure, cfg.SecureCookies)
 				}
 			}
 		})

@@ -21,3 +21,10 @@ const (
 	LoginAttemptWindow = 15 * time.Minute
 	LoginLockDuration  = 15 * time.Minute
 )
+
+// SMTP timeouts: the password-reset email is sent inside the request, so a
+// wedged relay must not hold the handler goroutine.
+const (
+	SMTPDialTimeout = 10 * time.Second
+	SMTPSendTimeout = 30 * time.Second
+)
