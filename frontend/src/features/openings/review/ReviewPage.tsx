@@ -4,7 +4,7 @@ import { PlayableBoard } from '../board/PlayableBoard';
 import { figurineMove } from '../domain/notation';
 import type { Side } from '../domain/playedGame';
 import { positionKey } from '../domain/repertoire';
-import { acceptedMoves, hasDueAhead, nextReply, planLine } from '../domain/review';
+import { acceptedMoves, hasDueAhead, isDue, nextReply, planLine, playerPositions, sessionDone, sessionPositions } from '../domain/review';
 import { formatPercent } from '../flame/format';
 import { replayLine } from '../position/replay';
 import { liveGames } from '../checks/decisions';
@@ -18,7 +18,7 @@ import { TaskBar, TaskDone } from '../workshop/Task';
 import { BOARD_BESIDE, BOARD_CELL, SIDE_BELOW, SIDE_TOP, TASK_MAIN } from '../workshop/taskLayout';
 import { COLOURS, FONT_FAMILY, raised, REPERTOIRE, SPRING, tile } from '../workshop/theme';
 import { useWorkshopFont } from '../workshop/useWorkshopFont';
-import { REVIEW_LINES as LINES, useReview } from './useReview';
+import { useReview } from './useReview';
 
 // Le temps de voir le coup adverse arriver avant de devoir répondre.
 const REPLY_DELAY = 450;
@@ -50,9 +50,13 @@ export function ReviewPage() {
   const review = useReview(source.games, repertoires, lived, today, source.start);
   const [line, setLine] = useState<Line | null>(null);
   const [exhausted, setExhausted] = useState(false);
-  const [results, setResults] = useState<{ clean: number; lines: number; missed: Set<string> }>({ clean: 0, lines: 0, missed: new Set() });
+  // `due` : les positions dues au départ déjà répondues, ce qui fait avancer la séance ; `seen` : toutes celles répondues.
+  const [results, setResults] = useState<{ lines: number; due: Set<string>; seen: Set<string>; missed: Set<string> }>({ lines: 0, due: new Set(), seen: new Set(), missed: new Set() });
   const [played, setPlayed] = useState<Record<Side, (readonly string[])[]>>({ w: [], b: [] });
   const due = review.due.w + review.due.b;
+  // Les positions que Home a comptées : une ligne prolongée au-delà n'en fait pas avancer la séance.
+  const [dueAtStart] = useState(() => new Set((['w', 'b'] as const).flatMap((side) => playerPositions(repertoires[side]).filter(({ key }) => isDue(review.state[side], key, today)).map(({ key }) => key))));
+  const planned = sessionPositions(dueAtStart.size);
   const [knownBefore] = useState(review.known);
 
   const start = () => {
@@ -63,7 +67,7 @@ export function ReviewPage() {
     plans.sort((a, b) => b.weight - a.weight || review.due[b.side] - review.due[a.side]);
     const chosen = plans[0];
     if (!chosen) {
-      // Plus rien de dû avant la cinquième ligne : la séance s'arrête là, avec son bilan.
+      // Plus rien de dû avant la fin prévue : la séance s'arrête là, avec son bilan.
       if (results.lines) setExhausted(true);
       else setLine(null);
       return;
@@ -103,7 +107,7 @@ export function ReviewPage() {
   }, [line]);
 
   const count = (ended: Line) => {
-    setResults((current) => ({ ...current, lines: current.lines + 1, clean: current.clean + (ended.missed ? 0 : 1) }));
+    setResults((current) => ({ ...current, lines: current.lines + 1 }));
     setPlayed((current) => ({ ...current, [ended.side]: [...current[ended.side], ended.path] }));
   };
   const finish = (ended: Line) => {
@@ -116,7 +120,11 @@ export function ReviewPage() {
     const repertoire = repertoires[line.side];
     const accepted = acceptedMoves(repertoire, fen);
     const key = positionKey(fen);
-    if (!accepted.includes(san)) {
+    const right = accepted.includes(san);
+    if (line.status === 'player') {
+      setResults((current) => ({ ...current, seen: new Set(current.seen).add(key), due: dueAtStart.has(key) ? new Set(current.due).add(key) : current.due }));
+    }
+    if (!right) {
       // L'échiquier a déjà joué le coup : un nouveau chemin, identique, le ramène à la position.
       const path = [...line.path];
       // Une seule erreur compte par position : la suivante n'est qu'un nouvel essai.
@@ -131,13 +139,13 @@ export function ReviewPage() {
     setLine({ ...line, path: [...line.path, san], status: 'opponent', expected: [] });
   };
 
-  const sessionOver = results.lines >= LINES || exhausted;
+  const sessionOver = exhausted || sessionDone(results.due.size, planned, line?.status === 'done');
   const arrows = line?.status === 'wrong' ? line.expected.map((san) => ({ san, share: 1, kind: 'repertoire' as const })) : [];
 
   return (
     <MotionConfig reducedMotion="user">
       <div className="min-h-screen pb-16" style={{ fontFamily: FONT_FAMILY, background: COLOURS.cream, color: COLOURS.leaf }}>
-        <TaskBar title="Review" progress={sessionOver ? 'done' : line ? `line ${Math.min(results.lines + 1, LINES)} of ${LINES} · as ${line.side === 'w' ? 'White' : 'Black'}` : undefined} />
+        <TaskBar title="Review" progress={sessionOver ? 'done' : line ? `${Math.min(results.due.size, planned)} of ${planned} positions · as ${line.side === 'w' ? 'White' : 'Black'}` : undefined} />
         <main className={TASK_MAIN}>
           {opened && !line && !sessionOver && (
             <TaskDone title="Nothing to review today">
@@ -154,12 +162,12 @@ export function ReviewPage() {
                 <PlayableBoard path={line.path} flipped={line.side === 'b'} arrows={arrows} onMove={play} />
               </div>
               <div className={SIDE_BELOW}>
-                <Prompt line={line} onNext={results.lines < LINES ? start : undefined} />
+                <Prompt line={line} onNext={sessionOver ? undefined : start} />
               </div>
             </div>
           )}
           {sessionOver && line?.status === 'done' && (
-            <TaskDone title={`${results.clean} of ${results.lines} lines clean`}>
+            <TaskDone title={`${results.seen.size - results.missed.size} of ${results.seen.size} positions right`}>
               <p>{results.missed.size ? `${results.missed.size} ${results.missed.size === 1 ? 'position' : 'positions'} to see again tomorrow` : 'Nothing missed'}</p>
               <p>
                 Repertoire known: {precisePercent(knownBefore)} → <strong>{precisePercent(review.known)}</strong>

@@ -3,7 +3,7 @@ import { Chess } from 'chess.js';
 import { positionKey, type Repertoire, type RepertoireMove } from './repertoire';
 import { buildOpeningTree } from './openingTree';
 import type { PlayedGame } from './playedGame';
-import { acceptedMoves, answered, dueCount, hasDueAhead, isDue, mastery, missedInPractice, nextReply, planLine, playerPositions, seededState, withLapses, type ReviewState } from './review';
+import { acceptedMoves, answered, dueCount, hasDueAhead, isDue, mastery, missedInPractice, nextReply, planLine, playerPositions, seededState, sessionDone, sessionPositions, withLapses, type ReviewState } from './review';
 
 const TODAY = '2026-03-01';
 
@@ -132,6 +132,17 @@ describe('review', () => {
     expect(mastery(white, state, '2026-04-01').known).toBe(1);
     expect(mastery(white, state, '2026-04-02').known).toBeCloseTo(2 / 3);
     expect(mastery(white, answered(state, key(''), true, '2026-04-02'), '2026-04-02').known).toBe(1);
+  });
+
+  it('reviews 15 due positions a session, or all of them when fewer are due', () => {
+    expect(sessionPositions(118)).toBe(15);
+    expect(sessionPositions(6)).toBe(6);
+  });
+
+  it('ends the session at the end of the line where its last due position was answered, never in the middle of a line', () => {
+    expect(sessionDone(15, 15, false)).toBe(false);
+    expect(sessionDone(14, 15, true)).toBe(false);
+    expect(sessionDone(16, 15, true)).toBe(true);
   });
 
   it('starts a line that begins like one already played in the session where it leaves it', () => {

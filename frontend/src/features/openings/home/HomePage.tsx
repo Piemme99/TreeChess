@@ -16,7 +16,8 @@ import { adherence, isThrough, splitWorked, type Adherence } from '../domain/wor
 import { replayLine } from '../position/replay';
 import { formatShortDay } from '../replay/formatDay';
 import { useWorkedLines, type WorkedLine } from '../replay/useWorkedLines';
-import { REVIEW_LINES, useReview } from '../review/useReview';
+import { useReview } from '../review/useReview';
+import { sessionPositions } from '../domain/review';
 import type { SessionStep } from '../session/steps';
 import { useReplayedSession } from '../session/useReplayedSession';
 import { PageHeader } from '../workshop/PageHeader';
@@ -83,7 +84,8 @@ function Home({ onForget, syncing }: { onForget: () => void; syncing: boolean })
   const openToday = dayGames.filter(stepOf).length;
   const waiting = steps.length;
   const due = review.due.w + review.due.b;
-  const lines = `${REVIEW_LINES} lines`;
+  const session = sessionPositions(due);
+  const positions = `${session} ${session === 1 ? 'position' : 'positions'}`;
   const repertoireKnown = `${formatPercent(review.known)} of your repertoire known`;
   const workedOf = (priority: { side: Side; path: readonly string[] }) => worked.find((line) => line.side === priority.side && line.path.join(' ') === priority.path.join(' '));
 
@@ -117,7 +119,7 @@ function Home({ onForget, syncing }: { onForget: () => void; syncing: boolean })
           </Hero>
         )}
         {hero === 'review' && (
-          <Hero title="Review" facts={`${lines}, played from your repertoire. The app plays their moves; you play yours. ${repertoireKnown}.`}>
+          <Hero title="Review" facts={`${positions}, played in lines from your repertoire. The app plays their moves; you play yours. ${repertoireKnown}.`}>
             <Action to={pathOf('review')}>Start</Action>
           </Hero>
         )}
@@ -137,7 +139,7 @@ function Home({ onForget, syncing }: { onForget: () => void; syncing: boolean })
           {stopped.length > 0 && (
             <Row label="No longer played" figure={`${stopped.length} ${stopped.length === 1 ? 'move' : 'moves'}`} to={`${tree}?side=${stopped[0].side}&line=${encodeURIComponent(stopped[0].path.join(' '))}`} />
           )}
-          {hero !== 'review' && due > 0 && <Row label="Review" figure={`${lines} · ${formatPercent(review.known)} known`} to={pathOf('review')} />}
+          {hero !== 'review' && due > 0 && <Row label="Review" figure={`${positions} · ${formatPercent(review.known)} known`} to={pathOf('review')} />}
           {moreToWork.length > 0 && (
             <WeakOpenings label={inHero ? 'More weak openings' : 'Weak openings'} summary={`${openingName(table, shownLine(moreToWork[0]))} ${formatPercent(moreToWork[0].score)}`} priorities={moreToWork} table={table} href={workOn} workedOf={workedOf} lived={lived} />
           )}
