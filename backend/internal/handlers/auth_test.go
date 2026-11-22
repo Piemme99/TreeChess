@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/bcrypt"
 
+	"github.com/kumquat/backend/config"
 	"github.com/kumquat/backend/internal/models"
 	"github.com/kumquat/backend/internal/repository"
 	"github.com/kumquat/backend/internal/repository/mocks"
@@ -211,6 +212,34 @@ func TestLoginHandler_InvalidCredentials(t *testing.T) {
 	_ = handler.LoginHandler(c)
 
 	assert.Equal(t, http.StatusUnauthorized, rec.Code)
+}
+
+func TestLoginHandler_LockedAccountAnswersLikeInvalidCredentials(t *testing.T) {
+	hash, _ := bcrypt.GenerateFromPassword([]byte("password123"), bcrypt.MinCost)
+	mockRepo := &mocks.MockUserRepo{
+		GetByEmailFunc: func(_ context.Context, e string) (*models.User, error) {
+			return &models.User{ID: "user-123", Username: "testuser", PasswordHash: string(hash)}, nil
+		},
+	}
+	handler := newTestAuthHandler(mockRepo)
+	login := func(password string) *httptest.ResponseRecorder {
+		body := `{"email":"test@example.com","password":"` + password + `"}`
+		req := httptest.NewRequest(http.MethodPost, "/api/auth/login", strings.NewReader(body))
+		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+		rec := httptest.NewRecorder()
+		require.NoError(t, handler.LoginHandler(echo.New().NewContext(req, rec)))
+		return rec
+	}
+
+	var wrong *httptest.ResponseRecorder
+	for range config.LoginMaxAttempts {
+		wrong = login("wrongpassword")
+	}
+	locked := login("password123")
+
+	assert.Equal(t, http.StatusUnauthorized, wrong.Code)
+	assert.Equal(t, wrong.Code, locked.Code)
+	assert.Equal(t, wrong.Body.String(), locked.Body.String())
 }
 
 func TestLoginHandler_MissingFields(t *testing.T) {

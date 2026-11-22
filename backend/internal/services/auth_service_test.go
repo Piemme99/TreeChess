@@ -192,6 +192,52 @@ func TestAuthService_Login_WrongPassword(t *testing.T) {
 	assert.ErrorIs(t, err, ErrInvalidCredentials)
 }
 
+func TestAuthService_Login_LockedAccountRefusesTheRightPassword(t *testing.T) {
+	hash, _ := bcrypt.GenerateFromPassword([]byte("correctpassword"), bcrypt.MinCost)
+	mockRepo := &mocks.MockUserRepo{
+		GetByEmailFunc: func(_ context.Context, email string) (*models.User, error) {
+			return &models.User{ID: "user-123", Username: "testuser", PasswordHash: string(hash)}, nil
+		},
+	}
+	svc := newTestAuthService(mockRepo)
+	clock := &fakeClock{t: time.Unix(0, 0)}
+	svc.loginThrottle = newTestThrottle(clock)
+
+	for range 3 {
+		_, err := svc.Login(context.Background(), "test@example.com", "wrongpassword")
+		require.ErrorIs(t, err, ErrInvalidCredentials)
+	}
+	_, err := svc.Login(context.Background(), "test@example.com", "correctpassword")
+	assert.ErrorIs(t, err, ErrInvalidCredentials)
+
+	clock.advance(10 * time.Minute)
+	_, err = svc.Login(context.Background(), "test@example.com", "correctpassword")
+	assert.NoError(t, err, "the right password works again once the lock ends")
+}
+
+func TestAuthService_Login_SuccessClearsFailedAttempts(t *testing.T) {
+	hash, _ := bcrypt.GenerateFromPassword([]byte("correctpassword"), bcrypt.MinCost)
+	mockRepo := &mocks.MockUserRepo{
+		GetByEmailFunc: func(_ context.Context, email string) (*models.User, error) {
+			return &models.User{ID: "user-123", Username: "testuser", PasswordHash: string(hash)}, nil
+		},
+	}
+	svc := newTestAuthService(mockRepo)
+	svc.loginThrottle = newTestThrottle(&fakeClock{t: time.Unix(0, 0)})
+
+	for range 2 {
+		_, _ = svc.Login(context.Background(), "test@example.com", "wrongpassword")
+	}
+	_, err := svc.Login(context.Background(), "test@example.com", "correctpassword")
+	require.NoError(t, err)
+	for range 2 {
+		_, _ = svc.Login(context.Background(), "test@example.com", "wrongpassword")
+	}
+
+	_, err = svc.Login(context.Background(), "test@example.com", "correctpassword")
+	assert.NoError(t, err)
+}
+
 func TestAuthService_Login_OAuthOnly(t *testing.T) {
 	provider := "lichess"
 	mockRepo := &mocks.MockUserRepo{

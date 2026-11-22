@@ -14,6 +14,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 
+	"github.com/kumquat/backend/config"
 	"github.com/kumquat/backend/internal/models"
 	"github.com/kumquat/backend/internal/repository"
 )
@@ -53,6 +54,7 @@ type AuthService struct {
 	refreshTokenExpiry time.Duration
 	resetTokenExpiry   time.Duration
 	maxResetPerHour    int
+	loginThrottle      *loginThrottle
 }
 
 func NewAuthService(userRepo repository.UserRepository, jwtSecret string, jwtExpiry time.Duration) *AuthService {
@@ -63,6 +65,8 @@ func NewAuthService(userRepo repository.UserRepository, jwtSecret string, jwtExp
 		refreshTokenExpiry: 30 * 24 * time.Hour, // 30 days
 		resetTokenExpiry:   1 * time.Hour,
 		maxResetPerHour:    3,
+		loginThrottle: newLoginThrottle(
+			config.LoginMaxAttempts, config.LoginAttemptWindow, config.LoginLockDuration, time.Now),
 	}
 }
 
@@ -141,9 +145,22 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (*model
 		return nil, ErrOAuthOnly
 	}
 
-	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
+	allowed, lastBeforeLock := s.loginThrottle.attempt(user.ID)
+	if !allowed {
+		// Même réponse et même coût bcrypt qu'un mauvais mot de passe : un compte
+		// verrouillé ne doit pas se distinguer.
+		_ = bcrypt.CompareHashAndPassword([]byte(dummyBcryptHash), []byte(password))
 		return nil, ErrInvalidCredentials
 	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
+		if lastBeforeLock {
+			slog.Warn("account locked after repeated failed logins",
+				"user_id", user.ID, "lock_duration", s.loginThrottle.lockFor)
+		}
+		return nil, ErrInvalidCredentials
+	}
+	s.loginThrottle.succeeded(user.ID)
 
 	token, err := s.generateToken(user)
 	if err != nil {
