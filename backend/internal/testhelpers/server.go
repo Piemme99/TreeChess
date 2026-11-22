@@ -47,13 +47,15 @@ func SetupTestServer(t *testing.T, repos *Repos) *TestServer {
 	e := echo.NewWithConfig(echo.Config{NoGroupAutoRegister404Routes: true})
 
 	authHandler := handlers.NewAuthHandler(authSvc, false)
+	oauthSvc := services.NewOAuthService(repos.User, authSvc, "test-client-id", "http://localhost:8080/api/auth/lichess/callback")
+	oauthHandler := handlers.NewOAuthHandler(oauthSvc, authSvc, repos.User, "http://localhost:5173", testJWTSecret, false)
 
 	e.POST("/api/auth/refresh", authHandler.RefreshHandler)
 	e.POST("/api/auth/logout", authHandler.LogoutHandler)
 
 	protected := e.Group("", appMiddleware.JWTAuth(authSvc))
 	protected.GET("/api/auth/me", authHandler.MeHandler)
-	protected.DELETE("/api/auth/account", authHandler.DeleteAccountHandler)
+	protected.POST("/api/auth/account/deletion", oauthHandler.StartAccountDeletion)
 	protected.GET("/api/v2/state", handlers.GetPlayerStateHandler(repos.PlayerState))
 	protected.PUT("/api/v2/state/:key", handlers.PutPlayerStateHandler(repos.PlayerState))
 

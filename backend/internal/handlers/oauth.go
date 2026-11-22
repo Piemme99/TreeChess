@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -12,6 +13,7 @@ import (
 	"github.com/labstack/echo/v5"
 
 	"github.com/kumquat/backend/internal/crypto"
+	"github.com/kumquat/backend/internal/models"
 	"github.com/kumquat/backend/internal/repository"
 	"github.com/kumquat/backend/internal/services"
 )
@@ -27,13 +29,14 @@ const (
 
 type OAuthHandler struct {
 	oauthService  *services.OAuthService
+	authService   *services.AuthService
 	userRepo      repository.UserRepository
 	frontendURL   string
 	encryptKey    []byte // 32 bytes for AES-256
 	secureCookies bool
 }
 
-func NewOAuthHandler(oauthSvc *services.OAuthService, userRepo repository.UserRepository, frontendURL, jwtSecret string, secureCookies bool) *OAuthHandler {
+func NewOAuthHandler(oauthSvc *services.OAuthService, authSvc *services.AuthService, userRepo repository.UserRepository, frontendURL, jwtSecret string, secureCookies bool) *OAuthHandler {
 	// Derive a 32-byte key from the JWT secret using HKDF (RFC 5869).
 	// This ensures proper key separation between JWT signing and cookie encryption.
 	key, err := crypto.DeriveKey(jwtSecret, oauthCookieKeyInfo)
@@ -42,6 +45,7 @@ func NewOAuthHandler(oauthSvc *services.OAuthService, userRepo repository.UserRe
 	}
 	return &OAuthHandler{
 		oauthService:  oauthSvc,
+		authService:   authSvc,
 		userRepo:      userRepo,
 		frontendURL:   frontendURL,
 		encryptKey:    key,
@@ -53,6 +57,8 @@ type oauthCookieData struct {
 	State        string `json:"s"`
 	CodeVerifier string `json:"v"`
 	Next         string `json:"n,omitempty"`
+	// DeleteUserID : ce retour de Lichess confirme la suppression de ce compte, au lieu de connecter.
+	DeleteUserID string `json:"d,omitempty"`
 }
 
 const maxOAuthNextLength = 512
@@ -70,15 +76,71 @@ func oauthNext(raw string) string {
 }
 
 func (h *OAuthHandler) LoginRedirect(c *echo.Context) error {
-	authURL, state, codeVerifier, err := h.oauthService.GenerateAuthURL()
+	authURL, err := h.startLichess(c, oauthCookieData{Next: oauthNext(c.QueryParam("next"))})
 	if err != nil {
-		return InternalErrorResponse(c, "failed to generate OAuth URL")
+		return InternalErrorResponse(c, err.Error())
+	}
+	return c.Redirect(http.StatusTemporaryRedirect, authURL)
+}
+
+// StartAccountDeletion : un compte Lichess se supprime au retour de Lichess (le JSON donne l'adresse où aller),
+// un compte sans Lichess sur preuve du cookie de rafraîchissement.
+func (h *OAuthHandler) StartAccountDeletion(c *echo.Context) error {
+	userID, ok := mustUserID(c)
+	if !ok {
+		return nil
 	}
 
-	cookieData := oauthCookieData{State: state, CodeVerifier: codeVerifier, Next: oauthNext(c.QueryParam("next"))}
+	var req models.DeleteAccountRequest
+	if err := c.Bind(&req); err != nil {
+		return BadRequestResponse(c, "invalid request body")
+	}
+
+	user, err := h.authService.CheckDeletionUsername(c.Request().Context(), userID, req.Username)
+	if err != nil {
+		if errors.Is(err, services.ErrUsernameMismatch) {
+			return BadRequestResponse(c, "incorrect username confirmation")
+		}
+		if errors.Is(err, repository.ErrUserNotFound) {
+			return ErrorResponse(c, http.StatusUnauthorized, "user not found")
+		}
+		return InternalErrorResponse(c, "failed to delete account")
+	}
+
+	if services.IsLichessAccount(user) {
+		authURL, err := h.startLichess(c, oauthCookieData{DeleteUserID: user.ID})
+		if err != nil {
+			return InternalErrorResponse(c, err.Error())
+		}
+		return c.JSON(http.StatusOK, map[string]string{"redirect": authURL})
+	}
+
+	refresh := ""
+	if cookie, err := c.Cookie(refreshTokenCookieName); err == nil {
+		refresh = cookie.Value
+	}
+	if err := h.authService.DeleteLegacyAccount(c.Request().Context(), userID, refresh); err != nil {
+		if errors.Is(err, services.ErrDeletionNotConfirmed) {
+			return ErrorResponse(c, http.StatusForbidden, "sign in again to delete your account")
+		}
+		return InternalErrorResponse(c, "failed to delete account")
+	}
+	clearRefreshTokenCookie(c, h.secureCookies)
+	return c.NoContent(http.StatusNoContent)
+}
+
+// startLichess prépare l'aller-retour vers Lichess : son état voyage dans un cookie chiffré.
+func (h *OAuthHandler) startLichess(c *echo.Context, cookieData oauthCookieData) (string, error) {
+	authURL, state, codeVerifier, err := h.oauthService.GenerateAuthURL()
+	if err != nil {
+		return "", errors.New("failed to generate OAuth URL")
+	}
+
+	cookieData.State = state
+	cookieData.CodeVerifier = codeVerifier
 	encrypted, err := h.encryptCookie(cookieData)
 	if err != nil {
-		return InternalErrorResponse(c, "failed to prepare OAuth state")
+		return "", errors.New("failed to prepare OAuth state")
 	}
 
 	c.SetCookie(&http.Cookie{
@@ -90,17 +152,12 @@ func (h *OAuthHandler) LoginRedirect(c *echo.Context) error {
 		Secure:   h.secureCookies,
 		SameSite: http.SameSiteLaxMode,
 	})
-
-	return c.Redirect(http.StatusTemporaryRedirect, authURL)
+	return authURL, nil
 }
 
 func (h *OAuthHandler) Callback(c *echo.Context) error {
 	code := c.QueryParam("code")
 	state := c.QueryParam("state")
-
-	if code == "" || state == "" {
-		return h.redirectWithError(c, "missing OAuth parameters")
-	}
 
 	cookie, err := c.Cookie(oauthCookieName)
 	if err != nil {
@@ -112,8 +169,18 @@ func (h *OAuthHandler) Callback(c *echo.Context) error {
 		return h.redirectWithError(c, "invalid OAuth session")
 	}
 
+	// Une suppression refusée sur Lichess, ou qui échoue, revient au menu qui dit que rien n'a été supprimé.
+	fail := h.redirectWithError
+	if cookieData.DeleteUserID != "" {
+		fail = func(c *echo.Context, _ string) error { return h.redirectDeletionFailed(c) }
+	}
+
+	if code == "" || state == "" {
+		return fail(c, "missing OAuth parameters")
+	}
+
 	if state != cookieData.State {
-		return h.redirectWithError(c, "OAuth state mismatch")
+		return fail(c, "OAuth state mismatch")
 	}
 
 	// Clear the cookie
@@ -128,7 +195,11 @@ func (h *OAuthHandler) Callback(c *echo.Context) error {
 
 	username, lichessID, accessToken, err := h.oauthService.HandleCallback(c.Request().Context(), code, cookieData.CodeVerifier)
 	if err != nil {
-		return h.redirectWithError(c, "failed to authenticate with Lichess")
+		return fail(c, "failed to authenticate with Lichess")
+	}
+
+	if cookieData.DeleteUserID != "" {
+		return h.finishAccountDeletion(c, cookieData.DeleteUserID, lichessID)
 	}
 
 	resp, isNew, err := h.oauthService.FindOrCreateUser(c.Request().Context(), "lichess", lichessID, username)
@@ -168,6 +239,22 @@ func (h *OAuthHandler) Callback(c *echo.Context) error {
 		redirectURL += "?new=1"
 	}
 	return c.Redirect(http.StatusTemporaryRedirect, redirectURL)
+}
+
+// finishAccountDeletion : Lichess vient d'authentifier lichessID ; le compte n'est supprimé que s'il lui est lié.
+func (h *OAuthHandler) finishAccountDeletion(c *echo.Context, userID, lichessID string) error {
+	if err := h.authService.DeleteAccountConfirmedByLichess(c.Request().Context(), userID, lichessID); err != nil {
+		if !errors.Is(err, services.ErrDeletionNotConfirmed) {
+			slog.Error("failed to delete account", "user_id", userID, "error", err)
+		}
+		return h.redirectDeletionFailed(c)
+	}
+	clearRefreshTokenCookie(c, h.secureCookies)
+	return c.Redirect(http.StatusTemporaryRedirect, h.frontendURL+"/v2/home?deleted=1")
+}
+
+func (h *OAuthHandler) redirectDeletionFailed(c *echo.Context) error {
+	return c.Redirect(http.StatusTemporaryRedirect, h.frontendURL+"/v2/home?deletion=failed")
 }
 
 func (h *OAuthHandler) redirectWithError(c *echo.Context, msg string) error {

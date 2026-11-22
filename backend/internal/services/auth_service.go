@@ -20,6 +20,8 @@ var (
 	ErrUnauthorized = fmt.Errorf("unauthorized")
 	// ErrUsernameMismatch : la suppression du compte se confirme en retapant son nom.
 	ErrUsernameMismatch = fmt.Errorf("username confirmation does not match")
+	// ErrDeletionNotConfirmed : le jeton d'accès seul, qui peut fuiter, ne suffit pas à supprimer un compte (#241).
+	ErrDeletionNotConfirmed = fmt.Errorf("account deletion not confirmed")
 )
 
 type AuthService struct {
@@ -90,21 +92,57 @@ func (s *AuthService) generateToken(user *models.User) (string, error) {
 	return token.SignedString(s.jwtSecret)
 }
 
-// DeleteAccount deletes the user and all their data once the typed username
-// matches the account's.
-func (s *AuthService) DeleteAccount(ctx context.Context, userID, username string) error {
+// CheckDeletionUsername vérifie le nom retapé avant de lancer la suppression du compte.
+func (s *AuthService) CheckDeletionUsername(ctx context.Context, userID, username string) (*models.User, error) {
+	user, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	if username == "" || username != user.Username {
+		return nil, ErrUsernameMismatch
+	}
+	return user, nil
+}
+
+// DeleteAccountConfirmedByLichess supprime le compte une fois que Lichess a authentifié le compte qui lui est lié.
+func (s *AuthService) DeleteAccountConfirmedByLichess(ctx context.Context, userID, lichessID string) error {
 	user, err := s.userRepo.GetByID(ctx, userID)
 	if err != nil {
 		return err
 	}
-	if username == "" || username != user.Username {
-		return ErrUsernameMismatch
+	if !IsLichessAccount(user) || lichessID == "" || *user.OAuthID != lichessID {
+		return ErrDeletionNotConfirmed
 	}
+	return s.deleteAccount(ctx, userID)
+}
 
+// DeleteLegacyAccount supprime un compte sans Lichess (ancienne inscription par e-mail) : faute d'autre preuve,
+// il faut le cookie de rafraîchissement, que le seul jeton d'accès ne donne pas.
+func (s *AuthService) DeleteLegacyAccount(ctx context.Context, userID, rawRefreshToken string) error {
+	user, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		return err
+	}
+	if IsLichessAccount(user) || s.refreshTokenRepo == nil || rawRefreshToken == "" {
+		return ErrDeletionNotConfirmed
+	}
+	stored, err := s.refreshTokenRepo.GetByTokenHash(ctx, hashToken(rawRefreshToken))
+	if err != nil || stored.UserID != userID || stored.Consumed || time.Now().After(stored.ExpiresAt) {
+		return ErrDeletionNotConfirmed
+	}
+	return s.deleteAccount(ctx, userID)
+}
+
+func (s *AuthService) deleteAccount(ctx context.Context, userID string) error {
 	if err := s.userRepo.Delete(ctx, userID); err != nil {
 		return fmt.Errorf("failed to delete account: %w", err)
 	}
 	return nil
+}
+
+// IsLichessAccount : le compte se connecte par Lichess, qui confirme donc sa suppression.
+func IsLichessAccount(user *models.User) bool {
+	return user.OAuthProvider != nil && *user.OAuthProvider == "lichess" && user.OAuthID != nil && *user.OAuthID != ""
 }
 
 // RefreshTokens validates a refresh token, rotates it, and returns a new token pair.

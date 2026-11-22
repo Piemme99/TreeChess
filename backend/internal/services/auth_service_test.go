@@ -103,55 +103,109 @@ func TestAuthService_GetUserByID_NotFound(t *testing.T) {
 	assert.ErrorIs(t, err, repository.ErrUserNotFound)
 }
 
-func TestAuthService_DeleteAccount_MatchingUsername(t *testing.T) {
-	deleted := ""
+func TestAuthService_CheckDeletionUsername_WrongOrEmptyUsername(t *testing.T) {
 	mockUserRepo := &mocks.MockUserRepo{
 		GetByIDFunc: func(_ context.Context, id string) (*models.User, error) {
 			return &models.User{ID: id, Username: "lichessuser"}, nil
 		},
-		DeleteFunc: func(_ context.Context, id string) error {
-			deleted = id
-			return nil
-		},
 	}
 	svc := newTestAuthService(mockUserRepo)
 
-	err := svc.DeleteAccount(context.Background(), "user-123", "lichessuser")
-
-	require.NoError(t, err)
-	assert.Equal(t, "user-123", deleted)
-}
-
-func TestAuthService_DeleteAccount_WrongOrEmptyUsername(t *testing.T) {
 	for _, typed := range []string{"", "someoneelse", "LichessUser"} {
-		mockUserRepo := &mocks.MockUserRepo{
-			GetByIDFunc: func(_ context.Context, id string) (*models.User, error) {
-				return &models.User{ID: id, Username: "lichessuser"}, nil
-			},
-			DeleteFunc: func(_ context.Context, id string) error {
-				t.Fatalf("account must not be deleted when %q is typed", typed)
-				return nil
-			},
-		}
-		svc := newTestAuthService(mockUserRepo)
-
-		err := svc.DeleteAccount(context.Background(), "user-123", typed)
-
+		_, err := svc.CheckDeletionUsername(context.Background(), "user-123", typed)
 		assert.ErrorIs(t, err, ErrUsernameMismatch, typed)
 	}
+	user, err := svc.CheckDeletionUsername(context.Background(), "user-123", "lichessuser")
+	require.NoError(t, err)
+	assert.Equal(t, "user-123", user.ID)
 }
 
-func TestAuthService_DeleteAccount_UserNotFound(t *testing.T) {
-	mockUserRepo := &mocks.MockUserRepo{
-		GetByIDFunc: func(_ context.Context, id string) (*models.User, error) {
-			return nil, repository.ErrUserNotFound
-		},
+func lichessUser(id, lichessID string) *models.User {
+	provider := "lichess"
+	return &models.User{ID: id, Username: "lichessuser", OAuthProvider: &provider, OAuthID: &lichessID}
+}
+
+func TestAuthService_DeleteAccountConfirmedByLichess_OnlyTheLinkedLichessAccountConfirms(t *testing.T) {
+	cases := map[string]struct {
+		lichessID string
+		deleted   bool
+	}{
+		"the linked account":  {"lichess-abc", true},
+		"another account":     {"lichess-xyz", false},
+		"no account returned": {"", false},
 	}
-	svc := newTestAuthService(mockUserRepo)
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			deleted := ""
+			mockUserRepo := &mocks.MockUserRepo{
+				GetByIDFunc: func(_ context.Context, id string) (*models.User, error) { return lichessUser(id, "lichess-abc"), nil },
+				DeleteFunc: func(_ context.Context, id string) error {
+					deleted = id
+					return nil
+				},
+			}
+			svc := newTestAuthService(mockUserRepo)
 
-	err := svc.DeleteAccount(context.Background(), "nonexistent", "lichessuser")
+			err := svc.DeleteAccountConfirmedByLichess(context.Background(), "user-123", tc.lichessID)
 
-	assert.ErrorIs(t, err, repository.ErrUserNotFound)
+			if tc.deleted {
+				require.NoError(t, err)
+				assert.Equal(t, "user-123", deleted)
+			} else {
+				assert.ErrorIs(t, err, ErrDeletionNotConfirmed)
+				assert.Empty(t, deleted)
+			}
+		})
+	}
+}
+
+func TestAuthService_DeleteLegacyAccount_NeedsTheAccountsLiveRefreshCookie(t *testing.T) {
+	live := &models.RefreshToken{ID: "rt-1", UserID: "user-123", ExpiresAt: time.Now().Add(time.Hour)}
+	cases := map[string]struct {
+		user    *models.User
+		refresh string
+		stored  *models.RefreshToken
+		deleted bool
+	}{
+		"its live refresh cookie":       {&models.User{ID: "user-123"}, "raw", live, true},
+		"no refresh cookie":             {&models.User{ID: "user-123"}, "", live, false},
+		"an unknown refresh cookie":     {&models.User{ID: "user-123"}, "raw", nil, false},
+		"another user's refresh cookie": {&models.User{ID: "user-123"}, "raw", &models.RefreshToken{UserID: "user-456", ExpiresAt: live.ExpiresAt}, false},
+		"a consumed refresh cookie":     {&models.User{ID: "user-123"}, "raw", &models.RefreshToken{UserID: "user-123", Consumed: true, ExpiresAt: live.ExpiresAt}, false},
+		"an expired refresh cookie":     {&models.User{ID: "user-123"}, "raw", &models.RefreshToken{UserID: "user-123", ExpiresAt: time.Now().Add(-time.Hour)}, false},
+		"a Lichess account":             {lichessUser("user-123", "lichess-abc"), "raw", live, false},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			deleted := ""
+			mockUserRepo := &mocks.MockUserRepo{
+				GetByIDFunc: func(_ context.Context, _ string) (*models.User, error) { return tc.user, nil },
+				DeleteFunc: func(_ context.Context, id string) error {
+					deleted = id
+					return nil
+				},
+			}
+			svc := newTestAuthService(mockUserRepo)
+			svc.WithRefreshTokens(&mocks.MockRefreshTokenRepo{
+				GetByTokenHashFunc: func(_ context.Context, tokenHash string) (*models.RefreshToken, error) {
+					if tc.stored == nil || tokenHash != hashToken("raw") {
+						return nil, repository.ErrRefreshTokenNotFound
+					}
+					return tc.stored, nil
+				},
+			})
+
+			err := svc.DeleteLegacyAccount(context.Background(), "user-123", tc.refresh)
+
+			if tc.deleted {
+				require.NoError(t, err)
+				assert.Equal(t, "user-123", deleted)
+			} else {
+				assert.ErrorIs(t, err, ErrDeletionNotConfirmed)
+				assert.Empty(t, deleted)
+			}
+		})
+	}
 }
 
 func TestAuthService_RefreshTokens_Success_MarksConsumed(t *testing.T) {

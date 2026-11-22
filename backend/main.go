@@ -57,7 +57,7 @@ func buildServices(cfg config.Config, db *repository.DB) *appServices {
 		cleanupSvc:           cleanupSvc,
 		authSvc:              authSvc,
 		authHandler:          handlers.NewAuthHandler(authSvc, cfg.SecureCookies),
-		oauthHandler:         handlers.NewOAuthHandler(oauthSvc, userRepo, cfg.FrontendURL, cfg.JWTSecret, cfg.SecureCookies),
+		oauthHandler:         handlers.NewOAuthHandler(oauthSvc, authSvc, userRepo, cfg.FrontendURL, cfg.JWTSecret, cfg.SecureCookies),
 		explorerProxyHandler: handlers.ExplorerProxyHandler(explorerSvc, openingCacheRepo, userRepo, cfg.LichessExplorerCacheTTL),
 		playedGames: handlers.NewPlayedGames(
 			services.NewPlayedGameImportService(
@@ -136,7 +136,7 @@ func registerRoutes(e *echo.Echo, db *repository.DB, svc *appServices) {
 	}))
 
 	protected.GET("/api/auth/me", svc.authHandler.MeHandler)
-	protected.DELETE("/api/auth/account", svc.authHandler.DeleteAccountHandler)
+	protected.POST("/api/auth/account/deletion", svc.oauthHandler.StartAccountDeletion)
 
 	// v2 : les parties Lichess du joueur, importées une fois puis lues par toutes les pages.
 	// Sa propre limite : Home relance l'import à chaque chargement.
