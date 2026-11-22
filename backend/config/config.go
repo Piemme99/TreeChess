@@ -133,14 +133,15 @@ func MustLoad() Config {
 		oauthCallbackURL = fmt.Sprintf("http://localhost:%d/api/auth/lichess/callback", port)
 	}
 
-	secureCookies := os.Getenv("SECURE_COOKIES") == "true"
 	// The 30-day refresh cookie and the OAuth-state cookie inherit Secure from
-	// this flag. Shipping them over plain HTTP in production would leak a
-	// long-lived credential, so fail fast; warn in non-production.
+	// this flag. Production is served over HTTPS only, so the flag is forced on
+	// there whatever SECURE_COOKIES says; elsewhere it follows the variable.
+	secureCookiesEnv := os.Getenv("SECURE_COOKIES")
+	secureCookies := secureCookiesEnv == "true" || isProduction
+	if isProduction && secureCookiesEnv != "" && secureCookiesEnv != "true" {
+		slog.Warn("SECURE_COOKIES is ignored in production: cookies are always Secure", "value", secureCookiesEnv)
+	}
 	if !secureCookies {
-		if isProduction {
-			panic("SECURE_COOKIES must be 'true' in production to protect the refresh and OAuth-state cookies")
-		}
 		slog.Warn("SECURE_COOKIES is not enabled; cookies will be sent over plain HTTP (acceptable for local development only)")
 	}
 

@@ -1918,7 +1918,7 @@ This section lists security items that **must be addressed before production dep
 | `CORS_ALLOWED_ORIGINS` | No | `http://localhost:5173` | Comma-separated allowed origins |
 | `LICHESS_CLIENT_ID` | No | - | Lichess OAuth client ID |
 | `OAUTH_CALLBACK_URL` | No | `http://localhost:{PORT}/api/auth/lichess/callback` | OAuth callback URL |
-| `SECURE_COOKIES` | No | `false` | Set `true` in production (HTTPS) |
+| `SECURE_COOKIES` | No | `false` | Secure flag on cookies outside production; always on (and this variable ignored) when `ENVIRONMENT=production` |
 
 ---
 
