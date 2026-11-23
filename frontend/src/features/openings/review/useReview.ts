@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { startTransition, useCallback, useEffect, useMemo, useState } from 'react';
 import type { CheckedGame } from '../checks/checkedGame';
 import { buildOpeningTree } from '../domain/openingTree';
 import { gamesOfLastMonths } from '../domain/period';
@@ -49,8 +49,11 @@ export function useReview(games: readonly PlayedGame[], repertoires: Record<Side
     known,
     weight,
     answer: (side: Side, key: string, right: boolean) =>
-      // Répondre à une position rattrapée par un oubli en partie part de l'état qui en tient compte.
-      setStored((current) => ({ ...current, [side]: answered(withLapses(current[side], lapses[side]), key, right, today) })),
+      // En transition : le coup joué s'affiche d'abord, le recalcul du dû et du su vient après.
+      startTransition(() =>
+        // Répondre à une position rattrapée par un oubli en partie part de l'état qui en tient compte.
+        setStored((current) => ({ ...current, [side]: answered(withLapses(current[side], lapses[side]), key, right, today) })),
+      ),
     missedInPractice: (side: Side, key: string) => setStored((current) => ({ ...current, [side]: missedInPractice(current[side], key, today) })),
     forget: () => setStored(seed(games, repertoires, start)),
   };

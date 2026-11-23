@@ -98,10 +98,25 @@ export function missedInPractice(state: ReviewState, key: string, today: string)
   return next;
 }
 
+type PlayerPosition = { readonly key: string; readonly path: readonly string[] };
+
+// Un répertoire n'est jamais modifié, seulement remplacé : le parcours (chess.js à chaque coup) se fait une fois par
+// répertoire au lieu d'une fois par réponse en révision.
+const positionsOf = new WeakMap<Repertoire, readonly PlayerPosition[]>();
+
 /** Les positions où le joueur a un coup prévu, atteignables depuis le début, chacune avec le premier chemin qui y mène. */
-export function playerPositions(repertoire: Repertoire): { key: string; path: string[] }[] {
+export function playerPositions(repertoire: Repertoire): readonly PlayerPosition[] {
+  let positions = positionsOf.get(repertoire);
+  if (!positions) {
+    positions = walkPlayerPositions(repertoire);
+    positionsOf.set(repertoire, positions);
+  }
+  return positions;
+}
+
+function walkPlayerPositions(repertoire: Repertoire): PlayerPosition[] {
   const seen = new Set<string>();
-  const found: { key: string; path: string[] }[] = [];
+  const found: PlayerPosition[] = [];
   // En largeur : le chemin gardé est le plus court, celui qu'on rejouera.
   let level: { fen: string; path: string[] }[] = [{ fen: REVIEW_START, path: [] }];
   while (level.length) {
@@ -150,7 +165,7 @@ export function planLine(
   weight: (key: string) => number = () => 1,
   played: readonly (readonly string[])[] = [],
 ) {
-  let best: { key: string; path: string[]; weight: number } | undefined;
+  let best: (PlayerPosition & { weight: number }) | undefined;
   for (const position of playerPositions(repertoire)) {
     if (!isDue(state, position.key, today)) continue;
     const found = weight(position.key);
