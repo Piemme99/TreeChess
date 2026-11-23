@@ -15,6 +15,7 @@ import type { StoppedMove } from '../domain/stopped';
 import { COLOURS, raised, REPERTOIRE, SPRING, tile } from '../workshop/theme';
 import { usePositionFacts, type PositionFacts } from './positionFacts';
 import type { MapNode } from './repertoireMap';
+import { SPLIT_BOARD, SPLIT_SIDE } from './split';
 
 export interface StepActions {
   /** Le coup joué entre au répertoire tel quel, en un clic. */
@@ -83,9 +84,11 @@ export function PositionPane(props: PositionPaneProps) {
   const facts = usePositionFacts(props);
   const { inRepertoire, ply, arrows, suggestions, prioritised, settling } = facts;
 
+  // Sur grand écran, une grille : l'échiquier à gauche sur deux rangées, le titre puis le reste à droite. Le titre
+  // reste le premier dans le code : le clavier et les lecteurs d'écran le trouvent avant l'échiquier.
   return (
-    <aside aria-label="Position" className="flex flex-col gap-4">
-      <div className="order-1 flex items-start gap-3 px-1">
+    <aside aria-label="Position" className="flex flex-col gap-4 min-[100rem]:grid min-[100rem]:grid-cols-[auto_22rem] min-[100rem]:grid-rows-[auto_1fr] min-[100rem]:items-start min-[100rem]:gap-x-5">
+      <div className="order-1 flex items-start gap-3 px-1 min-[100rem]:col-start-2 min-[100rem]:row-start-1">
         {onBack && (
           <motion.button
             type="button"
@@ -111,50 +114,53 @@ export function PositionPane(props: PositionPaneProps) {
         </div>
       </div>
       {/* Borné par la hauteur, pour qu'une carte à trancher tienne dessous ; la même borne partout, sinon l'échiquier
-          change de taille d'une position à l'autre. */}
-      <div className="order-2 mx-auto w-full max-w-[max(16rem,calc(100dvh_-_36rem))]">
+          change de taille d'une position à l'autre. Sur grand écran, la carte passe à côté : l'échiquier suit la carte. */}
+      <div className={`order-2 mx-auto w-full max-w-[max(16rem,calc(100dvh_-_36rem))] min-[100rem]:col-start-1 min-[100rem]:row-span-2 min-[100rem]:row-start-1 ${SPLIT_BOARD}`}>
         <PlayableBoard path={path} flipped={side === 'b'} arrows={arrows} suggestions={suggestions} onMove={onMove} />
       </div>
-      {settling && (
-        <div className="order-3">
-          <SettleCard steps={steps} facts={facts} actions={actions} onSkip={onSkip} rank={props.priorityRank ?? node.priority} />
-        </div>
-      )}
-      {prioritised && !settling && (
-        <div className="order-3">
-          <PriorityCard side={side} priority={priority!} rank={props.priorityRank ?? node.priority!} total={props.priorityCount} facts={facts} waiting={steps.length} onLead={onLead} onNextPriority={onNextPriority} onPrepareFollows={onPrepareFollows} />
-        </div>
-      )}
-      {props.stopped && props.stopped.moves.length > 0 && (
-        <div className="order-3">
-          <StoppedCard stopped={props.stopped} ply={node.path.length + 1} />
-        </div>
-      )}
-      <Repertoire side={side} node={node} inRepertoire={inRepertoire} ply={ply} onMove={onMove} />
-      {!inRepertoire ? (
-        <div className="order-5">
-          <OffRepertoire path={path} node={node} facts={facts} onExtend={onExtend} onJump={onJump} />
-        </div>
-      ) : (
-        !(prioritised && !settling && onPrepareFollows) && (
-          <div className="order-5">
-            <Action onClick={onExtend}>Extend from here</Action>
+      {/* Sans boîte quand le volet empile : l'ordre des enfants vaut alors pour tout le volet. */}
+      <div className={`contents min-[100rem]:col-start-2 min-[100rem]:row-start-2 min-[100rem]:flex min-[100rem]:flex-col min-[100rem]:gap-4 ${SPLIT_SIDE}`}>
+        {settling && (
+          <div className="order-3">
+            <SettleCard steps={steps} facts={facts} actions={actions} onSkip={onSkip} rank={props.priorityRank ?? node.priority} />
           </div>
-        )
-      )}
-      {props.practise && (
-        <div className="order-6">
-          <PractiseLink href={props.practise} />
-        </div>
-      )}
-      {onRemove && (
-        <div className="order-6">
-          <RemoveMove path={path} onRemove={onRemove} />
-        </div>
-      )}
-      <p className="order-7 hidden px-1 text-[12px] lg:block" style={{ color: COLOURS.leafSoft }}>
-        Play on the board or click the map. Keys: ← back · → main move · ↑ ↓ other moves · Home start · + − fold.
-      </p>
+        )}
+        {prioritised && !settling && (
+          <div className="order-3">
+            <PriorityCard side={side} priority={priority!} rank={props.priorityRank ?? node.priority!} total={props.priorityCount} facts={facts} waiting={steps.length} onLead={onLead} onNextPriority={onNextPriority} onPrepareFollows={onPrepareFollows} />
+          </div>
+        )}
+        {props.stopped && props.stopped.moves.length > 0 && (
+          <div className="order-3">
+            <StoppedCard stopped={props.stopped} ply={node.path.length + 1} />
+          </div>
+        )}
+        <Repertoire side={side} node={node} inRepertoire={inRepertoire} ply={ply} onMove={onMove} />
+        {!inRepertoire ? (
+          <div className="order-5">
+            <OffRepertoire path={path} node={node} facts={facts} onExtend={onExtend} onJump={onJump} />
+          </div>
+        ) : (
+          !(prioritised && !settling && onPrepareFollows) && (
+            <div className="order-5">
+              <Action onClick={onExtend}>Extend from here</Action>
+            </div>
+          )
+        )}
+        {props.practise && (
+          <div className="order-6">
+            <PractiseLink href={props.practise} />
+          </div>
+        )}
+        {onRemove && (
+          <div className="order-6">
+            <RemoveMove path={path} onRemove={onRemove} />
+          </div>
+        )}
+        <p className="order-7 hidden px-1 text-[12px] lg:block" style={{ color: COLOURS.leafSoft }}>
+          Play on the board or click the map. Keys: ← back · → main move · ↑ ↓ other moves · Home start · + − fold.
+        </p>
+      </div>
     </aside>
   );
 }

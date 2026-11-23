@@ -507,7 +507,7 @@ export function TreePage() {
     ) : task === 'weak' ? (
       <TaskBar title="Weak opening" progress={prepared ? 'done' : priorities.length ? `${taskRank} of ${priorities.length}` : undefined} />
     ) : (
-      <PageHeader replay={{ ...replay, reset, next: replay.next && nextDay }} />
+      <PageHeader wide replay={{ ...replay, reset, next: replay.next && nextDay }} />
     );
   const done = checkOver ? (
     <TaskDone title={session ? (settled ? `${settled} settled` : 'Nothing settled') : 'Nothing to settle'}>
@@ -532,14 +532,15 @@ export function TreePage() {
         {done ? (
           <main className="px-4">{done}</main>
         ) : wide ? (
-          <main className="mx-auto flex max-w-[84rem] flex-col gap-4 px-8 pt-5">
+          <main className="mx-auto flex max-w-[84rem] flex-col gap-4 px-8 pt-5 min-[100rem]:max-w-[160rem]">
             {!task && (
               <div className="flex flex-wrap items-center gap-3">
                 <SideSwitch side={side} onChange={(next) => !building && setSide(next)} counts={perSide} />
               </div>
             )}
-            {/* Une seule géométrie : la carte garde sa largeur, le volet aussi, construction comprise. */}
-            <div className="grid grid-cols-[minmax(0,1fr)_27rem] gap-5 xl:grid-cols-[minmax(0,1fr)_30rem]">
+            {/* Une seule géométrie : la carte garde sa largeur, le volet aussi, construction comprise. Sur grand écran, le
+                volet se partage (./split.ts) et prend la largeur de ses deux colonnes. */}
+            <div className="grid grid-cols-[minmax(0,1fr)_27rem] gap-5 xl:grid-cols-[minmax(0,1fr)_30rem] min-[100rem]:grid-cols-[minmax(0,1fr)_auto]">
               <div className="sticky top-20 h-[calc(100vh-9rem)]">
                 <RepertoireMap
                   root={root}

@@ -17,11 +17,12 @@ const PAGES: { page: V2Page; label: string }[] = [
   { page: 'tree', label: 'Repertoire' },
 ];
 
-export function PageHeader({ replay }: { replay?: ReplayDay }) {
+/** `wide` : la page s'étend sur un grand écran (Repertoire), l'en-tête la suit. */
+export function PageHeader({ replay, wide = false }: { replay?: ReplayDay; wide?: boolean }) {
   const pathOf = useV2Path();
   useNoIndex();
   return (
-    <header className="mx-auto flex max-w-[84rem] items-center gap-2 px-3 pt-3 sm:gap-4 sm:px-8 sm:pt-6">
+    <header className={`mx-auto flex max-w-[84rem] ${wide ? 'min-[100rem]:max-w-[160rem]' : ''} items-center gap-2 px-3 pt-3 sm:gap-4 sm:px-8 sm:pt-6`}>
       <Kumquat />
       <span className="hidden text-[26px] font-bold tracking-[-0.03em] sm:inline">kumquat</span>
       <nav aria-label="Pages" className="ml-auto flex gap-1 text-[15px] font-semibold sm:ml-6">

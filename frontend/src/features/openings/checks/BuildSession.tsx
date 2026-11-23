@@ -4,6 +4,7 @@ import { draftLines, draftMoves, type AddedMove } from '../domain/addition';
 import type { PlayedGame } from '../domain/playedGame';
 import { repertoireMovesAt, type Repertoire } from '../domain/repertoire';
 import type { BoardArrow } from '../line/ArrowBoard';
+import { SPLIT_BOARD, SPLIT_ROW, SPLIT_SIDE } from '../tree/split';
 import { ARROW } from '../workshop/theme';
 import { BuildPanel } from './BuildPanel';
 import { useBuilder, type BuildOrigin } from './useBuilder';
@@ -95,13 +96,13 @@ export function BuildSession({ origin, games, repertoire, onAccept, onCancel, ch
     <Wrapper
       className={
         stacked
-          ? 'flex flex-col gap-4'
+          ? `flex flex-col gap-4 ${SPLIT_ROW}`
           : `mx-auto flex max-w-[84rem] flex-col gap-6 lg:grid lg:grid-cols-[minmax(0,30rem)_1fr] lg:gap-10 ${nested ? 'w-full' : 'px-4 pt-6 lg:px-8 lg:pt-8'}`
       }
     >
       <aside
         aria-label="Position"
-        className={`flex flex-col gap-3 self-start ${stacked ? '-mx-2 lg:mx-auto lg:w-full lg:max-w-[16rem]' : `lg:sticky ${nested ? 'lg:top-20' : 'lg:top-6'}`}`}
+        className={`flex flex-col gap-3 self-start ${stacked ? `-mx-2 lg:mx-auto lg:w-full lg:max-w-[16rem] ${SPLIT_BOARD}` : `lg:sticky ${nested ? 'lg:top-20' : 'lg:top-6'}`}`}
       >
         <PlayableBoard path={builder.path} flipped={origin.side === 'b'} arrows={arrows} suggestions={suggestions} onMove={builder.play} />
         <p className={`flex-wrap justify-center gap-x-3 gap-y-0.5 px-1 text-[11px] font-semibold ${stacked ? 'hidden lg:flex' : 'flex'}`} style={{ color: ARROW.neutral.colour }}>
@@ -111,7 +112,7 @@ export function BuildSession({ origin, games, repertoire, onAccept, onCancel, ch
           {arrows.some((arrow) => 'kind' in arrow && arrow.kind === 'neutral') && <Swatch colour={ARROW.neutral.colour}>other moves</Swatch>}
         </p>
       </aside>
-      <div className={`flex min-w-0 flex-col ${stacked ? 'gap-4' : 'gap-6 lg:gap-10'}`}>
+      <div className={`flex min-w-0 flex-col ${stacked ? `gap-4 ${SPLIT_SIDE}` : 'gap-6 lg:gap-10'}`}>
         <BuildPanel
           compact={stacked}
           repertoire={repertoire}
