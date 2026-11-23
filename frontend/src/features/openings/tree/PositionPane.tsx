@@ -15,6 +15,7 @@ import type { StoppedMove } from '../domain/stopped';
 import { COLOURS, raised, REPERTOIRE, SPRING, tile } from '../workshop/theme';
 import { usePositionFacts, type PositionFacts } from './positionFacts';
 import type { MapNode } from './repertoireMap';
+import { SPLIT_BOARD, SPLIT_PANE, SPLIT_SIDE } from './split';
 
 export interface StepActions {
   /** Le coup joué entre au répertoire tel quel, en un clic. */
@@ -84,77 +85,79 @@ export function PositionPane(props: PositionPaneProps) {
   const { inRepertoire, ply, arrows, suggestions, prioritised, settling } = facts;
 
   return (
-    <aside aria-label="Position" className="flex flex-col gap-4">
-      <div className="order-1 flex items-start gap-3 px-1">
-        {onBack && (
-          <motion.button
-            type="button"
-            onClick={onBack}
-            aria-label="Back one move"
-            title="Back one move (←)"
-            whileHover={{ y: -2 }}
-            whileTap={{ scale: 0.95 }}
-            transition={SPRING}
-            className="shrink-0 rounded-full px-3.5 py-1.5 text-[15px] font-bold focus-visible:outline-2"
-            style={{ ...tile(COLOURS.sand), color: COLOURS.leaf }}
-          >
-            ←
-          </motion.button>
-        )}
-        <div className="flex min-w-0 flex-col">
-          <h2 className="text-[19px] font-semibold leading-snug tracking-[-0.01em]">{opening?.name ?? (path.length ? 'Unnamed line' : 'Starting position')}</h2>
-          {path.length > 0 && (
-            <span className="text-[14px]" style={{ color: COLOURS.leafSoft }}>
-              {figurineLine(path)}
-            </span>
-          )}
-        </div>
-      </div>
+    <aside aria-label="Position" className={`flex flex-col gap-4 ${SPLIT_PANE}`}>
       {/* Borné par la hauteur, pour qu'une carte à trancher tienne dessous ; la même borne partout, sinon l'échiquier
-          change de taille d'une position à l'autre. */}
-      <div className="order-2 mx-auto w-full max-w-[max(16rem,calc(100dvh_-_36rem))]">
+          change de taille d'une position à l'autre. Sur grand écran, la carte passe à côté : l'échiquier suit la carte. */}
+      <div className={`order-2 mx-auto w-full max-w-[max(16rem,calc(100dvh_-_36rem))] ${SPLIT_BOARD}`}>
         <PlayableBoard path={path} flipped={side === 'b'} arrows={arrows} suggestions={suggestions} onMove={onMove} />
       </div>
-      {settling && (
-        <div className="order-3">
-          <SettleCard steps={steps} facts={facts} actions={actions} onSkip={onSkip} rank={props.priorityRank ?? node.priority} />
-        </div>
-      )}
-      {prioritised && !settling && (
-        <div className="order-3">
-          <PriorityCard side={side} priority={priority!} rank={props.priorityRank ?? node.priority!} total={props.priorityCount} facts={facts} waiting={steps.length} onLead={onLead} onNextPriority={onNextPriority} onPrepareFollows={onPrepareFollows} />
-        </div>
-      )}
-      {props.stopped && props.stopped.moves.length > 0 && (
-        <div className="order-3">
-          <StoppedCard stopped={props.stopped} ply={node.path.length + 1} />
-        </div>
-      )}
-      <Repertoire side={side} node={node} inRepertoire={inRepertoire} ply={ply} onMove={onMove} />
-      {!inRepertoire ? (
-        <div className="order-5">
-          <OffRepertoire path={path} node={node} facts={facts} onExtend={onExtend} onJump={onJump} />
-        </div>
-      ) : (
-        !(prioritised && !settling && onPrepareFollows) && (
-          <div className="order-5">
-            <Action onClick={onExtend}>Extend from here</Action>
+      <div className={`${SPLIT_SIDE} min-[100rem]:gap-4`}>
+        <div className="order-1 flex items-start gap-3 px-1">
+          {onBack && (
+            <motion.button
+              type="button"
+              onClick={onBack}
+              aria-label="Back one move"
+              title="Back one move (←)"
+              whileHover={{ y: -2 }}
+              whileTap={{ scale: 0.95 }}
+              transition={SPRING}
+              className="shrink-0 rounded-full px-3.5 py-1.5 text-[15px] font-bold focus-visible:outline-2"
+              style={{ ...tile(COLOURS.sand), color: COLOURS.leaf }}
+            >
+              ←
+            </motion.button>
+          )}
+          <div className="flex min-w-0 flex-col">
+            <h2 className="text-[19px] font-semibold leading-snug tracking-[-0.01em]">{opening?.name ?? (path.length ? 'Unnamed line' : 'Starting position')}</h2>
+            {path.length > 0 && (
+              <span className="text-[14px]" style={{ color: COLOURS.leafSoft }}>
+                {figurineLine(path)}
+              </span>
+            )}
           </div>
-        )
-      )}
-      {props.practise && (
-        <div className="order-6">
-          <PractiseLink href={props.practise} />
         </div>
-      )}
-      {onRemove && (
-        <div className="order-6">
-          <RemoveMove path={path} onRemove={onRemove} />
-        </div>
-      )}
-      <p className="order-7 hidden px-1 text-[12px] lg:block" style={{ color: COLOURS.leafSoft }}>
-        Play on the board or click the map. Keys: ← back · → main move · ↑ ↓ other moves · Home start · + − fold.
-      </p>
+        {settling && (
+          <div className="order-3">
+            <SettleCard steps={steps} facts={facts} actions={actions} onSkip={onSkip} rank={props.priorityRank ?? node.priority} />
+          </div>
+        )}
+        {prioritised && !settling && (
+          <div className="order-3">
+            <PriorityCard side={side} priority={priority!} rank={props.priorityRank ?? node.priority!} total={props.priorityCount} facts={facts} waiting={steps.length} onLead={onLead} onNextPriority={onNextPriority} onPrepareFollows={onPrepareFollows} />
+          </div>
+        )}
+        {props.stopped && props.stopped.moves.length > 0 && (
+          <div className="order-3">
+            <StoppedCard stopped={props.stopped} ply={node.path.length + 1} />
+          </div>
+        )}
+        <Repertoire side={side} node={node} inRepertoire={inRepertoire} ply={ply} onMove={onMove} />
+        {!inRepertoire ? (
+          <div className="order-5">
+            <OffRepertoire path={path} node={node} facts={facts} onExtend={onExtend} onJump={onJump} />
+          </div>
+        ) : (
+          !(prioritised && !settling && onPrepareFollows) && (
+            <div className="order-5">
+              <Action onClick={onExtend}>Extend from here</Action>
+            </div>
+          )
+        )}
+        {props.practise && (
+          <div className="order-6">
+            <PractiseLink href={props.practise} />
+          </div>
+        )}
+        {onRemove && (
+          <div className="order-6">
+            <RemoveMove path={path} onRemove={onRemove} />
+          </div>
+        )}
+        <p className="order-7 hidden px-1 text-[12px] lg:block" style={{ color: COLOURS.leafSoft }}>
+          Play on the board or click the map. Keys: ← back · → main move · ↑ ↓ other moves · Home start · + − fold.
+        </p>
+      </div>
     </aside>
   );
 }
