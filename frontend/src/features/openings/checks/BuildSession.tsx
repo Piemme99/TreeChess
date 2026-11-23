@@ -4,7 +4,7 @@ import { draftLines, draftMoves, type AddedMove } from '../domain/addition';
 import type { PlayedGame } from '../domain/playedGame';
 import { repertoireMovesAt, type Repertoire } from '../domain/repertoire';
 import type { BoardArrow } from '../line/ArrowBoard';
-import { SPLIT_BOARD, SPLIT_PANE } from '../tree/split';
+import { SPLIT_BOARD, SPLIT_ROW, SPLIT_SIDE } from '../tree/split';
 import { ARROW } from '../workshop/theme';
 import { BuildPanel } from './BuildPanel';
 import { useBuilder, type BuildOrigin } from './useBuilder';
@@ -96,7 +96,7 @@ export function BuildSession({ origin, games, repertoire, onAccept, onCancel, ch
     <Wrapper
       className={
         stacked
-          ? `flex flex-col gap-4 ${SPLIT_PANE}`
+          ? `flex flex-col gap-4 ${SPLIT_ROW}`
           : `mx-auto flex max-w-[84rem] flex-col gap-6 lg:grid lg:grid-cols-[minmax(0,30rem)_1fr] lg:gap-10 ${nested ? 'w-full' : 'px-4 pt-6 lg:px-8 lg:pt-8'}`
       }
     >
@@ -112,7 +112,7 @@ export function BuildSession({ origin, games, repertoire, onAccept, onCancel, ch
           {arrows.some((arrow) => 'kind' in arrow && arrow.kind === 'neutral') && <Swatch colour={ARROW.neutral.colour}>other moves</Swatch>}
         </p>
       </aside>
-      <div className={`flex min-w-0 flex-col ${stacked ? 'gap-4 min-[100rem]:w-[22rem] min-[100rem]:shrink-0' : 'gap-6 lg:gap-10'}`}>
+      <div className={`flex min-w-0 flex-col ${stacked ? `gap-4 ${SPLIT_SIDE}` : 'gap-6 lg:gap-10'}`}>
         <BuildPanel
           compact={stacked}
           repertoire={repertoire}

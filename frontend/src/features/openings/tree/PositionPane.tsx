@@ -15,7 +15,7 @@ import type { StoppedMove } from '../domain/stopped';
 import { COLOURS, raised, REPERTOIRE, SPRING, tile } from '../workshop/theme';
 import { usePositionFacts, type PositionFacts } from './positionFacts';
 import type { MapNode } from './repertoireMap';
-import { SPLIT_BOARD, SPLIT_PANE, SPLIT_SIDE } from './split';
+import { SPLIT_BOARD, SPLIT_SIDE } from './split';
 
 export interface StepActions {
   /** Le coup joué entre au répertoire tel quel, en un clic. */
@@ -84,39 +84,42 @@ export function PositionPane(props: PositionPaneProps) {
   const facts = usePositionFacts(props);
   const { inRepertoire, ply, arrows, suggestions, prioritised, settling } = facts;
 
+  // Sur grand écran, une grille : l'échiquier à gauche sur deux rangées, le titre puis le reste à droite. Le titre
+  // reste le premier dans le code : le clavier et les lecteurs d'écran le trouvent avant l'échiquier.
   return (
-    <aside aria-label="Position" className={`flex flex-col gap-4 ${SPLIT_PANE}`}>
+    <aside aria-label="Position" className="flex flex-col gap-4 min-[100rem]:grid min-[100rem]:grid-cols-[auto_22rem] min-[100rem]:grid-rows-[auto_1fr] min-[100rem]:items-start min-[100rem]:gap-x-5">
+      <div className="order-1 flex items-start gap-3 px-1 min-[100rem]:col-start-2 min-[100rem]:row-start-1">
+        {onBack && (
+          <motion.button
+            type="button"
+            onClick={onBack}
+            aria-label="Back one move"
+            title="Back one move (←)"
+            whileHover={{ y: -2 }}
+            whileTap={{ scale: 0.95 }}
+            transition={SPRING}
+            className="shrink-0 rounded-full px-3.5 py-1.5 text-[15px] font-bold focus-visible:outline-2"
+            style={{ ...tile(COLOURS.sand), color: COLOURS.leaf }}
+          >
+            ←
+          </motion.button>
+        )}
+        <div className="flex min-w-0 flex-col">
+          <h2 className="text-[19px] font-semibold leading-snug tracking-[-0.01em]">{opening?.name ?? (path.length ? 'Unnamed line' : 'Starting position')}</h2>
+          {path.length > 0 && (
+            <span className="text-[14px]" style={{ color: COLOURS.leafSoft }}>
+              {figurineLine(path)}
+            </span>
+          )}
+        </div>
+      </div>
       {/* Borné par la hauteur, pour qu'une carte à trancher tienne dessous ; la même borne partout, sinon l'échiquier
           change de taille d'une position à l'autre. Sur grand écran, la carte passe à côté : l'échiquier suit la carte. */}
-      <div className={`order-2 mx-auto w-full max-w-[max(16rem,calc(100dvh_-_36rem))] ${SPLIT_BOARD}`}>
+      <div className={`order-2 mx-auto w-full max-w-[max(16rem,calc(100dvh_-_36rem))] min-[100rem]:col-start-1 min-[100rem]:row-span-2 min-[100rem]:row-start-1 ${SPLIT_BOARD}`}>
         <PlayableBoard path={path} flipped={side === 'b'} arrows={arrows} suggestions={suggestions} onMove={onMove} />
       </div>
-      <div className={`${SPLIT_SIDE} min-[100rem]:gap-4`}>
-        <div className="order-1 flex items-start gap-3 px-1">
-          {onBack && (
-            <motion.button
-              type="button"
-              onClick={onBack}
-              aria-label="Back one move"
-              title="Back one move (←)"
-              whileHover={{ y: -2 }}
-              whileTap={{ scale: 0.95 }}
-              transition={SPRING}
-              className="shrink-0 rounded-full px-3.5 py-1.5 text-[15px] font-bold focus-visible:outline-2"
-              style={{ ...tile(COLOURS.sand), color: COLOURS.leaf }}
-            >
-              ←
-            </motion.button>
-          )}
-          <div className="flex min-w-0 flex-col">
-            <h2 className="text-[19px] font-semibold leading-snug tracking-[-0.01em]">{opening?.name ?? (path.length ? 'Unnamed line' : 'Starting position')}</h2>
-            {path.length > 0 && (
-              <span className="text-[14px]" style={{ color: COLOURS.leafSoft }}>
-                {figurineLine(path)}
-              </span>
-            )}
-          </div>
-        </div>
+      {/* Sans boîte quand le volet empile : l'ordre des enfants vaut alors pour tout le volet. */}
+      <div className={`contents min-[100rem]:col-start-2 min-[100rem]:row-start-2 min-[100rem]:flex min-[100rem]:flex-col min-[100rem]:gap-4 ${SPLIT_SIDE}`}>
         {settling && (
           <div className="order-3">
             <SettleCard steps={steps} facts={facts} actions={actions} onSkip={onSkip} rank={props.priorityRank ?? node.priority} />
