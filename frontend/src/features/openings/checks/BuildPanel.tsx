@@ -6,9 +6,9 @@ import { evaluationWords, figurineLine, figurineMove, formatCp } from '../domain
 import { isPlayerMove } from '../domain/openingTree';
 import { formatPercent } from '../flame/format';
 import { JUDGEMENT_MARK, judgeMove, type Judgement } from '../domain/judgement';
-import { useEngineFailed, useEvaluations } from '../line/engine';
+import { useEngineFailed, useEvaluations } from '../services/engine';
 import { levelLabel } from '../domain/level';
-import { lichessSignInUrl } from '../line/explorer';
+import { lichessSignInUrl } from '../services/explorer';
 import { useExplorerLevel } from '../source/useExplorerLevel';
 import { repertoireMovesAt, type Repertoire } from '../domain/repertoire';
 import type { Side } from '../domain/playedGame';

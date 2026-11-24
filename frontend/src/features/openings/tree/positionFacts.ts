@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { isPlayerMove, nodeAt, type OpeningNode } from '../domain/openingTree';
 import { playerAverage } from '../domain/performance';
 import { shownLine } from '../domain/priorities';
-import type { BoardArrow } from '../line/ArrowBoard';
+import type { BoardArrow } from '../board/ArrowBoard';
 import { MAX_ARROWS, relevantArrows } from '../position/arrows';
 import type { PositionPaneProps } from './PositionPane';
 import type { MapNode } from './repertoireMap';

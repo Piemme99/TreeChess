@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { ENGINE_DEPTH } from '../checks/useCandidates';
-import { useEngineFailed, useEvaluations } from '../line/engine';
+import { useEngineFailed, useEvaluations } from '../services/engine';
 import type { SessionStep } from './steps';
 import { settleSteps, verdictFens } from './verdict';
 
