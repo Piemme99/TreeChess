@@ -137,6 +137,40 @@ export function forEachNode(root: MapNode, visit: (node: MapNode, parent: MapNod
   walk(root, null);
 }
 
+export const startsWith = (line: readonly string[], prefix: readonly string[]) => prefix.length <= line.length && prefix.every((san, index) => line[index] === san);
+
+/** Le coup le plus joué depuis ce nœud : celui que → et ▶| suivent. */
+export const mostPlayed = (node: MapNode): MapNode | undefined => [...node.children].sort((a, b) => b.games - a.games)[0];
+
+/** Le nœud le plus profond de la carte sur la ligne, en passant par le propriétaire d'une transposition. */
+export function nodeAlong(root: MapNode, path: readonly string[]): MapNode {
+  const byKey = new Map<string, MapNode>();
+  forEachNode(root, (node) => byKey.set(node.key, node));
+  let node = root;
+  for (const san of path) {
+    const child = node.children.find((candidate) => candidate.san === san);
+    if (!child) break;
+    node = child.stub ? byKey.get(child.owner!)! : child;
+  }
+  return node;
+}
+
+export function findNode(root: MapNode, key: string): MapNode | undefined {
+  let found: MapNode | undefined;
+  forEachNode(root, (node) => {
+    if (node.key === key && !node.stub) found = node;
+  });
+  return found;
+}
+
+export function findByPosition(root: MapNode, position: string): MapNode | undefined {
+  let found: MapNode | undefined;
+  forEachNode(root, (node) => {
+    if (!found && node.position === position && !node.stub) found = node;
+  });
+  return found;
+}
+
 // Les ajouts ne forcent pas le dépliage : ils prendraient la place des lignes jouées. Ils se voient quand ils pèsent, ou juste ajoutés.
 export const isMarked = (node: MapNode) => node.toSettle > 0 || node.priority !== undefined || node.fresh === true;
 
