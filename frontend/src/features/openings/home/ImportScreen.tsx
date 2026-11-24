@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import type { ReactNode } from 'react';
 import { useSearchParams } from 'react-router';
-import { lichessSignInUrl } from '../line/explorer';
+import { lichessSignInUrl } from '../services/explorer';
 import type { ImportState } from '../source/useGameSource';
 import { PageHeader } from '../workshop/PageHeader';
 import { COLOURS, raised, SPRING } from '../workshop/theme';

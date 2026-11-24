@@ -1,3 +1,4 @@
+import { OpeningsPage as Openings } from '../OpeningsPage';
 import { PracticePage as Practice } from '../practice/PracticePage';
 import { ReviewPage as Review } from '../review/ReviewPage';
 import { TreePage as Tree } from '../tree/TreePage';
@@ -24,6 +25,14 @@ export function PracticePage() {
   return (
     <SourceGate>
       <Practice />
+    </SourceGate>
+  );
+}
+
+export function OpeningsPage() {
+  return (
+    <SourceGate>
+      <Openings />
     </SourceGate>
   );
 }

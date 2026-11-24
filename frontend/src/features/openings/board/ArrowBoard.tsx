@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { WorkshopBoard } from '../board/WorkshopBoard';
 import type { Tone } from '../flame/tone';
 import { ARROW, type ArrowKind } from '../workshop/theme';
-import { arrowSquares, INK } from './tone';
+import { arrowSquares, INK } from './arrowTone';
 
 /** Une flèche porte un sens (répertoire, moteur…) ou, pour les coups comptés, le ton de leur score. */
 export type BoardArrow = { san: string; /** Part des parties, pour l'épaisseur. */ share: number; emphasis?: boolean; /** Le coup qui vient d'être joué, pas un coup à jouer. */ played?: boolean } & (

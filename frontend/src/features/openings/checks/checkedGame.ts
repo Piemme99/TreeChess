@@ -10,6 +10,3 @@ export interface CheckedGame {
   asks: boolean;
 }
 
-/** Le chemin jusqu'à la position que le contrôle désigne : l'écart, ou la fin du répertoire. */
-export const checkedPath = ({ game, check }: CheckedGame) =>
-  game.moves.slice(0, check.kind === 'followed' ? check.plies : check.ply);

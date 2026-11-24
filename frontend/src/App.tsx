@@ -3,10 +3,7 @@ import { Navigate, Routes, Route, useLocation } from 'react-router';
 import { PageSkeleton } from './features/openings/workshop/PageSkeleton';
 import { useAuthStore } from './stores/authStore';
 
-const DesignPrototypeRoute = lazy(() => import('./features/openings').then(m => ({ default: m.DesignPrototypeRoute })));
-const GameChecksPage = import.meta.env.DEV
-  ? lazy(() => import('./features/openings').then(m => ({ default: m.GameChecksPage })))
-  : null;
+const OpeningsPage = lazy(() => import('./features/openings').then(m => ({ default: m.OpeningsPage })));
 const TreePage = lazy(() => import('./features/openings').then(m => ({ default: m.TreePage })));
 const HomePage = lazy(() => import('./features/openings').then(m => ({ default: m.HomePage })));
 const ReviewPage = lazy(() => import('./features/openings').then(m => ({ default: m.ReviewPage })));
@@ -49,15 +46,14 @@ function App() {
         <Route path="/v2/tree" element={page(TreePage)} />
         <Route path="/v2/review" element={page(ReviewPage)} />
         <Route path="/v2/practice" element={page(PracticePage)} />
-        <Route path="/v2/openings" element={page(DesignPrototypeRoute)} />
+        <Route path="/v2/openings" element={page(OpeningsPage)} />
         {import.meta.env.DEV && (
           <>
             <Route path="/dev/home" element={page(HomePage)} />
             <Route path="/dev/tree" element={page(TreePage)} />
             <Route path="/dev/review" element={page(ReviewPage)} />
             <Route path="/dev/practice" element={page(PracticePage)} />
-            <Route path="/dev/flame-graph" element={page(DesignPrototypeRoute)} />
-            {GameChecksPage && <Route path="/dev/games" element={page(GameChecksPage)} />}
+            <Route path="/dev/flame-graph" element={page(OpeningsPage)} />
           </>
         )}
         <Route path="*" element={<ToHome />} />

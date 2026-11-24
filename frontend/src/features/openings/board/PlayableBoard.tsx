@@ -2,7 +2,7 @@ import { Chess, type Square } from 'chess.js';
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { Chessboard, type PieceRenderObject } from 'react-chessboard';
 import { PIECE_SVG } from '../../../shared/components/Board/pieceSvg';
-import { ArrowLayer, type BoardArrow } from '../line/ArrowBoard';
+import { ArrowLayer, type BoardArrow } from './ArrowBoard';
 import { BOARD } from '../workshop/theme';
 
 interface PlayableBoardProps {

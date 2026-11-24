@@ -3,7 +3,7 @@ import { PlayableBoard } from '../board/PlayableBoard';
 import { draftLines, draftMoves, type AddedMove } from '../domain/addition';
 import type { PlayedGame } from '../domain/playedGame';
 import { repertoireMovesAt, type Repertoire } from '../domain/repertoire';
-import type { BoardArrow } from '../line/ArrowBoard';
+import type { BoardArrow } from '../board/ArrowBoard';
 import { SPLIT_BOARD, SPLIT_ROW, SPLIT_SIDE } from '../tree/split';
 import { ARROW } from '../workshop/theme';
 import { BuildPanel } from './BuildPanel';

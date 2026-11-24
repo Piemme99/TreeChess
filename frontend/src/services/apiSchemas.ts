@@ -16,19 +16,12 @@ import { z } from 'zod';
 
 // --- Auth boundary (refresh) ---
 
-const timeFormatSchema = z.enum(['bullet', 'blitz', 'rapid']);
-
 const userSchema = z.object({
   id: z.string(),
   username: z.string(),
-  email: z.string().optional(),
   oauthProvider: z.string().optional(),
   lichessUsername: z.string().optional(),
-  chesscomUsername: z.string().optional(),
   lichessLinked: z.boolean(),
-  lastLichessSyncAt: z.string().optional(),
-  lastChesscomSyncAt: z.string().optional(),
-  timeFormatPrefs: z.array(timeFormatSchema).optional(),
   createdAt: z.string(),
 });
 

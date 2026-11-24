@@ -51,25 +51,7 @@
 
   /* Animations */
   --animate-spin: spin 0.6s linear infinite;
-  --animate-slide-in: slideIn 0.2s ease;
-  --animate-sync-fade-out: sync-fade-out 5s forwards;
   --animate-fade-in: fadeIn 0.15s ease;
-}
-
-@keyframes slideIn {
-  from {
-    transform: translateX(100%);
-    opacity: 0;
-  }
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
-}
-
-@keyframes sync-fade-out {
-  0%, 80% { opacity: 1; }
-  100% { opacity: 0; }
 }
 
 @keyframes fadeIn {
@@ -89,8 +71,6 @@ body {
 
 /* Global input styles */
 input[type="text"],
-input[type="email"],
-input[type="password"],
 input[type="url"],
 input[type="number"],
 input[type="search"],
@@ -106,8 +86,6 @@ select {
 }
 
 input[type="text"]:focus,
-input[type="email"]:focus,
-input[type="password"]:focus,
 input[type="url"]:focus,
 input[type="number"]:focus,
 input[type="search"]:focus,
@@ -117,8 +95,6 @@ select:focus {
 }
 
 input[type="text"]:focus-visible,
-input[type="email"]:focus-visible,
-input[type="password"]:focus-visible,
 input[type="url"]:focus-visible,
 input[type="number"]:focus-visible,
 input[type="search"]:focus-visible,
@@ -132,25 +108,4 @@ select:focus-visible {
 input::placeholder,
 textarea::placeholder {
   color: var(--color-text-light);
-}
-
-/* Utility: hide scrollbar */
-.scrollbar-hide::-webkit-scrollbar {
-  display: none;
-}
-
-/* Utility: thin styled scrollbar */
-.scrollbar-thin {
-  scrollbar-width: thin;
-  scrollbar-color: var(--color-primary-light, #e6a97e) transparent;
-}
-.scrollbar-thin::-webkit-scrollbar {
-  height: 4px;
-}
-.scrollbar-thin::-webkit-scrollbar-track {
-  background: transparent;
-}
-.scrollbar-thin::-webkit-scrollbar-thumb {
-  background-color: var(--color-primary-light, #e6a97e);
-  border-radius: 9999px;
 }
