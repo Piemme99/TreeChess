@@ -91,7 +91,7 @@ A test exists to catch a bug in code the agent did not read, not to restate the 
 ## Docs
 
 - `CONTEXT.md` — domain glossary. Use its vocabulary when naming things; add to it when a term gets sharpened.
-- `SPECIFICATIONS.md` — full functional/technical spec (long; grep it, don't read it whole).
+- `SPECIFICATIONS.md` — technical reference checked against the code: HTTP routes, DB schema (legacy columns included), configuration, calls to Lichess. Product decisions stay in the openings `README.md`.
 - `README.md` — setup and deployment.
 
 ## Issue tracker
