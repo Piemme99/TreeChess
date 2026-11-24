@@ -6,7 +6,7 @@ import { figurineLine, figurineMove } from '../domain/notation';
 import { nodeAt, type OpeningTree } from '../domain/openingTree';
 import { scoreRate } from '../domain/performance';
 import { repertoireMovesAt, type Repertoire } from '../domain/repertoire';
-import { ArrowBoard } from '../line/ArrowBoard';
+import { ArrowBoard } from '../board/ArrowBoard';
 import { AnimatedNumber } from '../workshop/AnimatedNumber';
 import { Chip } from '../workshop/Chip';
 import { SPRING, COLOURS, REPERTOIRE } from '../workshop/theme';

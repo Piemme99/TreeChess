@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 import { uciToSan, type Evaluation } from '../domain/diagnosis';
 import { judgeMove, type Judgement } from '../domain/judgement';
 import type { Side } from '../domain/playedGame';
-import { useEvaluations } from '../line/engine';
+import { useEvaluations } from '../services/engine';
 import type { Builder } from './useBuilder';
 import { useExplorerAt } from './useExplorerAt';
 

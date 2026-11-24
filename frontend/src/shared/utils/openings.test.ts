@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { toEpd, resolveOpening, type OpeningTable } from './openings';
+import { resolveOpening, type OpeningTable } from './openings';
 
 const SICILIAN = 'rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq -';
 const NAJDORF = 'rnbqkb1r/1p2pppp/p2p1n2/8/3NP3/2N5/PPP2PPP/R1BQKB1R w KQkq -';
@@ -8,12 +8,6 @@ const table: OpeningTable = {
   [SICILIAN]: { eco: 'B20', name: 'Sicilian Defense' },
   [NAJDORF]: { eco: 'B90', name: 'Sicilian Defense: Najdorf Variation' },
 };
-
-describe('toEpd', () => {
-  it('keeps only the first four FEN fields', () => {
-    expect(toEpd('rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2')).toBe(SICILIAN);
-  });
-});
 
 describe('resolveOpening', () => {
   it('returns null when no position on the path is named', () => {

@@ -3,7 +3,7 @@ import { Link, NavLink, useSearchParams } from 'react-router';
 import { authApi } from '../../../services/api';
 import { useAuthStore } from '../../../stores/authStore';
 import { getApiErrorStatus } from '../../../shared/utils/apiError';
-import { lichessSignInUrl } from '../line/explorer';
+import { lichessSignInUrl } from '../services/explorer';
 import { ReplayPanel } from '../replay/ReplayPanel';
 import type { ReplayDay } from '../replay/useReplayDay';
 import { Kumquat } from './Kumquat';

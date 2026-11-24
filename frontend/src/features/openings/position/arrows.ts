@@ -1,4 +1,4 @@
-import type { BoardArrow } from '../line/ArrowBoard';
+import type { BoardArrow } from '../board/ArrowBoard';
 
 export const MAX_ARROWS = 3;
 
