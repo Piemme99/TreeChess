@@ -19,7 +19,7 @@ export function liveGames(
   return lived.map((checked, index) => ({ ...checked, asks: asks[index] }));
 }
 
-export const isOpen = (checked: CheckedGame, ignored: ReadonlySet<number>) =>
+const isOpen = (checked: CheckedGame, ignored: ReadonlySet<number>) =>
   checked.check.kind !== 'followed' && !ignored.has(checked.id);
 
 /** Ce qui attend le joueur : les parties du jour sorties du répertoire, puis les décisions des jours passés. */

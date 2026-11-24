@@ -1,11 +1,15 @@
-# Openings — the v2 macro screen
+# Openings — the v2 app
 
 "Where do my points go, and what do I work on first?" Built brick by brick from
 the v2 POC (`poc/v2-macro-loop`), each brick validated before the next. The POC
 is a source of ideas and validated formulas, never of code.
 
-Dev-only route: `/dev/flame-graph` (not built in production, see `App.tsx`).
-Vocabulary (opening tree, deficit, priority, points to gain): `CONTEXT.md`.
+Pages (`App.tsx`, paths in `workshop/routes.ts`): Home, Repertoire (the tree), Review, Practice and Openings (the
+flame graph, from the ⋯ menu), published under `/v2/…` and under `/dev/…` in development (`/dev/flame-graph` for
+Openings). Vocabulary (opening tree, deficit, priority, points to gain): `CONTEXT.md`.
+
+The sections after "Decisions" are the design journal, in order: what was decided at each step and why. Code
+named there may since have moved or gone; the layout below is the current one.
 
 ## Layout
 
@@ -27,13 +31,16 @@ Vocabulary (opening tree, deficit, priority, points to gain): `CONTEXT.md`.
     when a practice game stops, what it leaves to settle; `analysis.ts` — the engine's judgement of each move of the player's in a game.
   - `period.ts`, `notation.ts`.
 - `OpeningsPage.tsx` — the screen: priority tickets, flame graph as tiles, board panel.
-- `flame/` — layout (pure), camera (`useFlameCamera`: zooming moves a window over fixed
-  coordinates, so tiles slide out of frame instead of vanishing) and the tiles.
+- `flame/` — layout (pure), pruning and the tiles.
 - `priorities/` — the priority tickets.
-- `line/` — what the line view (deleted 2026-11-17, replaced by the Weak opening task) left in use:
-  `ArrowBoard.tsx`, arrow colours in `tone.ts`. `engine.ts` queues Stockfish
-  evaluations on a dedicated worker; `explorer.ts` queries the Lichess explorer through the
-  backend relay `GET /api/explorer/{lichess,masters}`, which uses the signed-in user's Lichess
+- `tree/` — Repertoire: the repertoire map (`repertoireMap.ts` pure, `RepertoireMap.tsx`, pan and zoom), the position
+  pane (phone and wide), and `TreePage`, which also hosts the Check and Weak opening tasks.
+- `checks/` — building an addition on the board (`BuildSession`, `BuildPanel`, the candidate moves) and the games
+  checked against the repertoire (`checkedGame.ts`, `decisions.ts`).
+- `source/` — where the games come from (the Lichess import or the demo) and the gate in front of the pages.
+- `replay/` — the replay day, and the stored decisions read back as repertoires, worked lines and stopped moves.
+- `services/` — `engine.ts` queues Stockfish evaluations on a dedicated worker; `explorer.ts` queries the Lichess
+  explorer through the backend relay `GET /api/explorer/{lichess,masters}`, which uses the signed-in user's Lichess
   token ("Sign in with Lichess" in the header) and serves cached positions to everyone. In dev
   without a backend, a personal token in `VITE_LICHESS_TOKEN` (`frontend/.env.local`) queries
   Lichess directly.
@@ -46,7 +53,8 @@ Vocabulary (opening tree, deficit, priority, points to gain): `CONTEXT.md`.
 - `practice/` — Practice (`/dev/practice?side=w|b`): the game against the explorer, then its review.
 - `position/` — the board panel; positions are replayed on demand (`replay.ts`).
 - `board/` — the board whose pieces slide from one position to the next (`pieces.ts`
-  gives each piece a stable identity along a line).
+  gives each piece a stable identity along a line), the playable board, and the board with arrows
+  (`ArrowBoard.tsx`, arrow ink in `arrowTone.ts`).
 - `workshop/` — the Workshop art direction: colours, tones, springs, small shared objects.
 - `fixtures/` — Piemme78's real games (chess.com, blitz + rapid, first 80 plies), regenerated
   by `node scripts/generate-played-games-fixture.mjs Piemme78 2026-08-09` (the end date keeps
@@ -78,39 +86,21 @@ Vocabulary (opening tree, deficit, priority, points to gain): `CONTEXT.md`.
   below), opponent rows are thin, labels use figurines and add games and score when they fit,
   and a card follows the pointer. Measured at the root on real games: 342 tiles became 45.
 - **Art direction: Workshop** (warm cream, kumquat, Bricolage Grotesque, tactile tiles,
-  springs), chosen over six other directions; verdict in `design-prototype/NOTES.md`.
-  Everything on the screen, line view included, uses `workshop/theme.ts`.
+  springs), chosen on 2026-10-17 over six other directions in three rounds: an instrument
+  profiler, an editorial notebook, Riso, Arcade, Club, and "Clubhouse" (Club and Workshop in real
+  wood, felt or cream, with Staunton pieces and wood sounds). Riso and Arcade were "not chess";
+  adding materials and objects did not beat Workshop, whose strength is warmth, simplicity and
+  stylised tactile objects. The variants were deleted on 2026-11-24 (git history before that date,
+  `design-prototype/`). Everything on screen uses `workshop/theme.ts`.
 - **One colour per meaning on every board** (`ARROW` in `workshop/theme.ts`): repertoire green,
   engine orange, a move that costs points red, other played moves grey. Screens ask for a
   meaning, never a colour (PMG, 2026-10-18: the engine was green on Openings, orange on Games).
-- **Clicking a priority previews it** (side, zoom, board) and stays on the page; studying
-  the line is an explicit "Study this line" from the board panel. Opening the line view
-  straight from the click was tried and rejected: a click must give a preview first.
+- **Clicking a priority previews it** (side, zoom, board) and stays on the page: a click must give a
+  preview first.
 - **The board panel shows both periods** (all time, last 12 months): the tickets rank on
   the last 12 months, a single all-time score next to them reads as a contradiction.
-- **The line view reads the last 12 months**, like the priority that opened it, so
-  the games counted match. Its line goes on past the entry point along the most played
-  continuation (≥ 5 games and ≥ 10% of the line): the entry identifies the problem, it
-  does not bound the work. Moves seen fewer than 3 times are hidden, except the line's.
-  A move off the line opens that line in turn.
-- **The line view tells a bad move from a position played badly** (prototype of
-  2026-10-18, four layouts then "engine vs you"). Results alone pointed at theory moves
-  (Philidor: "−29 pts" on 4…♘f6, the main line); the engine shows that on the five real
-  priorities no move of the player costs more than ~3 pts, the points go after the opening.
-  So: **verdict first** (what the opening moves cost vs what is lost after, a position
-  being worth the engine's winning chances — Lichess formula — shifted to the player's
-  average), then **a plan, not a list of blunders**: 1. extend the preparation from the key
-  position, past the player's games, with what players of their level play;
-  2. practise the position (Stockfish and puzzles on Lichess, masters' moves and games, the
-  decisive mistakes of the player's games, each opening on Lichess at that move). Rejected:
-  a score curve along the line, "engine vs you" move by move, and a monthly score chart
-  (they said nothing to act on); a games-only preparation (the games scatter one to three
-  moves after the key position); chess.com links (its analysis is paid — **free, open
-  source tools only**, Lichess). The decisive mistake is the biggest drop, not the first
-  slip, measured from the lower of the two previous positions so a recapture is not blamed.
-- **The whole line** (the "fork map", liked but intimidating for a newcomer) is folded
-  below, opponent rows reduced to the line's move until asked. Arrows on boards: three at
-  most, with a cream halo to stand out on the green squares.
+- **Free, open source tools only** for analysis: links go to Lichess, never chess.com (its analysis is paid).
+- The line view (deleted on 2026-11-17, replaced by the Weak opening task) and its decisions are in git history.
 
 ## Next: the repertoire loop
 
@@ -172,6 +162,8 @@ Built one brick at a time, each visible on its own:
    "Reset" empties it. Every game is checked against the current repertoire, so an addition
    settles the game that raised it and changes the checks of the days after.
    Not done yet: "Study this line" adding to the repertoire.
+
+   The Games page left the path on 2026-11-17 (the Check task on the tree replaced it) and was deleted on 2026-11-24.
 **Since 2026-10-18 ("User path"): a router with two doors ("I just played",
 "I want to work") leading to one position screen, phone first, browsable like an explorer.**
 Pending decisions are grouped by position (2026: 174 decisions, 58 positions). Openings,
@@ -491,9 +483,4 @@ Practice games are not games: they stay out of the opening tree, weak openings, 
 
 ## Later
 
-- **Line view, next steps**: glossary entries for key position and decisive mistake.
-- **Engine signal on the whole tree** (priorities sorted into "a move to change" and
-  "a position to work on" from the Openings screen): the line view does it per line only.
-- **Design prototype** (`design-prototype/`, `/dev/flame-graph?variant=F…J`): the
-  directions not chosen, kept for reference. They share the domain and `board/`, `flame/`,
-  `workshop/` with the page; keep them compiling.
+- **Engine signal on the whole tree**: priorities sorted into "a move to change" and "a position to work on".

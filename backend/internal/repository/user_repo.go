@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	userColumns = `id, username, email, oauth_provider, oauth_id, lichess_username, chesscom_username, lichess_access_token, last_lichess_sync_at, last_chesscom_sync_at, time_format_prefs, created_at`
+	userColumns = `id, username, oauth_provider, oauth_id, lichess_username, lichess_access_token, created_at`
 
 	getUserByIDSQL = `
 		SELECT ` + userColumns + `
@@ -79,10 +79,8 @@ func NewPostgresUserRepo(pool *pgxpool.Pool, jwtSecret string) *PostgresUserRepo
 func (r *PostgresUserRepo) scanUser(ctx context.Context, scan func(dest ...any) error) (*models.User, error) {
 	var user models.User
 	err := scan(
-		&user.ID, &user.Username, &user.Email, &user.OAuthProvider, &user.OAuthID,
-		&user.LichessUsername, &user.ChesscomUsername, &user.LichessAccessToken,
-		&user.LastLichessSyncAt, &user.LastChesscomSyncAt, &user.TimeFormatPrefs,
-		&user.CreatedAt,
+		&user.ID, &user.Username, &user.OAuthProvider, &user.OAuthID,
+		&user.LichessUsername, &user.LichessAccessToken, &user.CreatedAt,
 	)
 	if err != nil {
 		return nil, err

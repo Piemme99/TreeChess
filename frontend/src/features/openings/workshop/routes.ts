@@ -1,10 +1,10 @@
 import { useEffect } from 'react';
 import { useLocation } from 'react-router';
 
-export type V2Page = 'home' | 'review' | 'practice' | 'tree' | 'openings' | 'games';
+export type V2Page = 'home' | 'review' | 'practice' | 'tree' | 'openings';
 
 // En dev, les pages vivent sous /dev ; en prod, sous /v2 (build avec VITE_V2=1). Les liens restent dans l'espace courant.
-const DEV: Record<V2Page, string> = { home: '/dev/home', review: '/dev/review', practice: '/dev/practice', tree: '/dev/tree', openings: '/dev/flame-graph', games: '/dev/games' };
+const DEV: Record<V2Page, string> = { home: '/dev/home', review: '/dev/review', practice: '/dev/practice', tree: '/dev/tree', openings: '/dev/flame-graph' };
 
 export function useV2Path(): (page: V2Page) => string {
   const { pathname } = useLocation();

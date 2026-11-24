@@ -22,7 +22,6 @@ const mockGetAccessToken = vi.mocked(getAccessToken);
 const createUser = (overrides: Partial<User> = {}): User => ({
   id: 'user-1',
   username: 'testuser',
-  email: 'test@example.com',
   lichessLinked: false,
   createdAt: '2025-01-01T00:00:00Z',
   ...overrides,

@@ -2,6 +2,7 @@
 // The dataset (src/shared/data/openings.json) maps a position EPD — the first
 // four FEN fields (board, side to move, castling, en passant) — to its ECO code
 // and opening name. See scripts/generate-openings.mjs for how it is produced.
+import { positionKey } from '../../features/openings/domain/repertoire';
 
 export interface OpeningInfo {
   eco: string;
@@ -15,11 +16,6 @@ export interface ResolvedOpening extends OpeningInfo {
   isExact: boolean;
 }
 
-/** The first four FEN fields identify an opening position. */
-export function toEpd(fen: string): string {
-  return fen.split(' ').slice(0, 4).join(' ');
-}
-
 /**
  * Resolve the opening for a position given the path of FENs leading to it
  * (from the starting position to the current one, in order).
@@ -31,7 +27,7 @@ export function toEpd(fen: string): string {
 export function resolveOpening(fenPath: string[], table: OpeningTable): ResolvedOpening | null {
   let best: ResolvedOpening | null = null;
   for (let i = 0; i < fenPath.length; i++) {
-    const info = table[toEpd(fenPath[i])];
+    const info = table[positionKey(fenPath[i])];
     if (info) {
       best = { ...info, isExact: i === fenPath.length - 1 };
     }

@@ -2,7 +2,7 @@ import type { CSSProperties } from 'react';
 import type { Transition } from 'framer-motion';
 import type { Tone } from '../flame/tone';
 
-// Direction « Workshop », retenue le 17/10/2026 (design-prototype/NOTES.md).
+// Direction « Workshop », retenue le 17/10/2026 (README openings, « Art direction »).
 export const COLOURS = {
   cream: 'oklch(0.962 0.028 85)',
   paper: 'oklch(0.985 0.012 85)',

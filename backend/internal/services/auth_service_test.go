@@ -209,10 +209,9 @@ func TestAuthService_DeleteLegacyAccount_NeedsTheAccountsLiveRefreshCookie(t *te
 }
 
 func TestAuthService_RefreshTokens_Success_MarksConsumed(t *testing.T) {
-	email := "refresh@example.com"
 	mockUserRepo := &mocks.MockUserRepo{
 		GetByIDFunc: func(_ context.Context, id string) (*models.User, error) {
-			return &models.User{ID: id, Username: "refresher", Email: &email}, nil
+			return &models.User{ID: id, Username: "refresher"}, nil
 		},
 	}
 

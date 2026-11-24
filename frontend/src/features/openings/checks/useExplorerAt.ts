@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useExplorerLevel } from '../source/useExplorerLevel';
-import { explore, hasExplorer, useExplorerSignIn, type Database, type ExplorerResult } from '../line/explorer';
+import { explore, hasExplorer, useExplorerSignIn, type Database, type ExplorerResult } from '../services/explorer';
 
 // Au-delà, on dit au joueur que l'explorateur ne répond pas plutôt que de le laisser attendre.
 const TIMEOUT = 10_000;

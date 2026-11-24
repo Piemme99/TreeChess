@@ -36,7 +36,6 @@ func NewOAuthService(userRepo repository.UserRepository, authService *AuthServic
 			AuthURL:  "https://lichess.org/oauth",
 			TokenURL: "https://lichess.org/api/token",
 		},
-		Scopes: []string{"study:read"},
 	}
 
 	return &OAuthService{
