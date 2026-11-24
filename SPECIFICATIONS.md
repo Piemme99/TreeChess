@@ -4,7 +4,7 @@ What the running app does, checked against the code on 2026-11-24. When this doc
 the code wins: fix this document in the same PR.
 
 The v1 (JSONB repertoires, PGN import, sync, training, dashboard, explore, email/password sign-in) was removed on
-2026-11-17 and 2026-11-22; see git history before #262 for its spec.
+2026-11-17 and 2026-11-22; its spec is the version of this file before #321 in git history.
 
 ## 1. Where things are documented
 
@@ -25,7 +25,8 @@ review schedule, practice) is computed in the browser from those two inputs (`fr
 - **Signed-in player**: games come from `GET /api/v2/games`, decisions from `GET /api/v2/state` and are written back
   with `PUT /api/v2/state/:key`.
 - **Demo** (signed-out "Try it on a sample player"): PMG's fixture games replayed day by day, decisions in
-  `localStorage` under `kumquat.v2.<key>`. Nothing touches the server.
+  `localStorage` under `kumquat.v2.<key>`. No game or decision goes to the server; the explorer still goes through
+  the relay (cached positions only, §3.3), and the app still tries `POST /api/auth/refresh` at load.
 
 ### 2.1 Pages (`frontend/src/App.tsx`)
 
@@ -36,7 +37,6 @@ review schedule, practice) is computed in the browser from those two inputs (`fr
 | `/v2/review` | `/dev/review` | Review session (spaced repetition) |
 | `/v2/practice` | `/dev/practice` | Practice game against the explorer (`?side=w\|b&line=…`) |
 | `/v2/openings` | `/dev/flame-graph` | Openings: flame graph and priorities (computer view, reached from the ⋯ menu) |
-| — | `/dev/games` | Games: game checks day by day (dev tool) |
 
 Any other path (`/`, old v1 URLs, `/login` after OAuth) redirects to Home, keeping its query string. `/dev/*` routes
 are not built in production.
@@ -63,7 +63,8 @@ All JSON. Errors are `{"error": "message"}`, sometimes with a machine-readable `
 | PUT | `/api/v2/state/:key` | JWT | global | Replaces one key (§3.2), 204 |
 
 Rate limits are in-memory, keyed on the client IP from `RealIP()` (trusted proxy hops only): global 100/min
-(burst 20), auth 20/min (burst 10), import 6/min (burst 3, Home starts an import on every load). In production
+(burst 20), auth 20/min (burst 10), import 6/min (burst 3; the app starts an import once per load and per account, from any v2 page,
+`source/useGameSource.ts`). In production
 nginx adds 10 req/s (burst 20) on `/api/` and 5/min (burst 5) on all of `/api/auth/` (`frontend/nginx.prod.conf`).
 JWT routes run under a 30 s request timeout, except `POST /api/v2/games/import`. Body limit 10 MB.
 
@@ -78,8 +79,8 @@ JWT routes run under a 30 s request timeout, except `POST /api/v2/games/import`.
   before the most recent stored game, duplicates dropped by the primary key.
 - Keeps a game only if it is standard chess, blitz/rapid/classical, finished, played by that username, and its first
   80 plies replay legally through `notnil/chess`. Stored: colour, those plies as space-separated SAN, score (1, ½, 0
-  for the player), the player's rating, the day of the last move (UTC). Saved by batches of 100; `imported` grows as
-  they land.
+  for the player), the player's rating, the day of the last move (UTC). Saved by batches of 100; `imported` counts
+  only new games (duplicates do not), and the frontend reloads the games when it is above 0.
 - Import state: `{status: "running"|"done"|"failed", imported, error?, startedAt, finishedAt?, firstDoneAt?}`.
   `firstDoneAt` is the end of the first successful import: the repertoire is born that day and later imports do not
   move it.
@@ -95,7 +96,8 @@ One JSON value per key, per user, in `player_state.state`. Accepted keys: `addit
 do not overwrite each other. What each value means is in the openings README.
 
 The frontend (`workshop/storage.ts`) writes 300 ms after a change, retries up to 3 times, and flushes pending writes
-with a `keepalive` fetch on `pagehide`.
+with a `keepalive` fetch on `pagehide`. On a signed-in account's first load, values still kept in `localStorage`
+(`kumquat.v2.lichess:<user>.<key>`) are sent to the server for every key the server does not have yet.
 
 ### 3.3 Explorer relay (`internal/handlers/explorer_proxy.go`)
 
@@ -110,11 +112,15 @@ default), keyed on the parameters with the FEN's clock fields dropped, and share
 - Upstream 429: 429 `rate_limited` with `retryAfterSeconds`; token rejected: 403 `lichess_token_invalid`; Lichess
   down: 502 `upstream_unavailable` or `upstream_error`.
 
+The browser client (`features/openings/services/explorer.ts`) sends one request at a time, 250 ms apart, pauses
+60 s after a 429, keeps answers in `localStorage` with no expiry (keys `kumquat-explorer:<url>`), and turns a 403
+`lichess_*` into the sign-in prompt.
+
 In dev without a backend, `VITE_LICHESS_TOKEN` in `frontend/.env.local` lets the frontend query Lichess directly.
 
 ### 3.4 Authentication and account deletion
 
-Lichess OAuth only (`internal/handlers/oauth.go`, `internal/services/oauth_service.go`), PKCE, scope `study:read`.
+Lichess OAuth only (`internal/handlers/oauth.go`, `internal/services/oauth_service.go`), PKCE, no scope (the game export, the explorer and `/api/account` need none).
 The OAuth state and code verifier travel in an `oauth_state` cookie (10 min, path `/api/auth/lichess`), AES-GCM
 sealed with a key derived by HKDF from `JWT_SECRET`. The callback finds or creates the user by
 `(oauth_provider, oauth_id)` and stores the Lichess access token, encrypted at rest with another HKDF-derived key
@@ -233,8 +239,7 @@ CREATE TABLE player_state (
 Nothing in the app writes them any more; they stay so that nothing is destroyed in production. Precisely:
 `password_hash`, `password_changed_at` and `password_reset_tokens` are neither read nor written (reset tokens still go
 with the account by cascade). `email`, `chesscom_username`, `last_lichess_sync_at`, `last_chesscom_sync_at` and
-`time_format_prefs` are still selected into the `User` model (`user_repo.go`) and so echoed by `GET /api/auth/me`
-when set, but no screen uses them. `oauth_provider = 'lichess'` with an `oauth_id` is what makes an account a Lichess
+`time_format_prefs` are neither read nor written either (#323). `oauth_provider = 'lichess'` with an `oauth_id` is what makes an account a Lichess
 account (§3.4).
 
 **Dropped at boot**: the v1 tables `games`, `viewed_games`, `engine_evals`, `game_fingerprints`,
@@ -245,7 +250,7 @@ account (§3.4).
 ## 5. Engine and other calls from the browser
 
 - **Stockfish 18 NNUE lite**, WASM, vendored in `frontend/public/stockfish-18-lite.{js,wasm}`, run in a dedicated Web
-  Worker (`features/openings/line/engine.ts`, `services/stockfishConfig.ts`). Threads: up to 4 on desktop (cores − 1),
+  Worker (`frontend/src/features/openings/services/engine.ts`, `services/stockfishConfig.ts`). Threads: up to 4 on desktop (cores − 1),
   1 on mobile (2 with ≥ 6 cores). Multi-threading needs `SharedArrayBuffer`, hence the COOP/COEP headers set in
   `vite.config.ts` and `nginx.prod.conf`. Evaluations are cached in memory by `depth|fen`; nothing is stored.
 - **Lichess cloud eval** (`https://lichess.org/api/cloud-eval`, `multiPv=1`) is asked first for every position;
@@ -285,6 +290,7 @@ Frontend: `VITE_API_URL` (default `/api`), `VITE_LICHESS_TOKEN` (dev only, §3.3
   `Referrer-Policy`, HSTS, a strict CSP, `Permissions-Policy`. nginx sets its own for the static app.
 - **Timeouts**: read 10 s (headers 5 s), write 120 s, idle 60 s; graceful shutdown 10 s, the cleanup worker joined
   before the DB pool closes.
-- **DB pool**: 2 to 20 connections, 5 s per query (`config/limits.go`), 10 s for an account deletion, 30 s for the
+- **DB pool**: 2 to 20 connections; 5 s per query (`config/limits.go`) on the user and refresh-token repositories only, the
+  others run under the caller's context (30 s on JWT routes, the import's 20 min budget, none for the explorer relay); 10 s for an account deletion, 30 s for the
   boot migrations.
 - **Metrics**: Echo Prometheus middleware, prefix `kumquat`; Prometheus and Grafana in `monitoring/`.
