@@ -334,6 +334,10 @@ opening N" and "Next weak opening →": the card only shows on the line itself.
   several repertoire moves is right.
 - **Wrong** → the repertoire move(s) in green on the board, the player plays it to go on, the position goes
   back to box 1. A position passed on the way that was not due is not rescheduled unless missed.
+- **Changing the prep** (PMG, 2026-11-24): under "Not your move here", "I play 1.♘f3 now: add it to my repertoire →"
+  opens the builder in place, the move played kept (a second choice next to the old one, as in Check). On accept the
+  line goes on along the added move and the position counts as answered right; the miss is recorded only when the
+  player plays the repertoire move instead, so a change of mind is never a lapse.
 - **15 due positions a session** (all of them when fewer are due), started at once from Home; the session ends with
   the line where the 15th is answered, never in the middle of a line, then "16 of 18 positions right · 2 positions to
   see again tomorrow" (every position answered counts there, the ones passed on the way too). Counted in positions,

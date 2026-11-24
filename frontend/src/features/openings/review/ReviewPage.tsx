@@ -1,7 +1,11 @@
 import { MotionConfig, motion } from 'framer-motion';
 import { useEffect, useMemo, useState } from 'react';
 import { PlayableBoard } from '../board/PlayableBoard';
+import { BuildSession } from '../checks/BuildSession';
+import type { BuildOrigin } from '../checks/useBuilder';
+import type { AddedMove } from '../domain/addition';
 import { figurineMove } from '../domain/notation';
+import { gamesOfLastMonths } from '../domain/period';
 import type { Side } from '../domain/playedGame';
 import { positionKey } from '../domain/repertoire';
 import { acceptedMoves, hasDueAhead, isDue, nextReply, planLine, playerPositions, sessionDone, sessionPositions } from '../domain/review';
@@ -15,6 +19,9 @@ import { gamesUntil } from '../domain/replay';
 import { useReplayDay } from '../replay/useReplayDay';
 import { LineName } from '../workshop/LineName';
 import { TaskBar, TaskDone } from '../workshop/Task';
+import { Toast } from '../workshop/Toast';
+import { useToast } from '../workshop/useToast';
+import { useWide } from '../workshop/useWide';
 import { BOARD_BESIDE, BOARD_CELL, SIDE_BELOW, SIDE_TOP, TASK_MAIN } from '../workshop/taskLayout';
 import { COLOURS, FONT_FAMILY, raised, REPERTOIRE, SPRING, tile } from '../workshop/theme';
 import { useWorkshopFont } from '../workshop/useWorkshopFont';
@@ -22,6 +29,7 @@ import { useReview } from './useReview';
 
 // Le temps de voir le coup adverse arriver avant de devoir répondre.
 const REPLY_DELAY = 450;
+const HABIT_MONTHS = 12;
 // Une séance touche une dizaine de positions sur des centaines : arrondi à l'unité, le chiffre ne bougerait souvent pas.
 const precisePercent = (rate: number) => `${(rate * 100).toFixed(1)}%`;
 
@@ -32,6 +40,8 @@ interface Line {
   path: readonly string[];
   status: 'player' | 'opponent' | 'wrong' | 'done';
   expected: readonly string[];
+  /** Le dernier coup joué hors du répertoire, que le joueur peut y ajouter. */
+  tried?: string;
   missed: number;
 }
 
@@ -41,13 +51,17 @@ export function ReviewPage() {
   // Pas de séance ici : les verdicts du moteur sur les écarts n'y servent pas.
   const source = useSource();
   const replay = useReplayDay(source.games, source.firstDay, source.replay);
-  const { repertoires: whole, repertoireOn } = useRepertoires(source.games, source.start);
+  const { repertoires: whole, repertoireOn, add } = useRepertoires(source.games, source.start);
   const known = useMemo(() => gamesUntil(source.games, replay.day), [source.games, replay.day]);
   // Un coup que le joueur ne joue plus attend sa décision hors de la révision.
   const { reviewed: repertoires } = useStoppedMoves(whole, known, source.start);
   const today = replay.today;
   const lived = useMemo(() => liveGames(source.games, repertoireOn, source.firstDay, replay.day), [source, repertoireOn, replay.day]);
   const review = useReview(source.games, repertoires, lived, today, source.start);
+  const habits = useMemo(() => gamesOfLastMonths(known, HABIT_MONTHS, new Date(replay.day)), [known, replay.day]);
+  const wide = useWide();
+  const { toast, show, close } = useToast();
+  const [building, setBuilding] = useState<BuildOrigin | null>(null);
   const [line, setLine] = useState<Line | null>(null);
   const [exhausted, setExhausted] = useState(false);
   // `due` : les positions dues au départ déjà répondues, ce qui fait avancer la séance ; `seen` : toutes celles répondues.
@@ -126,17 +140,33 @@ export function ReviewPage() {
     }
     if (!right) {
       // L'échiquier a déjà joué le coup : un nouveau chemin, identique, le ramène à la position.
-      const path = [...line.path];
-      // Une seule erreur compte par position : la suivante n'est qu'un nouvel essai.
-      if (line.status === 'player') {
-        review.answer(line.side, key, false);
-        setResults((current) => ({ ...current, missed: new Set(current.missed).add(key) }));
-        setLine({ ...line, path, status: 'wrong', expected: accepted, missed: line.missed + 1 });
-      } else setLine({ ...line, path });
+      setLine({ ...line, path: [...line.path], status: 'wrong', expected: accepted, tried: san });
       return;
     }
-    if (line.status === 'player') review.answer(line.side, key, true);
-    setLine({ ...line, path: [...line.path, san], status: 'opponent', expected: [] });
+    // L'oubli ne compte qu'une fois le coup du répertoire rejoué : jusque-là, le joueur peut encore changer sa
+    // préparation. Une seule erreur compte par position, les essais suivants n'en sont pas.
+    const missed = line.status === 'wrong';
+    review.answer(line.side, key, !missed);
+    if (missed) setResults((current) => ({ ...current, missed: new Set(current.missed).add(key) }));
+    setLine({ ...line, path: [...line.path, san], status: 'opponent', expected: [], tried: undefined, missed: line.missed + (missed ? 1 : 0) });
+  };
+
+  const changePrep = () => {
+    if (!line?.tried) return;
+    setBuilding({ side: line.side, start: line.path, given: [], played: line.tried, keep: true });
+  };
+
+  // Le coup ajouté à la position est la réponse du joueur, pas un oubli : la ligne continue par lui.
+  const accept = (moves: AddedMove[]) => {
+    setBuilding(null);
+    if (!line || !moves.length) return;
+    add({ side: line.side, addedAt: replay.day, moves });
+    show({ text: `${moves.length} ${moves.length === 1 ? 'move' : 'moves'} added to your repertoire` });
+    const key = positionKey(fen);
+    const chosen = moves.find((move) => move.position === key)?.san;
+    if (!chosen) return;
+    review.answer(line.side, key, true);
+    setLine({ ...line, path: [...line.path, chosen], status: 'opponent', expected: [], tried: undefined });
   };
 
   const sessionOver = exhausted || sessionDone(results.due.size, planned, line?.status === 'done');
@@ -153,7 +183,18 @@ export function ReviewPage() {
               <p>Repertoire known: {formatPercent(review.known)}</p>
             </TaskDone>
           )}
-          {line && !(sessionOver && line.status === 'done') && (
+          {line && building && (
+            <BuildSession
+              origin={building}
+              games={habits.filter((game) => game.side === line.side)}
+              repertoire={repertoires[line.side]}
+              onAccept={accept}
+              onCancel={() => setBuilding(null)}
+              stacked={!wide}
+              nested
+            />
+          )}
+          {line && !building && !(sessionOver && line.status === 'done') && (
             <div className={BOARD_BESIDE}>
               <div className={SIDE_TOP}>
                 <LineName path={line.path} wrap />
@@ -162,7 +203,7 @@ export function ReviewPage() {
                 <PlayableBoard path={line.path} flipped={line.side === 'b'} arrows={arrows} onMove={play} />
               </div>
               <div className={SIDE_BELOW}>
-                <Prompt line={line} onNext={sessionOver ? undefined : start} />
+                <Prompt line={line} onNext={sessionOver ? undefined : start} onChangePrep={changePrep} />
               </div>
             </div>
           )}
@@ -175,18 +216,26 @@ export function ReviewPage() {
             </TaskDone>
           )}
         </main>
+        <Toast toast={toast} onClose={close} />
       </div>
     </MotionConfig>
   );
 }
 
-function Prompt({ line, onNext }: { line: Line; onNext?: () => void }) {
+function Prompt({ line, onNext, onChangePrep }: { line: Line; onNext?: () => void; onChangePrep: () => void }) {
   const ply = line.path.length + 1;
   if (line.status === 'wrong') {
     return (
-      <p role="status" className="rounded-2xl px-4 py-3 text-[16px] font-bold" style={{ background: COLOURS.terracotta, color: 'white' }}>
-        Not your move here · play {line.expected.map((san) => figurineMove(san, ply)).join(' or ')}
-      </p>
+      <div className="flex flex-col gap-1.5">
+        <p role="status" className="rounded-2xl px-4 py-3 text-[16px] font-bold" style={{ background: COLOURS.terracotta, color: 'white' }}>
+          Not your move here · play {line.expected.map((san) => figurineMove(san, ply)).join(' or ')}
+        </p>
+        {line.tried && (
+          <button type="button" onClick={onChangePrep} className="self-start rounded-lg px-1 py-1.5 text-[14px] font-semibold underline-offset-4 hover:underline focus-visible:outline-2" style={{ color: COLOURS.leafSoft }}>
+            I play {figurineMove(line.tried, ply)} now: add it to my repertoire →
+          </button>
+        )}
+      </div>
     );
   }
   if (line.status === 'done') {
