@@ -54,7 +54,7 @@ export function ReviewPage() {
   const { repertoires: whole, repertoireOn, add } = useRepertoires(source.games, source.start);
   const known = useMemo(() => gamesUntil(source.games, replay.day), [source.games, replay.day]);
   // Un coup que le joueur ne joue plus attend sa décision hors de la révision.
-  const { reviewed: repertoires } = useStoppedMoves(whole, known, source.start);
+  const { reviewed: repertoires, stopped, keep } = useStoppedMoves(whole, known, source.start);
   const today = replay.today;
   const lived = useMemo(() => liveGames(source.games, repertoireOn, source.firstDay, replay.day), [source, repertoireOn, replay.day]);
   const review = useReview(source.games, repertoires, lived, today, source.start);
@@ -145,10 +145,14 @@ export function ReviewPage() {
     }
     // L'oubli ne compte qu'une fois le coup du répertoire rejoué : jusque-là, le joueur peut encore changer sa
     // préparation. Une seule erreur compte par position, les essais suivants n'en sont pas.
-    const missed = line.status === 'wrong';
-    review.answer(line.side, key, !missed);
-    if (missed) setResults((current) => ({ ...current, missed: new Set(current.missed).add(key) }));
-    setLine({ ...line, path: [...line.path, san], status: 'opponent', expected: [], tried: undefined, missed: line.missed + (missed ? 1 : 0) });
+    advance(line, san, line.status !== 'wrong');
+  };
+
+  const advance = (current: Line, san: string, right: boolean) => {
+    const key = positionKey(fen);
+    review.answer(current.side, key, right);
+    if (!right) setResults((results) => ({ ...results, missed: new Set(results.missed).add(key) }));
+    setLine({ ...current, path: [...current.path, san], status: 'opponent', expected: [], tried: undefined, missed: current.missed + (right ? 0 : 1) });
   };
 
   const changePrep = () => {
@@ -156,17 +160,24 @@ export function ReviewPage() {
     setBuilding({ side: line.side, start: line.path, given: [], played: line.tried, keep: true });
   };
 
-  // Le coup ajouté à la position est la réponse du joueur, pas un oubli : la ligne continue par lui.
-  const accept = (moves: AddedMove[]) => {
+  // Le coup ajouté à la position est la réponse du joueur, pas un oubli : la ligne continue par lui. Revenu au coup
+  // du répertoire dans le brouillon, le joueur a eu la réponse sous les yeux : c'est un oubli, comme au plateau.
+  const accept = (moves: AddedMove[], lines: (readonly string[])[]) => {
     setBuilding(null);
-    if (!line || !moves.length) return;
-    add({ side: line.side, addedAt: replay.day, moves });
-    show({ text: `${moves.length} ${moves.length === 1 ? 'move' : 'moves'} added to your repertoire` });
+    if (!line) return;
+    // Un coup délaissé sort de la révision sans quitter le répertoire : le rejouer ici, c'est le garder.
+    const isStopped = (move: AddedMove) => stopped.find((known) => known.side === line.side && known.position === move.position && known.san === move.san);
+    for (const move of moves) {
+      const stoppedMove = isStopped(move);
+      if (stoppedMove) keep(stoppedMove, replay.day);
+    }
+    const added = moves.filter((move) => !isStopped(move));
+    if (added.length) add({ side: line.side, addedAt: replay.day, moves: added });
+    if (moves.length) show({ text: `${moves.length} ${moves.length === 1 ? 'move' : 'moves'} added to your repertoire` });
     const key = positionKey(fen);
-    const chosen = moves.find((move) => move.position === key)?.san;
-    if (!chosen) return;
-    review.answer(line.side, key, true);
-    setLine({ ...line, path: [...line.path, chosen], status: 'opponent', expected: [], tried: undefined });
+    const fresh = moves.find((move) => move.position === key)?.san;
+    const chosen = fresh ?? lines.find((drafted) => drafted.length > line.path.length)?.[line.path.length];
+    if (chosen) advance(line, chosen, fresh !== undefined);
   };
 
   const sessionOver = exhausted || sessionDone(results.due.size, planned, line?.status === 'done');
