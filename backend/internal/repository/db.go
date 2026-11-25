@@ -109,35 +109,13 @@ func (db *DB) runMigrations() error {
 		`CREATE TABLE IF NOT EXISTS users (
 			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 			username VARCHAR(50) NOT NULL UNIQUE,
-			password_hash VARCHAR(255),
 			oauth_provider VARCHAR(20),
 			oauth_id VARCHAR(255),
 			created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
 			UNIQUE(oauth_provider, oauth_id)
 		)`,
 		`ALTER TABLE users ADD COLUMN IF NOT EXISTS lichess_username VARCHAR(50)`,
-		`ALTER TABLE users ADD COLUMN IF NOT EXISTS chesscom_username VARCHAR(50)`,
-		`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_lichess_sync_at TIMESTAMP WITH TIME ZONE`,
-		`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_chesscom_sync_at TIMESTAMP WITH TIME ZONE`,
 		`ALTER TABLE users ADD COLUMN IF NOT EXISTS lichess_access_token TEXT`,
-		`ALTER TABLE users ADD COLUMN IF NOT EXISTS time_format_prefs TEXT[] DEFAULT '{}'`,
-		`ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(255)`,
-		`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email) WHERE email IS NOT NULL`,
-		// email, password_hash, password_changed_at et password_reset_tokens servaient la connexion par e-mail,
-		// retirée : plus rien ne les écrit, on les garde pour ne rien détruire en production. Les jetons de
-		// réinitialisation partent toujours en cascade avec le compte.
-		`ALTER TABLE users ADD COLUMN IF NOT EXISTS password_changed_at TIMESTAMP WITH TIME ZONE`,
-		`CREATE TABLE IF NOT EXISTS password_reset_tokens (
-			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-			user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-			token_hash VARCHAR(64) NOT NULL UNIQUE,
-			expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
-			used_at TIMESTAMP WITH TIME ZONE,
-			created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-		)`,
-		`CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_user ON password_reset_tokens(user_id)`,
-		`CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_hash ON password_reset_tokens(token_hash)`,
-		`CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_expires ON password_reset_tokens(expires_at)`,
 		`CREATE TABLE IF NOT EXISTS refresh_tokens (
 			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 			user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -197,6 +175,13 @@ func (db *DB) runMigrations() error {
 		`DROP TABLE IF EXISTS games, viewed_games, engine_evals, game_fingerprints, dismissed_mistakes,
 			dismissed_gaps, analyses, repertoires, categories CASCADE`,
 		`DROP FUNCTION IF EXISTS check_repertoire_limit() CASCADE`,
+		// Restes de la connexion par e-mail et de la synchro v1 : le déploiement qui les supprime exporte d'abord la base.
+		`DROP TABLE IF EXISTS password_reset_tokens`,
+		`DROP INDEX IF EXISTS idx_users_email`,
+		`ALTER TABLE users DROP COLUMN IF EXISTS password_hash, DROP COLUMN IF EXISTS email,
+			DROP COLUMN IF EXISTS password_changed_at, DROP COLUMN IF EXISTS chesscom_username,
+			DROP COLUMN IF EXISTS last_lichess_sync_at, DROP COLUMN IF EXISTS last_chesscom_sync_at,
+			DROP COLUMN IF EXISTS time_format_prefs`,
 	}
 	for _, m := range migrations {
 		if _, err := conn.Exec(ctx, m); err != nil {

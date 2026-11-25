@@ -31,14 +31,13 @@ func deleteAccountJSON(username string) []byte {
 	return b
 }
 
-// seedLegacyPasswordUser inserts an account created by the removed email/password
-// sign-up, as some still exist in production.
-func seedLegacyPasswordUser(t *testing.T, username string) string {
+// seedLegacyEmailUser inserts an account created by the removed email/password
+// sign-up, as some still exist in production: no Lichess link.
+func seedLegacyEmailUser(t *testing.T, username string) string {
 	t.Helper()
 	var id string
 	err := testDB.Pool.QueryRow(context.Background(),
-		`INSERT INTO users (username, email, password_hash) VALUES ($1, $2, $3) RETURNING id`,
-		username, username+"@test.com", "$2a$04$legacyhashlegacyhashlegacyhashlegacyhashlegacyhashleg").Scan(&id)
+		`INSERT INTO users (username) VALUES ($1) RETURNING id`, username).Scan(&id)
 	require.NoError(t, err)
 	return id
 }
@@ -230,7 +229,7 @@ func TestAuth_DeleteAccount_LegacyAccountConfirmsWithItsRefreshCookie(t *testing
 	testDB.TruncateAll(t)
 	repos := testDB.Repos()
 	ts := testhelpers.SetupTestServer(t, repos)
-	userID := seedLegacyPasswordUser(t, "legacy")
+	userID := seedLegacyEmailUser(t, "legacy")
 	session := ts.SignIn(t, userID)
 
 	rec := ts.DoRequest(deletionRequest("legacy", session, true))
@@ -247,7 +246,7 @@ func TestAuth_DeleteAccount_AccessTokenAloneDeletesNothing(t *testing.T) {
 	testDB.TruncateAll(t)
 	repos := testDB.Repos()
 	ts := testhelpers.SetupTestServer(t, repos)
-	userID := seedLegacyPasswordUser(t, "legacy")
+	userID := seedLegacyEmailUser(t, "legacy")
 	session := ts.SignIn(t, userID)
 
 	rec := ts.DoRequest(deletionRequest("legacy", session, false))
@@ -271,15 +270,11 @@ func TestAuth_DeleteAccount_CascadesData(t *testing.T) {
 	require.NoError(t, err)
 	_, err = repos.PlayedGame.StartImport(ctx, user.ID)
 	require.NoError(t, err)
-	// Plus rien n'écrit dans cette table, mais la production en garde des lignes.
-	_, err = testDB.Pool.Exec(ctx,
-		`INSERT INTO password_reset_tokens (user_id, token_hash, expires_at) VALUES ($1, 'legacy-reset', NOW())`, user.ID)
-	require.NoError(t, err)
 
 	// Ce que fait le retour de Lichess quand il authentifie le compte lié (SeedUser : "lichess-" + nom).
 	require.NoError(t, ts.AuthSvc.DeleteAccountConfirmedByLichess(ctx, user.ID, "lichess-oscar"))
 
-	for _, table := range []string{"users", "refresh_tokens", "password_reset_tokens", "player_state", "played_games", "played_game_imports"} {
+	for _, table := range []string{"users", "refresh_tokens", "player_state", "played_games", "played_game_imports"} {
 		assert.Zero(t, countRows(t, table), table)
 	}
 }

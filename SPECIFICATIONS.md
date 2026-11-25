@@ -155,34 +155,13 @@ schema after boot:
 CREATE TABLE users (
     id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     username              VARCHAR(50) NOT NULL UNIQUE,
-    password_hash         VARCHAR(255),                      -- legacy
     oauth_provider        VARCHAR(20),
     oauth_id              VARCHAR(255),
     created_at            TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     lichess_username      VARCHAR(50),
-    chesscom_username     VARCHAR(50),                       -- legacy
-    last_lichess_sync_at  TIMESTAMP WITH TIME ZONE,          -- legacy
-    last_chesscom_sync_at TIMESTAMP WITH TIME ZONE,          -- legacy
     lichess_access_token  TEXT,                              -- encrypted (AES-GCM)
-    time_format_prefs     TEXT[] DEFAULT '{}',               -- legacy
-    email                 VARCHAR(255),                      -- legacy
-    password_changed_at   TIMESTAMP WITH TIME ZONE,          -- legacy
     UNIQUE (oauth_provider, oauth_id)
 );
-CREATE UNIQUE INDEX idx_users_email ON users(email) WHERE email IS NOT NULL;
-
--- legacy
-CREATE TABLE password_reset_tokens (
-    id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    token_hash VARCHAR(64) NOT NULL UNIQUE,
-    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
-    used_at    TIMESTAMP WITH TIME ZONE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-CREATE INDEX idx_password_reset_tokens_user    ON password_reset_tokens(user_id);
-CREATE INDEX idx_password_reset_tokens_hash    ON password_reset_tokens(token_hash);
-CREATE INDEX idx_password_reset_tokens_expires ON password_reset_tokens(expires_at);
 
 CREATE TABLE refresh_tokens (
     id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -235,17 +214,16 @@ CREATE TABLE player_state (
 );
 ```
 
-**Legacy columns and table, kept on purpose.** They served email/password sign-in and the v1 sync, both removed.
-Nothing in the app writes them any more; they stay so that nothing is destroyed in production. Precisely:
-`password_hash`, `password_changed_at` and `password_reset_tokens` are neither read nor written (reset tokens still go
-with the account by cascade). `email`, `chesscom_username`, `last_lichess_sync_at`, `last_chesscom_sync_at` and
-`time_format_prefs` are neither read nor written either (#323). `oauth_provider = 'lichess'` with an `oauth_id` is what makes an account a Lichess
-account (§3.4).
+`oauth_provider = 'lichess'` with an `oauth_id` is what makes an account a Lichess account (§3.4); accounts from the
+email era have neither.
 
 **Dropped at boot**: the v1 tables `games`, `viewed_games`, `engine_evals`, `game_fingerprints`,
 `dismissed_mistakes`, `dismissed_gaps`, `analyses`, `repertoires`, `categories`, and the function
-`check_repertoire_limit()`. The first production deploy after #262 exported the whole database to
-`backups/v1-final.sql.gz` on the server before that.
+`check_repertoire_limit()`; then the leftovers of email/password sign-in and of the v1 sync: the table
+`password_reset_tokens`, the index `idx_users_email` and the `users` columns `password_hash`, `email`,
+`password_changed_at`, `chesscom_username`, `last_lichess_sync_at`, `last_chesscom_sync_at`, `time_format_prefs`.
+Before each of these purges, the first production deploy exported the whole database on the server, kept out of the
+backup rotation: `backups/v1-final.sql.gz` (#262) and `backups/legacy-auth-final.sql.gz`.
 
 ## 5. Engine and other calls from the browser
 
