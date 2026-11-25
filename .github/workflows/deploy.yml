@@ -138,6 +138,25 @@ jobs:
             fi
             echo "Pre-flight config validation passed."
 
+            # Une seule fois : un export complet de la base, gardé hors rotation, avant que le nouveau backend
+            # ne supprime au démarrage les colonnes et la table de la connexion par e-mail. Sans export lisible,
+            # le déploiement s'arrête.
+            if [ ! -s backups/legacy-auth-final.sql.gz ]; then
+              mkdir -p backups
+              pg_user="$(get_env POSTGRES_USER)"
+              set -o pipefail
+              if ! docker compose --env-file .env.production -f docker-compose.prod.ghcr.yml exec -T postgres \
+                  pg_dump -U "${pg_user:-treechess}" -d treechess | gzip > backups/legacy-auth-final.sql.gz \
+                  || ! gzip -t backups/legacy-auth-final.sql.gz \
+                  || [ "$(gzip -dc backups/legacy-auth-final.sql.gz | head -c 64 | wc -c)" -lt 64 ]; then
+                rm -f backups/legacy-auth-final.sql.gz
+                echo "::error::Database export failed: deploy aborted before the legacy columns are dropped"
+                exit 1
+              fi
+              set +o pipefail
+              echo "Database export: $(du -h backups/legacy-auth-final.sql.gz | cut -f1) in backups/legacy-auth-final.sql.gz"
+            fi
+
             # Les images d'abord : si le tirage échoue, la config du serveur n'a pas encore bougé.
             echo "$REGISTRY_TOKEN" | docker login ghcr.io -u "$REGISTRY_USER" --password-stdin
             docker pull --quiet "$BACKEND_IMAGE:$IMAGE_TAG"
