@@ -24,7 +24,7 @@ export interface PositionFacts {
 }
 
 /** Ce que la position porte, calculé une fois pour le volet de l'ordinateur comme pour celui du téléphone. */
-export function usePositionFacts({ side, path, node, recent, steps, priority, lead }: Pick<PositionPaneProps, 'side' | 'path' | 'node' | 'recent' | 'steps' | 'priority' | 'lead'>): PositionFacts {
+export function usePositionFacts({ side, path, node, recent, steps, priority, lead, recall }: Pick<PositionPaneProps, 'side' | 'path' | 'node' | 'recent' | 'steps' | 'priority' | 'lead' | 'recall'>): PositionFacts {
   const inRepertoire = path.length === node.path.length;
   const here = useMemo(() => nodeAt(recent, path), [recent, path]);
   // Hors du répertoire, seule la faiblesse dont c'est la ligne exacte garde sa carte (tâche Weak opening).
@@ -32,7 +32,10 @@ export function usePositionFacts({ side, path, node, recent, steps, priority, le
   const prioritised = priority !== undefined && (inRepertoire || priority.path.join(' ') === path.join(' ') || afterLeak);
   const settling = inRepertoire && steps.length > 0 && !(prioritised && lead === 'priority');
   const leak = useMemo(() => (priority?.leak ? nodeAt(recent, shownLine(priority)) : undefined), [recent, priority]);
+  const asking = recall?.asking ?? false;
   const arrows = useMemo(() => {
+    // Le joueur cherche son coup : aucune flèche ne doit le lui souffler.
+    if (asking) return [];
     const deviation = [...steps].sort((a, b) => b.games.length - a.games.length)[0];
     // Deux couleurs sur l'arbre : le vert du répertoire, le terracotta de ce qui demande à être regardé.
     const shown = !inRepertoire
@@ -44,7 +47,7 @@ export function usePositionFacts({ side, path, node, recent, steps, priority, le
     if (!leak || settling || !(afterLeak || inRepertoire)) return shown;
     const costly: BoardArrow = { san: leak.san!, kind: 'costly', share: 0.5, emphasis: true, played: afterLeak };
     return [...shown.filter((arrow) => afterLeak || arrow.san !== leak.san).slice(0, MAX_ARROWS - 1), costly];
-  }, [inRepertoire, node, steps, leak, settling, afterLeak]);
+  }, [asking, inRepertoire, node, steps, leak, settling, afterLeak]);
   // Un point d'atterrissage par flèche, pas par coup du répertoire : dix points sur l'échiquier, c'est dix flèches de plus.
   const suggestions = useMemo(() => arrows.filter((arrow) => 'kind' in arrow && arrow.kind === 'repertoire').map((arrow) => arrow.san), [arrows]);
   const average = useMemo(() => playerAverage(recent), [recent]);

@@ -110,7 +110,8 @@ fresh. Two outcomes:
 - **Left the repertoire** — the player played a move their repertoire does not
   hold ("move 7: you played Bd7, your repertoire has e6"). The engine compares
   that move with the repertoire's best one at that position. Weaker by at least an
-  inaccuracy, it is a lapse: the player answers **Add** (an [addition](#addition)
+  inaccuracy, it is a lapse: the player first looks for their repertoire move
+  on the board, then answers **Add** (an [addition](#addition)
   built from there) or **Review** the repertoire's moves (an exercise on that
   position); without an answer, nothing changes. Not weaker, there is nothing to
   ask: played once, it is left alone; played again, it joins the repertoire by

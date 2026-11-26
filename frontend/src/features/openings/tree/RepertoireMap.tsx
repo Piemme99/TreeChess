@@ -34,6 +34,8 @@ interface RepertoireMapProps {
   preview?: readonly (readonly string[])[];
   /** Les lignes ajoutées depuis l'ouverture de la page : la preuve du travail fait reste dépliée. */
   pinned?: readonly string[];
+  /** Un nœud dont la suite reste repliée : le joueur y cherche son coup. */
+  concealed?: string;
 }
 
 interface Hover {
@@ -42,7 +44,7 @@ interface Hover {
   y: number;
 }
 
-export function RepertoireMap({ root: drawn, side, selected, onSelect, focus, locked = false, preview = NO_PREVIEW, pinned = NO_PINS }: RepertoireMapProps) {
+export function RepertoireMap({ root: drawn, side, selected, onSelect, focus, locked = false, preview = NO_PREVIEW, pinned = NO_PINS, concealed }: RepertoireMapProps) {
   const root = useMemo(() => withPreview(drawn, preview), [drawn, preview]);
   const container = useRef<HTMLDivElement>(null);
   const size = useElementSize(container);
@@ -55,8 +57,12 @@ export function RepertoireMap({ root: drawn, side, selected, onSelect, focus, lo
 
   // La sélection et la construction en cours restent dépliées, quoi qu'il arrive à la carte autour.
   const kept = useMemo(
-    () => ({ ...folding, revealed: new Set([...folding.revealed, selected, ...pinned, ...preview.map((line) => line.join(' '))]) }),
-    [folding, selected, preview, pinned],
+    () => ({
+      ...folding,
+      closed: concealed ? new Set([...folding.closed, concealed]) : folding.closed,
+      revealed: new Set([...folding.revealed, selected, ...pinned, ...preview.map((line) => line.join(' '))]),
+    }),
+    [folding, selected, preview, pinned, concealed],
   );
   // Plutôt replier que réduire : on monte le seuil de parties jusqu'à ce que la carte tienne en hauteur à taille de
   // lecture. En largeur, les lignes marquées vont aussi loin qu'il faut : le bord signale ce qui dépasse.

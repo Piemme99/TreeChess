@@ -30,13 +30,13 @@ export function PhonePane(props: PhonePaneProps) {
       </div>
       <LineStrip path={path} trail={trail} known={node.path.length} onJump={onJump} />
       <div className="flex flex-col gap-3 empty:hidden">
-        {settling && <SettleCard steps={steps} facts={facts} actions={actions} onSkip={onSkip} rank={props.priorityRank ?? node.priority} />}
+        {settling && <SettleCard steps={steps} facts={facts} actions={actions} onSkip={onSkip} rank={props.priorityRank ?? node.priority} recall={props.recall} />}
         {prioritised && !settling && (
           <PriorityCard side={side} priority={priority!} rank={props.priorityRank ?? node.priority!} total={props.priorityCount} facts={facts} waiting={steps.length} onLead={onLead} onNextPriority={onNextPriority} onPrepareFollows={onPrepareFollows} />
         )}
         {props.stopped && props.stopped.moves.length > 0 && <StoppedCard stopped={props.stopped} ply={node.path.length + 1} />}
       </div>
-      {inRepertoire ? (
+      {props.recall?.asking ? null : inRepertoire ? (
         <MoveTable side={side} node={node} onSelect={onSelect} onExtend={onExtend} />
       ) : (
         <OffRepertoire path={path} node={node} facts={facts} onExtend={onExtend} onJump={onJump} />

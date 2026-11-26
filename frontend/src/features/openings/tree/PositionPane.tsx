@@ -10,7 +10,8 @@ import { scoreRate } from '../domain/performance';
 import type { Side } from '../domain/playedGame';
 import type { Priority } from '../domain/priorities';
 import { replayLine } from '../position/replay';
-import type { SessionStep } from '../session/steps';
+import type { RecallVerdict, SessionStep } from '../session/steps';
+import type { Recall } from './useCheckSession';
 import type { StoppedMove } from '../domain/stopped';
 import { COLOURS, raised, REPERTOIRE, SPRING, tile } from '../workshop/theme';
 import { usePositionFacts, type PositionFacts } from './positionFacts';
@@ -50,6 +51,8 @@ export interface PositionPaneProps {
   /** Combien de priorités en tout, les deux camps ensemble. */
   priorityCount?: number;
   actions: StepActions;
+  /** En séance, le coup à retrouver avant de voir le répertoire. */
+  recall?: Recall;
   /** La carte mise en avant quand la position porte une décision et une priorité. */
   lead: 'settle' | 'priority';
   onLead: (lead: 'settle' | 'priority') => void;
@@ -122,7 +125,7 @@ export function PositionPane(props: PositionPaneProps) {
       <div className={`contents min-[100rem]:col-start-2 min-[100rem]:row-start-2 min-[100rem]:flex min-[100rem]:flex-col min-[100rem]:gap-4 ${SPLIT_SIDE}`}>
         {settling && (
           <div className="order-3">
-            <SettleCard steps={steps} facts={facts} actions={actions} onSkip={onSkip} rank={props.priorityRank ?? node.priority} />
+            <SettleCard steps={steps} facts={facts} actions={actions} onSkip={onSkip} rank={props.priorityRank ?? node.priority} recall={props.recall} />
           </div>
         )}
         {prioritised && !settling && (
@@ -135,13 +138,14 @@ export function PositionPane(props: PositionPaneProps) {
             <StoppedCard stopped={props.stopped} ply={node.path.length + 1} />
           </div>
         )}
-        <Repertoire side={side} node={node} inRepertoire={inRepertoire} ply={ply} onMove={onMove} />
+        {!props.recall?.asking && <Repertoire side={side} node={node} inRepertoire={inRepertoire} ply={ply} onMove={onMove} />}
         {!inRepertoire ? (
           <div className="order-5">
             <OffRepertoire path={path} node={node} facts={facts} onExtend={onExtend} onJump={onJump} />
           </div>
         ) : (
-          !(prioritised && !settling && onPrepareFollows) && (
+          !(prioritised && !settling && onPrepareFollows) &&
+          !props.recall?.asking && (
             <div className="order-5">
               <Action onClick={onExtend}>Extend from here</Action>
             </div>
@@ -166,16 +170,23 @@ export function PositionPane(props: PositionPaneProps) {
 }
 
 /** Les décisions de la position : ce qui a été joué, ce que dit le score, et les deux ou trois issues. */
-export function SettleCard({ steps, facts, actions, onSkip, rank }: { steps: readonly SessionStep[]; facts: PositionFacts; actions: StepActions; onSkip?: () => void; rank?: number }) {
+export function SettleCard({ steps, facts, actions, onSkip, rank, recall }: { steps: readonly SessionStep[]; facts: PositionFacts; actions: StepActions; onSkip?: () => void; rank?: number; recall?: Recall }) {
   const { ply, here, prioritised, average } = facts;
   return (
     <section aria-label="To settle" className="flex flex-col gap-3 rounded-2xl px-4 py-3.5 text-[14px]" style={{ background: COLOURS.paper, boxShadow: `inset 0 0 0 1.5px ${COLOURS.terracotta}` }}>
       <span className="text-[12px] font-bold uppercase tracking-[0.06em]" style={{ color: COLOURS.terracotta }}>
         To settle
       </span>
-      {steps.map((step, index) => (
-        <Step key={step.key} step={step} ply={ply} here={here} actions={actions} onSkip={index === steps.length - 1 ? onSkip : undefined} />
-      ))}
+      {recall?.asking ? (
+        <RecallPrompt games={steps.reduce((sum, step) => sum + step.games.length, 0)} onReveal={recall.onReveal} onSkip={onSkip} />
+      ) : (
+        <>
+          {recall?.tried && <RecallResult san={recall.tried.san} verdict={recall.tried.verdict} ply={ply} />}
+          {steps.map((step, index) => (
+            <Step key={step.key} step={step} ply={ply} here={here} actions={actions} onSkip={index === steps.length - 1 ? onSkip : undefined} />
+          ))}
+        </>
+      )}
       {prioritised && (
         <p className="border-t pt-2.5 text-[13px]" style={{ borderColor: COLOURS.sand, color: COLOURS.leafSoft }}>
           <strong style={{ color: COLOURS.leaf }}>Also weak opening {rank}:</strong> you score {here ? Math.round(scoreRate(here) * 100) : '—'}% here, {Math.round(average * 100)}% on average.
@@ -455,6 +466,32 @@ function Step({ step, ply, here, actions, onSkip }: { step: SessionStep; ply: nu
         </div>
       )}
     </div>
+  );
+}
+
+function RecallPrompt({ games, onReveal, onSkip }: { games: number; onReveal: () => void; onSkip?: () => void }) {
+  return (
+    <div className="flex flex-col gap-2.5">
+      <p className="text-[15px] leading-snug">
+        <strong>Your move here?</strong> You left your repertoire here in {games} {games === 1 ? 'game' : 'games'}: play the move you prepared on
+        the board.
+      </p>
+      <span className="flex flex-wrap items-center justify-between gap-x-3">
+        <span className="w-40">
+          <Action onClick={onReveal}>Show me</Action>
+        </span>
+        {onSkip && <Skip onSkip={onSkip} />}
+      </span>
+    </div>
+  );
+}
+
+function RecallResult({ san, verdict, ply }: { san: string; verdict: RecallVerdict; ply: number }) {
+  const move = figurineMove(san, ply);
+  return (
+    <p role="status" className="text-[15px] font-semibold leading-snug" style={{ color: verdict === 'right' ? REPERTOIRE : COLOURS.terracotta }}>
+      {verdict === 'right' ? `✓ ${move}: you found your move.` : verdict === 'again' ? `${move} again: not your repertoire move.` : `${move} is not your repertoire move.`}
+    </p>
   );
 }
 

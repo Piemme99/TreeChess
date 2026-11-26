@@ -72,7 +72,11 @@ export function TreePage() {
   const check = useCheckSession({ ...replayed, active: task === 'check', maps, walk, day: replay.day, show, pin, build, toTop });
   const { session, current } = check;
   const weak = useWeakTask({ active: task === 'weak', priorities, asked, walk, setParams, toTop });
-  useTreeKeyboard(walk, !building);
+  const stepsHere = useMemo(() => steps.filter((step) => step.side === side && step.games[0].check.position === node.position), [steps, side, node]);
+  // Le coup à retrouver ne vaut que sur la position de l'étape : ailleurs, on parcourt l'arbre comme d'habitude.
+  const recall = current && stepsHere.includes(current) ? check.recall : undefined;
+  const asking = recall?.asking ?? false;
+  useTreeKeyboard(walk, !building && !asking);
   const nextDay = useDayAnnouncements({ ...replayed, live: check.live, show, close, pin });
   const reset =
     replay.reset &&
@@ -84,7 +88,6 @@ export function TreePage() {
     });
   const { stoppedActions, onRemove } = useRemovals({ ...replayed, walk, maps, today: replay.today, show, toTop });
 
-  const stepsHere = useMemo(() => steps.filter((step) => step.side === side && step.games[0].check.position === node.position), [steps, side, node]);
   const priority = weak.onLine ? weak.priority : node.priority !== undefined ? priorities[node.priority - 1] : undefined;
   const priorityRank = weak.onLine ? weak.rank : node.priority;
   const perSide = { w: steps.filter((step) => step.side === 'w').length, b: steps.filter((step) => step.side === 'b').length };
@@ -147,6 +150,7 @@ export function TreePage() {
     steps: current && stepsHere.includes(current) ? [current] : stepsHere,
     priority,
     actions: check.actions,
+    recall,
     lead: session ? ('settle' as const) : walk.lead,
     onLead: (next: Lead) => {
       walk.setLead(next);
@@ -170,7 +174,7 @@ export function TreePage() {
           build({ origin: { ...originAt(side, line.slice(0, Math.min(reached.path.length, line.length)), line), heading }, worked: { side, path: priority.path } });
         }
       : undefined,
-    onMove: walk.play,
+    onMove: asking ? recall!.onTry : walk.play,
     onJump: walk.walk,
     onBack: path.length ? walk.back : undefined,
   };
@@ -215,6 +219,7 @@ export function TreePage() {
                   locked={building !== null}
                   preview={shownPreview}
                   pinned={pinned}
+                  concealed={asking ? node.key : undefined}
                 />
               </div>
               <div className="flex min-w-0 flex-col gap-3 self-start">{pane$ ?? <PositionPane {...paneProps} />}</div>
@@ -233,7 +238,7 @@ export function TreePage() {
           </main>
         )}
         {!wide && !building && !done && (
-          <BottomBar onStart={path.length ? () => walk.walk([]) : undefined} onBack={path.length ? walk.back : undefined} onForward={walk.forward} onEnd={walk.toEnd} />
+          <BottomBar onStart={path.length ? () => walk.walk([]) : undefined} onBack={path.length ? walk.back : undefined} onForward={asking ? undefined : walk.forward} onEnd={asking ? undefined : walk.toEnd} />
         )}
         <Toast toast={toast} onClose={close} />
       </div>
