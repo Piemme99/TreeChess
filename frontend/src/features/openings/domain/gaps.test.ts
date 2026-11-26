@@ -69,10 +69,42 @@ describe('gaps', () => {
     expect(shared?.reach).toBeCloseTo(0.95);
   });
 
+  it('counts the player own choices once whatever order the explorer lists the replies in', () => {
+    // Après 1.d4 d5 2.c4 e6 : 3.♘c3 ou 3.♘f3 ; après 1.d4 ♘f6 2.c4 e6 : 3.♘f3. Les trois lignes se rejoignent après le 4e coup.
+    const white = repertoireOf('w', {
+      '': ['d4'],
+      d4: ['d5', 'Nf6'],
+      'd4 d5': ['c4'],
+      'd4 Nf6': ['c4'],
+      'd4 d5 c4': ['e6'],
+      'd4 Nf6 c4': ['e6'],
+      'd4 d5 c4 e6': ['Nc3', 'Nf3'],
+      'd4 Nf6 c4 e6': ['Nf3'],
+      'd4 d5 c4 e6 Nc3': ['Nf6'],
+      'd4 d5 c4 e6 Nf3': ['Nf6'],
+      'd4 Nf6 c4 e6 Nf3': ['d5'],
+      'd4 d5 c4 e6 Nc3 Nf6': ['Nf3'],
+      'd4 d5 c4 e6 Nf3 Nf6': ['Nc3'],
+      'd4 Nf6 c4 e6 Nf3 d5': ['Nc3'],
+    });
+    const after = { 'd4 d5 c4': { e6: 100 }, 'd4 Nf6 c4': { e6: 100 }, 'd4 d5 c4 e6 Nc3': { Nf6: 100 }, 'd4 d5 c4 e6 Nf3': { Nf6: 100 }, 'd4 Nf6 c4 e6 Nf3': { d5: 100 }, 'd4 d5 c4 e6 Nc3 Nf6 Nf3': { Be7: 100 } };
+    for (const first of [{ d5: 50, Nf6: 50 }, { Nf6: 50, d5: 50 }]) {
+      const { gaps } = findGaps(white, explorerOf({ d4: first, ...after }));
+      expect(gaps.map((gap) => gap.reach)).toEqual([expect.closeTo(1)]);
+    }
+  });
+
   it('adds up two move orders that each stay under the goal', () => {
     // 1.e4 e5 2.♘f3 ♘c6 et 1.e4 ♘c6 2.♘f3 e5 : 0,3 % chacun, 0,6 % ensemble.
     const white = repertoireOf('w', { '': ['e4'], e4: ['e5', 'Nc6'], 'e4 e5': ['Nf3'], 'e4 Nc6': ['Nf3'] });
     const { gaps } = findGaps(white, explorerOf({ e4: { e5: 500, Nc6: 500 }, 'e4 e5 Nf3': { Nc6: 6, d6: 994 }, 'e4 Nc6 Nf3': { e5: 6, d6: 994 } }));
     expect(lines(gaps)).toContain('e4 e5 Nf3 Nc6');
+  });
+
+  it('adds up two move orders under the goal that only meet after a move of the player', () => {
+    // 1.d4 ♘f6 2.c4 e6 3.♘f3 et 1.d4 e6 2.♘f3 ♘f6 3.c4 : 0,3 % chacun avant le 3e coup blanc, 0,6 % ensemble.
+    const white = repertoireOf('w', { '': ['d4'], d4: ['Nf6', 'e6'], 'd4 Nf6': ['c4'], 'd4 e6': ['Nf3'], 'd4 Nf6 c4': ['e6'], 'd4 e6 Nf3': ['Nf6'], 'd4 Nf6 c4 e6': ['Nf3'], 'd4 e6 Nf3 Nf6': ['c4'] });
+    const { gaps } = findGaps(white, explorerOf({ d4: { Nf6: 500, e6: 500 }, 'd4 Nf6 c4': { e6: 6, d5: 994 }, 'd4 e6 Nf3': { Nf6: 6, d5: 994 }, 'd4 Nf6 c4 e6 Nf3': { b6: 100 } }));
+    expect(gaps.find((gap) => gap.path.at(-1) === 'b6')?.reach).toBeCloseTo(0.006);
   });
 });

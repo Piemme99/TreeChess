@@ -10,7 +10,7 @@ export interface GapScan {
   gaps: Gap[];
   /** La recherche est finie. */
   done: boolean;
-  /** Le plus gros trou ne peut plus changer : ce qui reste à lire pèse moins que lui. */
+  /** Le plus gros trou ne peut plus changer : ce qui reste à lire ne ferait pas passer le deuxième devant. */
   settled: boolean;
   /** Positions lues sur l'explorateur depuis l'arrivée sur la page. */
   read: number;
@@ -75,5 +75,5 @@ export function useGaps(repertoires: Record<Side, Repertoire>, enabled = true): 
   }, [missing, opponents, unavailable]);
 
   const done = !found.missing.length;
-  return { gaps: found.gaps, done, settled: done || (found.gaps.length > 0 && found.gaps[0].reach >= found.pending), read, unavailable };
+  return { gaps: found.gaps, done, settled: done || (found.gaps.length > 0 && found.gaps[0].reach >= (found.gaps[1]?.reach ?? 0) + found.pending), read, unavailable };
 }
