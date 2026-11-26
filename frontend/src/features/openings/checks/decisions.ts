@@ -1,4 +1,4 @@
-import { asksDecision, checkGame } from '../domain/gameCheck';
+import { asksDecision, followGame } from '../domain/gameCheck';
 import type { PlayedGame, Side } from '../domain/playedGame';
 import type { Repertoire } from '../domain/repertoire';
 import type { CheckedGame } from './checkedGame';
@@ -14,7 +14,7 @@ export function liveGames(
     .map((game, id) => ({ id, game }))
     .filter(({ game }) => game.playedAt > firstDay && game.playedAt <= day)
     .sort((a, b) => a.game.playedAt.localeCompare(b.game.playedAt))
-    .map(({ id, game }) => ({ id, game, check: checkGame(repertoireOn(game.side, game.playedAt), game) }));
+    .map(({ id, game }) => ({ id, game, ...followGame(repertoireOn(game.side, game.playedAt), game) }));
   const asks = asksDecision(lived);
   return lived.map((checked, index) => ({ ...checked, asks: asks[index] }));
 }

@@ -6,6 +6,8 @@ export interface CheckedGame {
   id: number;
   game: PlayedGame;
   check: GameCheck;
+  /** Les positions où le joueur a joué un coup de son répertoire, avant que la partie n'en sorte. */
+  answered: readonly string[];
   /** Voir `asksDecision` : un coup adverse hors répertoire ne compte qu'à sa deuxième rencontre. */
   asks: boolean;
 }

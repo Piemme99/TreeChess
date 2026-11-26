@@ -81,12 +81,37 @@ export function seededState(repertoire: Repertoire, habits: OpeningTree, today: 
   return state;
 }
 
-/** Une position manquée en partie après sa dernière révision redevient due ce jour-là. */
-export function withLapses(state: ReviewState, lapses: ReadonlyMap<string, string>): ReviewState {
+/** Une position jouée en partie, juste (un coup du répertoire) ou manquée (le joueur en est sorti). */
+export interface GameAnswer {
+  key: string;
+  day: string;
+  right: boolean;
+}
+
+/**
+ * Les parties révisent aussi, dans l'ordre où elles ont été jouées : un coup du répertoire joué sur une position due la
+ * fait avancer comme une bonne réponse, une position manquée après sa dernière révision redevient due ce jour-là, en
+ * boîte 1. Jouée juste puis manquée le même jour, elle compte comme manquée.
+ */
+export function withGames(state: ReviewState, answers: readonly GameAnswer[]): ReviewState {
+  // L'ordre d'insertion garde celui des jours : une Map, pas un objet.
+  const days = new Map<string, GameAnswer>();
+  for (const answer of answers) {
+    const id = `${answer.day} ${answer.key}`;
+    days.set(id, { ...answer, right: (days.get(id)?.right ?? true) && answer.right });
+  }
   const next = new Map(state);
-  for (const [key, day] of lapses) {
-    const card = state.get(key);
-    if (card && card.reviewedAt < day) next.set(key, { box: 1, due: day, reviewedAt: card.reviewedAt, missed: true });
+  for (const { key, day, right } of days.values()) {
+    const card = next.get(key);
+    // Une position révisée ce jour-là ou après a déjà sa réponse : rejouer les parties ne la déplace plus.
+    if (card && card.reviewedAt >= day) continue;
+    if (!right) {
+      // Le jour de révision reste l'ancien : la position redevient due, sans compter comme révisée.
+      if (card) next.set(key, { box: 1, due: day, reviewedAt: card.reviewedAt, missed: true });
+    } else if (isDue(next, key, day)) {
+      const box = Math.min((card?.box ?? 0) + 1, INTERVALS.length);
+      next.set(key, { box, due: addDays(day, INTERVALS[box - 1]), reviewedAt: day });
+    }
   }
   return next;
 }

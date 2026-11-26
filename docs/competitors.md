@@ -88,8 +88,8 @@ opponent deviates ([chess.com blog](https://www.chess.com/blog/nekochabo/why-ope
 ### D. Review (spaced repetition)
 
 16. **A repertoire move played right in a game counts as a successful review.** About 20 % of Chessbook's reviews come
-    from games ([vs Chessable](https://chessbook.com/blog/chessbook-vs-chessable)). In Kumquat games only bring lapses
-    (`withLapses` in `domain/review.ts`).
+    from games ([vs Chessable](https://chessbook.com/blog/chessbook-vs-chessable)). *Done on 2026-11-26* (`withGames` in
+    `domain/review.ts`).
 17. **Retry before the answer** in Check: when the game left the repertoire, the player looks for the move before it
     is shown. Lichess "Learn from your mistakes"
     ([blog](https://lichess.org/@/lichess/blog/learn-from-your-mistakes/WFvLpiQA)), Chess.com Game Review "Retry"

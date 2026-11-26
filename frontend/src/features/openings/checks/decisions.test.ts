@@ -8,6 +8,7 @@ const checked = (id: number, playedAt: string, kind: 'left' | 'uncovered' | 'fol
   id,
   game: { side: 'w', moves: ['e4', 'e5'], score: 0, playedAt },
   check: kind === 'followed' ? { kind, plies: 2 } : { kind, ply: 1, played: 'e5', planned: ['c5'], position: 'e4' },
+  answered: [],
   asks,
 });
 
