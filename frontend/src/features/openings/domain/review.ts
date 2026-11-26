@@ -116,6 +116,20 @@ export function withGames(state: ReviewState, answers: readonly GameAnswer[]): R
   return next;
 }
 
+/**
+ * Une réponse en révision, sur l'état gardé : seule la position répondue y entre avec ce que les parties lui ont fait.
+ * Les autres restent relues des parties à chaque fois, sans quoi une partie jouée juste gardée là masquerait un oubli
+ * du même jour importé plus tard.
+ */
+export function answeredAfterGames(stored: ReviewState, games: readonly GameAnswer[], key: string, right: boolean, today: string): ReviewState {
+  const lived = withGames(stored, games);
+  const after = answered(lived, key, right, today);
+  if (after === lived) return stored;
+  const next = new Map(stored);
+  next.set(key, after.get(key)!);
+  return next;
+}
+
 /** Un coup du répertoire manqué à l'entraînement : comme un oubli en partie, la position revient le jour même, en boîte 1. */
 export function missedInPractice(state: ReviewState, key: string, today: string): ReviewState {
   const next = new Map(state);

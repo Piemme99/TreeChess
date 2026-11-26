@@ -5,7 +5,7 @@ import { gamesOfLastMonths } from '../domain/period';
 import { gamesUntil } from '../domain/replay';
 import type { PlayedGame, Side } from '../domain/playedGame';
 import type { Repertoire } from '../domain/repertoire';
-import { answered, dueCount, mastery, missedInPractice, seededState, withGames, type ReviewCard, type ReviewState } from '../domain/review';
+import { answeredAfterGames, dueCount, mastery, missedInPractice, seededState, withGames, type ReviewCard, type ReviewState } from '../domain/review';
 import { encountersOf, gameAnswersOf, lapsesOf, reviewWeight } from './weights';
 import { readStored, writeStored } from '../workshop/storage';
 
@@ -52,8 +52,7 @@ export function useReview(games: readonly PlayedGame[], repertoires: Record<Side
     answer: (side: Side, key: string, right: boolean) =>
       // En transition : le coup joué s'affiche d'abord, le recalcul du dû et du su vient après.
       startTransition(() =>
-        // Répondre à une position que les parties ont déjà déplacée part de l'état qui en tient compte.
-        setStored((current) => ({ ...current, [side]: answered(withGames(current[side], played[side]), key, right, today) })),
+        setStored((current) => ({ ...current, [side]: answeredAfterGames(current[side], played[side], key, right, today) })),
       ),
     missedInPractice: (side: Side, key: string) => setStored((current) => ({ ...current, [side]: missedInPractice(current[side], key, today) })),
     forget: () => setStored(seed(games, repertoires, start)),

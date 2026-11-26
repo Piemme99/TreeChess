@@ -3,7 +3,7 @@ import { Chess } from 'chess.js';
 import { positionKey, type Repertoire, type RepertoireMove } from './repertoire';
 import { buildOpeningTree } from './openingTree';
 import type { PlayedGame } from './playedGame';
-import { acceptedMoves, answered, dueCount, hasDueAhead, isDue, mastery, missedInPractice, nextReply, planLine, playerPositions, seededState, sessionDone, sessionPositions, withGames, type GameAnswer, type ReviewState } from './review';
+import { acceptedMoves, answered, answeredAfterGames, dueCount, hasDueAhead, isDue, mastery, missedInPractice, nextReply, planLine, playerPositions, seededState, sessionDone, sessionPositions, withGames, type GameAnswer, type ReviewState } from './review';
 
 const TODAY = '2026-03-01';
 
@@ -120,6 +120,14 @@ describe('review', () => {
 
     expect(withGames(once, games)).toEqual(once);
     expect(withGames(answered(once, key('e4 e5'), true, '2026-03-09'), games).get(key('e4 e5'))).toMatchObject({ box: 3, reviewedAt: '2026-03-09' });
+  });
+
+  it('still sends back a position played right in a game then missed in a later game of the same day, after a review in between', () => {
+    const stored = answered(answered(new Map(), key('e4 e5'), true, TODAY), key('e4 e5'), true, '2026-03-02');
+    const morning = [rightOn(key('e4 e5'), '2026-03-09')];
+    const kept = answeredAfterGames(stored, morning, key(''), true, '2026-03-09');
+
+    expect(withGames(kept, [...morning, missedOn(key('e4 e5'), '2026-03-09')]).get(key('e4 e5'))).toMatchObject({ box: 1, due: '2026-03-09', missed: true });
   });
 
   it("a repertoire move missed in practice is back in that day's review, from box 1, even when it was a month away", () => {
