@@ -35,7 +35,7 @@ func (r *PostgresPlayedGameRepo) SaveGames(ctx context.Context, userID string, g
 		batch.Queue(
 			`INSERT INTO played_games (user_id, source, source_id, color, moves, score, rating, played_at)
 			 SELECT $1::uuid, $2::varchar, $3::varchar, $4::varchar, $5::text, $6::real, $7::integer, $8::date
-			 WHERE $2::varchar <> 'chesscom' OR EXISTS (SELECT 1 FROM chesscom_accounts WHERE user_id = $1::uuid)
+			 WHERE $2::varchar <> 'chesscom' OR EXISTS (SELECT 1 FROM chesscom_accounts WHERE user_id = $1::uuid FOR KEY SHARE)
 			 ON CONFLICT (user_id, source, source_id) DO NOTHING`,
 			userID, game.Source, game.SourceID, game.Color, game.Moves, game.Score, game.Rating, game.PlayedAt,
 		)
@@ -193,10 +193,11 @@ func (r *PostgresPlayedGameRepo) UnlinkChesscom(ctx context.Context, userID stri
 		return fmt.Errorf("unlink chess.com account: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	if _, err := tx.Exec(ctx, `DELETE FROM played_games WHERE user_id = $1 AND source = 'chesscom'`, userID); err != nil {
+	// Le compte d'abord : il attend la fin d'un lot en cours (FOR KEY SHARE), dont les parties sont alors effacées aussi.
+	if _, err := tx.Exec(ctx, `DELETE FROM chesscom_accounts WHERE user_id = $1`, userID); err != nil {
 		return fmt.Errorf("unlink chess.com account: %w", err)
 	}
-	if _, err := tx.Exec(ctx, `DELETE FROM chesscom_accounts WHERE user_id = $1`, userID); err != nil {
+	if _, err := tx.Exec(ctx, `DELETE FROM played_games WHERE user_id = $1 AND source = 'chesscom'`, userID); err != nil {
 		return fmt.Errorf("unlink chess.com account: %w", err)
 	}
 	return tx.Commit(ctx)
