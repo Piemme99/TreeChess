@@ -61,9 +61,18 @@ describe('gaps', () => {
     expect(transposing[0].reach).toBeCloseTo(1);
   });
 
-  it('stops where the explorer has not answered yet, and asks for that position', () => {
-    const { gaps, missing } = findGaps(black, explorerOf({ '': { e4: 500, d4: 500 }, 'e4 e5': { Nf3: 100 } }));
-    expect(lines(gaps)).toEqual(['e4 e5 Nf3']);
-    expect(missing.map(positionKey)).toEqual([positionKey(fenAfter('d4 d5'))]);
+  it('counts two of the player own choices that transpose once, not twice', () => {
+    // 1.d4 et 1.♘f3 : deux façons de jouer, pas deux parts des parties ; ♘f6 répond aux deux, puis 2.♘f3 / 2.d4.
+    const white = repertoireOf('w', { '': ['d4', 'Nf3'], d4: ['Nf6'], Nf3: ['Nf6'], 'd4 Nf6': ['Nf3'], 'Nf3 Nf6': ['d4'] });
+    const { gaps } = findGaps(white, explorerOf({ d4: { Nf6: 95, d5: 5 }, Nf3: { Nf6: 95, d5: 5 }, 'd4 Nf6 Nf3': { e6: 100 } }));
+    const shared = gaps.find((gap) => gap.path.join(' ').endsWith('e6'));
+    expect(shared?.reach).toBeCloseTo(0.95);
+  });
+
+  it('adds up two move orders that each stay under the goal', () => {
+    // 1.e4 e5 2.♘f3 ♘c6 et 1.e4 ♘c6 2.♘f3 e5 : 0,3 % chacun, 0,6 % ensemble.
+    const white = repertoireOf('w', { '': ['e4'], e4: ['e5', 'Nc6'], 'e4 e5': ['Nf3'], 'e4 Nc6': ['Nf3'] });
+    const { gaps } = findGaps(white, explorerOf({ e4: { e5: 500, Nc6: 500 }, 'e4 e5 Nf3': { Nc6: 6, d6: 994 }, 'e4 Nc6 Nf3': { e5: 6, d6: 994 } }));
+    expect(lines(gaps)).toContain('e4 e5 Nf3 Nc6');
   });
 });

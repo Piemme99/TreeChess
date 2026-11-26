@@ -34,7 +34,9 @@ export const hasExplorer = () => true;
 let chain: Promise<unknown> = Promise.resolve();
 
 function urlOf(database: Database, fen: string, ratings: readonly number[]) {
-  const query = new URLSearchParams({ variant: 'standard', fen, moves: '8' });
+  // Les compteurs ne changent rien aux coups joués : sans eux, deux ordres de coups qui transposent partagent leur réponse.
+  const position = `${fen.split(' ').slice(0, 4).join(' ')} 0 1`;
+  const query = new URLSearchParams({ variant: 'standard', fen: position, moves: '8' });
   if (database === 'masters') {
     query.set('topGames', '4');
   } else {
@@ -54,6 +56,8 @@ export function lichessSignInUrl() {
 
 let signInNeeded = false;
 const listeners = new Set<() => void>();
+
+export const explorerSignInNeeded = () => signInNeeded;
 
 /** Le relais n'a pas la position en cache et il faut un compte Lichess connecté pour la demander. */
 export function useExplorerSignIn(): boolean {
@@ -87,19 +91,29 @@ function send(url: string): Promise<Reply | null> {
 
 const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-/** Ce que l'explorateur a déjà répondu pour cette position, sans rien demander. */
-export function explored(database: Database, fen: string, ratings: readonly number[]): ExplorerResult | undefined {
-  const stored = localStorage.getItem(STORAGE + urlOf(database, fen, ratings));
+// Ce que la page a reçu, même quand le stockage local est plein.
+const received = new Map<string, ExplorerResult>();
+
+const storedAt = (url: string): ExplorerResult | undefined => {
+  const kept = received.get(url);
+  if (kept) return kept;
+  const stored = localStorage.getItem(STORAGE + url);
   return stored ? (JSON.parse(stored) as ExplorerResult) : undefined;
-}
+};
+
+/** Ce que l'explorateur a déjà répondu pour cette position, sans rien demander. */
+export const explored = (database: Database, fen: string, ratings: readonly number[]) => storedAt(urlOf(database, fen, ratings));
 
 // Une requête à la fois, comme Lichess le demande ; le cache local évite de refaire l'arbre à chaque rechargement.
 export function explore(database: Database, fen: string, ratings: readonly number[]): Promise<ExplorerResult | null> {
   const url = urlOf(database, fen, ratings);
-  const stored = localStorage.getItem(STORAGE + url);
-  if (stored) return Promise.resolve(JSON.parse(stored) as ExplorerResult);
+  const stored = storedAt(url);
+  if (stored) return Promise.resolve(stored);
 
   const run = async (): Promise<ExplorerResult | null> => {
+    // Une demande partie avant d'attendre son tour a pu trouver sa réponse entre-temps.
+    const answered = storedAt(url);
+    if (answered) return answered;
     for (let attempt = 0; attempt < 2; attempt++) {
       // Un réseau coupé ou un refus CORS rejette la requête : sans ce filet, l'appelant attendrait pour toujours.
       const reply = await send(url).catch(() => null);
@@ -115,7 +129,12 @@ export function explore(database: Database, fen: string, ratings: readonly numbe
       }
       if (reply.status !== 200 || !reply.data) return null;
       const result = reply.data as ExplorerResult;
-      localStorage.setItem(STORAGE + url, JSON.stringify(result));
+      received.set(url, result);
+      try {
+        localStorage.setItem(STORAGE + url, JSON.stringify(result));
+      } catch {
+        // Stockage plein : la réponse sert quand même, elle ne sera pas gardée.
+      }
       await pause(SPACING);
       return result;
     }

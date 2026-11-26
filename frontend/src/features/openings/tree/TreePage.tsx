@@ -107,7 +107,8 @@ export function TreePage() {
     const worked = target && { ...target, since: replay.day };
     if (worked) work(worked);
     if (worked && task === 'weak') weak.setPrepared({ moves: moves.length, line: lines[0] ?? [] });
-    if (task === 'gap') gapTask.prepare(building.origin.side, moves.length, lines[0] ?? []);
+    const filled = task === 'gap' && gapTask.fills(building.origin.side, lines);
+    if (filled) gapTask.prepare(moves.length, lines[0] ?? []);
     pin(lines.map((line) => line.join(' ')));
     const text = `${moves.length} ${moves.length === 1 ? 'move' : 'moves'} added to your repertoire`;
     const step = building.stepKey ? check.live.get(building.stepKey) : undefined;
@@ -122,7 +123,7 @@ export function TreePage() {
     const landing = line0 && findByPosition(maps[building.origin.side], positionKey(replayLine(line0).fens[line0.length]));
     const transposed = landing && landing.key !== line0.join(' ') ? landing : undefined;
     // Dans la tâche, le bilan remplace la carte : annuler y revient.
-    const inTask = (worked !== undefined && task === 'weak') || (task === 'gap' && gapTask.gap?.side === building.origin.side);
+    const inTask = (worked !== undefined && task === 'weak') || filled;
     show({
       text: transposed && !inTask ? `${text} · same position as ${figurineLine(transposed.path)}: shown there, linked from here` : text,
       undo: () => {
@@ -130,7 +131,7 @@ export function TreePage() {
         if (worked) unwork(worked);
         // Retour à la carte de la faiblesse ou du trou : la ligne retirée n'a plus rien à montrer.
         if (inTask && task === 'weak') weak.goTo(weak.rank);
-        if (inTask && task === 'gap') gapTask.goTo(gapTask.rank);
+        if (filled) gapTask.goTo(gapTask.rank);
       },
     });
     // La ligne ajoutée se voit tout de suite, même trop fine pour l'arrivée.
