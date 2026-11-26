@@ -5,6 +5,7 @@ import { useAuthStore } from '../../../stores/authStore';
 import { getApiErrorStatus } from '../../../shared/utils/apiError';
 import { lichessSignInUrl } from '../services/explorer';
 import { ReplayPanel } from '../replay/ReplayPanel';
+import { ChesscomAccount } from '../source/ChesscomAccount';
 import type { ReplayDay } from '../replay/useReplayDay';
 import { Kumquat } from './Kumquat';
 import { useNoIndex, useV2Path, type V2Page } from './routes';
@@ -42,7 +43,7 @@ export function PageHeader({ replay, wide = false }: { replay?: ReplayDay; wide?
   );
 }
 
-/** Ce qui ne sert pas tous les jours : le compte Lichess, la vue des ouvertures à l'ordinateur, le rejeu. */
+/** Ce qui ne sert pas tous les jours : les comptes Lichess et Chess.com, la vue des ouvertures à l'ordinateur, le rejeu. */
 function Menu({ replay }: { replay?: ReplayDay }) {
   const pathOf = useV2Path();
   const wide = useWide();
@@ -82,6 +83,7 @@ function Menu({ replay }: { replay?: ReplayDay }) {
           <button type="button" aria-label="Close the menu" className="fixed inset-0 z-40 cursor-default" onClick={close} />
           <div className="absolute right-0 top-full z-50 mt-1 flex w-72 flex-col divide-y divide-[oklch(0.915_0.035_80)] overflow-hidden rounded-2xl py-1 text-[15px]" style={{ background: COLOURS.paper, color: COLOURS.leaf, boxShadow: '0 14px 28px -10px oklch(0.3 0.06 150 / 0.45)' }}>
             {deleting ? <DeleteAccount failed={deletionFailed} onCancel={close} /> : <Account onDelete={() => setDeleting(true)} />}
+            {!deleting && user?.lichessLinked && <ChesscomAccount />}
             {/* Le tableau des ouvertures ne tient pas dans un téléphone. */}
             {!deleting && wide && (
               <Link to={pathOf('openings')} onClick={() => setOpen(false)} className="px-4 py-3 font-semibold focus-visible:outline-2">

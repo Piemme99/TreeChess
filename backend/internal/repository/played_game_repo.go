@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -30,9 +31,11 @@ func (r *PostgresPlayedGameRepo) SaveGames(ctx context.Context, userID string, g
 	}
 	batch := &pgx.Batch{}
 	for _, game := range games {
+		// Une partie Chess.com n'entre que si le compte est encore lié : un import en cours ne ramène pas celles d'un compte retiré.
 		batch.Queue(
 			`INSERT INTO played_games (user_id, source, source_id, color, moves, score, rating, played_at)
-			 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+			 SELECT $1::uuid, $2::varchar, $3::varchar, $4::varchar, $5::text, $6::real, $7::integer, $8::date
+			 WHERE $2::varchar <> 'chesscom' OR EXISTS (SELECT 1 FROM chesscom_accounts WHERE user_id = $1::uuid FOR KEY SHARE)
 			 ON CONFLICT (user_id, source, source_id) DO NOTHING`,
 			userID, game.Source, game.SourceID, game.Color, game.Moves, game.Score, game.Rating, game.PlayedAt,
 		)
@@ -53,11 +56,11 @@ func (r *PostgresPlayedGameRepo) SaveGames(ctx context.Context, userID string, g
 	return added, nil
 }
 
-// LastPlayedOn rend le jour de la partie la plus récente, vide s'il n'y en a pas.
-func (r *PostgresPlayedGameRepo) LastPlayedOn(ctx context.Context, userID string) (string, error) {
+// LastPlayedOn rend le jour de la partie la plus récente d'une source, vide s'il n'y en a pas.
+func (r *PostgresPlayedGameRepo) LastPlayedOn(ctx context.Context, userID, source string) (string, error) {
 	var day *string
 	if err := r.pool.QueryRow(ctx,
-		`SELECT to_char(MAX(played_at), 'YYYY-MM-DD') FROM played_games WHERE user_id = $1`, userID,
+		`SELECT to_char(MAX(played_at), 'YYYY-MM-DD') FROM played_games WHERE user_id = $1 AND source = $2`, userID, source,
 	).Scan(&day); err != nil {
 		return "", fmt.Errorf("last played game: %w", err)
 	}
@@ -139,7 +142,7 @@ func (r *PostgresPlayedGameRepo) UpdateProgress(ctx context.Context, userID stri
 	return nil
 }
 
-func (r *PostgresPlayedGameRepo) FinishImport(ctx context.Context, userID string, imported int, failure string) error {
+func (r *PostgresPlayedGameRepo) FinishImport(ctx context.Context, userID string, imported int, failure string, born bool) error {
 	status := models.PlayedGameImportDone
 	var message *string
 	if failure != "" {
@@ -151,9 +154,51 @@ func (r *PostgresPlayedGameRepo) FinishImport(ctx context.Context, userID string
 		 SET status = $2, imported = $3, error = $4, updated_at = NOW(), finished_at = NOW(),
 		     first_done_at = CASE WHEN $5 THEN COALESCE(first_done_at, NOW()) ELSE first_done_at END
 		 WHERE user_id = $1`,
-		userID, status, imported, message, failure == "",
+		userID, status, imported, message, born,
 	); err != nil {
 		return fmt.Errorf("finish played game import: %w", err)
 	}
 	return nil
+}
+
+// ChesscomUsername rend le compte Chess.com du joueur, vide s'il n'en a pas.
+func (r *PostgresPlayedGameRepo) ChesscomUsername(ctx context.Context, userID string) (string, error) {
+	var username string
+	err := r.pool.QueryRow(ctx, `SELECT username FROM chesscom_accounts WHERE user_id = $1`, userID).Scan(&username)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("get chess.com account: %w", err)
+	}
+	return username, nil
+}
+
+func (r *PostgresPlayedGameRepo) LinkChesscom(ctx context.Context, userID, username string) (bool, error) {
+	var kept string
+	if err := r.pool.QueryRow(ctx,
+		`INSERT INTO chesscom_accounts (user_id, username) VALUES ($1, $2)
+		 ON CONFLICT (user_id) DO UPDATE SET username = chesscom_accounts.username
+		 RETURNING username`,
+		userID, username,
+	).Scan(&kept); err != nil {
+		return false, fmt.Errorf("link chess.com account: %w", err)
+	}
+	return strings.EqualFold(kept, username), nil
+}
+
+func (r *PostgresPlayedGameRepo) UnlinkChesscom(ctx context.Context, userID string) error {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("unlink chess.com account: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	// Le compte d'abord : il attend la fin d'un lot en cours (FOR KEY SHARE), dont les parties sont alors effacées aussi.
+	if _, err := tx.Exec(ctx, `DELETE FROM chesscom_accounts WHERE user_id = $1`, userID); err != nil {
+		return fmt.Errorf("unlink chess.com account: %w", err)
+	}
+	if _, err := tx.Exec(ctx, `DELETE FROM played_games WHERE user_id = $1 AND source = 'chesscom'`, userID); err != nil {
+		return fmt.Errorf("unlink chess.com account: %w", err)
+	}
+	return tx.Commit(ctx)
 }

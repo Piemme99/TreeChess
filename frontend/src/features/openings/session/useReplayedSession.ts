@@ -14,7 +14,7 @@ import { useSource } from '../source/useSource';
 export function useReplayedSession() {
   const source = useSource();
   const replay = useReplayDay(source.games, source.firstDay, source.replay);
-  const { ignored, ignore, unignore, clear: forgetIgnored } = useIgnoredChecks();
+  const { ignored, ignore, unignore, clear: forgetIgnored } = useIgnoredChecks(source.games);
   const { repertoires, repertoireOn, add, remove, removeMove, restoreMove, clear: forgetRepertoire } = useRepertoires(source.games, source.start);
   const known = useMemo(() => gamesUntil(source.games, replay.day), [source.games, replay.day]);
   const { stopped, reviewed, keep, unkeep, clear: forgetKept } = useStoppedMoves(repertoires, known, source.start);

@@ -41,16 +41,16 @@ const SHOWN_PRIORITIES = 3;
 /** Ce qui attend le joueur (docs/flow/target.html) : une carte en avant, la plus urgente, les autres tâches en lignes. */
 export function HomePage() {
   useWorkshopFont();
-  const { state, syncing, startImport, tryDemo, leaveDemo } = useGameSource();
+  const { state, syncing, synced, syncError, startImport, tryDemo, leaveDemo } = useGameSource();
   if (state.kind === 'loading') return <PageSkeleton />;
   return (
     <MotionConfig reducedMotion="user">
       <div className="min-h-screen pb-20" style={{ fontFamily: FONT_FAMILY, background: COLOURS.cream, color: COLOURS.leaf }}>
         {state.kind === 'signed-out' && <SignInScreen onDemo={tryDemo} />}
-        {state.kind === 'to-import' && <ImportScreen username={state.username} state={state.state} onImport={() => void startImport()} />}
+        {state.kind === 'to-import' && <ImportScreen username={state.username} state={state.state} onImport={(chesscom) => void startImport(chesscom)} />}
         {state.kind === 'ready' && (
           <SourceProvider source={state.source}>
-            <Home onForget={leaveDemo} syncing={syncing} />
+            <Home onForget={leaveDemo} syncing={syncing} synced={synced} syncError={syncError} />
           </SourceProvider>
         )}
       </div>
@@ -58,7 +58,7 @@ export function HomePage() {
   );
 }
 
-function Home({ onForget, syncing }: { onForget: () => void; syncing: boolean }) {
+function Home({ onForget, syncing, synced, syncError }: { onForget: () => void; syncing: boolean; synced: number; syncError?: string }) {
   const pathOf = useV2Path();
   const { source, replay, known, lived, repertoires, reviewed, stopped, steps, judging, forgetIgnored, forgetAdditions } = useReplayedSession();
   const review = useReview(source.games, reviewed, lived, replay.today, source.start);
@@ -101,7 +101,12 @@ function Home({ onForget, syncing }: { onForget: () => void; syncing: boolean })
       <main className="mx-auto flex max-w-[34rem] flex-col gap-4 px-4 pt-5 lg:grid lg:max-w-[84rem] lg:grid-cols-[minmax(0,1fr)_25rem] lg:items-start lg:gap-6 lg:px-8">
         {syncing && (
           <p role="status" className="-mb-2 px-1 text-[13px] font-semibold lg:col-span-2" style={{ color: COLOURS.leafSoft }}>
-            Looking for new games on Lichess…
+            {synced ? `Importing your games… ${synced.toLocaleString('en-GB')} so far` : 'Looking for new games…'}
+          </p>
+        )}
+        {!syncing && syncError && (
+          <p role="alert" className="-mb-2 px-1 text-[13px] font-semibold lg:col-span-2" style={{ color: COLOURS.terracotta }}>
+            {syncError}
           </p>
         )}
         {hero === 'first' && (

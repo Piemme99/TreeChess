@@ -4,6 +4,7 @@ import { checkQueue, recallOf, sessionSteps } from './steps';
 
 const deviation = (id: number, moves: string[], playedAt: string, kind: 'left' | 'uncovered' = 'left'): CheckedGame => ({
   id,
+  key: String(id),
   game: { side: 'b', moves, score: 0, playedAt },
   check: { kind, ply: moves.length - 1, played: moves.at(-1)!, planned: ['d5'], position: moves.slice(0, -1).join(' ') },
   answered: [],

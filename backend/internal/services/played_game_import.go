@@ -74,50 +74,63 @@ func PlayedGameFromLichess(game LichessExportedGame, username string) (models.Pl
 		return models.PlayedGame{}, false
 	}
 
-	sans := strings.Fields(game.Moves)
-	if len(sans) > playedGameMaxPlies {
-		sans = sans[:playedGameMaxPlies]
-	}
-	if len(sans) == 0 {
-		return models.PlayedGame{}, false
-	}
-	board := chess.NewGame()
-	for _, san := range sans {
-		if err := board.MoveStr(san); err != nil {
-			return models.PlayedGame{}, false
-		}
-	}
-
 	score := 0.5
 	if game.Winner == color {
 		score = 1
 	} else if game.Winner != "" {
 		score = 0
 	}
-	var rating *int
-	if player.Rating > 0 {
-		rating = &player.Rating
+	return newPlayedGame("lichess", game.ID, color, strings.Fields(game.Moves), score, player.Rating, time.UnixMilli(game.LastMoveAt))
+}
+
+// newPlayedGame réduit une partie à ses 80 premiers demi-coups, tous validés ; false si elle n'en a aucun de légal.
+func newPlayedGame(source, id, color string, sans []string, score float64, rating int, endedAt time.Time) (models.PlayedGame, bool) {
+	if len(sans) > playedGameMaxPlies {
+		sans = sans[:playedGameMaxPlies]
+	}
+	if len(sans) == 0 {
+		return models.PlayedGame{}, false
+	}
+	// Decode ne rend qu'un coup légal ; Game.MoveStr le revaliderait et chercherait l'issue de la partie à chaque coup,
+	// ce qui multiplie par 19 le temps d'un import (2 min 40 au lieu de 8 s pour les 6 380 parties Chess.com de PMG).
+	position := chess.StartingPosition()
+	for _, san := range sans {
+		move, err := chess.AlgebraicNotation{}.Decode(position, san)
+		if err != nil {
+			return models.PlayedGame{}, false
+		}
+		position = position.Update(move)
+	}
+	var kept *int
+	if rating > 0 {
+		kept = &rating
 	}
 	return models.PlayedGame{
-		Source:   "lichess",
-		SourceID: game.ID,
+		Source:   source,
+		SourceID: id,
 		Color:    color,
 		Moves:    strings.Join(sans, " "),
 		Score:    score,
-		Rating:   rating,
-		PlayedAt: time.UnixMilli(game.LastMoveAt).UTC().Format("2006-01-02"),
+		Rating:   kept,
+		PlayedAt: endedAt.UTC().Format("2006-01-02"),
 	}, true
 }
 
 // PlayedGameStore garde les parties importées et l'état de l'import.
 type PlayedGameStore interface {
 	SaveGames(ctx context.Context, userID string, games []models.PlayedGame) (int, error)
-	LastPlayedOn(ctx context.Context, userID string) (string, error)
+	LastPlayedOn(ctx context.Context, userID, source string) (string, error)
 	ListGames(ctx context.Context, userID string) ([]models.PlayedGame, error)
 	GetImport(ctx context.Context, userID string) (*models.PlayedGameImport, error)
 	StartImport(ctx context.Context, userID string) (bool, error)
 	UpdateProgress(ctx context.Context, userID string, imported int) error
-	FinishImport(ctx context.Context, userID string, imported int, failure string) error
+	// FinishImport : `born` dit que les parties Lichess sont toutes là, de quoi faire naître le répertoire.
+	FinishImport(ctx context.Context, userID string, imported int, failure string, born bool) error
+	ChesscomUsername(ctx context.Context, userID string) (string, error)
+	// LinkChesscom garde le compte Chess.com du joueur ; false s'il en a déjà un autre.
+	LinkChesscom(ctx context.Context, userID, username string) (bool, error)
+	// UnlinkChesscom oublie le compte Chess.com et ses parties.
+	UnlinkChesscom(ctx context.Context, userID string) error
 }
 
 // LichessGameStreamer lit les parties d'un joueur commencées depuis `since` (ms, 0 pour toutes), une à une.
@@ -128,14 +141,15 @@ type LichessGameStreamer interface {
 type PlayedGameImportService struct {
 	store    PlayedGameStore
 	streamer LichessGameStreamer
+	chesscom ChesscomGames
 }
 
-func NewPlayedGameImportService(store PlayedGameStore, streamer LichessGameStreamer) *PlayedGameImportService {
-	return &PlayedGameImportService{store: store, streamer: streamer}
+func NewPlayedGameImportService(store PlayedGameStore, streamer LichessGameStreamer, chesscom ChesscomGames) *PlayedGameImportService {
+	return &PlayedGameImportService{store: store, streamer: streamer, chesscom: chesscom}
 }
 
-// Start lance l'import des parties Lichess du joueur en tâche de fond ; un import en cours n'est pas doublé. Après le
-// premier, seules les parties depuis la plus récente connue sont lues.
+// Start lance l'import des parties Lichess du joueur, puis Chess.com s'il en a donné le compte, en tâche de fond ; un
+// import en cours n'est pas doublé. Après le premier, seules les parties depuis la plus récente connue sont lues.
 func (s *PlayedGameImportService) Start(ctx context.Context, user *models.User) (*models.PlayedGameImport, error) {
 	if user.LichessUsername == nil || *user.LichessUsername == "" || user.LichessAccessToken == nil || *user.LichessAccessToken == "" {
 		return nil, ErrLichessNotLinked
@@ -147,11 +161,22 @@ func (s *PlayedGameImportService) Start(ctx context.Context, user *models.User) 
 	if started {
 		go s.run(user.ID, *user.LichessUsername, *user.LichessAccessToken)
 	}
-	return s.store.GetImport(ctx, user.ID)
+	return s.Status(ctx, user.ID)
 }
 
+// Status rend l'état du dernier import, « none » s'il n'y en a pas eu, avec le compte Chess.com.
 func (s *PlayedGameImportService) Status(ctx context.Context, userID string) (*models.PlayedGameImport, error) {
-	return s.store.GetImport(ctx, userID)
+	state, err := s.store.GetImport(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	if state == nil {
+		state = &models.PlayedGameImport{Status: models.PlayedGameImportNone}
+	}
+	if state.Chesscom, err = s.store.ChesscomUsername(ctx, userID); err != nil {
+		return nil, err
+	}
+	return state, nil
 }
 
 func (s *PlayedGameImportService) Games(ctx context.Context, userID string) ([]models.PlayedGame, error) {
@@ -163,58 +188,115 @@ func (s *PlayedGameImportService) run(userID, username, token string) {
 	ctx, cancel := context.WithTimeout(context.Background(), playedGameTimeout)
 	defer cancel()
 
-	since, err := s.since(ctx, userID)
+	saver := &gameSaver{store: s.store, ctx: ctx, userID: userID}
+	var failed []string
+	lichessErr := s.fromLichess(ctx, saver, username, token)
+	if lichessErr != nil {
+		slog.Error("played game import failed", "user", userID, "source", "lichess", "error", lichessErr)
+		failed = append(failed, "Lichess")
+	}
+	// Lu ici, pas au lancement : un compte lié pendant la lecture de Lichess est encore pris.
+	chesscom, err := s.store.ChesscomUsername(ctx, userID)
 	if err != nil {
-		slog.Error("played game import: cannot read the last game", "user", userID, "error", err)
+		slog.Error("played game import: cannot read the chess.com account", "user", userID, "error", err)
+		failed = append(failed, "Chess.com")
 	}
-	imported := 0
-	batch := make([]models.PlayedGame, 0, playedGameBatch)
-	flush := func() error {
-		if len(batch) == 0 {
-			return nil
+	if chesscom != "" {
+		if err := s.fromChesscom(ctx, saver, chesscom); err != nil {
+			slog.Error("played game import failed", "user", userID, "source", "chesscom", "error", err)
+			failed = append(failed, "Chess.com")
 		}
-		added, err := s.store.SaveGames(ctx, userID, batch)
-		if err != nil {
-			return err
-		}
-		imported += added
-		batch = batch[:0]
-		return s.store.UpdateProgress(ctx, userID, imported)
-	}
-	err = s.streamer.StreamGames(ctx, username, token, since, func(game LichessExportedGame) error {
-		if played, ok := PlayedGameFromLichess(game, username); ok {
-			batch = append(batch, played)
-		}
-		if len(batch) >= playedGameBatch {
-			return flush()
-		}
-		return nil
-	})
-	if err == nil {
-		err = flush()
 	}
 	failure := ""
-	if err != nil {
-		slog.Error("played game import failed", "user", userID, "error", err)
-		failure = "Lichess did not send all your games. Try again in a few minutes."
+	if len(failed) > 0 {
+		failure = strings.Join(failed, " and ") + " did not send all your games. Try again in a few minutes."
 	}
-	if finishErr := s.store.FinishImport(context.Background(), userID, imported, failure); finishErr != nil {
+	// Un échec Chess.com ne retient pas le joueur sur l'écran d'import : ses parties Lichess suffisent pour commencer.
+	if finishErr := s.store.FinishImport(context.Background(), userID, saver.imported, failure, lichessErr == nil); finishErr != nil {
 		slog.Error("played game import: cannot record the end", "user", userID, "error", finishErr)
 	}
 }
 
-// since part de la veille de la partie la plus récente : une partie commencée avant minuit et finie après est relue,
-// les doublons sont écartés à l'enregistrement.
-func (s *PlayedGameImportService) since(ctx context.Context, userID string) (int64, error) {
-	last, err := s.store.LastPlayedOn(ctx, userID)
-	if err != nil || last == "" {
-		return 0, err
+func (s *PlayedGameImportService) fromLichess(ctx context.Context, saver *gameSaver, username, token string) error {
+	last, err := s.store.LastPlayedOn(ctx, saver.userID, "lichess")
+	if err != nil {
+		return err
 	}
+	var since int64
+	if day, ok := dayBefore(last); ok {
+		since = day.UnixMilli()
+	}
+	err = s.streamer.StreamGames(ctx, username, token, since, func(game LichessExportedGame) error {
+		if played, ok := PlayedGameFromLichess(game, username); ok {
+			return saver.add(played)
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	return saver.flush()
+}
+
+func (s *PlayedGameImportService) fromChesscom(ctx context.Context, saver *gameSaver, username string) error {
+	last, err := s.store.LastPlayedOn(ctx, saver.userID, "chesscom")
+	if err != nil {
+		return err
+	}
+	var since time.Time
+	if day, ok := dayBefore(last); ok {
+		since = day
+	}
+	err = s.chesscom.StreamGames(ctx, username, since, func(game ChesscomGame) error {
+		if played, ok := PlayedGameFromChesscom(game, username); ok {
+			return saver.add(played)
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	return saver.flush()
+}
+
+// dayBefore rend la veille de la partie la plus récente d'une source : une partie commencée avant minuit et finie
+// après est relue, les doublons sont écartés à l'enregistrement.
+func dayBefore(last string) (time.Time, bool) {
 	day, err := time.Parse("2006-01-02", last)
 	if err != nil {
-		return 0, err
+		return time.Time{}, false
 	}
-	return day.AddDate(0, 0, -1).UnixMilli(), nil
+	return day.AddDate(0, 0, -1), true
+}
+
+// gameSaver enregistre les parties par lots et compte, toutes sources confondues, celles qui sont nouvelles.
+type gameSaver struct {
+	store    PlayedGameStore
+	ctx      context.Context
+	userID   string
+	batch    []models.PlayedGame
+	imported int
+}
+
+func (g *gameSaver) add(game models.PlayedGame) error {
+	g.batch = append(g.batch, game)
+	if len(g.batch) >= playedGameBatch {
+		return g.flush()
+	}
+	return nil
+}
+
+func (g *gameSaver) flush() error {
+	if len(g.batch) == 0 {
+		return nil
+	}
+	added, err := g.store.SaveGames(g.ctx, g.userID, g.batch)
+	g.batch = g.batch[:0]
+	if err != nil {
+		return err
+	}
+	g.imported += added
+	return g.store.UpdateProgress(g.ctx, g.userID, g.imported)
 }
 
 // LichessGameExport lit l'export NDJSON des parties d'un joueur.

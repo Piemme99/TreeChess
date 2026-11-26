@@ -130,7 +130,8 @@ What keeps players: short daily sessions (~10 min); what makes them quit: a back
 
 ### G. Portability and acquisition
 
-31. **Chess.com import.** Nearly every competitor has it, and PMG's history is there.
+31. **Chess.com import.** Nearly every competitor has it, and PMG's history is there. *Done on 2026-11-27*
+    (`played_game_chesscom.go`, ⋯ → "Add your Chess.com games").
 32. **PGN or Lichess-study export, study import** ("your repertoire is yours"). Chessbook, ChessTempo, Listudy,
     OpeningScanner. Whether Lichess grants study writing to Kumquat's OAuth scopes is *unverified*.
 33. **Try on any Lichess username without signing in.** OpeningScanner

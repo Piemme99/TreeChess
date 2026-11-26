@@ -24,6 +24,7 @@ const repertoire: Repertoire = {
 
 const game = (kind: 'left' | 'uncovered', position: string, playedAt: string): CheckedGame => ({
   id: 0,
+  key: '0',
   game: { side: 'w', moves: ['e4'], score: 0, playedAt },
   check: { kind, ply: 0, played: 'e4', planned: ['d4'], position },
   answered: [],

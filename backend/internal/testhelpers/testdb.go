@@ -115,7 +115,7 @@ func (tdb *TestDB) TruncateAll(t *testing.T) {
 	_, err := tdb.Pool.Exec(ctx,
 		`TRUNCATE TABLE
 			refresh_tokens, opening_explorer_cache,
-			played_games, played_game_imports, player_state, users
+			played_games, played_game_imports, chesscom_accounts, player_state, users
 		CASCADE`)
 	if err != nil {
 		t.Fatalf("TruncateAll: %v", err)

@@ -12,4 +12,6 @@ export interface PlayedGame {
   playedAt: string;
   /** Classement du joueur pendant la partie, quand la plateforme le donne. */
   rating?: number;
+  /** L'identité de la partie sur sa plateforme (`lichess:…`, `chesscom:…`) ; la démo n'en a pas, son rang suffit. */
+  key?: string;
 }

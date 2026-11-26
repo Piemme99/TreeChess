@@ -378,7 +378,7 @@ The real import, practice, the score comparison of worked lines.
 Dev routes, PMG's fixture as the imported history, the replay clock as time: `/dev/home` (import on the first
 visit, then Home), `/dev/review`, `/dev/tree` (Repertoire, or a task with `?task=`). Published under `/v2/`.
 
-## Import (PMG, 2026-11-17: Lichess only for now)
+## Import (PMG, 2026-11-17: Lichess first; Chess.com added on 2026-11-27)
 
 Why: every visitor sees PMG's games, replayed day by day. The import replaces them with the player's own
 games, stored on the server; with the decisions stored there too (brick 3), v1 can be deleted.
@@ -428,6 +428,16 @@ hero card. No replay for a signed-in player: "Next day" and "Reset" stay in the 
    write through `workshop/storage.ts`, saved 300 ms after a change and on `pagehide`; what the browser kept before
    goes up once. The demo stays in the browser. Next, per `CLAUDE.md`: `/` points to v2, then v1 is removed.
 4. **Explorer ranges from the player's rating**: done as brick 1 of Practice.
+
+5. **Chess.com as a second source** (2026-11-27, idea 31 of `docs/competitors.md`): an optional "Chess.com
+   username" on screen 2, or ⋯ → "Add your Chess.com games" for an account already imported (then Home follows the
+   import: "Importing your games… N so far"). The public API needs no sign-in, so the server only checks the player
+   exists; ⋯ → "Remove" forgets the account and its games. Blitz and rapid are kept (Chess.com has no classical;
+   daily is played with books open). Games added this way before the import day join the repertoire's birth; later
+   ones are new games to check. Set-aside checks are keyed on `source:id`, since older Chess.com games shift ranks.
+   The explorer level reads the Lichess ratings when there are some: Chess.com ones are much lower (PMG in blitz:
+   1163 there, 1515 on Lichess). PMG's history: 5 654 games kept of 6 380 (bullet and daily left out), read in about
+   15 s.
 
 **Deleting the account** (2026-11-22, #241): ⋯ → "Delete account", type the username, "Delete with Lichess". The
 server deletes only when Lichess, on the way back, authenticates the Lichess account linked to it: a stolen access
