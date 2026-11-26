@@ -233,7 +233,7 @@ export function TreePage() {
               </div>
             )}
             <div className="flex min-w-0 scroll-mt-3 flex-col gap-3">
-              {pane$ ?? <PhonePane {...paneProps} trail={walk.trail} onSelect={(key) => walk.goTo(side, key, false)} />}
+              {pane$ ?? <PhonePane {...paneProps} trail={asking ? path : walk.trail} onSelect={(key) => walk.goTo(side, key, false)} />}
             </div>
           </main>
         )}

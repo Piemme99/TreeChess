@@ -133,7 +133,7 @@ export function PositionPane(props: PositionPaneProps) {
             <PriorityCard side={side} priority={priority!} rank={props.priorityRank ?? node.priority!} total={props.priorityCount} facts={facts} waiting={steps.length} onLead={onLead} onNextPriority={onNextPriority} onPrepareFollows={onPrepareFollows} />
           </div>
         )}
-        {props.stopped && props.stopped.moves.length > 0 && (
+        {props.stopped && props.stopped.moves.length > 0 && !props.recall?.asking && (
           <div className="order-3">
             <StoppedCard stopped={props.stopped} ply={node.path.length + 1} />
           </div>

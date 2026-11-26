@@ -34,7 +34,7 @@ export function PhonePane(props: PhonePaneProps) {
         {prioritised && !settling && (
           <PriorityCard side={side} priority={priority!} rank={props.priorityRank ?? node.priority!} total={props.priorityCount} facts={facts} waiting={steps.length} onLead={onLead} onNextPriority={onNextPriority} onPrepareFollows={onPrepareFollows} />
         )}
-        {props.stopped && props.stopped.moves.length > 0 && <StoppedCard stopped={props.stopped} ply={node.path.length + 1} />}
+        {props.stopped && props.stopped.moves.length > 0 && !props.recall?.asking && <StoppedCard stopped={props.stopped} ply={node.path.length + 1} />}
       </div>
       {props.recall?.asking ? null : inRepertoire ? (
         <MoveTable side={side} node={node} onSelect={onSelect} onExtend={onExtend} />
