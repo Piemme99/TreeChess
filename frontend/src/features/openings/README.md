@@ -315,6 +315,19 @@ Any addition made during the task that extends the weak line counts the same, wh
 move" deep in the line too, `worksOn`). Away from the weak line, a strip under the bar offers "← Back to weak
 opening N" and "Next weak opening →": the card only shows on the line itself.
 
+### Screen 4b — Gaps (2026-11-26, idea 6 of `docs/competitors.md`)
+
+Home row "Gaps · 212 · biggest 1 game in 5" (it says "looking…" while the explorer is read). It opens the tree with
+`?task=gap&side=…&line=…` on the biggest gap (`findGaps`, `domain/gaps.ts`): the position after the opponent's move,
+the player to move, a card "1 game in 5 at your level (1600–2200) reaches this position, and your repertoire has no
+move here", **Prepare my move** (the builder from there) and "Next gap". A gap is read on the Lichess explorer at the
+player's level, not in their games: the opponent shares multiply along the line, the player's own moves count as always
+played, two move orders reaching one position add up. Goal: 1 game in 200 (Chessbook's). The explorer is read one
+position at a time, one a second at most (the relay allows 100 requests a minute per IP), each answer kept in the
+browser: 100 to 200 positions for both sides, about 4 s each the first time (Lichess answers in ~2 s), instant after. Preparing a move ends on "1 move
+added · Next gap"; the gaps after the new move appear once the explorer has answered. No "not worth it" yet: a gap
+the player does not want stays in the list, "Next gap" passes it.
+
 ### Screen 5 — Review (use 3)
 
 - **What is due.** Spaced repetition by position where the player is to move, three boxes (1, 7, 30 days),

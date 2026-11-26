@@ -69,10 +69,20 @@ export interface PositionPaneProps {
   stopped?: StoppedActions;
   /** Construire depuis une ligne de la priorité : la sienne, ou celle où elle perd ses points. */
   onPrepareFollows?: (line: readonly string[]) => void;
+  /** Dans la tâche Gaps, le trou que montre la position. */
+  gap?: GapShown;
   onMove: (san: string) => void;
   /** Aller à une ligne entière : revenir au répertoire depuis un écart. */
   onJump: (path: readonly string[]) => void;
   onBack?: () => void;
+}
+
+export interface GapShown {
+  rank: number;
+  reach: number;
+  /** Les classements des adversaires lus sur l'explorateur, « 1600–2200 ». */
+  level: string;
+  onNext?: () => void;
 }
 
 // Un écart de score sur moins de parties ne dit rien : on ne recommande pas sur du bruit.
@@ -138,8 +148,13 @@ export function PositionPane(props: PositionPaneProps) {
             <StoppedCard stopped={props.stopped} ply={node.path.length + 1} />
           </div>
         )}
-        {!props.recall?.asking && <Repertoire side={side} node={node} inRepertoire={inRepertoire} ply={ply} onMove={onMove} />}
-        {!inRepertoire ? (
+        {props.gap && (
+          <div className="order-3">
+            <GapCard gap={props.gap} onPrepare={onExtend} />
+          </div>
+        )}
+        {!props.recall?.asking && !props.gap && <Repertoire side={side} node={node} inRepertoire={inRepertoire} ply={ply} onMove={onMove} />}
+        {props.gap ? null : !inRepertoire ? (
           <div className="order-5">
             <OffRepertoire path={path} node={node} facts={facts} onExtend={onExtend} onJump={onJump} />
           </div>
@@ -237,6 +252,30 @@ export function PriorityCard({ side, priority, rank, total, facts, waiting, onLe
           Also {waiting} to settle here →
         </button>
       )}
+    </section>
+  );
+}
+
+/** Un coup adverse fréquent au niveau du joueur, sans coup à lui après : le préparer, ou passer au suivant. */
+export function GapCard({ gap, onPrepare }: { gap: GapShown; onPrepare: () => void }) {
+  return (
+    <section aria-label="Gap" className="flex flex-col gap-2.5 rounded-2xl px-4 py-3.5 text-[14px]" style={{ background: COLOURS.leaf, color: COLOURS.cream }}>
+      <span className="flex items-center justify-between gap-3">
+        <span className="text-[12px] font-bold uppercase tracking-[0.06em]" style={{ color: COLOURS.apricot }}>
+          Gap {gap.rank}
+        </span>
+        {gap.onNext && (
+          <button type="button" onClick={gap.onNext} className="-my-1 rounded-lg px-1 py-1 text-[13px] font-semibold underline-offset-4 hover:underline focus-visible:outline-2">
+            Next gap →
+          </button>
+        )}
+      </span>
+      <p className="text-[15px] leading-snug">
+        <strong>1 game in {Math.max(1, Math.round(1 / gap.reach))}</strong> at your level ({gap.level}) reaches this position, and your repertoire has no move here.
+      </p>
+      <Action onClick={onPrepare} tone="light">
+        Prepare my move
+      </Action>
     </section>
   );
 }

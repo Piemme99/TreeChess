@@ -120,6 +120,10 @@ fresh. Two outcomes:
   The player can add an answer or ignore it, like any game that left the
   repertoire. Met once, it may be chance: left alone, it does not wait for them;
   when the same move comes back, it becomes a [pending decision](#pending-decision).
+- **Gap** — a position where the opponents of the player's level bring them in at
+  least 1 game in 200, if the player always plays their repertoire, and where the
+  repertoire has no move of theirs. Read on the Lichess explorer, not in the
+  player's games: a gap shows before a game meets it. The biggest comes first.
 
 A move outside the repertoire that the player keeps playing (a fifth of their
 games there, over the last 12 months) is offered as an addition even if every

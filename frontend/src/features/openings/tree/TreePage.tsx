@@ -4,14 +4,17 @@ import { useSearchParams } from 'react-router';
 import { BuildSession } from '../checks/BuildSession';
 import { originAt } from '../checks/useBuilder';
 import type { AddedMove, Addition } from '../domain/addition';
+import { levelLabel } from '../domain/level';
 import { figurineLine, figurineMove } from '../domain/notation';
 import { isPlayerMove } from '../domain/openingTree';
 import type { Side } from '../domain/playedGame';
 import { canPractiseFrom } from '../domain/practice';
 import { positionKey } from '../domain/repertoire';
+import { useGaps } from '../gaps/useGaps';
 import { replayLine } from '../position/replay';
 import { useWorkedLines } from '../replay/useWorkedLines';
 import { useReplayedSession } from '../session/useReplayedSession';
+import { useExplorerLevel } from '../source/useExplorerLevel';
 import { BottomBar } from '../workshop/BottomBar';
 import { PageHeader } from '../workshop/PageHeader';
 import { useV2Path } from '../workshop/routes';
@@ -28,10 +31,11 @@ import { PositionPane } from './PositionPane';
 import { RepertoireMap } from './RepertoireMap';
 import { findByPosition, nodeAlong } from './repertoireMap';
 import { SideTabs } from './SideTabs';
-import { CheckSummary, PreparedSummary } from './TaskSummaries';
+import { CheckSummary, GapsLooking, GapSummary, PreparedSummary } from './TaskSummaries';
 import { useBuilding } from './useBuilding';
 import { useCheckSession } from './useCheckSession';
 import { useDayAnnouncements } from './useDayAnnouncements';
+import { useGapTask } from './useGapTask';
 import { useRemovals } from './useRemovals';
 import { useRepertoireMaps } from './useRepertoireMaps';
 import { useTreeKeyboard } from './useTreeKeyboard';
@@ -40,8 +44,9 @@ import { useWeakTask } from './useWeakTask';
 import { WeakWayBack } from './WeakWayBack';
 
 /**
- * Le répertoire, et les deux tâches qui s'y font (docs/flow/target.html) : `?task=check` tranche les positions
- * une à une, `?task=weak&side=…&line=…` travaille une ouverture faible. Sans tâche, on parcourt et on étend.
+ * Le répertoire, et les tâches qui s'y font (docs/flow/target.html) : `?task=check` tranche les positions une à une,
+ * `?task=weak&side=…&line=…` travaille une ouverture faible, `?task=gap&side=…&line=…` comble les trous du répertoire.
+ * Sans tâche, on parcourt et on étend.
  */
 export function TreePage() {
   useWorkshopFont();
@@ -55,7 +60,7 @@ export function TreePage() {
     () => ({ side: params.get('side') === 'b' ? 'b' : params.get('side') === 'w' ? 'w' : storedSide(), line: params.get('line')?.split(' ').filter(Boolean) ?? [] }) as { side: Side; line: string[] },
     [params],
   );
-  const task = params.get('task') === 'check' ? 'check' : params.get('task') === 'weak' ? 'weak' : null;
+  const task = (['check', 'weak', 'gap'] as const).find((name) => params.get('task') === name) ?? null;
   const wide = useWide();
   // Au téléphone, tout ce qui change la position remonte en haut : l'échiquier entier et la carte tiennent dans l'écran.
   const toTop = () => {
@@ -72,6 +77,9 @@ export function TreePage() {
   const check = useCheckSession({ ...replayed, active: task === 'check', maps, walk, day: replay.day, show, pin, build, toTop });
   const { session, current } = check;
   const weak = useWeakTask({ active: task === 'weak', priorities, asked, walk, setParams, toTop });
+  const scan = useGaps(repertoires, task === 'gap');
+  const gapTask = useGapTask({ active: task === 'gap', scan, asked, walk, setParams, toTop });
+  const { opponents } = useExplorerLevel();
   const stepsHere = useMemo(() => steps.filter((step) => step.side === side && step.games[0].check.position === node.position), [steps, side, node]);
   // Le coup à retrouver ne vaut que sur la position de l'étape : ailleurs, on parcourt l'arbre comme d'habitude.
   const recall = current && stepsHere.includes(current) ? check.recall : undefined;
@@ -99,6 +107,7 @@ export function TreePage() {
     const worked = target && { ...target, since: replay.day };
     if (worked) work(worked);
     if (worked && task === 'weak') weak.setPrepared({ moves: moves.length, line: lines[0] ?? [] });
+    if (task === 'gap') gapTask.prepare(building.origin.side, moves.length, lines[0] ?? []);
     pin(lines.map((line) => line.join(' ')));
     const text = `${moves.length} ${moves.length === 1 ? 'move' : 'moves'} added to your repertoire`;
     const step = building.stepKey ? check.live.get(building.stepKey) : undefined;
@@ -113,14 +122,15 @@ export function TreePage() {
     const landing = line0 && findByPosition(maps[building.origin.side], positionKey(replayLine(line0).fens[line0.length]));
     const transposed = landing && landing.key !== line0.join(' ') ? landing : undefined;
     // Dans la tâche, le bilan remplace la carte : annuler y revient.
-    const inTask = worked !== undefined && task === 'weak';
+    const inTask = (worked !== undefined && task === 'weak') || (task === 'gap' && gapTask.gap?.side === building.origin.side);
     show({
       text: transposed && !inTask ? `${text} · same position as ${figurineLine(transposed.path)}: shown there, linked from here` : text,
       undo: () => {
         remove(addition);
         if (worked) unwork(worked);
-        // Retour à la carte de la faiblesse : la ligne retirée n'a plus rien à montrer.
-        if (inTask) weak.goTo(weak.rank);
+        // Retour à la carte de la faiblesse ou du trou : la ligne retirée n'a plus rien à montrer.
+        if (inTask && task === 'weak') weak.goTo(weak.rank);
+        if (inTask && task === 'gap') gapTask.goTo(gapTask.rank);
       },
     });
     // La ligne ajoutée se voit tout de suite, même trop fine pour l'arrivée.
@@ -166,6 +176,7 @@ export function TreePage() {
     onRemove,
     // Une tâche a son but : on n'en sort pas par l'entraînement.
     practise: task || !canPractiseFrom(side, path.length) ? undefined : `${pathOf('practice')}?${new URLSearchParams({ side, line: path.join(' ') })}`,
+    gap: gapTask.onLine ? { rank: gapTask.rank, reach: gapTask.gap!.reach, level: levelLabel(opponents), onNext: gapTask.next } : undefined,
     onPrepareFollows: priority
       ? (line: readonly string[]) => {
           const reached = nodeAlong(root, line);
@@ -183,6 +194,8 @@ export function TreePage() {
       <TaskBar title="Check" progress={check.over ? 'done' : session && current ? `${check.position} of ${session.queue.length} · as ${current.side === 'w' ? 'White' : 'Black'}` : undefined} />
     ) : task === 'weak' ? (
       <TaskBar title="Weak opening" progress={weak.prepared ? 'done' : priorities.length ? `${weak.rank} of ${priorities.length}` : undefined} />
+    ) : task === 'gap' ? (
+      <TaskBar title="Gaps" progress={gapTask.prepared ? 'done' : gapTask.gap ? `${gapTask.rank} of ${scan.gaps.length}` : undefined} />
     ) : (
       <PageHeader wide replay={{ ...replay, reset, next: nextDay }} />
     );
@@ -190,6 +203,10 @@ export function TreePage() {
     <CheckSummary started={session !== null} settled={check.settled} skipped={check.skipped} returned={session?.returned ?? 0} left={steps.length} />
   ) : weak.prepared !== null ? (
     <PreparedSummary moves={weak.prepared.moves} line={weak.prepared.line} onNext={weak.next} />
+  ) : gapTask.prepared !== null ? (
+    <GapSummary moves={gapTask.prepared.moves} line={gapTask.prepared.line} onNext={gapTask.afterPrepared} />
+  ) : task === 'gap' && !gapTask.gap ? (
+    <GapsLooking scan={scan} />
   ) : null;
 
   return (
@@ -197,6 +214,7 @@ export function TreePage() {
       <div className={`min-h-screen pb-24`} style={{ fontFamily: FONT_FAMILY, background: COLOURS.cream, color: COLOURS.leaf }}>
         {header}
         {task === 'weak' && weak.priority && !weak.onLine && !building && !done && <WeakWayBack rank={weak.rank} onBack={() => weak.goTo(weak.rank)} onNext={weak.next} />}
+        {task === 'gap' && gapTask.gap && !gapTask.onLine && !building && !done && <WeakWayBack what="gap" rank={gapTask.rank} onBack={() => gapTask.goTo(gapTask.rank)} onNext={gapTask.next} />}
         {done ? (
           <main className="px-4">{done}</main>
         ) : wide ? (

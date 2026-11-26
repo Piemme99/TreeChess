@@ -87,6 +87,12 @@ function send(url: string): Promise<Reply | null> {
 
 const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+/** Ce que l'explorateur a déjà répondu pour cette position, sans rien demander. */
+export function explored(database: Database, fen: string, ratings: readonly number[]): ExplorerResult | undefined {
+  const stored = localStorage.getItem(STORAGE + urlOf(database, fen, ratings));
+  return stored ? (JSON.parse(stored) as ExplorerResult) : undefined;
+}
+
 // Une requête à la fois, comme Lichess le demande ; le cache local évite de refaire l'arbre à chaque rechargement.
 export function explore(database: Database, fen: string, ratings: readonly number[]): Promise<ExplorerResult | null> {
   const url = urlOf(database, fen, ratings);

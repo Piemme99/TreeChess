@@ -14,6 +14,7 @@ import { findPriorities, shownLine, type Priority } from '../domain/priorities';
 import { playerPositions } from '../domain/review';
 import { adherence, isThrough, splitWorked, type Adherence } from '../domain/worked';
 import { replayLine } from '../position/replay';
+import { useGaps } from '../gaps/useGaps';
 import { formatShortDay } from '../replay/formatDay';
 import { useWorkedLines, type WorkedLine } from '../replay/useWorkedLines';
 import { useReview } from '../review/useReview';
@@ -65,6 +66,7 @@ function Home({ onForget, syncing }: { onForget: () => void; syncing: boolean })
   const table = useOpeningTable();
   const priorities = usePriorities(known, replay.day);
   const { toWork, treated } = useMemo(() => splitWorked(priorities, worked, known, MAX_PRIORITIES), [priorities, worked, known]);
+  const gaps = useGaps(repertoires);
   const { toast, close } = useToast();
 
   const reset = replay.reset && (() => {
@@ -145,6 +147,9 @@ function Home({ onForget, syncing }: { onForget: () => void; syncing: boolean })
           )}
           {treated.length > 0 && (
             <WeakOpenings label="Worked openings" summary={`${openingName(table, shownLine(treated[0]))}${treated.length > 1 ? ` +${treated.length - 1}` : ''}`} priorities={treated} table={table} href={workOn} workedOf={workedOf} lived={lived} action="Open" />
+          )}
+          {!gaps.unavailable && (!gaps.done || gaps.gaps.length > 0) && (
+            <Row label="Gaps" figure={gaps.done ? `${gaps.gaps.length} · biggest 1 game in ${Math.max(1, Math.round(1 / gaps.gaps[0].reach))}` : 'looking…'} to={`${tree}?task=gap`} />
           )}
           <PracticeRow href={(side) => `${pathOf('practice')}?side=${side}`} />
         </ul>

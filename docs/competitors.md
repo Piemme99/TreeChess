@@ -55,7 +55,8 @@ opponent deviates ([chess.com blog](https://www.chess.com/blog/nekochabo/why-ope
    button. Chessbook ([vs Chessable](https://chessbook.com/blog/chessbook-vs-chessable)), Chessreps (gap = any reply
    played in ≥ 1 % of Lichess games), OpeningScanner "Gaps"
    ([blog](https://lichess.org/@/ChessAtlasApp/blog/i-built-a-free-tool-to-analyze-your-chess-openings-repertoire-weaknesses/UoOVBu2X)).
-   Today Kumquat finds an uncovered reply only once a game or a practice game meets it.
+   Today Kumquat finds an uncovered reply only once a game or a practice game meets it. *Done on 2026-11-26* (`findGaps` in
+   `domain/gaps.ts`, the Gaps task).
 7. **Leave out of review the lines too rare at the player's level**, to keep the daily load small (a Chessbook user had
    100–200 moves a day to review). Chessbook "trim to coverage goal"
    ([vs Chessreps](https://chessbook.com/blog/chessbook-vs-chessreps)).
