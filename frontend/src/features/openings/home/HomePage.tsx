@@ -41,7 +41,7 @@ const SHOWN_PRIORITIES = 3;
 /** Ce qui attend le joueur (docs/flow/target.html) : une carte en avant, la plus urgente, les autres tâches en lignes. */
 export function HomePage() {
   useWorkshopFont();
-  const { state, syncing, synced, startImport, tryDemo, leaveDemo } = useGameSource();
+  const { state, syncing, synced, syncError, startImport, tryDemo, leaveDemo } = useGameSource();
   if (state.kind === 'loading') return <PageSkeleton />;
   return (
     <MotionConfig reducedMotion="user">
@@ -50,7 +50,7 @@ export function HomePage() {
         {state.kind === 'to-import' && <ImportScreen username={state.username} state={state.state} onImport={(chesscom) => void startImport(chesscom)} />}
         {state.kind === 'ready' && (
           <SourceProvider source={state.source}>
-            <Home onForget={leaveDemo} syncing={syncing} synced={synced} />
+            <Home onForget={leaveDemo} syncing={syncing} synced={synced} syncError={syncError} />
           </SourceProvider>
         )}
       </div>
@@ -58,7 +58,7 @@ export function HomePage() {
   );
 }
 
-function Home({ onForget, syncing, synced }: { onForget: () => void; syncing: boolean; synced: number }) {
+function Home({ onForget, syncing, synced, syncError }: { onForget: () => void; syncing: boolean; synced: number; syncError?: string }) {
   const pathOf = useV2Path();
   const { source, replay, known, lived, repertoires, reviewed, stopped, steps, judging, forgetIgnored, forgetAdditions } = useReplayedSession();
   const review = useReview(source.games, reviewed, lived, replay.today, source.start);
@@ -102,6 +102,11 @@ function Home({ onForget, syncing, synced }: { onForget: () => void; syncing: bo
         {syncing && (
           <p role="status" className="-mb-2 px-1 text-[13px] font-semibold lg:col-span-2" style={{ color: COLOURS.leafSoft }}>
             {synced ? `Importing your games… ${synced.toLocaleString('en-GB')} so far` : 'Looking for new games…'}
+          </p>
+        )}
+        {!syncing && syncError && (
+          <p role="alert" className="-mb-2 px-1 text-[13px] font-semibold lg:col-span-2" style={{ color: COLOURS.terracotta }}>
+            {syncError}
           </p>
         )}
         {hero === 'first' && (

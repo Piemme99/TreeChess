@@ -100,10 +100,10 @@ func (f fakeChesscom) StreamGames(_ context.Context, _ string, since time.Time, 
 
 func TestPlayedGameImportService_Run_AddsTheChesscomGamesAfterTheLichessOnes(t *testing.T) {
 	var since time.Time
-	store := &fakePlayedGameStore{last: map[string]string{"lichess": "2026-11-15", "chesscom": "2026-09-01"}}
+	store := &fakePlayedGameStore{last: map[string]string{"lichess": "2026-11-15", "chesscom": "2026-09-01"}, chesscom: "Piemme78"}
 	lichess := lichessGame("blitz", "Piemme78", "rival", "white", "e4 e5")
 	svc := NewPlayedGameImportService(store, fakeStreamer{games: []LichessExportedGame{lichess}}, fakeChesscom{games: []ChesscomGame{chesscomGame("rapid", "Piemme78", "rival", "win", "resigned")}, since: &since})
-	svc.run("u1", "Piemme78", "token", "Piemme78")
+	svc.run("u1", "Piemme78", "token")
 
 	require.Len(t, store.saved, 2)
 	assert.Equal(t, []string{"lichess", "chesscom"}, []string{store.saved[0].Source, store.saved[1].Source})
@@ -112,14 +112,15 @@ func TestPlayedGameImportService_Run_AddsTheChesscomGamesAfterTheLichessOnes(t *
 }
 
 func TestPlayedGameImportService_Run_KeepsTheLichessGamesWhenChesscomFails(t *testing.T) {
-	store := &fakePlayedGameStore{}
+	store := &fakePlayedGameStore{chesscom: "Piemme78"}
 	lichess := lichessGame("blitz", "Piemme78", "rival", "white", "e4 e5")
 	svc := NewPlayedGameImportService(store, fakeStreamer{games: []LichessExportedGame{lichess}}, fakeChesscom{err: errors.New("HTTP 429")})
-	svc.run("u1", "Piemme78", "token", "Piemme78")
+	svc.run("u1", "Piemme78", "token")
 
 	assert.Len(t, store.saved, 1)
 	assert.Contains(t, *store.failure, "Chess.com")
 	assert.NotContains(t, *store.failure, "Lichess")
+	assert.True(t, store.born, "a Chess.com failure must not keep the player on the import screen")
 }
 
 func linkedUser() *models.User {

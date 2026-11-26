@@ -85,6 +85,7 @@ type fakePlayedGameStore struct {
 	running  bool
 	chesscom string
 	state    *models.PlayedGameImport
+	born     bool
 }
 
 func (f *fakePlayedGameStore) SaveGames(_ context.Context, _ string, games []models.PlayedGame) (int, error) {
@@ -126,8 +127,9 @@ func (f *fakePlayedGameStore) UpdateProgress(_ context.Context, _ string, import
 	f.progress = append(f.progress, imported)
 	return nil
 }
-func (f *fakePlayedGameStore) FinishImport(_ context.Context, _ string, _ int, failure string) error {
+func (f *fakePlayedGameStore) FinishImport(_ context.Context, _ string, _ int, failure string, born bool) error {
 	f.failure = &failure
+	f.born = born
 	return nil
 }
 func (f *fakePlayedGameStore) ChesscomUsername(context.Context, string) (string, error) {
@@ -180,7 +182,7 @@ func TestPlayedGameImportService_Run_SavesTheKeptGamesAndRecordsTheEnd(t *testin
 		games = append(games, game)
 	}
 	store := &fakePlayedGameStore{}
-	NewPlayedGameImportService(store, fakeStreamer{games: games}, fakeChesscom{}).run("u1", "Piemme78", "token", "")
+	NewPlayedGameImportService(store, fakeStreamer{games: games}, fakeChesscom{}).run("u1", "Piemme78", "token")
 
 	assert.Len(t, store.saved, 300)
 	assert.Equal(t, []int{100, 200, 300}, store.progress)
@@ -190,9 +192,10 @@ func TestPlayedGameImportService_Run_SavesTheKeptGamesAndRecordsTheEnd(t *testin
 
 func TestPlayedGameImportService_Run_RecordsAFailedImport(t *testing.T) {
 	store := &fakePlayedGameStore{}
-	NewPlayedGameImportService(store, fakeStreamer{err: errors.New("HTTP 429")}, fakeChesscom{}).run("u1", "Piemme78", "token", "")
+	NewPlayedGameImportService(store, fakeStreamer{err: errors.New("HTTP 429")}, fakeChesscom{}).run("u1", "Piemme78", "token")
 	require.NotNil(t, store.failure)
 	assert.NotEmpty(t, *store.failure)
+	assert.False(t, store.born)
 }
 
 func TestLichessGameExport_StreamGames_ReadsTheNDJSONExportWithTheToken(t *testing.T) {
@@ -218,7 +221,7 @@ func TestPlayedGameImportService_Run_ReadsOnlyFromTheDayBeforeTheLastKnownLiches
 	var since int64 = -1
 	// Une partie Chess.com plus récente ne fait pas sauter les parties Lichess d'entre-temps.
 	store := &fakePlayedGameStore{last: map[string]string{"lichess": "2026-11-15", "chesscom": "2026-11-20"}}
-	NewPlayedGameImportService(store, fakeStreamer{since: &since}, fakeChesscom{}).run("u1", "Piemme78", "token", "")
+	NewPlayedGameImportService(store, fakeStreamer{since: &since}, fakeChesscom{}).run("u1", "Piemme78", "token")
 	assert.Equal(t, int64(1794614400000), since) // 14 novembre 2026, 00:00 UTC
 }
 
@@ -229,6 +232,6 @@ func TestPlayedGameImportService_Run_CountsOnlyTheGamesItDidNotHave(t *testing.T
 	fresh.ID = "fresh"
 	store := &fakePlayedGameStore{last: map[string]string{"lichess": "2026-11-15"}}
 	_, _ = store.SaveGames(context.Background(), "u1", []models.PlayedGame{{SourceID: "known"}})
-	NewPlayedGameImportService(store, fakeStreamer{games: []LichessExportedGame{known, fresh}}, fakeChesscom{}).run("u1", "Piemme78", "token", "")
+	NewPlayedGameImportService(store, fakeStreamer{games: []LichessExportedGame{known, fresh}}, fakeChesscom{}).run("u1", "Piemme78", "token")
 	assert.Equal(t, []int{1}, store.progress)
 }

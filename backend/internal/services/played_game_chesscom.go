@@ -116,6 +116,9 @@ type ChesscomGames interface {
 
 // LinkChesscom ajoute les parties Chess.com du joueur aux siennes et lance leur import.
 func (s *PlayedGameImportService) LinkChesscom(ctx context.Context, user *models.User, username string) (*models.PlayedGameImport, error) {
+	if user.LichessUsername == nil || *user.LichessUsername == "" || user.LichessAccessToken == nil || *user.LichessAccessToken == "" {
+		return nil, ErrLichessNotLinked
+	}
 	if !chesscomUsernamePattern.MatchString(username) {
 		return nil, ErrChesscomPlayerNotFound
 	}

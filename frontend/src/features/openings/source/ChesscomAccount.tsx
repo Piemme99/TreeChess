@@ -1,14 +1,15 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { api } from '../../../services/api';
 import { getApiErrorMessage } from '../../../shared/utils/apiError';
+import { useV2Path } from '../workshop/routes';
 import { COLOURS } from '../workshop/theme';
 import type { ImportState } from './useGameSource';
 
-// Home relit les parties au chargement et suit l'import lancé : on y retourne après un changement de compte.
-const backHome = () => window.location.assign('/v2/home');
-
 /** Dans le menu : ajouter ses parties Chess.com à celles de Lichess, ou les retirer. */
 export function ChesscomAccount() {
+  const pathOf = useV2Path();
+  // Home relit les parties au chargement et suit l'import lancé : on y retourne après un changement de compte.
+  const backHome = () => window.location.assign(pathOf('home'));
   // undefined : pas encore lu ; '' : pas de compte Chess.com.
   const [linked, setLinked] = useState<string>();
   const [mode, setMode] = useState<'idle' | 'adding' | 'removing'>('idle');

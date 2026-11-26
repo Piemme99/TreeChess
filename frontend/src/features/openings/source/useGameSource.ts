@@ -94,6 +94,7 @@ export function useGameSource() {
   // Une fois les parties là, celles jouées depuis le dernier import arrivent en tâche de fond.
   const [syncing, setSyncing] = useState(false);
   const [synced, setSynced] = useState(0);
+  const [syncError, setSyncError] = useState<string>();
   const ready = state.kind === 'ready' && !state.source.replay;
   useEffect(() => {
     if (!ready || !user || refreshed.has(user.id)) return;
@@ -106,7 +107,9 @@ export function useGameSource() {
         window.setTimeout(() => void poll().catch(() => setSyncing(false)), 1000);
         return;
       }
-      if (data.status === 'done' && data.imported > 0) {
+      // Même un import en partie raté a pu ajouter des parties : on les montre, avec ce qui a manqué.
+      if (data.status === 'failed') setSyncError(data.error);
+      if (data.imported > 0) {
         cached = null;
         await load();
       }
@@ -118,5 +121,5 @@ export function useGameSource() {
       .catch(() => setSyncing(false));
   }, [ready, user, load]);
 
-  return { state, syncing, synced, startImport, tryDemo: () => setDemo(true), leaveDemo: () => setDemo(false) };
+  return { state, syncing, synced, syncError, startImport, tryDemo: () => setDemo(true), leaveDemo: () => setDemo(false) };
 }

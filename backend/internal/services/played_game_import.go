@@ -124,7 +124,8 @@ type PlayedGameStore interface {
 	GetImport(ctx context.Context, userID string) (*models.PlayedGameImport, error)
 	StartImport(ctx context.Context, userID string) (bool, error)
 	UpdateProgress(ctx context.Context, userID string, imported int) error
-	FinishImport(ctx context.Context, userID string, imported int, failure string) error
+	// FinishImport : `born` dit que les parties Lichess sont toutes là, de quoi faire naître le répertoire.
+	FinishImport(ctx context.Context, userID string, imported int, failure string, born bool) error
 	ChesscomUsername(ctx context.Context, userID string) (string, error)
 	// LinkChesscom garde le compte Chess.com du joueur ; false s'il en a déjà un autre.
 	LinkChesscom(ctx context.Context, userID, username string) (bool, error)
@@ -153,16 +154,12 @@ func (s *PlayedGameImportService) Start(ctx context.Context, user *models.User) 
 	if user.LichessUsername == nil || *user.LichessUsername == "" || user.LichessAccessToken == nil || *user.LichessAccessToken == "" {
 		return nil, ErrLichessNotLinked
 	}
-	chesscom, err := s.store.ChesscomUsername(ctx, user.ID)
-	if err != nil {
-		return nil, err
-	}
 	started, err := s.store.StartImport(ctx, user.ID)
 	if err != nil {
 		return nil, err
 	}
 	if started {
-		go s.run(user.ID, *user.LichessUsername, *user.LichessAccessToken, chesscom)
+		go s.run(user.ID, *user.LichessUsername, *user.LichessAccessToken)
 	}
 	return s.Status(ctx, user.ID)
 }
@@ -186,16 +183,23 @@ func (s *PlayedGameImportService) Games(ctx context.Context, userID string) ([]m
 	return s.store.ListGames(ctx, userID)
 }
 
-func (s *PlayedGameImportService) run(userID, username, token, chesscom string) {
+func (s *PlayedGameImportService) run(userID, username, token string) {
 	// Hors de toute requête : l'import continue si le joueur quitte la page.
 	ctx, cancel := context.WithTimeout(context.Background(), playedGameTimeout)
 	defer cancel()
 
 	saver := &gameSaver{store: s.store, ctx: ctx, userID: userID}
 	var failed []string
-	if err := s.fromLichess(ctx, saver, username, token); err != nil {
-		slog.Error("played game import failed", "user", userID, "source", "lichess", "error", err)
+	lichessErr := s.fromLichess(ctx, saver, username, token)
+	if lichessErr != nil {
+		slog.Error("played game import failed", "user", userID, "source", "lichess", "error", lichessErr)
 		failed = append(failed, "Lichess")
+	}
+	// Lu ici, pas au lancement : un compte lié pendant la lecture de Lichess est encore pris.
+	chesscom, err := s.store.ChesscomUsername(ctx, userID)
+	if err != nil {
+		slog.Error("played game import: cannot read the chess.com account", "user", userID, "error", err)
+		failed = append(failed, "Chess.com")
 	}
 	if chesscom != "" {
 		if err := s.fromChesscom(ctx, saver, chesscom); err != nil {
@@ -207,7 +211,8 @@ func (s *PlayedGameImportService) run(userID, username, token, chesscom string) 
 	if len(failed) > 0 {
 		failure = strings.Join(failed, " and ") + " did not send all your games. Try again in a few minutes."
 	}
-	if finishErr := s.store.FinishImport(context.Background(), userID, saver.imported, failure); finishErr != nil {
+	// Un échec Chess.com ne retient pas le joueur sur l'écran d'import : ses parties Lichess suffisent pour commencer.
+	if finishErr := s.store.FinishImport(context.Background(), userID, saver.imported, failure, lichessErr == nil); finishErr != nil {
 		slog.Error("played game import: cannot record the end", "user", userID, "error", finishErr)
 	}
 }

@@ -31,9 +31,11 @@ func (r *PostgresPlayedGameRepo) SaveGames(ctx context.Context, userID string, g
 	}
 	batch := &pgx.Batch{}
 	for _, game := range games {
+		// Une partie Chess.com n'entre que si le compte est encore lié : un import en cours ne ramène pas celles d'un compte retiré.
 		batch.Queue(
 			`INSERT INTO played_games (user_id, source, source_id, color, moves, score, rating, played_at)
-			 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+			 SELECT $1::uuid, $2::varchar, $3::varchar, $4::varchar, $5::text, $6::real, $7::integer, $8::date
+			 WHERE $2::varchar <> 'chesscom' OR EXISTS (SELECT 1 FROM chesscom_accounts WHERE user_id = $1::uuid)
 			 ON CONFLICT (user_id, source, source_id) DO NOTHING`,
 			userID, game.Source, game.SourceID, game.Color, game.Moves, game.Score, game.Rating, game.PlayedAt,
 		)
@@ -140,7 +142,7 @@ func (r *PostgresPlayedGameRepo) UpdateProgress(ctx context.Context, userID stri
 	return nil
 }
 
-func (r *PostgresPlayedGameRepo) FinishImport(ctx context.Context, userID string, imported int, failure string) error {
+func (r *PostgresPlayedGameRepo) FinishImport(ctx context.Context, userID string, imported int, failure string, born bool) error {
 	status := models.PlayedGameImportDone
 	var message *string
 	if failure != "" {
@@ -152,7 +154,7 @@ func (r *PostgresPlayedGameRepo) FinishImport(ctx context.Context, userID string
 		 SET status = $2, imported = $3, error = $4, updated_at = NOW(), finished_at = NOW(),
 		     first_done_at = CASE WHEN $5 THEN COALESCE(first_done_at, NOW()) ELSE first_done_at END
 		 WHERE user_id = $1`,
-		userID, status, imported, message, failure == "",
+		userID, status, imported, message, born,
 	); err != nil {
 		return fmt.Errorf("finish played game import: %w", err)
 	}
