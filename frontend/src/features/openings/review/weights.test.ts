@@ -5,10 +5,11 @@ import { buildOpeningTree } from '../domain/openingTree';
 import { gamesOfLastMonths } from '../domain/period';
 import type { PlayedGame } from '../domain/playedGame';
 import { positionKey, type Repertoire } from '../domain/repertoire';
-import { planLine, seededState } from '../domain/review';
+import { dueCount, planLine, seededState, withGames } from '../domain/review';
 import { playedGamesFixture } from '../fixtures/playedGames';
-import { REPLAY_START, repertoiresOf } from '../replay/replaySetup';
-import { encountersOf, lapsesOf, reviewWeight } from './weights';
+import { REPLAY_FIRST_DAY, REPLAY_START, repertoiresOf } from '../replay/replaySetup';
+import { liveGames } from '../checks/decisions';
+import { encountersOf, gameAnswersOf, lapsesOf, reviewWeight } from './weights';
 
 const SINCE = '2026-01-01';
 
@@ -25,6 +26,7 @@ const game = (kind: 'left' | 'uncovered', position: string, playedAt: string): C
   id: 0,
   game: { side: 'w', moves: ['e4'], score: 0, playedAt },
   check: { kind, ply: 0, played: 'e4', planned: ['d4'], position },
+  answered: [],
   asks: true,
 });
 
@@ -76,5 +78,20 @@ describe('lapsesOf', () => {
 
     expect(lapses.w).toEqual(new Map([['missed', '2026-01-09']]));
     expect(lapses.b.size).toBe(0);
+  });
+});
+
+describe('gameAnswersOf', () => {
+  it("takes, without a single review, more than a fifth of PMG's positions out of what is due on 1 May, from his games since January", () => {
+    const habits = gamesOfLastMonths(playedGamesFixture, 12, new Date(REPLAY_START)).filter((game) => game.playedAt < REPLAY_START);
+    const repertoires = repertoiresOf(playedGamesFixture, REPLAY_START);
+    const answers = gameAnswersOf(liveGames(playedGamesFixture, (side) => repertoires[side], REPLAY_FIRST_DAY, '2026-05-01'));
+    const due = (credited: boolean) =>
+      (['w', 'b'] as const).reduce((sum, side) => {
+        const seeded = seededState(repertoires[side], buildOpeningTree(habits, side, 40), REPLAY_START);
+        return sum + dueCount(repertoires[side], credited ? withGames(seeded, answers[side]) : seeded, '2026-05-01');
+      }, 0);
+
+    expect(due(true)).toBeLessThan(0.8 * due(false));
   });
 });

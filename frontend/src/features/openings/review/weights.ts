@@ -3,6 +3,7 @@ import type { CheckedGame } from '../checks/checkedGame';
 import { buildOpeningTree, type OpeningNode } from '../domain/openingTree';
 import type { PlayedGame, Side } from '../domain/playedGame';
 import { positionKey, type Repertoire } from '../domain/repertoire';
+import type { GameAnswer } from '../domain/review';
 
 // Une position manquée en partie passe devant ; un ajout récent devant le reste. La part de parties, au plus 1,
 // ne départage qu'à rang égal : les rangs sont écartés d'au moins 2.
@@ -16,6 +17,16 @@ const MIN_GAMES = 5;
 export function lapsesOf(lived: readonly CheckedGame[]): Record<Side, Map<string, string>> {
   const found: Record<Side, Map<string, string>> = { w: new Map(), b: new Map() };
   for (const { game, check } of lived) if (check.kind === 'left') found[game.side].set(check.position, game.playedAt);
+  return found;
+}
+
+/** Ce que les parties disent des positions du joueur, dans l'ordre où elles ont été jouées. */
+export function gameAnswersOf(lived: readonly CheckedGame[]): Record<Side, GameAnswer[]> {
+  const found: Record<Side, GameAnswer[]> = { w: [], b: [] };
+  for (const { game, check, answered } of lived) {
+    for (const key of answered) found[game.side].push({ key, day: game.playedAt, right: true });
+    if (check.kind === 'left') found[game.side].push({ key: check.position, day: game.playedAt, right: false });
+  }
   return found;
 }
 

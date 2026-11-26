@@ -3,7 +3,7 @@ import { Chess } from 'chess.js';
 import { positionKey, type Repertoire, type RepertoireMove } from './repertoire';
 import { buildOpeningTree } from './openingTree';
 import type { PlayedGame } from './playedGame';
-import { acceptedMoves, answered, dueCount, hasDueAhead, isDue, mastery, missedInPractice, nextReply, planLine, playerPositions, seededState, sessionDone, sessionPositions, withLapses, type ReviewState } from './review';
+import { acceptedMoves, answered, answeredAfterGames, dueCount, hasDueAhead, isDue, mastery, missedInPractice, nextReply, planLine, playerPositions, seededState, sessionDone, sessionPositions, withGames, type GameAnswer, type ReviewState } from './review';
 
 const TODAY = '2026-03-01';
 
@@ -21,6 +21,8 @@ const repertoireOf = (side: Repertoire['side'], lines: Record<string, string[]>)
 // Blancs : 1.e4, contre 1…e5 2.♘f3, contre 1…c5 2.♘f3 ou 2.c3.
 const white = repertoireOf('w', { '': ['e4'], e4: ['e5', 'c5'], 'e4 e5': ['Nf3'], 'e4 c5': ['Nf3', 'c3'] });
 const key = (moves: string) => positionKey(fenAfter(moves));
+const rightOn = (position: string, day: string): GameAnswer => ({ key: position, day, right: true });
+const missedOn = (position: string, day: string): GameAnswer => ({ key: position, day, right: false });
 
 describe('review', () => {
   it('lists the positions where the player has a move, once each', () => {
@@ -87,8 +89,45 @@ describe('review', () => {
   it('brings back a position missed in a game after its last review', () => {
     const state = answered(new Map(), key('e4 e5'), true, TODAY);
 
-    expect(isDue(withLapses(state, new Map([[key('e4 e5'), '2026-03-01']])), key('e4 e5'), TODAY)).toBe(false);
-    expect(isDue(withLapses(state, new Map([[key('e4 e5'), '2026-03-02']])), key('e4 e5'), '2026-03-02')).toBe(true);
+    expect(isDue(withGames(state, [missedOn(key('e4 e5'), TODAY)]), key('e4 e5'), TODAY)).toBe(false);
+    expect(isDue(withGames(state, [missedOn(key('e4 e5'), '2026-03-02')]), key('e4 e5'), '2026-03-02')).toBe(true);
+  });
+
+  it('sends a due position further when the player plays their repertoire move in a game, as a right answer would', () => {
+    const state = answered(new Map(), key('e4 e5'), true, TODAY);
+
+    expect(withGames(state, [rightOn(key('e4 e5'), '2026-03-02')]).get(key('e4 e5'))).toEqual({ box: 2, due: '2026-03-09', reviewedAt: '2026-03-02' });
+    expect(withGames(new Map(), [rightOn(key('e4 c5'), TODAY)]).get(key('e4 c5'))).toEqual({ box: 1, due: '2026-03-02', reviewedAt: TODAY });
+  });
+
+  it('leaves a position that was not due alone when it is played right in a game', () => {
+    const state = answered(new Map(), key('e4 e5'), true, TODAY);
+
+    expect(withGames(state, [rightOn(key('e4 e5'), TODAY)]).get(key('e4 e5'))).toEqual(state.get(key('e4 e5')));
+  });
+
+  it('counts a position played right and missed on the same day as missed, whatever the order of the games', () => {
+    const state = answered(new Map(), key('e4 e5'), true, TODAY);
+
+    for (const games of [[rightOn(key('e4 e5'), '2026-03-02'), missedOn(key('e4 e5'), '2026-03-02')], [missedOn(key('e4 e5'), '2026-03-02'), rightOn(key('e4 e5'), '2026-03-02')]]) {
+      expect(withGames(state, games).get(key('e4 e5'))).toMatchObject({ box: 1, due: '2026-03-02', missed: true });
+    }
+  });
+
+  it('moves a position once for a game, however often the games are read again', () => {
+    const games = [rightOn(key('e4 e5'), TODAY), rightOn(key('e4 e5'), '2026-03-02'), missedOn(key(''), '2026-03-02')];
+    const once = withGames(answered(new Map(), key(''), true, TODAY), games);
+
+    expect(withGames(once, games)).toEqual(once);
+    expect(withGames(answered(once, key('e4 e5'), true, '2026-03-09'), games).get(key('e4 e5'))).toMatchObject({ box: 3, reviewedAt: '2026-03-09' });
+  });
+
+  it('still sends back a position played right in a game then missed in a later game of the same day, after a review in between', () => {
+    const stored = answered(answered(new Map(), key('e4 e5'), true, TODAY), key('e4 e5'), true, '2026-03-02');
+    const morning = [rightOn(key('e4 e5'), '2026-03-09')];
+    const kept = answeredAfterGames(stored, morning, key(''), true, '2026-03-09');
+
+    expect(withGames(kept, [...morning, missedOn(key('e4 e5'), '2026-03-09')]).get(key('e4 e5'))).toMatchObject({ box: 1, due: '2026-03-09', missed: true });
   });
 
   it("a repertoire move missed in practice is back in that day's review, from box 1, even when it was a month away", () => {
@@ -97,6 +136,13 @@ describe('review', () => {
     expect(isDue(missed, key('e4 e5'), '2026-03-02')).toBe(true);
     expect(missed.get(key('e4 e5'))?.box).toBe(1);
     expect(mastery(white, missed, '2026-03-02').known).toBe(0);
+  });
+
+  it('brings back the same day a position missed in practice, even when a game played it right that day', () => {
+    const state = answered(answered(new Map(), key('e4 e5'), true, TODAY), key('e4 e5'), true, '2026-03-02');
+    const missed = missedInPractice(state, key('e4 e5'), '2026-03-09');
+
+    expect(isDue(withGames(missed, [rightOn(key('e4 e5'), '2026-03-09')]), key('e4 e5'), '2026-03-09')).toBe(true);
   });
 
   it('plays the line alone up to the two last moves of the player before the position due', () => {
@@ -123,7 +169,7 @@ describe('review', () => {
   it('counts a position missed in a game after its last review as unknown', () => {
     const state: ReviewState = new Map([[key(''), { box: 3, due: '2026-04-01', reviewedAt: TODAY }]]);
 
-    expect(mastery(white, withLapses(state, new Map([[key(''), '2026-03-05']])), '2026-03-05').known).toBe(0);
+    expect(mastery(white, withGames(state, [missedOn(key(''), '2026-03-05')]), '2026-03-05').known).toBe(0);
   });
 
   it('takes a level off a position while its review is overdue, until it is answered right again', () => {

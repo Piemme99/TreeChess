@@ -5,8 +5,8 @@ import { gamesOfLastMonths } from '../domain/period';
 import { gamesUntil } from '../domain/replay';
 import type { PlayedGame, Side } from '../domain/playedGame';
 import type { Repertoire } from '../domain/repertoire';
-import { answered, dueCount, mastery, missedInPractice, seededState, withLapses, type ReviewCard, type ReviewState } from '../domain/review';
-import { encountersOf, lapsesOf, reviewWeight } from './weights';
+import { answeredAfterGames, dueCount, mastery, missedInPractice, seededState, withGames, type ReviewCard, type ReviewState } from '../domain/review';
+import { encountersOf, gameAnswersOf, lapsesOf, reviewWeight } from './weights';
 import { readStored, writeStored } from '../workshop/storage';
 
 const HABIT_MONTHS = 12;
@@ -26,7 +26,8 @@ export function useReview(games: readonly PlayedGame[], repertoires: Record<Side
   useEffect(() => writeStored('review', JSON.stringify({ w: [...stored.w], b: [...stored.b] } satisfies Stored)), [stored]);
 
   const lapses = useMemo(() => lapsesOf(lived), [lived]);
-  const state = useMemo(() => ({ w: withLapses(stored.w, lapses.w), b: withLapses(stored.b, lapses.b) }), [stored, lapses]);
+  const played = useMemo(() => gameAnswersOf(lived), [lived]);
+  const state = useMemo(() => ({ w: withGames(stored.w, played.w), b: withGames(stored.b, played.b) }), [stored, played]);
   const due = useMemo(() => ({ w: dueCount(repertoires.w, state.w, today), b: dueCount(repertoires.b, state.b, today) }), [repertoires, state, today]);
   const known = useMemo(() => {
     const sides = [mastery(repertoires.w, state.w, today), mastery(repertoires.b, state.b, today)];
@@ -51,8 +52,7 @@ export function useReview(games: readonly PlayedGame[], repertoires: Record<Side
     answer: (side: Side, key: string, right: boolean) =>
       // En transition : le coup joué s'affiche d'abord, le recalcul du dû et du su vient après.
       startTransition(() =>
-        // Répondre à une position rattrapée par un oubli en partie part de l'état qui en tient compte.
-        setStored((current) => ({ ...current, [side]: answered(withLapses(current[side], lapses[side]), key, right, today) })),
+        setStored((current) => ({ ...current, [side]: answeredAfterGames(current[side], played[side], key, right, today) })),
       ),
     missedInPractice: (side: Side, key: string) => setStored((current) => ({ ...current, [side]: missedInPractice(current[side], key, today) })),
     forget: () => setStored(seed(games, repertoires, start)),

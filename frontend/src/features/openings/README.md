@@ -315,7 +315,10 @@ opening N" and "Next weak opening →": the card only shows on the line itself.
   a miss sends back to 1. At the import, a position the player answers with the repertoire move in ≥ 90 %
   of ≥ 10 games starts in the 30-day box (spread over the month): no quiz on 1.e4. Due from the start: the
   positions where the player varies, too few games, the additions. A position missed in a game check after
-  its last review is due again, and weighs more.
+  its last review is due again, and weighs more. Games review too (2026-11-26, idea 16 of `docs/competitors.md`):
+  a due position where the player plays a repertoire move in a game goes up a box as with a right answer in
+  review, one not due is left alone, and a position played right and missed on the same day counts as missed.
+  On PMG's games, without a single review, it takes 225 positions due on 1 May down to 172.
 - **A line.** The app picks the due position that weighs most (missed in a game, then a recent addition, then
   the rest; within each, the one met in the most games over 12 months), plays the line to it by itself up to the
   player's two moves before it (further when the line begins like one already played in the session: up to

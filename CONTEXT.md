@@ -164,7 +164,9 @@ long work ranked by points to gain.
 
 Replaying positions of the repertoire at growing intervals, so that it holds
 on the days the player has no game to check. Positions the player recently got
-wrong in a [game check](#game-check) come back first.
+wrong in a [game check](#game-check) come back first. Games review too: a due
+position where the player plays their repertoire move in a game counts as a
+right answer, so what their games prove is not asked again.
 
 ### Mastery
 

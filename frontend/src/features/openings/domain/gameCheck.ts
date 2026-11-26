@@ -9,19 +9,26 @@ export type GameCheck =
   | { kind: 'left'; ply: number; played: string; planned: string[]; position: string }
   | { kind: 'uncovered'; ply: number; played: string; planned: string[]; position: string };
 
-export function checkGame(repertoire: Repertoire, game: PlayedGame): GameCheck {
+/** Le contrôle d'une partie, et les positions où le joueur y a joué un coup de son répertoire. */
+export function followGame(repertoire: Repertoire, game: PlayedGame): { check: GameCheck; answered: string[] } {
   const chess = new Chess();
+  const answered: string[] = [];
   for (const [ply, played] of game.moves.entries()) {
-    const planned = repertoireMovesAt(repertoire, chess.fen()).map((move) => move.san);
-    if (planned.length === 0) return { kind: 'followed', plies: ply };
+    const fen = chess.fen();
+    const planned = repertoireMovesAt(repertoire, fen).map((move) => move.san);
+    if (planned.length === 0) return { check: { kind: 'followed', plies: ply }, answered };
+    const byPlayer = isPlayerMove(game.side, ply + 1);
     if (!planned.includes(played)) {
-      const position = positionKey(chess.fen());
-      return { kind: isPlayerMove(game.side, ply + 1) ? 'left' : 'uncovered', ply, played, planned, position };
+      const position = positionKey(fen);
+      return { check: { kind: byPlayer ? 'left' : 'uncovered', ply, played, planned, position }, answered };
     }
+    if (byPlayer) answered.push(positionKey(fen));
     chess.move(played);
   }
-  return { kind: 'followed', plies: game.moves.length };
+  return { check: { kind: 'followed', plies: game.moves.length }, answered };
 }
+
+export const checkGame = (repertoire: Repertoire, game: PlayedGame): GameCheck => followGame(repertoire, game).check;
 
 /**
  * Pour des parties dans l'ordre où elles ont été jouées, lesquelles demandent une décision au joueur.

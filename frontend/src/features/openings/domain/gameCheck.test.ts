@@ -1,7 +1,8 @@
+import { Chess } from 'chess.js';
 import { describe, expect, it } from 'vitest';
 import type { PlayedGame } from './playedGame';
-import { createRepertoire } from './repertoire';
-import { asksDecision, checkGame } from './gameCheck';
+import { createRepertoire, positionKey } from './repertoire';
+import { asksDecision, checkGame, followGame } from './gameCheck';
 
 const habits = (count: number, side: PlayedGame['side'], moves: string): PlayedGame[] =>
   Array.from({ length: count }, () => ({ side, moves: moves.split(' '), score: 1, playedAt: '2025-06-01' }));
@@ -27,6 +28,17 @@ describe('checkGame', () => {
 
   it('says the game followed the repertoire when it stops inside it', () => {
     expect(checkGame(white, game('w', 'e4 e5'))).toEqual({ kind: 'followed', plies: 2 });
+  });
+
+  it('names the positions where the player played their repertoire, up to where the game left it', () => {
+    const after = (moves: string) => {
+      const chess = new Chess();
+      for (const san of moves.split(' ').filter(Boolean)) chess.move(san);
+      return positionKey(chess.fen());
+    };
+
+    expect(followGame(white, game('w', 'e4 e5 Nf3 Nc6 Bc4 Nf6')).answered).toEqual([after(''), after('e4 e5')]);
+    expect(followGame(white, game('w', 'e4 c5 Nf3 d6 d4')).answered).toEqual([after(''), after('e4 c5')]);
   });
 
   it('reads the game from the side the player had', () => {
