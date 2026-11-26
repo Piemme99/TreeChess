@@ -3,12 +3,21 @@ import { originOf } from '../checks/useBuilder';
 import type { Addition } from '../domain/addition';
 import { figurineMove } from '../domain/notation';
 import type { Side } from '../domain/playedGame';
-import { checkQueue, type SessionStep } from '../session/steps';
+import { checkQueue, recallOf, type RecallVerdict, type SessionStep } from '../session/steps';
 import type { ToastMessage } from '../workshop/useToast';
 import type { StepActions } from './PositionPane';
 import { findByPosition, type MapNode } from './repertoireMap';
 import type { Building } from './useBuilding';
 import type { TreeWalk } from './useTreeWalk';
+
+/** En séance, avant de montrer le répertoire : le joueur cherche d'abord le coup qu'il avait préparé. */
+export interface Recall {
+  asking: boolean;
+  /** Le coup qu'il a joué en cherchant ; absent s'il a demandé la réponse. */
+  tried?: { san: string; verdict: RecallVerdict };
+  onTry: (san: string) => void;
+  onReveal: () => void;
+}
 
 interface Session {
   /** Les étapes connues à l'ouverture : un ajout peut en régler d'autres en route. */
@@ -148,6 +157,21 @@ export function useCheckSession({
     },
   };
 
+  // Une fois par position : un deuxième écart au même endroit montre la réponse déjà cherchée.
+  const [recalled, setRecalled] = useState<ReadonlyMap<string, string | null>>(new Map());
+  const recallKey = current?.kind === 'left' ? `${current.side} ${current.games[0].check.position}` : undefined;
+  const tried = recallKey ? recalled.get(recallKey) : undefined;
+  const answer = (san: string | null) => recallKey && setRecalled((known) => new Map(known).set(recallKey, san));
+  const recall: Recall | undefined =
+    current && recallKey
+      ? {
+          asking: !recalled.has(recallKey),
+          tried: tried ? { san: tried, verdict: recallOf(current, tried) } : undefined,
+          onTry: answer,
+          onReveal: () => answer(null),
+        }
+      : undefined;
+
   const position = session ? session.queue.indexOf(currentKey ?? '') + 1 : 0;
   const counts = session ? [...session.done.values()] : [];
   return {
@@ -155,6 +179,7 @@ export function useCheckSession({
     current,
     live,
     actions,
+    recall,
     settle,
     skip,
     position,

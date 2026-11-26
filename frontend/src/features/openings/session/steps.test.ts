@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { CheckedGame } from '../checks/checkedGame';
-import { checkQueue, sessionSteps } from './steps';
+import { checkQueue, recallOf, sessionSteps } from './steps';
 
 const deviation = (id: number, moves: string[], playedAt: string, kind: 'left' | 'uncovered' = 'left'): CheckedGame => ({
   id,
@@ -57,5 +57,13 @@ describe('checkQueue', () => {
   it('starts with the side being looked at, then the other', () => {
     expect(queue('b').at(-1)).toBe('w e4 c5 Bb5');
     expect(queue('w')[0]).toBe('w e4 c5 Bb5');
+  });
+});
+
+describe('recallOf', () => {
+  it('finds the move with any move of the repertoire, and says when the player plays the game\'s move again', () => {
+    const step = { played: 'Bc4', planned: ['Bb5', 'd4'] };
+
+    expect(['Bb5', 'd4', 'Bc4', 'Nc3'].map((san) => recallOf(step, san))).toEqual(['right', 'right', 'again', 'other']);
   });
 });

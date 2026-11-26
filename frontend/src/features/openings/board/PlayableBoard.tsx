@@ -61,8 +61,11 @@ export function PlayableBoard({ path, flipped, arrows = [], suggestions = [], on
     const move = chess.moves({ square: origin, verbose: true }).find((candidate) => candidate.to === square);
     if (!move) return false;
     setFrom(null);
-    // La dame d'office : une sous-promotion n'a pas sa place dans une ouverture.
-    onMove(chess.move({ from: move.from, to: move.to, promotion: 'q' }).san);
+    // La dame d'office : une sous-promotion n'a pas sa place dans une ouverture. Le coup est défait aussitôt lu :
+    // c'est `path` qui dit la position, et le parent peut ne pas le suivre (Check, le coup cherché).
+    const san = chess.move({ from: move.from, to: move.to, promotion: 'q' }).san;
+    chess.undo();
+    onMove(san);
     return true;
   };
 

@@ -93,7 +93,8 @@ opponent deviates ([chess.com blog](https://www.chess.com/blog/nekochabo/why-ope
 17. **Retry before the answer** in Check: when the game left the repertoire, the player looks for the move before it
     is shown. Lichess "Learn from your mistakes"
     ([blog](https://lichess.org/@/lichess/blog/learn-from-your-mistakes/WFvLpiQA)), Chess.com Game Review "Retry"
-    ([page](https://www.chess.com/terms/game-review)), Aimchess Opening Improver.
+    ([page](https://www.chess.com/terms/game-review)), Aimchess Opening Improver. *Done on 2026-11-26* (`recallOf` in
+    `session/steps.ts`).
 18. **A finer scheduler than three boxes** (1, 7, 30 days), e.g. FSRS. Chessbook, Chessreps, ChessAtlas, En Croissant
     ([GitHub](https://github.com/franciscoBSalgueiro/en-croissant)).
 19. **On the way to a due position, ask the moves nearly due** instead of playing them automatically. ChessTempo

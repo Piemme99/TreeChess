@@ -47,6 +47,12 @@ export function sessionSteps(toDecide: readonly CheckedGame[]): SessionStep[] {
   );
 }
 
+/** Ce que vaut le coup que le joueur retrouve sur une position qu'il a quittée : n'importe quel coup du répertoire est juste. */
+export type RecallVerdict = 'right' | 'again' | 'other';
+
+export const recallOf = (step: Pick<SessionStep, 'played' | 'planned'>, san: string): RecallVerdict =>
+  step.planned.includes(san) ? 'right' : san === step.played ? 'again' : 'other';
+
 /** La file de Check : le camp regardé d'abord, puis l'autre ; les coups joués sur une même position l'un après l'autre. */
 export function checkQueue(steps: readonly SessionStep[], side: Side): SessionStep[] {
   // Changer de camp à chaque étape ferait tout redessiner ; changer de position, rejouer l'échiquier.

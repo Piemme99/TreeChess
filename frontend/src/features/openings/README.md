@@ -297,6 +297,12 @@ Rows under the hero: "To settle · 6", "Review · 15 positions", "Weak openings 
 
 The tree with `?task=check`: the positions to settle one at a time (Add · Keep · Prepare a reply · Not worth
 it, Skip for now, Undo), then "3 settled · 2 skipped for later". Games that followed the preparation make no step.
+Where the player left their repertoire (2026-11-26, idea 17 of `docs/competitors.md`), the step first asks "Your move
+here?": no arrow, no move list, the map folded after the position, the keys and the bottom bar's forward off. The
+player plays a move on the board ("✓ 3.♘xe5: you found your move", or "3.d4 again: not your repertoire move"), or
+"Show me"; then the usual card. The "no longer played" card and, on the phone, the greyed continuation of the line wait too.
+Once per position, and only in the task: browsing the tree shows the card at once.
+Finding it changes nothing in Review: the game already counted the lapse.
 
 ### Screen 4 — Weak opening (use 1)
 
