@@ -8,7 +8,7 @@ The app lives in `frontend/src/features/openings/` (published under `/v2/`, `/` 
 `README.md`). The v1 (JSONB repertoires, PGN import, sync, training, dashboard, explore) was removed on
 2026-11-17; the first production deploy after it exported the whole database to `backups/v1-final.sql.gz` on the
 server before the backend dropped the v1 tables. Backend: auth (Lichess OAuth only; email/password removed on 2026-11-22, its columns dropped on 2026-11-25 after an export to `backups/legacy-auth-final.sql.gz`, account deletion confirmed by a Lichess round-trip, `POST /api/auth/account/deletion`), the explorer relay
-`/api/explorer/*` and its Postgres cache, and the v2 routes `/api/v2/games*` (Lichess import) and `/api/v2/state*`
+`/api/explorer/*` and its Postgres cache, and the v2 routes `/api/v2/games*` (Lichess and Chess.com import) and `/api/v2/state*`
 (the player's decisions).
 
 ## Commands
@@ -78,7 +78,7 @@ A test exists to catch a bug in code the agent did not read, not to restate the 
 - **Never trust raw SAN** — validate through `notnil/chess` (Go) or `chess.js` (frontend).
 - Positions are stored as **full FEN**; comparing two positions for transposition means ignoring the clock fields.
 - API errors are always `{"error": "message"}`.
-- An imported game's `id` on the frontend is its rank in `GET /api/v2/games` (ordered by day, then arrival `seq`): decisions are keyed on it, so never reorder that list.
+- A game's `id` on the frontend (`CheckedGame.id`) is its rank in `GET /api/v2/games` (ordered by day, then arrival `seq`): older Chess.com games arriving later shift it. Anything stored across loads keys on `CheckedGame.key` (`source:id`, the rank for the demo).
 
 ## Auth & middleware
 

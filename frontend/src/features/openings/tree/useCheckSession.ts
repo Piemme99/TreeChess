@@ -57,8 +57,8 @@ export function useCheckSession({
   show: (message: ToastMessage) => void;
   add: (addition: Addition) => void;
   remove: (addition: Addition) => void;
-  ignore: (id: number) => void;
-  unignore: (ids: readonly number[]) => void;
+  ignore: (key: string) => void;
+  unignore: (keys: readonly string[]) => void;
   pin: (lines: readonly string[]) => void;
   build: (next: Building | null) => void;
   toTop: () => void;
@@ -138,11 +138,11 @@ export function useCheckSession({
     onBuild: (step) => build({ origin: originOf(step.games[0], true), stepKey: step.key }),
     onPrepare: (step) => build({ origin: originOf(step.games[0], false), stepKey: step.key }),
     onStay: (step) => {
-      const ids = step.games.map((checked) => checked.id);
-      ids.forEach(ignore);
+      const keys = step.games.map((checked) => checked.key);
+      keys.forEach(ignore);
       mark(step.key, 'settled');
       toTop();
-      const games = ids.length;
+      const games = keys.length;
       const ply = step.path.length + 1;
       show({
         text:
@@ -150,7 +150,7 @@ export function useCheckSession({
             ? `Kept ${step.planned.map((san) => figurineMove(san, ply)).join(' · ')} · ${games} ${games === 1 ? 'game' : 'games'} set aside`
             : `${figurineMove(step.played, ply)} left unprepared · ${games} ${games === 1 ? 'game' : 'games'} set aside`,
         undo: () => {
-          unignore(ids);
+          unignore(keys);
           mark(step.key, null);
         },
       });

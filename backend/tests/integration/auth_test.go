@@ -270,11 +270,13 @@ func TestAuth_DeleteAccount_CascadesData(t *testing.T) {
 	require.NoError(t, err)
 	_, err = repos.PlayedGame.StartImport(ctx, user.ID)
 	require.NoError(t, err)
+	_, err = repos.PlayedGame.LinkChesscom(ctx, user.ID, "oscar")
+	require.NoError(t, err)
 
 	// Ce que fait le retour de Lichess quand il authentifie le compte lié (SeedUser : "lichess-" + nom).
 	require.NoError(t, ts.AuthSvc.DeleteAccountConfirmedByLichess(ctx, user.ID, "lichess-oscar"))
 
-	for _, table := range []string{"users", "refresh_tokens", "player_state", "played_games", "played_game_imports"} {
+	for _, table := range []string{"users", "refresh_tokens", "player_state", "played_games", "played_game_imports", "chesscom_accounts"} {
 		assert.Zero(t, countRows(t, table), table)
 	}
 }

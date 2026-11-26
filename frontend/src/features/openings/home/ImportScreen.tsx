@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router';
 import { lichessSignInUrl } from '../services/explorer';
 import type { ImportState } from '../source/useGameSource';
@@ -12,7 +12,7 @@ export function SignInScreen({ onDemo }: { onDemo: () => void }) {
   const [params] = useSearchParams();
   return (
     <Card title="Build your repertoire from your games">
-      <p>Sign in with Lichess: we import your blitz, rapid and classical games, and keep your repertoire on your account.</p>
+      <p>Sign in with Lichess: we import your blitz, rapid and classical games, from Chess.com too if you like, and keep your repertoire on your account.</p>
       {params.get('deleted') && (
         <p role="status" className="font-semibold" style={{ color: COLOURS.leaf }}>
           Your account and its data are deleted.
@@ -34,8 +34,9 @@ export function SignInScreen({ onDemo }: { onDemo: () => void }) {
 }
 
 /** Compte Lichess connecté (écrans 2 et 3) : lancer l'import, puis le voir avancer ; le serveur continue sans la page. */
-export function ImportScreen({ username, state, onImport }: { username: string; state: ImportState; onImport: () => void }) {
+export function ImportScreen({ username, state, onImport }: { username: string; state: ImportState; onImport: (chesscom: string) => void }) {
   const running = state.status === 'running';
+  const [chesscom, setChesscom] = useState(state.chesscom ?? '');
   return (
     <Card title={running ? 'Importing your games…' : 'Import your games'}>
       {running ? (
@@ -51,12 +52,21 @@ export function ImportScreen({ username, state, onImport }: { username: string; 
             Lichess · <strong style={{ color: COLOURS.leaf }}>{username}</strong>. Your moves played at least one time in five become your repertoire; then we show
             where you lose points.
           </p>
+          <label className="flex flex-col gap-1 font-semibold" style={{ color: COLOURS.leaf }}>
+            <span>
+              Chess.com username <span className="font-normal" style={{ color: COLOURS.leafSoft }}>(optional)</span>
+            </span>
+            <input value={chesscom} onChange={(event) => setChesscom(event.target.value)} autoComplete="off" autoCapitalize="none" spellCheck={false} className="rounded-lg border px-3 py-2 font-normal" style={{ borderColor: COLOURS.sand, background: COLOURS.cream, color: COLOURS.leaf }} />
+            <span className="text-[13px] font-normal" style={{ color: COLOURS.leafSoft }}>
+              Your games there join your Lichess ones.
+            </span>
+          </label>
           {state.status === 'failed' && (
             <p role="alert" className="font-semibold" style={{ color: COLOURS.terracotta }}>
               {state.error ?? 'The import stopped. Try again.'}
             </p>
           )}
-          <motion.button type="button" onClick={onImport} whileTap={{ scale: 0.97 }} transition={SPRING} className="self-start rounded-full px-6 py-2.5 text-[16px] font-bold focus-visible:outline-2" style={raised(true)}>
+          <motion.button type="button" onClick={() => onImport(chesscom.trim())} whileTap={{ scale: 0.97 }} transition={SPRING} className="self-start rounded-full px-6 py-2.5 text-[16px] font-bold focus-visible:outline-2" style={raised(true)}>
             {state.status === 'failed' ? 'Try again' : 'Import'}
           </motion.button>
         </>

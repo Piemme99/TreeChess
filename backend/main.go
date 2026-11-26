@@ -64,6 +64,8 @@ func buildServices(cfg config.Config, db *repository.DB) *appServices {
 				repository.NewPostgresPlayedGameRepo(db.Pool),
 				// Pas de délai global : l'export d'un historique se lit en flux pendant plusieurs minutes.
 				services.NewLichessGameExport("https://lichess.org/api", &http.Client{}),
+				// Une archive mensuelle par requête : elles sont petites.
+				services.NewChesscomArchive("https://api.chess.com/pub", &http.Client{Timeout: 30 * time.Second}),
 			),
 			userRepo,
 		),
@@ -138,11 +140,13 @@ func registerRoutes(e *echo.Echo, db *repository.DB, svc *appServices) {
 	protected.GET("/api/auth/me", svc.authHandler.MeHandler)
 	protected.POST("/api/auth/account/deletion", svc.oauthHandler.StartAccountDeletion)
 
-	// v2 : les parties Lichess du joueur, importées une fois puis lues par toutes les pages.
+	// v2 : les parties Lichess (et Chess.com) du joueur, importées une fois puis lues par toutes les pages.
 	// Sa propre limite : Home relance l'import à chaque chargement.
 	gameImports := e.Group("", appMiddleware.JWTAuth(svc.authSvc))
 	gameImports.Use(rateLimiter(6.0/60.0, 3, "too many imports, please wait"))
 	gameImports.POST("/api/v2/games/import", svc.playedGames.StartImport)
+	gameImports.PUT("/api/v2/games/chesscom", svc.playedGames.LinkChesscom)
+	protected.DELETE("/api/v2/games/chesscom", svc.playedGames.UnlinkChesscom)
 	protected.GET("/api/v2/games/import", svc.playedGames.ImportStatus)
 	protected.GET("/api/v2/games", svc.playedGames.List)
 	protected.GET("/api/v2/state", handlers.GetPlayerStateHandler(svc.playerState))

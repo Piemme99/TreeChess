@@ -18,7 +18,8 @@ The v1 (JSONB repertoires, PGN import, sync, training, dashboard, explore, email
 
 ## 2. Overview
 
-Kumquat builds a player's opening repertoire from their own Lichess games and trains it. The server imports and
+Kumquat builds a player's opening repertoire from their own Lichess games (and Chess.com ones if they add their
+username) and trains it. The server imports and
 stores the games and the player's decisions; everything else (opening tree, repertoire, game checks, weak openings,
 review schedule, practice) is computed in the browser from those two inputs (`frontend/src/features/openings/domain/`).
 
@@ -58,6 +59,8 @@ All JSON. Errors are `{"error": "message"}`, sometimes with a machine-readable `
 | POST | `/api/auth/account/deletion` | JWT | global | Deletes the account (§3.4) |
 | POST | `/api/v2/games/import` | JWT | import | Starts the game import, 202 with its state (§3.1) |
 | GET | `/api/v2/games/import` | JWT | global | State of the last import, `{"status":"none"}` if never run |
+| PUT | `/api/v2/games/chesscom` | JWT | import | `{"username"}`: links a Chess.com account and starts the import (§3.1) |
+| DELETE | `/api/v2/games/chesscom` | JWT | global | Forgets the Chess.com account and its games, 204; 409 while an import runs |
 | GET | `/api/v2/games` | JWT | global | `{"games": [...]}`, every imported game |
 | GET | `/api/v2/state` | JWT | global | `{"state": {key: value, ...}}`, `{}` when nothing is stored |
 | PUT | `/api/v2/state/:key` | JWT | global | Replaces one key (§3.2), 204 |
@@ -77,16 +80,30 @@ JWT routes run under a 30 s request timeout, except `POST /api/v2/games/import`.
 - Reads `GET https://lichess.org/api/games/user/{username}` (NDJSON, `perfType=blitz,rapid,classical`, finished
   games, oldest first) with the player's token. The first import reads everything; the next ones read from the day
   before the most recent stored game, duplicates dropped by the primary key.
-- Keeps a game only if it is standard chess, blitz/rapid/classical, finished, played by that username, and its first
-  80 plies replay legally through `notnil/chess`. Stored: colour, those plies as space-separated SAN, score (1, ½, 0
+- Then, when the player linked a Chess.com account, reads its monthly archives on the public API (no account, no
+  token: `GET https://api.chess.com/pub/player/{username}/games/archives`, then each `…/games/{YYYY}/{MM}`, with a
+  `User-Agent` naming Kumquat): every month the first time, then from the month of the day before the most recent
+  stored Chess.com game. Each source has its own "most recent game": a newer Chess.com game must not skip Lichess
+  games. One source failing does not undo the other; the error names it.
+- Keeps a game only if it is standard chess (Chess.com: `rules` `chess`, standard start), blitz/rapid/classical
+  (Chess.com: blitz/rapid; daily is left out), finished, played by that username, and its first
+  80 plies replay legally through `notnil/chess` (`AlgebraicNotation.Decode`: 8 s for PMG's 6 380 Chess.com games,
+  2 min 40 with `Game.MoveStr`). A Chess.com score comes from the player's `result` (`win`; `agreed`, `repetition`,
+  `stalemate`, `insufficient`, `50move`, `timevsinsufficient` are draws; anything else a loss), its moves from the
+  PGN without clocks. Stored: colour, those plies as space-separated SAN, score (1, ½, 0
   for the player), the player's rating, the day of the last move (UTC). Saved by batches of 100; `imported` counts
   only new games (duplicates do not), and the frontend reloads the games when it is above 0.
-- Import state: `{status: "running"|"done"|"failed", imported, error?, startedAt, finishedAt?, firstDoneAt?}`.
+- Import state: `{status: "none"|"running"|"done"|"failed", imported, error?, startedAt, finishedAt?, firstDoneAt?,
+  chesscom?}` (`chesscom`: the linked Chess.com username).
+- `PUT /api/v2/games/chesscom` checks the username's shape and asks `GET …/pub/player/{username}`: unknown → 404
+  "No Chess.com player is called X"; Chess.com down → 502; another account already linked → 409 (remove it first).
+  Anyone's games can be read: Chess.com has no sign-in to prove the account is the player's.
   `firstDoneAt` is the end of the first successful import: the repertoire is born that day and later imports do not
   move it.
 - `GET /api/v2/games` returns games ordered by `played_at`, then arrival `seq`. Each is
-  `{id, color, moves, score, rating?, playedAt}` with `id` the Lichess game id; the frontend then keys decisions on
-  the game's **rank** in that list, so the order must never change.
+  `{source, id, color, moves, score, rating?, playedAt}` with `source` `lichess` or `chesscom` and `id` the game id
+  there (Chess.com: its `uuid`). Older Chess.com games arriving later shift the ranks, so the frontend keys set-aside
+  checks on `source:id`; those stored by rank before Chess.com existed are read as the rank among Lichess games.
 
 ### 3.2 Player state (`internal/handlers/player_state.go`)
 
@@ -185,8 +202,8 @@ CREATE INDEX idx_opening_explorer_cache_expires ON opening_explorer_cache(expire
 
 CREATE TABLE played_games (
     user_id   UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    source    VARCHAR(20) NOT NULL,          -- 'lichess'
-    source_id VARCHAR(40) NOT NULL,          -- Lichess game id
+    source    VARCHAR(20) NOT NULL,          -- 'lichess' | 'chesscom'
+    source_id VARCHAR(40) NOT NULL,          -- Lichess game id, Chess.com uuid
     color     VARCHAR(5) NOT NULL,           -- 'white' | 'black'
     moves     TEXT NOT NULL,                 -- up to 80 SAN plies, space-separated
     score     REAL NOT NULL,                 -- 1, 0.5, 0 for the player
@@ -205,6 +222,12 @@ CREATE TABLE played_game_imports (
     updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     finished_at   TIMESTAMPTZ,
     first_done_at TIMESTAMPTZ                -- backfilled from finished_at for existing 'done' rows
+);
+
+CREATE TABLE chesscom_accounts (           -- a username only: Chess.com's API is public
+    user_id   UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    username  VARCHAR(25) NOT NULL,
+    linked_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE player_state (

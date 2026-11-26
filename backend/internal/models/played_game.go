@@ -4,7 +4,7 @@ import "time"
 
 // PlayedGame est une partie du joueur telle que la v2 la lit : sa couleur, ses coups en SAN, son résultat.
 type PlayedGame struct {
-	Source   string  `json:"-"`
+	Source   string  `json:"source"`
 	SourceID string  `json:"id"`
 	Color    string  `json:"color"`
 	Moves    string  `json:"moves"`
@@ -22,9 +22,12 @@ type PlayedGameImport struct {
 	FinishedAt *time.Time `json:"finishedAt,omitempty"`
 	// FirstDoneAt est la fin du premier import réussi.
 	FirstDoneAt *time.Time `json:"firstDoneAt,omitempty"`
+	// Chesscom est le compte Chess.com dont les parties s'ajoutent à celles de Lichess, vide s'il n'y en a pas.
+	Chesscom string `json:"chesscom,omitempty"`
 }
 
 const (
+	PlayedGameImportNone    = "none"
 	PlayedGameImportRunning = "running"
 	PlayedGameImportDone    = "done"
 	PlayedGameImportFailed  = "failed"

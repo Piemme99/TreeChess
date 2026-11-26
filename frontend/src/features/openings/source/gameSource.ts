@@ -3,7 +3,7 @@ import type { PlayedGame, Side } from '../domain/playedGame';
 import { playedGamesFixture } from '../fixtures/playedGames';
 import { REPLAY_FIRST_DAY, REPLAY_START } from '../replay/replaySetup';
 
-/** Les parties que lisent les pages : celles du joueur importées de Lichess, ou la démo rejouée jour par jour. */
+/** Les parties que lisent les pages : celles du joueur importées de Lichess et de Chess.com, ou la démo rejouée jour par jour. */
 export interface GameSource {
   id: string;
   games: readonly PlayedGame[];
@@ -20,6 +20,8 @@ export const DEMO_SOURCE: GameSource = { id: 'demo', games: playedGamesFixture, 
 
 /** Une partie telle que l'envoie GET /api/v2/games. */
 export interface ImportedGame {
+  source: 'lichess' | 'chesscom';
+  id: string;
   color: 'white' | 'black';
   moves: string;
   score: number;
@@ -37,6 +39,7 @@ export function importedSource(username: string, games: readonly ImportedGame[],
       score: game.score === 1 ? 1 : game.score === 0 ? 0 : 0.5,
       playedAt: game.playedAt,
       rating: game.rating,
+      key: `${game.source}:${game.id}`,
     })),
     start: dayAfter(importedOn),
     firstDay: importedOn,

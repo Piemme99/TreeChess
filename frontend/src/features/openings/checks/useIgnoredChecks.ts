@@ -1,19 +1,21 @@
 import { useEffect, useState } from 'react';
+import type { PlayedGame } from '../domain/playedGame';
 import { readStored, writeStored } from '../workshop/storage';
+import { ignoredKeys } from './decisions';
 
-/** Les contrôles de partie écartés par le joueur, par identifiant de partie. */
-export function useIgnoredChecks() {
-  const [ignored, setIgnored] = useState<ReadonlySet<number>>(() => {
+/** Les contrôles de partie écartés par le joueur, par identité de partie. */
+export function useIgnoredChecks(games: readonly PlayedGame[]) {
+  const [ignored, setIgnored] = useState<ReadonlySet<string>>(() => {
     const stored = readStored('ignored-checks');
-    return new Set(stored ? (JSON.parse(stored) as number[]) : []);
+    return ignoredKeys(stored ? (JSON.parse(stored) as (number | string)[]) : [], games);
   });
 
   useEffect(() => writeStored('ignored-checks', JSON.stringify([...ignored])), [ignored]);
 
   return {
     ignored,
-    ignore: (id: number) => setIgnored((current) => new Set(current).add(id)),
-    unignore: (ids: readonly number[]) => setIgnored((current) => new Set([...current].filter((id) => !ids.includes(id)))),
+    ignore: (key: string) => setIgnored((current) => new Set(current).add(key)),
+    unignore: (keys: readonly string[]) => setIgnored((current) => new Set([...current].filter((key) => !keys.includes(key)))),
     clear: () => setIgnored(new Set()),
   };
 }

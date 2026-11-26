@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../../../services/api';
+import { getApiErrorMessage } from '../../../shared/utils/apiError';
 import { useAuthStore } from '../../../stores/authStore';
 import { useImported } from '../home/useImported';
 import { mergeSaved, uploadStored } from '../workshop/storage';
@@ -11,6 +12,8 @@ export interface ImportState {
   error?: string;
   finishedAt?: string;
   firstDoneAt?: string;
+  /** Le compte Chess.com dont les parties s'ajoutent à celles de Lichess. */
+  chesscom?: string;
 }
 
 export type SourceState =
@@ -74,18 +77,23 @@ export function useGameSource() {
     return () => window.clearTimeout(timer);
   }, [running, state, load]);
 
-  const startImport = useCallback(async () => {
-    if (state.kind !== 'to-import') return;
-    try {
-      const { data } = await api.post<ImportState>('/v2/games/import');
-      setState({ ...state, state: data });
-    } catch {
-      setState({ ...state, state: { status: 'failed', imported: 0, error: 'The import could not start. Try again in a minute.' } });
-    }
-  }, [state]);
+  /** Avec un compte Chess.com, ses parties s'importent après celles de Lichess. */
+  const startImport = useCallback(
+    async (chesscom = '') => {
+      if (state.kind !== 'to-import') return;
+      try {
+        const { data } = chesscom ? await api.put<ImportState>('/v2/games/chesscom', { username: chesscom }) : await api.post<ImportState>('/v2/games/import');
+        setState({ ...state, state: data });
+      } catch (err) {
+        setState({ ...state, state: { ...state.state, status: 'failed', imported: 0, error: getApiErrorMessage(err) ?? 'The import could not start. Try again in a minute.' } });
+      }
+    },
+    [state],
+  );
 
   // Une fois les parties là, celles jouées depuis le dernier import arrivent en tâche de fond.
   const [syncing, setSyncing] = useState(false);
+  const [synced, setSynced] = useState(0);
   const ready = state.kind === 'ready' && !state.source.replay;
   useEffect(() => {
     if (!ready || !user || refreshed.has(user.id)) return;
@@ -93,6 +101,7 @@ export function useGameSource() {
     setSyncing(true);
     const poll = async () => {
       const { data } = await api.get<ImportState>('/v2/games/import');
+      setSynced(data.imported);
       if (data.status === 'running') {
         window.setTimeout(() => void poll().catch(() => setSyncing(false)), 1000);
         return;
@@ -109,5 +118,5 @@ export function useGameSource() {
       .catch(() => setSyncing(false));
   }, [ready, user, load]);
 
-  return { state, syncing, startImport, tryDemo: () => setDemo(true), leaveDemo: () => setDemo(false) };
+  return { state, syncing, synced, startImport, tryDemo: () => setDemo(true), leaveDemo: () => setDemo(false) };
 }

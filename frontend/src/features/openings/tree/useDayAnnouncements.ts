@@ -65,7 +65,7 @@ export function useDayAnnouncements({
         ? () => {
             fresh.forEach(({ step, addition }) => {
               remove(addition);
-              step.games.forEach((checked) => ignore(checked.id));
+              step.games.forEach((checked) => ignore(checked.key));
             });
           }
         : undefined,

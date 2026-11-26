@@ -21,3 +21,8 @@ function asApiError(err: unknown): ApiErrorResponse | null {
 export function getApiErrorStatus(err: unknown): number | undefined {
   return asApiError(err)?.response?.status;
 }
+
+/** The `error` message of an API error response, when the server sent one. */
+export function getApiErrorMessage(err: unknown): string | undefined {
+  return asApiError(err)?.response?.data?.error;
+}

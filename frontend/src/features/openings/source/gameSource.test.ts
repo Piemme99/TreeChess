@@ -3,8 +3,8 @@ import { importedSource } from './gameSource';
 
 describe('importedSource', () => {
   it('reads an imported game from the player side: colour, moves, result, day', () => {
-    const source = importedSource('Piemme78', [{ color: 'black', moves: 'e4 c6 d4 d5', score: 1, playedAt: '2026-11-02' }], '2026-11-17');
-    expect(source.games).toEqual([{ side: 'b', moves: ['e4', 'c6', 'd4', 'd5'], score: 1, playedAt: '2026-11-02' }]);
+    const source = importedSource('Piemme78', [{ source: 'chesscom', id: 'uuid-1', color: 'black', moves: 'e4 c6 d4 d5', score: 1, playedAt: '2026-11-02' }], '2026-11-17');
+    expect(source.games).toEqual([{ side: 'b', moves: ['e4', 'c6', 'd4', 'd5'], score: 1, playedAt: '2026-11-02', key: 'chesscom:uuid-1' }]);
   });
 
   it('builds the repertoire from every game played up to the import, that day included, and never replays', () => {

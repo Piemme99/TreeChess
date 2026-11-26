@@ -165,6 +165,12 @@ func (db *DB) runMigrations() error {
 		// Le jour du premier import réussi : le répertoire naît ce jour-là, les imports suivants n'y touchent pas.
 		`ALTER TABLE played_game_imports ADD COLUMN IF NOT EXISTS first_done_at TIMESTAMPTZ`,
 		`UPDATE played_game_imports SET first_done_at = finished_at WHERE first_done_at IS NULL AND status = 'done'`,
+		// Le compte Chess.com dont les parties s'ajoutent à celles de Lichess : un pseudo, sans connexion (API publique).
+		`CREATE TABLE IF NOT EXISTS chesscom_accounts (
+			user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+			username VARCHAR(25) NOT NULL,
+			linked_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+		)`,
 		// v2 : les décisions du joueur (ajouts, parties écartées, révision, lignes travaillées), une valeur JSON par clé.
 		`CREATE TABLE IF NOT EXISTS player_state (
 			user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,

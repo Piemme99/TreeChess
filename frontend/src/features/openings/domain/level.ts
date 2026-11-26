@@ -19,9 +19,15 @@ export interface ExplorerLevel {
   strong: number[];
 }
 
-/** Le classement du joueur : la médiane de ses dernières parties, sa forme du moment plutôt que son passé. */
+/**
+ * Le classement du joueur : la médiane de ses dernières parties, sa forme du moment plutôt que son passé. Celles de
+ * Lichess d'abord, s'il en a : l'explorateur compte en classements Lichess, et ceux de Chess.com sont bien plus bas
+ * (PMG en blitz : 1163 sur Chess.com, 1515 sur Lichess).
+ */
 export function playerRating(games: readonly PlayedGame[]): number {
-  const ratings = games.flatMap((game) => (game.rating ? [game.rating] : [])).slice(-RECENT_GAMES);
+  const rated = games.filter((game) => game.rating);
+  const lichess = rated.filter((game) => game.key?.startsWith('lichess:'));
+  const ratings = (lichess.length ? lichess : rated).map((game) => game.rating!).slice(-RECENT_GAMES);
   if (!ratings.length) return DEFAULT_RATING;
   const sorted = [...ratings].sort((a, b) => a - b);
   return sorted[Math.floor(sorted.length / 2)];
