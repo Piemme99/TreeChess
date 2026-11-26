@@ -138,6 +138,13 @@ describe('review', () => {
     expect(mastery(white, missed, '2026-03-02').known).toBe(0);
   });
 
+  it('brings back the same day a position missed in practice, even when a game played it right that day', () => {
+    const state = answered(answered(new Map(), key('e4 e5'), true, TODAY), key('e4 e5'), true, '2026-03-02');
+    const missed = missedInPractice(state, key('e4 e5'), '2026-03-09');
+
+    expect(isDue(withGames(missed, [rightOn(key('e4 e5'), '2026-03-09')]), key('e4 e5'), '2026-03-09')).toBe(true);
+  });
+
   it('plays the line alone up to the two last moves of the player before the position due', () => {
     const deep = repertoireOf('w', { '': ['e4'], e4: ['e5'], 'e4 e5': ['Nf3'], 'e4 e5 Nf3': ['Nc6'], 'e4 e5 Nf3 Nc6': ['Bb5'], 'e4 e5 Nf3 Nc6 Bb5': ['a6'], 'e4 e5 Nf3 Nc6 Bb5 a6': ['Ba4'] });
     const state = [key(''), key('e4 e5'), key('e4 e5 Nf3 Nc6')].reduce<ReviewState>((known, k) => answered(known, k, true, TODAY), new Map());

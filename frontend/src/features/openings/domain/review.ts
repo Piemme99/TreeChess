@@ -130,10 +130,13 @@ export function answeredAfterGames(stored: ReviewState, games: readonly GameAnsw
   return next;
 }
 
-/** Un coup du répertoire manqué à l'entraînement : comme un oubli en partie, la position revient le jour même, en boîte 1. */
+/**
+ * Un coup du répertoire manqué à l'entraînement : comme un oubli en partie, la position revient le jour même, en boîte 1.
+ * Il compte comme la révision du jour : une partie jouée juste ce jour-là ne l'efface pas.
+ */
 export function missedInPractice(state: ReviewState, key: string, today: string): ReviewState {
   const next = new Map(state);
-  next.set(key, { box: 1, due: today, reviewedAt: state.get(key)?.reviewedAt ?? today, missed: true });
+  next.set(key, { box: 1, due: today, reviewedAt: today, missed: true });
   return next;
 }
 
